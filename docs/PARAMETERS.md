@@ -37,7 +37,8 @@ zeroned q vesting_rewards params --node <authorised-rpc> --height <height>
 
 The generated Swagger file exposes the equivalent REST queries. A response
 from `zerone-1` describes that deployed binary and its on-chain state; source
-publication does not activate the `consolidation-safety-v1` changes.
+publication activates none of the ordered H1 `consolidation-safety-v1`, H2
+`founder-renunciation-v1`, or H3 `sdk-0.53-ibc-10` changes.
 
 ## High-impact source defaults
 

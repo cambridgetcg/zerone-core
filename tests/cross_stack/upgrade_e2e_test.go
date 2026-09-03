@@ -2286,6 +2286,55 @@ func TestUpgrade_OperatorDocsPreserveOrderedH1H2Boundary(t *testing.T) {
 		"post-SDK integrated tip registers neither pre-SDK handler")
 }
 
+func TestUpgrade_ActiveGuidanceDoesNotCollapseH2IntoH1(t *testing.T) {
+	publicDocs := []string{
+		"../../deploy/mainnet/JOIN.md",
+		"../../deploy/testnet/JOIN.md",
+		"../../deploy/testnet/RUN-A-NODE.md",
+		"../../docs/FAQ.md",
+		"../../docs/PARAMETERS.md",
+		"../../docs/standards/OPEN_CRYPTO_SDK.md",
+		"../../docs/testnet-validator-guide.md",
+		"../../docs/tokenomics/GENESIS.md",
+		"../../docs/tokenomics/README.md",
+		"../../networks/zerone-testnet-1/README.md",
+		"../../skills/run-a-zerone-node/SKILL.md",
+	}
+	forbiddenClaims := []string{
+		"Atomic H1 retires",
+		"atomic H1 retires",
+		"retired at H1",
+		"H1 fixes `founder_share_bps",
+		"H1 removes the special founder",
+		"H1 permanently retires the founder",
+		"The H1 source retires that proposer-controlled trigger",
+		"target module versions are liquiditypool 5 and vesting_rewards 2",
+		"require the named `consolidation-safety-v1` upgrade",
+		"requires the named `consolidation-safety-v1` upgrade",
+		"has not activated the `consolidation-safety-v1` upgrade",
+		"through the coordinated `consolidation-safety-v1` upgrade",
+	}
+
+	for _, path := range publicDocs {
+		contents, err := os.ReadFile(path)
+		require.NoError(t, err)
+		body := strings.Join(strings.Fields(string(contents)), " ")
+		for _, forbidden := range forbiddenClaims {
+			require.NotContains(t, body, forbidden,
+				"active guidance %s must assign founder/reward retirement to H2", path)
+		}
+	}
+
+	overview, err := os.ReadFile("../../docs/tokenomics/README.md")
+	require.NoError(t, err)
+	ordered := string(overview)
+	h1 := strings.Index(ordered, "65c19cd8b00bdfff9b80705b776fd0d49719398a")
+	h2 := strings.Index(ordered, "36728afbf71905a077a0863b41536fa9279109dd")
+	h3 := strings.Index(ordered, "335bb94f0fd54d3752dcb397263b7e84fb1116b4")
+	require.True(t, h1 >= 0 && h1 < h2 && h2 < h3,
+		"public tokenomics overview must name accepted H1, H2, then H3 source commits")
+}
+
 func TestUpgrade_CurrentSDKHandlersCannotCarryFounderRenunciation(t *testing.T) {
 	h := NewTestHarness(t)
 	fromVM := h.App.CurrentModuleVersionMap()

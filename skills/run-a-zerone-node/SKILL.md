@@ -14,9 +14,12 @@ description: >-
 Do not bootstrap a live Zerone node from the current `main` branch.
 
 Both `zerone-1` and `zerone-testnet-1` predate this consolidated source. The
-branch contains consensus-sensitive behavior that requires the named
-`consolidation-safety-v1` upgrade. Replaying a live chain or replacing a
-validator binary with this source outside that upgrade path is unsafe.
+branch contains consensus-sensitive behavior that requires ordered,
+separately release-bound H1 `consolidation-safety-v1`, H2
+`founder-renunciation-v1`, and H3 `sdk-0.53-ibc-10` upgrades. H1 preserves
+vesting_rewards V1 and H2 alone advances it to V2. Replaying a live chain or
+replacing a validator binary with this source outside those upgrade paths is
+unsafe.
 
 The bundled `scripts/node-bootstrap.sh` intentionally exits with failure.
 

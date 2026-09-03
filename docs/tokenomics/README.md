@@ -1,9 +1,9 @@
 # Zerone Tokenomics
 
-> **Status:** source target for atomic
-> `consolidation-safety-v1`; not a claim that H1 is applied on a running chain.
+> **Status:** economic state target after H2 and retained through H3; not a
+> claim that H1, H2, or H3 is applied on a running chain.
 > **Token:** ZRN (`uzrn`, 1 ZRN = 1,000,000 uzrn)
-> **Chain:** Cosmos SDK v0.50, CometBFT consensus
+> **Chain:** H1/H2 use Cosmos SDK v0.50; H3/current source uses SDK v0.53
 
 ## Overview
 
@@ -12,28 +12,37 @@ The live custodial genesis did create real operator-controlled scaffolding:
 11,333 ZRN of validator collateral/gas and a transferable 2,222 ZRN operations
 float, 13,555 ZRN total. Every address is published.
 
-Atomic H1 introduces an enforceable economic-neutrality boundary:
+The ordered H1/H2 sequence introduces the complete economic-neutrality
+boundary:
 
-- liquiditypool v5 sends no protocol share out of a pool; configured swap fees
-  stay in reserves for transferable LP shares;
-- vesting_rewards v2 has no founder auto-split; and
-- raw transaction presence no longer creates a proposer mint.
+- H1 `consolidation-safety-v1` advances liquiditypool to v5, sends no protocol
+  share out of a pool, keeps configured swap fees in reserves for transferable
+  LP shares, and preserves vesting_rewards v1;
+- H2 `founder-renunciation-v1` alone advances vesting_rewards to v2, removing
+  the founder auto-split and transaction-presence proposer mint.
 
 Actual transaction fees continue to compensate execution/consensus and route
 to development, research, and normal Cosmos distribution. Other cap-gated
 issuance pathways retain their own evidence and governance rules. See
 [Economic neutrality](ECONOMIC-NEUTRALITY.md).
 
+For legacy SDK v0.50 / IBC-Go v8 state, the accepted source identities are H1
+`65c19cd8b00bdfff9b80705b776fd0d49719398a`, then H2
+`36728afbf71905a077a0863b41536fa9279109dd`, then H3
+`335bb94f0fd54d3752dcb397263b7e84fb1116b4`. H3 consumes the completed H1/H2
+state evidence and carries neither pre-SDK handler. See
+[UPGRADES.md](../UPGRADES.md); source publication activates none of the three.
+
 ## Documents
 
 | File | Description |
 |---|---|
-| [ECONOMIC-NEUTRALITY.md](ECONOMIC-NEUTRALITY.md) | H1 rule: value follows capital, paid execution, or independently witnessed work—not identity/control |
+| [ECONOMIC-NEUTRALITY.md](ECONOMIC-NEUTRALITY.md) | Ordered H1/H2 rule: value follows capital, paid execution, or independently witnessed work—not identity/control |
 | [SUPPLY.md](SUPPLY.md) | Hard cap and remaining issuance surfaces after automatic block-reward retirement |
 | [REVENUE-SPLIT.md](REVENUE-SPLIT.md) | Real transaction-fee routing, LP compensation, and retired compatibility fields |
 | [VESTING.md](VESTING.md) | Truth-linked vesting schedules and clawback |
 | [STAKING.md](STAKING.md) | Custom tiers, Cosmos staking, fees, and validator economics |
-| [GENESIS.md](GENESIS.md) | Immutable launch distribution and prospective H1 boundary |
+| [GENESIS.md](GENESIS.md) | Immutable launch distribution and prospective H1/H2/H3 boundaries |
 | [SINKS-AND-FLOWS.md](SINKS-AND-FLOWS.md) | Source-backed map of ZRN creation, destruction, locks, and movement |
 | [GOVERNANCE-MIGRATION.md](GOVERNANCE-MIGRATION.md) | Research-fund committee model and implementation gaps |
 | [LIQUIDITY-TRANSPARENCY.md](LIQUIDITY-TRANSPARENCY.md) | External Osmosis testnet position, separate from the native module |
@@ -44,12 +53,12 @@ issuance pathways retain their own evidence and governance rules. See
 
 ## Quick boundaries
 
-| Metric | Source/H1 value |
+| Metric | Source boundary value |
 |---|---:|
 | Maximum supply | 222,222,222 ZRN |
 | Live genesis supply | 13,555 ZRN (0.0061% of cap) |
-| Transaction-presence block reward | 0 after H1 |
-| Founder protocol share | 0 after H1 |
+| Transaction-presence block reward | 0 after H2 |
+| Founder protocol share | 0 after H2 |
 | Liquidity protocol skim | 0 after H1 |
 | Default pool swap fee | 0.3%, retained by LP-backed reserves |
 | Real `uzrn` transaction-fee routing | 19.67% development / 3.33% research / ~77% normal distribution |

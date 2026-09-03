@@ -16,7 +16,9 @@ has play value only and may be reset or withdrawn without notice.
 | Validator/full-node joining | paused |
 
 The running network predates this consolidated source release and has not
-activated the `consolidation-safety-v1` upgrade. Building the current `main`
+completed the ordered H1 `consolidation-safety-v1`, H2
+`founder-renunciation-v1`, and H3 `sdk-0.53-ibc-10` boundaries. H1 preserves
+vesting_rewards V1 and H2 alone advances it to V2. Building the current `main`
 branch and connecting it as a validator or replaying it from genesis is not an
 authorised or compatibility-tested path.
 

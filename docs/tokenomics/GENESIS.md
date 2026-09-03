@@ -37,10 +37,11 @@ the hard cap:
 | Emission periods (default/published latch 0) | `x/tokens` | governance enables and schedules a period |
 
 The launch configuration also contained a transaction-bearing block-reward
-lane in `x/vesting_rewards`. Atomic H1 retires it: vesting_rewards v2 fixes the
-block, floor, and empty-block reward fields at zero and raw transaction
-presence causes no mint. This retirement is prospective; it does not erase
-historical supply or events.
+lane in `x/vesting_rewards`. H1 `consolidation-safety-v1` preserves
+vesting_rewards V1. H2 `founder-renunciation-v1` retires the lane by advancing
+vesting_rewards to v2, which fixes the block, floor, and empty-block reward
+fields at zero so raw transaction presence causes no mint. This retirement is
+prospective; it does not erase historical supply or events.
 
 The distinction matters:
 
@@ -60,7 +61,7 @@ ceremony inputs created the two balances above.
 
 | Role | Genesis ZRN |
 |---|---:|
-| Founder protocol share | 0 at genesis because `FounderAddress` was unset; permanently retired at H1 |
+| Founder protocol share | 0 at genesis because `FounderAddress` was unset; permanently retired at H2 |
 | AI vault | 0 |
 | Research treasury | 0 |
 | Foundation | 0 |
@@ -68,7 +69,7 @@ ceremony inputs created the two balances above.
 | Whitelisted agents | 0 until an authorised claim mints their seed |
 
 Future grants to any participant, research spending, or new bootstrap
-admissions require the applicable governance/authority path. H1 removes the
+admissions require the applicable governance/authority path. H2 removes the
 special founder percentage; it does not prevent an ordinary, publicly voted
 grant. Source prose is not authority.
 
@@ -87,10 +88,15 @@ explicit in the reviewed genesis and covered by the genesis audit.
 `zerone-1` and the legacy `zerone-testnet-1` are already-running networks. The
 2026-07-29 source consolidation does not regenerate either genesis, deploy a
 validator, or authorize a reset. Current `main` contains consensus-sensitive
-changes and must enter an existing network only through the release-bound,
-governance-scheduled atomic `consolidation-safety-v1` upgrade. Its target
-module versions are liquiditypool 5 and vesting_rewards 2. The historical
-genesis artifact and hash remain unchanged.
+changes and must enter a legacy network only through three separately
+release-bound, governance-scheduled boundaries. H1 `consolidation-safety-v1`
+at accepted source `65c19cd8b00bdfff9b80705b776fd0d49719398a` reaches
+liquiditypool 5 while preserving vesting_rewards 1. H2
+`founder-renunciation-v1` at accepted source
+`36728afbf71905a077a0863b41536fa9279109dd` alone reaches vesting_rewards 2.
+H3 `sdk-0.53-ibc-10` at accepted source
+`335bb94f0fd54d3752dcb397263b7e84fb1116b4` follows both. The historical
+genesis artifact and hash remain unchanged; see [UPGRADES.md](../UPGRADES.md).
 
 The separate `zerone-2` process remains **NO-GO** until its signed release,
 authority, halt, and ceremony gates pass. See

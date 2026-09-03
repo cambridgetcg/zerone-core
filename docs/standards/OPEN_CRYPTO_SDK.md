@@ -190,10 +190,12 @@ The exact boundary is fixed in
 
 The CAIP and in-toto projections, off-chain Sigstore compiler, and PoCA shadow
 evaluator do not by themselves require a consensus migration. The wider
-consolidation also contains consensus-visible knowledge, vesting, and
-substrate changes. Existing networks must activate those through the
-coordinated `consolidation-safety-v1` upgrade; publishing source does not
-activate them.
+consolidation also contains consensus-visible knowledge, vesting, substrate,
+and SDK/IBC changes. A legacy network must activate those through ordered,
+separately release-bound H1 `consolidation-safety-v1`, H2
+`founder-renunciation-v1`, and H3 `sdk-0.53-ibc-10` upgrades. H1 preserves
+vesting_rewards V1 and H2 alone advances it to V2; publishing source activates
+none of them.
 
 The source target now pins Cosmos SDK `v0.53.8`, IBC-Go `v10.7.0`, and
 CometBFT `v0.38.25`. Those dependency changes remain activation-gated by the

@@ -2,8 +2,10 @@
 
 `zerone-testnet-1` is a live legacy playground, but there is no validator join
 packet authorised for this consolidated source head. The running network
-predates `consolidation-safety-v1`; current `main` must not be treated as a
-drop-in validator or genesis-replay binary for it.
+predates the ordered H1 `consolidation-safety-v1`, H2
+`founder-renunciation-v1`, and H3 `sdk-0.53-ibc-10` boundaries; current `main`
+must not be treated as a drop-in validator or genesis-replay binary for it.
+H1 preserves vesting_rewards V1 and H2 alone advances it to V2.
 
 Do not use cached copies of the former guide. In particular, do not download
 genesis data or binaries from the old `nickkpope/zerone` or
