@@ -709,6 +709,7 @@ jobs:
           packages=(
             ./deploy
             ./tools/authority-graph
+            ./tools/custom-staking-census
             ./tools/fork-genesis
             ./tools/operations-rehearsal
             ./tools/validator-home-manifest
@@ -725,6 +726,7 @@ jobs:
         run: |
           for tool in \
             authority-graph \
+            custom-staking-census \
             fork-genesis \
             operations-rehearsal \
             validator-home-manifest \

@@ -29,6 +29,7 @@ SUCCESS=0
 RUN_ROOT=""
 BINARY=""
 VERIFY_BINARY=""
+CENSUS_BINARY=""
 SOURCE_HEAD=""
 SOURCE_FULL_HEAD=""
 SOURCE_LABEL=""
@@ -46,7 +47,9 @@ Builds the current checkout into fresh temporary state and proves:
   * two validators cannot finalize after a second validator stops;
   * the stopped validators recover and converge;
   * one signed MsgSend commits, verifies with a Merkle proof on all nodes,
-    increments the sender sequence exactly once, and is rejected on replay.
+    increments the sender sequence exactly once, and is rejected on replay; and
+  * two stopped, independently copied application databases produce the same
+    AppHash-bound, passing legacy custom-staking census.
 
 --keep  Retain successful state and logs (failures are always retained).
 --allow-dirty
@@ -511,6 +514,115 @@ verify_message_flow() {
   ok "MsgSend ${hash}: inclusion proof matched all nodes; replay rejected; sequence advanced once"
 }
 
+verify_offline_custom_staking_census() {
+  local first_height second_height peer_height chain_id
+  local abci_0 abci_1 app_height_0 app_height_1 app_hash_0 app_hash_1
+  local copy_0 copy_1 report_0 report_1 evidence
+
+  info "halting finality before copying two application databases for the offline census"
+  stop_node 3
+  stop_node 2
+  sleep 3
+
+  first_height="$(current_height 0)"
+  peer_height="$(current_height 1)"
+  [ "${first_height}" -gt 0 ] || die "node 0 has no committed height before the census copy"
+  [ "${peer_height}" -eq "${first_height}" ] || \
+    die "census source nodes disagree on halted height (${first_height} vs ${peer_height})"
+  sleep 3
+  second_height="$(current_height 0)"
+  [ "${second_height}" -eq "${first_height}" ] || \
+    die "chain advanced after census quorum was removed (${first_height} -> ${second_height})"
+  [ "$(current_height 1)" -eq "${first_height}" ] || \
+    die "peer chain advanced after census quorum was removed"
+
+  chain_id="$(rpc_get 0 /status | jq -er '.result.node_info.network')"
+  [ "${chain_id}" = "${CHAIN_ID}" ] || die "census source reported unexpected chain ${chain_id}"
+  [ "$(rpc_get 1 /status | jq -er '.result.node_info.network')" = "${CHAIN_ID}" ] || \
+    die "peer census source reported the wrong chain"
+
+  abci_0="$(rpc_get 0 /abci_info)"
+  abci_1="$(rpc_get 1 /abci_info)"
+  printf '%s\n' "${abci_0}" > "${RUN_ROOT}/reports/census-node0-abci-info.json.raw"
+  printf '%s\n' "${abci_1}" > "${RUN_ROOT}/reports/census-node1-abci-info.json.raw"
+  app_height_0="$(printf '%s' "${abci_0}" | jq -er '.result.response.last_block_height | select(test("^[1-9][0-9]*$"))')"
+  app_height_1="$(printf '%s' "${abci_1}" | jq -er '.result.response.last_block_height | select(test("^[1-9][0-9]*$"))')"
+  app_hash_0="$(printf '%s' "${abci_0}" | jq -er '.result.response.last_block_app_hash | ascii_downcase | select(test("^[0-9a-f]{64}$"))')"
+  app_hash_1="$(printf '%s' "${abci_1}" | jq -er '.result.response.last_block_app_hash | ascii_downcase | select(test("^[0-9a-f]{64}$"))')"
+  [ "${app_height_0}" = "${first_height}" ] || \
+    die "node 0 ABCI height ${app_height_0} differs from halted consensus height ${first_height}"
+  [ "${app_height_1}" = "${app_height_0}" ] || \
+    die "census source ABCI heights differ (${app_height_0} vs ${app_height_1})"
+  [ "${app_hash_1}" = "${app_hash_0}" ] || \
+    die "census source ABCI AppHashes differ"
+
+  evidence="${RUN_ROOT}/reports/custom-staking-census-source-evidence.json"
+  jq -cnS \
+    --arg chain_id "${chain_id}" \
+    --arg height "${app_height_0}" \
+    --arg app_hash "${app_hash_0}" \
+    --arg node0_id "${NODE_ID[0]}" \
+    --arg node1_id "${NODE_ID[1]}" \
+    --arg node0_abci_sha256 "$(sha256_file "${RUN_ROOT}/reports/census-node0-abci-info.json.raw")" \
+    --arg node1_abci_sha256 "$(sha256_file "${RUN_ROOT}/reports/census-node1-abci-info.json.raw")" \
+    '{schema:"zerone.local-census-source-evidence/v1",chain_id:$chain_id,height:$height,app_hash:$app_hash,sources:[{node_id:$node0_id,abci_info_sha256:$node0_abci_sha256},{node_id:$node1_id,abci_info_sha256:$node1_abci_sha256}]}' \
+    > "${evidence}"
+
+  stop_node 0
+  stop_node 1
+  for index in 0 1 2 3; do
+    [ -z "${NODE_PID[$index]:-}" ] || die "node ${index} still has an owned PID before database copy"
+  done
+  [ -z "$(find "${NODE_HOME[0]}" "${NODE_HOME[1]}" -type l -print -quit)" ] || \
+    die "census source home unexpectedly contains a symlink"
+
+  copy_0="${RUN_ROOT}/census-node0-copy"
+  copy_1="${RUN_ROOT}/census-node1-copy"
+  cp -R "${NODE_HOME[0]}" "${copy_0}"
+  cp -R "${NODE_HOME[1]}" "${copy_1}"
+  report_0="${RUN_ROOT}/reports/custom-staking-census.json"
+  report_1="${RUN_ROOT}/reports/custom-staking-census-node1.json"
+
+  "${CENSUS_BINARY}" \
+    --home "${copy_0}" \
+    --backend goleveldb \
+    --chain-id "${chain_id}" \
+    --expected-height "${app_height_0}" \
+    --expected-app-hash "${app_hash_0}" \
+    --source-commit "${SOURCE_FULL_HEAD}" \
+    --copied-db \
+    --output "${report_0}" || die "node 0 custom-staking census did not pass"
+  "${CENSUS_BINARY}" \
+    --home "${copy_1}" \
+    --backend goleveldb \
+    --chain-id "${chain_id}" \
+    --expected-height "${app_height_1}" \
+    --expected-app-hash "${app_hash_1}" \
+    --source-commit "${SOURCE_FULL_HEAD}" \
+    --copied-db \
+    --output "${report_1}" || die "node 1 custom-staking census did not pass"
+  cmp "${report_0}" "${report_1}" || die "independent node census reports differ"
+  jq -e \
+    --arg chain_id "${chain_id}" \
+    --arg height "${app_height_0}" \
+    --arg app_hash "${app_hash_0}" \
+    --arg source_commit "${SOURCE_FULL_HEAD}" '
+      .schema == "zerone/custom-staking-census/v1" and
+      .result == "PASS" and
+      .evidence == {
+        chain_id: $chain_id,
+        height: $height,
+        app_hash: $app_hash,
+        source_commit: $source_commit
+      } and
+      .census.claimant_root_complete == true and
+      .census.delta_uzrn == "0" and
+      .census.findings == [] and
+      (.report_sha256 | test("^[0-9a-f]{64}$"))
+    ' "${report_0}" >/dev/null || die "custom-staking census report failed its launch-rehearsal contract"
+  ok "offline custom-staking census matched two stopped copies at height ${app_height_0}, AppHash ${app_hash_0}"
+}
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --keep) KEEP=1 ;;
@@ -556,6 +668,7 @@ mkdir -p "${RUN_ROOT}/bin" "${RUN_ROOT}/logs" "${RUN_ROOT}/reports" \
   "${RUN_ROOT}/go-cache" "${RUN_ROOT}/go-tmp" "${RUN_ROOT}/cli"
 BINARY="${RUN_ROOT}/bin/zeroned"
 VERIFY_BINARY="${RUN_ROOT}/bin/local-consensus-verify"
+CENSUS_BINARY="${RUN_ROOT}/bin/custom-staking-census"
 git -C "${ROOT}" status --short > "${RUN_ROOT}/reports/source-status.txt"
 allocate_ports
 
@@ -569,6 +682,8 @@ LDFLAGS="-s -w -X github.com/cosmos/cosmos-sdk/version.Name=zerone -X github.com
     go build -trimpath -buildvcs=true -ldflags "${LDFLAGS}" -o "${BINARY}" ./cmd/zeroned
   GOCACHE="${RUN_ROOT}/go-cache" GOTMPDIR="${RUN_ROOT}/go-tmp" \
     go build -trimpath -buildvcs=true -o "${VERIFY_BINARY}" ./tools/local-consensus-verify
+  GOCACHE="${RUN_ROOT}/go-cache" GOTMPDIR="${RUN_ROOT}/go-tmp" \
+    go build -trimpath -buildvcs=true -o "${CENSUS_BINARY}" ./tools/custom-staking-census
 ) > "${RUN_ROOT}/logs/build.log" 2>&1 || die "fresh binary build failed"
 
 BINARY_SHA="$(sha256_file "${BINARY}")"
@@ -710,6 +825,8 @@ verify_phase four-up-recovered 0 1 2 3
 
 info "broadcasting, proving, and replay-testing one signed local MsgSend"
 verify_message_flow
+
+verify_offline_custom_staking_census
 
 [ "$(git -C "${ROOT}" rev-parse HEAD)" = "${SOURCE_FULL_HEAD}" ] || \
   die "checkout HEAD changed during the rehearsal"
