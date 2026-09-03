@@ -45,15 +45,18 @@ self-sealed output bytes exactly; do not pass them through the FINAL canonical
 JSON helper. FINAL hashes the sealed file, while the release-bound frozen
 validator independently requires `PASS`, verifies its self-hash, binds its
 lowercase AppHash to ABCI/excluded post-anchor state at `A`, binds its source
-commit to RELEASE, and checks `B = D + U`, zero delta, empty findings, and the
-complete claimant root. The report neither migrates a balance nor makes the
-legacy `consensus_pubkey` authoritative.
+commit to RELEASE, independently recomputes that AppHash from the complete
+multistore roots, and checks `B = D + U`, zero delta, empty findings, complete
+claimant and reverse-index coverage, and the passing row reconciliations. The
+report neither migrates a balance nor makes the legacy `consensus_pubkey`
+authoritative.
 
-The current RELEASE component model does not yet carry a dedicated census
-executable hash, SBOM, provenance, and signature. A real FINAL remains NO-GO
-until those bytes are reproducibly built from the signed RELEASE source and
-their provenance is independently verified and bound. The authority fixture
-only rehearses report/file semantics; it is not binary provenance.
+FINAL binds only the exact passing `A/E` report bytes. The current RELEASE
+component model does not yet carry a dedicated census executable hash, SBOM,
+provenance, and signature. Separately, OPEN remains NO-GO until those binary
+bytes are reproducibly built from the signed RELEASE source and their
+provenance is independently verified and bound. The authority fixture only
+rehearses report/file semantics; it is not binary provenance.
 
 ## Exact signed bytes
 

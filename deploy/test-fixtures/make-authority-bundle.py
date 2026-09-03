@@ -63,6 +63,83 @@ def canonical_bytes(value: Any) -> bytes:
     ).encode()
 
 
+BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+CENSUS_MULTISTORE_ROOTS = {
+    "auth": "0" * 64,
+    "bank": "1" * 64,
+    "staking": "2" * 64,
+    "zerone_staking": "3" * 64,
+}
+
+
+def fixture_bech32_polymod(values: list[int]) -> int:
+    checksum = 1
+    generators = (0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3)
+    for value in values:
+        top = checksum >> 25
+        checksum = ((checksum & 0x1FFFFFF) << 5) ^ value
+        for index, generator in enumerate(generators):
+            if (top >> index) & 1:
+                checksum ^= generator
+    return checksum
+
+
+def fixture_bech32(hrp: str, payload: bytes) -> str:
+    accumulator = 0
+    bit_count = 0
+    words: list[int] = []
+    for value in payload:
+        accumulator = (accumulator << 8) | value
+        bit_count += 8
+        while bit_count >= 5:
+            bit_count -= 5
+            words.append((accumulator >> bit_count) & 31)
+    if bit_count:
+        words.append((accumulator << (5 - bit_count)) & 31)
+    expanded_hrp = [ord(character) >> 5 for character in hrp] + [0] + [
+        ord(character) & 31 for character in hrp
+    ]
+    polymod = fixture_bech32_polymod(expanded_hrp + words + [0] * 6) ^ 1
+    checksum = [(polymod >> (5 * (5 - index))) & 31 for index in range(6)]
+    return hrp + "1" + "".join(BECH32_CHARSET[word] for word in words + checksum)
+
+
+def fixture_go_uvarint(value: int) -> bytes:
+    encoded = bytearray()
+    while value >= 0x80:
+        encoded.append((value & 0x7F) | 0x80)
+        value >>= 7
+    encoded.append(value)
+    return bytes(encoded)
+
+
+def fixture_rfc6962_hash(leaves: list[bytes]) -> bytes:
+    if not leaves:
+        return hashlib.sha256(b"").digest()
+    if len(leaves) == 1:
+        return hashlib.sha256(b"\x00" + leaves[0]).digest()
+    split = 1 << ((len(leaves) - 1).bit_length() - 1)
+    return hashlib.sha256(
+        b"\x01"
+        + fixture_rfc6962_hash(leaves[:split])
+        + fixture_rfc6962_hash(leaves[split:])
+    ).digest()
+
+
+def custom_staking_app_hash() -> str:
+    leaves: list[bytes] = []
+    for name, root_hex in sorted(CENSUS_MULTISTORE_ROOTS.items()):
+        key = name.encode()
+        value_hash = hashlib.sha256(bytes.fromhex(root_hex)).digest()
+        leaves.append(
+            fixture_go_uvarint(len(key))
+            + key
+            + fixture_go_uvarint(len(value_hash))
+            + value_hash
+        )
+    return fixture_rfc6962_hash(leaves).hex()
+
+
 def custom_staking_claimant_root(claims: list[dict[str, Any]]) -> str:
     result = hashlib.sha256()
 
@@ -87,8 +164,12 @@ def custom_staking_claimant_root(claims: list[dict[str, Any]]) -> str:
 
 
 def custom_staking_census_bytes(source_commit: str, app_hash: str) -> bytes:
-    validator = "zrn1validatorfixture"
-    delegator = "zrn1delegatorfixture"
+    validator_bytes = b"\x11" * 20
+    delegator_bytes = b"\x22" * 20
+    validator = fixture_bech32("zrn", validator_bytes)
+    delegator = fixture_bech32("zrn", delegator_bytes)
+    sdk_operator = fixture_bech32("zrnvaloper", validator_bytes)
+    module_bytes = hashlib.sha256(b"zerone_staking").digest()[:20]
     claims = [
         {
             "source_kind": "delegation",
@@ -107,11 +188,9 @@ def custom_staking_census_bytes(source_commit: str, app_hash: str) -> bytes:
             "amount": "10",
         },
     ]
-    roots = {
-        "bank": "1" * 64,
-        "staking": "2" * 64,
-        "zerone_staking": "3" * 64,
-    }
+    if app_hash.lower() != custom_staking_app_hash():
+        raise ValueError("fixture census AppHash differs from its multistore roots")
+    roots = CENSUS_MULTISTORE_ROOTS
     keyspace_names = (
         "validators",
         "delegations",
@@ -124,7 +203,7 @@ def custom_staking_census_bytes(source_commit: str, app_hash: str) -> bytes:
         "validator_delegation_indexes",
         "app_iavl_init_sentinel",
     )
-    keyspace_counts = (1, 1, 1, 4, 1, 0, 1, 0, 1, 1)
+    keyspace_counts = (1, 1, 1, 4, 1, 1, 1, 1, 1, 1)
     report = {
         "schema": "zerone/custom-staking-census/v1",
         "result": "PASS",
@@ -142,15 +221,15 @@ def custom_staking_census_bytes(source_commit: str, app_hash: str) -> bytes:
                 "name": name,
                 "version": "1001",
                 "root_sha256": roots[name],
-                "leaf_count": "11" if name == "zerone_staking" else "1",
-                "input_bytes": "1100" if name == "zerone_staking" else "100",
+                "leaf_count": "13" if name == "zerone_staking" else "1",
+                "input_bytes": "1300" if name == "zerone_staking" else "100",
                 "leaves_sha256": str(index + 4) * 64,
             }
             for index, name in enumerate(("zerone_staking", "bank", "staking"))
         ],
         "census": {
-            "module_address": "zrn1customstakingfixture",
-            "module_address_hex": "4" * 40,
+            "module_address": fixture_bech32("zrn", module_bytes),
+            "module_address_hex": module_bytes.hex(),
             "module_balances": [{"denom": "uzrn", "amount": "30"}],
             "balance_uzrn": "30",
             "delegations_uzrn": "20",
@@ -177,7 +256,7 @@ def custom_staking_census_bytes(source_commit: str, app_hash: str) -> bytes:
             "validators": [
                 {
                     "operator": validator,
-                    "address_hex": "5" * 40,
+                    "address_hex": validator_bytes.hex(),
                     "legacy_consensus_pubkey": "fixture-untrusted-legacy-key",
                     "legacy_consensus_pubkey_trusted": False,
                     "stored_self": "0",
@@ -187,7 +266,8 @@ def custom_staking_census_bytes(source_commit: str, app_hash: str) -> bytes:
                     "stored_total": "20",
                     "computed_total": "20",
                     "aggregates_match": True,
-                    "sdk_link": "absent",
+                    "sdk_link": "linked",
+                    "sdk_operator": sdk_operator,
                 }
             ],
             "claims": claims,
@@ -203,12 +283,20 @@ def custom_staking_census_bytes(source_commit: str, app_hash: str) -> bytes:
                     "sequence": 1,
                 }
             ],
-            "did_indexes": [],
+            "did_indexes": [{"did": "did:zrn:fixture", "operator": validator}],
             "reverse_delegation_indexes": [
                 {"validator": validator, "delegator": delegator}
             ],
-            "redelegation_cooldowns": [],
-            "sdk_validators": [],
+            "redelegation_cooldowns": [{"delegator": delegator, "height": 901}],
+            "sdk_validators": [
+                {
+                    "operator": sdk_operator,
+                    "address_hex": validator_bytes.hex(),
+                    "status": "BOND_STATUS_BONDED",
+                    "jailed": False,
+                    "tokens": "20",
+                }
+            ],
             "tier_configs": [
                 {
                     "tier": tier,
@@ -1376,7 +1464,7 @@ def main() -> None:
     checkpoint_app_hash = "B" * 64
     anchor_block_hash = "A" * 64
     halt_trigger_block_hash = "D" * 64
-    post_anchor_app_hash = "E" * 64
+    post_anchor_app_hash = custom_staking_app_hash().upper()
     anchor_block_time = "2026-07-10T14:10:00.111111111Z"
     halt_trigger_block_time = "2026-07-10T14:10:01.222222222Z"
     signer_node_id = release["predecessor"]["trusted_rpc_node_id"]

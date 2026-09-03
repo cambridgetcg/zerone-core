@@ -173,9 +173,11 @@ endpoint publication, or DNS.
       are hashed and stable; old signer remains stopped and fenced
 - [ ] Exact self-sealed `CUSTOM-STAKING-CENSUS.json` passes at application
       height `A` against the lowercase excluded post-anchor/ABCI AppHash,
-      binds the RELEASE commit, reconciles `B = D + U`, has no findings, and
-      has independently verified release-binary provenance; it grants no
-      migration or validator authority
+      binds the RELEASE commit, reconciles `B = D + U`, and has no findings;
+      FINAL binds these exact `A/E` report bytes, which grant no migration or
+      validator authority
+- [ ] Separately, the release-built census binary has independently verified
+      provenance; report binding alone does not establish binary provenance
 - [ ] `FINAL-CHECKPOINT.json` contains the full release/dark/cutover/adoption
       authority chain, private archive evidence, no public URL/config authority,
       and a valid transition-key detached signature

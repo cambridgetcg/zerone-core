@@ -58,13 +58,57 @@ elif mutation == "claimant-incomplete":
     report["census"]["claimant_root_complete"] = False
 elif mutation == "claimant-root":
     report["census"]["claimant_root"] = "f" * 64
-elif mutation == "unbound-multistore":
-    report["multistore"].append(
-        {"name": "zzz_fixture", "root_sha256": "f" * 64}
+elif mutation == "multistore-root-drift":
+    next(row for row in report["multistore"] if row["name"] == "bank")[
+        "root_sha256"
+    ] = "f" * 64
+    next(row for row in report["stores"] if row["name"] == "bank")[
+        "root_sha256"
+    ] = "f" * 64
+elif mutation == "module-identity":
+    report["census"]["module_address"] = report["census"]["claims"][0]["claimant"]
+    report["census"]["module_address_hex"] = "22" * 20
+elif mutation == "extra-module-denom":
+    report["census"]["module_balances"].insert(
+        0, {"denom": "uother", "amount": "1"}
     )
+elif mutation == "legacy-key-trusted":
+    report["census"]["validators"][0]["legacy_consensus_pubkey_trusted"] = True
+elif mutation == "validator-claim-mismatch":
+    validator = report["census"]["validators"][0]
+    validator["stored_delegated"] = "19"
+    validator["computed_delegated"] = "19"
+    validator["stored_total"] = "19"
+    validator["computed_total"] = "19"
+elif mutation == "sdk-link-absent":
+    validator = report["census"]["validators"][0]
+    validator["sdk_link"] = "absent"
+    del validator["sdk_operator"]
+elif mutation == "unbonding-mismatch":
+    report["census"]["unbondings"][0]["amount"] = "9"
+elif mutation == "reverse-mismatch":
+    report["census"]["reverse_delegation_indexes"][0]["delegator"] = report[
+        "census"
+    ]["module_address"]
+elif mutation == "hollow-tier":
+    report["census"]["tier_configs"][0]["stored_digest"] = ""
+elif mutation == "did-byte-ceiling":
+    report["census"]["did_indexes"][0]["did"] = "d" * 129
+elif mutation == "custom-leaf-ceiling":
+    report["stores"][0]["leaf_count"] = "50001"
+elif mutation == "custom-input-ceiling":
+    report["stores"][0]["input_bytes"] = str((32 << 20) + 1)
+elif mutation == "bank-leaf-ceiling":
+    report["stores"][1]["leaf_count"] = "5000001"
+elif mutation == "aggregate-input-ceiling":
+    report["stores"][1]["input_bytes"] = str(1 << 30)
+elif mutation == "sdk-row-ceiling":
+    report["census"]["sdk_validators"] *= 25001
+elif mutation == "unbound-multistore":
+    report["stores"][1]["leaves_sha256"] = "f" * 64
 elif mutation == "sentinel-count":
     report["census"]["custom_keyspace"][9]["leaf_count"] = 2
-    report["stores"][0]["leaf_count"] = "12"
+    report["stores"][0]["leaf_count"] = "14"
 else:
     raise SystemExit(f"unknown census mutation: {mutation}")
 
@@ -218,8 +262,21 @@ case ${1:-} in
       "$(printf 'A%.0s' {1..64})" ] || exit 65
     [ "$(flag_value --expected-halt-trigger-block-hash "$@")" = \
       "$(printf 'D%.0s' {1..64})" ] || exit 65
+    expected_post_anchor=$(/usr/bin/python3 - \
+      "$(flag_value --a-block-results "$@")" <<'PY'
+import json
+import pathlib
+import re
+import sys
+
+value = json.loads(pathlib.Path(sys.argv[1]).read_bytes())["result"]["app_hash"]
+if not isinstance(value, str) or not re.fullmatch(r"[0-9A-F]{64}", value):
+    raise SystemExit(65)
+print(value)
+PY
+    )
     [ "$(flag_value --expected-post-anchor-app-hash "$@")" = \
-      "$(printf 'E%.0s' {1..64})" ] || exit 65
+      "${expected_post_anchor}" ] || exit 65
     [[ "$(flag_value --expected-rpc-genesis-sha256 "$@")" =~ \
       ^[0-9a-f]{64}$ ]] || exit 65
     printf 'frozen-terminal-crypto: MATCH\n'
@@ -296,6 +353,81 @@ BASE_BUNDLE="${TMP}/authority-bundle"
   --sender "${SENDER}" \
   --release-binary-file "${TMP}/zeroned" \
   --signed-tx-file "${TMP}/signed-tx.json"
+# This expected value was generated independently with
+# cosmossdk.io/store/types.CommitInfo.Hash at store v1.1.2.
+python3 - "${ROOT}/deploy/frozen_evidence.py" <<'PY'
+import importlib.util
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+spec = importlib.util.spec_from_file_location("frozen_evidence_vector", path)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+roots = {
+    "auth": "44" * 32,
+    "bank": "02" * 32,
+    "staking": "03" * 32,
+    "zerone_staking": "01" * 32,
+}
+expected = "dc083957779448e737b33ba92366b3d2f56d29989c8cabbb2f5d2eaa803a1c48"
+if module._cosmos_commit_info_hash(roots) != expected:
+    raise SystemExit("Python CommitInfo.Hash port differs from independent Go vector")
+upstream_roots = {
+    "key1": b"value1".hex(),
+    "key2": b"value2".hex(),
+    "key3": b"value3".hex(),
+}
+upstream_expected = (
+    "1dd674ec6782a0d586a903c9c63326a41cbe56b3bba33ed6ff5b527af6efb3dc"
+)
+if module._cosmos_commit_info_hash(upstream_roots) != upstream_expected:
+    raise SystemExit("Python RFC6962 split differs from upstream three-leaf golden")
+if module._go_uvarint(128) != b"\x80\x01":
+    raise SystemExit("Python Go-uvarint port rejects a 128-byte store name length")
+address_vectors = (
+    (
+        "zrn",
+        bytes.fromhex("cdd7bb3a2d970c608e033f3369cfbb75a326583b"),
+        "zrn1ehtmkw3djuxxprsr8ueknnamwk3jvkpmlzfepn",
+    ),
+    (
+        "zrn",
+        b"\x11" * 20,
+        "zrn1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3wp0vre",
+    ),
+    (
+        "zrnvaloper",
+        b"\x11" * 20,
+        "zrnvaloper1zyg3zyg3zyg3zyg3zyg3zyg3zyg3zyg3lgwxk9",
+    ),
+)
+for hrp, payload, encoded in address_vectors:
+    if module._bech32_encode(hrp, payload) != encoded:
+        raise SystemExit("Python Bech32 encoder differs from independent Go vector")
+    if module._bech32_address(encoded, hrp, "vector") != payload:
+        raise SystemExit("Python Bech32 decoder differs from independent Go vector")
+try:
+    module._cosmos_commit_info_hash({"\ud800": "00" * 32})
+except module.FrozenEvidenceError:
+    pass
+else:
+    raise SystemExit("Python CommitInfo.Hash port did not fail closed on invalid UTF-8")
+claim = {
+    "source_kind": "pending_unbonding",
+    "source_claim_id": "\ud800",
+    "claimant": "x",
+    "validator": "x",
+    "denom": "uzrn",
+    "amount": "1",
+}
+try:
+    module._claimant_root([claim])
+except module.FrozenEvidenceError:
+    pass
+else:
+    raise SystemExit("claimant root did not fail closed on invalid UTF-8")
+PY
 
 run_cutover_pre() {
   local bundle=$1 tool_root=${2:-${ROOT}}
@@ -653,6 +785,123 @@ rebind_census_final "${census_claimant_root}"
 expect_rejected "custom-staking census claimant root drift" \
   "claimant root does not match the complete claim list" \
   run_open_pre "${census_claimant_root}"
+
+census_multistore_root=$(clone_bundle custom-staking-census-multistore-root)
+census_mutate "${census_multistore_root}/CUSTOM-STAKING-CENSUS.json" \
+  multistore-root-drift
+rebind_census_final "${census_multistore_root}"
+expect_rejected "custom-staking census multistore root drift" \
+  "multistore roots do not recompute post-anchor AppHash E" \
+  run_open_pre "${census_multistore_root}"
+
+census_module_identity=$(clone_bundle custom-staking-census-module-identity)
+census_mutate "${census_module_identity}/CUSTOM-STAKING-CENSUS.json" \
+  module-identity
+rebind_census_final "${census_module_identity}"
+expect_rejected "custom-staking census module identity drift" \
+  "module identity is not deterministic" \
+  run_open_pre "${census_module_identity}"
+
+census_extra_denom=$(clone_bundle custom-staking-census-extra-denom)
+census_mutate "${census_extra_denom}/CUSTOM-STAKING-CENSUS.json" \
+  extra-module-denom
+rebind_census_final "${census_extra_denom}"
+expect_rejected "custom-staking census unexplained module denomination" \
+  "module balances contain an unexplained denomination" \
+  run_open_pre "${census_extra_denom}"
+
+census_legacy_trust=$(clone_bundle custom-staking-census-legacy-key-trust)
+census_mutate "${census_legacy_trust}/CUSTOM-STAKING-CENSUS.json" \
+  legacy-key-trusted
+rebind_census_final "${census_legacy_trust}"
+expect_rejected "custom-staking census trusted legacy consensus key" \
+  "invalid aggregate or legacy-key trust state" \
+  run_open_pre "${census_legacy_trust}"
+
+census_validator_claim=$(clone_bundle custom-staking-census-validator-claim)
+census_mutate "${census_validator_claim}/CUSTOM-STAKING-CENSUS.json" \
+  validator-claim-mismatch
+rebind_census_final "${census_validator_claim}"
+expect_rejected "custom-staking census validator claimant aggregate mismatch" \
+  "validator computed aggregates do not match claims" \
+  run_open_pre "${census_validator_claim}"
+
+census_sdk_link=$(clone_bundle custom-staking-census-sdk-link)
+census_mutate "${census_sdk_link}/CUSTOM-STAKING-CENSUS.json" sdk-link-absent
+rebind_census_final "${census_sdk_link}"
+expect_rejected "custom-staking census omitted SDK link" \
+  "marks an available SDK link absent" \
+  run_open_pre "${census_sdk_link}"
+
+census_unbonding=$(clone_bundle custom-staking-census-unbonding-mismatch)
+census_mutate "${census_unbonding}/CUSTOM-STAKING-CENSUS.json" \
+  unbonding-mismatch
+rebind_census_final "${census_unbonding}"
+expect_rejected "custom-staking census unbonding claimant mismatch" \
+  "does not match its pending claimant record" \
+  run_open_pre "${census_unbonding}"
+
+census_reverse=$(clone_bundle custom-staking-census-reverse-mismatch)
+census_mutate "${census_reverse}/CUSTOM-STAKING-CENSUS.json" reverse-mismatch
+rebind_census_final "${census_reverse}"
+expect_rejected "custom-staking census reverse index mismatch" \
+  "has no delegation claim" \
+  run_open_pre "${census_reverse}"
+
+census_tier=$(clone_bundle custom-staking-census-hollow-tier)
+census_mutate "${census_tier}/CUSTOM-STAKING-CENSUS.json" hollow-tier
+rebind_census_final "${census_tier}"
+expect_rejected "custom-staking census hollow tier reconciliation" \
+  "tier reconciliation[0] is incomplete" \
+  run_open_pre "${census_tier}"
+
+census_did_ceiling=$(clone_bundle custom-staking-census-did-byte-ceiling)
+census_mutate "${census_did_ceiling}/CUSTOM-STAKING-CENSUS.json" \
+  did-byte-ceiling
+rebind_census_final "${census_did_ceiling}"
+expect_rejected "custom-staking census oversized DID index" \
+  "DID index[0] exceeds the 128-byte producer ceiling" \
+  run_open_pre "${census_did_ceiling}"
+
+census_custom_leaves=$(clone_bundle custom-staking-census-custom-leaf-ceiling)
+census_mutate "${census_custom_leaves}/CUSTOM-STAKING-CENSUS.json" \
+  custom-leaf-ceiling
+rebind_census_final "${census_custom_leaves}"
+expect_rejected "custom-staking census custom-store leaf ceiling" \
+  "store[0] exceeds its scan leaf ceiling" \
+  run_open_pre "${census_custom_leaves}"
+
+census_custom_input=$(clone_bundle custom-staking-census-custom-input-ceiling)
+census_mutate "${census_custom_input}/CUSTOM-STAKING-CENSUS.json" \
+  custom-input-ceiling
+rebind_census_final "${census_custom_input}"
+expect_rejected "custom-staking census custom-store input ceiling" \
+  "custom-staking store exceeds its retained-input scan ceiling" \
+  run_open_pre "${census_custom_input}"
+
+census_bank_leaves=$(clone_bundle custom-staking-census-bank-leaf-ceiling)
+census_mutate "${census_bank_leaves}/CUSTOM-STAKING-CENSUS.json" \
+  bank-leaf-ceiling
+rebind_census_final "${census_bank_leaves}"
+expect_rejected "custom-staking census bank-store leaf ceiling" \
+  "store[1] exceeds its scan leaf ceiling" \
+  run_open_pre "${census_bank_leaves}"
+
+census_input_ceiling=$(clone_bundle custom-staking-census-input-byte-ceiling)
+census_mutate "${census_input_ceiling}/CUSTOM-STAKING-CENSUS.json" \
+  aggregate-input-ceiling
+rebind_census_final "${census_input_ceiling}"
+expect_rejected "custom-staking census required-store input ceiling" \
+  "required stores exceed the aggregate scan byte ceiling" \
+  run_open_pre "${census_input_ceiling}"
+
+census_sdk_ceiling=$(clone_bundle custom-staking-census-sdk-row-ceiling)
+census_mutate "${census_sdk_ceiling}/CUSTOM-STAKING-CENSUS.json" \
+  sdk-row-ceiling
+rebind_census_final "${census_sdk_ceiling}"
+expect_rejected "custom-staking census SDK row ceiling" \
+  "SDK validator inventory exceeds its row ceiling" \
+  run_open_pre "${census_sdk_ceiling}"
 
 census_sentinel=$(clone_bundle custom-staking-census-sentinel)
 census_mutate "${census_sentinel}/CUSTOM-STAKING-CENSUS.json" sentinel-count

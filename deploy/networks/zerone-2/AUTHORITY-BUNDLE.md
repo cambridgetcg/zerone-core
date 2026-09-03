@@ -119,11 +119,14 @@ distinct from excluded post-anchor-`A` AppHash `E`: block `A` commits `B`,
 staged block `H` and ABCI-at-`A` expose `E`, and `E` is never used for the
 successor inventory. The custom-staking census must bind `A/E` (with lowercase
 `E`) and the RELEASE source commit, pass its internal seal and claimant checks,
-and be hashed by FINAL. It is custody evidence only and confers no migration,
-staking, validator, or consensus authority.
+independently recompute `E` from its complete multistore roots, satisfy the
+passing row reconciliations, and be hashed by FINAL. It is custody evidence only
+and confers no migration, staking, validator, or consensus authority. FINAL
+binds only those exact `A/E` report bytes; it does not establish how the census
+executable was built.
 
 The current RELEASE schema does not bind a dedicated census executable/SBOM/
-provenance/signature set. Production therefore remains NO-GO until the census
+provenance/signature set. Separately, production remains NO-GO until the census
 binary is reproducibly built from RELEASE, independently verified, and its
 provenance is added to the signed artifact chain. The structural fixture does
 not satisfy that requirement.

@@ -111,7 +111,7 @@
   "required_preconditions": [
     "old zerone-1 signer remains fenced and cannot restart",
     "archive adoption authority and final checkpoint signatures verify under the release-authorized transition fingerprint",
-    "FINAL binds exact passing post-anchor custom-staking census bytes and independently verified release-built census binary provenance",
+    "FINAL binds exact passing A/E custom-staking census report bytes; separately, independently verified release-built census binary provenance must exist",
     "private archive A/A readiness evidence remains byte-stable",
     "private zerone-2 health and protocol-dark invariants were freshly revalidated",
     "all three public config mappings equal the immutable release packet",

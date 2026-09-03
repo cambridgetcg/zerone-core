@@ -505,9 +505,9 @@ exact signed RELEASE source. After every source daemon is stopped, run it only
 against a separately captured disposable observer database copy, with chain ID
 `zerone-1`, expected height `A`, the lowercase excluded post-anchor/ABCI
 AppHash, and the RELEASE commit. Preserve its exact self-sealed
-`CUSTOM-STAKING-CENSUS.json` bytes in the authority bundle and independently
-verify its binary provenance. A report at checkpoint `F`, or one used as a
-migration plan, is invalid.
+`CUSTOM-STAKING-CENSUS.json` bytes in the authority bundle for FINAL. Separately,
+independently verify its release-built binary provenance before OPEN. A report
+at checkpoint `F`, or one used as a migration plan, is invalid.
 
 Independently hash the inventory, custom-staking census, post-anchor state
 export, and sanitized database archive. The post-anchor application state at
