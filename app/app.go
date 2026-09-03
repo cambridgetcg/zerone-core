@@ -155,6 +155,9 @@ import (
 	zeronequalification "github.com/zerone-chain/zerone/x/qualification"
 	zeronequalificationkeeper "github.com/zerone-chain/zerone/x/qualification/keeper"
 	zeronequalificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
+	zeroneschedule "github.com/zerone-chain/zerone/x/schedule"
+	zeroneschedulekeeper "github.com/zerone-chain/zerone/x/schedule/keeper"
+	zeronescheduletypes "github.com/zerone-chain/zerone/x/schedule/types"
 	zeronesponsorship "github.com/zerone-chain/zerone/x/sponsorship"
 	zeronesponsorshipkeeper "github.com/zerone-chain/zerone/x/sponsorship/keeper"
 	zeronesponsorshiptypes "github.com/zerone-chain/zerone/x/sponsorship/types"
@@ -207,6 +210,7 @@ func committedLegacyStoreNames(
 	result := map[string]bool{
 		legacyCapabilityStoreKey: false,
 		legacyIBCFeeStoreKey:     false,
+		legacyScheduleStoreKey:   false,
 	}
 	latest := rootmulti.GetLatestVersion(db)
 	if latest == 0 {
@@ -288,6 +292,7 @@ var (
 		zeronecapturechallenge.AppModuleBasic{},
 		zeronealignment.AppModuleBasic{},
 		zeroneclaimingpot.AppModuleBasic{},
+		zeroneschedule.AppModuleBasic{},
 		zeronesponsorship.AppModuleBasic{},
 		zeronecounterex.AppModuleBasic{}, // x/counterexamples: alignment-by-structure
 		zeronecreed.AppModuleBasic{},     // x/creed: optional append-only creed pin storage
@@ -332,6 +337,7 @@ var (
 		zeroneibcrltypes.ModuleName:                      nil,                                  // ibcratelimit: no mint/burn — middleware only
 		zeronealignmenttypes.ModuleName:                  nil,                                  // alignment: no mint/burn — signal-only module
 		zeronecpottypes.ModuleName:                       {authtypes.Minter},                   // claiming_pot: bootstrap claims mint on demand (commitment 20)
+		zeronescheduletypes.ModuleName:                   nil,                                  // message_schedule: isolated prefunded native transfers; no mint/burn
 		zeronesponsorshiptypes.ModuleName:                nil,                                  // sponsorship: escrow-only, no mint/burn — circulates existing supply
 		"treasury_protocol":                              nil,                                  // treasury_protocol: receive-only
 		substratebridgetypes.ModuleName:                  {authtypes.Burner},                   // substrate_bridge: bond escrow — Burner burns slashed bonds (frees cap headroom); no mint
@@ -458,6 +464,7 @@ type ZeroneApp struct {
 	TrustScoreKeeper         zeronetrustscorekeeper.Keeper
 	AlignmentKeeper          zeronealignmentkeeper.Keeper
 	ClaimingPotKeeper        zeronecpotkeeper.Keeper
+	ScheduleKeeper           zeroneschedulekeeper.Keeper
 	SponsorshipKeeper        zeronesponsorshipkeeper.Keeper
 	CounterexamplesKeeper    zeronecounterexkeeper.Keeper // x/counterexamples: alignment-by-structure (commitment 15)
 	CreedKeeper              zeronecreedkeeper.Keeper     // x/creed: optional append-only creed pin storage
@@ -569,6 +576,10 @@ func newZeroneApp(
 	solomachine.RegisterInterfaces(interfaceRegistry)
 
 	bApp := baseapp.NewBaseApp(AppName, logger, db, txConfig.TxDecoder(), baseAppOptions...)
+	// Custom proposal selection canonicalizes decoded application-mempool
+	// transactions before applying byte limits. BaseApp accepts only a decoder
+	// in its constructor, so the matching encoder must be wired explicitly.
+	bApp.SetTxEncoder(txConfig.TxEncoder())
 	bApp.SetCommitMultiStoreTracer(traceStore)
 	bApp.SetVersion(version.Version)
 	bApp.SetInterfaceRegistry(interfaceRegistry)
@@ -577,6 +588,7 @@ func newZeroneApp(
 	committedLegacyStores := map[string]bool{
 		legacyCapabilityStoreKey: false,
 		legacyIBCFeeStoreKey:     false,
+		legacyScheduleStoreKey:   false,
 	}
 	keys := storetypes.NewKVStoreKeys(
 		authtypes.StoreKey,
@@ -610,6 +622,7 @@ func newZeroneApp(
 		zeroneibcrltypes.StoreKey,
 		zeronealignmenttypes.StoreKey,
 		zeronecpottypes.StoreKey,
+		zeronescheduletypes.StoreKey,
 		zeronesponsorshiptypes.StoreKey,
 		zeronecounterextypes.StoreKey,
 		zeronecreedtypes.StoreKey,
@@ -629,6 +642,7 @@ func newZeroneApp(
 		for _, name := range []string{
 			legacyCapabilityStoreKey,
 			legacyIBCFeeStoreKey,
+			legacyScheduleStoreKey,
 		} {
 			if legacyStores[name] {
 				keys[name] = storetypes.NewKVStoreKey(name)
@@ -1117,6 +1131,18 @@ func newZeroneApp(
 		app.VestingRewardsKeeper, // bootstrap pathway gates through MintWithCap
 	)
 
+	// ---- Durable schedule keeper ----
+	// Signed create/update/cancel messages use the ordinary transaction pool.
+	// Once committed, finite height triggers live only in consensus state. The
+	// module is escrow-only and admission is closed in default genesis.
+	app.ScheduleKeeper = zeroneschedulekeeper.NewKeeper(
+		sdkruntime.NewKVStoreService(keys[zeronescheduletypes.StoreKey]),
+		appCodec,
+		app.BankKeeper,
+		app.EmergencyKeeper,
+		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+	)
+
 	// ---- Sponsorship keeper (patron-funded work bounties) ----
 	// Escrow-only — circulates existing supply, never mints. Knowledge
 	// keeper consulted read-only for fact verification status, domain,
@@ -1220,6 +1246,7 @@ func newZeroneApp(
 		zeronetrustscore.NewAppModule(appCodec, app.TrustScoreKeeper),
 		zeronealignment.NewAppModule(appCodec, app.AlignmentKeeper),
 		zeroneclaimingpot.NewAppModule(appCodec, app.ClaimingPotKeeper),
+		zeroneschedule.NewAppModule(appCodec, app.ScheduleKeeper),
 		zeronesponsorship.NewAppModule(appCodec, app.SponsorshipKeeper),
 		zeronehome.NewAppModule(appCodec, app.HomeKeeper), // R8-1: x/home
 		zeronecounterex.NewAppModule(appCodec, app.CounterexamplesKeeper),
@@ -1270,6 +1297,7 @@ func newZeroneApp(
 		zeronealignmenttypes.ModuleName,     // alignment: no-op in BeginBlock
 		zeroneibcrltypes.ModuleName,         // ibcratelimit: reset expired windows
 		zeronecpottypes.ModuleName,          // claiming_pot: pot expiry
+		zeronescheduletypes.ModuleName,      // schedule: bounded due transfer execution before DeliverTx
 		zeronesponsorshiptypes.ModuleName,   // sponsorship: bounty expiry
 		zeronecounterextypes.ModuleName,     // counterexamples: no-op BeginBlock (proposal-driven)
 		zeronecreedtypes.ModuleName,         // creed: no-op BeginBlock (pure registry)
@@ -1310,6 +1338,7 @@ func newZeroneApp(
 		zeronealignmenttypes.ModuleName,     // EndBlocker: observation→scoring→corrections at interval
 		zeroneibcrltypes.ModuleName,         // EndBlocker: no-op
 		zeronecpottypes.ModuleName,          // EndBlocker: no-op
+		zeronescheduletypes.ModuleName,      // EndBlocker: no-op (execution is BeginBlock)
 		zeronesponsorshiptypes.ModuleName,   // EndBlocker: no-op
 		zeronecounterextypes.ModuleName,     // EndBlocker: no-op
 		zeronecreedtypes.ModuleName,         // EndBlocker: no-op (pure registry)
@@ -1351,6 +1380,7 @@ func newZeroneApp(
 		zeronealignmenttypes.ModuleName,     // Genesis: after emergency + staking + knowledge (needs all)
 		zeroneibcrltypes.ModuleName,         // Genesis: after IBC
 		zeronecpottypes.ModuleName,          // Genesis: after staking + auth + bank
+		zeronescheduletypes.ModuleName,      // Genesis: after bank; exact escrow balance is verified
 		zeronesponsorshiptypes.ModuleName,   // Genesis: after bank + knowledge
 		zeronecounterextypes.ModuleName,     // Genesis: after knowledge (uses fact-existence adapter)
 		zeronecreedtypes.ModuleName,         // Genesis: standalone (pure registry, no cross-module deps)
@@ -1434,6 +1464,12 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 	var genesisState GenesisState
 	if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 		panic(err)
+	}
+	if _, found := genesisState[legacyScheduleStoreKey]; found {
+		return nil, fmt.Errorf(
+			"native genesis refuses retired scheduler namespace %q; reconcile old-format liabilities instead of silently discarding state",
+			legacyScheduleStoreKey,
+		)
 	}
 
 	// Ensure ZRN denomination metadata is present in the bank genesis state.
@@ -1639,6 +1675,7 @@ func (app *ZeroneApp) RegisterAPIRoutes(apiSvr *api.Server, apiConfig config.API
 	must(zeronecctypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecctypes.NewQueryClient(clientCtx)))
 	must(zeronealignmenttypes.RegisterQueryHandlerClient(ctx, gwmux, zeronealignmenttypes.NewQueryClient(clientCtx)))
 	must(zeronecpottypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecpottypes.NewQueryClient(clientCtx)))
+	must(zeronescheduletypes.RegisterQueryHandlerClient(ctx, gwmux, zeronescheduletypes.NewQueryClient(clientCtx)))
 	must(zeronecounterextypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecounterextypes.NewQueryClient(clientCtx)))
 	must(zeronecreedtypes.RegisterQueryHandlerClient(ctx, gwmux, zeronecreedtypes.NewQueryClient(clientCtx)))
 	must(substratebridgetypes.RegisterQueryHandlerClient(ctx, gwmux, substratebridgetypes.NewQueryClient(clientCtx)))
@@ -1687,6 +1724,10 @@ func blockedModuleAccountAddrs() map[string]bool {
 	for acc := range maccPerms {
 		modAccAddrs[authtypes.NewModuleAddress(acc).String()] = true
 	}
+	// Keep the retired scheduler address permanently unreceivable. It is not a
+	// live module account, but allowing ordinary sends to it would strand funds
+	// and could trip the H3/no-orphan liability gate on a later restart.
+	modAccAddrs[authtypes.NewModuleAddress(legacyScheduleStoreKey).String()] = true
 	// Allow governance module to receive funds (for proposal deposits).
 	delete(modAccAddrs, authtypes.NewModuleAddress(govtypes.ModuleName).String())
 	return modAccAddrs

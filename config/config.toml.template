@@ -90,17 +90,43 @@ seed_mode = false
 
 [mempool]
 
-# Maximum number of transactions in the mempool.
+# Zerone keeps CometBFT's network-facing pool and its safe priority/nonce
+# application index enabled together. Comet supplies gossip; the application
+# index supplies bounded local proposer selection. Neither is consensus
+# authority. Keep the production profile aligned across validator nodes.
+type = "flood"
+recheck = true
+recheck_timeout = "5s"
+broadcast = true
+
+# Disabled deliberately: replaying a large uncommitted pool after restart can
+# amplify stale traffic. Signed clients are responsible for rebroadcast.
+wal_dir = ""
+
+# Maximum number of transactions in the CometBFT mempool.
 size = 5000
 
-# Maximum size of a single transaction (in bytes).
-max_tx_bytes = 1048576
+# A transaction is at most 256 KiB; blocks remain bounded separately by the
+# on-chain consensus max_bytes parameter.
+max_tx_bytes = 262144
 
-# Maximum size of the mempool in bytes. 0 = unlimited.
-max_txs_bytes = 1073741824
+# Bound resident raw transaction bytes to 64 MiB rather than Comet's 1 GiB
+# default.
+max_txs_bytes = 67108864
 
 # Size of the cache (used to filter transactions we saw earlier).
 cache_size = 10000
+
+# A future-sequence transaction can become valid, so invalid cache entries may
+# not be retained forever.
+keep-invalid-txs-in-cache = false
+
+# Currently unused by CometBFT v0.38, pinned to make the behavior explicit.
+max_batch_bytes = 0
+
+# Bound fanout without preventing propagation across persistent topology.
+experimental_max_gossip_connections_to_persistent_peers = 10
+experimental_max_gossip_connections_to_non_persistent_peers = 10
 
 # ─── State Sync Configuration ───────────────────────────────────────────
 

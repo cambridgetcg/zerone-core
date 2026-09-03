@@ -12,6 +12,7 @@ import {
   MessageComposer19,
   MessageComposer2,
   MessageComposer20,
+  MessageComposer21,
   MessageComposer3,
   MessageComposer4,
   MessageComposer5,
@@ -31,6 +32,7 @@ import {
   tx_exports18 as tx_exports19,
   tx_exports19 as tx_exports20,
   tx_exports2 as tx_exports3,
+  tx_exports20 as tx_exports21,
   tx_exports3 as tx_exports4,
   tx_exports4 as tx_exports5,
   tx_exports5 as tx_exports6,
@@ -38,7 +40,7 @@ import {
   tx_exports7 as tx_exports8,
   tx_exports8 as tx_exports9,
   tx_exports9 as tx_exports10
-} from "./chunk-PQV3XR6M.js";
+} from "./chunk-PQXLY4II.js";
 import {
   tx_exports
 } from "./chunk-CXBAXZI7.js";
@@ -74,14 +76,16 @@ export {
   MessageComposer14 as ontologyMessages,
   tx_exports15 as qualification,
   MessageComposer15 as qualificationMessages,
-  tx_exports16 as sponsorship,
-  MessageComposer16 as sponsorshipMessages,
-  tx_exports17 as staking,
-  MessageComposer17 as stakingMessages,
-  tx_exports18 as substrateBridge,
-  MessageComposer18 as substrateBridgeMessages,
-  tx_exports19 as tokens,
-  MessageComposer19 as tokensMessages,
-  tx_exports20 as vestingRewards,
-  MessageComposer20 as vestingRewardsMessages
+  tx_exports16 as schedule,
+  MessageComposer16 as scheduleMessages,
+  tx_exports17 as sponsorship,
+  MessageComposer17 as sponsorshipMessages,
+  tx_exports18 as staking,
+  MessageComposer18 as stakingMessages,
+  tx_exports19 as substrateBridge,
+  MessageComposer19 as substrateBridgeMessages,
+  tx_exports20 as tokens,
+  MessageComposer20 as tokensMessages,
+  tx_exports21 as vestingRewards,
+  MessageComposer21 as vestingRewardsMessages
 };

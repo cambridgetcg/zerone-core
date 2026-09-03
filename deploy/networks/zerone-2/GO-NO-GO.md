@@ -44,14 +44,25 @@ snapshot byte-for-byte.
 - [ ] `MONITORING-ALERTS.json` SHA-256 plus its byte-matched
       `MONITORING-RULES.json` and `MONITORING-ALERT-TESTS.json` hashes:
       `REPLACE`
-- [ ] All ten required rules are enabled and their stalled-height,
+- [ ] All eleven required rules are enabled and their stalled-height,
       missed-signing, double-sign-risk, AppHash-divergence, peer-loss, disk,
-      restart-count, stale-backup, gateway-wrong-chain, and
-      gateway-stale-origin alert tests each prove firing, notification delivery,
-      resolution, and `PASS`: `REPLACE_EVIDENCE_HASHES`
+      restart-count, CometBFT mempool-saturation, stale-backup,
+      gateway-wrong-chain, and gateway-stale-origin alert tests each prove
+      firing, notification delivery, resolution, and `PASS`:
+      `REPLACE_EVIDENCE_HASHES`
 - [ ] Full tests, artifact audit, signed-source two-run ceremony comparison,
       restart/export/import, image-context, deploy-gate, SBOM, and secret gates
       pass
+- [ ] Proposal adversarial tests reject unauthenticated, bad-sequence,
+      over-count, over-byte, and aggregate-over-gas blocks; exercise omitted
+      stored public keys and capacity-skipped nonce successors; and prove the
+      exact CometBFT 5,000 tx / 64 MiB / 256 KiB and application 5,000 tx pool
+      profile survives restart/recheck tests
+- [ ] Scheduler admission is false, schedules/receipts are empty, total escrow
+      is zero, and no launch communication claims native scheduling is active
+- [ ] Retired `schedule` store and VersionMap entry are absent; both retired
+      and fresh scheduler module addresses have zero coins in every
+      denomination, are distinct, and are blocked from ordinary receipt
 - [ ] All private profiles have no public Fly service or public P2P address
 - [ ] Genesis supply, two owners, locked self-bond, single validator, and every
       protocol-dark invariant independently audited
@@ -213,3 +224,27 @@ references the unchanged RELEASE, DARK-START, CUTOVER, adoption, final
 checkpoint, both earlier initiation evidence pairs, readiness, exact
 transaction, public configs, coordinates, and DNS
 manifest. Its detached `.sig` remains outside the payload.
+
+## Separate native-scheduler admission gate
+
+Decisions A–C launch the module admission-closed and do not authorize changing
+`accept_new_schedules` to true. Before a later governance proposal may open
+admission, every item below remains an explicit NO-GO gate:
+
+- [ ] Multi-validator rehearsals cover backlog caps, same-height CAS behavior,
+      emergency halt plus the full ten-block cancellation grace, restart,
+      state sync, nonempty export/import, and AppHash equality.
+- [ ] Historical schedule/receipt growth has an explicit retention, rent, or
+      capacity decision.
+- [ ] The launch-bound CometBFT saturation alert remains enabled, and real
+      exported signals plus release-bound alert tests cover application-pool
+      saturation, proposal rejection, due backlog, failed-and-refunded
+      occurrences, and escrow invariant failure. Scheduler events or query
+      availability alone are not monitoring evidence.
+- [ ] A separately reviewed and signed activation decision binds the parameter
+      set, activation height, operational rollback/closure procedure, and the
+      completed evidence above.
+
+Until that separate gate is complete, scheduler admission remains false; no
+unchecked item here may be represented as launch evidence or inferred from the
+eleven release monitoring rules.

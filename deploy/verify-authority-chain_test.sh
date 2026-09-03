@@ -520,6 +520,42 @@ run_cutover_post "${BASE_BUNDLE}" >/dev/null
 run_open_pre "${BASE_BUNDLE}" >/dev/null
 run_open_post "${BASE_BUNDLE}" >/dev/null
 
+open_scheduler_policy=$(clone_bundle open-scheduler-policy)
+canonical_mutate "${open_scheduler_policy}/RELEASE-PACKET.json" \
+  '.accepted_policy.message_schedule_admission_live_at_genesis = true'
+expect_rejected "release opens scheduler admission" \
+  "RELEASE accepted policy differs from the admission-closed launch policy" \
+  run_cutover_pre "${open_scheduler_policy}"
+
+open_scheduler_manifest=$(clone_bundle open-scheduler-manifest)
+canonical_mutate "${open_scheduler_manifest}/network-manifest.json" \
+  '.activations.message_schedule_admission = "enabled"'
+open_scheduler_manifest_sha=$(sha256_file \
+  "${open_scheduler_manifest}/network-manifest.json")
+# shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+canonical_mutate "${open_scheduler_manifest}/RELEASE-PACKET.json" \
+  '.ceremony_artifacts.network_manifest_sha256 = $sha' \
+  --arg sha "${open_scheduler_manifest_sha}"
+expect_rejected "network manifest opens scheduler admission" \
+  "ceremony network manifest differs from RELEASE or the production profile" \
+  run_cutover_pre "${open_scheduler_manifest}"
+
+missing_scheduler_human_line=$(clone_bundle missing-scheduler-human-line)
+sed '/^- Native message-schedule admission:/d' \
+  "${missing_scheduler_human_line}/GENESIS-MANIFEST.md" \
+  > "${missing_scheduler_human_line}/GENESIS-MANIFEST.md.new"
+mv "${missing_scheduler_human_line}/GENESIS-MANIFEST.md.new" \
+  "${missing_scheduler_human_line}/GENESIS-MANIFEST.md"
+missing_scheduler_human_sha=$(sha256_file \
+  "${missing_scheduler_human_line}/GENESIS-MANIFEST.md")
+# shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+canonical_mutate "${missing_scheduler_human_line}/RELEASE-PACKET.json" \
+  '.ceremony_artifacts.human_manifest_sha256 = $sha' \
+  --arg sha "${missing_scheduler_human_sha}"
+expect_rejected "human manifest omits scheduler admission" \
+  "ceremony human manifest does not repeat the exact signed release facts" \
+  run_cutover_pre "${missing_scheduler_human_line}"
+
 missing_monitoring=$(clone_bundle missing-monitoring)
 mv "${missing_monitoring}/MONITORING-ALERTS.json" \
   "${missing_monitoring}/MONITORING-ALERTS.json.missing"
@@ -548,6 +584,15 @@ rebind_monitoring_chain "${disabled_monitoring_rule}"
 expect_rejected "disabled required monitoring rule" \
   "is disabled or semantically incomplete" \
   run_cutover_pre "${disabled_monitoring_rule}"
+
+late_mempool_alert=$(clone_bundle late-mempool-alert)
+canonical_mutate "${late_mempool_alert}/MONITORING-RULES.json" \
+  '(.rules[] | select(.check == "comet_mempool_saturation")
+      | .parameters.maximum_pending_transactions) = 5000'
+rebind_monitoring_chain "${late_mempool_alert}"
+expect_rejected "mempool alert at rather than before saturation" \
+  "parameter maximum_pending_transactions is outside the safe range" \
+  run_cutover_pre "${late_mempool_alert}"
 
 self_asserted_monitoring=$(clone_bundle self-asserted-monitoring)
 canonical_mutate \
@@ -713,6 +758,13 @@ canonical_mutate "${final}/FINAL-CHECKPOINT.json" \
   'del(.authority_chain.archive_adoption_authority)'
 expect_rejected "truncated FINAL checkpoint" "FINAL-CHECKPOINT" \
   run_open_pre "${final}"
+
+final_scheduler_policy=$(clone_bundle final-scheduler-policy)
+canonical_mutate "${final_scheduler_policy}/FINAL-CHECKPOINT.json" \
+  '.accepted_policy.message_schedule_admission_live_at_genesis = true'
+expect_rejected "FINAL checkpoint opens scheduler admission" \
+  "FINAL-CHECKPOINT.accepted_policy.message_schedule_admission_live_at_genesis boolean policy changed" \
+  run_open_pre "${final_scheduler_policy}"
 
 missing_census=$(clone_bundle missing-custom-staking-census)
 mv "${missing_census}/CUSTOM-STAKING-CENSUS.json" \

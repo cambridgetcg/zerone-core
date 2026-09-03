@@ -76,6 +76,118 @@ fi
 grep -q 'public input does not match zerone-2-public-ceremony-input-v2' \
   "${TMP}/unknown-field.log" || fail "unknown-field rejection was not explicit"
 
+# Interpose a test-only zeroned wrapper which adds forward-incompatible
+# scheduler fields immediately after `init`. The ceremony must reject both
+# module-level and parameter-level schema drift before normalizing any values.
+SCHEDULE_DRIFT_WRAPPER_SOURCE="${TMP}/schedule-drift-zeroned.go"
+SCHEDULE_DRIFT_WRAPPER="${TMP}/schedule-drift-zeroned"
+CEREMONY_REAL_BINARY="${BINARY}"
+cat > "${SCHEDULE_DRIFT_WRAPPER_SOURCE}" <<'EOF'
+package main
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+)
+
+func fail(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, format+"\n", args...)
+	os.Exit(1)
+}
+
+func main() {
+	realBinary := os.Getenv("ZERONE_TEST_REAL_BINARY")
+	if realBinary == "" {
+		fail("ZERONE_TEST_REAL_BINARY is required")
+	}
+	command := exec.Command(realBinary, os.Args[1:]...)
+	command.Stdin = os.Stdin
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
+	if err := command.Run(); err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			os.Exit(exitError.ExitCode())
+		}
+		fail("delegate zeroned: %v", err)
+	}
+	if len(os.Args) < 2 || os.Args[1] != "init" {
+		return
+	}
+
+	home := ""
+	for index := 2; index+1 < len(os.Args); index++ {
+		if os.Args[index] == "--home" {
+			home = os.Args[index+1]
+			break
+		}
+	}
+	if home == "" {
+		fail("test wrapper did not receive --home")
+	}
+	genesisPath := filepath.Join(home, "config", "genesis.json")
+	data, err := os.ReadFile(genesisPath)
+	if err != nil {
+		fail("read generated genesis: %v", err)
+	}
+	var genesis map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&genesis); err != nil {
+		fail("decode generated genesis: %v", err)
+	}
+	appState := genesis["app_state"].(map[string]any)
+	schedule := appState["message_schedule"].(map[string]any)
+	switch os.Getenv("ZERONE_TEST_SCHEDULE_DRIFT") {
+	case "top-level":
+		schedule["unexpected_records"] = []any{}
+	case "params":
+		schedule["params"].(map[string]any)["unexpected_consensus_switch"] = false
+	default:
+		fail("unknown ZERONE_TEST_SCHEDULE_DRIFT value")
+	}
+	mutated, err := json.MarshalIndent(genesis, "", "  ")
+	if err != nil {
+		fail("encode mutated genesis: %v", err)
+	}
+	mutated = append(mutated, '\n')
+	temporaryPath := genesisPath + ".test-drift"
+	if err := os.WriteFile(temporaryPath, mutated, 0600); err != nil {
+		fail("write mutated genesis: %v", err)
+	}
+	if err := os.Rename(temporaryPath, genesisPath); err != nil {
+		fail("publish mutated genesis: %v", err)
+	}
+}
+EOF
+GOENV=off GOWORK=off GOFLAGS='' GOTOOLCHAIN=local GOPROXY=off \
+  GO111MODULE=off go build -trimpath -o "${SCHEDULE_DRIFT_WRAPPER}" \
+  "${SCHEDULE_DRIFT_WRAPPER_SOURCE}"
+
+for schedule_drift in top-level params; do
+  if ZERONE_TEST_REAL_BINARY="${CEREMONY_REAL_BINARY}" \
+    ZERONE_TEST_SCHEDULE_DRIFT="${schedule_drift}" \
+    BINARY="${SCHEDULE_DRIFT_WRAPPER}" \
+    "${ROOT}/scripts/zerone-2-ceremony.sh" drill \
+    "${TMP}/schedule-drift-${schedule_drift}" \
+    > "${TMP}/schedule-drift-${schedule_drift}.log" 2>&1; then
+    fail "ceremony accepted ${schedule_drift} message_schedule schema drift"
+  fi
+done
+grep -q 'message_schedule does not have the exact required top-level fields' \
+  "${TMP}/schedule-drift-top-level.log" || {
+    sed -n '1,160p' "${TMP}/schedule-drift-top-level.log" >&2
+    fail "top-level message_schedule schema rejection was not explicit"
+  }
+grep -q 'message_schedule.params does not have the exact required parameter fields' \
+  "${TMP}/schedule-drift-params.log" || {
+    sed -n '1,160p' "${TMP}/schedule-drift-params.log" >&2
+    fail "message_schedule parameter schema rejection was not explicit"
+  }
+
 run_drill "${TMP}/a" "${TMP}/a.log"
 run_drill "${TMP}/b" "${TMP}/b.log"
 
@@ -83,6 +195,11 @@ for artifact in genesis.json genesis.sha256 network-manifest.json GENESIS-MANIFE
   cmp "${TMP}/a/${artifact}" "${TMP}/b/${artifact}" >/dev/null || \
     fail "${artifact} is not reproducible"
 done
+# shellcheck disable=SC2016 # Assert literal Markdown backticks, not expansion.
+grep -Fqx -- \
+  '- Native message-schedule admission: disabled (`accept_new_schedules=false`).' \
+  "${TMP}/a/GENESIS-MANIFEST.md" || \
+  fail "human manifest omitted the exact scheduler admission declaration"
 
 "${BINARY}" genesis validate "${TMP}/a/genesis.json" >/dev/null 2>&1 || \
   fail "zeroned rejected drill genesis"

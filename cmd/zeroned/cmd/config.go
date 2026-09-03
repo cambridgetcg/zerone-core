@@ -64,6 +64,13 @@ func initAppConfig() (string, interface{}) {
 	srvCfg.API.Enable = true
 	srvCfg.API.Swagger = true
 
+	// Keep Zerone's safe priority/nonce application pool enabled and bounded by
+	// default. This must
+	// match the checked-in app.toml template and the zerone-2 runtime profile so
+	// a node started outside the production entrypoint does not silently fall
+	// back to the SDK's NoOpMempool default.
+	srvCfg.Mempool.MaxTxs = 5000
+
 	customConfig := ZeroneAppConfig{
 		Config: *srvCfg,
 		Oracle: OracleConfig{
@@ -86,6 +93,25 @@ func initCometBFTConfig() *cmtcfg.Config {
 
 	// Zerone targets 2521ms block time.
 	cfg.Consensus.TimeoutCommit = 2521 * time.Millisecond
+
+	// Pin the network-facing half of the production pooling profile here as
+	// well as in the runtime entrypoint. These values are local admission and
+	// gossip policy, not consensus parameters, but leaving the SDK defaults in
+	// generated config would expose non-containerized validators to materially
+	// different memory and transaction-size bounds.
+	cfg.Mempool.Type = cmtcfg.MempoolTypeFlood
+	cfg.Mempool.Recheck = true
+	cfg.Mempool.RecheckTimeout = 5 * time.Second
+	cfg.Mempool.Broadcast = true
+	cfg.Mempool.WalPath = ""
+	cfg.Mempool.Size = 5000
+	cfg.Mempool.MaxTxsBytes = 64 * 1024 * 1024
+	cfg.Mempool.CacheSize = 10000
+	cfg.Mempool.KeepInvalidTxsInCache = false
+	cfg.Mempool.MaxTxBytes = 256 * 1024
+	cfg.Mempool.MaxBatchBytes = 0
+	cfg.Mempool.ExperimentalMaxGossipConnectionsToPersistentPeers = 10
+	cfg.Mempool.ExperimentalMaxGossipConnectionsToNonPersistentPeers = 10
 
 	return cfg
 }

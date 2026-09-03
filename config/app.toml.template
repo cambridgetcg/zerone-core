@@ -43,6 +43,12 @@ iavl-cache-size = 781250
 # IAVLDisableFastNode enables or disables the fast node feature of IAVL.
 iavl-disable-fastnode = false
 
+# Zerone's safe priority/nonce application index provides bounded local
+# proposal selection. It is not consensus authority. A positive cap rejects
+# admission instead of allowing unbounded application-memory growth.
+[mempool]
+max-txs = 5000
+
 # ─── Telemetry ───────────────────────────────────────────────────────────
 
 [telemetry]

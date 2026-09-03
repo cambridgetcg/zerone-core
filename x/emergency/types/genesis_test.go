@@ -111,9 +111,9 @@ func TestGenesisQuarantineReleaseBlockRequiresNormalFiniteState(t *testing.T) {
 	}
 
 	genesis = DefaultGenesis()
-	genesis.QuarantineReleaseBlock = ^uint64(0)
+	genesis.QuarantineReleaseBlock = MaxSDKBlockHeight - PostResumeCancellationGraceBlocks + 1
 	if err := genesis.Validate(); err == nil {
-		t.Fatal("release block without representable H+1 was accepted")
+		t.Fatal("release block without a representable grace window was accepted")
 	}
 
 	genesis.QuarantineReleaseBlock = 100

@@ -14,6 +14,7 @@ import { registry as knowledgeRegistry } from "./generated/zerone/knowledge/v1/t
 import { registry as liquidityPoolRegistry } from "./generated/zerone/liquiditypool/v1/tx.registry";
 import { registry as ontologyRegistry } from "./generated/zerone/ontology/v1/tx.registry";
 import { registry as qualificationRegistry } from "./generated/zerone/qualification/v1/tx.registry";
+import { registry as scheduleRegistry } from "./generated/zerone/schedule/v2/tx.registry";
 import { registry as sponsorshipRegistry } from "./generated/zerone/sponsorship/v1/tx.registry";
 import { registry as stakingRegistry } from "./generated/zerone/staking/v1/tx.registry";
 import { registry as substrateBridgeRegistry } from "./generated/zerone/substrate_bridge/v1/tx.registry";
@@ -36,6 +37,7 @@ export const zeroneRegistryTypes: ReadonlyArray<[string, GeneratedType]> = [
   ...liquidityPoolRegistry,
   ...ontologyRegistry,
   ...qualificationRegistry,
+  ...scheduleRegistry,
   ...sponsorshipRegistry,
   ...stakingRegistry,
   ...substrateBridgeRegistry,

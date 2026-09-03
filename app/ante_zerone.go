@@ -483,6 +483,34 @@ func (zgd ZRNGasDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool,
 			"tx gas limit %d exceeds per-tx limit %d", gasLimit, TxGasLimit)
 	}
 
+	// CometBFT applies its consensus MaxGas check after CheckTx returns. SDK
+	// v0.53's SetUpContextDecorator independently rejects positive MaxGas
+	// overruns, but deliberately treats MaxGas=0 as though no per-tx ceiling
+	// existed. Enforce every nonnegative value in non-simulation Ante modes so
+	// an individually impossible transaction cannot remain as an application-
+	// pool ghost; -1 remains unlimited subject to Zerone's source caps.
+	if block := ctx.ConsensusParams().Block; block != nil && block.MaxGas >= 0 &&
+		gasLimit > uint64(block.MaxGas) {
+		return ctx, errors.Wrapf(sdkerrors.ErrOutOfGas,
+			"tx gas limit %d exceeds consensus block gas limit %d", gasLimit, block.MaxGas)
+	}
+
+	// CometBFT normally rejects an oversized transaction in TxPreCheck before
+	// calling CheckTx. Keep the application safe when CheckTx is invoked directly,
+	// too: a transaction whose protobuf-framed bytes exceed the effective whole
+	// block limit can never be proposed and must not remain as an application-pool
+	// ghost. This is deliberately an empty-block feasibility check; ordinary
+	// residual capacity in a partly filled proposal is handled by proposal
+	// selection and must not make an otherwise valid transaction permanent-invalid.
+	if txBytes := ctx.TxBytes(); len(txBytes) > 0 {
+		maxTxBytes := effectiveProcessProposalMaxBytes(ctx)
+		txSize := proposalTxProtoSize(txBytes)
+		if txSize > maxTxBytes {
+			return ctx, errors.Wrapf(sdkerrors.ErrTxTooLarge,
+				"transaction protobuf size %d exceeds effective block byte limit %d", txSize, maxTxBytes)
+		}
+	}
+
 	// Calculate minimum required gas from message types.
 	// ANTE P1-2 FIX: Saturating addition to prevent uint64 overflow.
 	msgs := tx.GetMsgs()
@@ -617,6 +645,12 @@ var msgTypeURLToGas = map[string]uint64{
 	"/zerone.claiming_pot.v1.MsgFundPot":      TransactionGasCosts["fund_pot"],
 	"/zerone.claiming_pot.v1.MsgClaimFromPot": TransactionGasCosts["claim_from_pot"],
 	"/zerone.claiming_pot.v1.MsgClosePot":     TransactionGasCosts["close_pot"],
+
+	// Durable transfer scheduling
+	"/zerone.schedule.v2.MsgCreateSchedule": TransactionGasCosts["create_schedule"],
+	"/zerone.schedule.v2.MsgUpdateSchedule": TransactionGasCosts["update_schedule"],
+	"/zerone.schedule.v2.MsgCancelSchedule": TransactionGasCosts["cancel_schedule"],
+	"/zerone.schedule.v2.MsgUpdateParams":   TransactionGasCosts["update_schedule_params"],
 
 	// Capture defense
 	"/zerone.capture_defense.v1.MsgRequestQualification": TransactionGasCosts["request_capture_qualification"],

@@ -28,9 +28,12 @@ import (
 
 	cmted25519 "github.com/cometbft/cometbft/crypto/ed25519"
 	cmttypes "github.com/cometbft/cometbft/types"
+	sdkcodec "github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdked25519 "github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	slashingtypes "github.com/cosmos/cosmos-sdk/x/slashing/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -38,19 +41,27 @@ import (
 	zeroneapp "github.com/zerone-chain/zerone/app"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
 	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
+	scheduletypes "github.com/zerone-chain/zerone/x/schedule/types"
 	zeronestakingtypes "github.com/zerone-chain/zerone/x/staking/types"
 	"golang.org/x/sys/unix"
 )
 
 const (
 	policySchema       = "zerone.fork-genesis.policy/v1"
-	reportSchema       = "zerone.fork-genesis.report/v1"
+	reportSchema       = "zerone.fork-genesis.report/v2"
 	compilerProfile    = "consensus-key-only"
 	operatorRetain     = "RETAIN_PROVEN_SAFE"
 	ibcDisposition     = "require-empty"
 	emergencyStartMode = "CONSENSUS_QUARANTINE"
 	maxPolicyBytes     = 1 << 20
 	maxGenesisBytes    = 256 << 20
+
+	retiredScheduleModuleName       = "schedule"
+	messageScheduleGenesisMigration = "message-schedule-v1-absent-to-default-closed"
+	// absentModuleSHA256 is SHA-256 over the canonical JSON literal `null`.
+	// It is a report-only sentinel: the source module key is proven absent and
+	// the target module's real digest remains in after_sha256.
+	absentModuleSHA256 = "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
 )
 
 var requiredModules = []string{
@@ -551,6 +562,13 @@ func compileGenesis(
 	if err := requireModules(appState); err != nil {
 		return nil, compilerReport{}, err
 	}
+	encodingConfig := zeroneapp.MakeEncodingConfig()
+	if err := requireNoSchedulerBankBalances(
+		encodingConfig.Codec,
+		appState[banktypes.ModuleName],
+	); err != nil {
+		return nil, compilerReport{}, err
+	}
 	if err := requireEmptyIBC(appState); err != nil {
 		return nil, compilerReport{}, err
 	}
@@ -564,15 +582,21 @@ func compileGenesis(
 		return nil, compilerReport{}, err
 	}
 
+	// Freeze the source inventory before adding any target-only module. An
+	// absent source module is materially different from an unchanged module and
+	// must remain visible in the compiler report.
 	beforeDigests, err := digestModules(appState)
 	if err != nil {
+		return nil, compilerReport{}, err
+	}
+	if err := initializeFreshScheduleGenesis(appState); err != nil {
 		return nil, compilerReport{}, err
 	}
 	schemaMigrations, err := normalizeTargetModuleSchemas(appState)
 	if err != nil {
 		return nil, compilerReport{}, err
 	}
-	encodingConfig := zeroneapp.MakeEncodingConfig()
+	schemaMigrations = append(schemaMigrations, messageScheduleGenesisMigration)
 
 	var stakingGenesis stakingtypes.GenesisState
 	if err := encodingConfig.Codec.UnmarshalJSON(appState["staking"], &stakingGenesis); err != nil {
@@ -783,6 +807,15 @@ func compileGenesis(
 	if customChanged != (customMatches == 1) {
 		return nil, compilerReport{}, errors.New("zerone_staking changed without exactly one policy-bound metadata rewrite")
 	}
+	if _, found := beforeDigests[scheduletypes.ModuleName]; found {
+		return nil, compilerReport{}, fmt.Errorf("source digest inventory unexpectedly contains %s", scheduletypes.ModuleName)
+	}
+	if _, found := afterDigests[scheduletypes.ModuleName]; !found {
+		return nil, compilerReport{}, fmt.Errorf("target digest inventory omits added %s", scheduletypes.ModuleName)
+	}
+	if !containsString(schemaMigrations, messageScheduleGenesisMigration) {
+		return nil, compilerReport{}, errors.New("message_schedule was added without its exact declared schema migration")
+	}
 	allowedChanges := map[string]bool{
 		"emergency":      true,
 		"ibc":            ibcChanged,
@@ -800,21 +833,30 @@ func compileGenesis(
 			return nil, compilerReport{}, fmt.Errorf("consensus-key-only profile unexpectedly changed %s genesis", module)
 		}
 	}
-	if len(afterDigests) != len(beforeDigests) {
-		return nil, compilerReport{}, errors.New("target genesis changed the app module key set")
+	if len(afterDigests) != len(beforeDigests)+1 {
+		return nil, compilerReport{}, errors.New("target genesis module key set must add only message_schedule")
 	}
-	moduleNames := make([]string, 0, len(beforeDigests))
-	for module := range beforeDigests {
+	for module := range afterDigests {
+		if _, found := beforeDigests[module]; !found && module != scheduletypes.ModuleName {
+			return nil, compilerReport{}, fmt.Errorf("target genesis unexpectedly added module %q", module)
+		}
+	}
+	moduleNames := make([]string, 0, len(afterDigests))
+	for module := range afterDigests {
 		moduleNames = append(moduleNames, module)
 	}
 	sort.Strings(moduleNames)
 	moduleDigests := make([]moduleDigest, 0, len(moduleNames))
 	for _, module := range moduleNames {
+		before := beforeDigests[module]
+		if module == scheduletypes.ModuleName {
+			before = absentModuleSHA256
+		}
 		moduleDigests = append(moduleDigests, moduleDigest{
 			Module:       module,
-			BeforeSHA256: beforeDigests[module],
+			BeforeSHA256: before,
 			AfterSHA256:  afterDigests[module],
-			Changed:      beforeDigests[module] != afterDigests[module],
+			Changed:      before != afterDigests[module],
 		})
 	}
 
@@ -893,6 +935,74 @@ func requireModules(appState map[string]json.RawMessage) error {
 			return fmt.Errorf("required module genesis %q is absent", module)
 		}
 	}
+	return nil
+}
+
+func requireNoSchedulerBankBalances(
+	cdc sdkcodec.JSONCodec,
+	rawBankGenesis json.RawMessage,
+) error {
+	var bankGenesis banktypes.GenesisState
+	if err := cdc.UnmarshalJSON(rawBankGenesis, &bankGenesis); err != nil {
+		return fmt.Errorf("decode bank genesis for scheduler balance preflight: %w", err)
+	}
+	for _, namespace := range []struct {
+		moduleName string
+		fresh      bool
+	}{
+		{moduleName: retiredScheduleModuleName},
+		{moduleName: scheduletypes.ModuleName, fresh: true},
+	} {
+		address := authtypes.NewModuleAddress(namespace.moduleName).String()
+		for _, balance := range bankGenesis.Balances {
+			if balance.Address != address || balance.Coins.IsZero() {
+				continue
+			}
+			if namespace.fresh {
+				return fmt.Errorf(
+					"fork genesis requires fresh scheduler module account %q to have zero balance before default initialization; found %s",
+					address,
+					balance.Coins,
+				)
+			}
+			return fmt.Errorf(
+				"fork genesis refuses retired scheduler module account %q holding %s; reconcile old-format liabilities first",
+				address,
+				balance.Coins,
+			)
+		}
+	}
+	return nil
+}
+
+func initializeFreshScheduleGenesis(appState map[string]json.RawMessage) error {
+	if _, found := appState[retiredScheduleModuleName]; found {
+		return fmt.Errorf(
+			"fork genesis refuses retired scheduler namespace %q; reconcile old-format liabilities instead of silently discarding state",
+			retiredScheduleModuleName,
+		)
+	}
+	if _, found := appState[scheduletypes.ModuleName]; found {
+		return fmt.Errorf(
+			"fork genesis requires source module %q to be absent; existing schedules and chain-bound occurrence IDs cannot be rewritten for the target chain",
+			scheduletypes.ModuleName,
+		)
+	}
+
+	genesis := scheduletypes.DefaultGenesis()
+	if err := genesis.Validate(); err != nil {
+		return fmt.Errorf("validate fresh %s default genesis: %w", scheduletypes.ModuleName, err)
+	}
+	if genesis.Params == nil || genesis.Params.AcceptNewSchedules ||
+		len(genesis.Schedules) != 0 || len(genesis.Receipts) != 0 ||
+		genesis.NextScheduleId != 1 || genesis.TotalEscrowUzrn != "0" {
+		return fmt.Errorf("fresh %s default genesis is not empty and admission-closed", scheduletypes.ModuleName)
+	}
+	raw, err := json.Marshal(genesis)
+	if err != nil {
+		return fmt.Errorf("encode fresh %s default genesis: %w", scheduletypes.ModuleName, err)
+	}
+	appState[scheduletypes.ModuleName] = raw
 	return nil
 }
 

@@ -739,7 +739,7 @@
     {
       "id": "app-wiring",
       "path": "app/app.go",
-      "sha256": "3656e3d9188cfb9123fc3d542dc5127458b092815a5c9954361cb7f33873379a",
+      "sha256": "e8af9b95d0f64544192424e288b0b6a510e1e0a51cc8463d49a5de2862a5cec8",
       "requiredSnippets": [
         "app.StakingKeeper = stakingkeeper.NewKeeper(",
         "app.GovKeeper = govkeeper.NewKeeper(",
@@ -826,7 +826,7 @@
     {
       "id": "custom-emergency-electorate",
       "path": "x/emergency/keeper/keeper.go",
-      "sha256": "0281c803bf11452ee65934eacc98edaae8f39888b4cd69ab1aaa0ec8c7a89800",
+      "sha256": "a7eef371dedd62db9e7d9466b2a352e37b116ac4d97f312800d0a8d625e9bd22",
       "requiredSnippets": [
         "func (k Keeper) IsGuardian(ctx context.Context, operatorAddr string) bool",
         "func (k Keeper) GetGuardianStake(ctx context.Context) *big.Int",

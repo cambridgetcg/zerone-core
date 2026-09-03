@@ -132,10 +132,12 @@ func (AppModule) ConsensusVersion() uint64 { return 2 }
 func (am AppModule) BeginBlock(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	releaseBlock := am.keeper.GetQuarantineReleaseBlock(ctx)
-	if releaseBlock != 0 &&
-		sdkCtx.BlockHeight() >= 0 &&
-		uint64(sdkCtx.BlockHeight()) > releaseBlock {
-		am.keeper.ClearQuarantineReleaseBlock(ctx)
+	if releaseBlock != 0 && sdkCtx.BlockHeight() >= 0 {
+		currentHeight := uint64(sdkCtx.BlockHeight())
+		graceEnds := releaseBlock + types.PostResumeCancellationGraceBlocks
+		if graceEnds < releaseBlock || currentHeight > graceEnds {
+			am.keeper.ClearQuarantineReleaseBlock(ctx)
+		}
 	}
 
 	// Repair or terminalize pre-hardening live state before any ceremony can

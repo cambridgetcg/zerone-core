@@ -20,7 +20,10 @@ import (
 	"sort"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	cmttypes "github.com/cometbft/cometbft/types"
+	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkmempool "github.com/cosmos/cosmos-sdk/types/mempool"
 
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -146,6 +149,10 @@ func (app *ZeroneApp) PrepareProposalHandler() sdk.PrepareProposalHandler {
 }
 
 func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareProposal) (resp *abci.ResponsePrepareProposal, err error) {
+	if req == nil {
+		return &abci.ResponsePrepareProposal{Txs: nil}, nil
+	}
+
 	logger := ctx.Logger().With("module", "abci", "handler", "PrepareProposal")
 
 	defer func() {
@@ -157,7 +164,9 @@ func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareP
 		}
 	}()
 
-	txs := make([][]byte, 0, len(req.Txs)+1)
+	maxProposalBytes := effectivePrepareProposalMaxBytes(ctx, req.MaxTxBytes)
+	maxProposalGas := effectiveProposalMaxGas(ctx)
+	selectedTxs := make([][]byte, 0, MaxProposalTxCount)
 
 	// Process vote extensions from previous block (if available)
 	if potVoteExtensionsReleaseEnabled && len(req.LocalLastCommit.Votes) > 0 {
@@ -166,41 +175,61 @@ func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareP
 		if len(injection.Commitments) > 0 || len(injection.Reveals) > 0 {
 			injBytes, err := EncodeVoteExtInjection(injection)
 			if err != nil {
-				return nil, fmt.Errorf("critical: vote extension injection encoding failed: %w", err)
-			}
-
-			if len(injBytes) > MaxVEXInjectionBytes {
+				// BaseApp falls back to the unfiltered RequestPrepareProposal
+				// transactions when a custom handler returns an error. Keep this
+				// failure closed by dropping the optional pseudo-transaction.
+				logger.Error("vote extension injection encoding failed — dropping", "err", err)
+			} else if len(injBytes) > MaxVEXInjectionBytes {
 				logger.Warn("vote extension injection exceeds size limit — dropping",
 					"size", len(injBytes), "max", MaxVEXInjectionBytes)
+			} else if !proposalFitsByteLimit(appendProposalTx(selectedTxs, injBytes), maxProposalBytes) {
+				logger.Warn("vote extension injection exceeds proposal byte limit — dropping",
+					"size", proposalProtoSize([][]byte{injBytes}), "max", maxProposalBytes)
 			} else {
-				txs = append(txs, injBytes)
+				selectedTxs = append(selectedTxs, injBytes)
+				logger.Info("injecting vote extension data",
+					"commitments", len(injection.Commitments),
+					"reveals", len(injection.Reveals),
+				)
 			}
-
-			logger.Info("injecting vote extension data",
-				"commitments", len(injection.Commitments),
-				"reveals", len(injection.Reveals),
-			)
 		}
 	}
 
-	// Add regular transactions from mempool, respecting gas limit
-	var totalGas uint64
-	for _, tx := range req.Txs {
-		estimatedGas := uint64(len(tx)) * 10
-		if totalGas+estimatedGas > BlockGasLimit {
+	regularByteBudget := remainingProposalBytes(maxProposalBytes, selectedTxs)
+	regularTxs := app.selectRegularProposalTxs(ctx, req, regularByteBudget, maxProposalGas)
+	remainingBytes := regularByteBudget
+	for _, txBytes := range regularTxs {
+		// A VEX pseudo-transaction is application-created only. It must never be
+		// admitted from either CometBFT's pool or the SDK application mempool.
+		if IsVoteExtInjectionTx(txBytes) {
+			logger.Warn("dropping vote extension pseudo-transaction from regular mempool selection")
 			break
 		}
-		txs = append(txs, tx)
-		totalGas += estimatedGas
+
+		txSize := proposalTxProtoSize(txBytes)
+		if remainingBytes >= 0 && txSize > remainingBytes {
+			// DefaultProposalHandler already accounts for protobuf framing. Stop
+			// instead of skipping so a same-signer sequence cannot develop a gap.
+			logger.Warn("stopping proposal selection at byte limit",
+				"tx_size", txSize, "remaining", remainingBytes, "max", maxProposalBytes)
+			break
+		}
+		selectedTxs = append(selectedTxs, txBytes)
+		if remainingBytes >= 0 {
+			remainingBytes -= txSize
+		}
 	}
 
 	logger.Debug("prepared proposal",
 		"height", req.Height,
-		"txs", len(txs),
+		"txs", len(selectedTxs),
+		"bytes", proposalProtoSize(selectedTxs),
+		"max_bytes", maxProposalBytes,
+		"max_gas", maxProposalGas,
 		"vote_extensions", len(req.LocalLastCommit.Votes),
 	)
 
-	return &abci.ResponsePrepareProposal{Txs: txs}, nil
+	return &abci.ResponsePrepareProposal{Txs: selectedTxs}, nil
 }
 
 // ProcessProposalHandler returns a ProcessProposal handler that validates
@@ -210,6 +239,10 @@ func (app *ZeroneApp) ProcessProposalHandler() sdk.ProcessProposalHandler {
 }
 
 func (app *ZeroneApp) processProposal(ctx sdk.Context, req *abci.RequestProcessProposal) (resp *abci.ResponseProcessProposal, err error) {
+	if req == nil {
+		return rejectProposal(), nil
+	}
+
 	logger := ctx.Logger().With("module", "abci", "handler", "ProcessProposal")
 
 	defer func() {
@@ -223,52 +256,90 @@ func (app *ZeroneApp) processProposal(ctx sdk.Context, req *abci.RequestProcessP
 		}
 	}()
 
+	// Every ordinary transaction must declare at least MinGasLimit and aggregate
+	// gas is source-capped. Reject impossible cardinality before a hostile
+	// proposal can induce millions of scans or a duplicate framing allocation
+	// with zero-length protobuf fields.
+	if len(req.Txs) > MaxProposalTxCount {
+		logger.Warn("proposal exceeds immutable transaction-count limit",
+			"txs", len(req.Txs), "max", MaxProposalTxCount)
+		return rejectProposal(), nil
+	}
+
+	if err := validateVoteExtInjectionLayout(req.Txs); err != nil {
+		logger.Warn("invalid vote extension injection layout", "err", err)
+		return rejectProposal(), nil
+	}
+
+	maxProposalBytes := effectiveProcessProposalMaxBytes(ctx)
+	proposalBytes := proposalProtoSize(req.Txs)
+	if !proposalFitsByteLimit(req.Txs, maxProposalBytes) {
+		logger.Warn("proposal exceeds consensus byte limit",
+			"size", proposalBytes, "max", maxProposalBytes)
+		return rejectProposal(), nil
+	}
+
+	maxProposalGas := effectiveProposalMaxGas(ctx)
+	var totalGas uint64
 	for i, txBytes := range req.Txs {
 		if IsVoteExtInjectionTx(txBytes) {
 			if !potVoteExtensionsReleaseEnabled {
 				logger.Warn("vote extension injection rejected: release safety latch is closed",
 					"index", i)
-				return &abci.ResponseProcessProposal{
-					Status: abci.ResponseProcessProposal_REJECT,
-				}, nil
+				return rejectProposal(), nil
 			}
 			if len(txBytes) > MaxVEXInjectionBytes {
 				logger.Warn("vote extension injection tx exceeds size limit",
 					"index", i, "size", len(txBytes), "max", MaxVEXInjectionBytes)
-				return &abci.ResponseProcessProposal{
-					Status: abci.ResponseProcessProposal_REJECT,
-				}, nil
+				return rejectProposal(), nil
 			}
 			if _, err := DecodeVoteExtInjection(txBytes); err != nil {
 				logger.Warn("invalid vote extension injection tx", "index", i, "err", err)
-				return &abci.ResponseProcessProposal{
-					Status: abci.ResponseProcessProposal_REJECT,
-				}, nil
+				return rejectProposal(), nil
 			}
 			continue
 		}
 
-		tx, err := app.txConfig.TxDecoder()(txBytes)
+		tx, err := app.TxDecode(txBytes)
 		if err != nil {
 			logger.Warn("invalid tx in proposal", "index", i, "err", err)
-			return &abci.ResponseProcessProposal{
-				Status: abci.ResponseProcessProposal_REJECT,
-			}, nil
+			return rejectProposal(), nil
 		}
 
-		for _, msg := range tx.GetMsgs() {
-			if m, ok := msg.(sdk.HasValidateBasic); ok {
-				if err := m.ValidateBasic(); err != nil {
-					logger.Warn("invalid msg in proposal",
-						"index", i,
-						"msg_type", sdk.MsgTypeURL(msg),
-						"err", err,
-					)
-					return &abci.ResponseProcessProposal{
-						Status: abci.ResponseProcessProposal_REJECT,
-					}, nil
-				}
-			}
+		gasTx, ok := tx.(baseapp.GasTx)
+		if !ok {
+			logger.Warn("proposal tx does not expose a declared gas limit", "index", i)
+			return rejectProposal(), nil
+		}
+		if gasTx.GetGas() < MinGasLimit {
+			logger.Warn("proposal tx declares less than the consensus minimum gas",
+				"index", i, "tx_gas", gasTx.GetGas(), "minimum", MinGasLimit)
+			return rejectProposal(), nil
+		}
+		if gasWouldExceedLimit(totalGas, gasTx.GetGas(), maxProposalGas) {
+			logger.Warn("proposal exceeds aggregate gas limit",
+				"index", i,
+				"gas_before", totalGas,
+				"tx_gas", gasTx.GetGas(),
+				"max", maxProposalGas,
+			)
+			return rejectProposal(), nil
+		}
+		totalGas += gasTx.GetGas()
+	}
+
+	// Decode-only or ValidateBasic-only checks do not authenticate signatures,
+	// fees, sequences, timeouts, emergency quarantine, or Zerone capability
+	// policy. Run the same BaseApp Ante path used during transaction execution.
+	// Calls are sequential so account-sequence transitions inside a proposal are
+	// checked against one another.
+	for i, txBytes := range req.Txs {
+		if IsVoteExtInjectionTx(txBytes) {
+			continue
+		}
+		if _, err := app.ProcessProposalVerifyTx(txBytes); err != nil {
+			logger.Warn("proposal tx failed ante verification", "index", i, "err", err)
+			return rejectProposal(), nil
 		}
 	}
 
@@ -280,6 +351,378 @@ func (app *ZeroneApp) processProposal(ctx sdk.Context, req *abci.RequestProcessP
 	return &abci.ResponseProcessProposal{
 		Status: abci.ResponseProcessProposal_ACCEPT,
 	}, nil
+}
+
+// selectRegularProposalTxs delegates production selection to the SDK's
+// application mempool handler. Tests and operators may explicitly configure a
+// NoOpMempool; in that mode CometBFT supplies FIFO candidates and we still run
+// full Ante verification instead of inheriting the SDK no-op verification path.
+func (app *ZeroneApp) selectRegularProposalTxs(
+	ctx sdk.Context,
+	req *abci.RequestPrepareProposal,
+	maxBytes int64,
+	maxGas uint64,
+) [][]byte {
+	if maxBytes == 0 {
+		return nil
+	}
+
+	regularReq := *req
+	regularReq.MaxTxBytes = maxBytes
+	regularReq.Txs = withoutVoteExtInjectionTxs(req.Txs)
+
+	if isNoOpMempool(app.Mempool()) {
+		return app.selectFIFORequestTxs(ctx, regularReq.Txs, maxBytes, maxGas)
+	}
+
+	return app.selectApplicationMempoolTxs(ctx, &regularReq, maxBytes, maxGas)
+}
+
+// selectApplicationMempoolTxs is a bounded adaptation of the SDK v0.53
+// SenderNonce proposal handler. The upstream handler verifies a candidate
+// before asking its selector whether capacity is exhausted, so a full stale
+// pool can overrun the two-second proposal window. This version counts every
+// inspected entry, pre-checks exact framing and declared gas, preserves all
+// signer sequences, and removes ante-invalid entries only after SelectBy drops
+// the SenderNonce mutex.
+func (app *ZeroneApp) selectApplicationMempoolTxs(
+	ctx sdk.Context,
+	req *abci.RequestPrepareProposal,
+	maxBytes int64,
+	maxGas uint64,
+) [][]byte {
+	pool := app.Mempool()
+	signerAdapter := newMessageSignerExtractionAdapter()
+	selectedSignerSequences := make(map[string]uint64)
+	blockedSigners := make(map[string]struct{})
+	selected := make([][]byte, 0)
+	invalid := make([]sdk.Tx, 0)
+	var totalBytes int64
+	var totalGas uint64
+	inspected := 0
+	inspectionLimitReached := false
+
+	sdkmempool.SelectBy(ctx, pool, req.Txs, func(memTx sdk.Tx) bool {
+		if inspected >= MaxProposalCandidateInspections {
+			inspectionLimitReached = true
+			return false
+		}
+		if maxGas-totalGas < MinGasLimit {
+			return false
+		}
+		inspected++
+
+		unorderedTx, unordered := memTx.(sdk.TxWithUnordered)
+		isUnordered := unordered && unorderedTx.GetUnordered()
+		signerSequences := make(map[string]uint64)
+		signerAddresses := make(map[string]sdk.AccAddress)
+		if !isUnordered {
+			signers, err := signerAdapter.GetSigners(memTx)
+			if err != nil {
+				invalid = append(invalid, memTx)
+				return true
+			}
+			for _, signer := range signers {
+				key := signer.Signer.String()
+				if _, blocked := blockedSigners[key]; blocked {
+					return true
+				}
+				signerSequences[key] = signer.Sequence
+				signerAddresses[key] = signer.Signer
+			}
+		}
+		blockCandidateSigners := func() {
+			for signer := range signerSequences {
+				blockedSigners[signer] = struct{}{}
+			}
+		}
+		if !isUnordered {
+			invalidSequence := false
+			deferredSequence := false
+			for key, sequence := range signerSequences {
+				if prior, seen := selectedSignerSequences[key]; seen {
+					if prior == ^uint64(0) || sequence != prior+1 {
+						deferredSequence = true
+					}
+					continue
+				}
+
+				account := app.AccountKeeper.GetAccount(ctx, signerAddresses[key])
+				if account == nil || sequence < account.GetSequence() {
+					invalidSequence = true
+				}
+				if account != nil && sequence > account.GetSequence() {
+					// A predecessor may have left only the local application
+					// pool (for example after proposer-side eviction) while it
+					// is still in flight through CometBFT. Preserve this
+					// transaction so it can become valid after that nonce is
+					// committed or reintroduced.
+					deferredSequence = true
+				}
+			}
+			if invalidSequence {
+				invalid = append(invalid, memTx)
+				blockCandidateSigners()
+				return true
+			}
+			if deferredSequence {
+				// PriorityNonce orders only by a transaction's first signer. A
+				// higher-priority multi-signer transaction can therefore appear
+				// before the lower-priority transaction that advances one of its
+				// secondary signers. Preserve the future transaction without
+				// blocking those signers so that predecessor can still be selected
+				// later in this pass; the future transaction can follow after that
+				// predecessor commits.
+				return true
+			}
+		}
+
+		gasTx, ok := memTx.(baseapp.GasTx)
+		if !ok || gasTx.GetGas() < MinGasLimit {
+			invalid = append(invalid, memTx)
+			blockCandidateSigners()
+			return true
+		}
+		if gasWouldExceedLimit(totalGas, gasTx.GetGas(), maxGas) {
+			blockCandidateSigners()
+			return true
+		}
+
+		encoded, err := app.TxEncode(memTx)
+		if err != nil {
+			invalid = append(invalid, memTx)
+			blockCandidateSigners()
+			return true
+		}
+		txSize := proposalTxProtoSize(encoded)
+		if maxBytes >= 0 && (totalBytes > maxBytes || txSize > maxBytes-totalBytes) {
+			blockCandidateSigners()
+			return true
+		}
+
+		verified, err := app.PrepareProposalVerifyTx(memTx)
+		if err != nil {
+			invalid = append(invalid, memTx)
+			blockCandidateSigners()
+			return true
+		}
+		if !bytes.Equal(encoded, verified) {
+			invalid = append(invalid, memTx)
+			blockCandidateSigners()
+			return true
+		}
+
+		selected = append(selected, verified)
+		totalBytes += txSize
+		totalGas += gasTx.GetGas()
+		for signer, sequence := range signerSequences {
+			selectedSignerSequences[signer] = sequence
+		}
+		return true
+	})
+	if inspectionLimitReached {
+		ctx.Logger().Warn(
+			"application-mempool proposal selection reached candidate inspection limit",
+			"inspected", inspected,
+			"limit", MaxProposalCandidateInspections,
+			"selected", len(selected),
+		)
+	}
+
+	for _, tx := range invalid {
+		if err := pool.Remove(tx); err != nil && !errors.Is(err, sdkmempool.ErrTxNotFound) {
+			ctx.Logger().Warn("failed to evict invalid application-mempool transaction", "err", err)
+		}
+	}
+	return selected
+}
+
+// selectFIFORequestTxs is the strict fallback for an explicitly configured
+// NoOpMempool. It preserves CometBFT FIFO order while dropping malformed or
+// stale candidates. Capacity is checked before Ante so an unselected
+// transaction cannot advance proposal-local account sequence state.
+func (app *ZeroneApp) selectFIFORequestTxs(
+	ctx sdk.Context,
+	candidates [][]byte,
+	maxBytes int64,
+	maxGas uint64,
+) [][]byte {
+	selected := make([][]byte, 0, len(candidates))
+	var totalBytes int64
+	var totalGas uint64
+
+	for index, txBytes := range candidates {
+		if index >= MaxProposalCandidateInspections {
+			ctx.Logger().Warn(
+				"CometBFT FIFO proposal selection reached candidate inspection limit",
+				"inspected", index,
+				"limit", MaxProposalCandidateInspections,
+				"selected", len(selected),
+			)
+			break
+		}
+		if IsVoteExtInjectionTx(txBytes) {
+			continue
+		}
+
+		tx, err := app.TxDecode(txBytes)
+		if err != nil {
+			ctx.Logger().Debug("dropping undecodable CometBFT mempool candidate", "index", index, "err", err)
+			continue
+		}
+		gasTx, ok := tx.(baseapp.GasTx)
+		if !ok || gasTx.GetGas() < MinGasLimit || gasWouldExceedLimit(totalGas, gasTx.GetGas(), maxGas) {
+			continue
+		}
+
+		canonicalBytes, err := app.TxEncode(tx)
+		if err != nil {
+			ctx.Logger().Debug("dropping unencodable CometBFT mempool candidate", "index", index, "err", err)
+			continue
+		}
+		txSize := proposalTxProtoSize(canonicalBytes)
+		if maxBytes >= 0 && (totalBytes > maxBytes || txSize > maxBytes-totalBytes) {
+			continue
+		}
+
+		verifiedBytes, err := app.PrepareProposalVerifyTx(tx)
+		if err != nil {
+			ctx.Logger().Debug("dropping CometBFT mempool candidate that failed ante verification", "index", index, "err", err)
+			continue
+		}
+		if !bytes.Equal(canonicalBytes, verifiedBytes) {
+			// A verifier that rewrites bytes after the capacity decision could
+			// invalidate signatures or create a sequence gap. Fail this candidate
+			// closed; BaseApp's encoder is expected to be stable.
+			break
+		}
+
+		selected = append(selected, verifiedBytes)
+		totalBytes += txSize
+		totalGas += gasTx.GetGas()
+	}
+
+	return selected
+}
+
+func isNoOpMempool(pool sdkmempool.Mempool) bool {
+	if pool == nil {
+		return true
+	}
+	switch pool.(type) {
+	case sdkmempool.NoOpMempool, *sdkmempool.NoOpMempool:
+		return true
+	default:
+		return false
+	}
+}
+
+func effectiveProposalMaxGas(ctx sdk.Context) uint64 {
+	maxGas := BlockGasLimit
+	// Comet uses -1 for unlimited. Zero is a real zero-gas consensus limit and
+	// must not silently expand to the application's source-level ceiling.
+	if block := ctx.ConsensusParams().Block; block != nil && block.MaxGas >= 0 {
+		consensusMaxGas := uint64(block.MaxGas)
+		if consensusMaxGas < maxGas {
+			maxGas = consensusMaxGas
+		}
+	}
+	return maxGas
+}
+
+func effectivePrepareProposalMaxBytes(ctx sdk.Context, requestMax int64) int64 {
+	maxBytes := BlockMaxBytesLimit
+	if requestMax >= 0 && requestMax < maxBytes {
+		maxBytes = requestMax
+	}
+	if block := ctx.ConsensusParams().Block; block != nil && block.MaxBytes >= 0 &&
+		block.MaxBytes < maxBytes {
+		maxBytes = block.MaxBytes
+	}
+	return maxBytes
+}
+
+func effectiveProcessProposalMaxBytes(ctx sdk.Context) int64 {
+	if block := ctx.ConsensusParams().Block; block != nil && block.MaxBytes >= 0 && block.MaxBytes < BlockMaxBytesLimit {
+		return block.MaxBytes
+	}
+	return BlockMaxBytesLimit
+}
+
+func remainingProposalBytes(maxBytes int64, selected [][]byte) int64 {
+	if maxBytes < 0 {
+		return -1
+	}
+	used := proposalProtoSize(selected)
+	if used >= maxBytes {
+		return 0
+	}
+	return maxBytes - used
+}
+
+func proposalProtoSize(txs [][]byte) int64 {
+	cometTxs := make(cmttypes.Txs, len(txs))
+	for i, tx := range txs {
+		cometTxs[i] = cmttypes.Tx(tx)
+	}
+	return cmttypes.ComputeProtoSizeForTxs(cometTxs)
+}
+
+func proposalTxProtoSize(tx []byte) int64 {
+	return cmttypes.ComputeProtoSizeForTxs(cmttypes.Txs{cmttypes.Tx(tx)})
+}
+
+func proposalFitsByteLimit(txs [][]byte, maxBytes int64) bool {
+	return maxBytes < 0 || proposalProtoSize(txs) <= maxBytes
+}
+
+func appendProposalTx(txs [][]byte, tx []byte) [][]byte {
+	candidate := make([][]byte, len(txs)+1)
+	copy(candidate, txs)
+	candidate[len(txs)] = tx
+	return candidate
+}
+
+func gasWouldExceedLimit(total, next, limit uint64) bool {
+	return total > limit || next > limit-total
+}
+
+func withoutVoteExtInjectionTxs(txs [][]byte) [][]byte {
+	capacity := len(txs)
+	if capacity > MaxProposalCandidateInspections {
+		capacity = MaxProposalCandidateInspections
+	}
+	regular := make([][]byte, 0, capacity)
+	for index, tx := range txs {
+		if index >= MaxProposalCandidateInspections {
+			break
+		}
+		if !IsVoteExtInjectionTx(tx) {
+			regular = append(regular, tx)
+		}
+	}
+	return regular
+}
+
+func validateVoteExtInjectionLayout(txs [][]byte) error {
+	found := false
+	for index, tx := range txs {
+		if !IsVoteExtInjectionTx(tx) {
+			continue
+		}
+		if found {
+			return fmt.Errorf("multiple vote extension injections are forbidden")
+		}
+		if index != 0 {
+			return fmt.Errorf("vote extension injection must be transaction 0, got index %d", index)
+		}
+		found = true
+	}
+	return nil
+}
+
+func rejectProposal() *abci.ResponseProcessProposal {
+	return &abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}
 }
 
 // PotPreBlocker processes vote extension injection data before BeginBlock.

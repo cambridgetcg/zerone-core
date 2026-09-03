@@ -2111,6 +2111,55 @@ func TestUpgrade_SDK053IBC10RefusesLegacyFeeBalance(t *testing.T) {
 	)
 }
 
+func TestUpgrade_SDK053IBC10RefusesRetiredScheduleBalanceWithoutMutation(t *testing.T) {
+	h := NewTestHarness(t)
+	seedPreSDKTransitionLineage(t, h)
+
+	legacyAddress := authtypes.NewModuleAddress("schedule")
+	legacyCoins := sdk.NewCoins(sdk.NewCoin(
+		zeroneapp.BondDenom,
+		sdkmath.NewInt(7),
+	))
+	require.True(t, h.BankKeeper.BlockedAddr(legacyAddress))
+	blocked := h.BankKeeper.GetBlockedAddresses()
+	delete(blocked, legacyAddress.String())
+	fundErr := h.FundAccount(legacyAddress, legacyCoins)
+	blocked[legacyAddress.String()] = true
+	require.NoError(t, fundErr)
+	require.True(t, h.BankKeeper.BlockedAddr(legacyAddress))
+	require.Equal(t, legacyCoins, h.BankKeeper.GetAllBalances(h.Ctx, legacyAddress))
+
+	fromVM := sdk053IBC10SourceVM(h)
+	planInfo, err := zeroneapp.BuildSDK053IBC10PlanInfo(nil, nil)
+	require.NoError(t, err)
+	_, err = h.App.RunUpgradeHandlerWithInfoForTests(
+		h.Ctx,
+		zeroneapp.UpgradeNameSDK053IBC10,
+		fromVM,
+		testH3ActivationHeight,
+		planInfo,
+	)
+	require.ErrorContains(t, err, "cannot orphan retired scheduler module account")
+	require.ErrorContains(t, err, legacyCoins.String())
+	require.Equal(
+		t,
+		legacyCoins,
+		h.BankKeeper.GetAllBalances(h.Ctx, legacyAddress),
+		"failed upgrade must not move, burn, or relabel the retired scheduler balance",
+	)
+	for _, marker := range []string{
+		"upgrade_marker_sdk-0.53-ibc-10",
+		"upgrade_marker_auth-ante-hardening-v1",
+		"upgrade_marker_upgrade-incident-operations-v1",
+	} {
+		require.Empty(
+			t,
+			h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, marker),
+			"retired scheduler balance refusal must precede H3 transition markers",
+		)
+	}
+}
+
 // TestUpgrade_SubstrateDedupeV1SeedsAndArms drives the real substrate-dedupe-v1
 // handler end-to-end: it must run RunMigrations + ReconcileModuleAccountPerms +
 // SeedSourceRefs + WriteMigrationMarker without error, index a pre-existing

@@ -225,13 +225,13 @@ func TestVoteExtensionJSONRoundTrip(t *testing.T) {
 	require.Equal(t, uint64(750_000), decoded.Reveals[0].Confidence)
 }
 
-func TestAcceptedUnsignedTransactionCannotTriggerAutomaticMint(t *testing.T) {
+func TestMalformedZeroGasTransactionRejectedByProposalAdmission(t *testing.T) {
 	app := newTestApp(t)
 	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 2})
 	app.VestingRewardsKeeper.InitGenesis(ctx, vestingrewardstypes.DefaultGenesis())
 
-	from := sdk.AccAddress("unsigned_sender_____")
-	to := sdk.AccAddress("unsigned_recipient__")
+	from := sdk.AccAddress("malformed_sender____")
+	to := sdk.AccAddress("malformed_receiver__")
 	builder := app.TxConfig().NewTxBuilder()
 	require.NoError(t, builder.SetMsgs(banktypes.NewMsgSend(
 		from,
@@ -241,15 +241,24 @@ func TestAcceptedUnsignedTransactionCannotTriggerAutomaticMint(t *testing.T) {
 	txBytes, err := app.TxConfig().TxEncoder()(builder.GetTx())
 	require.NoError(t, err)
 
+	prepared, err := app.PrepareProposal(&abci.RequestPrepareProposal{
+		Height:     2,
+		MaxTxBytes: 1_000_000,
+		Txs:        [][]byte{txBytes},
+	})
+	require.NoError(t, err)
+	require.Empty(t, prepared.Txs,
+		"PrepareProposal must not carry a malformed zero-gas mempool candidate")
+
 	beforeSupply := app.BankKeeper.GetSupply(ctx, "uzrn").Amount
 	beforeMinted := app.VestingRewardsKeeper.GetTotalMinted(ctx)
-	response, err := app.ProcessProposalHandler()(ctx, &abci.RequestProcessProposal{
+	response, err := app.ProcessProposal(&abci.RequestProcessProposal{
 		Height: 2,
 		Txs:    [][]byte{txBytes},
 	})
 	require.NoError(t, err)
-	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, response.Status,
-		"the fixture must reproduce a stateless-valid proposal tx")
+	require.Equal(t, abci.ResponseProcessProposal_REJECT, response.Status,
+		"ProcessProposal must enforce the immutable gas floor before Ante")
 
 	module := vestingrewards.NewAppModule(app.AppCodec(), app.VestingRewardsKeeper)
 	require.NoError(t, module.BeginBlock(ctx))
@@ -257,6 +266,28 @@ func TestAcceptedUnsignedTransactionCannotTriggerAutomaticMint(t *testing.T) {
 		"proposal inclusion must not change native supply")
 	require.Zero(t, app.VestingRewardsKeeper.GetTotalMinted(ctx).Cmp(beforeMinted),
 		"proposal inclusion must not change mint accounting")
+}
+
+func TestProcessProposalRejectsVoteExtensionPseudoTransactionsWhileLatchClosed(t *testing.T) {
+	app := newTestApp(t)
+	vex, err := zeroneapp.EncodeVoteExtInjection(zeroneapp.VoteExtInjection{})
+	require.NoError(t, err)
+
+	tests := map[string][][]byte{
+		"canonical position": {vex},
+		"nonzero position":   {[]byte{0x01}, vex},
+		"duplicate":          {vex, vex},
+	}
+	for name, txs := range tests {
+		t.Run(name, func(t *testing.T) {
+			response, err := app.ProcessProposal(&abci.RequestProcessProposal{
+				Height: 2,
+				Txs:    txs,
+			})
+			require.NoError(t, err)
+			require.Equal(t, abci.ResponseProcessProposal_REJECT, response.Status)
+		})
+	}
 }
 
 func TestVestingRewardsInitGenesisRejectsRetiredRewardReactivation(t *testing.T) {

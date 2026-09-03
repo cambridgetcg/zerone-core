@@ -32,6 +32,11 @@ is insufficient: the signed packet must distinguish the live `zerone-1` halt
 image, `zerone-2` runtime image, and query-gateway image, while the monitoring
 manifest must identify the actual tested rules and evidence.
 
+The packet's accepted policy must state
+`message_schedule_admission_live_at_genesis=false`. The matching network and
+human manifests must declare native message-schedule admission disabled; source
+presence never authorizes schedule creation.
+
 Never edit or reissue that packet merely to choose checkpoint heights; all
 three operator decisions reference its unchanged hash and detached signature.
 Only the later canonical `CUTOVER-DECISION.json`, after private-soak evidence
@@ -127,7 +132,8 @@ RPC/REST loopback-only, P2P private, and all public Fly services absent. Verify:
 - exact 13,555,000,000 uzrn supply and the two expected genesis owners;
 - vote extensions disabled and every protocol-dark latch unchanged;
 - only internal `09-localhost` IBC support; no external client, transfer, ICA,
-  bridge, claiming, admission/reward, or issuance path;
+  bridge, claiming, knowledge admission/reward, issuance, or native
+  message-schedule admission path;
 - advancing height, expected cadence, stable private peer, equal validator/edge
   app hashes at equal heights, alerts, backups, and no long-lived custody env.
 
@@ -536,8 +542,9 @@ not the v3 inventory itself and does not authorize exposure or migration.
 ## 8. Link histories and open the beta
 
 Freshly revalidate private z2 health/app hashes, supply/validator roster, and
-all protocol-dark latches. Finalize the exact public P2P/RPC/REST/archive
-coordinates and DNS-change manifest without deploying them.
+all protocol-dark latches, including
+`message_schedule.params.accept_new_schedules=false`. Finalize the exact public
+P2P/RPC/REST/archive coordinates and DNS-change manifest without deploying them.
 
 Construct and offline-sign the exact z2 self-send history-link transaction. Its
 memo commits only:

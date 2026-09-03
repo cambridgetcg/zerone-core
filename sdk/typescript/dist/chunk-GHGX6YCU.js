@@ -12,6 +12,7 @@ import {
   registry19,
   registry2,
   registry20,
+  registry21,
   registry3,
   registry4,
   registry5,
@@ -19,7 +20,7 @@ import {
   registry7,
   registry8,
   registry9
-} from "./chunk-PQV3XR6M.js";
+} from "./chunk-PQXLY4II.js";
 
 // src/registry.ts
 import { Registry } from "@cosmjs/proto-signing";
@@ -43,13 +44,14 @@ var zeroneRegistryTypes = [
   ...registry17,
   ...registry18,
   ...registry19,
-  ...registry20
+  ...registry20,
+  ...registry21
 ];
-function registerZeroneMessages(registry21) {
+function registerZeroneMessages(registry22) {
   for (const [typeUrl, codec] of zeroneRegistryTypes) {
-    registry21.register(typeUrl, codec);
+    registry22.register(typeUrl, codec);
   }
-  return registry21;
+  return registry22;
 }
 function createZeroneRegistry(baseTypes) {
   return registerZeroneMessages(new Registry(baseTypes));

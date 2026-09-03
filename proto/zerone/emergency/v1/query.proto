@@ -52,7 +52,8 @@ message QueryStatusResponse {
   bool quarantine_deadline_exceeded = 13;
   uint64 quarantine_started_at_block = 14;
   // Block through which the one-block post-resume admission latch remains
-  // active. Non-zero only after resume finalization and until H+1 BeginBlock.
+  // active. The marker remains queryable through the scheduler's bounded
+  // post-resume cancellation grace window even though admission opens at H+1.
   uint64 quarantine_release_block = 15;
   // First block whose DeliverTx admission is normal again. CheckTx after the
   // release-block commit also targets this height and is admitted.

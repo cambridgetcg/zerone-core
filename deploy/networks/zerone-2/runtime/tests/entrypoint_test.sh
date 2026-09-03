@@ -281,6 +281,36 @@ grep -A6 '^\[api\]' "${VAL_HOME}/config/app.toml" | grep -q '^enable = false$' |
   fail "validator API was not disabled"
 grep -A55 '^\[p2p\]' "${VAL_HOME}/config/config.toml" | grep -q '^pex = false$' || \
   fail "validator peer exchange was not disabled"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | grep -q '^type = "flood"$' || \
+  fail "Comet mempool type was not pinned"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | grep -q '^recheck = true$' || \
+  fail "Comet mempool recheck was not enabled"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | grep -q '^recheck_timeout = "5s"$' || \
+  fail "Comet mempool recheck timeout was not pinned"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | grep -q '^broadcast = true$' || \
+  fail "Comet mempool broadcast was not enabled"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | grep -q '^wal_dir = ""$' || \
+  fail "Comet mempool WAL policy was not pinned"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | grep -q '^size = 5000$' || \
+  fail "Comet mempool transaction cap was not pinned"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | grep -q '^max_txs_bytes = 67108864$' || \
+  fail "Comet mempool byte cap was not pinned"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | grep -q '^cache_size = 10000$' || \
+  fail "Comet mempool cache cap was not pinned"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | grep -q '^keep-invalid-txs-in-cache = false$' || \
+  fail "Comet invalid transaction cache policy was not pinned"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | grep -q '^max_tx_bytes = 262144$' || \
+  fail "Comet transaction byte cap was not pinned"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | grep -q '^max_batch_bytes = 0$' || \
+  fail "Comet transaction batch cap was not pinned"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^experimental_max_gossip_connections_to_persistent_peers = 10$' || \
+  fail "Comet persistent-peer gossip fanout was not pinned"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^experimental_max_gossip_connections_to_non_persistent_peers = 10$' || \
+  fail "Comet non-persistent-peer gossip fanout was not pinned"
+grep -A8 '^\[mempool\]' "${VAL_HOME}/config/app.toml" | grep -q '^max-txs = 5000$' || \
+  fail "application priority-nonce pool was not bounded"
 pass "real validator keys initialize once and never reach a child process"
 
 # Resuming requires no bootstrap secrets and preserves the role/key marker.
@@ -289,6 +319,22 @@ toml_test_set rpc laddr '"tcp://0.0.0.0:26657"' \
   "${VAL_HOME}/config/config.toml"
 toml_test_set rpc unsafe true "${VAL_HOME}/config/config.toml"
 toml_test_set p2p pex true "${VAL_HOME}/config/config.toml"
+toml_test_set mempool type '"nop"' "${VAL_HOME}/config/config.toml"
+toml_test_set mempool recheck false "${VAL_HOME}/config/config.toml"
+toml_test_set mempool recheck_timeout '"1s"' "${VAL_HOME}/config/config.toml"
+toml_test_set mempool broadcast false "${VAL_HOME}/config/config.toml"
+toml_test_set mempool wal_dir '"data/mempool.wal"' "${VAL_HOME}/config/config.toml"
+toml_test_set mempool size 1 "${VAL_HOME}/config/config.toml"
+toml_test_set mempool max_txs_bytes 1073741824 "${VAL_HOME}/config/config.toml"
+toml_test_set mempool cache_size 1 "${VAL_HOME}/config/config.toml"
+toml_test_set mempool keep-invalid-txs-in-cache true "${VAL_HOME}/config/config.toml"
+toml_test_set mempool max_tx_bytes 1048576 "${VAL_HOME}/config/config.toml"
+toml_test_set mempool max_batch_bytes 1 "${VAL_HOME}/config/config.toml"
+toml_test_set mempool experimental_max_gossip_connections_to_persistent_peers 1 \
+  "${VAL_HOME}/config/config.toml"
+toml_test_set mempool experimental_max_gossip_connections_to_non_persistent_peers 1 \
+  "${VAL_HOME}/config/config.toml"
+toml_test_set mempool max-txs -1 "${VAL_HOME}/config/app.toml"
 toml_test_set api enable true "${VAL_HOME}/config/app.toml"
 toml_test_set grpc enable true "${VAL_HOME}/config/app.toml"
 run_role validator "${VAL_HOME}" "${VAL_ARGS}" "${VAL_ENV}" "${LEAK_FILE}" >/dev/null
@@ -303,6 +349,36 @@ grep -A6 '^\[api\]' "${VAL_HOME}/config/app.toml" | \
   grep -q '^enable = false$' || fail "resume retained validator API"
 grep -A6 '^\[grpc\]' "${VAL_HOME}/config/app.toml" | \
   grep -q '^enable = false$' || fail "resume retained validator gRPC"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^type = "flood"$' || fail "resume retained disabled Comet mempool type"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^recheck = true$' || fail "resume retained disabled Comet mempool recheck"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^recheck_timeout = "5s"$' || fail "resume retained unsafe Comet recheck timeout"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^broadcast = true$' || fail "resume retained disabled Comet mempool broadcast"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^wal_dir = ""$' || fail "resume retained unsafe Comet mempool WAL"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^size = 5000$' || fail "resume retained unsafe Comet transaction cap"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^max_txs_bytes = 67108864$' || fail "resume retained unsafe Comet byte cap"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^cache_size = 10000$' || fail "resume retained unsafe Comet cache cap"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^keep-invalid-txs-in-cache = false$' || fail "resume retained unsafe Comet invalid cache policy"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^max_tx_bytes = 262144$' || fail "resume retained unsafe transaction byte cap"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^max_batch_bytes = 0$' || fail "resume retained unsafe Comet batch cap"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^experimental_max_gossip_connections_to_persistent_peers = 10$' || \
+  fail "resume retained unsafe persistent-peer gossip fanout"
+grep -A95 '^\[mempool\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^experimental_max_gossip_connections_to_non_persistent_peers = 10$' || \
+  fail "resume retained unsafe non-persistent-peer gossip fanout"
+grep -A8 '^\[mempool\]' "${VAL_HOME}/config/app.toml" | \
+  grep -q '^max-txs = 5000$' || fail "resume retained disabled SDK mempool"
 pass "validator resume reasserts the complete role boundary"
 
 # The FD lock must survive exec and refuse a concurrent process on the same

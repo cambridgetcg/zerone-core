@@ -454,8 +454,35 @@ patch_genesis '
 ' --arg validator "${VALIDATOR_ADDRESS}" --arg bond "${SELF_BOND_UZRN}"
 
 info "applying the zerone-2 protocol-dark profile"
+# `zeroned init` uses protobuf JSON, so false and empty repeated fields are
+# absent here. Enforce that exact emitted shape before materializing the full
+# launch-artifact shape below; unknown future fields must stop the ceremony.
 patch_genesis '
-  .consensus.params.block.max_bytes = "4194304"
+  if (.app_state | has("schedule")) then
+    error("retired app_state.schedule is present; reconcile it before running this ceremony")
+  elif ((.app_state | has("message_schedule")) | not) then
+    error("release binary did not emit required app_state.message_schedule genesis")
+  elif (.app_state.message_schedule | type) != "object" then
+    error("app_state.message_schedule must be an object")
+  elif ((.app_state.message_schedule | keys | sort) !=
+    (["params","next_schedule_id","total_escrow_uzrn"] | sort)) then
+    error("app_state.message_schedule does not have the exact required top-level fields")
+  elif (.app_state.message_schedule.params | type) != "object" then
+    error("app_state.message_schedule.params must be an object")
+  elif ((.app_state.message_schedule.params | keys | sort) !=
+    ([
+      "min_schedule_delay_blocks",
+      "min_interval_blocks",
+      "max_executions_per_schedule",
+      "max_active_schedules_per_creator",
+      "max_due_records_per_block",
+      "max_query_limit",
+      "execution_fee_uzrn",
+      "max_transfer_per_execution_uzrn"
+    ] | sort)) then
+    error("app_state.message_schedule.params does not have the exact required parameter fields")
+  else . end
+  | .consensus.params.block.max_bytes = "4194304"
   | .consensus.params.block.max_gas = "33333333"
   | .consensus.params.evidence.max_age_num_blocks = "100000"
   | .consensus.params.evidence.max_age_duration = "172800000000000"
@@ -519,6 +546,20 @@ patch_genesis '
   | .app_state.claiming_pot.params.bootstrap_registrar = ""
   | .app_state.claiming_pot.pots = []
   | .app_state.claiming_pot.claims = []
+
+  | .app_state.message_schedule.params.accept_new_schedules = false
+  | .app_state.message_schedule.params.min_schedule_delay_blocks = 2
+  | .app_state.message_schedule.params.min_interval_blocks = 10
+  | .app_state.message_schedule.params.max_executions_per_schedule = 365
+  | .app_state.message_schedule.params.max_active_schedules_per_creator = 32
+  | .app_state.message_schedule.params.max_due_records_per_block = 64
+  | .app_state.message_schedule.params.max_query_limit = 100
+  | .app_state.message_schedule.params.execution_fee_uzrn = "100000"
+  | .app_state.message_schedule.params.max_transfer_per_execution_uzrn = "1000000000000"
+  | .app_state.message_schedule.schedules = []
+  | .app_state.message_schedule.receipts = []
+  | .app_state.message_schedule.next_schedule_id = 1
+  | .app_state.message_schedule.total_escrow_uzrn = "0"
 
   | .app_state.ibc.client_genesis.params.allowed_clients = ["09-localhost"]
   | .app_state.ibc.client_genesis.clients = []
@@ -709,7 +750,8 @@ jq -n \
       pot: "not live",
       ibc: "external-disabled; localhost-only",
       substrate_bridge: "disabled",
-      claiming: "disabled"
+      claiming: "disabled",
+      message_schedule_admission: "disabled"
     }
   }
 ' > "${ARTIFACT_DIR}/network-manifest.json"
@@ -727,6 +769,7 @@ cat > "${ARTIFACT_DIR}/GENESIS-MANIFEST.md" <<EOF
 - Binary version: ${BINARY_VERSION}
 - Binary target: ${BINARY_GOOS}/${BINARY_GOARCH}
 - Trust model: ${CUSTODY_DISCLOSURE}
+- Native message-schedule admission: disabled (\`accept_new_schedules=false\`).
 
 ## Exact supply
 
@@ -749,8 +792,8 @@ Total: **${TOTAL_SUPPLY_UZRN} uzrn (13,555 ZRN)**.
 
 Vote extensions and PoT settlement are not live. IBC/ICA, transfers, the
 substrate bridge, knowledge admission/rewards, claiming, alignment corrections,
-counterexamples, and liquidity creation are latched off in genesis and enforced
-by the mandatory artifact audit.
+counterexamples, liquidity creation, and native message-schedule admission are
+latched off in genesis and enforced by the mandatory artifact audit.
 EOF
 
 # Assert no custody-shaped JSON field escaped into public artifacts.

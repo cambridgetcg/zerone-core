@@ -232,7 +232,8 @@ if [[ "${SNAPSHOT_INTERVAL}" != "0" ]]; then
   sedi "s/^snapshot-interval = .*/snapshot-interval = ${SNAPSHOT_INTERVAL}/" "${APP_TOML}"
 fi
 
-# Mempool — SDK v0.50 defaults max-txs=-1 (NoOpMempool), which drops all txs
+# Application mempool — a NoOpMempool retains no SDK-side proposal-ordering
+# copy; CometBFT may still store and gossip transactions independently.
 sedi "s/^max-txs = -1/max-txs = 5000/" "${APP_TOML}"
 
 # IAVL — disable fast nodes to prevent "version does not exist" query errors

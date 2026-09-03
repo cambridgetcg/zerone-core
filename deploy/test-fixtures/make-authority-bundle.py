@@ -437,6 +437,17 @@ MONITORING_RULE_DEFINITIONS = (
         "inject_restart_counter_above_threshold",
     ),
     (
+        "comet_mempool_saturation",
+        "ZeroneCometMempoolSaturation",
+        "warning",
+        "cometbft_mempool_size_or_size_bytes_at_or_above_threshold",
+        {
+            "maximum_pending_transactions": 4000,
+            "maximum_pending_bytes": 53_687_091,
+        },
+        "fill_cometbft_mempool_to_count_and_byte_thresholds",
+    ),
+    (
         "stale_backup",
         "ZeroneStaleBackup",
         "critical",
@@ -753,6 +764,7 @@ def make_ceremony_artifacts(output: pathlib.Path, release: dict[str, Any]) -> st
             "ibc": "external-disabled; localhost-only",
             "substrate_bridge": "disabled",
             "claiming": "disabled",
+            "message_schedule_admission": "disabled",
         },
     }
     write_json(output, "network-manifest.json", manifest)
@@ -767,6 +779,7 @@ def make_ceremony_artifacts(output: pathlib.Path, release: dict[str, Any]) -> st
         f"- Binary SHA-256: {manifest['release']['binary_sha256']}\n"
         f"- Binary version: {manifest['release']['binary_version']}\n"
         f"- Binary target: {manifest['release']['binary_goos']}/{manifest['release']['binary_goarch']}\n"
+        "- Native message-schedule admission: disabled (`accept_new_schedules=false`).\n"
     )
     (output / "GENESIS-MANIFEST.md").write_text(human_manifest)
     release["ceremony_artifacts"] = {

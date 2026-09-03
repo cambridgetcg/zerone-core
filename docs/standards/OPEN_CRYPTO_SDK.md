@@ -96,11 +96,11 @@ activity.
 ### Generated REST and transaction coverage
 
 All generated custom query gateways are registered. The canonical generated
-Swagger document currently contains 217 paths and 446 definitions:
+Swagger document currently contains 222 paths and 456 definitions:
 [`docs/swagger-ui/swagger.json`](../swagger-ui/swagger.json).
 
 The repository TypeScript package contains protobuf/direct-signing codecs for
-169 request message types across 20 Zerone `Msg` services. Its registry
+173 request message types across 21 Zerone `Msg` services. Its registry
 composes with CosmJS standard message types, and its CAIP helpers share golden
 vectors with Go. These codecs serialize messages; they do not supply authority
 policy, legacy Amino support, or automatic mainnet controls.
@@ -209,8 +209,8 @@ H−1 state, and an explicit activation height.
 
 ## Implemented TypeScript SDK boundary
 
-- Typed protobuf/direct-signing codecs cover all 169 request messages in
-  Zerone's 20 `Msg` services.
+- Typed protobuf/direct-signing codecs cover all 173 request messages in
+  Zerone's 21 `Msg` services.
 - The registry composes with CosmJS's standard Cosmos message types.
 - CAIP-2 and CAIP-10 parsing implements the Cosmos chain-reference profile.
 - The Zerone network descriptor provides checksum-aware `zrn` account IDs.

@@ -43,7 +43,7 @@ Landing legend:
 | `partnerships` | Partnership lifecycle: formation matching, mentorship, deliberation, coercion signals, reward splits | agenttool — team/partnership listings + escrow payment splits; covenant *witnessing* is a substrate_bridge attestation through a gov-registered adapter (agenttool deals carry the relationship); gov's `DomainFormationFreeze` decree remains as a witness-only event |
 | `private_corpus` | Off-chain vault references with on-chain provenance for private training data | off-chain corpus custody with on-chain content-hash witnessing via substrate_bridge (TC5 posture: by trainer choice, not chain mandate) |
 | `research` | Research submission + review + bounty lifecycle | agenttool listings for funded work; `x/sponsorship` covers on-chain fact bounties; gov research-spend (treasury disbursement) survives in x/gov |
-| `schedule` | On-chain task scheduler | agenttool platform feature (cron for agents is not consensus) |
+| `schedule` | Historical generic on-chain task scheduler | agenttool platform feature (generic cron for agents is not consensus). A later source line adds a distinct, admission-closed, finite native-transfer scheduler; it does not restore this implementation or its state. See `docs/specs/message-scheduling-and-pooling-v1.md`. |
 | `toolbox` | On-chain tool marketplace: registry, invocation, USD pricing, surge, rev-share, per-tool trust | agenttool marketplace proper — this WAS agenttool's feature set on the wrong layer; tool-execution provenance, if ever wanted on-chain, is a substrate_bridge attestation |
 | `tree` | Project/quest tree with founder shares and revenue routing | agenttool (project listings + escrowed milestones) |
 

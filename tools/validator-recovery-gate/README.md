@@ -43,7 +43,7 @@ JSON contract:
 - `zerone.ops.validator-fork-release/v2`
 - `zerone.ops.validator-fork-choice/v2`
 - `zerone.ops.validator-recovery-gate-report/v2`
-- `zerone.fork-genesis.report/v1`
+- `zerone.fork-genesis.report/v2`
 
 Inputs must be exact compact bytes produced by Go `encoding/json.Marshal` for
 the relevant structure: no whitespace, newline, unknown field, duplicate key,
@@ -151,7 +151,7 @@ A controlled GO additionally requires:
 ## Fork/re-genesis contract
 
 A fork GO consumes the exact selected genesis and two exact
-`zerone.fork-genesis.report/v1` files. It requires:
+`zerone.fork-genesis.report/v2` files. It requires:
 
 - new chain revision greater than the old revision;
 - initial height exactly checkpoint `H+1`;
@@ -178,7 +178,10 @@ The verifier mirrors the compiler contract instead of trusting report labels:
   module;
 - emergency, slashing, and staking rewrites are mandatory;
 - IBC and transfer change exactly when their allowed v8-to-v10 migration is
-  declared; a current v10 export correctly emits `schema_migrations:[]`;
+  declared; a current v10 source needs no IBC schema migration;
+- `message_schedule` is an explicit absent-to-present addition with the exact
+  empty admission-closed target state, its bounded migration declaration, and
+  SHA-256 of canonical JSON `null` as its `before_sha256` sentinel;
 - modules outside the audited change set remain byte-semantically unchanged.
 
 The selected genesis itself must:
@@ -193,6 +196,10 @@ The selected genesis itself must:
   `legacy-genesis-quarantine` at `H+1`, no release block, and no preloaded
   recovery authorization;
 - contain no genesis transactions or pending evidence;
+- omit the retired `schedule` namespace and contain only the exact fresh,
+  empty, admission-closed `message_schedule` default;
+- have zero all-denomination bank balances at both the retired `schedule` and
+  fresh `message_schedule` module addresses;
 - have empty SDK and Zerone governance work and an empty `upgrade` object;
 - have empty IBC v10 client, connection, channel, packet, transfer escrow,
   interchain-account, fee, and rate-limit state.

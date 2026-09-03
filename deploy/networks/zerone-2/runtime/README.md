@@ -31,6 +31,12 @@ material, or deploy anything.
   the exact `QUERY_ORIGIN_ENABLED=true` latch. Fly service exposure is a
   separate profile decision, so the private gateway path can be soaked without
   publishing either P2P or plaintext query ports.
+- Both transaction pools are reasserted on every boot: CometBFT flood/recheck/
+  broadcast with 5,000 tx, 64 MiB aggregate, 256 KiB per tx, bounded gossip
+  fanout, and Zerone's safe priority/nonce application index capped at 5,000.
+  Pool ordering is local proposer policy, not consensus authority. The pools
+  are only pre-consensus transport; committed schedules live in application
+  state.
 
 ## Build
 

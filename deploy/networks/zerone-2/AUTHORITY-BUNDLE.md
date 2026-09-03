@@ -61,12 +61,17 @@ if the locally executed tool bytes do not match that manifest.
 hashes the actual normalized `MONITORING-RULES.json` and the complete
 `MONITORING-ALERT-TESTS.json` bytes. The rules and tests must cover every one of
 stalled height, missed signing, double-sign risk, equal-height AppHash
-divergence, private-peer loss, disk capacity, restart count, stale verified
-backup, gateway wrong-chain, and gateway stale-origin. Every rule must be
-enabled within the verifier's safety bounds. Every alert test must bind distinct
-stimulus, firing, notification-delivery, and resolution evidence and record the
-exact `INACTIVE` → `FIRING` → `RESOLVED` sequence with result `PASS`. A list of
-check names or self-asserted PASS values is not evidence and is rejected.
+divergence, private-peer loss, disk capacity, restart count, CometBFT mempool
+saturation, stale verified backup, gateway wrong-chain, and gateway
+stale-origin. The mempool rule consumes the real
+`cometbft_mempool_size` and `cometbft_mempool_size_bytes` gauges and must warn
+before either release-pinned capacity limit is reached; it does not claim
+visibility into the separate application-side proposal index. Every rule must
+be enabled within the verifier's safety bounds. Every alert test must bind
+distinct stimulus, firing, notification-delivery, and resolution evidence and
+record the exact `INACTIVE` → `FIRING` → `RESOLVED` sequence with result
+`PASS`. A list of check names or self-asserted PASS values is not evidence and
+is rejected.
 
 Each component has six fixed byte-bearing artifacts: SBOM, provenance,
 signature evidence, offline signature bundle, vulnerability scan, and

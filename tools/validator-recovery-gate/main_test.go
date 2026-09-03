@@ -104,11 +104,11 @@ func TestEvaluateForkRegenesisGO(t *testing.T) {
 	}
 }
 
-func TestCurrentV10ForkReportNeedsNoSchemaMigration(t *testing.T) {
+func TestCurrentV10ForkReportNeedsOnlyScheduleAdditionMigration(t *testing.T) {
 	fixture := forkFixture(t)
 	for reportIndex := range fixture.reports {
 		report := &fixture.reports[reportIndex]
-		report.SchemaMigrations = []string{}
+		report.SchemaMigrations = []string{messageScheduleGenesisMigration}
 		for digestIndex := range report.ModuleDigests {
 			module := &report.ModuleDigests[digestIndex]
 			if module.Module == "ibc" || module.Module == "transfer" {
@@ -650,6 +650,44 @@ func TestExactForkArtifactsFailClosed(t *testing.T) {
 		}
 		assertNoGoReason(t, report, "FORK_ARTIFACTS_INVALID")
 	})
+
+	t.Run("message schedule addition migration omitted", func(t *testing.T) {
+		fixture := forkFixture(t)
+		for index := range fixture.reports {
+			report := &fixture.reports[index]
+			report.SchemaMigrations = report.SchemaMigrations[:len(report.SchemaMigrations)-1]
+			sealCompilerReport(t, report)
+			fixture.reportDigests[index] = exactDigest(t, *report)
+		}
+		fixture.rebindReleaseToCurrentArtifacts(t)
+		report, err := evaluate(fixture.forkInputs())
+		if err != nil {
+			t.Fatalf("evaluate: %v", err)
+		}
+		assertNoGoReason(t, report, "FORK_ARTIFACTS_INVALID")
+	})
+
+	t.Run("message schedule absence sentinel forged", func(t *testing.T) {
+		fixture := forkFixture(t)
+		for reportIndex := range fixture.reports {
+			report := &fixture.reports[reportIndex]
+			for digestIndex := range report.ModuleDigests {
+				module := &report.ModuleDigests[digestIndex]
+				if module.Module == "message_schedule" {
+					module.BeforeSHA256 = fixtureHash("forged-message-schedule-source")
+					module.Changed = module.BeforeSHA256 != module.AfterSHA256
+				}
+			}
+			sealCompilerReport(t, report)
+			fixture.reportDigests[reportIndex] = exactDigest(t, *report)
+		}
+		fixture.rebindReleaseToCurrentArtifacts(t)
+		report, err := evaluate(fixture.forkInputs())
+		if err != nil {
+			t.Fatalf("evaluate: %v", err)
+		}
+		assertNoGoReason(t, report, "FORK_ARTIFACTS_INVALID")
+	})
 }
 
 func TestForkGenesisHostileStateIsNoGoEvenWhenReSigned(t *testing.T) {
@@ -704,6 +742,37 @@ func TestForkGenesisHostileStateIsNoGoEvenWhenReSigned(t *testing.T) {
 				)
 				value["stale_key"] =
 					base64.StdEncoding.EncodeToString(oldKey)
+			},
+		},
+		{
+			name:   "message schedule is not the fresh closed default",
+			module: "message_schedule",
+			mutate: func(value map[string]any, _ *recoveryFixture) {
+				value["next_schedule_id"] = json.Number("2")
+			},
+		},
+		{
+			name:   "retired scheduler module account has coins",
+			module: "bank",
+			mutate: func(value map[string]any, _ *recoveryFixture) {
+				value["balances"] = []any{map[string]any{
+					"address": schedulerModuleAccountAddress("schedule"),
+					"coins": []any{map[string]any{
+						"denom": "uretired", "amount": "1",
+					}},
+				}}
+			},
+		},
+		{
+			name:   "fresh scheduler module account has coins",
+			module: "bank",
+			mutate: func(value map[string]any, _ *recoveryFixture) {
+				value["balances"] = []any{map[string]any{
+					"address": schedulerModuleAccountAddress("message_schedule"),
+					"coins": []any{map[string]any{
+						"denom": "ufresh", "amount": "1",
+					}},
+				}}
 			},
 		},
 	}
@@ -1387,7 +1456,9 @@ func (fixture *recoveryFixture) resealArtifactsAfterGenesisChange(
 		for digestIndex := range report.ModuleDigests {
 			moduleDigest := &report.ModuleDigests[digestIndex]
 			moduleDigest.AfterSHA256 = moduleAfter[moduleDigest.Module]
-			if !mandatoryChanged[moduleDigest.Module] &&
+			if moduleDigest.Module == "message_schedule" {
+				moduleDigest.BeforeSHA256 = absentModuleSHA256
+			} else if !mandatoryChanged[moduleDigest.Module] &&
 				moduleDigest.Module != "zerone_staking" {
 				moduleDigest.BeforeSHA256 = moduleDigest.AfterSHA256
 			}
@@ -1480,6 +1551,8 @@ func makeForkGenesis(
 		`{"fee_enabled_channels":[],"forward_relayers":[],"identified_fees":[],"registered_counterparty_payees":[],"registered_payees":[]}`,
 	)
 	modules["ibcratelimit"] = json.RawMessage(`{}`)
+	modules["bank"] = json.RawMessage(`{"balances":[]}`)
+	modules["message_schedule"] = append(json.RawMessage(nil), freshMessageScheduleGenesis...)
 	appState, err := json.Marshal(modules)
 	if err != nil {
 		t.Fatal(err)
@@ -1570,7 +1643,9 @@ func makeCompilerReport(
 	moduleDigests := make([]ForkGenesisModuleDigest, 0, len(moduleNames))
 	for _, module := range moduleNames {
 		before := moduleAfter[module]
-		if mandatoryChanged[module] {
+		if module == "message_schedule" {
+			before = absentModuleSHA256
+		} else if mandatoryChanged[module] {
 			before = fixtureHash("before-" + module)
 		}
 		moduleDigests = append(moduleDigests, ForkGenesisModuleDigest{

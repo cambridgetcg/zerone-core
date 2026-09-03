@@ -150,11 +150,12 @@ type networkManifest struct {
 		AccountAddress string `json:"account_address"`
 	} `json:"operations"`
 	Activations struct {
-		VoteExtensions  string `json:"vote_extensions"`
-		PoT             string `json:"pot"`
-		IBC             string `json:"ibc"`
-		SubstrateBridge string `json:"substrate_bridge"`
-		Claiming        string `json:"claiming"`
+		VoteExtensions           string `json:"vote_extensions"`
+		PoT                      string `json:"pot"`
+		IBC                      string `json:"ibc"`
+		SubstrateBridge          string `json:"substrate_bridge"`
+		Claiming                 string `json:"claiming"`
+		MessageScheduleAdmission string `json:"message_schedule_admission"`
 	} `json:"activations"`
 }
 
@@ -513,6 +514,7 @@ func auditNetworkManifest(contents []byte, genesis result, genesisHash, required
 		{path: "activations.ibc", got: manifest.Activations.IBC, expected: "external-disabled; localhost-only"},
 		{path: "activations.substrate_bridge", got: manifest.Activations.SubstrateBridge, expected: "disabled"},
 		{path: "activations.claiming", got: manifest.Activations.Claiming, expected: "disabled"},
+		{path: "activations.message_schedule_admission", got: manifest.Activations.MessageScheduleAdmission, expected: "disabled"},
 	} {
 		if declaration.got != declaration.expected {
 			addMismatch(declaration.path, declaration.got, declaration.expected)
@@ -1244,6 +1246,54 @@ func (a *auditor) auditProtocolDark() {
 	a.requireEmptyArray("app_state.claiming_pot.pots")
 	a.requireEmptyArray("app_state.claiming_pot.claims")
 
+	// Source presence is not activation authority. The native transfer
+	// scheduler begins empty and admission-closed; a later governance action
+	// needs its own reviewed operational decision and load rehearsal. The
+	// retired generic scheduler namespace is forbidden, not silently ignored.
+	a.requireAbsent("app_state.schedule")
+	messageSchedule, _ := a.get("app_state.message_schedule")
+	messageScheduleObject := a.requireExactObjectKeys(
+		"app_state.message_schedule",
+		messageSchedule,
+		"params",
+		"schedules",
+		"receipts",
+		"next_schedule_id",
+		"total_escrow_uzrn",
+	)
+	if messageScheduleObject != nil {
+		a.requireExactObjectKeys(
+			"app_state.message_schedule.params",
+			messageScheduleObject["params"],
+			"accept_new_schedules",
+			"min_schedule_delay_blocks",
+			"min_interval_blocks",
+			"max_executions_per_schedule",
+			"max_active_schedules_per_creator",
+			"max_due_records_per_block",
+			"max_query_limit",
+			"execution_fee_uzrn",
+			"max_transfer_per_execution_uzrn",
+		)
+	}
+	a.requireBool("app_state.message_schedule.params.accept_new_schedules", false)
+	for path, expected := range map[string]string{
+		"min_schedule_delay_blocks":        "2",
+		"min_interval_blocks":              "10",
+		"max_executions_per_schedule":      "365",
+		"max_active_schedules_per_creator": "32",
+		"max_due_records_per_block":        "64",
+		"max_query_limit":                  "100",
+		"execution_fee_uzrn":               "100000",
+		"max_transfer_per_execution_uzrn":  "1000000000000",
+	} {
+		a.requireInteger("app_state.message_schedule.params."+path, expected)
+	}
+	a.requireEmptyArray("app_state.message_schedule.schedules")
+	a.requireEmptyArray("app_state.message_schedule.receipts")
+	a.requireInteger("app_state.message_schedule.next_schedule_id", "1")
+	a.requireInteger("app_state.message_schedule.total_escrow_uzrn", "0")
+
 	// An empty genesis council and a four-address floor keep the one-validator
 	// launch from presenting unilateral operator control as plural emergency
 	// governance. The guardian stake floor also exceeds all genesis supply.
@@ -1430,6 +1480,12 @@ func (a *auditor) requireEmptyArray(path string) {
 	items, ok := a.slice(path)
 	if ok && len(items) != 0 {
 		a.add(path, "must be empty, got %d item(s)", len(items))
+	}
+}
+
+func (a *auditor) requireAbsent(path string) {
+	if _, ok := a.get(path); ok {
+		a.add(path, "retired or forbidden field must be absent")
 	}
 }
 

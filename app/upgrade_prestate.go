@@ -384,6 +384,19 @@ func (app *ZeroneApp) verifyNamedActivationPreconditions(
 				feeBalances,
 			)
 		}
+		if app.sdk053IBC10LegacyStoresAtStartup[legacyScheduleStoreKey] {
+			return fmt.Errorf(
+				"scheduled upgrade %q refuses committed retired scheduler store %q; reconcile old-format liabilities first",
+				plan.Name,
+				legacyScheduleStoreKey,
+			)
+		}
+		if err := app.requireNoLegacyScheduleBalance(ctx, "scheduled upgrade "+plan.Name); err != nil {
+			return err
+		}
+		if err := app.requireFreshScheduleBalanceZero(ctx, "scheduled upgrade "+plan.Name); err != nil {
+			return err
+		}
 		if _, err := app.verifyObsoleteIBCChannelState(manifest); err != nil {
 			return fmt.Errorf(
 				"scheduled upgrade %q failed to verify obsolete IBC v8 channel state: %w",
@@ -694,6 +707,9 @@ func (app *ZeroneApp) requireNativeH3LineagePoststate(
 	ctx context.Context,
 	planName string,
 ) error {
+	if err := app.requireNoLegacyScheduleBalance(ctx, planName+" native lineage"); err != nil {
+		return err
+	}
 	for _, marker := range []string{
 		consolidationSafetyMarker,
 		consolidationSafetyNativeMarker,

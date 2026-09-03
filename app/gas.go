@@ -10,10 +10,24 @@ import (
 
 // Gas limits.
 const (
+	BlockMaxBytesLimit  int64  = 4 * 1024 * 1024
 	BlockGasLimit       uint64 = 33_333_333
 	TxGasLimit          uint64 = 11_111_111
 	SelfInvocationLimit uint64 = 5_555_555
 	MinGasLimit         uint64 = 22_222
+)
+
+// MaxProposalCandidateInspections is a source-level CPU bound for proposer
+// selection. It includes stale or malformed application-mempool entries, which
+// an after-verification byte/gas selector cannot bound.
+const MaxProposalCandidateInspections = 2_048
+
+// MaxProposalRegularTxCount follows from the immutable aggregate/minimum gas
+// bounds. MaxProposalTxCount includes the one optional zero-gas VEX envelope.
+// ProcessProposal checks this before any per-transaction scan or allocation.
+const (
+	MaxProposalRegularTxCount = int(BlockGasLimit / MinGasLimit)
+	MaxProposalTxCount        = MaxProposalRegularTxCount + 1
 )
 
 // Gas price constants (in uzrn per gas unit).
@@ -117,6 +131,12 @@ var TransactionGasCosts = map[string]uint64{
 	"fund_pot":       40_000,
 	"claim_from_pot": 30_000,
 	"close_pot":      40_000,
+
+	// Durable transfer scheduling
+	"create_schedule":        80_000,
+	"update_schedule":        60_000,
+	"cancel_schedule":        40_000,
+	"update_schedule_params": 40_000,
 
 	// Agent Home
 	"create_home":        150_000,

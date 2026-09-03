@@ -89,8 +89,10 @@ audited module, not a private spreadsheet or hand-edited genesis.
 At launch, vote extensions and PoT settlement are **not live**. External IBC
 clients, transfers, ICA, the substrate bridge, automatic issuance, claiming,
 knowledge admission/rewards, alignment corrections, counterexamples, and
-liquidity-pool creation are latched off. Activating any of them requires a
-separately reviewed and publicly disclosed upgrade or governance action.
+liquidity-pool creation are latched off. Native message-schedule admission is
+also closed (`accept_new_schedules=false`); the presence of scheduler source is
+not activation authority. Activating any of these paths requires a separately
+reviewed and publicly disclosed upgrade or governance action.
 
 Public endpoints planned for activation only after OPEN-BETA verification:
 

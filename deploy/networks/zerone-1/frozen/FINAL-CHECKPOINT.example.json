@@ -201,6 +201,7 @@
     "alignment_corrections_live_at_genesis": false,
     "counterexamples_live_at_genesis": false,
     "liquidity_pool_creation_live_at_genesis": false,
+    "message_schedule_admission_live_at_genesis": false,
     "public_grpc_live_at_initial_beta": false,
     "hosted_transaction_submission_live_at_initial_beta": false
   },

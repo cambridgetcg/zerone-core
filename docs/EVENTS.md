@@ -23,6 +23,7 @@ identical events.
 - [karma](#karma)
 - [knowledge](#knowledge)
 - [liquiditypool](#liquiditypool)
+- [message_schedule](#message_schedule)
 - [ontology](#ontology)
 - [qualification](#qualification)
 - [staking](#staking)
@@ -1768,6 +1769,53 @@ through this event; only the final LP exit can close a pool.
 - `previous_status` -- status before the governance action
 - `status` -- new `ACTIVE`, `SWAPS_PAUSED`, or `EXIT_ONLY` status
 - `authority` -- governance authority address
+
+---
+
+## message_schedule
+
+### zerone.message_schedule.created
+A finite, fully prefunded native-token transfer schedule was committed.
+- `schedule_id` -- canonical schedule identifier
+- `creator` -- canonical bech32 creator address
+- `recipient` -- canonical bech32 transfer recipient
+- `next_execution_height` -- first committed due height
+- `remaining_executions` -- number of prefunded occurrences awaiting execution
+- `escrowed_uzrn` -- total principal plus fixed execution fees moved into schedule escrow
+
+### zerone.message_schedule.updated
+An active schedule passed its revision/execution-count compare-and-swap checks and was amended.
+- `schedule_id` -- canonical schedule identifier
+- `creator` -- canonical bech32 creator address
+- `revision` -- committed revision after the amendment
+- `expected_execution_count` -- execution count supplied by the successful compare-and-swap
+- `escrow_delta_uzrn` -- absolute change in remaining escrow liability
+- `refunded` -- `"true"` when the liability decreased; `"false"` when it increased or stayed unchanged
+
+### zerone.message_schedule.cancelled
+The creator cancelled an active schedule and recovered its exact remaining escrow liability.
+- `schedule_id` -- canonical schedule identifier
+- `creator` -- canonical bech32 creator address
+- `revision` -- final committed schedule revision
+- `execution_count` -- occurrences processed before cancellation
+- `refunded_uzrn` -- remaining principal plus execution fees returned to the creator
+
+### zerone.message_schedule.executed
+*BeginBlock.* One committed due occurrence was processed exactly once.
+- `schedule_id` -- canonical schedule identifier
+- `occurrence_id` -- chain-bound, domain-separated occurrence digest
+- `revision` -- schedule revision bound into the occurrence
+- `sequence` -- one-based execution sequence
+- `due_height` -- committed due height, retained when execution is delayed
+- `executed_height` -- block height that processed the occurrence
+- `outcome` -- `succeeded` or `failed_and_refunded`
+- `failure_code` -- present only for `failed_and_refunded`; stable machine-readable failure code
+- `refunded_uzrn` -- present only for `failed_and_refunded`; exact remaining liability returned to the creator
+
+### zerone.message_schedule.params_updated
+Governance updated prospective scheduling parameters; already-committed schedule terms remain stored with each schedule.
+- `authority` -- governance authority address
+- `accept_new_schedules` -- `"true"` or `"false"` after the update
 
 ---
 

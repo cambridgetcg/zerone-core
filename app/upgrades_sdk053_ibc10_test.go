@@ -38,6 +38,8 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 
+	scheduletypes "github.com/zerone-chain/zerone/x/schedule/types"
+	zeronetokenstypes "github.com/zerone-chain/zerone/x/tokens/types"
 	vestingrewardskeeper "github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
@@ -96,6 +98,7 @@ func TestSDK053IBC10ExactSourceVersionMapPinsEveryEntry(t *testing.T) {
 	for _, extra := range []string{
 		"06-solomachine",
 		"07-tendermint",
+		legacyScheduleStoreKey,
 		"unexpected-module",
 	} {
 		t.Run("extra/"+extra, func(t *testing.T) {
@@ -291,9 +294,54 @@ func mustSDK053IBC10Manifest(
 func TestSDK053IBC10StoreUpgrades(t *testing.T) {
 	upgrades := sdk053IBC10StoreUpgrades()
 
-	require.Empty(t, upgrades.Added)
+	require.Equal(t, []string{"message_schedule"}, upgrades.Added)
 	require.Empty(t, upgrades.Renamed)
 	require.Equal(t, []string{"capability", "feeibc"}, upgrades.Deleted)
+}
+
+func TestRetiredScheduleNamespaceIsDistinctAndPermanentlyBlocked(t *testing.T) {
+	legacyAddress := authtypes.NewModuleAddress(legacyScheduleStoreKey)
+	currentAddress := authtypes.NewModuleAddress(scheduletypes.ModuleName)
+	require.NotEqual(t, legacyAddress.String(), currentAddress.String())
+	blocked := blockedModuleAccountAddrs()
+	require.True(t, blocked[legacyAddress.String()])
+	require.True(t, blocked[currentAddress.String()])
+}
+
+func TestRegisterStoreUpgradesRejectsAndPreservesRetiredScheduleRoot(t *testing.T) {
+	db := dbm.NewMemDB()
+	oldStore := rootmulti.NewStore(db, log.NewNopLogger(), metrics.NewNoOpMetrics())
+	legacyKey := storetypes.NewKVStoreKey(legacyScheduleStoreKey)
+	oldStore.MountStoreWithDB(legacyKey, storetypes.StoreTypeIAVL, nil)
+	require.NoError(t, oldStore.LoadLatestVersion())
+	oldStore.GetKVStore(legacyKey).Set([]byte("legacy-liability"), []byte("preserve"))
+	commitID := oldStore.Commit()
+
+	names, err := committedLegacyStoreNames(db)
+	require.NoError(t, err)
+	require.True(t, names[legacyScheduleStoreKey])
+
+	application := NewActivationPreflightApp(
+		log.NewNopLogger(),
+		db,
+		nil,
+		false,
+		simtestutil.NewAppOptionsWithFlagHome(t.TempDir()),
+	)
+	err = application.RegisterStoreUpgrades()
+	require.ErrorContains(t, err, "retired scheduler store")
+	require.ErrorContains(t, err, "will not delete or reinterpret")
+
+	reopened := rootmulti.NewStore(db, log.NewNopLogger(), metrics.NewNoOpMetrics())
+	reopenedKey := storetypes.NewKVStoreKey(legacyScheduleStoreKey)
+	reopened.MountStoreWithDB(reopenedKey, storetypes.StoreTypeIAVL, nil)
+	require.NoError(t, reopened.LoadLatestVersion())
+	require.Equal(t, commitID, reopened.LastCommitID())
+	require.Equal(
+		t,
+		[]byte("preserve"),
+		reopened.GetKVStore(reopenedKey).Get([]byte("legacy-liability")),
+	)
 }
 
 func TestDeleteObsoleteIBCChannelPrefixes(t *testing.T) {
@@ -1155,6 +1203,20 @@ func newSDK053IBC10ScheduledPreflightFixture(
 	planIdentityPresent bool,
 	planIdentity string,
 ) *ZeroneApp {
+	return newSDK053IBC10ScheduledPreflightFixtureWithMutation(
+		t,
+		planIdentityPresent,
+		planIdentity,
+		nil,
+	)
+}
+
+func newSDK053IBC10ScheduledPreflightFixtureWithMutation(
+	t *testing.T,
+	planIdentityPresent bool,
+	planIdentity string,
+	mutateHMinusOne func(*ZeroneApp, sdk.Context),
+) *ZeroneApp {
 	t.Helper()
 	application := NewZeroneApp(
 		log.NewNopLogger(),
@@ -1257,8 +1319,237 @@ func newSDK053IBC10ScheduledPreflightFixture(
 			Info:   planInfo,
 		},
 	))
+	if mutateHMinusOne != nil {
+		mutateHMinusOne(application, ctx)
+	}
 	require.Equal(t, int64(2), application.CommitMultiStore().Commit().Version)
 	return application
+}
+
+func seedRetiredScheduleBalance(
+	t *testing.T,
+	application *ZeroneApp,
+	ctx sdk.Context,
+	amount sdk.Coins,
+) sdk.AccAddress {
+	return seedBlockedModuleAddressBalance(
+		t,
+		application,
+		ctx,
+		legacyScheduleStoreKey,
+		amount,
+	)
+}
+
+func seedFreshScheduleBalance(
+	t *testing.T,
+	application *ZeroneApp,
+	ctx sdk.Context,
+	amount sdk.Coins,
+) sdk.AccAddress {
+	return seedBlockedModuleAddressBalance(
+		t,
+		application,
+		ctx,
+		scheduletypes.ModuleName,
+		amount,
+	)
+}
+
+func seedBlockedModuleAddressBalance(
+	t *testing.T,
+	application *ZeroneApp,
+	ctx sdk.Context,
+	moduleName string,
+	amount sdk.Coins,
+) sdk.AccAddress {
+	t.Helper()
+	address := authtypes.NewModuleAddress(moduleName)
+	require.True(t, application.BankKeeper.BlockedAddr(address))
+	require.NoError(t, application.BankKeeper.MintCoins(
+		ctx,
+		zeronetokenstypes.ModuleName,
+		amount,
+	))
+
+	// Model source-chain residue created before this binary blocked the retired
+	// and newly reserved scheduler addresses. Restore the production block
+	// immediately after the fixture-only transfer.
+	blocked := application.BankKeeper.GetBlockedAddresses()
+	delete(blocked, address.String())
+	err := application.BankKeeper.SendCoinsFromModuleToAccount(
+		ctx,
+		zeronetokenstypes.ModuleName,
+		address,
+		amount,
+	)
+	blocked[address.String()] = true
+	require.NoError(t, err)
+	require.True(t, application.BankKeeper.BlockedAddr(address))
+	return address
+}
+
+func TestSDK053IBC10ScheduledPreflightRefusesRetiredScheduleBalanceWithoutMutation(
+	t *testing.T,
+) {
+	legacyCoins := sdk.NewCoins(sdk.NewInt64Coin(BondDenom, 7))
+	var legacyAddress sdk.AccAddress
+	application := newSDK053IBC10ScheduledPreflightFixtureWithMutation(
+		t,
+		true,
+		strings.Repeat("a", 64),
+		func(application *ZeroneApp, ctx sdk.Context) {
+			legacyAddress = seedRetiredScheduleBalance(
+				t,
+				application,
+				ctx,
+				legacyCoins,
+			)
+		},
+	)
+	beforeCommitID := application.CommitMultiStore().LastCommitID()
+	beforeBalance := application.BankKeeper.GetAllBalances(
+		application.NewUncachedContext(
+			true,
+			cmtproto.Header{Height: beforeCommitID.Version, ChainID: "zerone-preflight-test"},
+		),
+		legacyAddress,
+	)
+	require.Equal(t, legacyCoins, beforeBalance)
+
+	report, err := application.VerifyScheduledActivationPrestate()
+	require.ErrorContains(t, err, "cannot orphan retired scheduler module account")
+	require.ErrorContains(t, err, legacyCoins.String())
+	require.False(t, report.ActivationReady)
+	require.Equal(t, beforeCommitID, application.CommitMultiStore().LastCommitID())
+
+	ctx := application.NewUncachedContext(
+		true,
+		cmtproto.Header{Height: beforeCommitID.Version, ChainID: "zerone-preflight-test"},
+	)
+	require.Equal(t, beforeBalance, application.BankKeeper.GetAllBalances(ctx, legacyAddress))
+	for _, marker := range []string{
+		sdk053IBC10UpgradeMarker,
+		"upgrade_marker_auth-ante-hardening-v1",
+		"upgrade_marker_upgrade-incident-operations-v1",
+	} {
+		require.Empty(t, application.KnowledgeKeeper.ReadMigrationMarker(ctx, marker))
+	}
+}
+
+func TestSDK053IBC10ScheduledPreflightRefusesFreshScheduleBalanceWithoutMutation(
+	t *testing.T,
+) {
+	freshCoins := sdk.NewCoins(
+		sdk.NewInt64Coin("uatom", 7),
+		sdk.NewInt64Coin(BondDenom, 11),
+	)
+	var freshAddress sdk.AccAddress
+	application := newSDK053IBC10ScheduledPreflightFixtureWithMutation(
+		t,
+		true,
+		strings.Repeat("a", 64),
+		func(application *ZeroneApp, ctx sdk.Context) {
+			freshAddress = seedFreshScheduleBalance(
+				t,
+				application,
+				ctx,
+				freshCoins,
+			)
+		},
+	)
+	beforeCommitID := application.CommitMultiStore().LastCommitID()
+	ctx := application.NewUncachedContext(
+		true,
+		cmtproto.Header{Height: beforeCommitID.Version, ChainID: "zerone-preflight-test"},
+	)
+	beforeBalance := application.BankKeeper.GetAllBalances(ctx, freshAddress)
+	require.Equal(t, freshCoins, beforeBalance)
+	beforeVersionMap, err := application.UpgradeKeeper.GetModuleVersionMap(ctx)
+	require.NoError(t, err)
+
+	report, err := application.VerifyScheduledActivationPrestate()
+	require.ErrorContains(t, err, `requires fresh scheduler module account "message_schedule" to have zero balance`)
+	require.ErrorContains(t, err, freshCoins.String())
+	require.False(t, report.ActivationReady)
+	require.Equal(t, beforeCommitID, application.CommitMultiStore().LastCommitID())
+
+	ctx = application.NewUncachedContext(
+		true,
+		cmtproto.Header{Height: beforeCommitID.Version, ChainID: "zerone-preflight-test"},
+	)
+	require.Equal(t, beforeBalance, application.BankKeeper.GetAllBalances(ctx, freshAddress))
+	afterVersionMap, err := application.UpgradeKeeper.GetModuleVersionMap(ctx)
+	require.NoError(t, err)
+	require.Equal(t, beforeVersionMap, afterVersionMap)
+	for _, marker := range []string{
+		sdk053IBC10UpgradeMarker,
+		"upgrade_marker_auth-ante-hardening-v1",
+		"upgrade_marker_upgrade-incident-operations-v1",
+	} {
+		require.Empty(t, application.KnowledgeKeeper.ReadMigrationMarker(ctx, marker))
+	}
+}
+
+func TestSDK053IBC10HandlerRefusesFreshScheduleBalanceBeforeMutation(
+	t *testing.T,
+) {
+	freshCoins := sdk.NewCoins(sdk.NewInt64Coin("uhandlerdust", 13))
+	var freshAddress sdk.AccAddress
+	application := newSDK053IBC10ScheduledPreflightFixtureWithMutation(
+		t,
+		true,
+		strings.Repeat("a", 64),
+		func(application *ZeroneApp, ctx sdk.Context) {
+			freshAddress = seedFreshScheduleBalance(
+				t,
+				application,
+				ctx,
+				freshCoins,
+			)
+		},
+	)
+	beforeCommitID := application.CommitMultiStore().LastCommitID()
+	baseCtx := application.NewUncachedContext(
+		false,
+		cmtproto.Header{Height: beforeCommitID.Version, ChainID: "zerone-preflight-test"},
+	)
+	beforeVersionMap, err := application.UpgradeKeeper.GetModuleVersionMap(baseCtx)
+	require.NoError(t, err)
+	beforeBalance := application.BankKeeper.GetAllBalances(baseCtx, freshAddress)
+	planInfo, err := BuildSDK053IBC10PlanInfo(nil, nil)
+	require.NoError(t, err)
+	sourceVM := make(map[string]uint64, len(sdk053IBC10ExactSourceVersionMap))
+	for _, expected := range sdk053IBC10ExactSourceVersionMap {
+		sourceVM[expected.name] = expected.version
+	}
+
+	handlerCtx, _ := baseCtx.CacheContext()
+	handlerCtx = handlerCtx.WithBlockHeight(3)
+	_, err = application.RunUpgradeHandlerWithInfoForTests(
+		handlerCtx,
+		UpgradeNameSDK053IBC10,
+		sourceVM,
+		3,
+		planInfo,
+	)
+	require.ErrorContains(t, err, `requires fresh scheduler module account "message_schedule" to have zero balance`)
+	require.Equal(t, beforeCommitID, application.CommitMultiStore().LastCommitID())
+
+	checkCtx := application.NewUncachedContext(
+		true,
+		cmtproto.Header{Height: beforeCommitID.Version, ChainID: "zerone-preflight-test"},
+	)
+	require.Equal(t, beforeBalance, application.BankKeeper.GetAllBalances(checkCtx, freshAddress))
+	afterVersionMap, err := application.UpgradeKeeper.GetModuleVersionMap(checkCtx)
+	require.NoError(t, err)
+	require.Equal(t, beforeVersionMap, afterVersionMap)
+	_, found, err := application.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(
+		checkCtx,
+		sdk053IBC10UpgradeMarker,
+	)
+	require.NoError(t, err)
+	require.False(t, found)
 }
 
 func sdk053IBC10GenesisWithValidator(
@@ -1481,6 +1772,65 @@ func TestSDK053IBC10NativeGenesisRefusesInvalidFounderPoststateBeforeSeal(t *tes
 			assertSDK053IBC10NativeTransitionUnsealed(t, application, beforeCommitID)
 		})
 	}
+}
+
+func TestSDK053IBC10NativeGenesisRefusesRetiredScheduleBalanceBeforeSeal(t *testing.T) {
+	application := NewZeroneApp(
+		log.NewNopLogger(),
+		dbm.NewMemDB(),
+		nil,
+		true,
+		simtestutil.NewAppOptionsWithFlagHome(t.TempDir()),
+		baseapp.SetChainID("zerone-sdk053-native-genesis-test"),
+	)
+	genesis := sdk053IBC10GenesisWithValidator(t, application)
+	legacyCoins := sdk.NewCoins(sdk.NewInt64Coin(BondDenom, 1))
+	legacyAddress := authtypes.NewModuleAddress(legacyScheduleStoreKey)
+
+	var bankGenesis banktypes.GenesisState
+	application.appCodec.MustUnmarshalJSON(genesis[banktypes.ModuleName], &bankGenesis)
+	bankGenesis.Balances = append(bankGenesis.Balances, banktypes.Balance{
+		Address: legacyAddress.String(),
+		Coins:   legacyCoins,
+	})
+	bankGenesis.Supply = bankGenesis.Supply.Add(legacyCoins...)
+	genesis[banktypes.ModuleName] = application.appCodec.MustMarshalJSON(&bankGenesis)
+	genesisBytes, err := json.Marshal(genesis)
+	require.NoError(t, err)
+	beforeCommitID := application.CommitMultiStore().LastCommitID()
+
+	_, err = application.InitChain(&abci.RequestInitChain{
+		ChainId:         "zerone-sdk053-native-genesis-test",
+		AppStateBytes:   genesisBytes,
+		ConsensusParams: simtestutil.DefaultConsensusParams,
+	})
+	require.ErrorContains(t, err, "cannot orphan retired scheduler module account")
+	require.ErrorContains(t, err, legacyCoins.String())
+	assertSDK053IBC10NativeTransitionUnsealed(t, application, beforeCommitID)
+}
+
+func TestSDK053IBC10NativeGenesisRefusesRetiredScheduleNamespaceBeforeSeal(t *testing.T) {
+	application := NewZeroneApp(
+		log.NewNopLogger(),
+		dbm.NewMemDB(),
+		nil,
+		true,
+		simtestutil.NewAppOptionsWithFlagHome(t.TempDir()),
+		baseapp.SetChainID("zerone-sdk053-native-genesis-test"),
+	)
+	genesis := sdk053IBC10GenesisWithValidator(t, application)
+	genesis[legacyScheduleStoreKey] = json.RawMessage(`{"retired":"state"}`)
+	genesisBytes, err := json.Marshal(genesis)
+	require.NoError(t, err)
+	beforeCommitID := application.CommitMultiStore().LastCommitID()
+
+	_, err = application.InitChain(&abci.RequestInitChain{
+		ChainId:         "zerone-sdk053-native-genesis-test",
+		AppStateBytes:   genesisBytes,
+		ConsensusParams: simtestutil.DefaultConsensusParams,
+	})
+	require.ErrorContains(t, err, `native genesis refuses retired scheduler namespace "schedule"`)
+	assertSDK053IBC10NativeTransitionUnsealed(t, application, beforeCommitID)
 }
 
 func setSDK053IBC10NativeVestingGenesis(
@@ -2031,9 +2381,21 @@ func commitLegacySDK053IBC10Roots(
 
 func TestSDK053IBC10NoRootStartupRequiresAuthenticatedLineage(t *testing.T) {
 	currentVM := map[string]uint64{
+		"ibc":                    8,
+		"transfer":               6,
+		"interchainaccounts":     3,
+		scheduletypes.ModuleName: 1,
+	}
+	missingScheduleVM := map[string]uint64{
 		"ibc":                8,
 		"transfer":           6,
 		"interchainaccounts": 3,
+	}
+	wrongScheduleVM := map[string]uint64{
+		"ibc":                    8,
+		"transfer":               6,
+		"interchainaccounts":     3,
+		scheduletypes.ModuleName: 2,
 	}
 	sourceVM := map[string]uint64{
 		"ibc":                    6,
@@ -2042,6 +2404,11 @@ func TestSDK053IBC10NoRootStartupRequiresAuthenticatedLineage(t *testing.T) {
 		legacyCapabilityStoreKey: 1,
 		legacyIBCFeeStoreKey:     2,
 	}
+	retiredScheduleVM := make(map[string]uint64, len(currentVM)+1)
+	for name, version := range currentVM {
+		retiredScheduleVM[name] = version
+	}
+	retiredScheduleVM[legacyScheduleStoreKey] = 1
 	tests := []struct {
 		name         string
 		versionMap   map[string]uint64
@@ -2060,6 +2427,34 @@ func TestSDK053IBC10NoRootStartupRequiresAuthenticatedLineage(t *testing.T) {
 			name:       "loader attested completed upgrade",
 			versionMap: currentVM,
 			setup:      seedSDK053IBC10CompletedTestLineage,
+		},
+		{
+			name:       "native lineage requires message schedule version",
+			versionMap: missingScheduleVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "genesis", false)
+			},
+			wantError: `module "message_schedule" is not at required post-H3 consensus version 1`,
+		},
+		{
+			name:       "native lineage rejects wrong message schedule version",
+			versionMap: wrongScheduleVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "genesis", false)
+			},
+			wantError: `module "message_schedule" is not at required post-H3 consensus version 1`,
+		},
+		{
+			name:       "completed lineage requires message schedule version",
+			versionMap: missingScheduleVM,
+			setup:      seedSDK053IBC10CompletedTestLineage,
+			wantError:  `module "message_schedule" is not at required post-H3 consensus version 1`,
+		},
+		{
+			name:       "completed lineage rejects wrong message schedule version",
+			versionMap: wrongScheduleVM,
+			setup:      seedSDK053IBC10CompletedTestLineage,
+			wantError:  `module "message_schedule" is not at required post-H3 consensus version 1`,
 		},
 		{
 			name:       "post map without either H3 seal is refused",
@@ -2091,6 +2486,14 @@ func TestSDK053IBC10NoRootStartupRequiresAuthenticatedLineage(t *testing.T) {
 				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "genesis", false)
 			},
 			wantError: "not at required post-v10 consensus version",
+		},
+		{
+			name:       "post H3 lineage retains retired schedule version",
+			versionMap: retiredScheduleVM,
+			setup: func(t *testing.T, app *ZeroneApp, ctx sdk.Context) {
+				writeSDK053IBC10TestMarker(t, app, ctx, sdk053IBC10NativeMarker, "genesis", false)
+			},
+			wantError: `legacy root "schedule" is absent but its source module version 1 remains`,
 		},
 		{
 			name:       "earlier unproved marker is refused",
@@ -2229,9 +2632,10 @@ func TestSDK053IBC10NoRootStartupRequiresAuthenticatedLineage(t *testing.T) {
 
 func TestSDK053IBC10NativePoststateRejectsEveryPreSDKEvidenceClass(t *testing.T) {
 	currentVM := map[string]uint64{
-		"ibc":                8,
-		"transfer":           6,
-		"interchainaccounts": 3,
+		"ibc":                    8,
+		"transfer":               6,
+		"interchainaccounts":     3,
+		scheduletypes.ModuleName: 1,
 	}
 	for _, marker := range []string{
 		consolidationSafetyMarker,

@@ -20,6 +20,7 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
+	scheduletypes "github.com/zerone-chain/zerone/x/schedule/types"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
@@ -49,6 +50,25 @@ func TestNewZeroneApp(t *testing.T) {
 	require.NotNil(t, app.GovKeeper)
 	require.NotNil(t, app.IBCKeeper)
 	require.NotNil(t, app.UpgradeKeeper)
+	require.NotNil(t, app.ScheduleKeeper)
+}
+
+func TestRegisterAPIRoutesIncludesSchedule(t *testing.T) {
+	app := newTestApp(t)
+	clientCtx := client.Context{
+		Codec:             app.AppCodec(),
+		InterfaceRegistry: app.InterfaceRegistry(),
+		TxConfig:          app.TxConfig(),
+	}
+	apiServer := api.New(clientCtx, log.NewNopLogger(), grpc.NewServer())
+	app.RegisterAPIRoutes(apiServer, config.APIConfig{})
+
+	response := httptest.NewRecorder()
+	apiServer.Router.ServeHTTP(
+		response,
+		httptest.NewRequest(http.MethodGet, "/zerone/schedule/v2/params", nil),
+	)
+	require.NotEqual(t, http.StatusNotFound, response.Code)
 }
 
 // TestRegisterAPIRoutesIncludesTrainingProvenance verifies the app-level v2
@@ -123,7 +143,7 @@ func TestDefaultGenesis(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, bz)
 
-	for _, moduleName := range []string{"auth", "bank", "staking", "distribution", "gov", "upgrade", vestingrewardstypes.ModuleName} {
+	for _, moduleName := range []string{"auth", "bank", "staking", "distribution", "gov", "upgrade", scheduletypes.ModuleName, vestingrewardstypes.ModuleName} {
 		_, ok := genState[moduleName]
 		require.True(t, ok, "expected module %q in default genesis", moduleName)
 	}
@@ -132,6 +152,14 @@ func TestDefaultGenesis(t *testing.T) {
 	require.NoError(t, json.Unmarshal(genState[vestingrewardstypes.ModuleName], &vestingGenesis))
 	require.NotNil(t, vestingGenesis.Params)
 	require.NoError(t, vestingrewardstypes.ValidateParams(vestingGenesis.Params))
+
+	var scheduleGenesis scheduletypes.GenesisState
+	require.NoError(t, json.Unmarshal(genState[scheduletypes.ModuleName], &scheduleGenesis))
+	require.NotNil(t, scheduleGenesis.Params)
+	require.False(t, scheduleGenesis.Params.AcceptNewSchedules)
+	require.Empty(t, scheduleGenesis.Schedules)
+	require.Empty(t, scheduleGenesis.Receipts)
+	require.Equal(t, "0", scheduleGenesis.TotalEscrowUzrn)
 }
 
 // TestExportGenesis verifies the default genesis JSON round-trips correctly

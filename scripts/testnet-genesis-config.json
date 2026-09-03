@@ -626,7 +626,7 @@
       }
     },
     "schedule": {
-      "_note": "Transaction scheduling for time-delayed and recurring operations",
+      "_note": "RETIRED 2026-07 generic scheduler reference; not the isolated message_schedule module or zerone.schedule.v2 API",
       "params": {
         "max_active_per_account": 20,
         "max_gas_per_block": 50000000,

@@ -66,6 +66,12 @@ func TestAuditGenesisRejectsInvariantDrift(t *testing.T) {
 		{name: "founder", path: "app_state.vesting_rewards.params.founder_share_bps", value: 1, issuePath: "founder_share_bps"},
 		{name: "vesting", path: "app_state.vesting_rewards.params.vesting_enabled", value: true, issuePath: "vesting_enabled"},
 		{name: "registrar", path: "app_state.claiming_pot.params.bootstrap_registrar", value: "zrn1operator", issuePath: "bootstrap_registrar"},
+		{name: "schedule admission", path: "app_state.message_schedule.params.accept_new_schedules", value: true, issuePath: "accept_new_schedules"},
+		{name: "schedule due bound", path: "app_state.message_schedule.params.max_due_records_per_block", value: 256, issuePath: "max_due_records_per_block"},
+		{name: "schedule preloaded", path: "app_state.message_schedule.schedules", value: []any{map[string]any{"id": "schedule-00000000000000000001"}}, issuePath: "message_schedule.schedules"},
+		{name: "schedule unknown top-level field", path: "app_state.message_schedule.unexpected_records", value: []any{}, issuePath: "message_schedule.unexpected_records"},
+		{name: "schedule unknown parameter", path: "app_state.message_schedule.params.unexpected_consensus_switch", value: false, issuePath: "message_schedule.params.unexpected_consensus_switch"},
+		{name: "retired schedule namespace", path: "app_state.schedule", value: map[string]any{}, issuePath: "app_state.schedule"},
 		{name: "emergency council", path: "app_state.emergency.params.genesis_council", value: []any{"zrn1operator"}, issuePath: "genesis_council"},
 		{name: "custom staking minimum", path: "app_state.zerone_staking.params.min_self_delegation", value: "111000", issuePath: "min_self_delegation"},
 		{name: "custom validator preloaded", path: "app_state.zerone_staking.validators", value: []any{map[string]any{"operator_address": "zrn1operator"}}, issuePath: "zerone_staking.validators"},
@@ -326,6 +332,7 @@ func TestAuditArtifactDirCrossChecksNetworkManifest(t *testing.T) {
 		{name: "ops account", path: "operations.account_address", value: "zrn1wrong", issuePath: "operations.account_address"},
 		{name: "gentx hash", path: "validator.gentx_sha256", value: strings.Repeat("c", 64), issuePath: "validator.gentx_sha256"},
 		{name: "dark activation", path: "activations.ibc", value: "enabled", issuePath: "activations.ibc"},
+		{name: "schedule admission declaration", path: "activations.message_schedule_admission", value: "enabled", issuePath: "activations.message_schedule_admission"},
 	}
 
 	for _, tc := range tests {
@@ -545,6 +552,20 @@ func validGenesisFixture(t *testing.T) map[string]any {
 			"claiming_pot": map[string]any{
 				"params": map[string]any{"bootstrap_registrar": ""}, "pots": []any{}, "claims": []any{},
 			},
+			"message_schedule": map[string]any{
+				"params": map[string]any{
+					"accept_new_schedules":             false,
+					"min_schedule_delay_blocks":        2,
+					"min_interval_blocks":              10,
+					"max_executions_per_schedule":      365,
+					"max_active_schedules_per_creator": 32,
+					"max_due_records_per_block":        64,
+					"max_query_limit":                  100,
+					"execution_fee_uzrn":               "100000",
+					"max_transfer_per_execution_uzrn":  "1000000000000",
+				},
+				"schedules": []any{}, "receipts": []any{}, "next_schedule_id": 1, "total_escrow_uzrn": "0",
+			},
 			"emergency": map[string]any{
 				"params": map[string]any{
 					"genesis_council": []any{}, "council_expiry_block": 0, "min_distinct_voters": 4,
@@ -688,7 +709,7 @@ func networkManifestFixture(t *testing.T, genesis []byte) map[string]any {
 		"operations": map[string]any{"account_address": audited.OpsAddress},
 		"activations": map[string]any{
 			"vote_extensions": "disabled", "pot": "not live", "ibc": "external-disabled; localhost-only",
-			"substrate_bridge": "disabled", "claiming": "disabled",
+			"substrate_bridge": "disabled", "claiming": "disabled", "message_schedule_admission": "disabled",
 		},
 	}
 }

@@ -1,0 +1,78 @@
+syntax = "proto3";
+
+package zerone.schedule.v2;
+
+option go_package = "github.com/zerone-chain/zerone/x/schedule/types";
+
+import "cosmos/msg/v1/msg.proto";
+import "zerone/schedule/v2/state.proto";
+
+service Msg {
+  option (cosmos.msg.v1.service) = true;
+
+  rpc CreateSchedule(MsgCreateSchedule) returns (MsgCreateScheduleResponse);
+  rpc UpdateSchedule(MsgUpdateSchedule) returns (MsgUpdateScheduleResponse);
+  rpc CancelSchedule(MsgCancelSchedule) returns (MsgCancelScheduleResponse);
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+message MsgCreateSchedule {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1;
+  string recipient = 2;
+  string amount_per_execution_uzrn = 3;
+  uint64 first_execution_height = 4;
+  uint64 interval_blocks = 5;
+  uint32 execution_count = 6;
+}
+
+message MsgCreateScheduleResponse {
+  string schedule_id = 1;
+  string escrowed_uzrn = 2;
+}
+
+// UpdateSchedule replaces all not-yet-executed terms. The two expected values
+// provide compare-and-swap protection against an occurrence executing or a
+// prior amendment committing before this transaction.
+message MsgUpdateSchedule {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1;
+  string schedule_id = 2;
+  uint64 expected_revision = 3;
+  uint32 expected_execution_count = 4;
+  string recipient = 5;
+  string amount_per_execution_uzrn = 6;
+  uint64 next_execution_height = 7;
+  uint64 interval_blocks = 8;
+  uint32 remaining_executions = 9;
+}
+
+message MsgUpdateScheduleResponse {
+  uint64 revision = 1;
+  string escrow_delta_uzrn = 2;
+  bool refunded = 3;
+}
+
+message MsgCancelSchedule {
+  option (cosmos.msg.v1.signer) = "creator";
+
+  string creator = 1;
+  string schedule_id = 2;
+  uint64 expected_revision = 3;
+  uint32 expected_execution_count = 4;
+}
+
+message MsgCancelScheduleResponse {
+  string refunded_uzrn = 1;
+}
+
+message MsgUpdateParams {
+  option (cosmos.msg.v1.signer) = "authority";
+
+  string authority = 1;
+  Params params = 2;
+}
+
+message MsgUpdateParamsResponse {}

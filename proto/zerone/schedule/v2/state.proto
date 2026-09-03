@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package zerone.schedule.v2;
+
+option go_package = "github.com/zerone-chain/zerone/x/schedule/types";
+
+// ScheduleStatus is the durable lifecycle of a committed schedule. A schedule
+// message only reaches ACTIVE after the surrounding transaction is committed;
+// the node-local mempool is never authoritative schedule state.
+enum ScheduleStatus {
+  SCHEDULE_STATUS_UNSPECIFIED = 0;
+  SCHEDULE_STATUS_ACTIVE = 1;
+  SCHEDULE_STATUS_COMPLETED = 2;
+  SCHEDULE_STATUS_CANCELLED = 3;
+  SCHEDULE_STATUS_FAILED = 4;
+}
+
+// ExecutionOutcome records the terminal result of one deterministic
+// occurrence. An occurrence is never retried after a receipt is committed.
+enum ExecutionOutcome {
+  EXECUTION_OUTCOME_UNSPECIFIED = 0;
+  EXECUTION_OUTCOME_SUCCEEDED = 1;
+  EXECUTION_OUTCOME_FAILED_AND_REFUNDED = 2;
+}
+
+// Params bounds per-creator active admission and per-block due processing below
+// immutable source ceilings. Terminal records and receipts remain append-only.
+// New schedule admission is closed by default so source deployment does not
+// silently activate a new economic surface.
+message Params {
+  bool accept_new_schedules = 1;
+  uint64 min_schedule_delay_blocks = 2;
+  uint64 min_interval_blocks = 3;
+  uint32 max_executions_per_schedule = 4;
+  uint32 max_active_schedules_per_creator = 5;
+  uint32 max_due_records_per_block = 6;
+  uint32 max_query_limit = 7;
+  string execution_fee_uzrn = 8;
+  string max_transfer_per_execution_uzrn = 9;
+}
+
+// Schedule is a prefunded native-token transfer commitment. This initial
+// bounded design is intentionally finite and height based: it cannot execute
+// arbitrary SDK or contract messages, read validator wall clocks, or depend on
+// local mempools.
+message Schedule {
+  string id = 1;
+  string creator = 2;
+  uint64 revision = 3;
+  ScheduleStatus status = 4;
+  string recipient = 5;
+  string amount_per_execution_uzrn = 6;
+  string execution_fee_uzrn = 7;
+  uint64 next_execution_height = 8;
+  uint64 interval_blocks = 9;
+  uint32 execution_count = 10;
+  uint32 remaining_executions = 11;
+  string principal_remaining_uzrn = 12;
+  string fee_remaining_uzrn = 13;
+  uint64 created_height = 14;
+  uint64 updated_height = 15;
+  uint64 last_execution_height = 16;
+  string terminal_reason = 17;
+}
+
+// ExecutionReceipt is immutable evidence that one occurrence was processed.
+// occurrence_id and action_sha256 are lowercase hex SHA-256 digests over
+// canonical, domain-separated encodings defined by x/schedule.
+message ExecutionReceipt {
+  string occurrence_id = 1;
+  string schedule_id = 2;
+  uint64 revision = 3;
+  uint32 sequence = 4;
+  uint64 due_height = 5;
+  uint64 executed_height = 6;
+  string recipient = 7;
+  string amount_uzrn = 8;
+  string fee_uzrn = 9;
+  string action_sha256 = 10;
+  ExecutionOutcome outcome = 11;
+  string failure_code = 12;
+}

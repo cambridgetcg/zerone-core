@@ -92,6 +92,26 @@ MONITORING_ARTIFACT_FILES = {
     "rules": "MONITORING-RULES.json",
     "tests": "MONITORING-ALERT-TESTS.json",
 }
+ZERONE_2_ACCEPTED_POLICY = {
+    "one_operator_validator_bft_f": 0,
+    "direct_zerone_1_balance_migration": False,
+    "checkpoint_inventory_is_entitlement": False,
+    "vote_extensions_live_at_genesis": False,
+    "pot_live_at_genesis": False,
+    "external_ibc_clients_live_at_genesis": False,
+    "ibc_transfer_live_at_genesis": False,
+    "ica_live_at_genesis": False,
+    "substrate_bridge_live_at_genesis": False,
+    "claims_live_at_genesis": False,
+    "automatic_issuance_live_at_genesis": False,
+    "knowledge_admission_rewards_live_at_genesis": False,
+    "alignment_corrections_live_at_genesis": False,
+    "counterexamples_live_at_genesis": False,
+    "liquidity_pool_creation_live_at_genesis": False,
+    "message_schedule_admission_live_at_genesis": False,
+    "public_grpc_live_at_initial_beta": False,
+    "hosted_transaction_submission_live_at_initial_beta": False,
+}
 MONITORING_RULE_SPECS = {
     "stalled_height": {
         "alert_name": "ZeroneStalledHeight",
@@ -144,6 +164,16 @@ MONITORING_RULE_SPECS = {
         "expression": "process_restarts_above_threshold",
         "parameters": {"maximum_restarts", "window_seconds"},
         "stimulus": "inject_restart_counter_above_threshold",
+    },
+    "comet_mempool_saturation": {
+        "alert_name": "ZeroneCometMempoolSaturation",
+        "severity": "warning",
+        "expression": "cometbft_mempool_size_or_size_bytes_at_or_above_threshold",
+        "parameters": {
+            "maximum_pending_transactions",
+            "maximum_pending_bytes",
+        },
+        "stimulus": "fill_cometbft_mempool_to_count_and_byte_thresholds",
     },
     "stale_backup": {
         "alert_name": "ZeroneStaleBackup",
@@ -338,6 +368,16 @@ def require_exact_object(value: Any, keys: set[str], label: str) -> dict[str, An
     if not isinstance(value, dict) or set(value) != keys:
         fail(f"{label} does not have the exact required fields")
     return value
+
+
+def require_zerone_2_accepted_policy(value: Any, label: str) -> dict[str, Any]:
+    policy = require_exact_object(value, set(ZERONE_2_ACCEPTED_POLICY), label)
+    if any(
+        type(policy[key]) is not type(expected) or policy[key] != expected
+        for key, expected in ZERONE_2_ACCEPTED_POLICY.items()
+    ):
+        fail(f"{label} differs from the admission-closed launch policy")
+    return policy
 
 
 def require_nonempty_string(value: Any, label: str) -> str:
@@ -667,6 +707,21 @@ def validate_monitoring_artifacts(
     bounded_parameter("disk_capacity", "minimum_free_percent", 10, 40)
     bounded_parameter("restart_count", "maximum_restarts", 0, 2)
     bounded_parameter("restart_count", "window_seconds", 300, 3600)
+    # CometBFT v0.38 exports both gauges from its enabled /metrics endpoint.
+    # Require warning no later than 80% of the release-pinned 5,000 tx / 64 MiB
+    # limits, while avoiding an operationally noisy threshold below 50%.
+    bounded_parameter(
+        "comet_mempool_saturation",
+        "maximum_pending_transactions",
+        2500,
+        4000,
+    )
+    bounded_parameter(
+        "comet_mempool_saturation",
+        "maximum_pending_bytes",
+        33_554_432,
+        53_687_091,
+    )
     bounded_parameter(
         "stale_backup", "maximum_verified_backup_age_seconds", 3600, 86400
     )
@@ -908,6 +963,9 @@ def validate_release_ceremony(
     release: dict[str, Any],
     main: str,
 ) -> None:
+    accepted_policy = require_zerone_2_accepted_policy(
+        release.get("accepted_policy"), "RELEASE accepted policy"
+    )
     signature_authority = require_exact_object(
         release.get("signature_authority"),
         {"algorithm", "authorized_signer_fingerprint", "detached_signature_filename"},
@@ -1121,7 +1179,14 @@ def validate_release_ceremony(
     )
     manifest_activations = require_exact_object(
         manifest["activations"],
-        {"vote_extensions", "pot", "ibc", "substrate_bridge", "claiming"},
+        {
+            "vote_extensions",
+            "pot",
+            "ibc",
+            "substrate_bridge",
+            "claiming",
+            "message_schedule_admission",
+        },
         "ceremony manifest activations",
     )
     if not (
@@ -1161,7 +1226,9 @@ def validate_release_ceremony(
             "ibc": "external-disabled; localhost-only",
             "substrate_bridge": "disabled",
             "claiming": "disabled",
+            "message_schedule_admission": "disabled",
         }
+        and accepted_policy["message_schedule_admission_live_at_genesis"] is False
     ):
         fail("ceremony network manifest differs from RELEASE or the production profile")
 
@@ -1233,6 +1300,7 @@ def validate_release_ceremony(
         f"- Binary SHA-256: {manifest_release['binary_sha256']}",
         f"- Binary version: {manifest_release['binary_version']}",
         f"- Binary target: {manifest_release['binary_goos']}/{manifest_release['binary_goarch']}",
+        "- Native message-schedule admission: disabled (`accept_new_schedules=false`).",
     )
     if any(line not in human_lines for line in required_human_lines):
         fail("ceremony human manifest does not repeat the exact signed release facts")
@@ -3024,6 +3092,8 @@ def validate_open_chain(
             fail(f"archive config {filename} violates the private deterministic shape")
 
     same_shape_and_static(final, final_template, "FINAL-CHECKPOINT")
+    if final.get("accepted_policy") != release["accepted_policy"]:
+        fail("FINAL-CHECKPOINT accepted policy differs from RELEASE")
     if contains_placeholder(final):
         fail("FINAL-CHECKPOINT retains a placeholder")
     if final.get("schema") != "zerone-final-checkpoint-v3":

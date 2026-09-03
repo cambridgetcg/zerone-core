@@ -1,6 +1,6 @@
 # Zerone development roadmap
 
-> Status snapshot: 2026-08-01. This is a dependency-ordered roadmap, not a
+> Status snapshot: 2026-09-03. This is a dependency-ordered roadmap, not a
 > release promise.
 
 ## Current shape
@@ -9,11 +9,11 @@
   [`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core).
   The Go module path remains `github.com/zerone-chain/zerone`; changing that
   import path is a separate migration.
-- The application wires 23 custom modules. Its transaction SDK covers 169
-  request message types across 20 Zerone `Msg` services.
+- The application wires 24 custom modules. Its transaction SDK covers 173
+  request message types across 21 Zerone `Msg` services.
 - The protobuf-generated Swagger document is the API inventory of record:
   [`docs/swagger-ui/swagger.json`](swagger-ui/swagger.json) currently contains
-  217 paths and 446 definitions.
+  222 paths and 456 definitions.
 - The truth-seeking creed contains 20 commitments, and the ToK substrate
   doctrine contains TC0–TC6. Their executable bindings remain the authority
   over prose summaries.
@@ -41,7 +41,10 @@ line:
   fail-closed oracle selection, and LP-only swap-fee retention;
 - vesting_rewards consensus v2 with the founder auto-split and
   transaction-presence proposer mint permanently retired; and
-- the fail-closed `zerone-2` release and authority kit.
+- the fail-closed `zerone-2` release and authority kit; and
+- the admission-closed native transfer scheduler and hardened CometBFT/SDK
+  pending-message proposal boundary described in
+  [message scheduling and pooling v1](specs/message-scheduling-and-pooling-v1.md).
 
 Several items above change consensus-visible behavior. They are source-complete
 only after their tests pass; they are **not live** merely because the code is

@@ -72,6 +72,12 @@ tamper-evident history whose current custodial limits are disclosed. Not proof
 consolidation (do not join it with this source head) · the `zerone-2` release
 kit is **NO-GO** until its signed ceremony and authority gates are complete
 
+The source includes a new, admission-closed native transfer scheduler and
+hardened pending-transaction proposal path. See
+[message scheduling and pooling v1](docs/specs/message-scheduling-and-pooling-v1.md).
+Neither source presence nor publication opens scheduler admission or authorizes
+a validator deployment.
+
 **Source:** the canonical public repository is
 [`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core).
 The historical Go module path remains `github.com/zerone-chain/zerone` pending
@@ -213,7 +219,7 @@ bootstrap facts must be explicit in its reviewed genesis and audit.
 
 ## Modules
 
-23 custom modules organized by function (the 2026-07 slim cut moved agent-platform features — marketplaces, the contract VM, payment rails, coordination, and delegated-authority machinery — to the agenttool layer and off-chain indexers; the chain keeps what strangers' consensus-verification adds value to):
+24 custom modules organized by function (the 2026-07 slim cut moved agent-platform features — marketplaces, the contract VM, payment rails, coordination, and delegated-authority machinery — to the agenttool layer and off-chain indexers; the chain keeps what strangers' consensus-verification adds value to):
 
 ### Knowledge & Truth
 | Module | Purpose |
@@ -241,6 +247,7 @@ bootstrap facts must be explicit in its reviewed genesis and audit.
 | `home` | Agent workspaces, sessions, deadman switch |
 | `liquiditypool` | On-chain AMM liquidity pools |
 | `claiming_pot` | Bootstrap claims (0.222 ZRN) + community claiming pools |
+| `message_schedule` | Admission-gated, prefunded, finite native-transfer schedules |
 | `sponsorship` | Sample sponsorship and patronage |
 
 ### Governance & Security
@@ -320,12 +327,15 @@ make proto-gen
 ## SDK and API
 
 - The generated [Swagger document](docs/swagger-ui/swagger.json) is the REST
-  inventory of record: 217 paths and 446 definitions.
-- The repository [TypeScript SDK](sdk/typescript/) covers 169 request messages
-  across 20 Zerone `Msg` services. The package is not yet published to npm.
+  inventory of record: 222 paths and 456 definitions.
+- The repository [TypeScript SDK](sdk/typescript/) covers 173 request messages
+  across 21 Zerone `Msg` services. The package is not yet published to npm.
 - [Open crypto SDK and standards integration](docs/standards/OPEN_CRYPTO_SDK.md)
   documents the implemented CAIP, in-toto, and isolated Sigstore seams and the
   boundaries still deliberately kept off-chain.
+- [Message scheduling and pooling v1](docs/specs/message-scheduling-and-pooling-v1.md)
+  defines the volatile-pool/durable-state boundary and the scheduler's closed
+  activation posture.
 
 The consensus-visible consolidation work requires the named
 `consolidation-safety-v1` upgrade on an existing network. Publishing this source

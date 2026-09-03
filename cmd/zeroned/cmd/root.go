@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"io"
 	"os"
 
@@ -11,8 +12,10 @@ import (
 	feegrantcli "cosmossdk.io/x/feegrant/client/cli"
 	upgradecli "cosmossdk.io/x/upgrade/client/cli"
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 
+	"github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/config"
 	"github.com/cosmos/cosmos-sdk/client/debug"
@@ -50,6 +53,7 @@ import (
 	liquiditypoolcli "github.com/zerone-chain/zerone/x/liquiditypool/client/cli"
 	ontologycli "github.com/zerone-chain/zerone/x/ontology/client/cli"
 	qualificationcli "github.com/zerone-chain/zerone/x/qualification/client/cli"
+	schedulecli "github.com/zerone-chain/zerone/x/schedule/client/cli"
 	stakingcli "github.com/zerone-chain/zerone/x/staking/client/cli"
 	tokenscli "github.com/zerone-chain/zerone/x/tokens/client/cli"
 	vestingrewardscli "github.com/zerone-chain/zerone/x/vesting_rewards/client/cli"
@@ -238,6 +242,7 @@ func queryCommand(_ app.EncodingConfig) *cobra.Command {
 		liquiditypoolcli.NewQueryCmd(),
 		ontologycli.NewQueryCmd(),
 		qualificationcli.NewQueryCmd(),
+		schedulecli.NewQueryCmd(),
 		stakingcli.GetQueryCmd(),
 		tokenscli.NewQueryCmd(),
 		vestingrewardscli.NewQueryCmd(),
@@ -301,6 +306,7 @@ func txCommand(encodingConfig app.EncodingConfig) *cobra.Command {
 		liquiditypoolcli.NewTxCmd(),
 		ontologycli.NewTxCmd(),
 		qualificationcli.NewTxCmd(),
+		schedulecli.NewTxCmd(),
 		stakingcli.GetTxCmd(),
 		tokenscli.NewTxCmd(),
 		vestingrewardscli.NewTxCmd(),
@@ -317,11 +323,27 @@ func newApp(
 	appOpts servertypes.AppOptions,
 ) servertypes.Application {
 	baseappOptions := server.DefaultBaseappOptions(appOpts)
+	maxTxs := validatedApplicationMempoolMaxTx(appOpts)
+	// The SDK default dereferences an optional signer public key. Override it
+	// with Zerone's message-signer adapter so valid omitted-key transactions
+	// behave identically during CheckTx and FinalizeBlock on every node.
+	baseappOptions = append(
+		baseappOptions,
+		baseapp.SetMempool(app.NewApplicationMempool(maxTxs)),
+	)
 
 	return app.NewZeroneApp(
 		logger, db, traceStore, true, appOpts,
 		baseappOptions...,
 	)
+}
+
+func validatedApplicationMempoolMaxTx(appOpts servertypes.AppOptions) int {
+	maxTxs := cast.ToInt(appOpts.Get(server.FlagMempoolMaxTxs))
+	if err := app.ValidateApplicationMempoolMaxTx(maxTxs); err != nil {
+		panic(fmt.Errorf("invalid startup configuration: %w", err))
+	}
+	return maxTxs
 }
 
 // appExport creates a new ZeroneApp and exports its state.

@@ -96,6 +96,7 @@ jobs:
               "ibc_transfer_live_at_genesis", "ica_live_at_genesis",
               "knowledge_admission_rewards_live_at_genesis",
               "liquidity_pool_creation_live_at_genesis",
+              "message_schedule_admission_live_at_genesis",
               "one_operator_validator_bft_f", "pot_live_at_genesis",
               "public_grpc_live_at_initial_beta",
               "substrate_bridge_live_at_genesis", "vote_extensions_live_at_genesis"
@@ -205,6 +206,7 @@ jobs:
             .signature_authority.authorized_signer_fingerprint == .source.tag_signer_fingerprint and
             .signature_authority.detached_signature_filename == "RELEASE-PACKET.json.sig" and
             .accepted_policy.one_operator_validator_bft_f == 0 and
+            .accepted_policy.message_schedule_admission_live_at_genesis == false and
             .accepted_policy.public_grpc_live_at_initial_beta == false and
             .accepted_policy.hosted_transaction_submission_live_at_initial_beta == false and
             (.operator_tool_manifest_sha256 | type == "string") and

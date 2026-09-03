@@ -26,9 +26,9 @@ The compiler requires and proves all of the following:
   state, or live IBC state is a hard refusal;
 - `genutil.gen_txs` is exactly empty, proving the input is not an initial
   genesis with transactions waiting to be replayed;
-- every source application module is included in the sorted before/after
-  digest report, and any change outside the exact reviewed rewrite set is a
-  hard refusal;
+- every source application module and every target-only addition is included
+  in the sorted before/after digest report, and any change outside the exact
+  reviewed rewrite set is a hard refusal;
 - the target begins in consensus quarantine at `H+1`;
 - at least two sorted, policy-authorized reproducer tuples exist, each with a
   distinct identity, control domain, and Ed25519 attestation key;
@@ -48,11 +48,24 @@ authority—this compiler cannot produce a releasable recovery.
 
 The deployed legacy chain uses IBC-Go v8 while the target code uses IBC-Go v10.
 Because this profile requires IBC state to be empty, the compiler performs only
-two reviewed empty-state schema migrations and records them in the report:
+two reviewed IBC empty-state schema migrations and records them in the report:
 
 - `denom_traces: []` becomes `denoms: []`;
 - removed v8 channel parameters are accepted only at their exact reviewed
   default, then v10 client/channel-v2 empty state is added.
+
+The source must contain neither the retired `schedule` namespace nor the new
+`message_schedule` namespace. Existing scheduler state is refused because
+occurrence IDs are bound to the source chain ID and cannot be rewritten for a
+new chain. Both corresponding module addresses must also hold zero coins in
+every denomination; otherwise the retired balance is orphaned or the fresh
+zero-liability escrow invariant is false. The compiler adds only the exact empty, admission-closed
+`message_schedule` default and declares
+`message-schedule-v1-absent-to-default-closed`. Report v2 inventories that
+addition with `changed:true`, the target module digest in `after_sha256`, and
+SHA-256 of the canonical JSON literal `null`
+(`74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b`)
+in `before_sha256` as the sole absent-module sentinel.
 
 Anything else is outside this compiler's authority. In particular, it cannot
 replace an operator or governance account, preserve active IBC, rewrite token

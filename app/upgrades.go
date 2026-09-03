@@ -36,6 +36,7 @@ import (
 	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	liquiditypooltypes "github.com/zerone-chain/zerone/x/liquiditypool/types"
+	scheduletypes "github.com/zerone-chain/zerone/x/schedule/types"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
@@ -57,6 +58,7 @@ const (
 
 	legacyCapabilityStoreKey        = "capability"
 	legacyIBCFeeStoreKey            = "feeibc"
+	legacyScheduleStoreKey          = "schedule"
 	legacyIBCFeeLockedKey           = "locked"
 	maxSDK053IBC10PlanInfoByteCount = 2048
 	maxLegacyIBCManifestKeyCount    = 100_000
@@ -498,6 +500,12 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 					"upgrade %q cannot remove legacy IBC fee middleware while module account %q holds %s",
 					plan.Name, legacyIBCFeeStoreKey, feeBalances,
 				)
+			}
+			if err := app.requireNoLegacyScheduleBalance(ctx, plan.Name); err != nil {
+				return nil, err
+			}
+			if err := app.requireFreshScheduleBalanceZero(ctx, plan.Name); err != nil {
+				return nil, err
 			}
 
 			legacyIBCKeys, err := app.verifyObsoleteIBCChannelState(legacyIBCManifest)
@@ -1109,6 +1117,12 @@ func (app *ZeroneApp) RegisterStoreUpgrades() error {
 		return fmt.Errorf("inspect committed legacy store roots: %w", err)
 	}
 	app.sdk053IBC10LegacyStoresAtStartup = legacyStores
+	if legacyStores[legacyScheduleStoreKey] {
+		return fmt.Errorf(
+			"refusing startup because retired scheduler store %q remains committed; a dedicated old-format liability reconciliation is required and this binary will not delete or reinterpret it",
+			legacyScheduleStoreKey,
+		)
+	}
 	hasCapability := legacyStores[legacyCapabilityStoreKey]
 	hasFeeIBC := legacyStores[legacyIBCFeeStoreKey]
 	if hasCapability != hasFeeIBC {
@@ -1228,6 +1242,12 @@ func (app *ZeroneApp) ValidateSDK053IBC10StartupCoordination() error {
 		return nil
 	}
 	legacyStores := app.sdk053IBC10LegacyStoresAtStartup
+	if legacyStores[legacyScheduleStoreKey] {
+		return fmt.Errorf(
+			"retired scheduler store %q remained committed at startup",
+			legacyScheduleStoreKey,
+		)
+	}
 	if !legacyStores[legacyCapabilityStoreKey] &&
 		!legacyStores[legacyIBCFeeStoreKey] {
 		return app.validateSDK053IBC10CompletedOrNativeLineage()
@@ -1261,6 +1281,12 @@ func (app *ZeroneApp) ValidateSDK053IBC10StartupCoordination() error {
 		true,
 		cmtproto.Header{Height: proof.preUpgradeVersion},
 	)
+	if err := app.requireNoLegacyScheduleBalance(ctx, UpgradeNameSDK053IBC10+" startup"); err != nil {
+		return err
+	}
+	if err := app.requireFreshScheduleBalanceZero(ctx, UpgradeNameSDK053IBC10+" startup"); err != nil {
+		return err
+	}
 	onChainPlan, err := app.UpgradeKeeper.GetUpgradePlan(ctx)
 	if err != nil {
 		return fmt.Errorf(
@@ -1305,6 +1331,54 @@ func (app *ZeroneApp) ValidateSDK053IBC10StartupCoordination() error {
 	return nil
 }
 
+// requireNoLegacyScheduleBalance ensures the fresh message_schedule namespace
+// cannot strand coins held by the incompatible retired scheduler account. A
+// zero-balance account object is harmless and may legitimately survive older
+// genesis initialization; any coin balance requires an old-format liability
+// reconciliation before this binary can activate.
+func (app *ZeroneApp) requireNoLegacyScheduleBalance(
+	ctx context.Context,
+	boundary string,
+) error {
+	balances := app.BankKeeper.GetAllBalances(
+		ctx,
+		authtypes.NewModuleAddress(legacyScheduleStoreKey),
+	)
+	if balances.IsZero() {
+		return nil
+	}
+	return fmt.Errorf(
+		"%s cannot orphan retired scheduler module account %q holding %s; reconcile old-format liabilities first",
+		boundary,
+		legacyScheduleStoreKey,
+		balances,
+	)
+}
+
+// requireFreshScheduleBalanceZero proves that the address reserved for the
+// new message_schedule module has no pre-H3 coins in any denomination. The
+// predecessor binary did not block this future module address, so a balance
+// there would be untracked by the fresh store and would make initialization's
+// exact escrow invariant fail.
+func (app *ZeroneApp) requireFreshScheduleBalanceZero(
+	ctx context.Context,
+	boundary string,
+) error {
+	balances := app.BankKeeper.GetAllBalances(
+		ctx,
+		authtypes.NewModuleAddress(scheduletypes.ModuleName),
+	)
+	if balances.IsZero() {
+		return nil
+	}
+	return fmt.Errorf(
+		"%s requires fresh scheduler module account %q to have zero balance before initialization; found %s",
+		boundary,
+		scheduletypes.ModuleName,
+		balances,
+	)
+}
+
 func (app *ZeroneApp) validateSDK053IBC10CompletedOrNativeLineage() error {
 	latest := app.CommitMultiStore().LastCommitID().Version
 	if latest == 0 {
@@ -1314,6 +1388,9 @@ func (app *ZeroneApp) validateSDK053IBC10CompletedOrNativeLineage() error {
 		true,
 		cmtproto.Header{Height: latest},
 	)
+	if err := app.requireNoLegacyScheduleBalance(ctx, UpgradeNameSDK053IBC10+" startup"); err != nil {
+		return err
+	}
 	versionMap, err := app.UpgradeKeeper.GetModuleVersionMap(ctx)
 	if err != nil {
 		return fmt.Errorf(
@@ -1340,9 +1417,19 @@ func (app *ZeroneApp) validateSDK053IBC10CompletedOrNativeLineage() error {
 			)
 		}
 	}
+	scheduleVersion, scheduleFound := versionMap[scheduletypes.ModuleName]
+	if !scheduleFound || scheduleVersion != 1 {
+		return fmt.Errorf(
+			"legacy roots are absent but module %q is not at required post-H3 consensus version 1: found=%t version=%d",
+			scheduletypes.ModuleName,
+			scheduleFound,
+			scheduleVersion,
+		)
+	}
 	for _, removed := range []string{
 		legacyCapabilityStoreKey,
 		legacyIBCFeeStoreKey,
+		legacyScheduleStoreKey,
 	} {
 		if version, found := versionMap[removed]; found {
 			return fmt.Errorf(
@@ -1437,6 +1524,10 @@ func (app *ZeroneApp) validateSDK053IBC10CompletedOrNativeLineage() error {
 
 func sdk053IBC10StoreUpgrades() storetypes.StoreUpgrades {
 	return storetypes.StoreUpgrades{
+		// The new scheduler must never remount the incompatible retired
+		// "schedule" tree. Its fresh namespace is initialized admission-closed
+		// by RunMigrations because it is absent from the exact H2 version map.
+		Added: []string{scheduletypes.StoreKey},
 		Deleted: []string{
 			legacyCapabilityStoreKey,
 			legacyIBCFeeStoreKey,

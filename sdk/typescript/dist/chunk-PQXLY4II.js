@@ -18388,9 +18388,648 @@ var MessageComposer15 = {
   }
 };
 
-// src/generated/zerone/sponsorship/v1/tx.ts
+// src/generated/zerone/schedule/v2/tx.ts
 var tx_exports15 = {};
 __export(tx_exports15, {
+  MsgCancelSchedule: () => MsgCancelSchedule,
+  MsgCancelScheduleResponse: () => MsgCancelScheduleResponse,
+  MsgCreateSchedule: () => MsgCreateSchedule,
+  MsgCreateScheduleResponse: () => MsgCreateScheduleResponse,
+  MsgUpdateParams: () => MsgUpdateParams15,
+  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse14,
+  MsgUpdateSchedule: () => MsgUpdateSchedule,
+  MsgUpdateScheduleResponse: () => MsgUpdateScheduleResponse
+});
+
+// src/generated/zerone/schedule/v2/state.ts
+function createBaseParams15() {
+  return {
+    acceptNewSchedules: false,
+    minScheduleDelayBlocks: BigInt(0),
+    minIntervalBlocks: BigInt(0),
+    maxExecutionsPerSchedule: 0,
+    maxActiveSchedulesPerCreator: 0,
+    maxDueRecordsPerBlock: 0,
+    maxQueryLimit: 0,
+    executionFeeUzrn: "",
+    maxTransferPerExecutionUzrn: ""
+  };
+}
+var Params15 = {
+  typeUrl: "/zerone.schedule.v2.Params",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.acceptNewSchedules === true) {
+      writer.uint32(8).bool(message.acceptNewSchedules);
+    }
+    if (message.minScheduleDelayBlocks !== BigInt(0)) {
+      writer.uint32(16).uint64(message.minScheduleDelayBlocks);
+    }
+    if (message.minIntervalBlocks !== BigInt(0)) {
+      writer.uint32(24).uint64(message.minIntervalBlocks);
+    }
+    if (message.maxExecutionsPerSchedule !== 0) {
+      writer.uint32(32).uint32(message.maxExecutionsPerSchedule);
+    }
+    if (message.maxActiveSchedulesPerCreator !== 0) {
+      writer.uint32(40).uint32(message.maxActiveSchedulesPerCreator);
+    }
+    if (message.maxDueRecordsPerBlock !== 0) {
+      writer.uint32(48).uint32(message.maxDueRecordsPerBlock);
+    }
+    if (message.maxQueryLimit !== 0) {
+      writer.uint32(56).uint32(message.maxQueryLimit);
+    }
+    if (message.executionFeeUzrn !== "") {
+      writer.uint32(66).string(message.executionFeeUzrn);
+    }
+    if (message.maxTransferPerExecutionUzrn !== "") {
+      writer.uint32(74).string(message.maxTransferPerExecutionUzrn);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseParams15();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.acceptNewSchedules = reader.bool();
+          break;
+        case 2:
+          message.minScheduleDelayBlocks = reader.uint64();
+          break;
+        case 3:
+          message.minIntervalBlocks = reader.uint64();
+          break;
+        case 4:
+          message.maxExecutionsPerSchedule = reader.uint32();
+          break;
+        case 5:
+          message.maxActiveSchedulesPerCreator = reader.uint32();
+          break;
+        case 6:
+          message.maxDueRecordsPerBlock = reader.uint32();
+          break;
+        case 7:
+          message.maxQueryLimit = reader.uint32();
+          break;
+        case 8:
+          message.executionFeeUzrn = reader.string();
+          break;
+        case 9:
+          message.maxTransferPerExecutionUzrn = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseParams15();
+    message.acceptNewSchedules = object.acceptNewSchedules ?? false;
+    message.minScheduleDelayBlocks = object.minScheduleDelayBlocks !== void 0 && object.minScheduleDelayBlocks !== null ? BigInt(object.minScheduleDelayBlocks.toString()) : BigInt(0);
+    message.minIntervalBlocks = object.minIntervalBlocks !== void 0 && object.minIntervalBlocks !== null ? BigInt(object.minIntervalBlocks.toString()) : BigInt(0);
+    message.maxExecutionsPerSchedule = object.maxExecutionsPerSchedule ?? 0;
+    message.maxActiveSchedulesPerCreator = object.maxActiveSchedulesPerCreator ?? 0;
+    message.maxDueRecordsPerBlock = object.maxDueRecordsPerBlock ?? 0;
+    message.maxQueryLimit = object.maxQueryLimit ?? 0;
+    message.executionFeeUzrn = object.executionFeeUzrn ?? "";
+    message.maxTransferPerExecutionUzrn = object.maxTransferPerExecutionUzrn ?? "";
+    return message;
+  }
+};
+
+// src/generated/zerone/schedule/v2/tx.ts
+function createBaseMsgCreateSchedule() {
+  return {
+    creator: "",
+    recipient: "",
+    amountPerExecutionUzrn: "",
+    firstExecutionHeight: BigInt(0),
+    intervalBlocks: BigInt(0),
+    executionCount: 0
+  };
+}
+var MsgCreateSchedule = {
+  typeUrl: "/zerone.schedule.v2.MsgCreateSchedule",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.creator !== "") {
+      writer.uint32(10).string(message.creator);
+    }
+    if (message.recipient !== "") {
+      writer.uint32(18).string(message.recipient);
+    }
+    if (message.amountPerExecutionUzrn !== "") {
+      writer.uint32(26).string(message.amountPerExecutionUzrn);
+    }
+    if (message.firstExecutionHeight !== BigInt(0)) {
+      writer.uint32(32).uint64(message.firstExecutionHeight);
+    }
+    if (message.intervalBlocks !== BigInt(0)) {
+      writer.uint32(40).uint64(message.intervalBlocks);
+    }
+    if (message.executionCount !== 0) {
+      writer.uint32(48).uint32(message.executionCount);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgCreateSchedule();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.creator = reader.string();
+          break;
+        case 2:
+          message.recipient = reader.string();
+          break;
+        case 3:
+          message.amountPerExecutionUzrn = reader.string();
+          break;
+        case 4:
+          message.firstExecutionHeight = reader.uint64();
+          break;
+        case 5:
+          message.intervalBlocks = reader.uint64();
+          break;
+        case 6:
+          message.executionCount = reader.uint32();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseMsgCreateSchedule();
+    message.creator = object.creator ?? "";
+    message.recipient = object.recipient ?? "";
+    message.amountPerExecutionUzrn = object.amountPerExecutionUzrn ?? "";
+    message.firstExecutionHeight = object.firstExecutionHeight !== void 0 && object.firstExecutionHeight !== null ? BigInt(object.firstExecutionHeight.toString()) : BigInt(0);
+    message.intervalBlocks = object.intervalBlocks !== void 0 && object.intervalBlocks !== null ? BigInt(object.intervalBlocks.toString()) : BigInt(0);
+    message.executionCount = object.executionCount ?? 0;
+    return message;
+  }
+};
+function createBaseMsgCreateScheduleResponse() {
+  return {
+    scheduleId: "",
+    escrowedUzrn: ""
+  };
+}
+var MsgCreateScheduleResponse = {
+  typeUrl: "/zerone.schedule.v2.MsgCreateScheduleResponse",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.scheduleId !== "") {
+      writer.uint32(10).string(message.scheduleId);
+    }
+    if (message.escrowedUzrn !== "") {
+      writer.uint32(18).string(message.escrowedUzrn);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgCreateScheduleResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.scheduleId = reader.string();
+          break;
+        case 2:
+          message.escrowedUzrn = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseMsgCreateScheduleResponse();
+    message.scheduleId = object.scheduleId ?? "";
+    message.escrowedUzrn = object.escrowedUzrn ?? "";
+    return message;
+  }
+};
+function createBaseMsgUpdateSchedule() {
+  return {
+    creator: "",
+    scheduleId: "",
+    expectedRevision: BigInt(0),
+    expectedExecutionCount: 0,
+    recipient: "",
+    amountPerExecutionUzrn: "",
+    nextExecutionHeight: BigInt(0),
+    intervalBlocks: BigInt(0),
+    remainingExecutions: 0
+  };
+}
+var MsgUpdateSchedule = {
+  typeUrl: "/zerone.schedule.v2.MsgUpdateSchedule",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.creator !== "") {
+      writer.uint32(10).string(message.creator);
+    }
+    if (message.scheduleId !== "") {
+      writer.uint32(18).string(message.scheduleId);
+    }
+    if (message.expectedRevision !== BigInt(0)) {
+      writer.uint32(24).uint64(message.expectedRevision);
+    }
+    if (message.expectedExecutionCount !== 0) {
+      writer.uint32(32).uint32(message.expectedExecutionCount);
+    }
+    if (message.recipient !== "") {
+      writer.uint32(42).string(message.recipient);
+    }
+    if (message.amountPerExecutionUzrn !== "") {
+      writer.uint32(50).string(message.amountPerExecutionUzrn);
+    }
+    if (message.nextExecutionHeight !== BigInt(0)) {
+      writer.uint32(56).uint64(message.nextExecutionHeight);
+    }
+    if (message.intervalBlocks !== BigInt(0)) {
+      writer.uint32(64).uint64(message.intervalBlocks);
+    }
+    if (message.remainingExecutions !== 0) {
+      writer.uint32(72).uint32(message.remainingExecutions);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgUpdateSchedule();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.creator = reader.string();
+          break;
+        case 2:
+          message.scheduleId = reader.string();
+          break;
+        case 3:
+          message.expectedRevision = reader.uint64();
+          break;
+        case 4:
+          message.expectedExecutionCount = reader.uint32();
+          break;
+        case 5:
+          message.recipient = reader.string();
+          break;
+        case 6:
+          message.amountPerExecutionUzrn = reader.string();
+          break;
+        case 7:
+          message.nextExecutionHeight = reader.uint64();
+          break;
+        case 8:
+          message.intervalBlocks = reader.uint64();
+          break;
+        case 9:
+          message.remainingExecutions = reader.uint32();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseMsgUpdateSchedule();
+    message.creator = object.creator ?? "";
+    message.scheduleId = object.scheduleId ?? "";
+    message.expectedRevision = object.expectedRevision !== void 0 && object.expectedRevision !== null ? BigInt(object.expectedRevision.toString()) : BigInt(0);
+    message.expectedExecutionCount = object.expectedExecutionCount ?? 0;
+    message.recipient = object.recipient ?? "";
+    message.amountPerExecutionUzrn = object.amountPerExecutionUzrn ?? "";
+    message.nextExecutionHeight = object.nextExecutionHeight !== void 0 && object.nextExecutionHeight !== null ? BigInt(object.nextExecutionHeight.toString()) : BigInt(0);
+    message.intervalBlocks = object.intervalBlocks !== void 0 && object.intervalBlocks !== null ? BigInt(object.intervalBlocks.toString()) : BigInt(0);
+    message.remainingExecutions = object.remainingExecutions ?? 0;
+    return message;
+  }
+};
+function createBaseMsgUpdateScheduleResponse() {
+  return {
+    revision: BigInt(0),
+    escrowDeltaUzrn: "",
+    refunded: false
+  };
+}
+var MsgUpdateScheduleResponse = {
+  typeUrl: "/zerone.schedule.v2.MsgUpdateScheduleResponse",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.revision !== BigInt(0)) {
+      writer.uint32(8).uint64(message.revision);
+    }
+    if (message.escrowDeltaUzrn !== "") {
+      writer.uint32(18).string(message.escrowDeltaUzrn);
+    }
+    if (message.refunded === true) {
+      writer.uint32(24).bool(message.refunded);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgUpdateScheduleResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.revision = reader.uint64();
+          break;
+        case 2:
+          message.escrowDeltaUzrn = reader.string();
+          break;
+        case 3:
+          message.refunded = reader.bool();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseMsgUpdateScheduleResponse();
+    message.revision = object.revision !== void 0 && object.revision !== null ? BigInt(object.revision.toString()) : BigInt(0);
+    message.escrowDeltaUzrn = object.escrowDeltaUzrn ?? "";
+    message.refunded = object.refunded ?? false;
+    return message;
+  }
+};
+function createBaseMsgCancelSchedule() {
+  return {
+    creator: "",
+    scheduleId: "",
+    expectedRevision: BigInt(0),
+    expectedExecutionCount: 0
+  };
+}
+var MsgCancelSchedule = {
+  typeUrl: "/zerone.schedule.v2.MsgCancelSchedule",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.creator !== "") {
+      writer.uint32(10).string(message.creator);
+    }
+    if (message.scheduleId !== "") {
+      writer.uint32(18).string(message.scheduleId);
+    }
+    if (message.expectedRevision !== BigInt(0)) {
+      writer.uint32(24).uint64(message.expectedRevision);
+    }
+    if (message.expectedExecutionCount !== 0) {
+      writer.uint32(32).uint32(message.expectedExecutionCount);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgCancelSchedule();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.creator = reader.string();
+          break;
+        case 2:
+          message.scheduleId = reader.string();
+          break;
+        case 3:
+          message.expectedRevision = reader.uint64();
+          break;
+        case 4:
+          message.expectedExecutionCount = reader.uint32();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseMsgCancelSchedule();
+    message.creator = object.creator ?? "";
+    message.scheduleId = object.scheduleId ?? "";
+    message.expectedRevision = object.expectedRevision !== void 0 && object.expectedRevision !== null ? BigInt(object.expectedRevision.toString()) : BigInt(0);
+    message.expectedExecutionCount = object.expectedExecutionCount ?? 0;
+    return message;
+  }
+};
+function createBaseMsgCancelScheduleResponse() {
+  return {
+    refundedUzrn: ""
+  };
+}
+var MsgCancelScheduleResponse = {
+  typeUrl: "/zerone.schedule.v2.MsgCancelScheduleResponse",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.refundedUzrn !== "") {
+      writer.uint32(10).string(message.refundedUzrn);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgCancelScheduleResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.refundedUzrn = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseMsgCancelScheduleResponse();
+    message.refundedUzrn = object.refundedUzrn ?? "";
+    return message;
+  }
+};
+function createBaseMsgUpdateParams14() {
+  return {
+    authority: "",
+    params: void 0
+  };
+}
+var MsgUpdateParams15 = {
+  typeUrl: "/zerone.schedule.v2.MsgUpdateParams",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.authority !== "") {
+      writer.uint32(10).string(message.authority);
+    }
+    if (message.params !== void 0) {
+      Params15.encode(message.params, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgUpdateParams14();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.authority = reader.string();
+          break;
+        case 2:
+          message.params = Params15.decode(reader, reader.uint32());
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseMsgUpdateParams14();
+    message.authority = object.authority ?? "";
+    message.params = object.params !== void 0 && object.params !== null ? Params15.fromPartial(object.params) : void 0;
+    return message;
+  }
+};
+function createBaseMsgUpdateParamsResponse14() {
+  return {};
+}
+var MsgUpdateParamsResponse14 = {
+  typeUrl: "/zerone.schedule.v2.MsgUpdateParamsResponse",
+  encode(_, writer = BinaryWriter.create()) {
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgUpdateParamsResponse14();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(_) {
+    const message = createBaseMsgUpdateParamsResponse14();
+    return message;
+  }
+};
+
+// src/generated/zerone/schedule/v2/tx.registry.ts
+var registry16 = [["/zerone.schedule.v2.MsgCreateSchedule", MsgCreateSchedule], ["/zerone.schedule.v2.MsgUpdateSchedule", MsgUpdateSchedule], ["/zerone.schedule.v2.MsgCancelSchedule", MsgCancelSchedule], ["/zerone.schedule.v2.MsgUpdateParams", MsgUpdateParams15]];
+var MessageComposer16 = {
+  encoded: {
+    createSchedule(value) {
+      return {
+        typeUrl: "/zerone.schedule.v2.MsgCreateSchedule",
+        value: MsgCreateSchedule.encode(value).finish()
+      };
+    },
+    updateSchedule(value) {
+      return {
+        typeUrl: "/zerone.schedule.v2.MsgUpdateSchedule",
+        value: MsgUpdateSchedule.encode(value).finish()
+      };
+    },
+    cancelSchedule(value) {
+      return {
+        typeUrl: "/zerone.schedule.v2.MsgCancelSchedule",
+        value: MsgCancelSchedule.encode(value).finish()
+      };
+    },
+    updateParams(value) {
+      return {
+        typeUrl: "/zerone.schedule.v2.MsgUpdateParams",
+        value: MsgUpdateParams15.encode(value).finish()
+      };
+    }
+  },
+  withTypeUrl: {
+    createSchedule(value) {
+      return {
+        typeUrl: "/zerone.schedule.v2.MsgCreateSchedule",
+        value
+      };
+    },
+    updateSchedule(value) {
+      return {
+        typeUrl: "/zerone.schedule.v2.MsgUpdateSchedule",
+        value
+      };
+    },
+    cancelSchedule(value) {
+      return {
+        typeUrl: "/zerone.schedule.v2.MsgCancelSchedule",
+        value
+      };
+    },
+    updateParams(value) {
+      return {
+        typeUrl: "/zerone.schedule.v2.MsgUpdateParams",
+        value
+      };
+    }
+  },
+  fromPartial: {
+    createSchedule(value) {
+      return {
+        typeUrl: "/zerone.schedule.v2.MsgCreateSchedule",
+        value: MsgCreateSchedule.fromPartial(value)
+      };
+    },
+    updateSchedule(value) {
+      return {
+        typeUrl: "/zerone.schedule.v2.MsgUpdateSchedule",
+        value: MsgUpdateSchedule.fromPartial(value)
+      };
+    },
+    cancelSchedule(value) {
+      return {
+        typeUrl: "/zerone.schedule.v2.MsgCancelSchedule",
+        value: MsgCancelSchedule.fromPartial(value)
+      };
+    },
+    updateParams(value) {
+      return {
+        typeUrl: "/zerone.schedule.v2.MsgUpdateParams",
+        value: MsgUpdateParams15.fromPartial(value)
+      };
+    }
+  }
+};
+
+// src/generated/zerone/sponsorship/v1/tx.ts
+var tx_exports16 = {};
+__export(tx_exports16, {
   MsgCancelBountyOrder: () => MsgCancelBountyOrder,
   MsgCancelBountyOrderResponse: () => MsgCancelBountyOrderResponse,
   MsgCreateBountyOrder: () => MsgCreateBountyOrder,
@@ -18688,8 +19327,8 @@ var MsgCancelBountyOrderResponse = {
 };
 
 // src/generated/zerone/sponsorship/v1/tx.registry.ts
-var registry16 = [["/zerone.sponsorship.v1.MsgCreateBountyOrder", MsgCreateBountyOrder], ["/zerone.sponsorship.v1.MsgFulfillBounty", MsgFulfillBounty], ["/zerone.sponsorship.v1.MsgCancelBountyOrder", MsgCancelBountyOrder]];
-var MessageComposer16 = {
+var registry17 = [["/zerone.sponsorship.v1.MsgCreateBountyOrder", MsgCreateBountyOrder], ["/zerone.sponsorship.v1.MsgFulfillBounty", MsgFulfillBounty], ["/zerone.sponsorship.v1.MsgCancelBountyOrder", MsgCancelBountyOrder]];
+var MessageComposer17 = {
   encoded: {
     createBountyOrder(value) {
       return {
@@ -18753,8 +19392,8 @@ var MessageComposer16 = {
 };
 
 // src/generated/zerone/staking/v1/tx.ts
-var tx_exports16 = {};
-__export(tx_exports16, {
+var tx_exports17 = {};
+__export(tx_exports17, {
   MsgDelegate: () => MsgDelegate,
   MsgDelegateResponse: () => MsgDelegateResponse,
   MsgRedelegate: () => MsgRedelegate,
@@ -18763,8 +19402,8 @@ __export(tx_exports16, {
   MsgRegisterValidatorResponse: () => MsgRegisterValidatorResponse,
   MsgUndelegate: () => MsgUndelegate,
   MsgUndelegateResponse: () => MsgUndelegateResponse,
-  MsgUpdateParams: () => MsgUpdateParams15,
-  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse14,
+  MsgUpdateParams: () => MsgUpdateParams16,
+  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse15,
   MsgUpdateValidatorStake: () => MsgUpdateValidatorStake,
   MsgUpdateValidatorStakeResponse: () => MsgUpdateValidatorStakeResponse
 });
@@ -18912,7 +19551,7 @@ var TierConfig = {
 };
 
 // src/generated/zerone/staking/v1/genesis.ts
-function createBaseParams15() {
+function createBaseParams16() {
   return {
     unbondingPeriod: BigInt(0),
     virtualStake: "",
@@ -18930,7 +19569,7 @@ function createBaseParams15() {
     tierConfigs: []
   };
 }
-var Params15 = {
+var Params16 = {
   typeUrl: "/zerone.staking.v1.Params",
   encode(message, writer = BinaryWriter.create()) {
     if (message.unbondingPeriod !== BigInt(0)) {
@@ -18980,7 +19619,7 @@ var Params15 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseParams15();
+    const message = createBaseParams16();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -19034,7 +19673,7 @@ var Params15 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseParams15();
+    const message = createBaseParams16();
     message.unbondingPeriod = object.unbondingPeriod !== void 0 && object.unbondingPeriod !== null ? BigInt(object.unbondingPeriod.toString()) : BigInt(0);
     message.virtualStake = object.virtualStake ?? "";
     message.maxValidators = object.maxValidators !== void 0 && object.maxValidators !== null ? BigInt(object.maxValidators.toString()) : BigInt(0);
@@ -19532,27 +20171,27 @@ var MsgUpdateValidatorStakeResponse = {
     return message;
   }
 };
-function createBaseMsgUpdateParams14() {
+function createBaseMsgUpdateParams15() {
   return {
     authority: "",
     params: void 0
   };
 }
-var MsgUpdateParams15 = {
+var MsgUpdateParams16 = {
   typeUrl: "/zerone.staking.v1.MsgUpdateParams",
   encode(message, writer = BinaryWriter.create()) {
     if (message.authority !== "") {
       writer.uint32(10).string(message.authority);
     }
     if (message.params !== void 0) {
-      Params15.encode(message.params, writer.uint32(18).fork()).ldelim();
+      Params16.encode(message.params, writer.uint32(18).fork()).ldelim();
     }
     return writer;
   },
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParams14();
+    const message = createBaseMsgUpdateParams15();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -19560,7 +20199,7 @@ var MsgUpdateParams15 = {
           message.authority = reader.string();
           break;
         case 2:
-          message.params = Params15.decode(reader, reader.uint32());
+          message.params = Params16.decode(reader, reader.uint32());
           break;
         default:
           reader.skipType(tag & 7);
@@ -19570,16 +20209,16 @@ var MsgUpdateParams15 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseMsgUpdateParams14();
+    const message = createBaseMsgUpdateParams15();
     message.authority = object.authority ?? "";
-    message.params = object.params !== void 0 && object.params !== null ? Params15.fromPartial(object.params) : void 0;
+    message.params = object.params !== void 0 && object.params !== null ? Params16.fromPartial(object.params) : void 0;
     return message;
   }
 };
-function createBaseMsgUpdateParamsResponse14() {
+function createBaseMsgUpdateParamsResponse15() {
   return {};
 }
-var MsgUpdateParamsResponse14 = {
+var MsgUpdateParamsResponse15 = {
   typeUrl: "/zerone.staking.v1.MsgUpdateParamsResponse",
   encode(_, writer = BinaryWriter.create()) {
     return writer;
@@ -19587,7 +20226,7 @@ var MsgUpdateParamsResponse14 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParamsResponse14();
+    const message = createBaseMsgUpdateParamsResponse15();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -19599,14 +20238,14 @@ var MsgUpdateParamsResponse14 = {
     return message;
   },
   fromPartial(_) {
-    const message = createBaseMsgUpdateParamsResponse14();
+    const message = createBaseMsgUpdateParamsResponse15();
     return message;
   }
 };
 
 // src/generated/zerone/staking/v1/tx.registry.ts
-var registry17 = [["/zerone.staking.v1.MsgRegisterValidator", MsgRegisterValidator], ["/zerone.staking.v1.MsgDelegate", MsgDelegate], ["/zerone.staking.v1.MsgUndelegate", MsgUndelegate], ["/zerone.staking.v1.MsgRedelegate", MsgRedelegate], ["/zerone.staking.v1.MsgUpdateValidatorStake", MsgUpdateValidatorStake], ["/zerone.staking.v1.MsgUpdateParams", MsgUpdateParams15]];
-var MessageComposer17 = {
+var registry18 = [["/zerone.staking.v1.MsgRegisterValidator", MsgRegisterValidator], ["/zerone.staking.v1.MsgDelegate", MsgDelegate], ["/zerone.staking.v1.MsgUndelegate", MsgUndelegate], ["/zerone.staking.v1.MsgRedelegate", MsgRedelegate], ["/zerone.staking.v1.MsgUpdateValidatorStake", MsgUpdateValidatorStake], ["/zerone.staking.v1.MsgUpdateParams", MsgUpdateParams16]];
+var MessageComposer18 = {
   encoded: {
     registerValidator(value) {
       return {
@@ -19641,7 +20280,7 @@ var MessageComposer17 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.staking.v1.MsgUpdateParams",
-        value: MsgUpdateParams15.encode(value).finish()
+        value: MsgUpdateParams16.encode(value).finish()
       };
     }
   },
@@ -19717,15 +20356,15 @@ var MessageComposer17 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.staking.v1.MsgUpdateParams",
-        value: MsgUpdateParams15.fromPartial(value)
+        value: MsgUpdateParams16.fromPartial(value)
       };
     }
   }
 };
 
 // src/generated/zerone/substrate_bridge/v1/tx.ts
-var tx_exports17 = {};
-__export(tx_exports17, {
+var tx_exports18 = {};
+__export(tx_exports18, {
   MsgRegisterAdapter: () => MsgRegisterAdapter,
   MsgRegisterAdapterResponse: () => MsgRegisterAdapterResponse,
   MsgSubmitExternalAttestation: () => MsgSubmitExternalAttestation,
@@ -20762,8 +21401,8 @@ var MsgSubmitExternalAttestationResponse = {
 };
 
 // src/generated/zerone/substrate_bridge/v1/tx.registry.ts
-var registry18 = [["/zerone.substrate_bridge.v1.MsgRegisterAdapter", MsgRegisterAdapter], ["/zerone.substrate_bridge.v1.MsgSuspendAdapter", MsgSuspendAdapter], ["/zerone.substrate_bridge.v1.MsgTombstoneAdapter", MsgTombstoneAdapter], ["/zerone.substrate_bridge.v1.MsgSubmitExternalAttestation", MsgSubmitExternalAttestation]];
-var MessageComposer18 = {
+var registry19 = [["/zerone.substrate_bridge.v1.MsgRegisterAdapter", MsgRegisterAdapter], ["/zerone.substrate_bridge.v1.MsgSuspendAdapter", MsgSuspendAdapter], ["/zerone.substrate_bridge.v1.MsgTombstoneAdapter", MsgTombstoneAdapter], ["/zerone.substrate_bridge.v1.MsgSubmitExternalAttestation", MsgSubmitExternalAttestation]];
+var MessageComposer19 = {
   encoded: {
     registerAdapter(value) {
       return {
@@ -20845,8 +21484,8 @@ var MessageComposer18 = {
 };
 
 // src/generated/zerone/tokens/v1/tx.ts
-var tx_exports18 = {};
-__export(tx_exports18, {
+var tx_exports19 = {};
+__export(tx_exports19, {
   MsgApproveToken: () => MsgApproveToken,
   MsgApproveTokenResponse: () => MsgApproveTokenResponse,
   MsgBurnToken: () => MsgBurnToken,
@@ -20873,8 +21512,8 @@ __export(tx_exports18, {
   MsgUnpauseTokenResponse: () => MsgUnpauseTokenResponse,
   MsgUnwrapToken: () => MsgUnwrapToken,
   MsgUnwrapTokenResponse: () => MsgUnwrapTokenResponse,
-  MsgUpdateParams: () => MsgUpdateParams16,
-  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse15,
+  MsgUpdateParams: () => MsgUpdateParams17,
+  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse16,
   MsgWrapToken: () => MsgWrapToken,
   MsgWrapTokenResponse: () => MsgWrapTokenResponse
 });
@@ -20942,13 +21581,13 @@ var TokenFeatures = {
 };
 
 // src/generated/zerone/tokens/v1/genesis.ts
-function createBaseParams16() {
+function createBaseParams17() {
   return {
     emissionEpochBlocks: BigInt(0),
     defaultFeeBps: ""
   };
 }
-var Params16 = {
+var Params17 = {
   typeUrl: "/zerone.tokens.v1.Params",
   encode(message, writer = BinaryWriter.create()) {
     if (message.emissionEpochBlocks !== BigInt(0)) {
@@ -20962,7 +21601,7 @@ var Params16 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseParams16();
+    const message = createBaseParams17();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -20980,7 +21619,7 @@ var Params16 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseParams16();
+    const message = createBaseParams17();
     message.emissionEpochBlocks = object.emissionEpochBlocks !== void 0 && object.emissionEpochBlocks !== null ? BigInt(object.emissionEpochBlocks.toString()) : BigInt(0);
     message.defaultFeeBps = object.defaultFeeBps ?? "";
     return message;
@@ -22210,27 +22849,27 @@ var MsgCancelEmissionPeriodResponse = {
     return message;
   }
 };
-function createBaseMsgUpdateParams15() {
+function createBaseMsgUpdateParams16() {
   return {
     authority: "",
     params: void 0
   };
 }
-var MsgUpdateParams16 = {
+var MsgUpdateParams17 = {
   typeUrl: "/zerone.tokens.v1.MsgUpdateParams",
   encode(message, writer = BinaryWriter.create()) {
     if (message.authority !== "") {
       writer.uint32(10).string(message.authority);
     }
     if (message.params !== void 0) {
-      Params16.encode(message.params, writer.uint32(18).fork()).ldelim();
+      Params17.encode(message.params, writer.uint32(18).fork()).ldelim();
     }
     return writer;
   },
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParams15();
+    const message = createBaseMsgUpdateParams16();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -22238,7 +22877,7 @@ var MsgUpdateParams16 = {
           message.authority = reader.string();
           break;
         case 2:
-          message.params = Params16.decode(reader, reader.uint32());
+          message.params = Params17.decode(reader, reader.uint32());
           break;
         default:
           reader.skipType(tag & 7);
@@ -22248,16 +22887,16 @@ var MsgUpdateParams16 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseMsgUpdateParams15();
+    const message = createBaseMsgUpdateParams16();
     message.authority = object.authority ?? "";
-    message.params = object.params !== void 0 && object.params !== null ? Params16.fromPartial(object.params) : void 0;
+    message.params = object.params !== void 0 && object.params !== null ? Params17.fromPartial(object.params) : void 0;
     return message;
   }
 };
-function createBaseMsgUpdateParamsResponse15() {
+function createBaseMsgUpdateParamsResponse16() {
   return {};
 }
-var MsgUpdateParamsResponse15 = {
+var MsgUpdateParamsResponse16 = {
   typeUrl: "/zerone.tokens.v1.MsgUpdateParamsResponse",
   encode(_, writer = BinaryWriter.create()) {
     return writer;
@@ -22265,7 +22904,7 @@ var MsgUpdateParamsResponse15 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParamsResponse15();
+    const message = createBaseMsgUpdateParamsResponse16();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -22277,14 +22916,14 @@ var MsgUpdateParamsResponse15 = {
     return message;
   },
   fromPartial(_) {
-    const message = createBaseMsgUpdateParamsResponse15();
+    const message = createBaseMsgUpdateParamsResponse16();
     return message;
   }
 };
 
 // src/generated/zerone/tokens/v1/tx.registry.ts
-var registry19 = [["/zerone.tokens.v1.MsgCreateToken", MsgCreateToken], ["/zerone.tokens.v1.MsgMintToken", MsgMintToken], ["/zerone.tokens.v1.MsgBurnToken", MsgBurnToken], ["/zerone.tokens.v1.MsgTransferToken", MsgTransferToken], ["/zerone.tokens.v1.MsgApproveToken", MsgApproveToken], ["/zerone.tokens.v1.MsgTransferFrom", MsgTransferFrom], ["/zerone.tokens.v1.MsgPauseToken", MsgPauseToken], ["/zerone.tokens.v1.MsgUnpauseToken", MsgUnpauseToken], ["/zerone.tokens.v1.MsgDelegatePower", MsgDelegatePower], ["/zerone.tokens.v1.MsgUndelegatePower", MsgUndelegatePower], ["/zerone.tokens.v1.MsgWrapToken", MsgWrapToken], ["/zerone.tokens.v1.MsgUnwrapToken", MsgUnwrapToken], ["/zerone.tokens.v1.MsgCreateEmissionPeriod", MsgCreateEmissionPeriod], ["/zerone.tokens.v1.MsgCancelEmissionPeriod", MsgCancelEmissionPeriod], ["/zerone.tokens.v1.MsgUpdateParams", MsgUpdateParams16]];
-var MessageComposer19 = {
+var registry20 = [["/zerone.tokens.v1.MsgCreateToken", MsgCreateToken], ["/zerone.tokens.v1.MsgMintToken", MsgMintToken], ["/zerone.tokens.v1.MsgBurnToken", MsgBurnToken], ["/zerone.tokens.v1.MsgTransferToken", MsgTransferToken], ["/zerone.tokens.v1.MsgApproveToken", MsgApproveToken], ["/zerone.tokens.v1.MsgTransferFrom", MsgTransferFrom], ["/zerone.tokens.v1.MsgPauseToken", MsgPauseToken], ["/zerone.tokens.v1.MsgUnpauseToken", MsgUnpauseToken], ["/zerone.tokens.v1.MsgDelegatePower", MsgDelegatePower], ["/zerone.tokens.v1.MsgUndelegatePower", MsgUndelegatePower], ["/zerone.tokens.v1.MsgWrapToken", MsgWrapToken], ["/zerone.tokens.v1.MsgUnwrapToken", MsgUnwrapToken], ["/zerone.tokens.v1.MsgCreateEmissionPeriod", MsgCreateEmissionPeriod], ["/zerone.tokens.v1.MsgCancelEmissionPeriod", MsgCancelEmissionPeriod], ["/zerone.tokens.v1.MsgUpdateParams", MsgUpdateParams17]];
+var MessageComposer20 = {
   encoded: {
     createToken(value) {
       return {
@@ -22373,7 +23012,7 @@ var MessageComposer19 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.tokens.v1.MsgUpdateParams",
-        value: MsgUpdateParams16.encode(value).finish()
+        value: MsgUpdateParams17.encode(value).finish()
       };
     }
   },
@@ -22557,15 +23196,15 @@ var MessageComposer19 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.tokens.v1.MsgUpdateParams",
-        value: MsgUpdateParams16.fromPartial(value)
+        value: MsgUpdateParams17.fromPartial(value)
       };
     }
   }
 };
 
 // src/generated/zerone/vesting_rewards/v1/tx.ts
-var tx_exports19 = {};
-__export(tx_exports19, {
+var tx_exports20 = {};
+__export(tx_exports20, {
   MsgAccelerateVesting: () => MsgAccelerateVesting,
   MsgAccelerateVestingResponse: () => MsgAccelerateVestingResponse,
   MsgClaimVesting: () => MsgClaimVesting,
@@ -22580,8 +23219,8 @@ __export(tx_exports19, {
   MsgPauseVestingResponse: () => MsgPauseVestingResponse,
   MsgResumeVesting: () => MsgResumeVesting,
   MsgResumeVestingResponse: () => MsgResumeVestingResponse,
-  MsgUpdateParams: () => MsgUpdateParams17,
-  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse16,
+  MsgUpdateParams: () => MsgUpdateParams18,
+  MsgUpdateParamsResponse: () => MsgUpdateParamsResponse17,
   VestingCategory: () => VestingCategory,
   vestingCategoryFromJSON: () => vestingCategoryFromJSON,
   vestingCategoryToJSON: () => vestingCategoryToJSON
@@ -22702,7 +23341,7 @@ var ProtocolSubSplit = {
 };
 
 // src/generated/zerone/vesting_rewards/v1/genesis.ts
-function createBaseParams17() {
+function createBaseParams18() {
   return {
     blockReward: "",
     rewardDecayBps: BigInt(0),
@@ -22724,7 +23363,7 @@ function createBaseParams17() {
     knowledgeCouplingFloorBps: BigInt(0)
   };
 }
-var Params17 = {
+var Params18 = {
   typeUrl: "/zerone.vesting_rewards.v1.Params",
   encode(message, writer = BinaryWriter.create()) {
     if (message.blockReward !== "") {
@@ -22786,7 +23425,7 @@ var Params17 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseParams17();
+    const message = createBaseParams18();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -22852,7 +23491,7 @@ var Params17 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseParams17();
+    const message = createBaseParams18();
     message.blockReward = object.blockReward ?? "";
     message.rewardDecayBps = object.rewardDecayBps !== void 0 && object.rewardDecayBps !== null ? BigInt(object.rewardDecayBps.toString()) : BigInt(0);
     message.blocksPerRewardEpoch = object.blocksPerRewardEpoch !== void 0 && object.blocksPerRewardEpoch !== null ? BigInt(object.blocksPerRewardEpoch.toString()) : BigInt(0);
@@ -23586,27 +24225,27 @@ var MsgCompleteVestingResponse = {
     return message;
   }
 };
-function createBaseMsgUpdateParams16() {
+function createBaseMsgUpdateParams17() {
   return {
     authority: "",
     params: void 0
   };
 }
-var MsgUpdateParams17 = {
+var MsgUpdateParams18 = {
   typeUrl: "/zerone.vesting_rewards.v1.MsgUpdateParams",
   encode(message, writer = BinaryWriter.create()) {
     if (message.authority !== "") {
       writer.uint32(10).string(message.authority);
     }
     if (message.params !== void 0) {
-      Params17.encode(message.params, writer.uint32(18).fork()).ldelim();
+      Params18.encode(message.params, writer.uint32(18).fork()).ldelim();
     }
     return writer;
   },
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParams16();
+    const message = createBaseMsgUpdateParams17();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -23614,7 +24253,7 @@ var MsgUpdateParams17 = {
           message.authority = reader.string();
           break;
         case 2:
-          message.params = Params17.decode(reader, reader.uint32());
+          message.params = Params18.decode(reader, reader.uint32());
           break;
         default:
           reader.skipType(tag & 7);
@@ -23624,16 +24263,16 @@ var MsgUpdateParams17 = {
     return message;
   },
   fromPartial(object) {
-    const message = createBaseMsgUpdateParams16();
+    const message = createBaseMsgUpdateParams17();
     message.authority = object.authority ?? "";
-    message.params = object.params !== void 0 && object.params !== null ? Params17.fromPartial(object.params) : void 0;
+    message.params = object.params !== void 0 && object.params !== null ? Params18.fromPartial(object.params) : void 0;
     return message;
   }
 };
-function createBaseMsgUpdateParamsResponse16() {
+function createBaseMsgUpdateParamsResponse17() {
   return {};
 }
-var MsgUpdateParamsResponse16 = {
+var MsgUpdateParamsResponse17 = {
   typeUrl: "/zerone.vesting_rewards.v1.MsgUpdateParamsResponse",
   encode(_, writer = BinaryWriter.create()) {
     return writer;
@@ -23641,7 +24280,7 @@ var MsgUpdateParamsResponse16 = {
   decode(input, length) {
     const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
     let end = length === void 0 ? reader.len : reader.pos + length;
-    const message = createBaseMsgUpdateParamsResponse16();
+    const message = createBaseMsgUpdateParamsResponse17();
     while (reader.pos < end) {
       const tag = reader.uint32();
       switch (tag >>> 3) {
@@ -23653,14 +24292,14 @@ var MsgUpdateParamsResponse16 = {
     return message;
   },
   fromPartial(_) {
-    const message = createBaseMsgUpdateParamsResponse16();
+    const message = createBaseMsgUpdateParamsResponse17();
     return message;
   }
 };
 
 // src/generated/zerone/vesting_rewards/v1/tx.registry.ts
-var registry20 = [["/zerone.vesting_rewards.v1.MsgCreateVesting", MsgCreateVesting], ["/zerone.vesting_rewards.v1.MsgClaimVesting", MsgClaimVesting], ["/zerone.vesting_rewards.v1.MsgPauseVesting", MsgPauseVesting], ["/zerone.vesting_rewards.v1.MsgResumeVesting", MsgResumeVesting], ["/zerone.vesting_rewards.v1.MsgAccelerateVesting", MsgAccelerateVesting], ["/zerone.vesting_rewards.v1.MsgFalsifyVesting", MsgFalsifyVesting], ["/zerone.vesting_rewards.v1.MsgCompleteVesting", MsgCompleteVesting], ["/zerone.vesting_rewards.v1.MsgUpdateParams", MsgUpdateParams17]];
-var MessageComposer20 = {
+var registry21 = [["/zerone.vesting_rewards.v1.MsgCreateVesting", MsgCreateVesting], ["/zerone.vesting_rewards.v1.MsgClaimVesting", MsgClaimVesting], ["/zerone.vesting_rewards.v1.MsgPauseVesting", MsgPauseVesting], ["/zerone.vesting_rewards.v1.MsgResumeVesting", MsgResumeVesting], ["/zerone.vesting_rewards.v1.MsgAccelerateVesting", MsgAccelerateVesting], ["/zerone.vesting_rewards.v1.MsgFalsifyVesting", MsgFalsifyVesting], ["/zerone.vesting_rewards.v1.MsgCompleteVesting", MsgCompleteVesting], ["/zerone.vesting_rewards.v1.MsgUpdateParams", MsgUpdateParams18]];
+var MessageComposer21 = {
   encoded: {
     createVesting(value) {
       return {
@@ -23707,7 +24346,7 @@ var MessageComposer20 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.vesting_rewards.v1.MsgUpdateParams",
-        value: MsgUpdateParams17.encode(value).finish()
+        value: MsgUpdateParams18.encode(value).finish()
       };
     }
   },
@@ -23807,7 +24446,7 @@ var MessageComposer20 = {
     updateParams(value) {
       return {
         typeUrl: "/zerone.vesting_rewards.v1.MsgUpdateParams",
-        value: MsgUpdateParams17.fromPartial(value)
+        value: MsgUpdateParams18.fromPartial(value)
       };
     }
   }
@@ -23872,5 +24511,8 @@ export {
   MessageComposer19,
   tx_exports19,
   registry20,
-  MessageComposer20
+  MessageComposer20,
+  tx_exports20,
+  registry21,
+  MessageComposer21
 };

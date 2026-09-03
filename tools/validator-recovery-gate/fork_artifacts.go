@@ -12,6 +12,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	cmtcrypto "github.com/cometbft/cometbft/crypto"
 )
 
 var requiredForkGenesisModules = []string{
@@ -26,6 +28,7 @@ var requiredForkGenesisModules = []string{
 	"ibc",
 	"ibcratelimit",
 	"interchainaccounts",
+	"message_schedule",
 	"slashing",
 	"staking",
 	"transfer",
@@ -37,7 +40,20 @@ var requiredForkGenesisModules = []string{
 var requiredForkSchemaMigrations = []string{
 	"ibc-transfer-v8-empty-denom-traces-to-v10-empty-denoms",
 	"ibc-core-v8-empty-to-v10-empty-v2-state",
+	"message-schedule-v1-absent-to-default-closed",
 }
+
+const (
+	messageScheduleGenesisMigration = "message-schedule-v1-absent-to-default-closed"
+	// absentModuleSHA256 is SHA-256 over the canonical JSON literal `null`.
+	// It can appear only as before_sha256 for an explicitly declared module
+	// addition; it never represents an application-state value.
+	absentModuleSHA256 = "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+)
+
+var freshMessageScheduleGenesis = json.RawMessage(
+	`{"params":{"min_schedule_delay_blocks":2,"min_interval_blocks":10,"max_executions_per_schedule":365,"max_active_schedules_per_creator":32,"max_due_records_per_block":64,"max_query_limit":100,"execution_fee_uzrn":"100000","max_transfer_per_execution_uzrn":"1000000000000"},"next_schedule_id":1,"total_escrow_uzrn":"0"}`,
+)
 
 func decodeForkGenesis(data []byte) (ForkGenesis, error) {
 	var zero ForkGenesis
@@ -485,6 +501,11 @@ func validateForkGenesisModuleDigests(
 			if digest.Changed != expected {
 				return errors.New("compiler report transfer change does not match its schema migration")
 			}
+		case "message_schedule":
+			if !slices.Contains(schemaMigrations, messageScheduleGenesisMigration) ||
+				digest.BeforeSHA256 != absentModuleSHA256 || !digest.Changed {
+				return errors.New("compiler report message_schedule addition is not the exact audited absent-to-default migration")
+			}
 		case "zerone_staking":
 			// The custom validator metadata exists only on some source
 			// exports, so this audited rewrite is optional.
@@ -737,6 +758,23 @@ func validateForkGenesisQuiescence(
 			return fmt.Errorf("fork genesis required module %s is absent", module)
 		}
 	}
+	if _, found := modules["schedule"]; found {
+		return errors.New("fork genesis retains the retired schedule module namespace")
+	}
+	actualSchedule, err := canonicalJSONValue(modules["message_schedule"])
+	if err != nil {
+		return errors.New("fork genesis message_schedule module is invalid")
+	}
+	expectedSchedule, err := canonicalJSONValue(freshMessageScheduleGenesis)
+	if err != nil {
+		panic("invalid embedded fresh message_schedule genesis: " + err.Error())
+	}
+	if !bytes.Equal(actualSchedule, expectedSchedule) {
+		return errors.New("fork genesis message_schedule module is not the exact empty admission-closed default")
+	}
+	if err := validateForkSchedulerBankBalances(modules["bank"]); err != nil {
+		return err
+	}
 
 	emergencyValue, err := decodeJSONAny(modules["emergency"])
 	if err != nil {
@@ -810,6 +848,73 @@ func validateForkGenesisQuiescence(
 		return err
 	}
 	return nil
+}
+
+func validateForkSchedulerBankBalances(raw json.RawMessage) error {
+	value, err := decodeJSONAny(raw)
+	if err != nil {
+		return errors.New("fork genesis bank module is invalid")
+	}
+	bank, ok := value.(map[string]any)
+	if !ok {
+		return errors.New("fork genesis bank module must be an object")
+	}
+	rawBalances, found := bank["balances"]
+	balances, ok := rawBalances.([]any)
+	if !found || !ok {
+		return errors.New("fork genesis bank.balances must be an array")
+	}
+	targets := []struct {
+		address []byte
+		label   string
+	}{
+		{address: cmtcrypto.AddressHash([]byte("schedule")), label: "retired schedule"},
+		{address: cmtcrypto.AddressHash([]byte("message_schedule")), label: "fresh message_schedule"},
+	}
+	for index, rawBalance := range balances {
+		balance, ok := rawBalance.(map[string]any)
+		if !ok {
+			return fmt.Errorf("fork genesis bank.balances[%d] must be an object", index)
+		}
+		address, ok := balance["address"].(string)
+		if !ok || address == "" {
+			return fmt.Errorf("fork genesis bank.balances[%d].address is invalid", index)
+		}
+		addressBytes, err := decodeCanonicalBech32Address(
+			fmt.Sprintf("fork genesis bank.balances[%d].address", index),
+			address,
+			"zrn",
+		)
+		if err != nil {
+			return err
+		}
+		label := ""
+		for _, target := range targets {
+			if bytes.Equal(addressBytes, target.address) {
+				label = target.label
+				break
+			}
+		}
+		if label == "" {
+			continue
+		}
+		coins, ok := balance["coins"].([]any)
+		if !ok {
+			return fmt.Errorf("fork genesis %s module account balance is not a coin array", label)
+		}
+		if len(coins) != 0 {
+			return fmt.Errorf("fork genesis %s module account must have zero all-denom balance", label)
+		}
+	}
+	return nil
+}
+
+func schedulerModuleAccountAddress(moduleName string) string {
+	encoded, err := encodeBech32("zrn", cmtcrypto.AddressHash([]byte(moduleName)))
+	if err != nil {
+		panic("encode scheduler module account address: " + err.Error())
+	}
+	return encoded
 }
 
 func canonicalJSONUint64Equals(value any, expected uint64) bool {

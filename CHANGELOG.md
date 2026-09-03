@@ -3,6 +3,52 @@
 Notable source changes are recorded here. Network activation and package
 publication are separate events and are stated explicitly when they occur.
 
+## Unreleased — 2026-09-03 message scheduling and pooling
+
+### Added
+
+- A finite, height-only native-transfer scheduler built from scratch around
+  full principal-plus-fee prefunding, exact aggregate escrow conservation,
+  bounded `(due height, schedule ID)` processing, immutable occurrence
+  receipts, cached-context atomicity, compare-and-swap amendment/cancellation,
+  and fixed-delay recurrence. Admission is closed by default and in the
+  `zerone-2` ceremony profile.
+- A source-to-PDF interpretation and activation boundary in
+  `docs/specs/message-scheduling-and-pooling-v1.md`. The patent's Pending
+  Message Pool maps to ordinary pre-consensus transaction pools; durable
+  schedules never remain in a node-local mempool.
+- Go, REST/Swagger, CLI, and TypeScript SDK surfaces for the gated scheduler.
+
+### Security
+
+- Proposal construction and validation now use Ante checks, exact CometBFT
+  protobuf byte accounting, bounded priority/nonce application-pool selection,
+  immutable transaction and inspection-count ceilings, and overflow-safe
+  aggregate gas limits. A safe message-signer extractor accepts the valid
+  stored-key wire shape without dereferencing an omitted public key;
+  unauthenticated transactions are rejected.
+- Scheduled execution pauses through emergency quarantine and a ten-block
+  post-resume cancellation grace. Immutable source ceilings keep governance
+  from turning schedule lifetime, active-set, due-work, or query parameters
+  into unbounded consensus work.
+- The H3 and native-genesis gates reject any retired `schedule` store root,
+  module VersionMap entry, or all-denomination module-account balance; the new
+  `message_schedule` store and address remain distinct.
+- The `zerone-2` runtime pins and reasserts both CometBFT and SDK application
+  pools, reducing Comet's aggregate default from 1 GiB to 64 MiB and each
+  transaction from 1 MiB to 256 KiB while bounding gossip fanout.
+- Vote-extension pseudo-transactions remain release-disabled and are rejected
+  unless they are a singleton at proposal index zero.
+
+### Activation boundary
+
+These changes are consensus-visible source for a fresh `zerone-2` genesis, not
+authority to deploy or to open schedule admission. No retired scheduler-state
+migration is included; never point this binary at legacy state outside the
+exact guarded upgrade lineage. The
+`zerone-2` release remains NO-GO until its existing signed gates and the new
+scheduler-specific independent review and rehearsals are complete.
+
 ## Unreleased — 2026-08-15 correspondence geometry
 
 ### Added
@@ -110,7 +156,7 @@ behavior.
 - A cursor-bounded knowledge probe heartbeat.
 - CAIP account-identifier projections, unsigned in-toto training provenance,
   and an isolated Sigstore-to-substrate evidence compiler.
-- A repository TypeScript SDK covering 169 request message types across 20
+- A repository TypeScript SDK covering 173 request message types across 21
   Zerone `Msg` services.
 - A fail-closed `zerone-2` ceremony, authority, runtime, query-gateway, and
   cutover kit.
@@ -137,7 +183,7 @@ behavior.
 - Falsification clawback requires an adjudicated verdict.
 - Genesis/state validation and protobuf ownership handling are hardened.
 - Manual API inventories now defer to the generated Swagger document, which
-  contains 217 paths and 446 definitions across the current application.
+  contains 222 paths and 456 definitions across the current application.
 
 ### Consensus activation
 

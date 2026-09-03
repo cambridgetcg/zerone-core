@@ -139,8 +139,8 @@ Generated and validated service file structure:
 
 ### Bug 3: configure-node.sh missing max-txs patch
 - **File:** `scripts/configure-node.sh`
-- **Issue:** Does not set `max-txs = 5000` in app.toml. SDK v0.50 defaults `max-txs = -1` (NoOpMempool), which silently drops all transactions.
-- **Impact:** CRITICAL -- new operators' nodes will not process any transactions.
+- **Issue:** Does not set `max-txs = 5000` in app.toml. SDK v0.50 defaults `max-txs = -1` (NoOpMempool), which disables the SDK-side proposal-ordering copy while the separate CometBFT pool can still store and gossip transactions.
+- **Impact:** CRITICAL with an application-mempool proposal handler -- proposer ordering and admission behavior can diverge from the intended profile.
 - **Fix:** Add `max-txs` patch to app.toml section. **FIXED.**
 
 ### Bug 4: configure-node.sh missing iavl-disable-fastnode

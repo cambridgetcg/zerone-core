@@ -477,13 +477,21 @@ func (k Keeper) ExportGenesisForZeroHeight(ctx context.Context) (*types.GenesisS
 	}
 	currentHeight := uint64(sdkCtx.BlockHeight())
 	if genState.QuarantineReleaseBlock != 0 {
-		if currentHeight <= genState.QuarantineReleaseBlock {
+		if genState.QuarantineReleaseBlock >
+			types.MaxSDKBlockHeight-types.PostResumeCancellationGraceBlocks {
 			return nil, fmt.Errorf(
-				"zero-height export would erase the active transaction quarantine release latch through block %d",
+				"zero-height export found an unrepresentable quarantine release grace window at block %d",
 				genState.QuarantineReleaseBlock,
 			)
 		}
-		// An expired absolute latch must not become an H-block quarantine
+		graceEnds := genState.QuarantineReleaseBlock + types.PostResumeCancellationGraceBlocks
+		if currentHeight <= graceEnds {
+			return nil, fmt.Errorf(
+				"zero-height export would erase the post-resume cancellation grace through block %d",
+				graceEnds,
+			)
+		}
+		// An expired absolute grace marker must not become a fresh quarantine
 		// after rebasing the exported chain to height zero.
 		genState.QuarantineReleaseBlock = 0
 	}

@@ -30,6 +30,7 @@ import (
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
+	scheduletypes "github.com/zerone-chain/zerone/x/schedule/types"
 )
 
 type fixture struct {
@@ -340,6 +341,30 @@ func TestCompileGenesisConsensusKeyOnly(t *testing.T) {
 	if err := json.Unmarshal(target.AppState, &appState); err != nil {
 		t.Fatal(err)
 	}
+	if _, found := appState["schedule"]; found {
+		t.Fatal("target retained the retired schedule module namespace")
+	}
+	var schedule scheduletypes.GenesisState
+	rawSchedule, found := appState[scheduletypes.ModuleName]
+	if !found {
+		t.Fatal("target omitted fresh message_schedule genesis")
+	}
+	if err := json.Unmarshal(rawSchedule, &schedule); err != nil {
+		t.Fatalf("decode message_schedule genesis: %v", err)
+	}
+	if err := schedule.Validate(); err != nil {
+		t.Fatalf("invalid message_schedule genesis: %v", err)
+	}
+	wantSchedule, err := json.Marshal(scheduletypes.DefaultGenesis())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(rawSchedule, wantSchedule) {
+		t.Fatalf("message_schedule genesis is not the exact default: got %s want %s", rawSchedule, wantSchedule)
+	}
+	if schedule.Params.AcceptNewSchedules {
+		t.Fatal("fresh message_schedule genesis must be admission-closed")
+	}
 	encodingConfig := zeroneapp.MakeEncodingConfig()
 	var emergency emergencytypes.GenesisState
 	if err := encodingConfig.Codec.UnmarshalJSON(appState["emergency"], &emergency); err != nil {
@@ -355,9 +380,16 @@ func TestCompileGenesisConsensusKeyOnly(t *testing.T) {
 			emergency.HaltStartBlock,
 		)
 	}
+	foundScheduleDigest := false
 	for _, module := range reportA.ModuleDigests {
+		if module.Module == scheduletypes.ModuleName {
+			foundScheduleDigest = true
+			if !module.Changed || module.BeforeSHA256 != absentModuleSHA256 {
+				t.Fatalf("message_schedule addition is not truthfully inventoried: %#v", module)
+			}
+		}
 		switch module.Module {
-		case "staking", "slashing", "emergency", "ibc", "transfer":
+		case "staking", "slashing", "emergency", "ibc", "transfer", scheduletypes.ModuleName:
 			if !module.Changed {
 				t.Fatalf("expected %s to change", module.Module)
 			}
@@ -367,9 +399,13 @@ func TestCompileGenesisConsensusKeyOnly(t *testing.T) {
 			}
 		}
 	}
-	if len(reportA.SchemaMigrations) != 2 ||
+	if !foundScheduleDigest {
+		t.Fatal("compiler report omitted message_schedule from the module digest inventory")
+	}
+	if len(reportA.SchemaMigrations) != 3 ||
 		reportA.SchemaMigrations[0] != "ibc-transfer-v8-empty-denom-traces-to-v10-empty-denoms" ||
-		reportA.SchemaMigrations[1] != "ibc-core-v8-empty-to-v10-empty-v2-state" {
+		reportA.SchemaMigrations[1] != "ibc-core-v8-empty-to-v10-empty-v2-state" ||
+		reportA.SchemaMigrations[2] != messageScheduleGenesisMigration {
 		t.Fatalf("unexpected schema migrations: %#v", reportA.SchemaMigrations)
 	}
 	sealed, err := sealReport(reportA)
@@ -433,6 +469,113 @@ func TestCompileGenesisRejectsUnsafeProfiles(t *testing.T) {
 		mutate  func(t *testing.T, f *fixture)
 		wantErr string
 	}{
+		{
+			name: "retired scheduler namespace",
+			mutate: func(t *testing.T, f *fixture) {
+				mutateAppState(t, f, func(state map[string]any) {
+					state["schedule"] = map[string]any{"retired": "state"}
+				})
+			},
+			wantErr: `refuses retired scheduler namespace "schedule"`,
+		},
+		{
+			name: "retired scheduler module account balance in another denom",
+			mutate: func(t *testing.T, f *fixture) {
+				mutateAppState(t, f, func(state map[string]any) {
+					bank := state[banktypes.ModuleName].(map[string]any)
+					bank["balances"] = append(bank["balances"].([]any), map[string]any{
+						"address": authtypes.NewModuleAddress(retiredScheduleModuleName).String(),
+						"coins": []any{map[string]any{
+							"denom":  "uretired",
+							"amount": "7",
+						}},
+					})
+					bank["supply"] = append(bank["supply"].([]any), map[string]any{
+						"denom":  "uretired",
+						"amount": "7",
+					})
+				})
+			},
+			wantErr: "retired scheduler module account",
+		},
+		{
+			name: "fresh scheduler module account balance in another denom",
+			mutate: func(t *testing.T, f *fixture) {
+				mutateAppState(t, f, func(state map[string]any) {
+					bank := state[banktypes.ModuleName].(map[string]any)
+					bank["balances"] = append(bank["balances"].([]any), map[string]any{
+						"address": authtypes.NewModuleAddress(scheduletypes.ModuleName).String(),
+						"coins": []any{map[string]any{
+							"denom":  "ufreshdust",
+							"amount": "9",
+						}},
+					})
+					bank["supply"] = append(bank["supply"].([]any), map[string]any{
+						"denom":  "ufreshdust",
+						"amount": "9",
+					})
+				})
+			},
+			wantErr: "requires fresh scheduler module account",
+		},
+		{
+			name: "pre-existing current scheduler default",
+			mutate: func(t *testing.T, f *fixture) {
+				mutateAppState(t, f, func(state map[string]any) {
+					state[scheduletypes.ModuleName] = scheduleGenesisJSONValue(
+						t,
+						scheduletypes.DefaultGenesis(),
+					)
+				})
+			},
+			wantErr: `requires source module "message_schedule" to be absent`,
+		},
+		{
+			name: "pre-existing source-chain-bound scheduler history",
+			mutate: func(t *testing.T, f *fixture) {
+				mutateAppState(t, f, func(state map[string]any) {
+					id := scheduletypes.FormatScheduleID(1)
+					creator := sdk.AccAddress(bytes.Repeat([]byte{0x71}, 20)).String()
+					recipient := sdk.AccAddress(bytes.Repeat([]byte{0x72}, 20)).String()
+					genesis := scheduletypes.DefaultGenesis()
+					genesis.Schedules = []*scheduletypes.Schedule{{
+						Id:                     id,
+						Creator:                creator,
+						Revision:               1,
+						Status:                 scheduletypes.ScheduleStatus_SCHEDULE_STATUS_COMPLETED,
+						Recipient:              recipient,
+						AmountPerExecutionUzrn: "7",
+						ExecutionFeeUzrn:       "3",
+						ExecutionCount:         1,
+						PrincipalRemainingUzrn: "0",
+						FeeRemainingUzrn:       "0",
+						CreatedHeight:          80,
+						UpdatedHeight:          90,
+						LastExecutionHeight:    90,
+						TerminalReason:         "all_occurrences_succeeded",
+					}}
+					genesis.Receipts = []*scheduletypes.ExecutionReceipt{{
+						OccurrenceId:   scheduletypes.OccurrenceID(f.policy.SourceChainID, id, 1, 1, 90),
+						ScheduleId:     id,
+						Revision:       1,
+						Sequence:       1,
+						DueHeight:      90,
+						ExecutedHeight: 90,
+						Recipient:      recipient,
+						AmountUzrn:     "7",
+						FeeUzrn:        "3",
+						ActionSha256:   scheduletypes.ActionDigest(recipient, "7", "3"),
+						Outcome:        scheduletypes.ExecutionOutcome_EXECUTION_OUTCOME_SUCCEEDED,
+					}}
+					genesis.NextScheduleId = 2
+					if err := genesis.ValidateForChainID(f.policy.SourceChainID); err != nil {
+						t.Fatalf("source-chain scheduler fixture is invalid: %v", err)
+					}
+					state[scheduletypes.ModuleName] = scheduleGenesisJSONValue(t, genesis)
+				})
+			},
+			wantErr: `requires source module "message_schedule" to be absent`,
+		},
 		{
 			name: "live IBC client",
 			mutate: func(t *testing.T, f *fixture) {
@@ -896,6 +1039,21 @@ func mutateAppState(t *testing.T, f *fixture, mutate func(map[string]any)) {
 		t.Fatal(err)
 	}
 	f.policyFile = digest(f.policyBytes)
+}
+
+func scheduleGenesisJSONValue(t *testing.T, genesis *scheduletypes.GenesisState) any {
+	t.Helper()
+	raw, err := json.Marshal(genesis)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var value any
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		t.Fatal(err)
+	}
+	return value
 }
 
 func TestDigestKnownAnswer(t *testing.T) {

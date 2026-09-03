@@ -347,7 +347,8 @@ cmd_init() {
     sed -i.bak 's/^iavl-disable-fastnode = false/iavl-disable-fastnode = true/' "$app_toml"
     # Disable inter-block cache for query reliability
     sed -i.bak 's/^inter-block-cache = true/inter-block-cache = false/' "$app_toml"
-    # Enable mempool (default is no-op mempool which drops all transactions)
+    # Enable the SDK-side proposal-ordering pool. CometBFT's network pool is
+    # separate and remains responsible for transaction gossip.
     sed -i.bak 's/^max-txs = -1/max-txs = 5000/' "$app_toml"
 
     # Cleanup sed backups

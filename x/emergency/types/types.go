@@ -79,6 +79,13 @@ const (
 	MaxEmergencyElectorateSize    = 100
 	SHA256HexLength               = 64
 	ElectorateSnapshotVersionV1   = uint32(1)
+
+	// PostResumeCancellationGraceBlocks retains the quarantine release marker
+	// for ten complete DeliverTx windows after admission reopens. Consumers with
+	// pre-committed effects can use that interval to let owners cancel or reduce
+	// work before paused backlogs resume.
+	PostResumeCancellationGraceBlocks uint64 = 10
+	MaxSDKBlockHeight                        = uint64(^uint64(0) >> 1)
 )
 
 const (

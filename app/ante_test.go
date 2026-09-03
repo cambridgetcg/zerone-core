@@ -5,8 +5,10 @@ import (
 
 	"cosmossdk.io/math"
 
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	"github.com/stretchr/testify/require"
 )
 
 // ---------- lookupMsgGas Tests ----------
@@ -443,6 +445,79 @@ func TestZRNGasDecorator_ExceedsTxGasLimit(t *testing.T) {
 	_, err := decorator.AnteHandle(ctx, tx, false, passThroughHandler)
 	if err == nil {
 		t.Error("expected error for gas exceeding tx limit")
+	}
+}
+
+func TestZRNGasDecorator_HonorsConsensusMaxGasSentinels(t *testing.T) {
+	decorator := NewZRNGasDecorator()
+	tx := mockFeeTx{
+		gas:  30_000,
+		fee:  sdk.NewCoins(sdk.NewCoin(BondDenom, math.NewInt(30_000))),
+		msgs: []sdk.Msg{mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"}},
+	}
+
+	tests := []struct {
+		name    string
+		maxGas  int64
+		wantErr bool
+	}{
+		{name: "unlimited", maxGas: -1},
+		{name: "exact boundary", maxGas: 30_000},
+		{name: "one below", maxGas: 29_999, wantErr: true},
+		{name: "zero", maxGas: 0, wantErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := sdk.Context{}.
+				WithBlockHeight(1).
+				WithConsensusParams(cmtproto.ConsensusParams{
+					Block: &cmtproto.BlockParams{MaxGas: test.maxGas},
+				})
+			_, err := decorator.AnteHandle(ctx, tx, false, passThroughHandler)
+			if test.wantErr {
+				require.ErrorContains(t, err, "consensus block gas limit")
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestZRNGasDecorator_HonorsConsensusMaxBytesPermanentBoundary(t *testing.T) {
+	decorator := NewZRNGasDecorator()
+	tx := mockFeeTx{
+		gas:  30_000,
+		fee:  sdk.NewCoins(sdk.NewCoin(BondDenom, math.NewInt(30_000))),
+		msgs: []sdk.Msg{mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"}},
+	}
+	txBytes := make([]byte, 127)
+	framedSize := proposalTxProtoSize(txBytes)
+
+	tests := []struct {
+		name     string
+		maxBytes int64
+		wantErr  bool
+	}{
+		{name: "unlimited consensus still accepts small transaction", maxBytes: -1},
+		{name: "exact framed boundary", maxBytes: framedSize},
+		{name: "one byte below framed size", maxBytes: framedSize - 1, wantErr: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := sdk.Context{}.
+				WithBlockHeight(1).
+				WithTxBytes(txBytes).
+				WithConsensusParams(cmtproto.ConsensusParams{
+					Block: &cmtproto.BlockParams{MaxBytes: test.maxBytes, MaxGas: -1},
+				})
+			_, err := decorator.AnteHandle(ctx, tx, false, passThroughHandler)
+			if test.wantErr {
+				require.ErrorIs(t, err, sdkerrors.ErrTxTooLarge)
+				require.ErrorContains(t, err, "protobuf size")
+				return
+			}
+			require.NoError(t, err)
+		})
 	}
 }
 

@@ -104,6 +104,12 @@ Plus 8 supporting documents (PARAMETERS.md, FAQ.md, API.md, EVENTS.md, LAUNCH-CH
 | liquiditypool | Ready | LP token issuance |
 | claiming_pot | Ready | Whitelist-based vesting |
 
+> Historical inventory note: this table predates the slim cut and is not a
+> current production-readiness claim. Removed generic collaboration and
+> marketplace modules stay retired. The later admission-closed native transfer
+> scheduler is a distinct implementation documented in
+> `docs/specs/message-scheduling-and-pooling-v1.md`.
+
 ### Collaboration Subsystem
 | Module | Status | Notes |
 |--------|--------|-------|
@@ -113,7 +119,7 @@ Plus 8 supporting documents (PARAMETERS.md, FAQ.md, API.md, EVENTS.md, LAUNCH-CH
 | discovery | Ready | Agent/service discovery |
 | toolbox | Ready | Tool registration and invocation |
 | qualification | Ready | Domain stake-based qualification |
-| schedule | Ready | Task scheduling |
+| schedule | Retired | Historical generic scheduler removed; do not reuse |
 
 ### Governance & Safety
 | Module | Status | Notes |
@@ -130,8 +136,8 @@ Plus 8 supporting documents (PARAMETERS.md, FAQ.md, API.md, EVENTS.md, LAUNCH-CH
 |--------|--------|-------|
 | home | Ready | Agent home space |
 | ontology | Ready | Knowledge graph structure |
-| compute_pool | Ready | Compute resource coordination |
-| bvm | Ready | Bytecode VM |
+| compute_pool | Retired | AgentTool marketplace boundary; not a message pool |
+| bvm | Retired | Removed programmable VM; not a scheduler execution lane |
 | ibcratelimit | Ready | IBC rate limiting |
 | icaauth | Ready | Interchain account auth |
 

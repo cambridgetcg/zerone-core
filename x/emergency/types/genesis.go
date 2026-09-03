@@ -111,9 +111,9 @@ func (gs *GenesisState) Validate() error {
 				status,
 			)
 		}
-		if gs.QuarantineReleaseBlock == ^uint64(0) {
+		if gs.QuarantineReleaseBlock > MaxSDKBlockHeight-PostResumeCancellationGraceBlocks {
 			return fmt.Errorf(
-				"quarantine_release_block cannot represent an H+1 reopening height",
+				"quarantine_release_block cannot represent the full post-resume grace window",
 			)
 		}
 	}
