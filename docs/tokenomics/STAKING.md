@@ -49,13 +49,15 @@ tier multiplier as realised yield.
 
 ## Automatic block rewards
 
-Atomic H1 retires the transaction-presence block mint in vesting_rewards v2.
+H1 `consolidation-safety-v1` preserves vesting_rewards V1; H2
+`founder-renunciation-v1` alone advances it to V2 and retires the
+transaction-presence block mint.
 `block_reward`, `floor_reward`, and `empty_block_reward_rate` are fixed at
 zero, and BeginBlock does not call `DistributeBlockReward`. A proposer cannot
 create issuance by including an arbitrary transaction.
 
 The custom Guardian 2× field was never a current CometBFT payout multiplier
-and remains no yield promise. Validator compensation after H1 comes from
+and remains no yield promise. Validator compensation after H2 comes from
 actual fee distribution and any future independently reviewed reward pathway,
 not a per-height or per-transaction-presence mint.
 

@@ -1,7 +1,9 @@
 # Supply Cap and Issuance Surfaces
 
-> **Status:** source target after atomic H1. Supply on a running network must be
-> queried at a bound height; source defaults and projections are not balances.
+> **Status:** source target after H2. H1 `consolidation-safety-v1` preserves
+> vesting_rewards V1; H2 `founder-renunciation-v1` alone advances it to V2 and
+> retires the transaction-presence block mint. Supply on a running network must
+> be queried at a bound height; source defaults and projections are not balances.
 
 ## Hard cap
 
@@ -36,7 +38,7 @@ not rewrite them.
 
 The launch source had a decaying transaction-bearing block-reward formula with
 a 10 ZRN base, 0.1 ZRN floor, validator-count scaling, and knowledge coupling.
-That lane is historical after H1.
+That lane is historical after H2.
 
 The problem was entitlement, not only quantity: the proposer could include a
 decodable/stateless-valid transaction before signature, fee, balance, or
@@ -46,14 +48,14 @@ permit self-churn.
 
 Vesting_rewards v2 therefore requires:
 
-| Compatibility field | Post-H1 value |
+| Compatibility field | Post-H2 value |
 |---|---:|
 | `block_reward` | `"0"` |
 | `floor_reward` | `"0"` |
 | `empty_block_reward_rate` | `0` |
 
 BeginBlock routes real fees but performs no transaction-presence mint. The old
-decay curve and multi-year block-emission table are not post-H1 supply
+decay curve and multi-year block-emission table are not post-H2 supply
 projections.
 
 ## Remaining source-capable mint lanes

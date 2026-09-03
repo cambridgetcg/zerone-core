@@ -27,15 +27,17 @@ foundation, or investor allocation. See [Genesis](tokenomics/GENESIS.md) for
 the canonical accounting.
 
 On a protocol network, every wired native issuance caller shares the
-222,222,222 ZRN `MintWithCap` gate. Atomic H1 retires the automatic
-transaction-presence block mint: an ordinary user transaction is no longer an
+222,222,222 ZRN `MintWithCap` gate. H1 `consolidation-safety-v1` preserves
+vesting_rewards V1; H2 `founder-renunciation-v1` alone advances it to V2 and
+retires the automatic transaction-presence block mint, so an ordinary user
+transaction is no longer an
 issuance trigger. Remaining source-capable paths include claiming-pot claims
 and substrate-bridge rewards. Claiming pots include both the 0.222 ZRN
 bootstrap seed and a legacy governance-created general-pot surface under one
 lifetime budget. The knowledge probe-bounty rate and `x/tokens` emission
 periods remain governance-activatable but are disabled in default/published
 params. See the [economic-neutrality rule](tokenomics/ECONOMIC-NEUTRALITY.md)
-for the H1 boundary between compensation and issuance.
+for the ordered H1/H2 boundary between compensation and issuance.
 
 See [tokenomics/GENESIS.md](tokenomics/GENESIS.md) for the full specification.
 

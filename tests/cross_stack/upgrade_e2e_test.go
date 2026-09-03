@@ -2292,11 +2292,20 @@ func TestUpgrade_ActiveGuidanceDoesNotCollapseH2IntoH1(t *testing.T) {
 		"../../deploy/testnet/JOIN.md",
 		"../../deploy/testnet/RUN-A-NODE.md",
 		"../../docs/FAQ.md",
+		"../../docs/FIRST-TRUTH.md",
 		"../../docs/PARAMETERS.md",
+		"../../docs/TRUTH-PAPER-HUMAN.md",
 		"../../docs/standards/OPEN_CRYPTO_SDK.md",
+		"../../docs/testnet-economics.md",
 		"../../docs/testnet-validator-guide.md",
 		"../../docs/tokenomics/GENESIS.md",
+		"../../docs/tokenomics/GOVERNANCE-MIGRATION.md",
 		"../../docs/tokenomics/README.md",
+		"../../docs/tokenomics/REVENUE-SPLIT.md",
+		"../../docs/tokenomics/SINKS-AND-FLOWS.md",
+		"../../docs/tokenomics/STAKING.md",
+		"../../docs/tokenomics/SUPPLY.md",
+		"../../docs/tokenomics/VESTING.md",
 		"../../networks/zerone-testnet-1/README.md",
 		"../../skills/run-a-zerone-node/SKILL.md",
 	}
@@ -2313,16 +2322,48 @@ func TestUpgrade_ActiveGuidanceDoesNotCollapseH2IntoH1(t *testing.T) {
 		"requires the named `consolidation-safety-v1` upgrade",
 		"has not activated the `consolidation-safety-v1` upgrade",
 		"through the coordinated `consolidation-safety-v1` upgrade",
+		"Before H1, transaction presence",
+		"not a post-H1 revenue",
+		"zero/empty after H1",
+		"historical after H1",
+		"source target after atomic H1",
+		"Validator compensation after H1",
+		"for the H1 boundary between compensation and issuance",
+		"Atomic H1 does not mint for raw transaction presence",
+	}
+	normalizeDoc := func(contents []byte) string {
+		withoutQuoteWraps := strings.ReplaceAll(string(contents), "\n> ", "\n")
+		return strings.Join(strings.Fields(withoutQuoteWraps), " ")
 	}
 
 	for _, path := range publicDocs {
 		contents, err := os.ReadFile(path)
 		require.NoError(t, err)
-		body := strings.Join(strings.Fields(string(contents)), " ")
+		body := normalizeDoc(contents)
 		for _, forbidden := range forbiddenClaims {
 			require.NotContains(t, body, forbidden,
 				"active guidance %s must assign founder/reward retirement to H2", path)
 		}
+	}
+
+	explicitBoundaryDocs := []string{
+		"../../docs/FIRST-TRUTH.md",
+		"../../docs/TRUTH-PAPER-HUMAN.md",
+		"../../docs/testnet-economics.md",
+		"../../docs/tokenomics/GOVERNANCE-MIGRATION.md",
+		"../../docs/tokenomics/REVENUE-SPLIT.md",
+		"../../docs/tokenomics/SINKS-AND-FLOWS.md",
+		"../../docs/tokenomics/STAKING.md",
+		"../../docs/tokenomics/SUPPLY.md",
+		"../../docs/tokenomics/VESTING.md",
+	}
+	requiredBoundary := "H1 `consolidation-safety-v1` preserves vesting_rewards V1; H2 `founder-renunciation-v1` alone advances it to V2"
+	for _, path := range explicitBoundaryDocs {
+		contents, err := os.ReadFile(path)
+		require.NoError(t, err)
+		body := normalizeDoc(contents)
+		require.Contains(t, body, requiredBoundary,
+			"active guidance %s must state the exact separated H1/H2 vesting boundary", path)
 	}
 
 	overview, err := os.ReadFile("../../docs/tokenomics/README.md")

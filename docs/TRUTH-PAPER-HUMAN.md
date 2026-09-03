@@ -7,8 +7,10 @@
 > mechanism is active on `zerone-1`. The live custodial genesis created
 > 13,555 operator-controlled ZRN, bootstrap admission has a capped/revocable
 > operator registrar, and the research-fund voter pair is unconfigured.
-> Atomic H1 retires the interim proposer-controlled transaction-presence reward
-> trigger; source code alone does not make H1 live. Other
+> H1 `consolidation-safety-v1` preserves vesting_rewards V1; H2
+> `founder-renunciation-v1` alone advances it to V2 and retires the interim
+> proposer-controlled transaction-presence reward trigger. Source code alone
+> makes neither boundary live. Other
 > governance-configurable issuance controls remain, including paths disabled in
 > published/default parameters.
 > Current authority and implementation details are documented in
@@ -64,7 +66,8 @@ Every claim can be examined. Every verification is recorded. Every challenge is 
 The currency in this system — ZRN — is intended to price and reward verified
 knowledge. The interim source paid blocks containing any non-injection user
 transaction, with validator participation and survived-challenge rate scaling
-the amount; atomic H1 retires that transaction-presence mint. Claiming-pot
+the amount; H2 alone retires that transaction-presence mint after H1 preserves
+vesting_rewards V1. Claiming-pot
 claims and external work that survives bridge challenge rules remain
 source-capable lanes. A default-zero probe rate and default-disabled
 authority-scheduled emission periods can be activated by governance. The live
@@ -82,7 +85,7 @@ In the system you know, money is created at the top and trickles down (or doesn'
 
 Native issuance is bounded by a shared hard cap and a single post-genesis mint
 gate. Its current and dormant callers are inventoried in
-[SUPPLY.md](tokenomics/SUPPLY.md). Atomic H1 additionally applies the
+[SUPPLY.md](tokenomics/SUPPLY.md). The ordered H1/H2 sequence applies the
 [economic-neutrality rule](tokenomics/ECONOMIC-NEUTRALITY.md): raw transaction
 presence is not compensable work. The universal implemented guarantee remains
 the cap, not that every surviving lane proves participation.
@@ -145,7 +148,7 @@ registrar are special powers and are disclosed as such.
 
 When real transaction fees or rewards from a surviving issuance lane enter an
 implemented route, you can inspect the code and resulting state transitions.
-Atomic H1 does not mint for raw transaction presence; planned services are not
+After H2, raw transaction presence does not mint; planned services are not
 presumed to produce live revenue.
 
 Where an implemented agent-revenue route records attribution, its on-chain

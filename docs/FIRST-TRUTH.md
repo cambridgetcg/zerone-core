@@ -70,8 +70,10 @@ The then-current wording, on the record. Not "zero pre-mine" — the genesis
 *does* hold operating stake. The 2,222 ZRN operations float is transferable,
 so current documentation does not describe genesis as having zero sellable or
 insider position. The quoted issuance sentence is also historical: the interim
-runtime permitted transaction-bearing block rewards, but atomic H1 retires
-that lane. Current source still has authority-created, quota-bounded claiming
+runtime permitted transaction-bearing block rewards. H1
+`consolidation-safety-v1` preserves vesting_rewards V1; H2
+`founder-renunciation-v1` alone advances it to V2 and retires that lane.
+Current source still has authority-created, quota-bounded claiming
 pots, external-work settlement, and default-disabled knowledge/token emission
 controls. Current tokenomics documents, not this archived quote, describe
 those mint callers.

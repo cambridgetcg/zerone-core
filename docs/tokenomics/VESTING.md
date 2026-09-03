@@ -38,9 +38,10 @@ Each epistemic category has its own vesting curve, reflecting how durable that t
 
 The Params wire shape retains the following category multipliers for
 compatibility, but current production logic does not apply them to a block
-reward. Atomic H1 retires transaction-presence block minting entirely, and an
-ordinary Params update cannot pretend these non-operative values create a
-payout.
+reward. H1 `consolidation-safety-v1` preserves vesting_rewards V1; H2
+`founder-renunciation-v1` alone advances it to V2 and retires
+transaction-presence block minting entirely. An ordinary Params update cannot
+pretend these non-operative values create a payout.
 
 | Category | Compatibility value | Historical rationale |
 |----------|-----------|-----------|

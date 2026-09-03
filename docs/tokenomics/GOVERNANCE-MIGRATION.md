@@ -27,9 +27,11 @@
 
 ## Overview
 
-After atomic H1, the research fund receives the 3.33% research slice of actual
-`uzrn` fee routing plus deposits from other concrete callers. The automatic
-transaction-presence block mint and founder sub-share are retired. Planned
+In the post-H2 source state, the research fund receives the 3.33% research
+slice of actual `uzrn` fee routing plus deposits from other concrete callers.
+H1 `consolidation-safety-v1` preserves vesting_rewards V1; H2
+`founder-renunciation-v1` alone advances it to V2 and retires the automatic
+transaction-presence block mint and founder sub-share. Planned
 services and schema fields are not automatically revenue sources. At scale,
 the fund can still become significant, so custody and disbursement remain
 material.
@@ -114,7 +116,7 @@ moves no funds. Phase 3 currently strands the specialised spending path and
 must not be activated until execution and tests are wired.
 
 Founding participants may still vote with whatever stake they control and may
-still propose. Atomic H1 permanently retires the founder sub-share; Phase 3
+still propose. H2 permanently retires the founder sub-share; Phase 3
 therefore changes only special research-fund voting structure, not an
 automatic founder payment.
 
@@ -218,8 +220,8 @@ If the expanded committee fails, the protocol can step backward.
 
 ## Founder and operator boundary
 
-The original design proposed two founder anchors. Atomic H1 removes one and
-keeps the other explicit:
+The original design proposed two founder anchors. H2 removes one and keeps the
+other explicit:
 
 1. **Automatic founder sub-share — retired.** The legacy percentage/address
    fields are fixed at zero/empty in vesting_rewards v2. Governance cannot
