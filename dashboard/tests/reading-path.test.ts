@@ -188,28 +188,34 @@ const steps: ReadingStep[] = linkFragments.map((fragment, index) => {
 });
 
 describe("static dashboard reading path", () => {
-  it("sits exactly between Honest state and Wallet without bypassing the disclosure", () => {
+  it("sits after Honest state and onboarding, before Wallet", () => {
     const truthTitle = html.indexOf('id="truth-banner-title"');
     const truthStart = html.lastIndexOf("<aside", truthTitle);
     const truthEnd = html.indexOf("</aside>", truthTitle) + "</aside>".length;
+    const onboardingId = html.indexOf('id="onboarding"');
+    const onboardingStart = html.lastIndexOf("<section", onboardingId);
+    const onboardingEnd = html.indexOf("</section>", onboardingId) + "</section>".length;
     const walletId = html.indexOf('id="wallet"');
     const walletStart = html.lastIndexOf("<section", walletId);
 
     assert.ok(truthStart >= 0 && truthEnd > truthTitle);
-    assert.ok(truthEnd < readingPathStart);
+    assert.ok(truthEnd < onboardingStart);
+    assert.ok(onboardingEnd < readingPathStart);
     assert.ok(readingPathEnd < walletStart);
-    assert.match(html.slice(truthEnd, readingPathStart), /^\s*$/u);
+    assert.match(html.slice(truthEnd, onboardingStart), /^\s*$/u);
+    assert.match(html.slice(onboardingEnd, readingPathStart), /^\s*$/u);
     assert.match(html.slice(readingPathEnd, walletStart), /^\s*$/u);
     assert.equal(countId(html, "honest-state"), 1);
     assert.equal(countId(html, "reading-path"), 1);
-    assert.equal(html.match(/href="#reading-path"/gu)?.length ?? 0, 0);
+    assert.equal(countId(html, "onboarding"), 1);
+    assert.equal(html.match(/href="#reading-path"/gu)?.length ?? 0, 1);
     assert.match(
       html,
       /<a class="button button-ghost" href="#honest-state">\s*Begin with honest state\s*<span aria-hidden="true">↓<\/span>\s*<\/a>/u,
     );
     assert.match(
       html,
-      /<meta\s+name="description"\s+content="The live Zerone dashboard: hold your keys; inspect bounded knowledge; read proposed mappings and invariant constraints; trace a static curriculum\."\s*\/>/u,
+      /<meta\s+name="description"\s+content="Explore the live Zerone record without an account, or connect an existing wallet when you are ready\. New-account admission remains paused\."\s*\/>/u,
     );
   });
 

@@ -33,6 +33,12 @@ function setCallbackCopy(title: string, status: string, showReturn: boolean): vo
   }
 }
 
+setCallbackCopy(
+  "Finishing sign-in…",
+  "Confirming the Pi account with Zerone. No wallet or on-chain action is being requested.",
+  true,
+);
+
 async function completePiCallback(): Promise<void> {
   try {
     if (
