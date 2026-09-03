@@ -49,8 +49,10 @@ one OpenPGP `VALIDSIG` matching the supplied out-of-band full fingerprint, an
 exact `GO`, and a config key within that payload's scope. It verifies the
 release-to-phase hash and image-component joins, extracts the app, complete
 image reference, role, image component, and config SHA-256 directly from the
-signed bytes, and rejects reserved old-chain app identities or inconsistent
-release topology.
+signed phase bytes, and rejects reserved old-chain app identities or
+inconsistent release topology. The archive gateway is the sole phase-dependent
+public config: RELEASE fixes its static mapping/renderer/template, verified
+FINAL supplies A/E/B, and OPEN signs the exact deterministic output hash.
 
 DARK deployment before block 1 also checks wall-clock time against the signed
 deadline; its main-key initiation evidence permits the scoped private

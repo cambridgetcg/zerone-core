@@ -550,9 +550,18 @@ Record the signed TxRaw byte SHA-256 and expected transaction hash. The
 transaction must not contain the future OPEN-BETA payload hash. Complete
 canonical `OPEN-BETA-DECISION.json` with every prior payload/signature hash,
 archive readiness, final checkpoint/signature, successor revalidation,
-pre-signed transaction, exact three public config mappings, coordinates, DNS
+pre-signed transaction, two exact RELEASE public mappings plus the exact
+post-FINAL archive-gateway render, coordinates, DNS
 manifest, and canonical UTC initiation deadline. Reproduce the bytes, sign with
 the main operator key, and verify the full fingerprint on a second machine.
+
+Before canonicalizing OPEN, render
+`fly.zerone-1-archive-gateway.public.toml` independently on two machines with
+`deploy/query-gateway/render-archive-gateway-config.py`. Its only dynamic
+values are FINAL A, lowercase excluded post-A AppHash E, and lowercase
+application block ID B; app/image come from the RELEASE static mapping and
+origin/region from RELEASE's private archive constraints. Require equal bytes
+and put their SHA-256 in OPEN's concrete five-field archive mapping.
 
 Before the deadline, broadcast only the exact pre-signed history-link bytes
 through the same byte-verifying gate:

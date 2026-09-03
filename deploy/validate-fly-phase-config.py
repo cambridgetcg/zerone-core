@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import pathlib
+import re
 import sys
 import tomllib
 
@@ -150,6 +151,9 @@ def require_exact_env(data: dict, key: str) -> None:
         "zerone_1_archive_gateway": {
             "GATEWAY_ROLE",
             "EXPECTED_CHAIN_ID",
+            "EXPECTED_ARCHIVE_HEIGHT",
+            "EXPECTED_ARCHIVE_APP_HASH",
+            "EXPECTED_ARCHIVE_BLOCK_HASH",
             "UPSTREAM_HOST",
         },
         "zerone_1_halt_signer": {
@@ -196,9 +200,13 @@ def require_exact_env(data: dict, key: str) -> None:
         if env.get("CORS_ALLOWED_ORIGINS_JSON") != "[]":
             fail("edge direct CORS origins must remain empty")
     if key in {"zerone_2_gateway_private", "zerone_2_gateway_public"}:
+        if env.get("GATEWAY_ROLE") != "zerone-2-query":
+            fail("zerone-2 gateway role changed")
         if env.get("EXPECTED_CHAIN_ID") != "zerone-2":
             fail("zerone-2 gateway chain ID changed")
     if key == "zerone_1_archive_gateway":
+        if env.get("GATEWAY_ROLE") != "zerone-1-archive-query":
+            fail("archive gateway role changed")
         if env.get("EXPECTED_CHAIN_ID") != "zerone-1":
             fail("archive gateway chain ID changed")
 
@@ -211,6 +219,8 @@ def require_context(
     expected_f: str,
     expected_a: str,
     expected_h: str,
+    expected_archive_app_hash: str,
+    expected_archive_block_hash: str,
 ) -> None:
     dark_keys = {
         "zerone_2_validator",
@@ -256,8 +266,29 @@ def require_context(
             env.get("ZERONE_HALT_TRIGGER_HEIGHT"),
         ) != expected:
             fail("halt profile F/A/H differs from the signed CUTOVER plan")
-    elif (expected_f, expected_a, expected_h) != ("-", "-", "-"):
-        fail("unexpected F/A/H context for a non-CUTOVER profile")
+        if (expected_archive_app_hash, expected_archive_block_hash) != ("-", "-"):
+            fail("unexpected archive hash context for a CUTOVER profile")
+    elif key == "zerone_1_archive_gateway":
+        if expected_f != "-" or expected_h != "-":
+            fail("archive gateway accepts only A/E/B checkpoint context")
+        if not re.fullmatch(r"[1-9][0-9]{0,17}", expected_a):
+            fail("signed archive height A is malformed or cannot admit an A+1 proof")
+        if not re.fullmatch(r"[0-9a-f]{64}", expected_archive_app_hash):
+            fail("signed archive app hash E must be exactly 64 lowercase hex characters")
+        if not re.fullmatch(r"[0-9a-f]{64}", expected_archive_block_hash):
+            fail("signed archive block hash B must be exactly 64 lowercase hex characters")
+        env = data["env"]
+        if env.get("EXPECTED_ARCHIVE_HEIGHT") != expected_a:
+            fail("archive gateway height differs from verified FINAL A")
+        if env.get("EXPECTED_ARCHIVE_APP_HASH") != expected_archive_app_hash:
+            fail("archive gateway app hash differs from verified FINAL E")
+        if env.get("EXPECTED_ARCHIVE_BLOCK_HASH") != expected_archive_block_hash:
+            fail("archive gateway block hash differs from verified FINAL B")
+    else:
+        if (expected_f, expected_a, expected_h) != ("-", "-", "-"):
+            fail("unexpected F/A/H context for this profile")
+        if (expected_archive_app_hash, expected_archive_block_hash) != ("-", "-"):
+            fail("unexpected archive hash context for this profile")
 
 
 def require_service_base(service: dict, internal_port: int) -> None:
@@ -362,11 +393,13 @@ def require_public_gateway(data: dict) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) != 8:
+    if len(sys.argv) != 10:
         fail(
             "usage: CONFIG AUTHORITY_SCHEMA CONFIG_KEY "
             "EXPECTED_UPSTREAM_OR_DASH EXPECTED_F_OR_DASH "
-            "EXPECTED_A_OR_DASH EXPECTED_H_OR_DASH"
+            "EXPECTED_A_OR_DASH EXPECTED_H_OR_DASH "
+            "EXPECTED_ARCHIVE_APP_HASH_OR_DASH "
+            "EXPECTED_ARCHIVE_BLOCK_HASH_OR_DASH"
         )
     path = pathlib.Path(sys.argv[1])
     schema = sys.argv[2]
@@ -375,6 +408,8 @@ def main() -> None:
     expected_f = sys.argv[5]
     expected_a = sys.argv[6]
     expected_h = sys.argv[7]
+    expected_archive_app_hash = sys.argv[8]
+    expected_archive_block_hash = sys.argv[9]
     try:
         with path.open("rb") as handle:
             data = tomllib.load(handle)
@@ -445,6 +480,8 @@ def main() -> None:
         expected_f,
         expected_a,
         expected_h,
+        expected_archive_app_hash,
+        expected_archive_block_hash,
     )
 
 

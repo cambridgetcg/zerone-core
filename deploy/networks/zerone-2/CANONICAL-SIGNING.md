@@ -5,7 +5,7 @@ decisions define the launch:
 
 1. `RELEASE-PACKET.json`, made from `RELEASE-PACKET.example.json`, fixes the
    release components, policies, public identities, invariant config mappings,
-   phase-dependent template hashes, and deterministic archive renderer.
+   phase-dependent template hashes, and both deterministic archive renderers.
 2. `DARK-START-DECISION.json` references the release bytes and may authorize
    only the private successor boot, registration, and soak.
 3. `CUTOVER-DECISION.json` references the unchanged release packet, dark-start
@@ -138,6 +138,29 @@ example by hand. A different app, volume, region, image, role, strategy,
 topology, substitution set, or config byte requires a new main-key authority;
 the transition key has no discretion to choose one.
 
+## Deterministic public archive-gateway bytes
+
+RELEASE fixes the archive gateway app/role/image, the public template hash, the
+renderer hash, and declarative bindings to the private archive app/region. It
+cannot fix the concrete config hash because its runtime pins—A, the excluded
+post-A AppHash E, and the application block ID B—exist only in verified FINAL.
+After FINAL is signed and independently verified, render on two isolated
+machines:
+
+```bash
+python3 deploy/query-gateway/render-archive-gateway-config.py \
+  RELEASE-PACKET.json FINAL-CHECKPOINT.json \
+  deploy/query-gateway/fly.zerone-1-archive.public.example.toml \
+  fly.zerone-1-archive-gateway.public.toml
+```
+
+Require byte equality. OPEN, signed by the main key, contains the resulting
+five-field concrete mapping. The authority verifier independently rerenders
+from authenticated RELEASE and FINAL and byte-compares it; only the two z2
+public mappings remain byte-identical to RELEASE. Never put a template hash in
+the RELEASE mapping's `sha256` field or let the transition key authorize public
+exposure.
+
 ## Signed-authority deployment gate
 
 Production DARK/OPEN Fly deployments use `deploy/fly-deploy-authorized.sh`;
@@ -145,8 +168,8 @@ CUTOVER uses only `deploy/mainnet/fly-cutover-authorized.sh`, not manually
 transcribed expected values. It snapshots RELEASE, the canonical phase
 authority, both signatures, and the config; verifies the exact out-of-band
 signer and release-to-phase chain; extracts the app, image, role, component,
-and config hash from the signed `GO`; then passes those values to the
-lower-level immutable-image gate. Example:
+and concrete config hash from the signed phase `GO`; then passes those values
+to the lower-level immutable-image gate. Example:
 
 ```bash
 # Valid only before private block 1 and while DARK-START is unexpired:

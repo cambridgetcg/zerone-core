@@ -14,6 +14,18 @@ deliberately different scopes.
       and all four main-key initiation/registration evidence fields:
       `REPLACE`
 - [ ] `zerone-2` genesis time and two-machine SHA-256: `REPLACE`
+- [ ] Independent artifact audits confirm the exact pre-genesis slashing
+      policy: 34,272-block window, 95% minimum signing, one-hour downtime jail,
+      5% double-sign slash, 0.01% downtime slash, and empty signing/missed-block
+      state
+- [ ] Decision signers explicitly accept that downtime jail/slash is dormant
+      in the one-validator set; monitoring and tested operator recovery are the
+      only launch availability controls
+- [ ] Comet evidence admission is exactly 719,714 blocks and 21 days, matching
+      the SDK staking unbonding period; block/validator history capacity covers
+      that full window; runtime evidence confirms `timeout_commit=2521ms`,
+      `skip_timeout_commit=false`, no `ZERONED_*` overrides, and
+      `--min-retain-blocks 0`
 - [ ] `zerone-1` halt binary SHA-256 and full immutable image reference:
       `REPLACE` / `REPLACE_REGISTRY/REPLACE_REPOSITORY@sha256:REPLACE`
 - [ ] `zerone-2` binary SHA-256 and full immutable runtime image reference:
@@ -50,8 +62,11 @@ snapshot byte-for-byte.
       gateway-stale-origin alert tests each prove firing, notification delivery,
       resolution, and `PASS`: `REPLACE_EVIDENCE_HASHES`
 - [ ] Full tests, artifact audit, signed-source two-run ceremony comparison,
-      restart/export/import, image-context, deploy-gate, SBOM, and secret gates
-      pass
+      restart and complete stopped-data-directory restore, image-context,
+      deploy-gate, SBOM, and secret gates pass. Genesis export/import remains a
+      diagnostic only: the authoritative-state inventory documents known
+      custom-module round-trip omissions and it is not an authorized recovery
+      path.
 - [ ] All private profiles have no public Fly service or public P2P address
 - [ ] Genesis supply, two owners, locked self-bond, single validator, and every
       protocol-dark invariant independently audited
@@ -187,8 +202,10 @@ endpoint publication, or DNS.
 - [ ] Private `zerone-2` health, validator/edge app-hash equality, supply,
       one-validator roster, and all protocol-dark latches were freshly
       revalidated: `REPLACE_HASH`
-- [ ] Public z2 edge, z2 query gateway, and archive query gateway mappings are
-      byte-equal to the immutable release packet; direct origins remain private
+- [ ] Public z2 edge and z2 query gateway mappings are byte-equal to RELEASE;
+      the archive query gateway static mapping equals RELEASE and its concrete
+      config is the deterministic RELEASE-template render of verified FINAL
+      A/E/B; direct origins remain private
 - [ ] Exact P2P/RPC/REST/archive coordinates and reviewed canonical DNS-change
       manifest hash are final and consistent with the earlier notice
 - [ ] OPEN-BETA initiation deadline leaves adequate margin; successful commit

@@ -10,6 +10,8 @@ import hashlib
 import json
 import pathlib
 import re
+import subprocess
+import sys
 from typing import Any
 
 
@@ -876,6 +878,8 @@ def main() -> None:
         "deploy/mainnet/build-image.sh",
         "deploy/networks/zerone-2/runtime/build-image.sh",
         "deploy/query-gateway/build-image.sh",
+        "deploy/query-gateway/render-archive-gateway-config.py",
+        "deploy/query-gateway/fly.zerone-1-archive.public.example.toml",
         "tools/zerone2-artifact-audit/main.go",
     )
     tool_manifest = {
@@ -964,6 +968,21 @@ def main() -> None:
         zerone_1_archive_candidate=digest(candidate_template_path.read_bytes()),
         zerone_1_archive=digest(archive_template_path.read_bytes()),
     )
+    archive_gateway_renderer_path = (
+        root / "deploy" / "query-gateway" / "render-archive-gateway-config.py"
+    )
+    archive_gateway_template_path = (
+        root
+        / "deploy"
+        / "query-gateway"
+        / "fly.zerone-1-archive.public.example.toml"
+    )
+    release["archive_gateway_render_contract"]["renderer_sha256"] = digest(
+        archive_gateway_renderer_path.read_bytes()
+    )
+    release["phase_dependent_config_template_sha256"][
+        "zerone_1_archive_gateway"
+    ] = digest(archive_gateway_template_path.read_bytes())
     def rendered_config(path: pathlib.Path, replacements: dict[str, str]) -> bytes:
         text = path.read_text()
         for old, new in replacements.items():
@@ -1004,18 +1023,9 @@ def main() -> None:
             "replace-zerone-2-edge-app.internal": "zerone-2-edge.internal",
         },
     )
-    archive_gateway_config = rendered_config(
-        query_dir / "fly.zerone-1-archive.public.example.toml",
-        {
-            "replace-zerone-1-archive-gateway-app": "zerone-1-archive-gateway",
-            "replace-with-pinned-query-gateway-image-digest": args.query_image,
-            "replace-zerone-1-archive-app.internal": "zerone-1-archive.internal",
-        },
-    )
     public_configs = {
         "fly.edge.public.toml": edge_public_config,
         "fly.zerone-2-gateway.public.toml": gateway_public_config,
-        "fly.zerone-1-archive-gateway.public.toml": archive_gateway_config,
     }
     for name, data in public_configs.items():
         (output / name).write_bytes(data)
@@ -1050,13 +1060,12 @@ def main() -> None:
             args.query_image,
             digest(gateway_public_config),
         ),
-        "zerone_1_archive_gateway": mapping(
-            "zerone-1-archive-gateway",
-            "zerone-1-archive-query",
-            "query_gateway",
-            args.query_image,
-            digest(archive_gateway_config),
-        ),
+        "zerone_1_archive_gateway": {
+            "app": "zerone-1-archive-gateway",
+            "role": "zerone-1-archive-query",
+            "image_component": "query_gateway",
+            "image_ref": args.query_image,
+        },
     }
     make_monitoring_artifacts(output, release)
     make_component_artifacts(output, release, tool_manifest, args.main)
@@ -2360,6 +2369,19 @@ def main() -> None:
     final_pair = pair(
         output, "FINAL-CHECKPOINT.json", "FINAL-CHECKPOINT.json.sig"
     )
+    archive_gateway_output = output / "fly.zerone-1-archive-gateway.public.toml"
+    subprocess.run(
+        [
+            sys.executable,
+            str(archive_gateway_renderer_path),
+            str(output / "RELEASE-PACKET.json"),
+            str(output / "FINAL-CHECKPOINT.json"),
+            str(archive_gateway_template_path),
+            str(archive_gateway_output),
+        ],
+        check=True,
+    )
+    archive_gateway_config_sha = digest(archive_gateway_output.read_bytes())
 
     open_beta = fill_placeholders(
         read_json(templates / "OPEN-BETA-DECISION.example.json"),
@@ -2390,11 +2412,11 @@ def main() -> None:
     }
     open_beta["deployment_configs"] = {
         key: copy.deepcopy(release["deployment_configs"][key])
-        for key in (
-            "zerone_2_edge_public",
-            "zerone_2_gateway_public",
-            "zerone_1_archive_gateway",
-        )
+        for key in ("zerone_2_edge_public", "zerone_2_gateway_public")
+    }
+    open_beta["deployment_configs"]["zerone_1_archive_gateway"] = {
+        **copy.deepcopy(release["deployment_configs"]["zerone_1_archive_gateway"]),
+        "sha256": archive_gateway_config_sha,
     }
     public_coordinates = {
         "zerone_2_p2p": f"{release['public_identities']['edge_node_id']}@p2p.example:26656",
@@ -2423,7 +2445,7 @@ def main() -> None:
             "archive.example": {
                 "app": "zerone-1-archive-gateway",
                 "https": True,
-                "config_sha256": release["deployment_configs"][
+                "config_sha256": open_beta["deployment_configs"][
                     "zerone_1_archive_gateway"
                 ]["sha256"],
             },

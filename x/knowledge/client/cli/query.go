@@ -39,6 +39,21 @@ func parseClaimTypeQuery(s string) (types.ClaimType, error) {
 	}
 }
 
+// addKnowledgePaginationFlags keeps the CLI default aligned with the query
+// server's bounded default while retaining the SDK's standard pagination flags.
+func addKnowledgePaginationFlags(cmd *cobra.Command, query string) {
+	flags.AddPaginationFlagsToCmd(cmd, query)
+	limitFlag := cmd.Flags().Lookup(flags.FlagLimit)
+	if limitFlag == nil {
+		panic("SDK pagination flags did not register a limit flag")
+	}
+	if err := limitFlag.Value.Set("50"); err != nil {
+		panic(fmt.Sprintf("set knowledge pagination limit default: %v", err))
+	}
+	limitFlag.DefValue = "50"
+	limitFlag.Changed = false
+}
+
 // GetQueryCmd returns the root query command for the knowledge module.
 func GetQueryCmd() *cobra.Command {
 	queryCmd := &cobra.Command{
@@ -142,7 +157,7 @@ func NewQueryFactCmd() *cobra.Command {
 func NewQueryFactsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "facts",
-		Short: "Query facts with optional filters",
+		Short: "Query a page of facts with optional filters",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)
@@ -157,11 +172,16 @@ func NewQueryFactsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			pageRequest, err := client.ReadPageRequest(cmd.Flags())
+			if err != nil {
+				return err
+			}
 			req := &types.QueryFactsRequest{
-				Domain:    domain,
-				Status:    status,
-				Category:  category,
-				ClaimType: claimType,
+				Domain:     domain,
+				Status:     status,
+				Category:   category,
+				ClaimType:  claimType,
+				Pagination: pageRequest,
 			}
 			resp := &types.QueryFactsResponse{}
 			if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/Facts", req, resp); err != nil {
@@ -175,20 +195,25 @@ func NewQueryFactsCmd() *cobra.Command {
 	cmd.Flags().String("category", "", "Filter by category")
 	cmd.Flags().String("claim-type", "", "Filter by claim type: assertion, relation, definition, constraint, negation, observation")
 	flags.AddQueryFlagsToCmd(cmd)
+	addKnowledgePaginationFlags(cmd, "facts")
 	return cmd
 }
 
 func NewQueryFactsByDomainCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "facts-by-domain [domain]",
-		Short: "Query facts by domain",
+		Short: "Query a page of facts by domain",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return err
 			}
-			req := &types.QueryFactsByDomainRequest{Domain: args[0]}
+			pageRequest, err := client.ReadPageRequest(cmd.Flags())
+			if err != nil {
+				return err
+			}
+			req := &types.QueryFactsByDomainRequest{Domain: args[0], Pagination: pageRequest}
 			resp := &types.QueryFactsByDomainResponse{}
 			if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/FactsByDomain", req, resp); err != nil {
 				return fmt.Errorf("failed to query facts by domain: %w", err)
@@ -197,20 +222,25 @@ func NewQueryFactsByDomainCmd() *cobra.Command {
 		},
 	}
 	flags.AddQueryFlagsToCmd(cmd)
+	addKnowledgePaginationFlags(cmd, "facts by domain")
 	return cmd
 }
 
 func NewQueryFactsBySubmitterCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "facts-by-submitter [submitter]",
-		Short: "Query facts by submitter address",
+		Short: "Query a page of facts by submitter address",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return err
 			}
-			req := &types.QueryFactsBySubmitterRequest{Submitter: args[0]}
+			pageRequest, err := client.ReadPageRequest(cmd.Flags())
+			if err != nil {
+				return err
+			}
+			req := &types.QueryFactsBySubmitterRequest{Submitter: args[0], Pagination: pageRequest}
 			resp := &types.QueryFactsBySubmitterResponse{}
 			if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/FactsBySubmitter", req, resp); err != nil {
 				return fmt.Errorf("failed to query facts by submitter: %w", err)
@@ -219,6 +249,7 @@ func NewQueryFactsBySubmitterCmd() *cobra.Command {
 		},
 	}
 	flags.AddQueryFlagsToCmd(cmd)
+	addKnowledgePaginationFlags(cmd, "facts by submitter")
 	return cmd
 }
 
@@ -247,14 +278,18 @@ func NewQueryClaimCmd() *cobra.Command {
 func NewQueryPendingClaimsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pending-claims",
-		Short: "Query all pending claims",
+		Short: "Query a page of pending claims",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return err
 			}
-			req := &types.QueryPendingClaimsRequest{}
+			pageRequest, err := client.ReadPageRequest(cmd.Flags())
+			if err != nil {
+				return err
+			}
+			req := &types.QueryPendingClaimsRequest{Pagination: pageRequest}
 			resp := &types.QueryPendingClaimsResponse{}
 			if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/PendingClaims", req, resp); err != nil {
 				return fmt.Errorf("failed to query pending claims: %w", err)
@@ -263,6 +298,7 @@ func NewQueryPendingClaimsCmd() *cobra.Command {
 		},
 	}
 	flags.AddQueryFlagsToCmd(cmd)
+	addKnowledgePaginationFlags(cmd, "pending claims")
 	return cmd
 }
 
@@ -313,14 +349,18 @@ func NewQueryDomainCmd() *cobra.Command {
 func NewQueryDomainsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "domains",
-		Short: "Query all knowledge domains",
+		Short: "Query a page of knowledge domains",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientQueryContext(cmd)
 			if err != nil {
 				return err
 			}
-			req := &types.QueryDomainsRequest{}
+			pageRequest, err := client.ReadPageRequest(cmd.Flags())
+			if err != nil {
+				return err
+			}
+			req := &types.QueryDomainsRequest{Pagination: pageRequest}
 			resp := &types.QueryDomainsResponse{}
 			if err := clientCtx.Invoke(cmd.Context(), "/zerone.knowledge.v1.Query/Domains", req, resp); err != nil {
 				return fmt.Errorf("failed to query domains: %w", err)
@@ -329,6 +369,7 @@ func NewQueryDomainsCmd() *cobra.Command {
 		},
 	}
 	flags.AddQueryFlagsToCmd(cmd)
+	addKnowledgePaginationFlags(cmd, "knowledge domains")
 	return cmd
 }
 

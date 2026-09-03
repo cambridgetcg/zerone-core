@@ -67,7 +67,9 @@ only the private historical package after its old-chain initiation event.
 Public P2P, query gateways, the history-link transaction, endpoints, and DNS
 require the later main-key OPEN-BETA decision. The transition key signs factual
 archive and checkpoint attestations only; it never grants operator GO
-authority.
+authority. RELEASE therefore binds only the archive gateway's static mapping,
+renderer, and template; verified FINAL supplies A/E/B, and OPEN binds the exact
+deterministically rendered public config hash.
 
 ## Ceremony
 
@@ -96,6 +98,31 @@ both in the public input and independently through the environment. The copied
 binary's embedded VCS revision must equal the release commit. The gentx must be
 pre-signed offline by the new validator operator and contain the exact
 self-bond and commission profile.
+
+The ceremony also replaces the SDK's short default slashing window with one
+explicit launch policy: `signed_blocks_window=34272`,
+`min_signed_per_window=0.950000000000000000`,
+`downtime_jail_duration=3600s`,
+`slash_fraction_double_sign=0.050000000000000000`, and
+`slash_fraction_downtime=0.000100000000000000`. At the runtime's 2.521-second
+target commit cadence, the window is approximately one day and the 95% floor
+allows approximately 72 minutes of total missed signing. Release-bound
+monitoring alerts on the first missed signature. In the disclosed one-validator
+set, however, no block can commit while that validator is absent, so the
+downtime jail/slash cannot execute. Those parameters remain dormant until the
+set can commit without one validator; monitoring and operator recovery are the
+only launch availability controls. Double-signing retains the SDK's 5% slash
+and permanent tombstone behavior.
+
+The runtime reasserts `timeout_commit=2521ms` and
+`skip_timeout_commit=false` on every start, rejects all `ZERONED_*` environment
+overrides, and passes `--min-retain-blocks 0` explicitly. Comet evidence
+admission is separately pinned to 719,714 blocks and
+1,814,400,000,000,000 nanoseconds—approximately 21 days at the target cadence,
+matching the SDK staking unbonding period. This keeps delayed equivocation and
+light-client evidence admissible while the responsible stake remains at risk.
+The runtime retains Comet history (`min-retain-blocks=0`); capacity monitoring
+and backup freshness are launch gates.
 
 RELEASE also pins two distinct trusted predecessor node IDs and one exact
 trusted `zerone-1` block height/block ID/AppHash. It hashes the ceremony output,

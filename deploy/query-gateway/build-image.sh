@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the query-only gateway from a three-file, custody-free context.
+# Build the query-only gateway from a five-input, custody-free context.
 set -euo pipefail
 export LC_ALL=C
 export GIT_NO_REPLACE_OBJECTS=1
@@ -9,6 +9,7 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 IMAGE_REF="${1:?usage: build-image.sh <local-image-reference>}"
 PROFILE="${GATEWAY_BUILD_PROFILE:-release}"
 TARGET_PLATFORM="linux/amd64"
+GO_IMAGE="golang:1.25.14-bookworm@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437"
 CONTEXT=""
 
 die() { printf 'query-gateway build: ERROR: %s\n' "$*" >&2; exit 1; }
@@ -81,9 +82,6 @@ command -v docker >/dev/null 2>&1 || die "docker is required"
 command -v git >/dev/null 2>&1 || die "git is required"
 [[ "${IMAGE_REF}" =~ ^[A-Za-z0-9][A-Za-z0-9._/:@-]{0,255}$ ]] || \
   die "local image reference contains unsafe characters"
-[[ "${NGINX_IMAGE:-}" =~ ^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?@sha256:[0-9a-f]{64}$ ]] || \
-  die "NGINX_IMAGE must be a lowercase immutable image digest reference"
-
 SOURCE_COMMIT=$(git -C "${ROOT}" rev-parse HEAD)
 [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]] || die "HEAD must be a 40-hex commit"
 if [ "${PROFILE}" = release ]; then
@@ -95,7 +93,7 @@ else
 fi
 
 CONTEXT=$(mktemp -d "${TMPDIR:-/tmp}/zerone-query-gateway-context.XXXXXX")
-for name in Dockerfile entrypoint.sh default.conf.template; do
+for name in Dockerfile entrypoint.sh default.conf.template nginx-image.txt readiness.go; do
   relative="deploy/query-gateway/${name}"
   if [ "${PROFILE}" = release ]; then
     materialize_git_file "${relative}" "${CONTEXT}/${name}"
@@ -106,14 +104,22 @@ for name in Dockerfile entrypoint.sh default.conf.template; do
     cp "${source_file}" "${CONTEXT}/${name}"
   fi
 done
-chmod 0644 "${CONTEXT}/Dockerfile" "${CONTEXT}/default.conf.template"
+chmod 0644 "${CONTEXT}/Dockerfile" "${CONTEXT}/default.conf.template" \
+  "${CONTEXT}/nginx-image.txt" "${CONTEXT}/readiness.go"
 chmod 0755 "${CONTEXT}/entrypoint.sh"
+PINNED_NGINX_IMAGE=$(sed -n '1p' "${CONTEXT}/nginx-image.txt")
+[ "$(wc -l < "${CONTEXT}/nginx-image.txt" | tr -d ' ')" = 1 ] && \
+  [[ "${PINNED_NGINX_IMAGE}" =~ ^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?@sha256:[0-9a-f]{64}$ ]] || \
+  die "signed nginx-image.txt must contain one lowercase immutable digest reference"
+[ -z "${NGINX_IMAGE:-}" ] || [ "${NGINX_IMAGE}" = "${PINNED_NGINX_IMAGE}" ] || \
+  die "NGINX_IMAGE does not match the signed nginx-image.txt pin"
+NGINX_IMAGE="${PINNED_NGINX_IMAGE}"
 printf 'schema=zerone-query-gateway-context-v1\nprofile=%s\nsource_commit=%s\nrelease_tag=%s\nrelease_signer_fingerprint=%s\nplatform=%s\n' \
   "${PROFILE}" "${SOURCE_COMMIT}" "${RELEASE_TAG}" \
   "${AUTHORIZED_FINGERPRINT}" "${TARGET_PLATFORM}" \
   > "${CONTEXT}/.sanitized-query-gateway-context-v1"
 
-[ "$(find "${CONTEXT}" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')" = 4 ] || \
+[ "$(find "${CONTEXT}" -mindepth 1 -maxdepth 1 -type f | wc -l | tr -d ' ')" = 6 ] || \
   die "gateway context contains an unexpected file"
 if find "${CONTEXT}" -type f \( -name '*key*' -o -name '*mnemonic*' -o -name '*.env' \) \
   -print -quit | grep -q .; then
@@ -122,7 +128,14 @@ fi
 
 [ "${PROFILE}" != release ] || verify_clean_release_tree
 docker build --platform "${TARGET_PLATFORM}" \
+  --build-arg "GO_IMAGE=${GO_IMAGE}" \
   --build-arg "NGINX_IMAGE=${NGINX_IMAGE}" \
+  --build-arg "SOURCE_COMMIT=${SOURCE_COMMIT}" \
+  --build-arg "BUILD_PROFILE=${PROFILE}" \
+  --build-arg "RELEASE_TAG=${RELEASE_TAG}" \
+  --build-arg "RELEASE_SIGNER_FINGERPRINT=${AUTHORIZED_FINGERPRINT}" \
+  --build-arg "TARGETOS=linux" \
+  --build-arg "TARGETARCH=amd64" \
   --label "org.opencontainers.image.revision=${SOURCE_COMMIT}" \
   --label "org.opencontainers.image.version=${RELEASE_TAG}" \
   --label "money.zerone.component=query-gateway" \

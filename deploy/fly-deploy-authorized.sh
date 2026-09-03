@@ -267,6 +267,18 @@ jq -e '
     "zerone_2_edge_public", "zerone_2_gateway_public",
     "zerone_1_archive_gateway"
   ] | sort) and
+  (.deployment_configs.zerone_1_archive_gateway | keys | sort) == ([
+    "app", "role", "image_component", "image_ref"
+  ] | sort) and
+  (.archive_gateway_render_contract | keys | sort) == ([
+    "schema", "renderer_path", "renderer_sha256", "template_path", "bindings"
+  ] | sort) and
+  .archive_gateway_render_contract.schema ==
+    "zerone-1-archive-gateway-render-contract-v1" and
+  .archive_gateway_render_contract.renderer_path ==
+    "deploy/query-gateway/render-archive-gateway-config.py" and
+  .archive_gateway_render_contract.template_path ==
+    "deploy/query-gateway/fly.zerone-1-archive.public.example.toml" and
   ([.deployment_configs[].app] | all(.[];
     test("^[a-z0-9][a-z0-9-]{0,62}$"))) and
   .deployment_configs.zerone_2_edge_private.app ==
@@ -312,6 +324,8 @@ POLICY_UPSTREAM=-
 POLICY_F=-
 POLICY_A=-
 POLICY_H=-
+POLICY_ARCHIVE_APP_HASH=-
+POLICY_ARCHIVE_BLOCK_HASH=-
 case "${SCHEMA}" in
   zerone-2-dark-start-decision-v1)
     jq -e \
@@ -648,10 +662,24 @@ RELEASE_IMAGE=$(jq -er --arg component "${COMPONENT}" \
 [ "${IMAGE}" = "${RELEASE_IMAGE}" ] || \
   die "phase decision image differs from its signed release component"
 case "${SCHEMA}" in
-  zerone-2-dark-start-decision-v1|zerone-2-open-beta-decision-v1)
+  zerone-2-dark-start-decision-v1)
     jq -e --arg key "${CONFIG_KEY}" --argjson entry "${ENTRY}" \
       '.deployment_configs[$key] == $entry' "${RELEASE}" >/dev/null || \
       die "phase config mapping differs from the immutable release packet"
+    ;;
+  zerone-2-open-beta-decision-v1)
+    if [ "${CONFIG_KEY}" = zerone_1_archive_gateway ]; then
+      jq -e --arg key "${CONFIG_KEY}" --argjson entry "${ENTRY}" '
+        (.deployment_configs[$key] | keys | sort) ==
+          (["app", "role", "image_component", "image_ref"] | sort) and
+        ($entry | del(.sha256)) == .deployment_configs[$key]
+      ' "${RELEASE}" >/dev/null || \
+        die "archive gateway static mapping differs from the immutable release packet"
+    else
+      jq -e --arg key "${CONFIG_KEY}" --argjson entry "${ENTRY}" \
+        '.deployment_configs[$key] == $entry' "${RELEASE}" >/dev/null || \
+        die "phase config mapping differs from the immutable release packet"
+    fi
     ;;
 esac
 case "${CONFIG_KEY}" in
@@ -681,14 +709,26 @@ case "${CONFIG_KEY}" in
   zerone_1_archive_gateway)
     [ "${ROLE}|${COMPONENT}" = "zerone-1-archive-query|query_gateway" ] || \
       die "archive gateway mapping has the wrong role or image component"
-    POLICY_UPSTREAM=zerone-1-archive.internal
+    RELEASE_ARCHIVE_APP=$(jq -er \
+      '.archive_render_contract.static_constraints.app' "${RELEASE}") || \
+      die "release archive origin app is missing"
+    POLICY_UPSTREAM="${RELEASE_ARCHIVE_APP}.internal"
+    POLICY_A=$(jq -er '.final_application_block.height' \
+      "${FINAL_CHECKPOINT}") || die "FINAL archive height A is missing"
+    POLICY_ARCHIVE_APP_HASH=$(jq -er \
+      '.excluded_post_anchor_state.app_hash | ascii_downcase' \
+      "${FINAL_CHECKPOINT}") || die "FINAL archive app hash E is missing"
+    POLICY_ARCHIVE_BLOCK_HASH=$(jq -er \
+      '.final_application_block.block_id_hash | ascii_downcase' \
+      "${FINAL_CHECKPOINT}") || die "FINAL archive block hash B is missing"
     ;;
 esac
 
 command -v python3 >/dev/null 2>&1 || \
   die "python3 with standard-library tomllib is required"
 python3 "${CONFIG_POLICY}" "${CONFIG}" "${SCHEMA}" "${CONFIG_KEY}" \
-  "${POLICY_UPSTREAM}" "${POLICY_F}" "${POLICY_A}" "${POLICY_H}" || \
+  "${POLICY_UPSTREAM}" "${POLICY_F}" "${POLICY_A}" "${POLICY_H}" \
+  "${POLICY_ARCHIVE_APP_HASH}" "${POLICY_ARCHIVE_BLOCK_HASH}" || \
   die "Fly config violates phase service/state policy"
 
 if [ "${MODE}" = check ]; then

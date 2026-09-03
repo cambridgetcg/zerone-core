@@ -144,6 +144,21 @@ fi
 grep -q 'vote_extensions_enable_height' "${TMP}/drift.log" || \
   fail "vote-extension drift rejection was not explicit"
 
+# The generated genesis, not only a synthetic Go fixture, must carry the exact
+# production slashing profile and the independent auditor must reject a weak
+# SDK-default signing floor.
+cp -R "${TMP}/a" "${TMP}/slashing-drift"
+jq '.app_state.slashing.params.min_signed_per_window = "0.500000000000000000"' \
+  "${TMP}/slashing-drift/genesis.json" > "${TMP}/slashing-drifted-genesis.json"
+mv "${TMP}/slashing-drifted-genesis.json" "${TMP}/slashing-drift/genesis.json"
+if go run "${ROOT}/tools/zerone2-artifact-audit" \
+  --artifact-dir "${TMP}/slashing-drift" --required-mode drill \
+  > "${TMP}/slashing-drift.log" 2>&1; then
+  fail "artifact auditor accepted weak slashing policy"
+fi
+grep -q 'min_signed_per_window' "${TMP}/slashing-drift.log" || \
+  fail "slashing-policy drift rejection was not explicit"
+
 # A renamed valid mnemonic must also fail the release directory scan.
 cp -R "${TMP}/a" "${TMP}/secret"
 printf '%s\n' \

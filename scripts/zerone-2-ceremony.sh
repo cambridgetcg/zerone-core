@@ -26,6 +26,27 @@ CUSTOM_STAKE_UZRN="111000000"
 GOV_MIN_DEPOSIT_UZRN="100000000"
 GOV_EXPEDITED_DEPOSIT_UZRN="300000000"
 
+# Evidence admission spans the full 21-day SDK staking unbonding period. At
+# the target 2.521-second cadence, floor(1,814,400 / 2.521) is 719,714 blocks.
+# Comet expires evidence only after both the duration and block-age thresholds,
+# so matching them prevents a delayed-equivocation accountability gap.
+EVIDENCE_MAX_AGE_NUM_BLOCKS="719714"
+EVIDENCE_MAX_AGE_DURATION_NS="1814400000000000"
+EVIDENCE_MAX_BYTES="1048576"
+
+# The production runtime targets a 2.521-second commit cadence. A 34,272-block
+# signing window is therefore one day (86,399.712 seconds); a 95% floor permits
+# roughly 1,714 missed blocks, or 72 minutes total. The release-bound monitor
+# alerts on the first miss. With one validator, the chain cannot commit while
+# that signer is absent, so the downtime jail/slash is dormant until the set can
+# commit without one validator; monitoring and operator recovery are the launch
+# controls. Double-signing keeps the SDK's 5% slash and tombstone semantics.
+SLASHING_SIGNED_BLOCKS_WINDOW="34272"
+SLASHING_MIN_SIGNED_PER_WINDOW="0.950000000000000000"
+SLASHING_DOWNTIME_JAIL_DURATION="3600s"
+SLASHING_FRACTION_DOUBLE_SIGN="0.050000000000000000"
+SLASHING_FRACTION_DOWNTIME="0.000100000000000000"
+
 # Public test fixture. Funds derived from this phrase are never money.
 DRILL_MNEMONIC="now aware tomorrow wire robust regular unveil swallow trigger about immune wool humor allow inch runway sock acoustic scare weather outdoor shield attract direct"
 DRILL_GENESIS_TIME="2026-01-01T00:00:00Z"
@@ -457,9 +478,9 @@ info "applying the zerone-2 protocol-dark profile"
 patch_genesis '
   .consensus.params.block.max_bytes = "4194304"
   | .consensus.params.block.max_gas = "33333333"
-  | .consensus.params.evidence.max_age_num_blocks = "100000"
-  | .consensus.params.evidence.max_age_duration = "172800000000000"
-  | .consensus.params.evidence.max_bytes = "1048576"
+  | .consensus.params.evidence.max_age_num_blocks = $evidence_blocks
+  | .consensus.params.evidence.max_age_duration = $evidence_duration
+  | .consensus.params.evidence.max_bytes = $evidence_bytes
   | .consensus.params.validator.pub_key_types = ["ed25519"]
   | .consensus.params.version.app = "0"
   | .consensus.params.abci.vote_extensions_enable_height = "0"
@@ -470,6 +491,14 @@ patch_genesis '
   | .app_state.staking.params.historical_entries = 10000
   | .app_state.staking.params.bond_denom = "uzrn"
   | .app_state.staking.params.min_commission_rate = "0.050000000000000000"
+
+  | .app_state.slashing.params.signed_blocks_window = $slashing_window
+  | .app_state.slashing.params.min_signed_per_window = $slashing_min_signed
+  | .app_state.slashing.params.downtime_jail_duration = $slashing_jail
+  | .app_state.slashing.params.slash_fraction_double_sign = $slashing_double_sign
+  | .app_state.slashing.params.slash_fraction_downtime = $slashing_downtime
+  | .app_state.slashing.signing_infos = []
+  | .app_state.slashing.missed_blocks = []
 
   | .app_state.gov.params.min_deposit = [{"denom":"uzrn","amount":$gov_deposit}]
   | .app_state.gov.params.expedited_min_deposit = [{"denom":"uzrn","amount":$gov_expedited}]
@@ -570,7 +599,15 @@ patch_genesis '
   --arg cap_plus_one "${HARD_CAP_PLUS_ONE_UZRN}" \
   --arg custom_stake "${CUSTOM_STAKE_UZRN}" \
   --arg gov_deposit "${GOV_MIN_DEPOSIT_UZRN}" \
-  --arg gov_expedited "${GOV_EXPEDITED_DEPOSIT_UZRN}"
+  --arg gov_expedited "${GOV_EXPEDITED_DEPOSIT_UZRN}" \
+  --arg evidence_blocks "${EVIDENCE_MAX_AGE_NUM_BLOCKS}" \
+  --arg evidence_duration "${EVIDENCE_MAX_AGE_DURATION_NS}" \
+  --arg evidence_bytes "${EVIDENCE_MAX_BYTES}" \
+  --arg slashing_window "${SLASHING_SIGNED_BLOCKS_WINDOW}" \
+  --arg slashing_min_signed "${SLASHING_MIN_SIGNED_PER_WINDOW}" \
+  --arg slashing_jail "${SLASHING_DOWNTIME_JAIL_DURATION}" \
+  --arg slashing_double_sign "${SLASHING_FRACTION_DOUBLE_SIGN}" \
+  --arg slashing_downtime "${SLASHING_FRACTION_DOWNTIME}"
 
 if [ "${MODE}" = "drill" ]; then
   info "creating deterministic public-fixture gentx"
@@ -638,6 +675,24 @@ jq -e --arg validator "${VALIDATOR_ADDRESS}" --arg locked "${SELF_BOND_UZRN}" '
     | select(.base_vesting_account.base_account.address == $validator)
     | .base_vesting_account.original_vesting[0].amount] == [$locked]
 ' "${GENESIS}" >/dev/null || die "post-collection permanent lock invariant failed"
+jq -e \
+  --arg window "${SLASHING_SIGNED_BLOCKS_WINDOW}" \
+  --arg min_signed "${SLASHING_MIN_SIGNED_PER_WINDOW}" \
+  --arg jail "${SLASHING_DOWNTIME_JAIL_DURATION}" \
+  --arg double_sign "${SLASHING_FRACTION_DOUBLE_SIGN}" \
+  --arg downtime "${SLASHING_FRACTION_DOWNTIME}" '
+  .app_state.slashing == {
+    params: {
+      signed_blocks_window: $window,
+      min_signed_per_window: $min_signed,
+      downtime_jail_duration: $jail,
+      slash_fraction_double_sign: $double_sign,
+      slash_fraction_downtime: $downtime
+    },
+    signing_infos: [],
+    missed_blocks: []
+  }
+' "${GENESIS}" >/dev/null || die "post-collection slashing policy invariant failed"
 
 # Genesis and public manifest are the only JSON artifacts copied out of the
 # private scratch directory.
@@ -744,6 +799,15 @@ Total: **${TOTAL_SUPPLY_UZRN} uzrn (13,555 ZRN)**.
 - P2P node ID declared in gentx: ${NODE_ID}
 - Gentx SHA-256: ${GENTX_SHA}
 - Genesis validators: 1; Byzantine fault tolerance: 0.
+
+## Slashing policy
+
+- Signed-block window: ${SLASHING_SIGNED_BLOCKS_WINDOW} blocks (approximately 24 hours at the 2.521-second target cadence).
+- Minimum signed: ${SLASHING_MIN_SIGNED_PER_WINDOW} (95%; approximately 72 minutes total miss budget per window).
+- Downtime jail: ${SLASHING_DOWNTIME_JAIL_DURATION}; downtime slash: ${SLASHING_FRACTION_DOWNTIME} (0.01%).
+- Double-sign slash: ${SLASHING_FRACTION_DOUBLE_SIGN} (5%; SDK tombstoning remains in force).
+- Evidence admission: ${EVIDENCE_MAX_AGE_NUM_BLOCKS} blocks and ${EVIDENCE_MAX_AGE_DURATION_NS} ns (both approximately 21 days, matching staking unbonding); maximum evidence bytes per block: ${EVIDENCE_MAX_BYTES}.
+- One-validator limitation: downtime jail/slash cannot execute while the only signer is absent because no block can commit. It remains dormant until the validator set can commit without one validator; launch availability depends on monitoring and operator recovery.
 
 ## Dark launch
 

@@ -163,6 +163,7 @@ OPEN_INIT_SIG="${BUNDLE}/OPEN-BETA-INITIATION-EVIDENCE.json.sig"
 FINAL="${BUNDLE}/FINAL-CHECKPOINT.json"
 FINAL_SIG="${BUNDLE}/FINAL-CHECKPOINT.json.sig"
 PUBLIC_CONFIG="${BUNDLE}/fly.edge.public.toml"
+ARCHIVE_CONFIG="${BUNDLE}/fly.zerone-1-archive-gateway.public.toml"
 
 jq -n -S -c \
   --arg sender "${SENDER}" \
@@ -218,8 +219,18 @@ run_open() {
     "${FINAL}" "${FINAL_SIG}" "${transition}" "${BUNDLE}"
 }
 
+run_open_archive() {
+  local config=${1:-${ARCHIVE_CONFIG}}
+  gate_env "${GATE}" --check \
+    "${RELEASE}" "${RELEASE_SIG}" "${OPEN}" "${OPEN_SIG}" \
+    "${config}" zerone_1_archive_gateway "${MAIN_FINGERPRINT}" \
+    "${OPEN_INIT}" "${OPEN_INIT_SIG}" \
+    "${FINAL}" "${FINAL_SIG}" "${TRANSITION_FINGERPRINT}" "${BUNDLE}"
+}
+
 [ "$(run_dark)" = "${RUNTIME_IMAGE}" ]
 [ "$(run_open)" = "${RUNTIME_IMAGE}" ]
+[ "$(run_open_archive)" = "${QUERY_IMAGE}" ]
 
 run_cutover_generic() {
   gate_env "${GATE}" --check \
@@ -259,6 +270,15 @@ printf '\n# changed after OPEN was signed\n' >> "${ALTERED_CONFIG}"
 expect_rejected "post-signature Fly config drift" \
   "snapshotted config does not match the signed phase-authority SHA-256" \
   run_open "${ALTERED_CONFIG}"
+
+ALTERED_ARCHIVE_CONFIG="${TMP}/fly.archive-gateway.altered.toml"
+cp "${ARCHIVE_CONFIG}" "${ALTERED_ARCHIVE_CONFIG}"
+sed -i.bak 's/EXPECTED_ARCHIVE_HEIGHT = "1001"/EXPECTED_ARCHIVE_HEIGHT = "1000"/' \
+  "${ALTERED_ARCHIVE_CONFIG}"
+rm -f "${ALTERED_ARCHIVE_CONFIG}.bak"
+expect_rejected "archive gateway FINAL pin drift" \
+  "archive gateway height differs from verified FINAL A" \
+  run_open_archive "${ALTERED_ARCHIVE_CONFIG}"
 
 run_open_wrong_main_signature() {
   FAKE_GPG_MAIN_FINGERPRINT=${OTHER_FINGERPRINT} run_open

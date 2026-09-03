@@ -42,3 +42,16 @@ func TestVerifyBlockHashBindingRejectsNilBlock(t *testing.T) {
 	err := verifyBlockHashBinding(cmttypes.BlockID{}, nil)
 	require.ErrorContains(t, err, "block is nil")
 }
+
+func TestValidateExpectedChainID(t *testing.T) {
+	require.NoError(t, validateExpectedChainID("zerone-consensus-rehearsal-1"))
+	require.ErrorContains(t, validateExpectedChainID(""), "required")
+	require.ErrorContains(t, validateExpectedChainID(" zerone-1"), "whitespace")
+	require.ErrorContains(t, validateExpectedChainID("zerone-1\n"), "whitespace")
+}
+
+func TestVerifyExpectedChainID(t *testing.T) {
+	require.NoError(t, verifyExpectedChainID("zerone-2", "zerone-2"))
+	require.ErrorContains(t, verifyExpectedChainID("zerone-2", ""), "empty chain ID")
+	require.ErrorContains(t, verifyExpectedChainID("zerone-2", "zerone-1"), "does not match required")
+}

@@ -403,4 +403,29 @@ func TestGraphTraversal_TwoHop(t *testing.T) {
 	require.True(t, reachable[factB.Id])
 	require.True(t, reachable[factC.Id])
 	require.Len(t, reachable, 3)
+
+	queryServer := keeper.NewQueryServerImpl(k)
+	proof, err := queryServer.ProofTree(ctx, &types.QueryProofTreeRequest{
+		FactId:        factA.Id,
+		MaxDepth:      3,
+		IncludeAxioms: true,
+	})
+	require.NoError(t, err)
+	require.Equal(t, factA.Id, proof.Root.Fact.Id)
+	require.Len(t, proof.Root.Supports, 1)
+	require.Equal(t, factB.Id, proof.Root.Supports[0].Fact.Id)
+	require.Len(t, proof.Root.Supports[0].Supports, 1)
+	require.Equal(t, factC.Id, proof.Root.Supports[0].Supports[0].Fact.Id)
+	require.Equal(t, uint32(3), proof.TotalNodes)
+
+	descendants, err := queryServer.DescendantTree(ctx, &types.QueryDescendantTreeRequest{
+		FactId:   factC.Id,
+		MaxDepth: 3,
+	})
+	require.NoError(t, err)
+	require.Len(t, descendants.Descendants, 1)
+	require.Equal(t, factB.Id, descendants.Descendants[0].Fact.Id)
+	require.Len(t, descendants.Descendants[0].Descendants, 1)
+	require.Equal(t, factA.Id, descendants.Descendants[0].Descendants[0].Fact.Id)
+	require.Equal(t, uint32(3), descendants.TotalNodes)
 }

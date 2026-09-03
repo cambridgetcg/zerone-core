@@ -21,16 +21,27 @@ server {
     proxy_connect_timeout 3s;
     proxy_send_timeout 10s;
     proxy_read_timeout 15s;
+    send_timeout 15s;
     proxy_http_version 1.1;
+    proxy_pass_request_body off;
     proxy_set_header Connection "";
+    proxy_set_header Content-Length "";
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Proto https;
     proxy_hide_header Access-Control-Allow-Origin;
     proxy_hide_header Access-Control-Allow-Credentials;
 
+    # The readiness helper returns this value only after probing the same exact
+    # single-Machine 6PN address. Capturing it from the internal authorization
+    # response binds each served request to the origin generation that passed
+    # the semantic checks; no client header or second DNS lookup is involved.
+    auth_request_set $zerone_validated_6pn $upstream_http_x_zerone_validated_6pn;
+
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy no-referrer always;
     add_header Cache-Control "no-store" always;
+    add_header Access-Control-Allow-Origin "*" always;
+    add_header Access-Control-Expose-Headers "X-Cosmos-Block-Height, Grpc-Metadata-X-Cosmos-Block-Height" always;
     add_header X-Zerone-Expected-Chain "${EXPECTED_CHAIN_ID}" always;
 
     location = /gateway-health {
@@ -38,7 +49,18 @@ server {
         limit_except GET HEAD { deny all; }
         limit_req zone=zerone_query_rate burst=10 nodelay;
         limit_conn zerone_query_conn 2;
-        proxy_pass http://${UPSTREAM_HOST}:26657/status;
+        proxy_pass http://127.0.0.1:18081/health;
+    }
+
+    # The helper polls and semantically validates the origin. A failed or
+    # expired check returns 403 here, causing auth_request to fail closed.
+    location = /_gateway_ready {
+        internal;
+        proxy_pass_request_body off;
+        proxy_set_header Content-Length "";
+        proxy_connect_timeout 1s;
+        proxy_read_timeout 1s;
+        proxy_pass http://127.0.0.1:18081/ready;
     }
 
     location ~ ^/abci_query/?$ {
@@ -52,18 +74,29 @@ server {
     # Explicit CometBFT query allowlist. Broadcast, dial, unsafe, WebSocket,
     # event-subscription, and mempool-mutation routes fall through to REST and
     # return 404; they are never proxied to RPC.
-    location ~ ^/(block_search|blockchain|tx_search|validators)/?$ {
+    location ~ ^/validators/?$ {
         limit_except GET HEAD { deny all; }
+        auth_request /_gateway_ready;
         limit_req zone=zerone_search_rate burst=4 nodelay;
         limit_conn zerone_query_conn 2;
-        proxy_pass http://${UPSTREAM_HOST}:26657;
+        proxy_pass http://[$zerone_validated_6pn]:26657;
     }
 
-    location ~ ^/(abci_info|block|block_by_hash|block_results|commit|consensus_params|genesis|genesis_chunked|health|status|tx)/?$ {
+    # These can return large Comet objects and are not bounded by SDK query gas.
+    location ~ ^/(block|block_by_hash|tx)/?$ {
         limit_except GET HEAD { deny all; }
+        auth_request /_gateway_ready;
+        limit_req zone=zerone_search_rate burst=4 nodelay;
+        limit_conn zerone_query_conn 2;
+        proxy_pass http://[$zerone_validated_6pn]:26657;
+    }
+
+    location ~ ^/(abci_info|commit|consensus_params|health|status)/?$ {
+        limit_except GET HEAD { deny all; }
+        auth_request /_gateway_ready;
         limit_req zone=zerone_query_rate burst=40 nodelay;
         limit_conn zerone_query_conn 8;
-        proxy_pass http://${UPSTREAM_HOST}:26657;
+        proxy_pass http://[$zerone_validated_6pn]:26657;
     }
 
     # Cosmos REST also maps a generic ABCIQuery method. Deny both spellings
@@ -72,12 +105,64 @@ server {
         return 404;
     }
 
-    # Cosmos REST queries are GET/HEAD only. This structurally blocks tx
-    # broadcast, simulation, governance submissions, and every other POST.
-    location / {
+    # Initial-beta REST is a deny-by-default allowlist. The fixed routes below
+    # are point reads or bounded, indexed server-side pages. Knowledge fact
+    # filters remain private because several combinations require a store scan.
+    location ~ ^/(cosmos/base/tendermint/v1beta1/(syncing|node_info)|cosmos/bank/v1beta1/denoms_metadata/uzrn|zerone/liquiditypool/v1/params)/?$ {
+        if ($args != "") { return 404; }
         limit_except GET HEAD { deny all; }
+        auth_request /_gateway_ready;
         limit_req zone=zerone_query_rate burst=40 nodelay;
         limit_conn zerone_query_conn 8;
-        proxy_pass http://${UPSTREAM_HOST}:1317;
+        proxy_pass http://[$zerone_validated_6pn]:1317;
+    }
+
+    # Pagination knobs are forbidden for the initial beta; in particular,
+    # count_total can scan every historical closed-pool tombstone.
+    location ~ ^/zerone/liquiditypool/v1/pools/?$ {
+        if ($args != "") { return 404; }
+        limit_except GET HEAD { deny all; }
+        auth_request /_gateway_ready;
+        limit_req zone=zerone_query_rate burst=40 nodelay;
+        limit_conn zerone_query_conn 8;
+        proxy_pass http://[$zerone_validated_6pn]:1317;
+    }
+
+    # The only public supply query is the native denomination. Exact raw args
+    # reject pagination and alternate-denom variants before they reach REST.
+    location ~ ^/cosmos/bank/v1beta1/supply/by_denom/?$ {
+        if ($args != "denom=uzrn") { return 404; }
+        limit_except GET HEAD { deny all; }
+        auth_request /_gateway_ready;
+        limit_req zone=zerone_query_rate burst=40 nodelay;
+        limit_conn zerone_query_conn 8;
+        proxy_pass http://[$zerone_validated_6pn]:1317;
+    }
+
+    # Account-shaped point reads are bounded by path length here and fully
+    # checksum-validated by the application before a store lookup.
+    location ~ "^/cosmos/bank/v1beta1/balances/zrn1[023456789acdefghjklmnpqrstuvwxyz]{38}/by_denom/?$" {
+        if ($args != "denom=uzrn") { return 404; }
+        limit_except GET HEAD { deny all; }
+        auth_request /_gateway_ready;
+        limit_req zone=zerone_query_rate burst=40 nodelay;
+        limit_conn zerone_query_conn 8;
+        proxy_pass http://[$zerone_validated_6pn]:1317;
+    }
+
+    location ~ "^/(cosmos/auth/v1beta1/accounts/zrn1[023456789acdefghjklmnpqrstuvwxyz]{38}|zerone/auth/v1/account_identifier/zrn1[023456789acdefghjklmnpqrstuvwxyz]{38})/?$" {
+        if ($args != "") { return 404; }
+        limit_except GET HEAD { deny all; }
+        auth_request /_gateway_ready;
+        limit_req zone=zerone_query_rate burst=40 nodelay;
+        limit_conn zerone_query_conn 8;
+        proxy_pass http://[$zerone_validated_6pn]:1317;
+    }
+
+    # Everything not reviewed above—including training bundles, recursive
+    # graph queries, leaderboards, simulations, and transaction routes—stays
+    # private until it has an endpoint-specific resource bound.
+    location / {
+        return 404;
     }
 }

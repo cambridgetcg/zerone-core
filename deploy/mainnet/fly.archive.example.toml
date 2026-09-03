@@ -2,7 +2,8 @@
 # written and locally consumed the exact reviewed A/A readiness proof. This
 # private origin has no public Fly service or direct public IP. A separate
 # reviewed query-only TLS/rate-limit proxy may reach RPC/API over Fly private
-# networking; never expose these listeners directly.
+# networking. The runtime binds those origins to `fly-local-6pn`; never expose
+# these listeners directly.
 app = "zerone-1-archive"
 primary_region = "lhr"
 

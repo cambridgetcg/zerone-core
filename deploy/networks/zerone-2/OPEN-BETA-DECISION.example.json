@@ -114,7 +114,7 @@
     "FINAL binds exact passing A/E custom-staking census report bytes; separately, independently verified release-built census binary provenance must exist",
     "private archive A/A readiness evidence remains byte-stable",
     "private zerone-2 health and protocol-dark invariants were freshly revalidated",
-    "all three public config mappings equal the immutable release packet",
+    "the two zerone-2 public config mappings equal the immutable release packet; the archive gateway static mapping equals RELEASE and its concrete bytes are the exact RELEASE-template render of verified FINAL A/E/B",
     "public notice hash and endpoint coordinates are consistent"
   ],
   "initial_beta_exclusions": [

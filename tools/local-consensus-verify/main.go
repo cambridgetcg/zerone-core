@@ -97,6 +97,26 @@ func parseHash(raw string) []byte {
 	return digest
 }
 
+func validateExpectedChainID(chainID string) error {
+	if chainID == "" {
+		return fmt.Errorf("-expect-chain-id is required")
+	}
+	if strings.TrimSpace(chainID) != chainID {
+		return fmt.Errorf("-expect-chain-id must not contain leading or trailing whitespace")
+	}
+	return nil
+}
+
+func verifyExpectedChainID(expected, actual string) error {
+	if actual == "" {
+		return fmt.Errorf("RPC returned an empty chain ID")
+	}
+	if actual != expected {
+		return fmt.Errorf("chain ID %q does not match required %q", actual, expected)
+	}
+	return nil
+}
+
 func rpcContext() (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.Background(), 8*time.Second)
 }
@@ -120,18 +140,23 @@ func main() {
 		rpcList          string
 		height           int64
 		txHashRaw        string
+		expectChainID    string
 		expectValidators int
 		expectEqualPower bool
 	)
 	flag.StringVar(&rpcList, "rpcs", "", "comma-separated loopback RPC origins")
 	flag.Int64Var(&height, "height", 0, "height to verify; zero selects a common committed height")
 	flag.StringVar(&txHashRaw, "tx", "", "optional transaction hash whose inclusion proof must verify")
+	flag.StringVar(&expectChainID, "expect-chain-id", "", "required exact chain ID")
 	flag.IntVar(&expectValidators, "expect-validators", 0, "required validator-set size; zero disables the count check")
 	flag.BoolVar(&expectEqualPower, "expect-equal-power", false, "require identical voting power for every validator")
 	flag.Parse()
 
 	if height < 0 {
 		failf("height cannot be negative")
+	}
+	if err := validateExpectedChainID(expectChainID); err != nil {
+		failf("%v", err)
 	}
 	rpcs := parseRPCs(rpcList)
 	txHash := parseHash(txHashRaw)
@@ -144,7 +169,6 @@ func main() {
 		clients = append(clients, client)
 	}
 
-	var expectedChainID string
 	minimumHeight := int64(^uint64(0) >> 1)
 	for i, client := range clients {
 		ctx, cancel := rpcContext()
@@ -157,13 +181,8 @@ func main() {
 			failf("%s is still catching up", rpcs[i])
 		}
 		chainID := status.NodeInfo.Network
-		if chainID == "" {
-			failf("%s returned an empty chain ID", rpcs[i])
-		}
-		if expectedChainID == "" {
-			expectedChainID = chainID
-		} else if chainID != expectedChainID {
-			failf("chain ID mismatch: %s returned %q, expected %q", rpcs[i], chainID, expectedChainID)
+		if err := verifyExpectedChainID(expectChainID, chainID); err != nil {
+			failf("%s: %v", rpcs[i], err)
 		}
 		if status.SyncInfo.LatestBlockHeight < minimumHeight {
 			minimumHeight = status.SyncInfo.LatestBlockHeight
@@ -194,7 +213,7 @@ func main() {
 		failf("no common committed height is available (minimum latest height %d)", minimumHeight)
 	}
 
-	result := report{ChainID: expectedChainID, Height: height}
+	result := report{ChainID: expectChainID, Height: height}
 	var (
 		expectedBlockID cmttypes.BlockID
 		expectedAppHash []byte
@@ -208,7 +227,7 @@ func main() {
 		if err != nil {
 			failf("block %d from %s: %v", height, rpcs[i], err)
 		}
-		if block.Block == nil || block.Block.Height != height || block.Block.ChainID != expectedChainID {
+		if block.Block == nil || block.Block.Height != height || block.Block.ChainID != expectChainID {
 			failf("%s returned the wrong block/header at height %d", rpcs[i], height)
 		}
 		if err := block.Block.ValidateBasic(); err != nil {
@@ -227,7 +246,7 @@ func main() {
 		if commit.Commit == nil || commit.Header == nil || commit.Commit.Height != height {
 			failf("%s returned an incomplete commit at height %d", rpcs[i], height)
 		}
-		if err := commit.SignedHeader.ValidateBasic(expectedChainID); err != nil {
+		if err := commit.SignedHeader.ValidateBasic(expectChainID); err != nil {
 			failf("%s returned an invalid signed header at height %d: %v", rpcs[i], height, err)
 		}
 		if !commit.CanonicalCommit {
@@ -262,7 +281,7 @@ func main() {
 				}
 			}
 		}
-		if err := validatorSet.VerifyCommit(expectedChainID, block.BlockID, height, commit.Commit); err != nil {
+		if err := validatorSet.VerifyCommit(expectChainID, block.BlockID, height, commit.Commit); err != nil {
 			failf("cryptographic commit verification from %s: %v", rpcs[i], err)
 		}
 
@@ -351,7 +370,7 @@ func main() {
 			if err != nil {
 				failf("post-state block %d from %s: %v", postHeight, rpcs[i], err)
 			}
-			if postBlock.Block == nil || postBlock.Block.Height != postHeight || postBlock.Block.ChainID != expectedChainID {
+			if postBlock.Block == nil || postBlock.Block.Height != postHeight || postBlock.Block.ChainID != expectChainID {
 				failf("%s returned the wrong post-state block/header at height %d", rpcs[i], postHeight)
 			}
 			if err := postBlock.Block.ValidateBasic(); err != nil {
@@ -373,7 +392,7 @@ func main() {
 			if postCommit.Commit == nil || postCommit.Header == nil || postCommit.Commit.Height != postHeight || !postCommit.CanonicalCommit {
 				failf("%s returned an incomplete or non-canonical post-state commit at height %d", rpcs[i], postHeight)
 			}
-			if err := postCommit.SignedHeader.ValidateBasic(expectedChainID); err != nil {
+			if err := postCommit.SignedHeader.ValidateBasic(expectChainID); err != nil {
 				failf("%s returned an invalid post-state signed header at height %d: %v", rpcs[i], postHeight, err)
 			}
 			if !postCommit.Commit.BlockID.Equals(postBlock.BlockID) || !bytes.Equal(postCommit.Header.Hash(), postBlock.BlockID.Hash) {
@@ -405,7 +424,7 @@ func main() {
 					}
 				}
 			}
-			if err := postValidatorSet.VerifyCommit(expectedChainID, postBlock.BlockID, postHeight, postCommit.Commit); err != nil {
+			if err := postValidatorSet.VerifyCommit(expectChainID, postBlock.BlockID, postHeight, postCommit.Commit); err != nil {
 				failf("cryptographic post-state commit verification from %s: %v", rpcs[i], err)
 			}
 

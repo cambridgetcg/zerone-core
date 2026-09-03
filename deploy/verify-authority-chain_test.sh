@@ -200,6 +200,27 @@ rebind_monitoring_chain() {
     '.monitoring_alerts_sha256 = $sha' --arg sha "${manifest_sha}"
 }
 
+rebind_archive_gateway_open() {
+  local bundle=$1 config_sha dns_sha
+  config_sha=$(sha256_file \
+    "${bundle}/fly.zerone-1-archive-gateway.public.toml")
+  # The fake signatures deliberately permit recomputing every OPEN-owned hash;
+  # the verifier must still reject bytes that are not the RELEASE/FINAL render.
+  # shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+  canonical_mutate "${bundle}/OPEN-BETA-DECISION.json" \
+    '.deployment_configs.zerone_1_archive_gateway.sha256 = $sha' \
+    --arg sha "${config_sha}"
+  # shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+  canonical_mutate "${bundle}/DNS-CHANGE-MANIFEST.json" \
+    '.records["archive.example"].config_sha256 = $sha' \
+    --arg sha "${config_sha}"
+  dns_sha=$(sha256_file "${bundle}/DNS-CHANGE-MANIFEST.json")
+  # shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+  canonical_mutate "${bundle}/OPEN-BETA-DECISION.json" \
+    '.public_coordinates.canonical_dns_change_manifest_sha256 = $sha' \
+    --arg sha "${dns_sha}"
+}
+
 expect_rejected() {
   local label=$1 expected=$2
   shift 2
@@ -1081,6 +1102,29 @@ mv "${upstream}/fly.zerone-2-gateway.public.toml.new" \
   "${upstream}/fly.zerone-2-gateway.public.toml"
 expect_rejected "unsigned upstream change" "config bytes differ" \
   run_open_pre "${upstream}"
+
+for archive_pin in height app-hash block-hash; do
+  archive_drift=$(clone_bundle "archive-gateway-${archive_pin}-drift")
+  archive_config="${archive_drift}/fly.zerone-1-archive-gateway.public.toml"
+  case "${archive_pin}" in
+    height)
+      sed 's/EXPECTED_ARCHIVE_HEIGHT = "1001"/EXPECTED_ARCHIVE_HEIGHT = "1000"/' \
+        "${archive_config}" > "${archive_config}.new"
+      ;;
+    app-hash)
+      sed -E 's/(EXPECTED_ARCHIVE_APP_HASH = ")[0-9a-f]{64}(".*)/\1cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\2/' \
+        "${archive_config}" > "${archive_config}.new"
+      ;;
+    block-hash)
+      sed -E 's/(EXPECTED_ARCHIVE_BLOCK_HASH = ")[0-9a-f]{64}(".*)/\1dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\2/' \
+        "${archive_config}" > "${archive_config}.new"
+      ;;
+  esac
+  mv "${archive_config}.new" "${archive_config}"
+  rebind_archive_gateway_open "${archive_drift}"
+  expect_rejected "OPEN-owned archive ${archive_pin} drift" \
+    "not the exact RELEASE/FINAL render" run_open_pre "${archive_drift}"
+done
 
 dns=$(clone_bundle dns-manifest)
 canonical_mutate "${dns}/DNS-CHANGE-MANIFEST.json" \

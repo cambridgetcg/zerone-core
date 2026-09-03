@@ -52,9 +52,10 @@ The invariant root of every stage contains:
   release packet.
 
 The release-bound operator-tool manifest covers every verifier, transaction
-gate, deployment gate, renderer, canonicalizer, ceremony/build recipe, and
-artifact auditor used by the launch. A valid release signature is insufficient
-if the locally executed tool bytes do not match that manifest.
+gate, deployment gate, renderer, the archive-gateway render template,
+canonicalizer, ceremony/build recipe, and artifact auditor used by the launch.
+A valid release signature is insufficient if the locally executed tool bytes
+do not match that manifest.
 
 `RELEASE-PACKET.json.monitoring_alerts_sha256` hashes the exact canonical
 `MONITORING-ALERTS.json`. That manifest is source/chain/time bound and in turn
@@ -151,6 +152,12 @@ The complete OPEN bundle also contains:
 
 Only after the OPEN history-link transaction commits may
 `OPEN-BETA-INITIATION-EVIDENCE.json` and `.sig` be appended.
+
+The archive-gateway TOML is necessarily post-FINAL. RELEASE binds its exact
+renderer/template and four static mapping fields, while OPEN binds the concrete
+five-field mapping after deterministic substitution of FINAL A, lowercase E,
+and lowercase B. The verifier rerenders and byte-compares it; a hand-authored
+config or a template hash masquerading as deployable config bytes is invalid.
 
 ## Read-only verification
 

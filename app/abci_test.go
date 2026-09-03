@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"sort"
@@ -8,6 +9,7 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	cmttypes "github.com/cometbft/cometbft/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/stretchr/testify/require"
@@ -17,6 +19,137 @@ import (
 	vestingrewards "github.com/zerone-chain/zerone/x/vesting_rewards"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
+
+func proposalTxBytes(t *testing.T, app *zeroneapp.ZeroneApp, gas uint64, memo string) []byte {
+	t.Helper()
+	builder := app.TxConfig().NewTxBuilder()
+	require.NoError(t, builder.SetMsgs(banktypes.NewMsgSend(
+		sdk.AccAddress(bytes.Repeat([]byte{0x11}, 20)),
+		sdk.AccAddress(bytes.Repeat([]byte{0x22}, 20)),
+		sdk.NewCoins(sdk.NewInt64Coin("uzrn", 1)),
+	)))
+	builder.SetGasLimit(gas)
+	builder.SetMemo(memo)
+	txBytes, err := app.TxConfig().TxEncoder()(builder.GetTx())
+	require.NoError(t, err)
+	return txBytes
+}
+
+func proposalContext(app *zeroneapp.ZeroneApp, maxGas int64) sdk.Context {
+	return app.NewUncachedContext(false, cmtproto.Header{Height: 2}).WithConsensusParams(
+		cmtproto.ConsensusParams{Block: &cmtproto.BlockParams{MaxGas: maxGas}},
+	)
+}
+
+func TestPrepareProposalUsesExactProtobufByteLimit(t *testing.T) {
+	app := newTestApp(t)
+	txBytes := proposalTxBytes(t, app, 100, "protobuf-overhead")
+	protoSize := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{txBytes})
+	require.Greater(t, protoSize, int64(len(txBytes)), "protobuf framing must add bytes")
+
+	handler := app.PrepareProposalHandler()
+	tooSmall, err := handler(proposalContext(app, 1_000), &abci.RequestPrepareProposal{
+		Height:     2,
+		MaxTxBytes: int64(len(txBytes)),
+		Txs:        [][]byte{txBytes},
+	})
+	require.NoError(t, err)
+	require.Empty(t, tooSmall.Txs, "raw byte length must not bypass protobuf framing overhead")
+
+	exact, err := handler(proposalContext(app, 1_000), &abci.RequestPrepareProposal{
+		Height:     2,
+		MaxTxBytes: protoSize,
+		Txs:        [][]byte{txBytes},
+	})
+	require.NoError(t, err)
+	require.Equal(t, [][]byte{txBytes}, exact.Txs)
+}
+
+func TestPrepareProposalUsesCurrentConsensusMaxGas(t *testing.T) {
+	app := newTestApp(t)
+	first := proposalTxBytes(t, app, 60, "first")
+	second := proposalTxBytes(t, app, 50, "second")
+	maxBytes := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{first, second})
+	handler := app.PrepareProposalHandler()
+
+	limited, err := handler(proposalContext(app, 100), &abci.RequestPrepareProposal{
+		Height: 2, MaxTxBytes: maxBytes, Txs: [][]byte{first, second},
+	})
+	require.NoError(t, err)
+	require.Equal(t, [][]byte{first}, limited.Txs)
+
+	expanded, err := handler(proposalContext(app, 110), &abci.RequestPrepareProposal{
+		Height: 2, MaxTxBytes: maxBytes, Txs: [][]byte{first, second},
+	})
+	require.NoError(t, err)
+	require.Equal(t, [][]byte{first, second}, expanded.Txs,
+		"selection must follow the context consensus params rather than a compiled constant")
+
+}
+
+func TestPrepareProposalSkipsMalformedAndHighGasTransactions(t *testing.T) {
+	app := newTestApp(t)
+	highGas := proposalTxBytes(t, app, 101, "high-gas")
+	valid := proposalTxBytes(t, app, 100, "valid")
+	maxBytes := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{highGas, valid})
+
+	response, err := app.PrepareProposalHandler()(proposalContext(app, 100), &abci.RequestPrepareProposal{
+		Height:     2,
+		MaxTxBytes: maxBytes,
+		Txs: [][]byte{
+			{0xff, 0x00, 0xff},
+			highGas,
+			valid,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, [][]byte{valid}, response.Txs)
+}
+
+func TestPrepareProposalCannotWrapDeclaredGasTotal(t *testing.T) {
+	app := newTestApp(t)
+	valid := proposalTxBytes(t, app, 1, "valid-first")
+	overflow := proposalTxBytes(t, app, ^uint64(0), "overflow-second")
+	maxBytes := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{valid, overflow})
+
+	response, err := app.PrepareProposalHandler()(proposalContext(app, 100), &abci.RequestPrepareProposal{
+		Height:     2,
+		MaxTxBytes: maxBytes,
+		Txs:        [][]byte{valid, overflow},
+	})
+	require.NoError(t, err)
+	require.Equal(t, [][]byte{valid}, response.Txs)
+}
+
+func TestProcessProposalEnforcesAggregateConsensusGasWithoutWraparound(t *testing.T) {
+	app := newTestApp(t)
+	handler := app.ProcessProposalHandler()
+	first := proposalTxBytes(t, app, 60, "first")
+	exact := proposalTxBytes(t, app, 40, "exact")
+	over := proposalTxBytes(t, app, 41, "over")
+	maxUint := proposalTxBytes(t, app, ^uint64(0), "max-uint")
+
+	accepted, err := handler(proposalContext(app, 100), &abci.RequestProcessProposal{
+		Height: 2,
+		Txs:    [][]byte{first, exact},
+	})
+	require.NoError(t, err)
+	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, accepted.Status)
+
+	for name, txs := range map[string][][]byte{
+		"aggregate over limit": {first, over},
+		"overflow declaration": {first, maxUint},
+	} {
+		t.Run(name, func(t *testing.T) {
+			response, err := handler(proposalContext(app, 100), &abci.RequestProcessProposal{
+				Height: 2,
+				Txs:    txs,
+			})
+			require.NoError(t, err)
+			require.Equal(t, abci.ResponseProcessProposal_REJECT, response.Status)
+		})
+	}
+}
 
 func TestVoteExtInjectionEncodeDecode(t *testing.T) {
 	inj := zeroneapp.VoteExtInjection{

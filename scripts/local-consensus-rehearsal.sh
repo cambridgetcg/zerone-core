@@ -33,6 +33,7 @@ CENSUS_BINARY=""
 SOURCE_HEAD=""
 SOURCE_FULL_HEAD=""
 SOURCE_LABEL=""
+SOURCE_GIT_DIR=""
 BASE_PORT=""
 
 declare -a NODE_HOME NODE_LOG NODE_PID NODE_ID P2P_PORT RPC_PORT
@@ -329,15 +330,18 @@ assert_loopback_listeners() {
 }
 
 run_commit_test() {
-  local label="$1" index="$2" log
-  log="${RUN_ROOT}/logs/commit-test-${label}.log"
-  [ "$(git -C "${ROOT}" rev-parse HEAD)" = "${SOURCE_FULL_HEAD}" ] || \
-    die "checkout HEAD changed before ${label} commit test"
-  ZERONE_TEST_RPC_ADDR="$(rpc_url "${index}")" \
-    GOCACHE="${RUN_ROOT}/go-cache" GOTMPDIR="${RUN_ROOT}/go-tmp" \
-    go test -tags=integration ./tests/multivalidator \
-      -run '^TestBlockSignatures$' -count=1 -v -timeout 30s \
-      > "${log}" 2>&1 || die "cryptographic multivalidator test failed in ${label} phase"
+	local label="$1" index="$2" log
+	log="${RUN_ROOT}/logs/commit-test-${label}.log"
+	[ "$(git -C "${ROOT}" rev-parse HEAD)" = "${SOURCE_FULL_HEAD}" ] || \
+		die "checkout HEAD changed before ${label} commit test"
+	(
+		cd "${ROOT}"
+		GIT_DIR="${SOURCE_GIT_DIR}" GIT_WORK_TREE="${ROOT}" \
+			ZERONE_TEST_RPC_ADDR="$(rpc_url "${index}")" \
+			GOCACHE="${RUN_ROOT}/go-cache" GOTMPDIR="${RUN_ROOT}/go-tmp" \
+			go test -tags=integration ./tests/multivalidator \
+				-run '^TestBlockSignatures$' -count=1 -v -timeout 30s
+	) > "${log}" 2>&1 || die "cryptographic multivalidator test failed in ${label} phase"
 }
 
 verify_phase() {
@@ -350,6 +354,7 @@ verify_phase() {
   report="${RUN_ROOT}/reports/${label}.json"
   "${VERIFY_BINARY}" \
     -rpcs "${endpoints}" \
+    -expect-chain-id "${CHAIN_ID}" \
     -expect-validators 4 \
     -expect-equal-power \
     > "${report}" || die "cross-node consensus verification failed in ${label} phase"
@@ -499,6 +504,7 @@ verify_message_flow() {
   report="${RUN_ROOT}/reports/msgsend-all-nodes.json"
   "${VERIFY_BINARY}" \
     -rpcs "$(rpc_url 0),$(rpc_url 1),$(rpc_url 2),$(rpc_url 3)" \
+    -expect-chain-id "${CHAIN_ID}" \
     -expect-validators 4 \
     -expect-equal-power \
     -tx "${hash}" \
@@ -673,6 +679,9 @@ rg -q 'validatorSet\.VerifyCommit\(' "${ROOT}/tests/multivalidator/multivalidato
 
 SOURCE_FULL_HEAD="$(git -C "${ROOT}" rev-parse HEAD)"
 SOURCE_HEAD="$(git -C "${ROOT}" rev-parse --short=12 HEAD)"
+SOURCE_GIT_DIR="$(git -C "${ROOT}" rev-parse --absolute-git-dir)"
+[ -d "${SOURCE_GIT_DIR}" ] && [ ! -L "${SOURCE_GIT_DIR}" ] || \
+	die "source Git directory is unavailable or unsafe: ${SOURCE_GIT_DIR}"
 WORKTREE_STATUS="$(git -C "${ROOT}" status --porcelain=v1 --untracked-files=all --ignore-submodules=none)"
 if [ -n "${WORKTREE_STATUS}" ]; then
   if [ "${ALLOW_DIRTY}" -ne 1 ]; then
@@ -700,13 +709,16 @@ info "building checkout ${SOURCE_HEAD} into temporary binaries"
 VERSION="rehearsal-${SOURCE_LABEL}"
 LDFLAGS="-s -w -X github.com/cosmos/cosmos-sdk/version.Name=zerone -X github.com/cosmos/cosmos-sdk/version.AppName=zeroned -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION} -X github.com/cosmos/cosmos-sdk/version.Commit=${SOURCE_FULL_HEAD}"
 (
-  cd "${ROOT}"
-  GOCACHE="${RUN_ROOT}/go-cache" GOTMPDIR="${RUN_ROOT}/go-tmp" \
-    go build -trimpath -buildvcs=true -ldflags "${LDFLAGS}" -o "${BINARY}" ./cmd/zeroned
-  GOCACHE="${RUN_ROOT}/go-cache" GOTMPDIR="${RUN_ROOT}/go-tmp" \
-    go build -trimpath -buildvcs=true -o "${VERIFY_BINARY}" ./tools/local-consensus-verify
-  GOCACHE="${RUN_ROOT}/go-cache" GOTMPDIR="${RUN_ROOT}/go-tmp" \
-    go build -trimpath -buildvcs=true -o "${CENSUS_BINARY}" ./tools/custom-staking-census
+	cd "${ROOT}"
+	GIT_DIR="${SOURCE_GIT_DIR}" GIT_WORK_TREE="${ROOT}" \
+		GOCACHE="${RUN_ROOT}/go-cache" GOTMPDIR="${RUN_ROOT}/go-tmp" \
+		go build -trimpath -buildvcs=true -ldflags "${LDFLAGS}" -o "${BINARY}" ./cmd/zeroned
+	GIT_DIR="${SOURCE_GIT_DIR}" GIT_WORK_TREE="${ROOT}" \
+		GOCACHE="${RUN_ROOT}/go-cache" GOTMPDIR="${RUN_ROOT}/go-tmp" \
+		go build -trimpath -buildvcs=true -o "${VERIFY_BINARY}" ./tools/local-consensus-verify
+	GIT_DIR="${SOURCE_GIT_DIR}" GIT_WORK_TREE="${ROOT}" \
+		GOCACHE="${RUN_ROOT}/go-cache" GOTMPDIR="${RUN_ROOT}/go-tmp" \
+		go build -trimpath -buildvcs=true -o "${CENSUS_BINARY}" ./tools/custom-staking-census
 ) > "${RUN_ROOT}/logs/build.log" 2>&1 || die "fresh binary build failed"
 
 BINARY_SHA="$(sha256_file "${BINARY}")"
@@ -834,6 +846,7 @@ HALT_APP_HASH_1="$(printf '%s' "${HALT_BLOCK_1}" | jq -er '.result.block.header.
 "${VERIFY_BINARY}" \
   -rpcs "$(rpc_url 0),$(rpc_url 1)" \
   -height "$((HALT_HEIGHT_0 - 1))" \
+  -expect-chain-id "${CHAIN_ID}" \
   -expect-validators 4 \
   -expect-equal-power \
   > "${RUN_ROOT}/reports/two-down-frozen.json" || \

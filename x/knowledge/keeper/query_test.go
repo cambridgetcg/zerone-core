@@ -1,8 +1,10 @@
 package keeper_test
 
 import (
+	"fmt"
 	"testing"
 
+	sdkquery "github.com/cosmos/cosmos-sdk/types/query"
 	"github.com/stretchr/testify/require"
 
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
@@ -109,6 +111,104 @@ func TestQuery_Facts_DoctrineSeeded(t *testing.T) {
 	}
 }
 
+func TestQuery_Facts_PaginationUsesStableRawStoreCursor(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	qs := keeper.NewQueryServerImpl(k)
+
+	for id, category := range map[string]string{
+		"!cursor-00": "selected",
+		"!cursor-01": "ignored",
+		"!cursor-02": "selected",
+		"!cursor-03": "ignored",
+		"!cursor-04": "selected",
+	} {
+		makeTestFact(t, k, ctx, id, "Stable cursor pagination test content", "cursor-test", category, "zrn1page", 700_000)
+	}
+
+	first, err := qs.Facts(ctx, &types.QueryFactsRequest{
+		Category: "selected",
+		Pagination: &sdkquery.PageRequest{
+			Limit:      2,
+			CountTotal: true,
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, first.Facts, 2)
+	require.Equal(t, "!cursor-00", first.Facts[0].Id)
+	require.Equal(t, "!cursor-02", first.Facts[1].Id)
+	require.Equal(t, uint64(3), first.Pagination.Total)
+	require.Equal(t, []byte("!cursor-04"), first.Pagination.NextKey)
+
+	// A matching key inserted before the cursor must not shift or repeat page 2.
+	// Offset-over-matches pagination would return !cursor-02 again here.
+	makeTestFact(t, k, ctx, "!cursor-015", "Inserted before raw cursor", "cursor-test", "selected", "zrn1page", 700_000)
+
+	second, err := qs.Facts(ctx, &types.QueryFactsRequest{
+		Category: "selected",
+		Pagination: &sdkquery.PageRequest{
+			Key:   first.Pagination.NextKey,
+			Limit: 2,
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, second.Facts, 1)
+	require.Equal(t, "!cursor-04", second.Facts[0].Id)
+	require.Empty(t, second.Pagination.NextKey)
+	require.Zero(t, second.Pagination.Total)
+}
+
+func TestQuery_Facts_RejectsUnboundedPagination(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	qs := keeper.NewQueryServerImpl(k)
+
+	_, err := qs.Facts(ctx, &types.QueryFactsRequest{
+		Pagination: &sdkquery.PageRequest{Limit: 101},
+	})
+	require.ErrorContains(t, err, "pagination limit exceeds 100")
+
+	_, err = qs.Facts(ctx, &types.QueryFactsRequest{
+		Pagination: &sdkquery.PageRequest{Offset: 1_000_001},
+	})
+	require.ErrorContains(t, err, "pagination offset exceeds 1000000")
+
+	_, err = qs.Facts(ctx, &types.QueryFactsRequest{
+		Pagination: &sdkquery.PageRequest{Offset: 1, Key: make([]byte, 8)},
+	})
+	require.ErrorContains(t, err, "offset and key cannot both be set")
+
+	_, err = qs.Facts(ctx, &types.QueryFactsRequest{
+		Pagination: &sdkquery.PageRequest{Key: []byte("fact-id"), CountTotal: true},
+	})
+	require.ErrorContains(t, err, "count_total cannot be used with a pagination key")
+
+	resp, err := qs.Facts(ctx, &types.QueryFactsRequest{
+		Pagination: &sdkquery.PageRequest{Key: []byte{1}, Limit: 1},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp.Pagination)
+
+	resp, err = qs.Facts(ctx, &types.QueryFactsRequest{
+		Pagination: &sdkquery.PageRequest{Reverse: true, Limit: 1},
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Facts, 1)
+}
+
+func TestQuery_Facts_DefaultPageIsFifty(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	qs := keeper.NewQueryServerImpl(k)
+
+	for i := 0; i < 55; i++ {
+		id := fmt.Sprintf("default-page-%02d", i)
+		makeTestFact(t, k, ctx, id, "Default page size test content", "default-page-only", "empirical", "zrn1page", 700_000)
+	}
+
+	resp, err := qs.Facts(ctx, &types.QueryFactsRequest{Domain: "default-page-only"})
+	require.NoError(t, err)
+	require.Len(t, resp.Facts, 50)
+	require.NotEmpty(t, resp.Pagination.NextKey)
+}
+
 // ─── FactsByDomain Query ────────────────────────────────────────────────────
 
 func TestQuery_FactsByDomain_Exists(t *testing.T) {
@@ -141,6 +241,39 @@ func TestQuery_FactsByDomain_NoResults(t *testing.T) {
 	require.Empty(t, resp.Facts)
 }
 
+func TestQuery_FactsByDomain_RawCursorPagesSecondaryIndex(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	qs := keeper.NewQueryServerImpl(k)
+
+	for _, id := range []string{"domain-page-1", "domain-page-2", "domain-page-3"} {
+		makeTestFact(t, k, ctx, id, "Domain index pagination content", "domain-page-only", "empirical", "zrn1domain", 700_000)
+	}
+
+	first, err := qs.FactsByDomain(ctx, &types.QueryFactsByDomainRequest{
+		Domain: "domain-page-only",
+		Pagination: &sdkquery.PageRequest{
+			Limit:      2,
+			CountTotal: true,
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, first.Facts, 2)
+	require.Equal(t, uint64(3), first.Pagination.Total)
+	require.Equal(t, []byte("domain-page-3"), first.Pagination.NextKey)
+
+	second, err := qs.FactsByDomain(ctx, &types.QueryFactsByDomainRequest{
+		Domain: "domain-page-only",
+		Pagination: &sdkquery.PageRequest{
+			Key:   first.Pagination.NextKey,
+			Limit: 2,
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, second.Facts, 1)
+	require.Equal(t, "domain-page-3", second.Facts[0].Id)
+	require.Empty(t, second.Pagination.NextKey)
+}
+
 // ─── FactsBySubmitter Query ─────────────────────────────────────────────────
 
 func TestQuery_FactsBySubmitter_Exists(t *testing.T) {
@@ -171,6 +304,37 @@ func TestQuery_FactsBySubmitter_NoResults(t *testing.T) {
 	resp, err := qs.FactsBySubmitter(ctx, &types.QueryFactsBySubmitterRequest{Submitter: "zrn1nobody"})
 	require.NoError(t, err)
 	require.Empty(t, resp.Facts)
+}
+
+func TestQuery_FactsBySubmitter_RawCursorPagesSecondaryIndex(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	qs := keeper.NewQueryServerImpl(k)
+
+	for _, id := range []string{"submitter-page-1", "submitter-page-2", "submitter-page-3"} {
+		makeTestFact(t, k, ctx, id, "Submitter index pagination content", "submitter-page-only", "empirical", "zrn1submitter-page", 700_000)
+	}
+
+	first, err := qs.FactsBySubmitter(ctx, &types.QueryFactsBySubmitterRequest{
+		Submitter: "zrn1submitter-page",
+		Pagination: &sdkquery.PageRequest{
+			Limit: 2,
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, first.Facts, 2)
+	require.Equal(t, []byte("submitter-page-3"), first.Pagination.NextKey)
+
+	second, err := qs.FactsBySubmitter(ctx, &types.QueryFactsBySubmitterRequest{
+		Submitter: "zrn1submitter-page",
+		Pagination: &sdkquery.PageRequest{
+			Key:   first.Pagination.NextKey,
+			Limit: 2,
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, second.Facts, 1)
+	require.Equal(t, "submitter-page-3", second.Facts[0].Id)
+	require.Empty(t, second.Pagination.NextKey)
 }
 
 // ─── Claim Query ────────────────────────────────────────────────────────────
@@ -244,6 +408,40 @@ func TestQuery_PendingClaims_Empty(t *testing.T) {
 	resp, err := qs.PendingClaims(ctx, &types.QueryPendingClaimsRequest{})
 	require.NoError(t, err)
 	require.Empty(t, resp.Claims)
+}
+
+func TestQuery_PendingClaims_SelectiveFilterUsesRawCursor(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	qs := keeper.NewQueryServerImpl(k)
+
+	for id, claimStatus := range map[string]types.ClaimStatus{
+		"!pending-00": types.ClaimStatus_CLAIM_STATUS_PENDING,
+		"!pending-01": types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION,
+		"!pending-02": types.ClaimStatus_CLAIM_STATUS_PENDING,
+	} {
+		require.NoError(t, k.SetClaim(ctx, &types.Claim{Id: id, Status: claimStatus}))
+	}
+
+	first, err := qs.PendingClaims(ctx, &types.QueryPendingClaimsRequest{
+		Pagination: &sdkquery.PageRequest{Limit: 1, CountTotal: true},
+	})
+	require.NoError(t, err)
+	require.Len(t, first.Claims, 1)
+	require.Equal(t, "!pending-00", first.Claims[0].Id)
+	require.Equal(t, uint64(2), first.Pagination.Total)
+	require.Equal(t, []byte("!pending-02"), first.Pagination.NextKey)
+
+	require.NoError(t, k.SetClaim(ctx, &types.Claim{
+		Id:     "!pending-015",
+		Status: types.ClaimStatus_CLAIM_STATUS_PENDING,
+	}))
+	second, err := qs.PendingClaims(ctx, &types.QueryPendingClaimsRequest{
+		Pagination: &sdkquery.PageRequest{Key: first.Pagination.NextKey, Limit: 1},
+	})
+	require.NoError(t, err)
+	require.Len(t, second.Claims, 1)
+	require.Equal(t, "!pending-02", second.Claims[0].Id)
+	require.Empty(t, second.Pagination.NextKey)
 }
 
 // ─── VerificationRound Query ────────────────────────────────────────────────
@@ -323,6 +521,27 @@ func TestQuery_Domains_All(t *testing.T) {
 	require.Len(t, resp.Domains, 22)
 }
 
+func TestQuery_Domains_RawCursorPagesStore(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	qs := keeper.NewQueryServerImpl(k)
+
+	first, err := qs.Domains(ctx, &types.QueryDomainsRequest{
+		Pagination: &sdkquery.PageRequest{Limit: 2, CountTotal: true},
+	})
+	require.NoError(t, err)
+	require.Len(t, first.Domains, 2)
+	require.Equal(t, uint64(22), first.Pagination.Total)
+	require.NotEmpty(t, first.Pagination.NextKey)
+
+	second, err := qs.Domains(ctx, &types.QueryDomainsRequest{
+		Pagination: &sdkquery.PageRequest{Key: first.Pagination.NextKey, Limit: 2},
+	})
+	require.NoError(t, err)
+	require.Len(t, second.Domains, 2)
+	require.Equal(t, string(first.Pagination.NextKey), second.Domains[0].Name)
+	require.Zero(t, second.Pagination.Total)
+}
+
 // ─── FactConfidence Query ───────────────────────────────────────────────────
 
 func TestQuery_FactConfidence_Exists(t *testing.T) {
@@ -361,11 +580,11 @@ func TestQuery_FactCitationCount_Exists(t *testing.T) {
 	qs := keeper.NewQueryServerImpl(k)
 
 	fact := &types.Fact{
-		Id:                   "qfcc-1",
-		Content:              "Citation count query test",
-		Domain:               "physics",
-		Status:               types.FactStatus_FACT_STATUS_VERIFIED,
-		CitationCount:        5,
+		Id:                    "qfcc-1",
+		Content:               "Citation count query test",
+		Domain:                "physics",
+		Status:                types.FactStatus_FACT_STATUS_VERIFIED,
+		CitationCount:         5,
 		IncomingCitationCount: 3,
 	}
 	require.NoError(t, k.SetFact(ctx, fact))

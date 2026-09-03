@@ -64,6 +64,103 @@ toml_test_set() {
   mv "${tmp}" "${file}"
 }
 
+toml_test_set_root() {
+  local key="$1" value="$2" file="$3" tmp
+  tmp="${file}.test-tmp"
+  awk -v wanted="${key}" -v replacement="${value}" '
+    BEGIN { before_section = 1; changed = 0 }
+    /^\[/ { before_section = 0 }
+    {
+      if (before_section && $0 ~ "^[[:space:]]*" wanted "[[:space:]]*=") {
+        print wanted " = " replacement
+        changed++
+        next
+      }
+      print
+    }
+    END { if (changed != 1) exit 42 }
+  ' "${file}" > "${tmp}" || fail "could not mutate root ${key} for restart test"
+  mv "${tmp}" "${file}"
+}
+
+toml_value() {
+  local section="$1" key="$2" file="$3"
+  awk -v target="[${section}]" -v wanted="${key}" '
+    BEGIN { active = 0; count = 0 }
+    /^\[/ { active = ($0 == target) }
+    active && $0 ~ "^[[:space:]]*" wanted "[[:space:]]*=" {
+      value = $0
+      sub("^[[:space:]]*" wanted "[[:space:]]*=[[:space:]]*", "", value)
+      count++
+    }
+    END {
+      if (count != 1) exit 42
+      print value
+    }
+  ' "${file}"
+}
+
+toml_root_value() {
+  local key="$1" file="$2"
+  awk -v wanted="${key}" '
+    BEGIN { before_section = 1; count = 0 }
+    /^\[/ { before_section = 0 }
+    before_section && $0 ~ "^[[:space:]]*" wanted "[[:space:]]*=" {
+      value = $0
+      sub("^[[:space:]]*" wanted "[[:space:]]*=[[:space:]]*", "", value)
+      count++
+    }
+    END {
+      if (count != 1) exit 42
+      print value
+    }
+  ' "${file}"
+}
+
+assert_toml_value() {
+  local section="$1" key="$2" expected="$3" file="$4" label="$5" actual
+  actual=$(toml_value "${section}" "${key}" "${file}") || \
+    fail "${label}: ${section}.${key} was missing or duplicated"
+  [ "${actual}" = "${expected}" ] || \
+    fail "${label}: ${section}.${key} was ${actual}, expected ${expected}"
+}
+
+assert_root_toml_value() {
+  local key="$1" expected="$2" file="$3" label="$4" actual
+  actual=$(toml_root_value "${key}" "${file}") || \
+    fail "${label}: root ${key} was missing or duplicated"
+  [ "${actual}" = "${expected}" ] || \
+    fail "${label}: root ${key} was ${actual}, expected ${expected}"
+}
+
+assert_bounded_query_config() {
+  local app="$1" config="$2" label="$3"
+  assert_root_toml_value query-gas-limit '"5000000"' "${app}" "${label}"
+  assert_toml_value api rpc-read-timeout 10 "${app}" "${label}"
+  assert_toml_value api rpc-write-timeout 15 "${app}" "${label}"
+  assert_toml_value api rpc-max-body-bytes 65536 "${app}" "${label}"
+  assert_toml_value rpc unsafe false "${config}" "${label}"
+  assert_toml_value rpc max_request_batch_size 1 "${config}" "${label}"
+  assert_toml_value rpc max_body_bytes 65536 "${config}" "${label}"
+  assert_toml_value rpc max_header_bytes 16384 "${config}" "${label}"
+  assert_toml_value storage discard_abci_responses false "${config}" "${label}"
+  assert_toml_value tx_index indexer '"kv"' "${config}" "${label}"
+}
+
+drift_bounded_query_config() {
+  local app="$1" config="$2"
+  toml_test_set_root query-gas-limit '"0"' "${app}"
+  toml_test_set api rpc-read-timeout 0 "${app}"
+  toml_test_set api rpc-write-timeout 0 "${app}"
+  toml_test_set api rpc-max-body-bytes 1000000 "${app}"
+  toml_test_set rpc unsafe true "${config}"
+  toml_test_set rpc max_request_batch_size 0 "${config}"
+  toml_test_set rpc max_body_bytes 1000000 "${config}"
+  toml_test_set rpc max_header_bytes 1048576 "${config}"
+  toml_test_set storage discard_abci_responses true "${config}"
+  toml_test_set tx_index indexer '"null"' "${config}"
+}
+
 mkdir -p "${TMP}/bin" "${TMP}/seed"
 export PATH="${TMP}/bin:${PATH}"
 
@@ -242,6 +339,13 @@ case "${1:-}" in
 laddr = "tcp://127.0.0.1:26657"
 unsafe = false
 cors_allowed_origins = []
+max_request_batch_size = 0
+max_body_bytes = 1000000
+max_header_bytes = 1048576
+[storage]
+discard_abci_responses = true
+[tx_index]
+indexer = "null"
 [p2p]
 laddr = "tcp://0.0.0.0:26656"
 seeds = ""
@@ -261,10 +365,14 @@ max_txs_bytes = 1073741824
 CONFIG
     cat > "${home}/config/app.toml" <<'APP'
 minimum-gas-prices = ""
+query-gas-limit = "0"
 [api]
 enable = true
 address = "tcp://localhost:1317"
 enabled-unsafe-cors = false
+rpc-read-timeout = 0
+rpc-write-timeout = 0
+rpc-max-body-bytes = 1000000
 [grpc]
 enable = true
 address = "localhost:9090"
@@ -470,8 +578,14 @@ cmp -s "${TMP}/validator_key.json" \
   fail "validator state mode is not 0600"
 [ -f "${START_MARKER}" ] || fail "zeroned start was not reached"
 grep -q -- '--home' "${START_MARKER}" || fail "start command lost --home"
+grep -q -- '--query-gas-limit 5000000' "${START_MARKER}" || \
+  fail "start command did not pin SDK query gas"
+grep -q -- '--min-retain-blocks 0' "${START_MARKER}" || \
+  fail "start command did not retain Comet history"
 grep -q 'minimum-gas-prices = "0.025uzrn"' \
   "${HOME_DIR}/config/app.toml" || fail "minimum gas price was not hardened"
+assert_bounded_query_config "${HOME_DIR}/config/app.toml" \
+  "${HOME_DIR}/config/config.toml" "initial signer config"
 [ ! -e "${CHILD_SECRET_LEAK_FILE}" ] || \
   fail "bootstrap custody reached a zeroned child environment"
 grep -q '^role=signer$' "${HOME_DIR}/.zerone-1-runtime" || \
@@ -485,6 +599,8 @@ grep -q "^validator_pubkey=${SIGNER_VALIDATOR_PUB}$" \
   fail "fresh signer marker did not pin its consensus identity"
 
 # A resumed persistent volume must not require the bootstrap secrets again.
+drift_bounded_query_config "${HOME_DIR}/config/app.toml" \
+  "${HOME_DIR}/config/config.toml"
 rm -f "${START_MARKER}"
 if ! ZERONE_HOME="${HOME_DIR}" MAINNET_SEED_DIR="${TMP}/seed" \
   START_MARKER="${START_MARKER}" \
@@ -493,6 +609,23 @@ if ! ZERONE_HOME="${HOME_DIR}" MAINNET_SEED_DIR="${TMP}/seed" \
   fail "valid persistent volume failed to resume"
 fi
 [ -f "${START_MARKER}" ] || fail "valid persistent volume did not resume"
+assert_bounded_query_config "${HOME_DIR}/config/app.toml" \
+  "${HOME_DIR}/config/config.toml" "signer restart repair"
+
+# Viper-style daemon environment variables must not bypass the settings the
+# role profile reasserts on disk and on the command line.
+rm -f "${START_MARKER}"
+if ZERONE_HOME="${HOME_DIR}" MAINNET_SEED_DIR="${TMP}/seed" \
+  START_MARKER="${START_MARKER}" ZERONED_RPC_UNSAFE=true \
+  ZERONED_QUERY_GAS_LIMIT=0 "${ENTRYPOINT}" \
+  > "${TMP}/daemon-env-override.log" 2>&1; then
+  fail "runtime accepted a daemon configuration environment override"
+fi
+grep -q 'daemon configuration environment override is forbidden' \
+  "${TMP}/daemon-env-override.log" || \
+  fail "daemon environment override rejection was not explicit"
+[ ! -e "${START_MARKER}" ] || \
+  fail "daemon environment override reached zeroned start"
 
 # Removing EXTERNAL_ADDRESS in the private halt profile must erase a stale
 # public advertisement from the persistent config on the very next boot.
@@ -672,6 +805,9 @@ grep -q "^validator_pubkey=${OBSERVER_VALIDATOR_PUB}$" \
   fail "observer marker did not pin its consensus identity"
 grep -A8 '^\[grpc\]' "${OBSERVER_HOME}/config/app.toml" | grep -q '^enable = false$' || \
   fail "observer gRPC transaction surface was not closed"
+grep -A30 '^\[rpc\]' "${OBSERVER_HOME}/config/config.toml" | \
+  grep -q '^laddr = "tcp://fly-local-6pn:26657"$' || \
+  fail "observer RPC does not bind its private Fly 6PN interface"
 grep -A8 '^\[mempool\]' "${OBSERVER_HOME}/config/config.toml" | grep -q '^size = 0$' || \
   fail "observer Comet mempool was not frozen"
 grep -A12 '^\[p2p\]' "${OBSERVER_HOME}/config/config.toml" | \
@@ -997,6 +1133,18 @@ if ! archive_runtime archive "${ARCHIVE_HOME}" "${ARCHIVE_START}" \
 fi
 grep -q '^role=archive$' "${ARCHIVE_HOME}/.zerone-1-runtime" || \
   fail "archive transition was not permanently marked"
+grep -A30 '^\[rpc\]' "${ARCHIVE_HOME}/config/config.toml" | \
+  grep -q '^laddr = "tcp://fly-local-6pn:26657"$' || \
+  fail "archive RPC does not bind its private Fly 6PN interface"
+grep -A8 '^\[api\]' "${ARCHIVE_HOME}/config/app.toml" | \
+  grep -q '^address = "tcp://fly-local-6pn:1317"$' || \
+  fail "archive REST does not bind its private Fly 6PN interface"
+assert_bounded_query_config "${ARCHIVE_HOME}/config/app.toml" \
+  "${ARCHIVE_HOME}/config/config.toml" "archive serving config"
+grep -q -- '--query-gas-limit 5000000' "${ARCHIVE_START}" || \
+  fail "archive start did not pin SDK query gas"
+grep -q -- '--min-retain-blocks 0' "${ARCHIVE_START}" || \
+  fail "archive start did not retain Comet history"
 grep -q "^archive_transition_nonce=${ARCHIVE_NONCE}$" \
   "${ARCHIVE_HOME}/.zerone-1-runtime" || \
   fail "archive marker did not consume the proven candidate nonce"
@@ -1156,6 +1304,12 @@ grep -A14 '^\[p2p\]' "${HOME_DIR}/config/config.toml" | \
   fail "checkpoint signer retained a public external address"
 grep -A14 '^\[p2p\]' "${HOME_DIR}/config/config.toml" | \
   grep -q '^pex = false$' || fail "checkpoint signer retained P2P exchange"
+grep -A14 '^\[p2p\]' "${HOME_DIR}/config/config.toml" | \
+  grep -q '^laddr = "tcp://fly-local-6pn:26656"$' || \
+  fail "checkpoint signer P2P does not bind its private Fly 6PN interface"
+grep -A30 '^\[rpc\]' "${HOME_DIR}/config/config.toml" | \
+  grep -q '^laddr = "tcp://fly-local-6pn:26657"$' || \
+  fail "checkpoint signer RPC does not bind its private Fly 6PN interface"
 if ZERONE_HOME="${HOME_DIR}" MAINNET_SEED_DIR="${TMP}/seed" \
   START_MARKER="${START_MARKER}" "${ENTRYPOINT}" \
   > "${TMP}/disarmed-plan.log" 2>&1; then

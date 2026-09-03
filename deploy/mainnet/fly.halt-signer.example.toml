@@ -1,7 +1,8 @@
 # Private checkpoint signer profile for the existing zerone-1 app and volume.
 # Deploy this exact service-free shape before arming F/A/H. The checkpoint
-# observer reaches P2P only over zerone-1.internal; no public Fly listener or
-# direct public origin is part of the halt path.
+# observer reaches the runtime's `fly-local-6pn` P2P bind through
+# zerone-1.internal; no public Fly listener or direct public origin is part of
+# the halt path.
 app = "zerone-1"
 primary_region = "lhr"
 

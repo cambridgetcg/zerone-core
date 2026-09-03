@@ -9,6 +9,11 @@ umask 077
 
 readonly RUNTIME_VERSION="1"
 readonly REQUIRED_CHAIN_ID="zerone-2"
+readonly QUERY_GAS_LIMIT="5000000"
+readonly API_READ_TIMEOUT_SECONDS="10"
+readonly API_WRITE_TIMEOUT_SECONDS="15"
+readonly RPC_MAX_BODY_BYTES="65536"
+readonly RPC_MAX_HEADER_BYTES="16384"
 
 HOME_DIR="${ZERONE_HOME:-/data/.zeroned}"
 # These paths are intentionally not runtime-overridable. The public genesis and
@@ -29,6 +34,15 @@ unset VALIDATOR_KEY_B64 NODE_KEY_B64 PRIV_VALIDATOR_KEY_B64
 die() {
   printf '[zerone-2-runtime] ERROR: %s\n' "$*" >&2
   exit 1
+}
+
+reject_daemon_env_overrides() {
+  local name
+  while IFS= read -r name; do
+    case "${name}" in
+      ZERONED_*) die "daemon configuration environment override is forbidden: ${name}" ;;
+    esac
+  done < <(compgen -e)
 }
 
 info() {
@@ -321,6 +335,7 @@ configure_home() {
   require_regular_file "${app}" app.toml
 
   toml_set_root minimum-gas-prices '"1uzrn"' "${app}"
+  toml_set_root query-gas-limit "\"${QUERY_GAS_LIMIT}\"" "${app}"
   toml_set_root pruning '"default"' "${app}"
   toml_set_root iavl-disable-fastnode true "${app}"
   toml_set_root priv_validator_laddr '""' "${config}"
@@ -330,11 +345,16 @@ configure_home() {
   toml_set instrumentation prometheus true "${config}"
   toml_set instrumentation prometheus_listen_addr '":26660"' "${config}"
   toml_set rpc unsafe false "${config}"
+  toml_set rpc max_request_batch_size 1 "${config}"
+  toml_set rpc max_body_bytes "${RPC_MAX_BODY_BYTES}" "${config}"
+  toml_set rpc max_header_bytes "${RPC_MAX_HEADER_BYTES}" "${config}"
   toml_set rpc grpc_laddr '""' "${config}"
   toml_set rpc pprof_laddr '""' "${config}"
+  toml_set storage discard_abci_responses false "${config}"
+  toml_set tx_index indexer '"kv"' "${config}"
   toml_set consensus timeout_propose '"2s"' "${config}"
   toml_set consensus timeout_commit '"2521ms"' "${config}"
-  toml_set p2p laddr '"tcp://0.0.0.0:26656"' "${config}"
+  toml_set consensus skip_timeout_commit false "${config}"
   toml_set p2p seeds '""' "${config}"
   toml_set p2p persistent_peers "$(toml_quote "${peers}")" "${config}"
   toml_set p2p private_peer_ids "$(toml_quote "${private_ids}")" "${config}"
@@ -354,6 +374,9 @@ configure_home() {
     "$(toml_quote "${P2P_EXTERNAL_ADDRESS:-}")" "${config}"
 
   if [ "${NODE_ROLE}" = "validator" ]; then
+    # Fly .internal resolves to the Machine's IPv6 6PN address. The validator
+    # has no public service, so bind P2P only to that private interface.
+    toml_set p2p laddr '"tcp://fly-local-6pn:26656"' "${config}"
     toml_set rpc laddr '"tcp://127.0.0.1:26657"' "${config}"
     toml_set rpc cors_allowed_origins '[]' "${config}"
     toml_set rpc max_open_connections 50 "${config}"
@@ -363,26 +386,35 @@ configure_home() {
     toml_set api address '"tcp://127.0.0.1:1317"' "${app}"
     toml_set api swagger false "${app}"
     toml_set api enabled-unsafe-cors false "${app}"
+    toml_set api rpc-read-timeout "${API_READ_TIMEOUT_SECONDS}" "${app}"
+    toml_set api rpc-write-timeout "${API_WRITE_TIMEOUT_SECONDS}" "${app}"
+    toml_set api rpc-max-body-bytes "${RPC_MAX_BODY_BYTES}" "${app}"
     toml_set grpc enable false "${app}"
     toml_set grpc address '"127.0.0.1:9090"' "${app}"
     toml_set grpc-web enable false "${app}"
     toml_set state-sync snapshot-interval 0 "${app}"
   else
+    # The edge's public P2P service is reached through Fly Proxy over IPv4. RPC
+    # and REST are distinct private origins and bind only to the Machine 6PN.
+    toml_set p2p laddr '"tcp://0.0.0.0:26656"' "${config}"
     toml_set p2p pex true "${config}"
     toml_set api swagger false "${app}"
     toml_set api enabled-unsafe-cors false "${app}"
+    toml_set api rpc-read-timeout "${API_READ_TIMEOUT_SECONDS}" "${app}"
+    toml_set api rpc-write-timeout "${API_WRITE_TIMEOUT_SECONDS}" "${app}"
+    toml_set api rpc-max-body-bytes "${RPC_MAX_BODY_BYTES}" "${app}"
     toml_set grpc-web enable false "${app}"
     toml_set state-sync snapshot-interval 1000 "${app}"
     toml_set state-sync snapshot-keep-recent 2 "${app}"
 
     if [ "${QUERY_ORIGIN_MODE}" = "true" ]; then
-      toml_set rpc laddr '"tcp://0.0.0.0:26657"' "${config}"
+      toml_set rpc laddr '"tcp://fly-local-6pn:26657"' "${config}"
       toml_set rpc cors_allowed_origins "${cors}" "${config}"
       toml_set rpc max_open_connections 200 "${config}"
       toml_set rpc max_subscription_clients 50 "${config}"
       toml_set rpc max_subscriptions_per_client 5 "${config}"
       toml_set api enable true "${app}"
-      toml_set api address '"tcp://0.0.0.0:1317"' "${app}"
+      toml_set api address '"tcp://fly-local-6pn:1317"' "${app}"
       toml_set api max-open-connections 200 "${app}"
       toml_set grpc enable false "${app}"
       toml_set grpc address '"127.0.0.1:9090"' "${app}"
@@ -576,6 +608,7 @@ case "${NODE_ROLE}" in
   *) die "NODE_ROLE must be exactly validator or edge" ;;
 esac
 
+reject_daemon_env_overrides
 command -v jq >/dev/null 2>&1 || die "jq is required"
 command -v flock >/dev/null 2>&1 || die "flock is required for process fencing"
 [ ! -L "${HOME_DIR}" ] || die "ZERONE_HOME must not be a symlink"
@@ -596,4 +629,5 @@ unset VALIDATOR_KEY_B64 NODE_KEY_B64 PRIV_VALIDATOR_KEY_B64 \
   BOOTSTRAP_VALIDATOR_KEY_B64 BOOTSTRAP_NODE_KEY_B64 \
   BOOTSTRAP_LEGACY_VALIDATOR_KEY_B64
 
-exec "${BINARY}" start --home "${HOME_DIR}" --minimum-gas-prices 1uzrn
+exec "${BINARY}" start --home "${HOME_DIR}" --minimum-gas-prices 1uzrn \
+  --query-gas-limit "${QUERY_GAS_LIMIT}" --min-retain-blocks 0

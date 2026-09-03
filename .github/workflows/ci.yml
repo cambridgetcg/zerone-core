@@ -46,6 +46,8 @@ jobs:
         run: |
           bash deploy/query-gateway/entrypoint_test.sh
           bash deploy/query-gateway/build-image_test.sh
+          bash deploy/query-gateway/nginx-config-test.sh
+          bash deploy/query-gateway/render-archive-gateway-config_test.sh
       - name: Canonical signed-payload publication
         run: bash scripts/zerone-canonical-json-test.sh
       - name: Transitive signed authority chain
@@ -269,6 +271,16 @@ jobs:
             .archive_render_contract.static_constraints.public_fly_service == false and
             .archive_render_contract.static_constraints.public_ip == false and
             .archive_render_contract.static_constraints.persistent_peers == [] and
+            .archive_gateway_render_contract.schema ==
+              "zerone-1-archive-gateway-render-contract-v1" and
+            .archive_gateway_render_contract.renderer_path ==
+              "deploy/query-gateway/render-archive-gateway-config.py" and
+            .archive_gateway_render_contract.template_path ==
+              "deploy/query-gateway/fly.zerone-1-archive.public.example.toml" and
+            (.deployment_configs.zerone_1_archive_gateway | keys | sort) ==
+              (["app", "role", "image_component", "image_ref"] | sort) and
+            (.phase_dependent_config_template_sha256.zerone_1_archive_gateway |
+              type == "string") and
             (. as $release | all(.deployment_configs | to_entries[];
               .value.image_ref == $release.components[.value.image_component].image_ref))
           ' deploy/networks/zerone-2/RELEASE-PACKET.example.json >/dev/null
@@ -526,7 +538,11 @@ jobs:
           jq -e -s '
             .[0].deployment_configs as $release |
             .[1].deployment_configs as $open |
-            all($open | keys[]; $open[.] == $release[.])
+            $open.zerone_2_edge_public == $release.zerone_2_edge_public and
+            $open.zerone_2_gateway_public == $release.zerone_2_gateway_public and
+            ($open.zerone_1_archive_gateway | del(.sha256)) ==
+              $release.zerone_1_archive_gateway and
+            ($open.zerone_1_archive_gateway.sha256 | type == "string")
           ' deploy/networks/zerone-2/RELEASE-PACKET.example.json \
             deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json >/dev/null
           test "$(jq -r '.public_notice_sha256' \
@@ -571,6 +587,39 @@ jobs:
           cache: true
       - name: Test
         run: make test
+
+  consensus-rehearsal:
+    name: "Consensus rehearsal"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Download and verify Go modules
+        run: |
+          go mod download
+          go mod verify
+      - name: Isolated four-validator consensus rehearsal
+        env:
+          TMPDIR: ${{ runner.temp }}/zerone-consensus-rehearsal-evidence
+        run: |
+          mkdir -p "$TMPDIR"
+          bash scripts/local-consensus-rehearsal.sh --keep
+      - name: Retain consensus reports and logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: consensus-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/**
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/logs/**
+          if-no-files-found: error
+          retention-days: 30
 
   typescript-sdk:
     name: "TypeScript SDK and dashboard"

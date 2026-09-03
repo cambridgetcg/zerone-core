@@ -114,6 +114,107 @@ toml_test_set() {
   mv "${tmp}" "${file}"
 }
 
+toml_test_set_root() {
+  local key="$1" value="$2" file="$3" tmp
+  tmp="${file}.test-tmp"
+  awk -v wanted="${key}" -v replacement="${value}" '
+    BEGIN { before_section = 1; changed = 0 }
+    /^\[/ { before_section = 0 }
+    {
+      if (before_section && $0 ~ "^[[:space:]]*" wanted "[[:space:]]*=") {
+        print wanted " = " replacement
+        changed++
+        next
+      }
+      print
+    }
+    END { if (changed != 1) exit 42 }
+  ' "${file}" > "${tmp}" || fail "could not mutate root ${key} for restart test"
+  mv "${tmp}" "${file}"
+}
+
+toml_value() {
+  local section="$1" key="$2" file="$3"
+  awk -v target="[${section}]" -v wanted="${key}" '
+    BEGIN { active = 0; count = 0 }
+    /^\[/ { active = ($0 == target) }
+    active && $0 ~ "^[[:space:]]*" wanted "[[:space:]]*=" {
+      value = $0
+      sub("^[[:space:]]*" wanted "[[:space:]]*=[[:space:]]*", "", value)
+      count++
+    }
+    END {
+      if (count != 1) exit 42
+      print value
+    }
+  ' "${file}"
+}
+
+toml_root_value() {
+  local key="$1" file="$2"
+  awk -v wanted="${key}" '
+    BEGIN { before_section = 1; count = 0 }
+    /^\[/ { before_section = 0 }
+    before_section && $0 ~ "^[[:space:]]*" wanted "[[:space:]]*=" {
+      value = $0
+      sub("^[[:space:]]*" wanted "[[:space:]]*=[[:space:]]*", "", value)
+      count++
+    }
+    END {
+      if (count != 1) exit 42
+      print value
+    }
+  ' "${file}"
+}
+
+assert_toml_value() {
+  local section="$1" key="$2" expected="$3" file="$4" label="$5" actual
+  actual=$(toml_value "${section}" "${key}" "${file}") || \
+    fail "${label}: ${section}.${key} was missing or duplicated"
+  [ "${actual}" = "${expected}" ] || \
+    fail "${label}: ${section}.${key} was ${actual}, expected ${expected}"
+}
+
+assert_root_toml_value() {
+  local key="$1" expected="$2" file="$3" label="$4" actual
+  actual=$(toml_root_value "${key}" "${file}") || \
+    fail "${label}: root ${key} was missing or duplicated"
+  [ "${actual}" = "${expected}" ] || \
+    fail "${label}: root ${key} was ${actual}, expected ${expected}"
+}
+
+assert_bounded_rpc_config() {
+  local app="$1" config="$2" label="$3"
+  assert_root_toml_value query-gas-limit '"5000000"' "${app}" "${label}"
+  assert_toml_value api rpc-read-timeout 10 "${app}" "${label}"
+  assert_toml_value api rpc-write-timeout 15 "${app}" "${label}"
+  assert_toml_value api rpc-max-body-bytes 65536 "${app}" "${label}"
+  assert_toml_value rpc unsafe false "${config}" "${label}"
+  assert_toml_value rpc max_request_batch_size 1 "${config}" "${label}"
+  assert_toml_value rpc max_body_bytes 65536 "${config}" "${label}"
+  assert_toml_value rpc max_header_bytes 16384 "${config}" "${label}"
+  assert_toml_value tx_index indexer '"kv"' "${config}" "${label}"
+  assert_toml_value storage discard_abci_responses false "${config}" "${label}"
+  assert_toml_value consensus timeout_commit '"2521ms"' "${config}" "${label}"
+  assert_toml_value consensus skip_timeout_commit false "${config}" "${label}"
+}
+
+drift_bounded_rpc_config() {
+  local app="$1" config="$2"
+  toml_test_set_root query-gas-limit '"0"' "${app}"
+  toml_test_set api rpc-read-timeout 0 "${app}"
+  toml_test_set api rpc-write-timeout 0 "${app}"
+  toml_test_set api rpc-max-body-bytes 1000000 "${app}"
+  toml_test_set rpc unsafe true "${config}"
+  toml_test_set rpc max_request_batch_size 0 "${config}"
+  toml_test_set rpc max_body_bytes 1000000 "${config}"
+  toml_test_set rpc max_header_bytes 1048576 "${config}"
+  toml_test_set storage discard_abci_responses true "${config}"
+  toml_test_set tx_index indexer '"null"' "${config}"
+  toml_test_set consensus timeout_commit '"0s"' "${config}"
+  toml_test_set consensus skip_timeout_commit true "${config}"
+}
+
 REAL_ZERONED="${REAL_ZERONED:-${ROOT}/build/zeroned}"
 if [ ! -x "${REAL_ZERONED}" ]; then
   REAL_ZERONED="${TMP}/real-zeroned"
@@ -274,11 +375,21 @@ cmp -s "${VAL1_FIXTURE}/config/node_key.json" \
 [ ! -e "${LEAK_FILE}" ] || fail "bootstrap secrets reached a zeroned child"
 grep -q '^role=validator$' "${VAL_HOME}/.runtime-initialized" || fail "validator marker missing"
 grep -q -- '--minimum-gas-prices 1uzrn' "${VAL_ARGS}" || fail "start args were not fixed"
+grep -q -- '--query-gas-limit 5000000' "${VAL_ARGS}" || \
+  fail "start did not explicitly cap SDK query gas"
+grep -q -- '--min-retain-blocks 0' "${VAL_ARGS}" || \
+  fail "start did not explicitly disable Comet history pruning"
+assert_bounded_rpc_config "${VAL_HOME}/config/app.toml" \
+  "${VAL_HOME}/config/config.toml" "initial validator config"
+pass "initial runtime RPC and query limits are pinned"
 if grep -Eq '^(VALIDATOR_KEY_B64|NODE_KEY_B64|PRIV_VALIDATOR_KEY_B64)=' "${VAL_ENV}"; then
   fail "bootstrap secrets reached the daemon environment"
 fi
 grep -A6 '^\[api\]' "${VAL_HOME}/config/app.toml" | grep -q '^enable = false$' || \
   fail "validator API was not disabled"
+grep -A55 '^\[p2p\]' "${VAL_HOME}/config/config.toml" | \
+  grep -q '^laddr = "tcp://fly-local-6pn:26656"$' || \
+  fail "validator P2P does not bind its private Fly 6PN interface"
 grep -A55 '^\[p2p\]' "${VAL_HOME}/config/config.toml" | grep -q '^pex = false$' || \
   fail "validator peer exchange was not disabled"
 pass "real validator keys initialize once and never reach a child process"
@@ -287,12 +398,25 @@ pass "real validator keys initialize once and never reach a child process"
 rm -f "${VAL_ARGS}" "${VAL_ENV}"
 toml_test_set rpc laddr '"tcp://0.0.0.0:26657"' \
   "${VAL_HOME}/config/config.toml"
-toml_test_set rpc unsafe true "${VAL_HOME}/config/config.toml"
+drift_bounded_rpc_config "${VAL_HOME}/config/app.toml" \
+  "${VAL_HOME}/config/config.toml"
 toml_test_set p2p pex true "${VAL_HOME}/config/config.toml"
 toml_test_set api enable true "${VAL_HOME}/config/app.toml"
 toml_test_set grpc enable true "${VAL_HOME}/config/app.toml"
 run_role validator "${VAL_HOME}" "${VAL_ARGS}" "${VAL_ENV}" "${LEAK_FILE}" >/dev/null
 [ -f "${VAL_ARGS}" ] || fail "validator resume did not reach start"
+grep -q -- '--query-gas-limit 5000000' "${VAL_ARGS}" || \
+  fail "validator resume did not explicitly cap SDK query gas"
+assert_bounded_rpc_config "${VAL_HOME}/config/app.toml" \
+  "${VAL_HOME}/config/config.toml" "validator restart repair"
+pass "validator restart repairs bounded RPC and query settings"
+
+expect_failure \
+  "daemon environment overrides fail closed" "environment override is forbidden" \
+  "${TMP}/daemon-env-override.log" \
+  run_role validator "${VAL_HOME}" "${VAL_ARGS}" "${VAL_ENV}" "${LEAK_FILE}" \
+    ZERONED_CONSENSUS_SKIP_TIMEOUT_COMMIT=true \
+    ZERONED_CONSENSUS_TIMEOUT_COMMIT=0s ZERONED_MIN_RETAIN_BLOCKS=100
 grep -A40 '^\[rpc\]' "${VAL_HOME}/config/config.toml" | \
   grep -q '^laddr = "tcp://127.0.0.1:26657"$' || fail "resume retained public validator RPC"
 grep -A40 '^\[rpc\]' "${VAL_HOME}/config/config.toml" | \
@@ -439,8 +563,13 @@ EDGE_ARGS="${TMP}/edge-start-args"
 EDGE_ENV="${TMP}/edge-start-env"
 run_role edge "${EDGE_HOME}" "${EDGE_ARGS}" "${EDGE_ENV}" "${LEAK_FILE}" >/dev/null
 grep -q '^role=edge$' "${EDGE_HOME}/.runtime-initialized" || fail "edge marker missing"
+assert_bounded_rpc_config "${EDGE_HOME}/config/app.toml" \
+  "${EDGE_HOME}/config/config.toml" "initial edge config"
 grep -A6 '^\[api\]' "${EDGE_HOME}/config/app.toml" | grep -q '^enable = false$' || \
   fail "private-soak edge API was not closed"
+grep -A55 '^\[p2p\]' "${EDGE_HOME}/config/config.toml" | \
+  grep -q '^laddr = "tcp://0.0.0.0:26656"$' || \
+  fail "edge P2P does not bind the Fly Proxy IPv4 interface"
 grep -A40 '^\[rpc\]' "${EDGE_HOME}/config/config.toml" | \
   grep -q '^laddr = "tcp://127.0.0.1:26657"$' || fail "private-soak edge RPC was public"
 grep -A6 '^\[grpc\]' "${EDGE_HOME}/config/app.toml" | grep -q '^enable = false$' || \
@@ -451,15 +580,25 @@ grep -A12 '^\[state-sync\]' "${EDGE_HOME}/config/app.toml" | grep -q '^snapshot-
   fail "edge snapshots were not enabled"
 pass "edge defaults to a closed private query origin"
 
+drift_bounded_rpc_config "${EDGE_HOME}/config/app.toml" \
+  "${EDGE_HOME}/config/config.toml"
 run_role edge "${EDGE_HOME}" "${TMP}/public-edge-args" \
   "${TMP}/public-edge-env" "${LEAK_FILE}" QUERY_ORIGIN_ENABLED=true >/dev/null
+grep -q -- '--query-gas-limit 5000000' "${TMP}/public-edge-args" || \
+  fail "edge resume did not explicitly cap SDK query gas"
+assert_bounded_rpc_config "${EDGE_HOME}/config/app.toml" \
+  "${EDGE_HOME}/config/config.toml" "edge restart repair"
 grep -A40 '^\[rpc\]' "${EDGE_HOME}/config/config.toml" | \
-  grep -q '^laddr = "tcp://0.0.0.0:26657"$' || fail "explicit private query origin RPC stayed closed"
+  grep -q '^laddr = "tcp://fly-local-6pn:26657"$' || \
+  fail "query origin RPC does not bind its private Fly 6PN interface"
 grep -A6 '^\[api\]' "${EDGE_HOME}/config/app.toml" | \
   grep -q '^enable = true$' || fail "explicit private query origin REST stayed closed"
+grep -A12 '^\[api\]' "${EDGE_HOME}/config/app.toml" | \
+  grep -q '^address = "tcp://fly-local-6pn:1317"$' || \
+  fail "query origin REST does not bind its private Fly 6PN interface"
 grep -A6 '^\[grpc\]' "${EDGE_HOME}/config/app.toml" | \
   grep -q '^enable = false$' || fail "query origin unexpectedly opened gRPC"
-pass "query-soak profile opens private RPC/REST without gRPC"
+pass "query-soak restart repairs limits and opens private RPC/REST without gRPC"
 
 expect_failure \
   "query origin rejects ambiguous truthy values" "must be exactly true or false" \
@@ -596,5 +735,38 @@ if grep -Eq 'services.http_checks|internal_port = (26657|1317|9090)' \
   fail "public edge Fly profile directly exposes a query service"
 fi
 pass "image context and Fly profiles preserve the role and relay boundaries"
+
+HEALTH_FILTER=$(sed -n \
+  "s/^[[:space:]]*jq -e '\(.*\)' >\/dev\/null.*$/\1/p" \
+  "${RUNTIME_DIR}/Dockerfile")
+[ -n "${HEALTH_FILTER}" ] || fail "Docker health predicate could not be extracted"
+# shellcheck disable=SC2016 # Assert the literal Docker runtime expression.
+grep -Fq 'if [ "${NODE_ROLE:-}" = edge ] && [ "${QUERY_ORIGIN_ENABLED:-false}" = true ]' \
+  "${RUNTIME_DIR}/Dockerfile" || fail "container health is not role-aware"
+grep -q 'HEALTH_HOST=fly-local-6pn' "${RUNTIME_DIR}/Dockerfile" || \
+  fail "query-origin health does not use the private Fly 6PN listener"
+grep -q 'HEALTH_HOST=127.0.0.1' "${RUNTIME_DIR}/Dockerfile" || \
+  fail "validator and closed-edge health do not use loopback"
+health_payload() {
+  jq -cn --arg chain "$1" --argjson catching_up "$2" --arg height "$3" \
+    '{result: {node_info: {network: $chain}, sync_info: {
+      catching_up: $catching_up, latest_block_height: $height
+    }}}'
+}
+health_payload zerone-2 false 1 | jq -e "${HEALTH_FILTER}" >/dev/null || \
+  fail "health predicate rejected a ready zerone-2 node"
+if health_payload zerone-1 false 1 | jq -e "${HEALTH_FILTER}" >/dev/null; then
+  fail "health predicate accepted the wrong chain"
+fi
+if health_payload zerone-2 true 1 | jq -e "${HEALTH_FILTER}" >/dev/null; then
+  fail "health predicate accepted a catching-up node"
+fi
+if health_payload zerone-2 false 0 | jq -e "${HEALTH_FILTER}" >/dev/null; then
+  fail "health predicate accepted a zero height"
+fi
+if health_payload zerone-2 false not-a-height | jq -e "${HEALTH_FILTER}" >/dev/null; then
+  fail "health predicate accepted a non-numeric height"
+fi
+pass "container health requires exact chain, synchronized state, and positive height"
 
 printf 'runtime test: PASS (%d checks, real throwaway Ed25519 fixtures)\n' "${pass_count}"

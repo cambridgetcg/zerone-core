@@ -7,13 +7,16 @@ TMP=$(mktemp -d "${TMPDIR:-/tmp}/zerone-fly-policy-test.XXXXXX")
 trap 'rm -rf "${TMP}"' EXIT HUP INT TERM
 
 run_policy() {
-  local config=$1 schema=$2 key=$3 upstream=- f=- a=- h=-
+  local config=$1 schema=$2 key=$3 upstream=- f=- a=- h=- e=- b=-
   case "${key}" in
     zerone_2_gateway_private|zerone_2_gateway_public)
       upstream=replace-zerone-2-edge-app.internal
       ;;
     zerone_1_archive_gateway)
       upstream=replace-zerone-1-archive-app.internal
+      a=100
+      e=$(printf 'a%.0s' {1..64})
+      b=$(printf 'b%.0s' {1..64})
       ;;
     zerone_1_halt_signer|zerone_1_observer)
       f=REPLACE_WITH_F
@@ -21,14 +24,18 @@ run_policy() {
       h=REPLACE_WITH_H
       ;;
   esac
-  if [ "$#" -eq 7 ]; then
+  if [ "$#" -ge 7 ]; then
     upstream=$4
     f=$5
     a=$6
     h=$7
   fi
+  if [ "$#" -eq 9 ]; then
+    e=$8
+    b=$9
+  fi
   python3 "${POLICY}" "${config}" "${schema}" "${key}" \
-    "${upstream}" "${f}" "${a}" "${h}"
+    "${upstream}" "${f}" "${a}" "${h}" "${e}" "${b}"
 }
 
 run_policy \
@@ -54,8 +61,15 @@ run_policy \
 run_policy \
   "${ROOT}/deploy/query-gateway/fly.zerone-2.public.example.toml" \
   zerone-2-open-beta-decision-v1 zerone_2_gateway_public
-run_policy \
+ARCHIVE_GATEWAY_CONFIG="${TMP}/archive-gateway.toml"
+sed \
+  -e 's/REPLACE_WITH_A/100/g' \
+  -e "s/REPLACE_WITH_LOWERCASE_POST_A_APP_HASH/$(printf 'a%.0s' {1..64})/g" \
+  -e "s/REPLACE_WITH_LOWERCASE_FINAL_APPLICATION_BLOCK_ID_HASH/$(printf 'b%.0s' {1..64})/g" \
   "${ROOT}/deploy/query-gateway/fly.zerone-1-archive.public.example.toml" \
+  > "${ARCHIVE_GATEWAY_CONFIG}"
+run_policy \
+  "${ARCHIVE_GATEWAY_CONFIG}" \
   zerone-2-open-beta-decision-v1 zerone_1_archive_gateway
 
 BAD_PRIVATE="${TMP}/bad-private.toml"
@@ -191,11 +205,80 @@ fi
 
 BAD_ARCHIVE_UPSTREAM="${TMP}/bad-archive-upstream.toml"
 sed 's/replace-zerone-1-archive-app.internal/replace-edge-app.internal/' \
-  "${ROOT}/deploy/query-gateway/fly.zerone-1-archive.public.example.toml" \
+  "${ARCHIVE_GATEWAY_CONFIG}" \
   > "${BAD_ARCHIVE_UPSTREAM}"
 if run_policy "${BAD_ARCHIVE_UPSTREAM}" zerone-2-open-beta-decision-v1 \
   zerone_1_archive_gateway >/dev/null 2>&1; then
   printf 'Fly phase policy test: archive gateway targeted the z2 edge app\n' >&2
+  exit 1
+fi
+
+ARCHIVE_E=$(printf 'a%.0s' {1..64})
+ARCHIVE_B=$(printf 'b%.0s' {1..64})
+for mutation in height app_hash block_hash; do
+  bad_archive="${TMP}/bad-archive-${mutation}.toml"
+  case "${mutation}" in
+    height) sed 's/EXPECTED_ARCHIVE_HEIGHT = "100"/EXPECTED_ARCHIVE_HEIGHT = "101"/' \
+      "${ARCHIVE_GATEWAY_CONFIG}" > "${bad_archive}" ;;
+    app_hash) sed "s/${ARCHIVE_E}/$(printf 'c%.0s' {1..64})/" \
+      "${ARCHIVE_GATEWAY_CONFIG}" > "${bad_archive}" ;;
+    block_hash) sed "s/${ARCHIVE_B}/$(printf 'd%.0s' {1..64})/" \
+      "${ARCHIVE_GATEWAY_CONFIG}" > "${bad_archive}" ;;
+  esac
+  if run_policy "${bad_archive}" zerone-2-open-beta-decision-v1 \
+    zerone_1_archive_gateway >/dev/null 2>&1; then
+    printf 'Fly phase policy test: archive gateway accepted mismatched %s\n' \
+      "${mutation}" >&2
+    exit 1
+  fi
+done
+
+BAD_ARCHIVE_CASE="${TMP}/bad-archive-hash-case.toml"
+sed "s/${ARCHIVE_E}/$(printf 'A%.0s' {1..64})/" \
+  "${ARCHIVE_GATEWAY_CONFIG}" > "${BAD_ARCHIVE_CASE}"
+if run_policy "${BAD_ARCHIVE_CASE}" zerone-2-open-beta-decision-v1 \
+  zerone_1_archive_gateway - - 100 - "${ARCHIVE_E}" "${ARCHIVE_B}" \
+  >/dev/null 2>&1; then
+  printf 'Fly phase policy test: archive gateway accepted uppercase E\n' >&2
+  exit 1
+fi
+
+BAD_ARCHIVE_B_CASE="${TMP}/bad-archive-block-hash-case.toml"
+sed "s/${ARCHIVE_B}/$(printf 'B%.0s' {1..64})/" \
+  "${ARCHIVE_GATEWAY_CONFIG}" > "${BAD_ARCHIVE_B_CASE}"
+if run_policy "${BAD_ARCHIVE_B_CASE}" zerone-2-open-beta-decision-v1 \
+  zerone_1_archive_gateway - - 100 - "${ARCHIVE_E}" "${ARCHIVE_B}" \
+  >/dev/null 2>&1; then
+  printf 'Fly phase policy test: archive gateway accepted uppercase B\n' >&2
+  exit 1
+fi
+
+for bad_a in 0 01 1000000000000000000; do
+  if run_policy "${ARCHIVE_GATEWAY_CONFIG}" \
+    zerone-2-open-beta-decision-v1 zerone_1_archive_gateway \
+    replace-zerone-1-archive-app.internal - "${bad_a}" - \
+    "${ARCHIVE_E}" "${ARCHIVE_B}" >/dev/null 2>&1; then
+    printf 'Fly phase policy test: archive gateway accepted malformed A %s\n' \
+      "${bad_a}" >&2
+    exit 1
+  fi
+done
+
+BAD_ARCHIVE_ENV="${TMP}/bad-archive-missing-pin.toml"
+sed '/EXPECTED_ARCHIVE_BLOCK_HASH/d' "${ARCHIVE_GATEWAY_CONFIG}" \
+  > "${BAD_ARCHIVE_ENV}"
+if run_policy "${BAD_ARCHIVE_ENV}" zerone-2-open-beta-decision-v1 \
+  zerone_1_archive_gateway >/dev/null 2>&1; then
+  printf 'Fly phase policy test: archive gateway accepted a missing B pin\n' >&2
+  exit 1
+fi
+
+if run_policy \
+  "${ROOT}/deploy/query-gateway/fly.zerone-2.public.example.toml" \
+  zerone-2-open-beta-decision-v1 zerone_2_gateway_public \
+  replace-zerone-2-edge-app.internal - - - "${ARCHIVE_E}" "${ARCHIVE_B}" \
+  >/dev/null 2>&1; then
+  printf 'Fly phase policy test: zerone-2 gateway accepted archive hash context\n' >&2
   exit 1
 fi
 

@@ -47,7 +47,30 @@ OPERATOR_TOOL_PATHS = {
     "deploy/mainnet/build-image.sh",
     "deploy/networks/zerone-2/runtime/build-image.sh",
     "deploy/query-gateway/build-image.sh",
+    "deploy/query-gateway/render-archive-gateway-config.py",
+    "deploy/query-gateway/fly.zerone-1-archive.public.example.toml",
     "tools/zerone2-artifact-audit/main.go",
+}
+ARCHIVE_GATEWAY_RENDERER_PATH = (
+    "deploy/query-gateway/render-archive-gateway-config.py"
+)
+ARCHIVE_GATEWAY_TEMPLATE_PATH = (
+    "deploy/query-gateway/fly.zerone-1-archive.public.example.toml"
+)
+ARCHIVE_GATEWAY_BINDINGS = {
+    "app": "deployment_configs.zerone_1_archive_gateway.app",
+    "primary_region": "archive_render_contract.static_constraints.region",
+    "image_ref": "deployment_configs.zerone_1_archive_gateway.image_ref",
+    "upstream_host": 'archive_render_contract.static_constraints.app + ".internal"',
+    "expected_archive_height": (
+        "FINAL-CHECKPOINT.json.final_application_block.height"
+    ),
+    "expected_archive_app_hash": (
+        "lower(FINAL-CHECKPOINT.json.excluded_post_anchor_state.app_hash)"
+    ),
+    "expected_archive_block_hash": (
+        "lower(FINAL-CHECKPOINT.json.final_application_block.block_id_hash)"
+    ),
 }
 COMPONENT_ARTIFACT_FILES = {
     "zerone_1_halt": {
@@ -412,6 +435,44 @@ def validate_config_mapping(
     return config
 
 
+def validate_archive_gateway_render_contract(
+    release: dict[str, Any],
+) -> dict[str, Any]:
+    contract = require_exact_object(
+        release.get("archive_gateway_render_contract"),
+        {
+            "schema",
+            "renderer_path",
+            "renderer_sha256",
+            "template_path",
+            "bindings",
+        },
+        "RELEASE archive gateway render contract",
+    )
+    if not (
+        contract["schema"] == "zerone-1-archive-gateway-render-contract-v1"
+        and contract["renderer_path"] == ARCHIVE_GATEWAY_RENDERER_PATH
+        and contract["template_path"] == ARCHIVE_GATEWAY_TEMPLATE_PATH
+        and contract["bindings"] == ARCHIVE_GATEWAY_BINDINGS
+    ):
+        fail("RELEASE archive gateway render contract changed")
+    require_hash(contract["renderer_sha256"], "RELEASE archive gateway renderer")
+    template_hashes = release.get("phase_dependent_config_template_sha256")
+    if not isinstance(template_hashes, dict) or set(template_hashes) != {
+        "zerone_1_halt_signer",
+        "zerone_1_observer",
+        "zerone_1_archive_candidate",
+        "zerone_1_archive",
+        "zerone_1_archive_gateway",
+    }:
+        fail("RELEASE phase-dependent template hash set is incomplete")
+    require_hash(
+        template_hashes["zerone_1_archive_gateway"],
+        "RELEASE archive gateway template",
+    )
+    return contract
+
+
 def run_config_policy(
     policy: pathlib.Path,
     config_path: pathlib.Path,
@@ -421,6 +482,8 @@ def run_config_policy(
     f: str,
     a: str,
     h: str,
+    archive_app_hash: str,
+    archive_block_hash: str,
 ) -> None:
     try:
         subprocess.run(
@@ -434,6 +497,8 @@ def run_config_policy(
                 f,
                 a,
                 h,
+                archive_app_hash,
+                archive_block_hash,
             ],
             check=True,
             stdout=subprocess.DEVNULL,
@@ -499,7 +564,67 @@ def validate_tool_manifest(
         if actual != expected:
             fail(f"operator tool bytes drifted from RELEASE: {relative}")
         verified_tools[relative] = tool_bytes
+    gateway_contract = validate_archive_gateway_render_contract(release)
+    if manifest["files"].get(ARCHIVE_GATEWAY_RENDERER_PATH) != gateway_contract[
+        "renderer_sha256"
+    ]:
+        fail("archive gateway renderer differs from RELEASE/operator-tool manifest")
+    if manifest["files"].get(ARCHIVE_GATEWAY_TEMPLATE_PATH) != release[
+        "phase_dependent_config_template_sha256"
+    ]["zerone_1_archive_gateway"]:
+        fail("archive gateway template differs from RELEASE/operator-tool manifest")
     return verified_tools
+
+
+def verify_archive_gateway_render(
+    files: dict[str, bytes],
+    paths: dict[str, pathlib.Path],
+    release: dict[str, Any],
+    verified_tools: dict[str, bytes],
+    temp_path: pathlib.Path,
+) -> None:
+    contract = validate_archive_gateway_render_contract(release)
+    renderer_bytes = verified_tools.get(contract["renderer_path"])
+    template_bytes = verified_tools.get(contract["template_path"])
+    if renderer_bytes is None or template_bytes is None:
+        fail("verified operator tools omit the archive gateway renderer/template")
+    if sha256(renderer_bytes) != contract["renderer_sha256"]:
+        fail("verified archive gateway renderer hash differs from RELEASE")
+    if sha256(template_bytes) != release[
+        "phase_dependent_config_template_sha256"
+    ]["zerone_1_archive_gateway"]:
+        fail("verified archive gateway template hash differs from RELEASE")
+
+    renderer = temp_path / "render-archive-gateway-config.py"
+    template = temp_path / "fly.archive-gateway.template.toml"
+    rendered = temp_path / "fly.archive-gateway.expected.toml"
+    renderer.write_bytes(renderer_bytes)
+    template.write_bytes(template_bytes)
+    os.chmod(renderer, 0o700)
+    os.chmod(template, 0o600)
+    try:
+        subprocess.run(
+            [
+                sys.executable,
+                str(renderer),
+                str(paths["RELEASE-PACKET.json"]),
+                str(paths["FINAL-CHECKPOINT.json"]),
+                str(template),
+                str(rendered),
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            timeout=10,
+        )
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        detail = getattr(exc, "stderr", b"")
+        if isinstance(detail, bytes):
+            detail = detail.decode(errors="replace").strip()
+        fail(f"archive gateway deterministic render failed: {detail or exc}")
+    rendered_bytes = secure_read_path(rendered, "rendered archive gateway config")
+    if rendered_bytes != files["fly.zerone-1-archive-gateway.public.toml"]:
+        fail("archive gateway config is not the exact RELEASE/FINAL render")
 
 
 def validate_monitoring_artifacts(
@@ -2079,6 +2204,7 @@ def validate_cutover_chain(
         "components",
         "public_identities",
         "archive_render_contract",
+        "archive_gateway_render_contract",
         "deployment_configs",
         "phase_dependent_config_template_sha256",
         "monitoring_alerts_sha256",
@@ -2124,6 +2250,7 @@ def validate_cutover_chain(
     component_images = validate_release_components(
         files, objects, release, main, release_created_epoch
     )
+    validate_archive_gateway_render_contract(release)
     release_configs = release.get("deployment_configs", {})
     release_keys = {
         "zerone_2_validator",
@@ -2137,18 +2264,24 @@ def validate_cutover_chain(
     if not isinstance(release_configs, dict) or set(release_configs) != release_keys:
         fail("RELEASE deployment mapping set is incomplete")
     for key, mapping_value in release_configs.items():
-        if not isinstance(mapping_value, dict) or set(mapping_value) != {
+        expected_mapping_fields = {
             "app",
             "role",
             "image_component",
             "image_ref",
-            "sha256",
-        }:
+        }
+        if key != "zerone_1_archive_gateway":
+            expected_mapping_fields.add("sha256")
+        if (
+            not isinstance(mapping_value, dict)
+            or set(mapping_value) != expected_mapping_fields
+        ):
             fail(f"RELEASE {key} mapping is malformed")
         component = mapping_value.get("image_component")
         if mapping_value.get("image_ref") != component_images.get(component):
             fail(f"RELEASE {key} image does not join its component")
-        require_hash(mapping_value.get("sha256"), f"RELEASE {key} config")
+        if key != "zerone_1_archive_gateway":
+            require_hash(mapping_value.get("sha256"), f"RELEASE {key} config")
     apps = {key: value["app"] for key, value in release_configs.items()}
     if not (
         apps["zerone_2_edge_private"] == apps["zerone_2_edge_query_soak"]
@@ -2483,6 +2616,8 @@ def validate_cutover_chain(
         f,
         a,
         h,
+        "-",
+        "-",
     )
     run_config_policy(
         config_policy,
@@ -2493,6 +2628,8 @@ def validate_cutover_chain(
         f,
         a,
         h,
+        "-",
+        "-",
     )
     continuation = cutover.get("deterministic_private_continuation", {})
     release_render = release.get("archive_render_contract", {})
@@ -3308,6 +3445,28 @@ def validate_open_chain(
         and all(archive[key] == value for key, value in readiness.items())
     ):
         fail("FINAL private archive readiness differs from actual evidence")
+    archive_app_hash = require_hash(
+        final.get("excluded_post_anchor_state", {}).get("app_hash"),
+        "FINAL excluded post-anchor AppHash",
+        upper=True,
+    )
+    archive_block_hash = require_hash(
+        final.get("final_application_block", {}).get("block_id_hash"),
+        "FINAL application block ID",
+        upper=True,
+    )
+    if not (
+        archive_app_hash == manifest["expected_post_anchor_app_hash"]
+        == probe["post_anchor_app_hash"]
+        and archive_block_hash == manifest["expected_anchor_block_hash"]
+        == probe["anchor_block_hash"]
+    ):
+        fail("FINAL archive gateway A/E/B inputs differ from transition evidence")
+    archive_app_hash = archive_app_hash.lower()
+    archive_block_hash = archive_block_hash.lower()
+    verify_archive_gateway_render(
+        files, paths, release, verified_tools, temp_path
+    )
 
     same_shape_and_static(open_beta, open_template, "OPEN-BETA")
     if contains_placeholder(open_beta):
@@ -3340,30 +3499,54 @@ def validate_open_chain(
     if open_beta.get("public_notice_sha256") != sha256(files["PUBLIC-NOTICE.md"]):
         fail("OPEN-BETA notice differs from the exact published notice")
     release_configs = release["deployment_configs"]
-    if not all(
-        open_beta["deployment_configs"].get(key) == release_configs.get(key)
-        for key in open_beta["deployment_configs"]
-    ):
-        fail("OPEN-BETA public deployment mappings differ from RELEASE")
+    for key in ("zerone_2_edge_public", "zerone_2_gateway_public"):
+        if open_beta["deployment_configs"].get(key) != release_configs.get(key):
+            fail(f"OPEN-BETA {key} mapping differs from RELEASE")
+    archive_open_mapping = open_beta["deployment_configs"].get(
+        "zerone_1_archive_gateway"
+    )
+    archive_release_mapping = release_configs["zerone_1_archive_gateway"]
+    if not isinstance(archive_open_mapping, dict) or {
+        key: value
+        for key, value in archive_open_mapping.items()
+        if key != "sha256"
+    } != archive_release_mapping:
+        fail("OPEN-BETA archive gateway static mapping differs from RELEASE")
     public_config_specs = (
         (
             "zerone_2_edge_public",
             "fly.edge.public.toml",
+            "-",
+            "-",
+            "-",
             "-",
         ),
         (
             "zerone_2_gateway_public",
             "fly.zerone-2-gateway.public.toml",
             f"{release_configs['zerone_2_edge_private']['app']}.internal",
+            "-",
+            "-",
+            "-",
         ),
         (
             "zerone_1_archive_gateway",
             "fly.zerone-1-archive-gateway.public.toml",
-            "zerone-1-archive.internal",
+            f"{release['archive_render_contract']['static_constraints']['app']}.internal",
+            a,
+            archive_app_hash,
+            archive_block_hash,
         ),
     )
     parsed_public_configs: dict[str, dict[str, Any]] = {}
-    for key, filename, upstream in public_config_specs:
+    for (
+        key,
+        filename,
+        upstream,
+        archive_height,
+        expected_app_hash,
+        expected_block_hash,
+    ) in public_config_specs:
         parsed_public_configs[key] = validate_config_mapping(
             files,
             filename,
@@ -3377,8 +3560,10 @@ def validate_open_chain(
             key,
             upstream,
             "-",
+            archive_height,
             "-",
-            "-",
+            expected_app_hash,
+            expected_block_hash,
         )
     coordinates = open_beta["public_coordinates"]
     edge_external = parsed_public_configs["zerone_2_edge_public"]["env"][
@@ -3420,9 +3605,9 @@ def validate_open_chain(
             "config_sha256": release_configs["zerone_2_gateway_public"]["sha256"],
         },
         re.sub(r"^https://", "", coordinates["zerone_1_archive_rpc"]): {
-            "app": release_configs["zerone_1_archive_gateway"]["app"],
+            "app": archive_open_mapping["app"],
             "https": True,
-            "config_sha256": release_configs["zerone_1_archive_gateway"]["sha256"],
+            "config_sha256": archive_open_mapping["sha256"],
         },
     }
     if dns["records"] != expected_records:
