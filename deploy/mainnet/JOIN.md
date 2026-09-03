@@ -61,10 +61,12 @@ an untrusted sender must not be able to poison another wallet's vote.
 
 ## Node and validator operation is paused
 
-Do not build moving `main` and install it on `zerone-1`. This consolidation
-contains consensus-sensitive knowledge, vesting, and substrate changes that
-require the named `consolidation-safety-v1` upgrade. Source publication is not
-chain activation.
+Do not build moving `main` and install it on `zerone-1`. A legacy network must
+first cross release-matched H1 `consolidation-safety-v1`, which preserves
+vesting_rewards V1, and H2 `founder-renunciation-v1`, which alone advances it
+to V2, before the H3 `sdk-0.53-ibc-10` transition represented by current
+source. Source publication is not chain activation; see
+[UPGRADES.md](../../docs/UPGRADES.md).
 
 Joining or upgrading a node requires a signed packet binding the exact commit,
 binary digest, live genesis representation, peer identities, upgrade height,

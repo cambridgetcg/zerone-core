@@ -1,6 +1,6 @@
 module github.com/zerone-chain/zerone/tools/sigstore-substrate-compiler
 
-go 1.25.12
+go 1.25.14
 
 require (
 	github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467

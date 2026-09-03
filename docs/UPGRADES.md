@@ -40,34 +40,60 @@ stake reconciliation because no per-staker escrow ledger exists.
 
 ## Carried-forward safety checkpoints
 
-Existing networks have one pending consolidation boundary:
-`consolidation-safety-v1` at H1. The exact H1 binary calls module migrations,
-reconciles stored module-account permissions, and records its handler marker.
-The resulting module-version map must include `knowledge=6`, `claiming_pot=2`,
-`liquiditypool=5`, and `vesting_rewards=2`. There is no
-`liquiditypool-safety-v2` H2 handler: advertising that redundant future name
-early is unsafe under the SDK upgrade guard.
+Legacy SDK v0.50 / IBC-Go v8 networks have two ordered pre-SDK boundaries.
+H1 is `consolidation-safety-v1`, from accepted source commit
+`65c19cd8b00bdfff9b80705b776fd0d49719398a`. Its exact binary calls the
+three allowed module migrations, reconciles stored module-account
+permissions, and records its handler marker. The resulting module-version map
+must include `knowledge=6`, `claiming_pot=2`, `liquiditypool=5`, and
+`vesting_rewards=1`: H1 explicitly preserves vesting_rewards V1.
+
+H2 is `founder-renunciation-v1`, from accepted replacement source commit
+`36728afbf71905a077a0863b41536fa9279109dd` (tree
+`dfeff2c71ca9c36896a3a76608600cd870d21a1f`). It requires the complete H1
+poststate and alone advances `vesting_rewards` V1→V2. The H1 binary does not
+register or execute H2, and the H2 binary does not execute H1. There is no
+`liquiditypool-safety-v2` handler; that obsolete liquidity-only name is not
+the H2 founder-renunciation boundary. Moving branches and earlier ignition
+materials are not release authority: bind each packet to the accepted commit,
+tree where specified, and an independently attested exact executable digest.
 
 Before scheduling H1, bind a same-height live snapshot proving there are zero
 native pools and no billing quote-denom allowlist. Valid legacy pools migrate
 `EXIT_ONLY`, so a network with any existing pool still needs a separately
 reviewed transition. After H1, verify `allowed_pool_denoms`, `pool_creators`,
-and `billing_quote_denoms` are empty before accepting any Params update. The
-complete no-go gates, economic-neutrality transition, status lifecycle,
-governance path, and Osmosis-testnet separation are in
+and `billing_quote_denoms` are empty, liquiditypool is V5, and
+vesting_rewards is still V1 before accepting any Params update. The complete
+no-go gates, liquidity transition, status lifecycle, governance path, and
+Osmosis-testnet separation are in
 [LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md).
+
+Before scheduling H2, bind the exact completed-H1 version map, marker and done
+height; identical canonical on-chain and local H2 plans (name, height, and
+`Info`); strict persisted V1 vesting Params; and the existing vesting
+module-account state. After H2, verify both ordered markers and done heights,
+the retained H2 plan-identity commitment,
+`vesting_rewards=2`, all retired founder/reward fields zero or empty, and the
+vesting module account absent or permissionless. The accepted source lineage
+and evidence contract are recorded in
+[the SDK/IBC source-integration report](reports/SDK053-IBC10-SOURCE-INTEGRATION.md).
 
 For a legacy SDK v0.50 / IBC-Go v8 network, `sdk-0.53-ibc-10` is a later,
 guarded boundary. It refuses to run until the committed source map already
-contains the four prerequisite versions above and the
-`upgrade_marker_consolidation-safety-v1=migrated` marker. Its broad
+contains `knowledge=6`, `claiming_pot=2`, `liquiditypool=5`, and
+`vesting_rewards=2`, together with the
+`upgrade_marker_consolidation-safety-v1=migrated` and
+`upgrade_marker_founder-renunciation-v1=migrated` markers, their positive
+ordered done heights, and the retained H2 plan-identity commitment. Its broad
 `RunMigrations` call is therefore not an alternate path for economic or
 consolidation activation. Do not improvise a combined or reordered sequence.
-These are two frozen release binaries, not merely two handler names: build and
-rehearse H1 from a reviewed pre-SDK-0.53 source lineage whose unrelated module
-targets match the live v0.50/v8 state. The post-SDK integrated tip is not an H1
-artifact for that legacy state; use it only for the later SDK/IBC boundary after
-H1 is committed and independently verified.
+These require three separately frozen and attested release binaries, not
+merely three handler names: build and rehearse H1 and H2 from their separately
+accepted pre-SDK-0.53 source lineages whose unrelated module targets match the
+live v0.50/v8 state. The post-SDK integrated tip registers neither pre-SDK
+handler and is not an H1 or H2 artifact for that legacy state; use it only for
+the later SDK/IBC boundary after both H1 and H2 are committed and independently
+verified.
 
 ## Operator steps
 

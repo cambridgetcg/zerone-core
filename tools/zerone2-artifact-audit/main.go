@@ -45,6 +45,14 @@ const (
 	opsBalance               = "2222000000"
 	protocolAdmissionBarrier = "222222222000001"
 	customStakeMinimum       = "111000000"
+	evidenceMaxAgeBlocks     = "719714"
+	evidenceMaxAgeDuration   = "1814400000000000"
+	evidenceMaxBytes         = "1048576"
+	slashingWindow           = "34272"
+	slashingMinSigned        = "0.950000000000000000"
+	slashingDowntimeJail     = "3600s"
+	slashingDoubleSign       = "0.050000000000000000"
+	slashingDowntime         = "0.000100000000000000"
 	networkManifestSchema    = "zerone-2-network-manifest-v2"
 	drillReleaseTag          = "DRILL-NOT-A-RELEASE"
 	drillSignerFingerprint   = "DRILL-NOT-A-SIGNER"
@@ -258,7 +266,7 @@ func auditArtifactDir(dir, requiredMode string) result {
 	genesis, genesisErr := os.ReadFile(filepath.Join(clean, "genesis.json"))
 	checksum, checksumErr := os.ReadFile(filepath.Join(clean, "genesis.sha256"))
 	manifest, manifestErr := os.ReadFile(filepath.Join(clean, "network-manifest.json"))
-	_, humanManifestErr := os.ReadFile(filepath.Join(clean, "GENESIS-MANIFEST.md"))
+	humanManifest, humanManifestErr := os.ReadFile(filepath.Join(clean, "GENESIS-MANIFEST.md"))
 	if genesisErr != nil {
 		filesystemIssues = append(filesystemIssues, issue{Path: "genesis.json", Message: "required artifact missing or unreadable: " + genesisErr.Error()})
 	}
@@ -282,6 +290,12 @@ func auditArtifactDir(dir, requiredMode string) result {
 		}
 		if manifestErr == nil {
 			r.Issues = append(r.Issues, auditNetworkManifest(manifest, r, genesisHash, requiredMode)...)
+			if humanManifestErr == nil {
+				parsedManifest, parseIssues := decodeNetworkManifest(manifest)
+				if len(parseIssues) == 0 {
+					r.Issues = append(r.Issues, auditHumanManifest(humanManifest, parsedManifest, r)...)
+				}
+			}
 		}
 	} else if manifestErr == nil {
 		// Still report strict JSON errors even when the source genesis needed for
@@ -303,6 +317,95 @@ func auditGenesisChecksum(contents []byte, genesisHash string) []issue {
 		}}
 	}
 	return nil
+}
+
+func auditHumanManifest(contents []byte, manifest networkManifest, genesis result) []issue {
+	expected := renderHumanManifest(manifest, genesis)
+	if !bytes.Equal(contents, expected) {
+		return []issue{{
+			Path:    "GENESIS-MANIFEST.md",
+			Message: "must exactly match the deterministic human manifest derived from audited genesis and network-manifest.json",
+		}}
+	}
+	return nil
+}
+
+func renderHumanManifest(manifest networkManifest, genesis result) []byte {
+	return []byte(fmt.Sprintf(`# Zerone Genesis Manifest — zerone-2
+
+- Ceremony mode: **%s**
+- Genesis time: %s
+- Genesis SHA-256: %s
+- Source commit: %s
+- Release tag: %s
+- Release tag signer fingerprint: %s
+- Binary SHA-256: %s
+- Binary version: %s
+- Binary target: %s/%s
+- Trust model: %s
+
+## Exact supply
+
+Total: **%s uzrn (13,555 ZRN)**.
+
+- Validator %s: %s uzrn, of which
+  %s uzrn is permanent-locked self-bond and 222000000 uzrn is
+  liquid operations gas.
+- Operations %s: %s uzrn.
+- No other positive genesis balance or module allocation.
+
+## Validator
+
+- SDK operator: %s
+- P2P node ID declared in gentx: %s
+- Gentx SHA-256: %s
+- Genesis validators: 1; Byzantine fault tolerance: 0.
+
+## Slashing policy
+
+- Signed-block window: %s blocks (approximately 24 hours at the 2.521-second target cadence).
+- Minimum signed: %s (95%%; approximately 72 minutes total miss budget per window).
+- Downtime jail: %s; downtime slash: %s (0.01%%).
+- Double-sign slash: %s (5%%; SDK tombstoning remains in force).
+- Evidence admission: %s blocks and %s ns (both approximately 21 days, matching staking unbonding); maximum evidence bytes per block: %s.
+- One-validator limitation: downtime jail/slash cannot execute while the only signer is absent because no block can commit. It remains dormant until the validator set can commit without one validator; launch availability depends on monitoring and operator recovery.
+
+## Dark launch
+
+Vote extensions and PoT settlement are not live. IBC/ICA, transfers, the
+substrate bridge, knowledge admission/rewards, claiming, alignment corrections,
+counterexamples, and liquidity creation are latched off in genesis and enforced
+by the mandatory artifact audit.
+`,
+		manifest.Mode,
+		manifest.GenesisTime,
+		manifest.GenesisSHA256,
+		manifest.Release.SourceCommit,
+		manifest.Release.Tag,
+		manifest.Release.TagSignerFingerprint,
+		manifest.Release.BinarySHA256,
+		manifest.Release.BinaryVersion,
+		manifest.Release.BinaryGOOS,
+		manifest.Release.BinaryGOARCH,
+		manifest.TrustModel.Disclosure,
+		totalSupply,
+		genesis.ValidatorAddress,
+		validatorBalance,
+		validatorSelfBond,
+		genesis.OpsAddress,
+		opsBalance,
+		genesis.ValidatorOperatorAddress,
+		genesis.ValidatorNodeID,
+		genesis.EmbeddedGentxSHA256,
+		slashingWindow,
+		slashingMinSigned,
+		slashingDowntimeJail,
+		slashingDowntime,
+		slashingDoubleSign,
+		evidenceMaxAgeBlocks,
+		evidenceMaxAgeDuration,
+		evidenceMaxBytes,
+	))
 }
 
 func rejectDuplicateJSONKeys(data []byte) error {
@@ -592,6 +695,7 @@ func auditGenesis(data []byte) result {
 	a.scanJSONSecrets(root, "$")
 	a.auditMetadata()
 	a.auditBaseProtocolProfile()
+	a.auditSlashingPolicy()
 	a.auditAllocations()
 	a.auditGentx()
 	a.auditProtocolDark()
@@ -623,9 +727,9 @@ func (a *auditor) auditMetadata() {
 	}
 	a.requireInteger("consensus.params.block.max_bytes", "4194304")
 	a.requireInteger("consensus.params.block.max_gas", "33333333")
-	a.requireInteger("consensus.params.evidence.max_age_num_blocks", "100000")
-	a.requireInteger("consensus.params.evidence.max_age_duration", "172800000000000")
-	a.requireInteger("consensus.params.evidence.max_bytes", "1048576")
+	a.requireInteger("consensus.params.evidence.max_age_num_blocks", evidenceMaxAgeBlocks)
+	a.requireInteger("consensus.params.evidence.max_age_duration", evidenceMaxAgeDuration)
+	a.requireInteger("consensus.params.evidence.max_bytes", evidenceMaxBytes)
 	a.requireStringArray("consensus.params.validator.pub_key_types", []string{"ed25519"})
 	a.requireInteger("consensus.params.version.app", "0")
 	a.requireInteger("consensus.params.abci.vote_extensions_enable_height", "0")
@@ -670,6 +774,44 @@ func (a *auditor) auditBaseProtocolProfile() {
 	a.requireBool("app_state.gov.params.burn_vote_quorum", false)
 	a.requireBool("app_state.gov.params.burn_proposal_deposit_prevote", false)
 	a.requireBool("app_state.gov.params.burn_vote_veto", true)
+}
+
+func (a *auditor) auditSlashingPolicy() {
+	const statePath = "app_state.slashing"
+	raw, ok := a.get(statePath)
+	if !ok {
+		a.add(statePath, "missing required pre-genesis slashing state")
+		return
+	}
+	state := a.requireExactObjectKeys(statePath, raw, "params", "signing_infos", "missed_blocks")
+	if state == nil {
+		return
+	}
+
+	const paramsPath = statePath + ".params"
+	a.requireExactObjectKeys(paramsPath, state["params"],
+		"signed_blocks_window",
+		"min_signed_per_window",
+		"downtime_jail_duration",
+		"slash_fraction_double_sign",
+		"slash_fraction_downtime",
+	)
+	for _, requirement := range []struct {
+		path     string
+		expected string
+	}{
+		{path: paramsPath + ".signed_blocks_window", expected: slashingWindow},
+		{path: paramsPath + ".min_signed_per_window", expected: slashingMinSigned},
+		{path: paramsPath + ".downtime_jail_duration", expected: slashingDowntimeJail},
+		{path: paramsPath + ".slash_fraction_double_sign", expected: slashingDoubleSign},
+		{path: paramsPath + ".slash_fraction_downtime", expected: slashingDowntime},
+	} {
+		// All five fields are protobuf-JSON strings. Requiring the exact encoding
+		// prevents an equivalent-looking but non-canonical genesis from passing.
+		a.requireString(requirement.path, requirement.expected)
+	}
+	a.requireEmptyArray(statePath + ".signing_infos")
+	a.requireEmptyArray(statePath + ".missed_blocks")
 }
 
 func (a *auditor) auditAllocations() {

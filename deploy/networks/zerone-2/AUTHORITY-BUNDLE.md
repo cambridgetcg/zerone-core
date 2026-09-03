@@ -14,18 +14,22 @@ Every production gate snapshots the files it needs, rejects symlinks, verifies
 the exact signed graph, and fails if a required byte or release-bound operator
 tool has changed.
 
-`deploy/verify-authority-chain.py` exposes five monotonically stronger stages:
+`deploy/verify-authority-chain.py` exposes six monotonically stronger stages:
 
-1. `dark-registration-preinit` verifies RELEASE, DARK-START and block-1
+1. `dark-preinit` verifies RELEASE, DARK-START, both exact private bootstrap
+   transactions, the complete monitoring package, release-bound operator
+   tools, and every component's offline Sigstore signature against the frozen
+   trusted root before private block 1 may start.
+2. `dark-registration-preinit` adds block-1
    initiation evidence before either exact private bootstrap transaction.
-2. `cutover-preinit` adds ordered registration evidence, private soak, halt
+3. `cutover-preinit` adds ordered registration evidence, private soak, halt
    rehearsal, public notice, halt configs, and the CUTOVER transaction/decision.
-3. `cutover-postinit` additionally requires the signed evidence that the exact
+4. `cutover-postinit` additionally requires the signed evidence that the exact
    CUTOVER TxRaw committed successfully and before its deadline.
-4. `open-preinit` adds the complete frozen predecessor evidence, deterministic
+5. `open-preinit` adds the complete frozen predecessor evidence, deterministic
    archive adoption, FINAL checkpoint, successor revalidation, public configs,
    DNS manifest, and the exact OPEN history-link transaction.
-5. `open-postinit` additionally requires the signed evidence that the exact
+6. `open-postinit` additionally requires the signed evidence that the exact
    history-link TxRaw committed successfully and before its deadline.
 
 Passing a later stage implies successful revalidation of every earlier stage.
@@ -37,10 +41,15 @@ The invariant root of every stage contains:
 
 - `RELEASE-PACKET.json` and `.sig`;
 - `DARK-START-DECISION.json` and `.sig`;
-- `DARK-START-INITIATION-EVIDENCE.json` and `.sig`;
 - `ZERONE-2-ONBOARD-SIGNED-TX.json`;
 - `ZERONE-2-CUSTOM-VALIDATOR-SIGNED-TX.json`;
 - `OPERATOR-TOOL-MANIFEST.json`;
+- `custom-staking-census-linux-amd64`, whose filename and SHA-256 are fixed by
+  RELEASE v2;
+- `MONITORING-ALERTS.json`, `MONITORING-RULES.json`, and
+  `MONITORING-ALERT-TESTS.json`;
+- the 40 non-empty raw alert-test evidence files named by the fixed monitoring
+  evidence convention below;
 - `zerone-component-signature-verifier` and
   `SIGSTORE-TRUSTED-ROOT.json`;
 - `zeroned-zerone-1-release` and `zeroned-zerone-2-release`;
@@ -51,14 +60,57 @@ The invariant root of every stage contains:
   vulnerability scan, and signed vulnerability decision files named by the
   release packet.
 
+Every stage after `dark-preinit` additionally requires
+`DARK-START-INITIATION-EVIDENCE.json` and `.sig`. Thus the first deployment
+gate can authenticate the full release and supply chain before block 1 exists,
+while every later stage preserves and revalidates the signed block-1 evidence.
+
 The release-bound v2 operator-tool manifest covers every verifier, transaction
-gate, deployment gate, renderer, canonicalizer, ceremony/build recipe, and
-artifact auditor used by the launch. It also hashes the exact executable
+gate, deployment gate, renderer, the archive-gateway render template, the
+custom-staking census evidence runner, canonicalizer, ceremony/build recipe,
+and artifact auditor used by the launch. It also hashes the exact executable
 component-signature verifier and frozen Sigstore trusted root in the authority
 bundle and fixes the accepted issuer, workflow SAN, bundle media type, SCT,
 Fulcio source-commit claim, transparency-log, and observer-time thresholds. A
 valid release signature is insufficient if any locally executed tool,
 workflow, template, policy, or trust-root byte differs.
+
+`RELEASE-PACKET.json.monitoring_alerts_sha256` hashes the exact canonical
+`MONITORING-ALERTS.json`. That manifest is source/chain/time bound and in turn
+hashes the actual normalized `MONITORING-RULES.json` and the complete
+`MONITORING-ALERT-TESTS.json` bytes. The rules and tests must cover every one of
+stalled height, missed signing, double-sign risk, equal-height AppHash
+divergence, private-peer loss, disk capacity, restart count, stale verified
+backup, gateway wrong-chain, and gateway stale-origin. Every rule must be
+enabled within the verifier's safety bounds.
+
+The alert-test document uses
+`zerone-production-monitoring-alert-tests-v2`. Each test has one exact
+`evidence` object with exactly `stimulus`, `firing`, `notification`, and
+`resolution` members. Each member is an exact `{filename, sha256}` reference.
+The verifier derives, requires, and hashes the filename itself; a document
+cannot choose another path. The fixed form is:
+
+```text
+MONITORING-ALERT-<CHECK>-<KIND>-EVIDENCE.json.raw
+```
+
+`<CHECK>` is exactly one of `STALLED-HEIGHT`, `MISSED-SIGNING`,
+`DOUBLE-SIGN-RISK`, `APP-HASH-DIVERGENCE`, `PEER-LOSS`, `DISK-CAPACITY`,
+`RESTART-COUNT`, `STALE-BACKUP`, `GATEWAY-WRONG-CHAIN`, or
+`GATEWAY-STALE-ORIGIN`. `<KIND>` is exactly `STIMULUS`, `FIRING`,
+`NOTIFICATION`, or `RESOLUTION`. Thus every stage requires exactly 40 raw
+proof files. Each must be non-empty, no two references may reuse a digest, and
+each file is capped at 16 MiB before authentication and counted toward the
+bundle's 1 GiB aggregate cap.
+
+Every alert test must record the exact `INACTIVE` → `FIRING` → `RESOLVED`
+sequence with result `PASS` and bind the actual bytes for stimulus, firing,
+notification delivery, and resolution. A list of check names, self-asserted
+PASS values, unbound digests, missing bytes, or a substituted proof file is
+rejected. The raw evidence is intentionally byte-preserved rather than parsed
+or normalized by the authority verifier; the signing operator remains
+responsible for reviewing what those bytes prove.
 
 Each component has six fixed byte-bearing artifacts: SBOM, provenance,
 signature evidence, offline signature bundle, vulnerability scan, and
@@ -115,7 +167,7 @@ signed release checkout and compare the outputs before freezing it:
 
 ```bash
 cd tools/sigstore-substrate-compiler
-export GOTOOLCHAIN=go1.25.12 CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+export GOTOOLCHAIN=go1.25.14 CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 go mod verify
 go test ./...
 go build -trimpath -buildvcs=false -ldflags='-buildid=' \
@@ -157,6 +209,10 @@ OPEN verification requires the actual byte-bearing frozen evidence, not only
 hash fields copied into FINAL:
 
 - `ZERONE-1-INVENTORY-V3.json`;
+- exact self-sealed `CUSTOM-STAKING-CENSUS.json` from a disposable stopped
+  database copy at application height `A`;
+- canonical `CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json` and its detached
+  transition-key `.sig`;
 - `SIGNER-EVIDENCE-MANIFEST.json` and
   `OBSERVER-EVIDENCE-MANIFEST.json`;
 - `SIGNER-RPC-{STATUS,GENESIS,TRUSTED-BLOCK,TRUSTED-COMMIT,TRUSTED-VALIDATORS,BLOCK-A,COMMIT-A,VALIDATORS-A,BLOCK-RESULTS-A,BLOCK-H,COMMIT-H,VALIDATORS-H,ABCI-INFO,BLOCK-RESULTS-H-MISSING}.json.raw`;
@@ -175,7 +231,33 @@ requires one-third trusted-set continuity from the RELEASE anchor to `A`.
 The evidence keeps checkpoint-`F` AppHash `B`
 distinct from excluded post-anchor-`A` AppHash `E`: block `A` commits `B`,
 staged block `H` and ABCI-at-`A` expose `E`, and `E` is never used for the
-successor inventory.
+successor inventory. The custom-staking census must bind `A/E` (with lowercase
+`E`) and the RELEASE source commit, pass its internal seal and claimant checks,
+independently recompute `E` from its complete multistore roots, satisfy the
+passing row reconciliations, and be hashed by FINAL. RELEASE v2 fixes the exact
+census filename/hash and the execution-evidence filenames/transition signer.
+The release-bound runner first executes the complete `cutover-postinit`
+authority gate, verifies the copied application database against its private
+byte-bearing file manifest before and after the run, snapshots the already-
+authenticated census binary into a private execution path, invokes only the
+fixed stdout-mode argv, captures the report in an already-open unlinked file,
+and atomically publishes those exact validated bytes before emitting the
+canonical receipt. FINAL binds the report, receipt, and receipt signature
+bytes.
+
+The transition custodian must run it on an isolated, stopped copy and exclude
+all concurrent same-UID writers to both the copied database and its private
+file manifest for the entire scan. The before/after equality checks reject
+persistent drift; they cannot mechanically detect a transient write that is
+restored byte-for-byte before the second scan.
+
+This closes the previously unauthenticated report-substitution path only at the
+transition key's factual-attestation trust boundary. The receipt does not
+cryptographically prove that execution occurred, and its signed full-scan and
+per-leaf-proof claims are not a retained root witness. It also does not provide
+SBOM, Sigstore, or reproducible-build provenance for the census binary.
+Production therefore remains NO-GO until those binary-provenance requirements
+are independently satisfied. The structural fixture satisfies none of them.
 
 ## Archive, FINAL, and OPEN additions
 
@@ -198,16 +280,23 @@ The complete OPEN bundle also contains:
 Only after the OPEN history-link transaction commits may
 `OPEN-BETA-INITIATION-EVIDENCE.json` and `.sig` be appended.
 
+The archive-gateway TOML is necessarily post-FINAL. RELEASE binds its exact
+renderer/template and four static mapping fields, while OPEN binds the concrete
+five-field mapping after deterministic substitution of FINAL A, lowercase E,
+and lowercase B. The verifier rerenders and byte-compares it; a hand-authored
+config or a template hash masquerading as deployable config bytes is invalid.
+
 ## Read-only verification
 
-Production `open-preinit`/`open-postinit` verification, and every deployment or
-transaction gate that invokes either stage, must run on the dedicated
-`linux/amd64` release workstation. The bundle deliberately executes the exact
+Every production verification stage, and every deployment or transaction gate
+that invokes one, must run on the dedicated `linux/amd64` release workstation.
+All stages execute the exact release-bound Linux/AMD64 component-signature
+verifier. OPEN verification additionally executes the exact
 `zeroned-zerone-1-release` binary whose hash and provenance are signed in
-RELEASE; the pinned halt build is a Linux/AMD64 executable and is not portable
-to this macOS preparation workspace. macOS shell doubles are test fixtures
-only. Never replace the release binary with a native rebuild, emulator wrapper,
-or script to make a production check pass.
+RELEASE. These pinned binaries are not portable to this macOS preparation
+workspace; macOS shell doubles are test fixtures only. Never replace either
+binary with a native rebuild, emulator wrapper, or script to make a production
+check pass.
 
 Run the verifier from the same signed release checkout whose operator-tool
 bytes are named by `OPERATOR-TOOL-MANIFEST.json`. For example, the final
@@ -255,9 +344,9 @@ earlier stage.
 
 The out-of-band main fingerprint signs RELEASE, all three operator decisions,
 and the four initiation/registration evidence files. The distinct transition
-fingerprint signs only the deterministic archive-adoption attestation and
-FINAL. Neither bundle possession nor the transition key grants deployment or
-transaction authority.
+fingerprint signs only the deterministic archive-adoption attestation, census
+execution evidence, and FINAL. Neither bundle possession nor the transition
+key grants deployment or transaction authority.
 
 Connected actions use the specialized gates in the order documented in
 [`CUTOVER.md`](CUTOVER.md): private successor/bootstrap first, CUTOVER observer

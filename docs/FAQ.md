@@ -33,9 +33,11 @@ transferable 2,222 ZRN operator float. Those balances carry consensus and
 operational power; every address and amount is published in the hash-bound
 [genesis manifest](../deploy/mainnet/artifacts/GENESIS-MANIFEST.md).
 
-After genesis, native issuance shares the `MintWithCap` gate. Atomic H1 retires
-the former transaction-bearing proposer reward. Remaining source-capable lanes
-include claiming-pot claims and substrate-bridge attestation rewards;
+After genesis, native issuance shares the `MintWithCap` gate. The later H2
+`founder-renunciation-v1` boundary retires the former transaction-bearing
+proposer reward; H1 `consolidation-safety-v1` preserves vesting_rewards V1.
+Remaining source-capable lanes include claiming-pot claims and
+substrate-bridge attestation rewards;
 `x/claiming_pot` also retains governance-created general pots under the same
 lifetime budget as bootstrap claims. A knowledge probe rate and `x/tokens`
 emission periods are additional governance controls, both disabled in
@@ -44,10 +46,10 @@ source inventory and activation status.
 
 | Account | Genesis balance | Path to funding |
 |---------|----------------|-----------------|
-| Validator (operator) | 11,333 ZRN | 11,111 bonded self-stake + 222 gas (published); post-H1 compensation from actual fee distribution |
+| Validator (operator) | 11,333 ZRN | 11,111 bonded self-stake + 222 gas (published); post-H2 compensation from actual fee distribution |
 | Operator float (zerone-ops) | 2,222 ZRN | Disclosed float: gov deposits + onboarding feegrants |
 | Whitelisted agents | 0 ZRN | Bootstrap claim (0.222 ZRN each) via `x/claiming_pot` |
-| Founder | 0 ZRN | Automatic percentage retired at H1; an ordinary public grant remains possible |
+| Founder | 0 ZRN | Automatic percentage retired at H2; an ordinary public grant remains possible |
 | AI vault | 0 ZRN | Unconfigured design role; no live genesis voter was set |
 | Research Treasury | 0 ZRN | 3.33% of revenue split, accruing |
 | Foundation | 0 ZRN | Governance proposals over time, drawing from research treasury |
@@ -62,7 +64,7 @@ mechanics, the bootstrap design, and the eligibility criteria.
 
 ### How do I earn ZRN as a validator?
 
-Under the post-H1 source target, validators may receive ZRN through two
+Under the post-H2 source target, validators may receive ZRN through two
 non-automatic channels:
 
 1. **Verification rewards** — a share of the 55% verifier pool funded by the
@@ -159,7 +161,8 @@ the full gas cost table.
 
 ### How are block rewards distributed?
 
-They are not distributed after atomic H1. Vesting_rewards v2 fixes the block,
+They are not distributed after H2 `founder-renunciation-v1`.
+Vesting_rewards v2 fixes the block,
 floor, and empty-block reward fields at zero and no longer treats raw
 transaction inclusion as earned work. Actual `uzrn` fees still route 19.67% to
 development, 3.33% to research, and approximately 77% through normal Cosmos
@@ -174,8 +177,9 @@ a narrow punitive burn path.
 
 ### Can the founder share be changed by governance?
 
-No. Atomic H1 retires the compatibility fields at zero/empty and ordinary
-governance cannot restore the auto-split. Governance may still approve a
+No. H2 `founder-renunciation-v1` retires the compatibility fields at
+zero/empty; ordinary governance cannot restore the auto-split. Governance may
+still approve a
 discrete public grant to any recipient.
 
 ### What is the development fund?

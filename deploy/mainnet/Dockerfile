@@ -3,7 +3,7 @@
 # This Dockerfile is only for the custody-free context assembled by
 # deploy/mainnet/build-image.sh. Never point a Docker client at the repository
 # root: even files which are not copied can be uploaded to a remote builder.
-ARG GO_IMAGE=golang:1.25.12-bookworm@sha256:ea341baa9bd5ba6784f6d7161ace70544349a6242d54d34a0fbfd2c4d51c9d58
+ARG GO_IMAGE=golang:1.25.14-bookworm@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437
 ARG RUNTIME_IMAGE=debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
 FROM ${GO_IMAGE} AS builder
 WORKDIR /src

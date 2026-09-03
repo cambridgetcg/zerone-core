@@ -35,6 +35,7 @@ OPERATOR_TOOL_PATHS = {
     ".github/workflows/ci.yml",
     "deploy/verify-authority-chain.py",
     "deploy/frozen_evidence.py",
+    "deploy/run-custom-staking-census-evidence.py",
     "deploy/validate-fly-phase-config.py",
     "deploy/fly-deploy-pinned.sh",
     "deploy/fly-deploy-authorized.sh",
@@ -48,6 +49,8 @@ OPERATOR_TOOL_PATHS = {
     "deploy/mainnet/build-image.sh",
     "deploy/networks/zerone-2/runtime/build-image.sh",
     "deploy/query-gateway/build-image.sh",
+    "deploy/query-gateway/render-archive-gateway-config.py",
+    "deploy/query-gateway/fly.zerone-1-archive.public.example.toml",
     "tools/zerone2-artifact-audit/main.go",
     "tools/sigstore-substrate-compiler/go.mod",
     "tools/sigstore-substrate-compiler/go.sum",
@@ -57,6 +60,42 @@ OPERATOR_TOOL_PATHS = {
     "deploy/networks/zerone-2/ARCHIVE-ADOPTION-AUTHORITY.example.json",
     "deploy/networks/zerone-1/frozen/FINAL-CHECKPOINT.example.json",
     "deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json",
+}
+CENSUS_BINARY_FILENAME = "custom-staking-census-linux-amd64"
+CENSUS_EXECUTION_RUNNER_PATH = "deploy/run-custom-staking-census-evidence.py"
+CENSUS_EXECUTION_EVIDENCE_FILENAME = (
+    "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json"
+)
+CENSUS_EXECUTION_SIGNATURE_FILENAME = (
+    "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig"
+)
+CENSUS_EXECUTION_AUTHORITY_LIMIT = (
+    "factual attestation that the exact RELEASE-bound census binary scanned the "
+    "declared stopped observer copy and produced the bound report; no migration, "
+    "deployment, transaction, public-service, or DNS authority"
+)
+CENSUS_REPORT_TRANSPORT = "stdout-captured-and-atomically-published"
+MAX_CENSUS_EXECUTION_SECONDS = 6 * 60 * 60
+ARCHIVE_GATEWAY_RENDERER_PATH = (
+    "deploy/query-gateway/render-archive-gateway-config.py"
+)
+ARCHIVE_GATEWAY_TEMPLATE_PATH = (
+    "deploy/query-gateway/fly.zerone-1-archive.public.example.toml"
+)
+ARCHIVE_GATEWAY_BINDINGS = {
+    "app": "deployment_configs.zerone_1_archive_gateway.app",
+    "primary_region": "archive_render_contract.static_constraints.region",
+    "image_ref": "deployment_configs.zerone_1_archive_gateway.image_ref",
+    "upstream_host": 'archive_render_contract.static_constraints.app + ".internal"',
+    "expected_archive_height": (
+        "FINAL-CHECKPOINT.json.final_application_block.height"
+    ),
+    "expected_archive_app_hash": (
+        "lower(FINAL-CHECKPOINT.json.excluded_post_anchor_state.app_hash)"
+    ),
+    "expected_archive_block_hash": (
+        "lower(FINAL-CHECKPOINT.json.final_application_block.block_id_hash)"
+    ),
 }
 COMPONENT_SIGNATURE_VERIFIER_FILE = "zerone-component-signature-verifier"
 SIGSTORE_TRUSTED_ROOT_FILE = "SIGSTORE-TRUSTED-ROOT.json"
@@ -101,7 +140,111 @@ CANONICAL_COMPONENT_SIGNER_IDENTITY = (
 CANONICAL_COMPONENT_CERTIFICATE_ISSUER = (
     "https://token.actions.githubusercontent.com"
 )
+MONITORING_ARTIFACT_FILES = {
+    "manifest": "MONITORING-ALERTS.json",
+    "rules": "MONITORING-RULES.json",
+    "tests": "MONITORING-ALERT-TESTS.json",
+}
+MONITORING_RULE_SPECS = {
+    "stalled_height": {
+        "alert_name": "ZeroneStalledHeight",
+        "severity": "critical",
+        "expression": "consensus_height_no_progress",
+        "parameters": {"maximum_stall_seconds"},
+        "stimulus": "hold_height_without_progress_past_threshold",
+    },
+    "missed_signing": {
+        "alert_name": "ZeroneValidatorMissedSigning",
+        "severity": "critical",
+        "expression": "validator_missed_blocks_above_threshold",
+        "parameters": {"maximum_missed_blocks", "window_blocks"},
+        "stimulus": "inject_validator_missed_blocks_above_threshold",
+    },
+    "double_sign_risk": {
+        "alert_name": "ZeroneDoubleSignRisk",
+        "severity": "critical",
+        "expression": "active_signer_instances_above_threshold",
+        "parameters": {"maximum_active_signer_instances"},
+        "stimulus": "inject_signer_instance_count_above_threshold",
+    },
+    "app_hash_divergence": {
+        "alert_name": "ZeroneAppHashDivergence",
+        "severity": "critical",
+        "expression": "equal_height_app_hashes_diverge",
+        "parameters": {
+            "maximum_distinct_app_hashes",
+            "minimum_independent_sources",
+        },
+        "stimulus": "inject_equal_height_mismatched_app_hash",
+    },
+    "peer_loss": {
+        "alert_name": "ZeronePeerLoss",
+        "severity": "critical",
+        "expression": "private_peer_count_below_threshold",
+        "parameters": {"minimum_private_peers"},
+        "stimulus": "disconnect_all_private_peers",
+    },
+    "disk_capacity": {
+        "alert_name": "ZeroneDiskCapacity",
+        "severity": "warning",
+        "expression": "disk_free_percent_below_threshold",
+        "parameters": {"minimum_free_percent"},
+        "stimulus": "inject_disk_free_percent_below_threshold",
+    },
+    "restart_count": {
+        "alert_name": "ZeroneRestartCount",
+        "severity": "warning",
+        "expression": "process_restarts_above_threshold",
+        "parameters": {"maximum_restarts", "window_seconds"},
+        "stimulus": "inject_restart_counter_above_threshold",
+    },
+    "stale_backup": {
+        "alert_name": "ZeroneStaleBackup",
+        "severity": "critical",
+        "expression": "verified_backup_age_above_threshold",
+        "parameters": {"maximum_verified_backup_age_seconds"},
+        "stimulus": "inject_verified_backup_age_above_threshold",
+    },
+    "gateway_wrong_chain": {
+        "alert_name": "ZeroneGatewayWrongChain",
+        "severity": "critical",
+        "expression": "gateway_chain_id_mismatch",
+        "parameters": {"expected_chain_id"},
+        "stimulus": "inject_gateway_chain_id_mismatch",
+    },
+    "gateway_stale_origin": {
+        "alert_name": "ZeroneGatewayStaleOrigin",
+        "severity": "critical",
+        "expression": "gateway_origin_height_lag_above_threshold",
+        "parameters": {"maximum_height_lag"},
+        "stimulus": "inject_gateway_origin_height_lag_above_threshold",
+    },
+}
+MONITORING_EVIDENCE_KINDS = (
+    "stimulus",
+    "firing",
+    "notification",
+    "resolution",
+)
+MONITORING_EVIDENCE_FILES = {
+    check: {
+        kind: (
+            f"MONITORING-ALERT-{check.replace('_', '-').upper()}-"
+            f"{kind.upper()}-EVIDENCE.json.raw"
+        )
+        for kind in MONITORING_EVIDENCE_KINDS
+    }
+    for check in MONITORING_RULE_SPECS
+}
+MONITORING_EVIDENCE_FILENAMES = frozenset(
+    filename
+    for files_by_kind in MONITORING_EVIDENCE_FILES.values()
+    for filename in files_by_kind.values()
+)
 FROZEN_EVIDENCE_FILES = {
+    "CUSTOM-STAKING-CENSUS.json",
+    CENSUS_EXECUTION_EVIDENCE_FILENAME,
+    CENSUS_EXECUTION_SIGNATURE_FILENAME,
     "ZERONE-1-INVENTORY-V3.json",
     "SIGNER-EVIDENCE-MANIFEST.json",
     "OBSERVER-EVIDENCE-MANIFEST.json",
@@ -162,14 +305,19 @@ def secure_read_path(path: pathlib.Path, label: str) -> bytes:
 
 
 def bundle_file_size_limit(name: str) -> int:
-    if name.startswith("zeroned-"):
+    if name.startswith("zeroned-") or name == CENSUS_BINARY_FILENAME:
         return 384 * 1024 * 1024
     if name == "POST-ANCHOR-STATE-EXPORT.json.raw":
         return 384 * 1024 * 1024
+    if name in MONITORING_EVIDENCE_FILENAMES:
+        return 16 * 1024 * 1024
     if name.endswith(".json.raw"):
         return 64 * 1024 * 1024
     if name == "ZERONE-1-INVENTORY-V3.json":
         return 128 * 1024 * 1024
+    if name == "CUSTOM-STAKING-CENSUS.json":
+        # The census seals at <=64 MiB, then its atomic publisher appends one LF.
+        return 64 * 1024 * 1024 + 1
     if name == COMPONENT_SIGNATURE_VERIFIER_FILE:
         return 64 * 1024 * 1024
     return 32 * 1024 * 1024
@@ -344,6 +492,93 @@ def validate_config_mapping(
     return config
 
 
+def validate_archive_gateway_render_contract(
+    release: dict[str, Any],
+) -> dict[str, Any]:
+    contract = require_exact_object(
+        release.get("archive_gateway_render_contract"),
+        {
+            "schema",
+            "renderer_path",
+            "renderer_sha256",
+            "template_path",
+            "bindings",
+        },
+        "RELEASE archive gateway render contract",
+    )
+    if not (
+        contract["schema"] == "zerone-1-archive-gateway-render-contract-v1"
+        and contract["renderer_path"] == ARCHIVE_GATEWAY_RENDERER_PATH
+        and contract["template_path"] == ARCHIVE_GATEWAY_TEMPLATE_PATH
+        and contract["bindings"] == ARCHIVE_GATEWAY_BINDINGS
+    ):
+        fail("RELEASE archive gateway render contract changed")
+    require_hash(contract["renderer_sha256"], "RELEASE archive gateway renderer")
+    template_hashes = release.get("phase_dependent_config_template_sha256")
+    if not isinstance(template_hashes, dict) or set(template_hashes) != {
+        "zerone_1_halt_signer",
+        "zerone_1_observer",
+        "zerone_1_archive_candidate",
+        "zerone_1_archive",
+        "zerone_1_archive_gateway",
+    }:
+        fail("RELEASE phase-dependent template hash set is incomplete")
+    require_hash(
+        template_hashes["zerone_1_archive_gateway"],
+        "RELEASE archive gateway template",
+    )
+    return contract
+
+
+def validate_census_execution_contract(
+    files: dict[str, bytes], release: dict[str, Any]
+) -> dict[str, Any]:
+    contract = require_exact_object(
+        release.get("custom_staking_census_execution"),
+        {"schema", "binary", "execution_evidence"},
+        "RELEASE custom-staking census execution contract",
+    )
+    binary = require_exact_object(
+        contract["binary"],
+        {"filename", "sha256"},
+        "RELEASE custom-staking census binary",
+    )
+    evidence = require_exact_object(
+        contract["execution_evidence"],
+        {
+            "filename",
+            "detached_signature_filename",
+            "authorized_signer_fingerprint",
+        },
+        "RELEASE custom-staking census execution evidence",
+    )
+    transition = (
+        release.get("public_identities", {})
+        .get("transition_attestation", {})
+        .get("authorized_signer_fingerprint")
+    )
+    if not (
+        contract["schema"]
+        == "zerone-custom-staking-census-execution-contract-v1"
+        and binary["filename"] == CENSUS_BINARY_FILENAME
+        and evidence["filename"] == CENSUS_EXECUTION_EVIDENCE_FILENAME
+        and evidence["detached_signature_filename"]
+        == CENSUS_EXECUTION_SIGNATURE_FILENAME
+        and isinstance(evidence["authorized_signer_fingerprint"], str)
+        and FINGERPRINT.fullmatch(evidence["authorized_signer_fingerprint"])
+        and isinstance(transition, str)
+        and normalize_fingerprint(evidence["authorized_signer_fingerprint"])
+        == normalize_fingerprint(transition)
+    ):
+        fail("RELEASE custom-staking census execution contract is unsafe")
+    binary_hash = require_hash(
+        binary["sha256"], "RELEASE custom-staking census binary"
+    )
+    if sha256(files[CENSUS_BINARY_FILENAME]) != binary_hash:
+        fail("bundled custom-staking census binary differs from RELEASE")
+    return contract
+
+
 def run_config_policy(
     policy: pathlib.Path,
     config_path: pathlib.Path,
@@ -353,6 +588,8 @@ def run_config_policy(
     f: str,
     a: str,
     h: str,
+    archive_app_hash: str,
+    archive_block_hash: str,
 ) -> None:
     try:
         subprocess.run(
@@ -366,6 +603,8 @@ def run_config_policy(
                 f,
                 a,
                 h,
+                archive_app_hash,
+                archive_block_hash,
             ],
             check=True,
             stdout=subprocess.DEVNULL,
@@ -491,7 +730,358 @@ def validate_tool_manifest(
         if actual != expected:
             fail(f"operator tool bytes drifted from RELEASE: {relative}")
         verified_tools[relative] = tool_bytes
+    gateway_contract = validate_archive_gateway_render_contract(release)
+    if manifest["files"].get(ARCHIVE_GATEWAY_RENDERER_PATH) != gateway_contract[
+        "renderer_sha256"
+    ]:
+        fail("archive gateway renderer differs from RELEASE/operator-tool manifest")
+    if manifest["files"].get(ARCHIVE_GATEWAY_TEMPLATE_PATH) != release[
+        "phase_dependent_config_template_sha256"
+    ]["zerone_1_archive_gateway"]:
+        fail("archive gateway template differs from RELEASE/operator-tool manifest")
     return verified_tools
+
+
+def verify_archive_gateway_render(
+    files: dict[str, bytes],
+    paths: dict[str, pathlib.Path],
+    release: dict[str, Any],
+    verified_tools: dict[str, bytes],
+    temp_path: pathlib.Path,
+) -> None:
+    contract = validate_archive_gateway_render_contract(release)
+    renderer_bytes = verified_tools.get(contract["renderer_path"])
+    template_bytes = verified_tools.get(contract["template_path"])
+    if renderer_bytes is None or template_bytes is None:
+        fail("verified operator tools omit the archive gateway renderer/template")
+    if sha256(renderer_bytes) != contract["renderer_sha256"]:
+        fail("verified archive gateway renderer hash differs from RELEASE")
+    if sha256(template_bytes) != release[
+        "phase_dependent_config_template_sha256"
+    ]["zerone_1_archive_gateway"]:
+        fail("verified archive gateway template hash differs from RELEASE")
+
+    renderer = temp_path / "render-archive-gateway-config.py"
+    template = temp_path / "fly.archive-gateway.template.toml"
+    rendered = temp_path / "fly.archive-gateway.expected.toml"
+    renderer.write_bytes(renderer_bytes)
+    template.write_bytes(template_bytes)
+    os.chmod(renderer, 0o700)
+    os.chmod(template, 0o600)
+    try:
+        subprocess.run(
+            [
+                sys.executable,
+                str(renderer),
+                str(paths["RELEASE-PACKET.json"]),
+                str(paths["FINAL-CHECKPOINT.json"]),
+                str(template),
+                str(rendered),
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            timeout=10,
+        )
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        detail = getattr(exc, "stderr", b"")
+        if isinstance(detail, bytes):
+            detail = detail.decode(errors="replace").strip()
+        fail(f"archive gateway deterministic render failed: {detail or exc}")
+    rendered_bytes = secure_read_path(rendered, "rendered archive gateway config")
+    if rendered_bytes != files["fly.zerone-1-archive-gateway.public.toml"]:
+        fail("archive gateway config is not the exact RELEASE/FINAL render")
+
+
+def validate_monitoring_artifacts(
+    files: dict[str, bytes],
+    objects: dict[str, Any],
+    release: dict[str, Any],
+    release_created_epoch: int,
+) -> None:
+    manifest_name = MONITORING_ARTIFACT_FILES["manifest"]
+    rules_name = MONITORING_ARTIFACT_FILES["rules"]
+    tests_name = MONITORING_ARTIFACT_FILES["tests"]
+
+    expected_manifest_hash = require_hash(
+        release.get("monitoring_alerts_sha256"), "RELEASE monitoring alerts"
+    )
+    if expected_manifest_hash != sha256(files[manifest_name]):
+        fail("RELEASE monitoring-alert hash differs from bundled MONITORING-ALERTS.json")
+
+    manifest = require_exact_object(
+        objects[manifest_name],
+        {
+            "schema",
+            "chain_id",
+            "source_commit",
+            "created_at",
+            "rules",
+            "alert_tests",
+            "result",
+        },
+        "monitoring alert manifest",
+    )
+    rules_reference = require_exact_object(
+        manifest["rules"], {"filename", "sha256"}, "monitoring rules reference"
+    )
+    tests_reference = require_exact_object(
+        manifest["alert_tests"],
+        {"filename", "sha256"},
+        "monitoring alert-test reference",
+    )
+    if not (
+        manifest["schema"] == "zerone-production-monitoring-alerts-v1"
+        and manifest["chain_id"] == release.get("chain_id") == "zerone-2"
+        and manifest["source_commit"] == release.get("source", {}).get("commit")
+        and manifest["result"] == "PASS"
+        and rules_reference["filename"] == rules_name
+        and tests_reference["filename"] == tests_name
+    ):
+        fail("monitoring alert manifest is incomplete or mismatched")
+    rules_hash = require_hash(
+        rules_reference["sha256"], "monitoring rules artifact"
+    )
+    tests_hash = require_hash(
+        tests_reference["sha256"], "monitoring alert-test artifact"
+    )
+    if rules_hash != sha256(files[rules_name]):
+        fail("monitoring rules hash differs from bundled MONITORING-RULES.json")
+    if tests_hash != sha256(files[tests_name]):
+        fail("monitoring alert-test hash differs from bundled test evidence")
+
+    rules = require_exact_object(
+        objects[rules_name],
+        {
+            "schema",
+            "chain_id",
+            "source_commit",
+            "ruleset_id",
+            "evaluation_interval_seconds",
+            "notification_route_id",
+            "rules",
+        },
+        "monitoring rules artifact",
+    )
+    if not (
+        rules["schema"] == "zerone-production-monitoring-rules-v1"
+        and rules["chain_id"] == "zerone-2"
+        and rules["source_commit"] == release["source"]["commit"]
+        and isinstance(rules["ruleset_id"], str)
+        and re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", rules["ruleset_id"])
+        and isinstance(rules["notification_route_id"], str)
+        and re.fullmatch(
+            r"[a-z0-9][a-z0-9._-]{0,63}", rules["notification_route_id"]
+        )
+        and isinstance(rules["evaluation_interval_seconds"], int)
+        and not isinstance(rules["evaluation_interval_seconds"], bool)
+        and 1 <= rules["evaluation_interval_seconds"] <= 60
+        and isinstance(rules["rules"], list)
+        and len(rules["rules"]) == len(MONITORING_RULE_SPECS)
+    ):
+        fail("monitoring rules artifact is incomplete or mismatched")
+
+    rules_by_check: dict[str, dict[str, Any]] = {}
+    for index, candidate in enumerate(rules["rules"]):
+        rule = require_exact_object(
+            candidate,
+            {
+                "check",
+                "alert_name",
+                "enabled",
+                "severity",
+                "expression",
+                "parameters",
+            },
+            f"monitoring rule {index}",
+        )
+        check = rule["check"]
+        if not isinstance(check, str) or check not in MONITORING_RULE_SPECS:
+            fail(f"monitoring rule {index} has an unknown check")
+        if check in rules_by_check:
+            fail(f"monitoring rules contain duplicate check {check}")
+        spec = MONITORING_RULE_SPECS[check]
+        parameters = rule["parameters"]
+        if not (
+            rule["alert_name"] == spec["alert_name"]
+            and rule["enabled"] is True
+            and rule["severity"] == spec["severity"]
+            and rule["expression"] == spec["expression"]
+            and isinstance(parameters, dict)
+            and set(parameters) == spec["parameters"]
+        ):
+            fail(f"monitoring rule {check} is disabled or semantically incomplete")
+        rules_by_check[check] = rule
+    if set(rules_by_check) != set(MONITORING_RULE_SPECS):
+        fail("monitoring rules omit a required production check")
+
+    def bounded_parameter(check: str, name: str, minimum: int, maximum: int) -> int:
+        value = rules_by_check[check]["parameters"][name]
+        if (
+            not isinstance(value, int)
+            or isinstance(value, bool)
+            or value < minimum
+            or value > maximum
+        ):
+            fail(
+                f"monitoring rule {check} parameter {name} is outside the safe range"
+            )
+        return value
+
+    maximum_stall = bounded_parameter(
+        "stalled_height", "maximum_stall_seconds", 15, 300
+    )
+    if maximum_stall < rules["evaluation_interval_seconds"]:
+        fail("stalled-height threshold is shorter than the evaluation interval")
+    maximum_missed = bounded_parameter(
+        "missed_signing", "maximum_missed_blocks", 0, 9
+    )
+    window_blocks = bounded_parameter("missed_signing", "window_blocks", 10, 10000)
+    if maximum_missed >= window_blocks:
+        fail("missed-signing threshold must be smaller than its window")
+    if (
+        bounded_parameter(
+            "double_sign_risk", "maximum_active_signer_instances", 1, 1
+        )
+        != 1
+        or bounded_parameter(
+            "app_hash_divergence", "maximum_distinct_app_hashes", 1, 1
+        )
+        != 1
+        or bounded_parameter(
+            "app_hash_divergence", "minimum_independent_sources", 2, 16
+        )
+        < 2
+        or bounded_parameter("peer_loss", "minimum_private_peers", 1, 64) < 1
+    ):
+        fail("monitoring consensus-safety thresholds are incomplete")
+    bounded_parameter("disk_capacity", "minimum_free_percent", 10, 40)
+    bounded_parameter("restart_count", "maximum_restarts", 0, 2)
+    bounded_parameter("restart_count", "window_seconds", 300, 3600)
+    bounded_parameter(
+        "stale_backup", "maximum_verified_backup_age_seconds", 3600, 86400
+    )
+    expected_chain = rules_by_check["gateway_wrong_chain"]["parameters"].get(
+        "expected_chain_id"
+    )
+    if expected_chain != "zerone-2":
+        fail("gateway wrong-chain monitoring does not pin zerone-2")
+    bounded_parameter("gateway_stale_origin", "maximum_height_lag", 0, 10)
+
+    tests = require_exact_object(
+        objects[tests_name],
+        {
+            "schema",
+            "chain_id",
+            "source_commit",
+            "ruleset_id",
+            "rules_sha256",
+            "started_at",
+            "completed_at",
+            "notification_route_id",
+            "tests",
+            "result",
+        },
+        "monitoring alert-test evidence",
+    )
+    if not (
+        tests["schema"] == "zerone-production-monitoring-alert-tests-v2"
+        and tests["chain_id"] == "zerone-2"
+        and tests["source_commit"] == release["source"]["commit"]
+        and tests["ruleset_id"] == rules["ruleset_id"]
+        and tests["notification_route_id"] == rules["notification_route_id"]
+        and tests["rules_sha256"] == rules_hash
+        and tests["result"] == "PASS"
+        and isinstance(tests["tests"], list)
+        and len(tests["tests"]) == len(MONITORING_RULE_SPECS)
+    ):
+        fail("monitoring alert-test evidence is incomplete or mismatched")
+    require_hash(tests["rules_sha256"], "monitoring alert-test rules hash")
+
+    evidence_hashes: set[str] = set()
+    tested_checks: set[str] = set()
+    for index, candidate in enumerate(tests["tests"]):
+        test = require_exact_object(
+            candidate,
+            {
+                "check",
+                "alert_name",
+                "stimulus",
+                "observed_states",
+                "notification_delivery",
+                "evidence",
+                "result",
+            },
+            f"monitoring alert test {index}",
+        )
+        check = test["check"]
+        if not isinstance(check, str) or check not in MONITORING_RULE_SPECS:
+            fail(f"monitoring alert test {index} has an unknown check")
+        if check in tested_checks:
+            fail(f"monitoring alert tests contain duplicate check {check}")
+        spec = MONITORING_RULE_SPECS[check]
+        if not (
+            test["alert_name"] == spec["alert_name"]
+            and test["stimulus"] == spec["stimulus"]
+            and test["observed_states"] == ["INACTIVE", "FIRING", "RESOLVED"]
+            and test["notification_delivery"] == "DELIVERED"
+            and test["result"] == "PASS"
+        ):
+            fail(f"monitoring alert test {check} did not prove firing and recovery")
+        evidence = require_exact_object(
+            test["evidence"],
+            set(MONITORING_EVIDENCE_KINDS),
+            f"monitoring alert test {check} evidence",
+        )
+        for kind in MONITORING_EVIDENCE_KINDS:
+            reference = require_exact_object(
+                evidence[kind],
+                {"filename", "sha256"},
+                f"monitoring alert test {check} {kind} evidence reference",
+            )
+            expected_filename = MONITORING_EVIDENCE_FILES[check][kind]
+            if reference["filename"] != expected_filename:
+                fail(
+                    f"monitoring alert test {check} {kind} evidence must reference "
+                    f"exact bundle file {expected_filename}"
+                )
+            proof_hash = require_hash(
+                reference["sha256"],
+                f"monitoring alert test {check} {kind} evidence",
+            )
+            proof_bytes = files[expected_filename]
+            if not proof_bytes:
+                fail(
+                    f"monitoring alert test {check} {kind} evidence file is empty"
+                )
+            if proof_hash != sha256(proof_bytes):
+                fail(
+                    f"monitoring alert test {check} {kind} evidence hash differs "
+                    f"from bundled {expected_filename}"
+                )
+            if proof_hash == "0" * 64 or proof_hash in evidence_hashes:
+                fail("monitoring alert tests reuse or omit required evidence")
+            evidence_hashes.add(proof_hash)
+        tested_checks.add(check)
+    if tested_checks != set(MONITORING_RULE_SPECS):
+        fail("monitoring alert tests omit a required production check")
+
+    tests_started_epoch = canonical_epoch(
+        tests["started_at"], "monitoring alert-test start time"
+    )
+    tests_completed_epoch = canonical_epoch(
+        tests["completed_at"], "monitoring alert-test completion time"
+    )
+    manifest_created_epoch = canonical_epoch(
+        manifest["created_at"], "monitoring alert manifest creation time"
+    )
+    if not (
+        tests_started_epoch
+        <= tests_completed_epoch
+        <= manifest_created_epoch
+        <= release_created_epoch
+    ):
+        fail("monitoring evidence chronology is non-monotonic")
 
 
 def load_frozen_evidence_validator(
@@ -1418,7 +2008,7 @@ def contains_placeholder(value: Any) -> bool:
 def same_shape_and_static(candidate: Any, template: Any, label: str) -> None:
     if isinstance(template, dict):
         if not isinstance(candidate, dict) or set(candidate) != set(template):
-            fail(f"{label} keys differ from the canonical v3 template")
+            fail(f"{label} keys differ from the canonical template")
         for key in template:
             same_shape_and_static(candidate[key], template[key], f"{label}.{key}")
         return
@@ -1538,6 +2128,331 @@ def require_main_signature(
         ("signature_authority",),
         main,
     )
+
+
+def require_safe_absolute_posix_path(value: Any, label: str) -> str:
+    if not isinstance(value, str) or not value or "\x00" in value:
+        fail(f"{label} is not a non-empty POSIX path")
+    path = pathlib.PurePosixPath(value)
+    if (
+        not path.is_absolute()
+        or value != str(path)
+        or value == "/"
+        or any(part in {"", ".", ".."} for part in path.parts[1:])
+    ):
+        fail(f"{label} is not a canonical bounded absolute POSIX path")
+    if len(value.encode("utf-8")) > 4096:
+        fail(f"{label} exceeds the path byte ceiling")
+    return value
+
+
+def validate_census_execution_evidence(
+    files: dict[str, bytes],
+    paths: dict[str, pathlib.Path],
+    objects: dict[str, Any],
+    release: dict[str, Any],
+    final: dict[str, Any],
+    transition: str,
+    f: str,
+    a: str,
+    cutover_evidence_signature_epoch: int,
+    final_created_epoch: int,
+    final_signature_epoch: int,
+) -> None:
+    contract = validate_census_execution_contract(files, release)
+    signature_epoch = verify_signature(
+        paths,
+        objects,
+        CENSUS_EXECUTION_EVIDENCE_FILENAME,
+        CENSUS_EXECUTION_SIGNATURE_FILENAME,
+        ("signature_authority",),
+        transition,
+    )
+    evidence = require_exact_object(
+        objects[CENSUS_EXECUTION_EVIDENCE_FILENAME],
+        {
+            "schema",
+            "result",
+            "created_at",
+            "release_packet",
+            "cutover_initiation_evidence",
+            "runner",
+            "state",
+            "binary",
+            "source_snapshot",
+            "command",
+            "execution",
+            "scan_guarantees",
+            "signature_authority",
+        },
+        "custom-staking census execution evidence",
+    )
+    if not (
+        evidence["schema"]
+        == "zerone-custom-staking-census-execution-evidence-v1"
+        and evidence["result"] == "PASS"
+        and evidence["release_packet"]
+        == exact_pair(files, "RELEASE-PACKET.json", "RELEASE-PACKET.json.sig")
+        and evidence["cutover_initiation_evidence"]
+        == exact_pair(
+            files,
+            "CUTOVER-INITIATION-EVIDENCE.json",
+            "CUTOVER-INITIATION-EVIDENCE.json.sig",
+        )
+    ):
+        fail("custom-staking census execution authority chain is mismatched")
+
+    runner = require_exact_object(
+        evidence["runner"],
+        {"path", "sha256"},
+        "custom-staking census execution runner",
+    )
+    operator_manifest = objects.get("OPERATOR-TOOL-MANIFEST.json")
+    operator_files = (
+        operator_manifest.get("files")
+        if isinstance(operator_manifest, dict)
+        else None
+    )
+    if not (
+        runner["path"] == CENSUS_EXECUTION_RUNNER_PATH
+        and isinstance(operator_files, dict)
+        and runner["sha256"] == operator_files.get(CENSUS_EXECUTION_RUNNER_PATH)
+    ):
+        fail("custom-staking census execution runner differs from RELEASE")
+    require_hash(runner["sha256"], "custom-staking census execution runner")
+
+    authority = require_exact_object(
+        evidence["signature_authority"],
+        {
+            "algorithm",
+            "authorized_signer_fingerprint",
+            "detached_signature_filename",
+            "authority_limit",
+        },
+        "custom-staking census execution signature authority",
+    )
+    if authority != {
+        "algorithm": "openpgp",
+        "authorized_signer_fingerprint": contract["execution_evidence"][
+            "authorized_signer_fingerprint"
+        ],
+        "detached_signature_filename": CENSUS_EXECUTION_SIGNATURE_FILENAME,
+        "authority_limit": CENSUS_EXECUTION_AUTHORITY_LIMIT,
+    }:
+        fail("custom-staking census execution signature authority is over-broad")
+
+    state = require_exact_object(
+        evidence["state"],
+        {"chain_id", "height", "app_hash", "source_commit"},
+        "custom-staking census execution state",
+    )
+    census = objects["CUSTOM-STAKING-CENSUS.json"]
+    census_report_hash = census.get("report_sha256") if isinstance(census, dict) else None
+    expected_app_hash = final.get("excluded_post_anchor_state", {}).get("app_hash")
+    if not isinstance(expected_app_hash, str):
+        fail("FINAL excluded post-anchor AppHash is missing for census execution")
+    if not (
+        state
+        == {
+            "chain_id": "zerone-1",
+            "height": a,
+            "app_hash": expected_app_hash.lower(),
+            "source_commit": release["source"]["commit"],
+        }
+        and isinstance(census, dict)
+        and census.get("result") == "PASS"
+        and census.get("evidence") == state
+    ):
+        fail("custom-staking census execution state differs from its report/A/E")
+
+    binary = require_exact_object(
+        evidence["binary"],
+        {"filename", "sha256"},
+        "custom-staking census execution binary",
+    )
+    if binary != contract["binary"]:
+        fail("custom-staking census execution binary differs from RELEASE")
+
+    snapshot = require_exact_object(
+        evidence["source_snapshot"],
+        {
+            "manifest_filename",
+            "manifest_sha256",
+            "database_snapshot_sha256",
+            "file_manifest_sha256",
+        },
+        "custom-staking census execution source snapshot",
+    )
+    snapshot_manifest = objects["OFFLINE-HALTED-OBSERVER-SNAPSHOT-MANIFEST.json"]
+    if not (
+        snapshot["manifest_filename"]
+        == "OFFLINE-HALTED-OBSERVER-SNAPSHOT-MANIFEST.json"
+        and snapshot["manifest_sha256"]
+        == sha256(files["OFFLINE-HALTED-OBSERVER-SNAPSHOT-MANIFEST.json"])
+        and snapshot["database_snapshot_sha256"]
+        == snapshot_manifest.get("database_snapshot_sha256")
+        and snapshot["file_manifest_sha256"]
+        == snapshot_manifest.get("file_manifest_sha256")
+    ):
+        fail("custom-staking census execution snapshot is not the frozen observer copy")
+    for field in ("manifest_sha256", "database_snapshot_sha256", "file_manifest_sha256"):
+        require_hash(snapshot[field], f"custom-staking census execution {field}")
+
+    command = require_exact_object(
+        evidence["command"],
+        {
+            "argv",
+            "binary_path",
+            "home_path",
+            "backend",
+            "copied_db",
+            "report_transport",
+            "output_path",
+        },
+        "custom-staking census execution command",
+    )
+    binary_path = require_safe_absolute_posix_path(
+        command["binary_path"], "custom-staking census binary path"
+    )
+    home_path = require_safe_absolute_posix_path(
+        command["home_path"], "custom-staking census copied home path"
+    )
+    output_path = require_safe_absolute_posix_path(
+        command["output_path"], "custom-staking census output path"
+    )
+    binary_parts = pathlib.PurePosixPath(binary_path).parts
+    home_parts = pathlib.PurePosixPath(home_path).parts
+    output_parts = pathlib.PurePosixPath(output_path).parts
+    if not (
+        pathlib.PurePosixPath(binary_path).name == CENSUS_BINARY_FILENAME
+        and pathlib.PurePosixPath(output_path).name == "CUSTOM-STAKING-CENSUS.json"
+        and binary_parts != home_parts
+        and output_parts[: len(home_parts)] != home_parts
+        and binary_parts[: len(home_parts)] != home_parts
+        and command["backend"] in {"goleveldb", "pebbledb"}
+        and command["copied_db"] is True
+        and command["report_transport"] == CENSUS_REPORT_TRANSPORT
+    ):
+        fail("custom-staking census execution paths/backend are unsafe")
+    expected_argv = [
+        binary_path,
+        "--home",
+        home_path,
+        "--backend",
+        command["backend"],
+        "--chain-id",
+        "zerone-1",
+        "--expected-height",
+        a,
+        "--expected-app-hash",
+        expected_app_hash.lower(),
+        "--source-commit",
+        release["source"]["commit"],
+        "--copied-db",
+    ]
+    if command["argv"] != expected_argv:
+        fail("custom-staking census execution argv is not the exact safe command")
+
+    execution = require_exact_object(
+        evidence["execution"],
+        {
+            "started_at",
+            "completed_at",
+            "exit_code",
+            "stdout_sha256",
+            "stderr_sha256",
+            "report_filename",
+            "report_sha256",
+            "report_self_hash",
+            "report_result",
+        },
+        "custom-staking census execution result",
+    )
+    empty_hash = sha256(b"")
+    if not (
+        execution["exit_code"] == 0
+        and not isinstance(execution["exit_code"], bool)
+        and execution["stdout_sha256"]
+        == sha256(files["CUSTOM-STAKING-CENSUS.json"])
+        and execution["stderr_sha256"] == empty_hash
+        and execution["report_filename"] == "CUSTOM-STAKING-CENSUS.json"
+        and execution["report_sha256"] == sha256(files["CUSTOM-STAKING-CENSUS.json"])
+        and execution["report_self_hash"] == census_report_hash
+        and execution["report_result"] == census.get("result") == "PASS"
+    ):
+        fail("custom-staking census execution report differs from the bound bytes")
+    for field in ("stdout_sha256", "stderr_sha256", "report_sha256", "report_self_hash"):
+        require_hash(execution[field], f"custom-staking census execution {field}")
+
+    guarantees = require_exact_object(
+        evidence["scan_guarantees"],
+        {
+            "required_stores",
+            "complete_logical_store_iteration",
+            "root_bound_leaf_count",
+            "ics23_membership_proof_per_leaf",
+            "root_commit_info_rechecked_after_scan",
+            "database_backend_read_only",
+            "write_attempts",
+        },
+        "custom-staking census execution scan guarantees",
+    )
+    if guarantees != {
+        "required_stores": ["zerone_staking", "bank", "staking"],
+        "complete_logical_store_iteration": True,
+        "root_bound_leaf_count": True,
+        "ics23_membership_proof_per_leaf": True,
+        "root_commit_info_rechecked_after_scan": True,
+        "database_backend_read_only": True,
+        "write_attempts": 0,
+    }:
+        fail("custom-staking census execution did not attest the full proof scan")
+
+    started_epoch = canonical_epoch(
+        execution["started_at"], "custom-staking census execution start"
+    )
+    completed_epoch = canonical_epoch(
+        execution["completed_at"], "custom-staking census execution completion"
+    )
+    created_epoch = canonical_epoch(
+        evidence["created_at"], "custom-staking census execution evidence time"
+    )
+    if completed_epoch - started_epoch > MAX_CENSUS_EXECUTION_SECONDS:
+        fail("custom-staking census execution exceeded the runner duration limit")
+    observer_terminal = objects.get("OBSERVER-EVIDENCE-MANIFEST.json")
+    observer_halt_time = (
+        observer_terminal.get("halt_trigger_block_time")
+        if isinstance(observer_terminal, dict)
+        else None
+    )
+    halt_trigger_ns = canonical_nanoseconds(
+        observer_halt_time,
+        "custom-staking census terminal halt-trigger time",
+    )
+    if not (
+        cutover_evidence_signature_epoch
+        <= halt_trigger_ns // 1_000_000_000
+        <= started_epoch
+        <= completed_epoch
+        <= created_epoch
+        <= signature_epoch
+        <= final_created_epoch
+        <= final_signature_epoch
+    ):
+        fail("custom-staking census execution chronology is non-monotonic")
+    if halt_trigger_ns > started_epoch * 1_000_000_000:
+        fail("custom-staking census execution began before terminal block H")
+
+    artifacts = final.get("artifacts", {})
+    if not (
+        artifacts.get("custom_staking_census_execution_evidence_sha256")
+        == sha256(files[CENSUS_EXECUTION_EVIDENCE_FILENAME])
+        and artifacts.get(
+            "custom_staking_census_execution_evidence_detached_signature_sha256"
+        )
+        == sha256(files[CENSUS_EXECUTION_SIGNATURE_FILENAME])
+    ):
+        fail("FINAL does not bind the custom-staking census execution evidence")
 
 
 def validate_dark_bootstrap_contract(
@@ -1912,22 +2827,28 @@ def validate_cutover_chain(
     require_initiation: bool,
     config_policy: pathlib.Path,
     dark_registration_only: bool = False,
+    dark_preinit: bool = False,
 ) -> tuple[str, str, str]:
+    if dark_registration_only and dark_preinit:
+        fail("DARK verification stage is internally inconsistent")
     release = objects["RELEASE-PACKET.json"]
     dark = objects["DARK-START-DECISION.json"]
-    dark_init = objects["DARK-START-INITIATION-EVIDENCE.json"]
+    dark_init = objects.get("DARK-START-INITIATION-EVIDENCE.json")
     cutover = objects.get("CUTOVER-DECISION.json")
 
     signature_times: dict[str, int] = {}
     signature_payloads = [
         ("RELEASE-PACKET.json", "RELEASE-PACKET.json.sig"),
         ("DARK-START-DECISION.json", "DARK-START-DECISION.json.sig"),
-        (
-            "DARK-START-INITIATION-EVIDENCE.json",
-            "DARK-START-INITIATION-EVIDENCE.json.sig",
-        ),
     ]
-    if not dark_registration_only:
+    if not dark_preinit:
+        signature_payloads.append(
+            (
+                "DARK-START-INITIATION-EVIDENCE.json",
+                "DARK-START-INITIATION-EVIDENCE.json.sig",
+            )
+        )
+    if not dark_registration_only and not dark_preinit:
         signature_payloads.append(
             ("CUTOVER-DECISION.json", "CUTOVER-DECISION.json.sig")
         )
@@ -1936,7 +2857,7 @@ def validate_cutover_chain(
             paths, objects, payload, signature, main
         )
 
-    if not isinstance(release, dict) or release.get("schema") != "zerone-2-release-packet-v1":
+    if not isinstance(release, dict) or release.get("schema") != "zerone-2-release-packet-v2":
         fail("release packet schema changed")
     if set(release) != {
         "schema",
@@ -1950,13 +2871,15 @@ def validate_cutover_chain(
         "components",
         "public_identities",
         "archive_render_contract",
+        "archive_gateway_render_contract",
+        "custom_staking_census_execution",
         "deployment_configs",
         "phase_dependent_config_template_sha256",
         "monitoring_alerts_sha256",
         "operator_tool_manifest_sha256",
         "accepted_policy",
     }:
-        fail("release packet does not have the exact v1 field set")
+        fail("release packet does not have the exact v2 field set")
     if release.get("chain_id") != "zerone-2":
         fail("release packet chain ID changed")
     transition = (
@@ -1972,9 +2895,6 @@ def validate_cutover_chain(
         release.get("created_at"), "RELEASE creation time"
     )
     dark_created_epoch = canonical_epoch(dark.get("created_at"), "DARK creation time")
-    dark_evidence_created_epoch = canonical_epoch(
-        dark_init.get("created_at"), "DARK evidence creation time"
-    )
     if not (
         release_created_epoch
         <= signature_times["RELEASE-PACKET.json"]
@@ -1989,9 +2909,14 @@ def validate_cutover_chain(
     }:
         fail("RELEASE component set is malformed")
     validate_release_ceremony(files, objects, release, main)
+    validate_census_execution_contract(files, release)
+    validate_monitoring_artifacts(
+        files, objects, release, release_created_epoch
+    )
     component_images = validate_release_components(
         files, paths, objects, release, main, release_created_epoch
     )
+    validate_archive_gateway_render_contract(release)
     release_configs = release.get("deployment_configs", {})
     release_keys = {
         "zerone_2_validator",
@@ -2005,18 +2930,24 @@ def validate_cutover_chain(
     if not isinstance(release_configs, dict) or set(release_configs) != release_keys:
         fail("RELEASE deployment mapping set is incomplete")
     for key, mapping_value in release_configs.items():
-        if not isinstance(mapping_value, dict) or set(mapping_value) != {
+        expected_mapping_fields = {
             "app",
             "role",
             "image_component",
             "image_ref",
-            "sha256",
-        }:
+        }
+        if key != "zerone_1_archive_gateway":
+            expected_mapping_fields.add("sha256")
+        if (
+            not isinstance(mapping_value, dict)
+            or set(mapping_value) != expected_mapping_fields
+        ):
             fail(f"RELEASE {key} mapping is malformed")
         component = mapping_value.get("image_component")
         if mapping_value.get("image_ref") != component_images.get(component):
             fail(f"RELEASE {key} image does not join its component")
-        require_hash(mapping_value.get("sha256"), f"RELEASE {key} config")
+        if key != "zerone_1_archive_gateway":
+            require_hash(mapping_value.get("sha256"), f"RELEASE {key} config")
     apps = {key: value["app"] for key, value in release_configs.items()}
     if not (
         apps["zerone_2_edge_private"] == apps["zerone_2_edge_query_soak"]
@@ -2041,11 +2972,6 @@ def validate_cutover_chain(
     release_pair = exact_pair(files, "RELEASE-PACKET.json", "RELEASE-PACKET.json.sig")
     dark_pair = exact_pair(
         files, "DARK-START-DECISION.json", "DARK-START-DECISION.json.sig"
-    )
-    dark_init_pair = exact_pair(
-        files,
-        "DARK-START-INITIATION-EVIDENCE.json",
-        "DARK-START-INITIATION-EVIDENCE.json.sig",
     )
     if not isinstance(dark, dict) or not (
         dark.get("schema") == "zerone-2-dark-start-decision-v1"
@@ -2080,7 +3006,25 @@ def validate_cutover_chain(
 
     dark_deadline = dark.get("authorization_semantics", {}).get("initiation_deadline")
     dark_deadline_epoch = canonical_epoch(dark_deadline, "DARK-START deadline")
-    block = dark_init.get("first_committed_block", {}) if isinstance(dark_init, dict) else {}
+    now = int(dt.datetime.now(tz=dt.timezone.utc).timestamp())
+    if dark_preinit:
+        if signature_times["DARK-START-DECISION.json"] > dark_deadline_epoch:
+            fail("DARK-START decision was signed after its initiation deadline")
+        if now > dark_deadline_epoch:
+            fail("DARK-START initiation deadline has passed")
+        return "", "", ""
+
+    if not isinstance(dark_init, dict):
+        fail("DARK-START initiation evidence is missing or malformed")
+    dark_evidence_created_epoch = canonical_epoch(
+        dark_init.get("created_at"), "DARK evidence creation time"
+    )
+    dark_init_pair = exact_pair(
+        files,
+        "DARK-START-INITIATION-EVIDENCE.json",
+        "DARK-START-INITIATION-EVIDENCE.json.sig",
+    )
+    block = dark_init.get("first_committed_block", {})
     if not (
         dark_init.get("schema") == "zerone-2-dark-start-initiation-evidence-v1"
         and dark_init.get("attestation_result") == "MATCH"
@@ -2100,7 +3044,6 @@ def validate_cutover_chain(
     dark_commit_ns = canonical_nanoseconds(
         block.get("committed_block_time"), "DARK first-block time"
     )
-    now = int(dt.datetime.now(tz=dt.timezone.utc).timestamp())
     if dark_commit_ns > dark_deadline_epoch * 1_000_000_000:
         fail("DARK first block committed after its signed deadline")
     if dark_commit_ns > now * 1_000_000_000:
@@ -2351,6 +3294,8 @@ def validate_cutover_chain(
         f,
         a,
         h,
+        "-",
+        "-",
     )
     run_config_policy(
         config_policy,
@@ -2361,6 +3306,8 @@ def validate_cutover_chain(
         f,
         a,
         h,
+        "-",
+        "-",
     )
     continuation = cutover.get("deterministic_private_continuation", {})
     release_render = release.get("archive_render_contract", {})
@@ -2894,7 +3841,7 @@ def validate_open_chain(
     same_shape_and_static(final, final_template, "FINAL-CHECKPOINT")
     if contains_placeholder(final):
         fail("FINAL-CHECKPOINT retains a placeholder")
-    if final.get("schema") != "zerone-final-checkpoint-v3":
+    if final.get("schema") != "zerone-final-checkpoint-v4":
         fail("FINAL-CHECKPOINT schema changed")
     authority = final.get("authority_chain", {})
     expected_authority = {
@@ -2919,6 +3866,19 @@ def validate_open_chain(
         fail(f"frozen checkpoint evidence mismatch: {exc}")
     except Exception as exc:
         fail(f"frozen checkpoint evidence validator failed closed: {exc}")
+    validate_census_execution_evidence(
+        files,
+        paths,
+        objects,
+        release,
+        final,
+        transition,
+        f,
+        a,
+        cutover_evidence_signature_epoch,
+        final_created_epoch,
+        final_signature_epoch,
+    )
     validate_frozen_terminal_cryptography(
         paths, objects, f, a, h, temp_path
     )
@@ -3176,6 +4136,28 @@ def validate_open_chain(
         and all(archive[key] == value for key, value in readiness.items())
     ):
         fail("FINAL private archive readiness differs from actual evidence")
+    archive_app_hash = require_hash(
+        final.get("excluded_post_anchor_state", {}).get("app_hash"),
+        "FINAL excluded post-anchor AppHash",
+        upper=True,
+    )
+    archive_block_hash = require_hash(
+        final.get("final_application_block", {}).get("block_id_hash"),
+        "FINAL application block ID",
+        upper=True,
+    )
+    if not (
+        archive_app_hash == manifest["expected_post_anchor_app_hash"]
+        == probe["post_anchor_app_hash"]
+        and archive_block_hash == manifest["expected_anchor_block_hash"]
+        == probe["anchor_block_hash"]
+    ):
+        fail("FINAL archive gateway A/E/B inputs differ from transition evidence")
+    archive_app_hash = archive_app_hash.lower()
+    archive_block_hash = archive_block_hash.lower()
+    verify_archive_gateway_render(
+        files, paths, release, verified_tools, temp_path
+    )
 
     same_shape_and_static(open_beta, open_template, "OPEN-BETA")
     if contains_placeholder(open_beta):
@@ -3208,30 +4190,54 @@ def validate_open_chain(
     if open_beta.get("public_notice_sha256") != sha256(files["PUBLIC-NOTICE.md"]):
         fail("OPEN-BETA notice differs from the exact published notice")
     release_configs = release["deployment_configs"]
-    if not all(
-        open_beta["deployment_configs"].get(key) == release_configs.get(key)
-        for key in open_beta["deployment_configs"]
-    ):
-        fail("OPEN-BETA public deployment mappings differ from RELEASE")
+    for key in ("zerone_2_edge_public", "zerone_2_gateway_public"):
+        if open_beta["deployment_configs"].get(key) != release_configs.get(key):
+            fail(f"OPEN-BETA {key} mapping differs from RELEASE")
+    archive_open_mapping = open_beta["deployment_configs"].get(
+        "zerone_1_archive_gateway"
+    )
+    archive_release_mapping = release_configs["zerone_1_archive_gateway"]
+    if not isinstance(archive_open_mapping, dict) or {
+        key: value
+        for key, value in archive_open_mapping.items()
+        if key != "sha256"
+    } != archive_release_mapping:
+        fail("OPEN-BETA archive gateway static mapping differs from RELEASE")
     public_config_specs = (
         (
             "zerone_2_edge_public",
             "fly.edge.public.toml",
+            "-",
+            "-",
+            "-",
             "-",
         ),
         (
             "zerone_2_gateway_public",
             "fly.zerone-2-gateway.public.toml",
             f"{release_configs['zerone_2_edge_private']['app']}.internal",
+            "-",
+            "-",
+            "-",
         ),
         (
             "zerone_1_archive_gateway",
             "fly.zerone-1-archive-gateway.public.toml",
-            "zerone-1-archive.internal",
+            f"{release['archive_render_contract']['static_constraints']['app']}.internal",
+            a,
+            archive_app_hash,
+            archive_block_hash,
         ),
     )
     parsed_public_configs: dict[str, dict[str, Any]] = {}
-    for key, filename, upstream in public_config_specs:
+    for (
+        key,
+        filename,
+        upstream,
+        archive_height,
+        expected_app_hash,
+        expected_block_hash,
+    ) in public_config_specs:
         parsed_public_configs[key] = validate_config_mapping(
             files,
             filename,
@@ -3245,8 +4251,10 @@ def validate_open_chain(
             key,
             upstream,
             "-",
+            archive_height,
             "-",
-            "-",
+            expected_app_hash,
+            expected_block_hash,
         )
     coordinates = open_beta["public_coordinates"]
     edge_external = parsed_public_configs["zerone_2_edge_public"]["env"][
@@ -3288,9 +4296,9 @@ def validate_open_chain(
             "config_sha256": release_configs["zerone_2_gateway_public"]["sha256"],
         },
         re.sub(r"^https://", "", coordinates["zerone_1_archive_rpc"]): {
-            "app": release_configs["zerone_1_archive_gateway"]["app"],
+            "app": archive_open_mapping["app"],
             "https": True,
-            "config_sha256": release_configs["zerone_1_archive_gateway"]["sha256"],
+            "config_sha256": archive_open_mapping["sha256"],
         },
     }
     if dns["records"] != expected_records:
@@ -3413,6 +4421,7 @@ def main() -> None:
     parser.add_argument(
         "stage",
         choices=(
+            "dark-preinit",
             "dark-registration-preinit",
             "cutover-preinit",
             "cutover-postinit",
@@ -3467,11 +4476,10 @@ def main() -> None:
         "RELEASE-PACKET.json.sig",
         "DARK-START-DECISION.json",
         "DARK-START-DECISION.json.sig",
-        "DARK-START-INITIATION-EVIDENCE.json",
-        "DARK-START-INITIATION-EVIDENCE.json.sig",
         "ZERONE-2-ONBOARD-SIGNED-TX.json",
         "ZERONE-2-CUSTOM-VALIDATOR-SIGNED-TX.json",
         "OPERATOR-TOOL-MANIFEST.json",
+        CENSUS_BINARY_FILENAME,
         COMPONENT_SIGNATURE_VERIFIER_FILE,
         SIGSTORE_TRUSTED_ROOT_FILE,
         "zeroned-zerone-1-release",
@@ -3480,9 +4488,15 @@ def main() -> None:
         "network-manifest.json",
         "GENESIS-MANIFEST.md",
         "zeroned-zerone-2-release",
+        *MONITORING_ARTIFACT_FILES.values(),
+        *MONITORING_EVIDENCE_FILENAMES,
     }
     for component_files in COMPONENT_ARTIFACT_FILES.values():
         base.update(component_files.values())
+    dark_post = {
+        "DARK-START-INITIATION-EVIDENCE.json",
+        "DARK-START-INITIATION-EVIDENCE.json.sig",
+    }
     cutover_files = {
         "DARK-REGISTRATION-EVIDENCE.json",
         "DARK-REGISTRATION-EVIDENCE.json.sig",
@@ -3533,7 +4547,9 @@ def main() -> None:
         "OPEN-BETA-INITIATION-EVIDENCE.json.sig",
     }
     required = set(base)
-    if args.stage != "dark-registration-preinit":
+    if args.stage != "dark-preinit":
+        required |= dark_post
+    if args.stage not in {"dark-preinit", "dark-registration-preinit"}:
         required |= cutover_files
     if args.stage in {"cutover-postinit", "open-preinit", "open-postinit"}:
         required |= cutover_post
@@ -3562,7 +4578,7 @@ def main() -> None:
     }
     decision_name = (
         "DARK-START-DECISION.json"
-        if args.stage == "dark-registration-preinit"
+        if args.stage in {"dark-preinit", "dark-registration-preinit"}
         else "CUTOVER-DECISION.json"
         if args.stage.startswith("cutover")
         else "OPEN-BETA-DECISION.json"
@@ -3629,11 +4645,13 @@ def main() -> None:
             "RELEASE-PACKET.json",
             "DARK-START-DECISION.json",
             "DARK-START-INITIATION-EVIDENCE.json",
+            *MONITORING_ARTIFACT_FILES.values(),
             "DARK-REGISTRATION-EVIDENCE.json",
             "CUTOVER-DECISION.json",
             "CUTOVER-INITIATION-EVIDENCE.json",
             "zerone-1-archive-transition.json",
             "ARCHIVE-ADOPTION-AUTHORITY.json",
+            CENSUS_EXECUTION_EVIDENCE_FILENAME,
             "FINAL-CHECKPOINT.json",
             "OPEN-BETA-DECISION.json",
             "OPEN-BETA-INITIATION-EVIDENCE.json",
@@ -3664,7 +4682,17 @@ def main() -> None:
         config_policy_path.write_bytes(release_config_policy)
         os.chmod(config_policy_path, 0o700)
 
-        if args.stage == "dark-registration-preinit":
+        if args.stage == "dark-preinit":
+            validate_cutover_chain(
+                files,
+                paths,
+                objects,
+                args.expected_main,
+                False,
+                config_policy_path,
+                dark_preinit=True,
+            )
+        elif args.stage == "dark-registration-preinit":
             validate_cutover_chain(
                 files,
                 paths,

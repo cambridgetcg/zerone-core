@@ -8,7 +8,7 @@ final stage.
 The only supported release path is the explicit tracked-source allowlist:
 
 ```bash
-GO_IMAGE='golang:1.24-bookworm@sha256:<64-hex-digest>' \
+GO_IMAGE='golang:1.25.14-bookworm@sha256:<64-hex-digest>' \
 RUNTIME_IMAGE='debian:bookworm-slim@sha256:<64-hex-digest>' \
 ZERONE_RELEASE_TAG='<signed-annotated-tag-at-HEAD>' \
 ZERONE_AUTHORIZED_RELEASE_SIGNER_FINGERPRINT='<full-OpenPGP-fingerprint>' \

@@ -11,13 +11,18 @@ Upgrades in Zerone are engineered at four layers that reinforce each other:
 
 The test layer exercises all four, end-to-end, via `app.RunUpgradeHandlerForTests` — see `tests/cross_stack/upgrade_e2e_test.go`.
 
-The current pending production boundary is the atomic
-`consolidation-safety-v1` upgrade. Its `RunMigrations` pass advances
-liquiditypool from the pre-H1 v3 state through v4 to v5 and advances
-vesting_rewards from v1 to v2. The target versions retire the protocol swap
-skim, founder auto-split, and transaction-presence block mint. The H1 binary
-does not register a later `liquiditypool-safety-v2` handler. Native pool/oracle
-activation remains gated by
+The current legacy-network production sequence has two ordered pre-SDK
+boundaries. H1 `consolidation-safety-v1` advances liquiditypool from the
+pre-H1 v3 state through v4 to v5 while explicitly preserving
+`vesting_rewards=1`. H2 `founder-renunciation-v1` requires the complete H1
+poststate and alone advances vesting_rewards from v1 to v2. H1 retires the
+protocol swap skim; H2 retires the founder auto-split and
+transaction-presence block mint. Each boundary has its own accepted SDK v0.50
+source and must be built as a separately attested exact executable. The
+current integrated SDK v0.53 binary consumes proof of both boundaries but
+registers neither handler, so it cannot replace either release. There is no
+`liquiditypool-safety-v2` handler. Native
+pool/oracle activation remains gated by
 [LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md), not merely by the
 module version.
 
@@ -220,14 +225,22 @@ For purely additive proto changes with no state shape change, no new upgrade nam
 4. Unknown handler rejection — no silent success on a non-existent upgrade name.
 5. Marker idempotency — first writer wins; conflicting writes preserve the original.
 6. Lineage parity — handlers ↔ lineage entries ↔ constants all align.
-7. Atomic H1 economics — consolidation migrates liquiditypool v3→v5 and
-   vesting_rewards v1→v2, records the one release boundary, and reconciles
-   module-account permissions. The target keeps swap fees with bearer LPs,
-   retires founder and transaction-presence automatic rewards, and admits no
-   native pool or billing quote denom. The test also proves no H2 handler is
-   advertised by the H1 binary.
+7. Exact H1 boundary — the accepted H1 source proves consolidation migrates
+   knowledge v5→v6, claiming_pot v1→v2, and liquiditypool v3→v5 while
+   preserving vesting_rewards v1, records its own release boundary, and
+   reconciles module-account permissions.
+8. Exact H2 boundary — the accepted replacement H2 source proves completed-H1
+   lineage and performs only vesting_rewards v1→v2, retiring founder and
+   transaction-presence automatic rewards without carrying H1.
+9. Integrated-binary refusal — the current SDK v0.53 tests prove it registers
+   neither pre-SDK handler and refuses every path that has not independently
+   completed both H1 and H2.
 
-**Run it before every upgrade release.** If this passes, the mechanism works; if a new wave's migration is correct, it's part of this test; if it isn't, the wave has no verified upgrade path.
+**Run the release-matched suite before every upgrade release.** H1, H2, and
+the integrated SDK/IBC boundary live at different accepted source commits; no
+single moving checkout proves all three. If a new wave's migration is correct,
+its exact release source must carry and pass the corresponding test; if it
+doesn't, the wave has no verified upgrade path.
 
 ---
 

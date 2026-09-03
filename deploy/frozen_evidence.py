@@ -31,6 +31,12 @@ RFC3339_NANO = re.compile(
     r"[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,9})?Z$"
 )
 
+CENSUS_MAX_CUSTOM_STORE_LEAVES = 50_000
+CENSUS_MAX_STORE_LEAVES = 5_000_000
+CENSUS_MAX_CUSTOM_INPUT_BYTES = 32 << 20
+CENSUS_MAX_SCANNED_INPUT_BYTES = 1 << 30
+CENSUS_MAX_SDK_VALIDATORS = 25_000
+
 RPC_PAYLOAD_SUFFIXES = {
     "status_json": "STATUS.json.raw",
     "genesis_json": "GENESIS.json.raw",
@@ -71,6 +77,9 @@ def _rpc_filename(prefix: str, key: str) -> str:
 
 REQUIRED_FROZEN_EVIDENCE_FILES = frozenset(
     {
+        "CUSTOM-STAKING-CENSUS.json",
+        "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json",
+        "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig",
         "ZERONE-1-INVENTORY-V3.json",
         "SIGNER-EVIDENCE-MANIFEST.json",
         "OBSERVER-EVIDENCE-MANIFEST.json",
@@ -101,6 +110,85 @@ def _sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+BECH32_VALUES = {character: index for index, character in enumerate(BECH32_CHARSET)}
+
+
+def _bech32_polymod(values: list[int]) -> int:
+    checksum = 1
+    generators = (0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3)
+    for value in values:
+        top = checksum >> 25
+        checksum = ((checksum & 0x1FFFFFF) << 5) ^ value
+        for index, generator in enumerate(generators):
+            if (top >> index) & 1:
+                checksum ^= generator
+    return checksum
+
+
+def _bech32_hrp_expand(hrp: str) -> list[int]:
+    return [ord(character) >> 5 for character in hrp] + [0] + [
+        ord(character) & 31 for character in hrp
+    ]
+
+
+def _convert_bits(
+    values: bytes | list[int], from_bits: int, to_bits: int, pad: bool
+) -> list[int] | None:
+    accumulator = 0
+    bit_count = 0
+    result: list[int] = []
+    maximum = (1 << to_bits) - 1
+    for value in values:
+        if value < 0 or value >> from_bits:
+            return None
+        accumulator = (accumulator << from_bits) | value
+        bit_count += from_bits
+        while bit_count >= to_bits:
+            bit_count -= to_bits
+            result.append((accumulator >> bit_count) & maximum)
+    if pad:
+        if bit_count:
+            result.append((accumulator << (to_bits - bit_count)) & maximum)
+    elif bit_count >= from_bits or ((accumulator << (to_bits - bit_count)) & maximum):
+        return None
+    return result
+
+
+def _bech32_encode(hrp: str, payload: bytes) -> str:
+    data = _convert_bits(payload, 8, 5, True)
+    if data is None:  # pragma: no cover - bytes always fit an eight-bit source word.
+        raise AssertionError("could not convert bytes to Bech32 words")
+    values = _bech32_hrp_expand(hrp) + data
+    polymod = _bech32_polymod(values + [0] * 6) ^ 1
+    checksum = [(polymod >> (5 * (5 - index))) & 31 for index in range(6)]
+    return hrp + "1" + "".join(BECH32_CHARSET[value] for value in data + checksum)
+
+
+def _bech32_address(value: Any, hrp: str, label: str) -> bytes:
+    if (
+        not isinstance(value, str)
+        or value != value.lower()
+        or not 8 <= len(value) <= 1023
+        or value.rfind("1") != len(hrp)
+        or value[: len(hrp)] != hrp
+    ):
+        _fail(f"{label} is not canonical {hrp} Bech32")
+    try:
+        data = [BECH32_VALUES[character] for character in value[len(hrp) + 1 :]]
+    except KeyError:
+        _fail(f"{label} is not canonical {hrp} Bech32")
+    if len(data) < 6 or _bech32_polymod(_bech32_hrp_expand(hrp) + data) != 1:
+        _fail(f"{label} has an invalid Bech32 checksum")
+    decoded = _convert_bits(data[:-6], 5, 8, False)
+    if decoded is None:
+        _fail(f"{label} has invalid Bech32 padding")
+    raw = bytes(decoded)
+    if not raw or len(raw) > 255 or _bech32_encode(hrp, raw) != value:
+        _fail(f"{label} is not a canonical SDK address")
+    return raw
+
+
 def _exact_object(value: Any, keys: set[str], label: str) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != keys:
         _fail(f"{label} does not have the exact required fields")
@@ -110,6 +198,10 @@ def _exact_object(value: Any, keys: set[str], label: str) -> dict[str, Any]:
 def _string(value: Any, label: str) -> str:
     if not isinstance(value, str) or not value or value.strip() != value:
         _fail(f"{label} must be a non-empty whitespace-free string")
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        _fail(f"{label} is not valid UTF-8")
     return value
 
 
@@ -890,16 +982,751 @@ def _validate_rpc_set(
     return hashes
 
 
+def _uint64(value: Any, label: str, positive: bool = False) -> int:
+    number = _integer(value, label, 1 if positive else 0)
+    if number > 2**64 - 1:
+        _fail(f"{label} exceeds uint64")
+    return number
+
+
+def _census_amount(value: Any, label: str, positive: bool = False) -> int:
+    if not isinstance(value, str) or len(value) > 78 or not DECIMAL.fullmatch(value):
+        _fail(f"{label} is not a canonical bounded census amount")
+    number = int(value)
+    if number.bit_length() > 256:
+        _fail(f"{label} exceeds the SDK 256-bit amount bound")
+    if positive and number <= 0:
+        _fail(f"{label} must be positive")
+    return number
+
+
+def _census_aggregate(value: Any, label: str) -> int:
+    if not isinstance(value, str) or len(value) > 98 or not DECIMAL.fullmatch(value):
+        _fail(f"{label} is not a canonical bounded census aggregate")
+    number = int(value)
+    if number.bit_length() > 320:
+        _fail(f"{label} exceeds the census 320-bit aggregate bound")
+    return number
+
+
+def _go_uvarint(value: int) -> bytes:
+    if value < 0 or value > 2**64 - 1:
+        raise ValueError("Go uvarint input is outside uint64")
+    encoded = bytearray()
+    while value >= 0x80:
+        encoded.append((value & 0x7F) | 0x80)
+        value >>= 7
+    encoded.append(value)
+    return bytes(encoded)
+
+
+def _rfc6962_hash(leaves: list[bytes]) -> bytes:
+    if not leaves:
+        return hashlib.sha256(b"").digest()
+    if len(leaves) == 1:
+        return hashlib.sha256(b"\x00" + leaves[0]).digest()
+    split = 1 << ((len(leaves) - 1).bit_length() - 1)
+    left = _rfc6962_hash(leaves[:split])
+    right = _rfc6962_hash(leaves[split:])
+    return hashlib.sha256(b"\x01" + left + right).digest()
+
+
+def _cosmos_commit_info_hash(multistore_roots: Mapping[str, str]) -> str:
+    """Reproduce cosmossdk.io/store v1.1.2 CommitInfo.Hash without Go code."""
+
+    encoded_rows: list[tuple[bytes, str]] = []
+    for name, root in multistore_roots.items():
+        try:
+            encoded_rows.append((name.encode("utf-8"), root))
+        except (AttributeError, UnicodeEncodeError):
+            _fail("custom-staking multistore name is not valid UTF-8")
+    leaves: list[bytes] = []
+    for key, root_hex in sorted(encoded_rows):
+        root = bytes.fromhex(root_hex)
+        value_hash = hashlib.sha256(root).digest()
+        leaves.append(
+            _go_uvarint(len(key))
+            + key
+            + _go_uvarint(len(value_hash))
+            + value_hash
+        )
+    return _rfc6962_hash(leaves).hex()
+
+
+def _claimant_root(claims: list[dict[str, Any]]) -> str:
+    digest = hashlib.sha256()
+
+    def write_field(value: str) -> None:
+        try:
+            encoded = value.encode("utf-8")
+        except UnicodeEncodeError:
+            _fail("custom-staking claimant field is not valid UTF-8")
+        digest.update(len(encoded).to_bytes(8, "big"))
+        digest.update(encoded)
+
+    write_field("zerone/custom-staking-claimants/v1")
+    digest.update(len(claims).to_bytes(8, "big"))
+    for claim in claims:
+        for key in (
+            "source_kind",
+            "source_claim_id",
+            "claimant",
+            "validator",
+            "denom",
+            "amount",
+        ):
+            write_field(claim[key])
+    return digest.hexdigest()
+
+
+def _validate_custom_staking_census(
+    files: Mapping[str, bytes],
+    objects: Mapping[str, Any],
+    final: Mapping[str, Any],
+    release: Mapping[str, Any],
+    transition: Mapping[str, Any],
+    inventory: Mapping[str, Any],
+    f: str,
+    a: str,
+) -> str:
+    name = "CUSTOM-STAKING-CENSUS.json"
+    raw = files.get(name)
+    if raw is None or not raw or len(raw) > 64 * 1024 * 1024 + 1:
+        _fail("custom-staking census is missing, empty, or oversized")
+    report = _exact_object(
+        _object(files, objects, name),
+        {
+            "schema",
+            "result",
+            "evidence",
+            "multistore",
+            "stores",
+            "census",
+            "report_sha256",
+        },
+        "custom-staking census report",
+    )
+    if report["schema"] != "zerone/custom-staking-census/v1":
+        _fail("custom-staking census schema changed")
+    if report["result"] != "PASS":
+        _fail("custom-staking census did not PASS")
+
+    report_hash = _lower_hash(
+        report["report_sha256"], "custom-staking census self-hash"
+    )
+    suffix = f',"report_sha256":"{report_hash}"}}'.encode()
+    if not raw.endswith(b"\n") or not raw[:-1].endswith(suffix):
+        _fail("custom-staking census is not the exact sealed report encoding")
+    sealed = raw[:-1]
+    unsealed = sealed[: -len(suffix)] + b',"report_sha256":""}'
+    if _sha256(unsealed) != report_hash:
+        _fail("custom-staking census self-hash does not match its unsealed bytes")
+
+    evidence = _exact_object(
+        report["evidence"],
+        {"chain_id", "height", "app_hash", "source_commit"},
+        "custom-staking census evidence",
+    )
+    source = release.get("source")
+    if not isinstance(source, dict):
+        _fail("RELEASE source is missing for custom-staking census binding")
+    source_commit = source.get("commit")
+    if not isinstance(source_commit, str) or not re.fullmatch(
+        r"[0-9a-f]{40}", source_commit
+    ):
+        _fail("RELEASE source commit is not canonical for census binding")
+    expected_app_hash = inventory["post_anchor_hash"].lower()
+    excluded = final.get("excluded_post_anchor_state")
+    if not isinstance(excluded, dict) or not (
+        excluded.get("abci_last_applied_height") == a
+        and excluded.get("app_hash") == inventory["post_anchor_hash"]
+        and transition.get("expected_post_anchor_app_hash")
+        == inventory["post_anchor_hash"]
+    ):
+        _fail("FINAL/transition excluded post-anchor state is not census-bindable")
+    if not (
+        evidence["chain_id"] == "zerone-1"
+        and evidence["height"] == a
+        and evidence["height"] != f
+        and evidence["app_hash"] == expected_app_hash
+        and evidence["source_commit"] == source_commit
+    ):
+        _fail(
+            "custom-staking census must bind RELEASE source and excluded "
+            "post-anchor application state A, never checkpoint F"
+        )
+    _lower_hash(evidence["app_hash"], "custom-staking census AppHash")
+
+    multistore = report["multistore"]
+    if not isinstance(multistore, list) or not 1 <= len(multistore) <= 4096:
+        _fail("custom-staking census multistore is not a bounded non-empty list")
+    multistore_roots: dict[str, str] = {}
+    previous_name = b""
+    for index, row in enumerate(multistore):
+        row = _exact_object(
+            row, {"name", "root_sha256"}, f"custom-staking multistore[{index}]"
+        )
+        store_name = _string(row["name"], f"custom-staking multistore[{index}].name")
+        try:
+            encoded_name = store_name.encode("utf-8")
+        except UnicodeEncodeError:
+            _fail("custom-staking multistore name is not valid UTF-8")
+        if (
+            len(encoded_name) > 128
+            or encoded_name <= previous_name
+            or store_name in multistore_roots
+        ):
+            _fail("custom-staking multistore names are not uniquely sorted")
+        previous_name = encoded_name
+        multistore_roots[store_name] = _lower_hash(
+            row["root_sha256"], f"custom-staking multistore[{index}].root"
+        )
+    if _cosmos_commit_info_hash(multistore_roots) != expected_app_hash:
+        _fail("custom-staking multistore roots do not recompute post-anchor AppHash E")
+
+    stores = report["stores"]
+    required_stores = ("zerone_staking", "bank", "staking")
+    if not isinstance(stores, list) or len(stores) != len(required_stores):
+        _fail("custom-staking census does not contain the three required stores")
+    store_stats: dict[str, tuple[int, int]] = {}
+    for index, (row, expected_name) in enumerate(zip(stores, required_stores)):
+        row = _exact_object(
+            row,
+            {
+                "name",
+                "version",
+                "root_sha256",
+                "leaf_count",
+                "input_bytes",
+                "leaves_sha256",
+            },
+            f"custom-staking store[{index}]",
+        )
+        if row["name"] != expected_name or row["version"] != a:
+            _fail("custom-staking store order/version differs from application A")
+        root_hash = _lower_hash(
+            row["root_sha256"], f"custom-staking store[{index}].root"
+        )
+        if multistore_roots.get(expected_name) != root_hash:
+            _fail("custom-staking store root differs from its multistore commitment")
+        _lower_hash(
+            row["leaves_sha256"], f"custom-staking store[{index}].leaves"
+        )
+        for field in ("leaf_count", "input_bytes"):
+            value = row[field]
+            if not isinstance(value, str) or not re.fullmatch(
+                r"(?:0|[1-9][0-9]{0,19})", value
+            ):
+                _fail(f"custom-staking store[{index}].{field} is not canonical")
+            if int(value) > 2**64 - 1:
+                _fail(f"custom-staking store[{index}].{field} exceeds uint64")
+        leaf_count = int(row["leaf_count"])
+        input_bytes = int(row["input_bytes"])
+        leaf_limit = (
+            CENSUS_MAX_CUSTOM_STORE_LEAVES
+            if expected_name == "zerone_staking"
+            else CENSUS_MAX_STORE_LEAVES
+        )
+        if leaf_count > leaf_limit:
+            _fail(f"custom-staking store[{index}] exceeds its scan leaf ceiling")
+        if (
+            expected_name == "zerone_staking"
+            and input_bytes > CENSUS_MAX_CUSTOM_INPUT_BYTES
+        ):
+            _fail("custom-staking store exceeds its retained-input scan ceiling")
+        store_stats[expected_name] = (leaf_count, input_bytes)
+    total_input_bytes = sum(
+        input_bytes for _, input_bytes in store_stats.values()
+    )
+    if total_input_bytes > CENSUS_MAX_SCANNED_INPUT_BYTES:
+        _fail("custom-staking required stores exceed the aggregate scan byte ceiling")
+
+    census = _exact_object(
+        report["census"],
+        {
+            "module_address",
+            "module_address_hex",
+            "module_balances",
+            "balance_uzrn",
+            "delegations_uzrn",
+            "pending_unbondings_uzrn",
+            "liabilities_uzrn",
+            "delta_uzrn",
+            "claimant_root",
+            "claimant_root_complete",
+            "claim_count",
+            "custom_keyspace",
+            "validators",
+            "claims",
+            "unbondings",
+            "did_indexes",
+            "reverse_delegation_indexes",
+            "redelegation_cooldowns",
+            "sdk_validators",
+            "tier_configs",
+            "findings",
+        },
+        "custom-staking census",
+    )
+    module_bytes = hashlib.sha256(b"zerone_staking").digest()[:20]
+    if not (
+        census["module_address"] == _bech32_encode("zrn", module_bytes)
+        and census["module_address_hex"] == module_bytes.hex()
+    ):
+        _fail("custom-staking module identity is not deterministic")
+    balance = _census_aggregate(census["balance_uzrn"], "custom-staking B")
+    delegations = _census_aggregate(
+        census["delegations_uzrn"], "custom-staking D"
+    )
+    pending = _census_aggregate(
+        census["pending_unbondings_uzrn"], "custom-staking U"
+    )
+    liabilities = _census_aggregate(
+        census["liabilities_uzrn"], "custom-staking liabilities"
+    )
+    if not (
+        liabilities == delegations + pending
+        and balance == liabilities
+        and census["delta_uzrn"] == "0"
+    ):
+        _fail("custom-staking census does not prove B = D + U and delta = 0")
+    if census["claimant_root_complete"] is not True or census["findings"] != []:
+        _fail("custom-staking census is incomplete or contains findings")
+
+    balances = census["module_balances"]
+    expected_balance_rows = 0 if balance == 0 else 1
+    if not isinstance(balances, list) or len(balances) != expected_balance_rows:
+        _fail("custom-staking module balances contain an unexplained denomination")
+    if balances:
+        row = _exact_object(
+            balances[0], {"denom", "amount"}, "custom-staking module balance[0]"
+        )
+        if row["denom"] != "uzrn" or _census_amount(
+            row["amount"], "custom-staking module balance[0].amount", True
+        ) != balance:
+            _fail("custom-staking module balances do not exactly explain B")
+
+    collection_names = (
+        "custom_keyspace",
+        "validators",
+        "claims",
+        "unbondings",
+        "did_indexes",
+        "reverse_delegation_indexes",
+        "redelegation_cooldowns",
+        "sdk_validators",
+        "tier_configs",
+    )
+    if any(not isinstance(census[key], list) for key in collection_names):
+        _fail("custom-staking census collections must all be lists")
+
+    validators = census["validators"]
+    validator_set: set[str] = set()
+    validator_rows: dict[str, dict[str, Any]] = {}
+    previous_validator = ""
+    validator_fields = {
+        "operator",
+        "address_hex",
+        "legacy_consensus_pubkey",
+        "legacy_consensus_pubkey_trusted",
+        "stored_self",
+        "computed_self",
+        "stored_delegated",
+        "computed_delegated",
+        "stored_total",
+        "computed_total",
+        "aggregates_match",
+        "sdk_link",
+    }
+    for index, validator in enumerate(validators):
+        label = f"custom-staking validator[{index}]"
+        if not isinstance(validator, dict) or set(validator) not in {
+            frozenset(validator_fields),
+            frozenset(validator_fields | {"sdk_operator"}),
+        }:
+            _fail(f"{label} does not have the exact required fields")
+        operator = validator["operator"]
+        address = _bech32_address(operator, "zrn", f"{label}.operator")
+        if operator <= previous_validator or validator["address_hex"] != address.hex():
+            _fail("custom-staking validators are not ordered canonical identities")
+        previous_validator = operator
+        if operator in validator_set:
+            _fail("custom-staking validators repeat an operator")
+        validator_set.add(operator)
+        if (
+            validator["aggregates_match"] is not True
+            or validator["legacy_consensus_pubkey_trusted"] is not False
+            or not _string(
+                validator["legacy_consensus_pubkey"],
+                f"{label}.legacy_consensus_pubkey",
+            )
+        ):
+            _fail(f"{label} has invalid aggregate or legacy-key trust state")
+        amounts = {
+            field: _census_amount(validator[field], f"{label}.{field}")
+            for field in (
+                "stored_self",
+                "computed_self",
+                "stored_delegated",
+                "computed_delegated",
+                "stored_total",
+                "computed_total",
+            )
+        }
+        if not (
+            amounts["stored_self"] == amounts["computed_self"]
+            and amounts["stored_delegated"] == amounts["computed_delegated"]
+            and amounts["stored_total"] == amounts["computed_total"]
+            and amounts["stored_total"]
+            == amounts["stored_self"] + amounts["stored_delegated"]
+        ):
+            _fail(f"{label} aggregate values are inconsistent")
+        sdk_link = validator["sdk_link"]
+        if sdk_link == "absent":
+            if set(validator) != validator_fields:
+                _fail(f"{label} unexpectedly carries an SDK operator")
+            sdk_operator = None
+        elif sdk_link == "linked":
+            if set(validator) != validator_fields | {"sdk_operator"}:
+                _fail(f"{label} omits its linked SDK operator")
+            sdk_operator = _string(validator["sdk_operator"], f"{label}.sdk_operator")
+        else:
+            _fail(f"{label} has an invalid SDK link state")
+        validator_rows[operator] = {
+            "address_hex": validator["address_hex"],
+            "computed_self": amounts["computed_self"],
+            "computed_delegated": amounts["computed_delegated"],
+            "sdk_link": sdk_link,
+            "sdk_operator": sdk_operator,
+        }
+
+    claims = census["claims"]
+    claim_count = census["claim_count"]
+    if (
+        not isinstance(claim_count, int)
+        or isinstance(claim_count, bool)
+        or claim_count < 0
+        or claim_count > 50_000
+        or claim_count != len(claims)
+    ):
+        _fail("custom-staking claim count is invalid or incomplete")
+    delegation_total = 0
+    pending_total = 0
+    seen_sources: set[tuple[str, str]] = set()
+    previous_claim: tuple[str, ...] | None = None
+    claim_self: dict[str, int] = {}
+    claim_delegated: dict[str, int] = {}
+    delegation_pairs: set[tuple[str, str]] = set()
+    pending_by_id: dict[str, dict[str, Any]] = {}
+    for index, claim in enumerate(claims):
+        claim = _exact_object(
+            claim,
+            {
+                "source_kind",
+                "source_claim_id",
+                "claimant",
+                "validator",
+                "denom",
+                "amount",
+            },
+            f"custom-staking claim[{index}]",
+        )
+        label = f"custom-staking claim[{index}]"
+        for field in ("source_kind", "source_claim_id", "denom", "amount"):
+            _string(claim[field], f"{label}.{field}")
+        _bech32_address(claim["claimant"], "zrn", f"{label}.claimant")
+        _bech32_address(claim["validator"], "zrn", f"{label}.validator")
+        if claim["validator"] not in validator_set:
+            _fail(f"{label} targets no reported custom validator")
+        order = tuple(
+            claim[field]
+            for field in (
+                "source_kind",
+                "source_claim_id",
+                "claimant",
+                "validator",
+                "denom",
+                "amount",
+            )
+        )
+        if previous_claim is not None and order <= previous_claim:
+            _fail("custom-staking claims are not in strict deterministic order")
+        previous_claim = order
+        source = (claim["source_kind"], claim["source_claim_id"])
+        if source in seen_sources:
+            _fail("custom-staking claimant source is duplicated")
+        seen_sources.add(source)
+        if claim["denom"] != "uzrn":
+            _fail("custom-staking claim denomination is not uzrn")
+        amount = _census_amount(
+            claim["amount"], f"custom-staking claim[{index}].amount", positive=True
+        )
+        if claim["source_kind"] == "delegation":
+            if claim["source_claim_id"] != (
+                f'{claim["claimant"]}->{claim["validator"]}'
+            ):
+                _fail("custom-staking delegation claimant source is malformed")
+            delegation_total += amount
+            pair = (claim["validator"], claim["claimant"])
+            delegation_pairs.add(pair)
+            target = (
+                claim_self
+                if claim["claimant"] == claim["validator"]
+                else claim_delegated
+            )
+            target[claim["validator"]] = target.get(claim["validator"], 0) + amount
+        elif claim["source_kind"] == "pending_unbonding":
+            pending_total += amount
+            pending_by_id[claim["source_claim_id"]] = claim
+        else:
+            _fail("custom-staking claim has an unknown source kind")
+    if delegation_total != delegations or pending_total != pending:
+        _fail("custom-staking claimant rows do not sum to D and U")
+
+    claimant_root = _lower_hash(
+        census["claimant_root"], "custom-staking claimant root"
+    )
+    if claimant_root != _claimant_root(claims):
+        _fail("custom-staking claimant root does not match the complete claim list")
+
+    unbondings = census["unbondings"]
+    previous_unbonding_id = ""
+    seen_sequences: set[int] = set()
+    pending_records = 0
+    for index, entry in enumerate(unbondings):
+        label = f"custom-staking unbonding[{index}]"
+        entry = _exact_object(
+            entry,
+            {
+                "id",
+                "delegator",
+                "validator",
+                "amount",
+                "created_at_height",
+                "completes_at_height",
+                "status",
+                "sequence",
+            },
+            label,
+        )
+        entry_id = _string(entry["id"], f"{label}.id")
+        if entry_id <= previous_unbonding_id:
+            _fail("custom-staking unbondings are not in strict ID order")
+        previous_unbonding_id = entry_id
+        _bech32_address(entry["delegator"], "zrn", f"{label}.delegator")
+        _bech32_address(entry["validator"], "zrn", f"{label}.validator")
+        _census_amount(entry["amount"], f"{label}.amount", True)
+        created = _uint64(entry["created_at_height"], f"{label}.created_at_height")
+        completes = _uint64(
+            entry["completes_at_height"], f"{label}.completes_at_height"
+        )
+        sequence = _uint64(entry["sequence"], f"{label}.sequence", True)
+        if completes <= created or sequence in seen_sequences:
+            _fail(f"{label} has invalid or duplicate lifecycle coordinates")
+        seen_sequences.add(sequence)
+        if entry["status"] == "pending":
+            pending_records += 1
+            claim = pending_by_id.get(entry_id)
+            if entry["validator"] not in validator_set or not claim or not (
+                claim["claimant"] == entry["delegator"]
+                and claim["validator"] == entry["validator"]
+                and claim["amount"] == entry["amount"]
+            ):
+                _fail(f"{label} does not match its pending claimant record")
+        elif entry["status"] != "completed":
+            _fail(f"{label} has an invalid status")
+    if pending_records != len(pending_by_id):
+        _fail("custom-staking pending claims do not cover pending unbondings")
+
+    reverse_indexes = census["reverse_delegation_indexes"]
+    previous_reverse: tuple[str, str] | None = None
+    for index, row in enumerate(reverse_indexes):
+        label = f"custom-staking reverse delegation index[{index}]"
+        row = _exact_object(row, {"validator", "delegator"}, label)
+        _bech32_address(row["validator"], "zrn", f"{label}.validator")
+        _bech32_address(row["delegator"], "zrn", f"{label}.delegator")
+        identity = (row["validator"], row["delegator"])
+        if previous_reverse is not None and identity <= previous_reverse:
+            _fail("custom-staking reverse indexes are not in deterministic order")
+        previous_reverse = identity
+        if identity not in delegation_pairs:
+            _fail(f"{label} has no delegation claim")
+    if len(reverse_indexes) != len(delegation_pairs):
+        _fail("custom-staking reverse indexes do not cover every delegation claim")
+
+    previous_did = ""
+    for index, row in enumerate(census["did_indexes"]):
+        label = f"custom-staking DID index[{index}]"
+        row = _exact_object(row, {"did", "operator"}, label)
+        did = _string(row["did"], f"{label}.did")
+        if len(did.encode("utf-8")) > 128:
+            _fail(f"{label} exceeds the 128-byte producer ceiling")
+        if did <= previous_did or row["operator"] not in validator_set:
+            _fail(f"{label} is unordered or targets no custom validator")
+        previous_did = did
+
+    previous_cooldown = ""
+    for index, row in enumerate(census["redelegation_cooldowns"]):
+        label = f"custom-staking redelegation cooldown[{index}]"
+        row = _exact_object(row, {"delegator", "height"}, label)
+        _bech32_address(row["delegator"], "zrn", f"{label}.delegator")
+        if row["delegator"] <= previous_cooldown:
+            _fail("custom-staking redelegation cooldowns are not ordered")
+        previous_cooldown = row["delegator"]
+        _uint64(row["height"], f"{label}.height", True)
+
+    sdk_by_address: dict[str, dict[str, Any]] = {}
+    previous_sdk_operator = ""
+    sdk_validators = census["sdk_validators"]
+    if len(sdk_validators) > CENSUS_MAX_SDK_VALIDATORS:
+        _fail("custom-staking SDK validator inventory exceeds its row ceiling")
+    for index, row in enumerate(sdk_validators):
+        label = f"custom-staking SDK validator[{index}]"
+        row = _exact_object(
+            row,
+            {"operator", "address_hex", "status", "jailed", "tokens"},
+            label,
+        )
+        address = _bech32_address(row["operator"], "zrnvaloper", f"{label}.operator")
+        if (
+            row["operator"] <= previous_sdk_operator
+            or row["address_hex"] != address.hex()
+            or row["address_hex"] in sdk_by_address
+        ):
+            _fail(f"{label} has an invalid or duplicate operator identity")
+        previous_sdk_operator = row["operator"]
+        if row["status"] not in {
+            "BOND_STATUS_UNBONDED",
+            "BOND_STATUS_UNBONDING",
+            "BOND_STATUS_BONDED",
+        }:
+            _fail(f"{label} has an invalid status")
+        if not isinstance(row["jailed"], bool):
+            _fail(f"{label}.jailed is not boolean")
+        _census_amount(row["tokens"], f"{label}.tokens")
+        sdk_by_address[row["address_hex"]] = row
+
+    for operator, validator in validator_rows.items():
+        if validator["computed_self"] != claim_self.get(operator, 0) or validator[
+            "computed_delegated"
+        ] != claim_delegated.get(operator, 0):
+            _fail(
+                "custom-staking validator computed aggregates do not match claims"
+            )
+        sdk_row = sdk_by_address.get(validator["address_hex"])
+        if validator["sdk_link"] == "linked":
+            if not sdk_row or sdk_row["operator"] != validator["sdk_operator"]:
+                _fail("custom-staking validator SDK link does not match inventory")
+        elif sdk_row:
+            _fail("custom-staking validator marks an available SDK link absent")
+
+    tiers = census["tier_configs"]
+    if len(tiers) != 4:
+        _fail("custom-staking tier reconciliation is incomplete")
+    for index, row in enumerate(tiers):
+        label = f"custom-staking tier reconciliation[{index}]"
+        row = _exact_object(
+            row,
+            {"tier", "name", "stored_digest", "params_digest", "matches"},
+            label,
+        )
+        _string(row["name"], f"{label}.name")
+        if (
+            not isinstance(row["tier"], int)
+            or isinstance(row["tier"], bool)
+            or row["tier"] != index + 1
+            or row["matches"] is not True
+            or row["stored_digest"] != row["params_digest"]
+        ):
+            _fail(f"{label} is incomplete")
+        _lower_hash(row["stored_digest"], f"{label}.stored_digest")
+        _lower_hash(row["params_digest"], f"{label}.params_digest")
+
+    keyspace = census["custom_keyspace"]
+    expected_names = (
+        "validators",
+        "delegations",
+        "unbondings",
+        "tier_configs",
+        "params",
+        "did_indexes",
+        "unbonding_sequence",
+        "redelegation_cooldowns",
+        "validator_delegation_indexes",
+        "app_iavl_init_sentinel",
+    )
+    expected_prefixes = tuple(f"0x{index:02x}" for index in range(1, 10)) + (
+        "0x5f6961766c5f696e6974",
+    )
+    if not isinstance(keyspace, list) or len(keyspace) != len(expected_names):
+        _fail("custom-staking keyspace census is incomplete")
+    keyspace_counts: dict[str, int] = {}
+    keyspace_input_bytes = 0
+    for index, (row, expected_name, expected_prefix) in enumerate(
+        zip(keyspace, expected_names, expected_prefixes)
+    ):
+        row = _exact_object(
+            row,
+            {"prefix", "name", "leaf_count", "input_bytes", "digest"},
+            f"custom-staking keyspace[{index}]",
+        )
+        prefix = row["prefix"]
+        name = row["name"]
+        if prefix != expected_prefix or name != expected_name:
+            _fail("custom-staking keyspace identities or order changed")
+        keyspace_counts[name] = _uint64(
+            row["leaf_count"], f"custom-staking keyspace[{index}].leaf_count"
+        )
+        keyspace_input_bytes += _uint64(
+            row["input_bytes"], f"custom-staking keyspace[{index}].input_bytes"
+        )
+        _lower_hash(row["digest"], f"custom-staking keyspace[{index}].digest")
+    expected_counts = {
+        "validators": len(census["validators"]),
+        "delegations": sum(
+            1 for claim in claims if claim["source_kind"] == "delegation"
+        ),
+        "unbondings": len(census["unbondings"]),
+        "tier_configs": len(census["tier_configs"]),
+        "params": 1,
+        "did_indexes": len(census["did_indexes"]),
+        "redelegation_cooldowns": len(census["redelegation_cooldowns"]),
+        "validator_delegation_indexes": len(
+            census["reverse_delegation_indexes"]
+        ),
+    }
+    if any(keyspace_counts[name] != count for name, count in expected_counts.items()):
+        _fail("custom-staking record counts do not cover the complete keyspace")
+    if (
+        sum(keyspace_counts.values()) != store_stats["zerone_staking"][0]
+        or keyspace_input_bytes != store_stats["zerone_staking"][1]
+    ):
+        _fail("custom-staking keyspaces do not cover the complete scanned store")
+    if keyspace_counts["tier_configs"] != 4 or keyspace_counts[
+        "unbonding_sequence"
+    ] not in {0, 1}:
+        _fail("custom-staking tier or sequence inventory is invalid")
+    if keyspace_counts["app_iavl_init_sentinel"] not in {0, 1}:
+        _fail("custom-staking app IAVL sentinel inventory is invalid")
+    if census["unbondings"] and keyspace_counts["unbonding_sequence"] != 1:
+        _fail("custom-staking unbondings lack the sequence singleton")
+    return _sha256(raw)
+
+
 def _validate_export_and_storage(
     files: Mapping[str, bytes],
     objects: Mapping[str, Any],
     final: Mapping[str, Any],
+    release: Mapping[str, Any],
     transition: Mapping[str, Any],
     inventory: Mapping[str, Any],
     f: str,
     a: str,
     h: str,
 ) -> None:
+    census_sha = _validate_custom_staking_census(
+        files, objects, final, release, transition, inventory, f, a
+    )
     export_name = "POST-ANCHOR-STATE-EXPORT.json.raw"
     if export_name not in files:
         _fail(f"required frozen evidence file {export_name} is missing")
@@ -1085,6 +1912,9 @@ def _validate_export_and_storage(
     artifacts = _exact_object(
         final.get("artifacts"),
         {
+            "custom_staking_census_sha256",
+            "custom_staking_census_execution_evidence_sha256",
+            "custom_staking_census_execution_evidence_detached_signature_sha256",
             "post_anchor_state_export_sha256",
             "post_anchor_state_export_included_in_successor_inventory",
             "offline_halted_observer_database_snapshot_sha256",
@@ -1094,6 +1924,13 @@ def _validate_export_and_storage(
         "FINAL frozen artifacts",
     )
     if artifacts != {
+        "custom_staking_census_sha256": census_sha,
+        "custom_staking_census_execution_evidence_sha256": _sha256(
+            files["CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json"]
+        ),
+        "custom_staking_census_execution_evidence_detached_signature_sha256": _sha256(
+            files["CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig"]
+        ),
         "post_anchor_state_export_sha256": export_sha,
         "post_anchor_state_export_included_in_successor_inventory": False,
         "offline_halted_observer_database_snapshot_sha256": offline_database_sha,
@@ -1375,5 +2212,5 @@ def validate_frozen_evidence(
         files, final, release, inventory, manifests, rpc_hashes, f, a, h
     )
     _validate_export_and_storage(
-        files, objects, final, transition, inventory, f, a, h
+        files, objects, final, release, transition, inventory, f, a, h
     )

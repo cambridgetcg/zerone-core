@@ -20,6 +20,7 @@ import (
 	"sort"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
@@ -157,7 +158,13 @@ func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareP
 		}
 	}()
 
-	txs := make([][]byte, 0, len(req.Txs)+1)
+	selector := baseapp.NewDefaultTxSelector()
+	var maxTxBytes uint64
+	if req.MaxTxBytes > 0 {
+		maxTxBytes = uint64(req.MaxTxBytes)
+	}
+	maxBlockGas, blockGasLimited := consensusBlockGasLimit(ctx)
+	proposalFull := false
 
 	// Process vote extensions from previous block (if available)
 	if potVoteExtensionsReleaseEnabled && len(req.LocalLastCommit.Votes) > 0 {
@@ -173,7 +180,18 @@ func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareP
 				logger.Warn("vote extension injection exceeds size limit — dropping",
 					"size", len(injBytes), "max", MaxVEXInjectionBytes)
 			} else {
-				txs = append(txs, injBytes)
+				selectedBefore := len(selector.SelectedTxs(ctx))
+				proposalFull = selector.SelectTxForProposal(
+					ctx,
+					maxTxBytes,
+					maxBlockGas,
+					nil,
+					injBytes,
+				)
+				if len(selector.SelectedTxs(ctx)) == selectedBefore {
+					logger.Warn("vote extension injection does not fit proposal byte limit — dropping",
+						"size", len(injBytes), "max_tx_bytes", req.MaxTxBytes)
+				}
 			}
 
 			logger.Info("injecting vote extension data",
@@ -183,16 +201,37 @@ func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareP
 		}
 	}
 
-	// Add regular transactions from mempool, respecting gas limit
-	var totalGas uint64
-	for _, tx := range req.Txs {
-		estimatedGas := uint64(len(tx)) * 10
-		if totalGas+estimatedGas > BlockGasLimit {
+	// Select regular transactions using the SDK's canonical protobuf byte sizing
+	// and each transaction's declared gas against the current consensus params.
+	// CometBFT supplies CheckTx-admitted transactions because this app uses the
+	// SDK NoOp app mempool. A malformed entry is skipped instead of making an
+	// otherwise viable proposal fail.
+	for _, txBytes := range req.Txs {
+		if proposalFull {
 			break
 		}
-		txs = append(txs, tx)
-		totalGas += estimatedGas
+		tx, decodeErr := app.txConfig.TxDecoder()(txBytes)
+		if decodeErr != nil {
+			logger.Warn("skipping undecodable tx in PrepareProposal", "err", decodeErr)
+			continue
+		}
+		// The SDK selector adds uint64 gas limits internally. Rejecting an
+		// individually impossible gas declaration first keeps that addition
+		// bounded by maxBlockGas and prevents wraparound on adversarial bytes.
+		if gasTx, ok := tx.(baseapp.GasTx); ok && blockGasLimited && gasTx.GetGas() > maxBlockGas {
+			logger.Warn("skipping tx whose declared gas exceeds the consensus block limit",
+				"gas", gasTx.GetGas(), "max_block_gas", maxBlockGas)
+			continue
+		}
+		proposalFull = selector.SelectTxForProposal(
+			ctx,
+			maxTxBytes,
+			maxBlockGas,
+			tx,
+			txBytes,
+		)
 	}
+	txs := selector.SelectedTxs(ctx)
 
 	logger.Debug("prepared proposal",
 		"height", req.Height,
@@ -209,6 +248,21 @@ func (app *ZeroneApp) ProcessProposalHandler() sdk.ProcessProposalHandler {
 	return app.processProposal
 }
 
+func consensusBlockGasLimit(ctx sdk.Context) (uint64, bool) {
+	block := ctx.ConsensusParams().Block
+	if block == nil || block.MaxGas < 0 {
+		return 0, false
+	}
+	return uint64(block.MaxGas), true
+}
+
+func addProposalTxGas(total, txGas, max uint64) (uint64, bool) {
+	if total > max || txGas > max-total {
+		return total, false
+	}
+	return total + txGas, true
+}
+
 func (app *ZeroneApp) processProposal(ctx sdk.Context, req *abci.RequestProcessProposal) (resp *abci.ResponseProcessProposal, err error) {
 	logger := ctx.Logger().With("module", "abci", "handler", "ProcessProposal")
 
@@ -223,10 +277,20 @@ func (app *ZeroneApp) processProposal(ctx sdk.Context, req *abci.RequestProcessP
 		}
 	}()
 
+	maxBlockGas, blockGasLimited := consensusBlockGasLimit(ctx)
+	var totalTxGas uint64
+
 	for i, txBytes := range req.Txs {
 		if IsVoteExtInjectionTx(txBytes) {
 			if !potVoteExtensionsReleaseEnabled {
 				logger.Warn("vote extension injection rejected: release safety latch is closed",
+					"index", i)
+				return &abci.ResponseProcessProposal{
+					Status: abci.ResponseProcessProposal_REJECT,
+				}, nil
+			}
+			if i != 0 {
+				logger.Warn("vote extension injection rejected outside proposal position zero",
 					"index", i)
 				return &abci.ResponseProcessProposal{
 					Status: abci.ResponseProcessProposal_REJECT,
@@ -248,27 +312,36 @@ func (app *ZeroneApp) processProposal(ctx sdk.Context, req *abci.RequestProcessP
 			continue
 		}
 
-		tx, err := app.txConfig.TxDecoder()(txBytes)
+		// A proposer is not a trusted extension of this validator's mempool.
+		// Re-run the SDK proposal verification path so signatures, fees,
+		// sequences, emergency quarantine, account freezes, and Zerone
+		// capabilities are enforced independently by every validator. The SDK
+		// keeps these writes in the disposable ProcessProposal state while
+		// carrying ante effects between transactions in proposal order.
+		tx, err := app.BaseApp.ProcessProposalVerifyTx(txBytes)
 		if err != nil {
-			logger.Warn("invalid tx in proposal", "index", i, "err", err)
+			logger.Warn("proposal tx failed full ante verification", "index", i, "err", err)
 			return &abci.ResponseProcessProposal{
 				Status: abci.ResponseProcessProposal_REJECT,
 			}, nil
 		}
-
-		for _, msg := range tx.GetMsgs() {
-			if m, ok := msg.(sdk.HasValidateBasic); ok {
-				if err := m.ValidateBasic(); err != nil {
-					logger.Warn("invalid msg in proposal",
-						"index", i,
-						"msg_type", sdk.MsgTypeURL(msg),
-						"err", err,
-					)
-					return &abci.ResponseProcessProposal{
-						Status: abci.ResponseProcessProposal_REJECT,
-					}, nil
-				}
+		if gasTx, ok := tx.(baseapp.GasTx); ok && blockGasLimited {
+			txGas := gasTx.GetGas()
+			// Use subtraction so adversarial declarations cannot wrap the
+			// aggregate. This mirrors PrepareProposal's consensus-param bound.
+			updatedGas, fits := addProposalTxGas(totalTxGas, txGas, maxBlockGas)
+			if !fits {
+				logger.Warn("proposal transaction gas exceeds consensus block limit",
+					"index", i,
+					"tx_gas", txGas,
+					"selected_gas", totalTxGas,
+					"max_block_gas", maxBlockGas,
+				)
+				return &abci.ResponseProcessProposal{
+					Status: abci.ResponseProcessProposal_REJECT,
+				}, nil
 			}
+			totalTxGas = updatedGas
 		}
 	}
 

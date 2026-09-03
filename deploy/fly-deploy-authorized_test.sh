@@ -16,6 +16,13 @@ sha256_file() {
   fi
 }
 
+canonical_mutate() {
+  local path=$1 filter=$2
+  shift 2
+  jq -S -c "$@" "${filter}" "${path}" > "${path}.new"
+  mv "${path}.new" "${path}"
+}
+
 expect_rejected() {
   local label=$1 expected=$2
   shift 2
@@ -120,7 +127,7 @@ payload=${@: -1}
 schema=$(jq -er '.schema' "${payload}")
 fingerprint=${FAKE_GPG_MAIN_FINGERPRINT:?}
 case "${schema}" in
-  zerone-2-release-packet-v1) timestamp=1783677660 ;;
+  zerone-2-release-packet-v2) timestamp=1783677660 ;;
   zerone-2-dark-start-decision-v1) timestamp=1783678260 ;;
   zerone-2-dark-start-initiation-evidence-v1) timestamp=1783678920 ;;
   zerone-2-dark-registration-evidence-v1) timestamp=1783680000 ;;
@@ -130,7 +137,11 @@ case "${schema}" in
     fingerprint=${FAKE_GPG_TRANSITION_FINGERPRINT:?}
     timestamp=1783693800
     ;;
-  zerone-final-checkpoint-v3)
+  zerone-custom-staking-census-execution-evidence-v1)
+    fingerprint=${FAKE_GPG_TRANSITION_FINGERPRINT:?}
+    timestamp=1783692840
+    ;;
+  zerone-final-checkpoint-v4)
     fingerprint=${FAKE_GPG_TRANSITION_FINGERPRINT:?}
     timestamp=1783695660
     ;;
@@ -182,6 +193,27 @@ BUNDLE="${TMP}/authority-bundle"
   --release-binary-file "${TMP}/zeroned" \
   --signed-tx-file "${TMP}/signed-tx.json"
 
+make_dark_pre_bundle() {
+  local name=$1 destination
+  destination="${TMP}/${name}"
+  cp -R "${BUNDLE}" "${destination}"
+  canonical_mutate "${destination}/DARK-START-DECISION.json" \
+    '.authorization_semantics.initiation_deadline = "2099-07-10T11:00:00Z"'
+  printf '%s\n' "${destination}"
+}
+
+rebind_dark_release() {
+  local bundle=$1 release_sha release_signature_sha
+  release_sha=$(sha256_file "${bundle}/RELEASE-PACKET.json")
+  release_signature_sha=$(sha256_file "${bundle}/RELEASE-PACKET.json.sig")
+  canonical_mutate "${bundle}/DARK-START-DECISION.json" \
+    '.release_packet_sha256 = $release
+    | .release_packet_detached_signature_sha256 = $signature' \
+    --arg release "${release_sha}" --arg signature "${release_signature_sha}"
+}
+
+DARK_PRE_BUNDLE=$(make_dark_pre_bundle dark-preinit-authority-bundle)
+
 RELEASE="${BUNDLE}/RELEASE-PACKET.json"
 RELEASE_SIG="${BUNDLE}/RELEASE-PACKET.json.sig"
 DARK="${BUNDLE}/DARK-START-DECISION.json"
@@ -199,6 +231,7 @@ OPEN_INIT_SIG="${BUNDLE}/OPEN-BETA-INITIATION-EVIDENCE.json.sig"
 FINAL="${BUNDLE}/FINAL-CHECKPOINT.json"
 FINAL_SIG="${BUNDLE}/FINAL-CHECKPOINT.json.sig"
 PUBLIC_CONFIG="${BUNDLE}/fly.edge.public.toml"
+ARCHIVE_CONFIG="${BUNDLE}/fly.zerone-1-archive-gateway.public.toml"
 
 jq -n -S -c \
   --arg sender "${SENDER}" \
@@ -247,7 +280,18 @@ run_dark() {
   gate_env "${GATE}" --check \
     "${RELEASE}" "${RELEASE_SIG}" "${DARK}" "${DARK_SIG}" \
     "${PRIVATE_CONFIG}" zerone_2_edge_private "${MAIN_FINGERPRINT}" \
-    "${DARK_INIT}" "${DARK_INIT_SIG}"
+    "${DARK_INIT}" "${DARK_INIT_SIG}" "${BUNDLE}"
+}
+
+run_dark_pre() {
+  local bundle=${1:-${DARK_PRE_BUNDLE}}
+  gate_env "${GATE}" --check \
+    "${bundle}/RELEASE-PACKET.json" \
+    "${bundle}/RELEASE-PACKET.json.sig" \
+    "${bundle}/DARK-START-DECISION.json" \
+    "${bundle}/DARK-START-DECISION.json.sig" \
+    "${PRIVATE_CONFIG}" zerone_2_edge_private "${MAIN_FINGERPRINT}" \
+    "${bundle}"
 }
 
 run_open() {
@@ -260,8 +304,64 @@ run_open() {
     "${FINAL}" "${FINAL_SIG}" "${transition}" "${BUNDLE}"
 }
 
+run_open_archive() {
+  local config=${1:-${ARCHIVE_CONFIG}}
+  gate_env "${GATE}" --check \
+    "${RELEASE}" "${RELEASE_SIG}" "${OPEN}" "${OPEN_SIG}" \
+    "${config}" zerone_1_archive_gateway "${MAIN_FINGERPRINT}" \
+    "${OPEN_INIT}" "${OPEN_INIT_SIG}" \
+    "${FINAL}" "${FINAL_SIG}" "${TRANSITION_FINGERPRINT}" "${BUNDLE}"
+}
+
+[ "$(run_dark_pre)" = "${RUNTIME_IMAGE}" ]
 [ "$(run_dark)" = "${RUNTIME_IMAGE}" ]
 [ "$(run_open)" = "${RUNTIME_IMAGE}" ]
+[ "$(run_open_archive)" = "${QUERY_IMAGE}" ]
+
+run_dark_without_bundle() {
+  gate_env "${GATE}" --check \
+    "${RELEASE}" "${RELEASE_SIG}" "${DARK}" "${DARK_SIG}" \
+    "${PRIVATE_CONFIG}" zerone_2_edge_private "${MAIN_FINGERPRINT}" \
+    "${DARK_INIT}" "${DARK_INIT_SIG}"
+}
+expect_rejected "DARK deployment without authority bundle" \
+  "DARK-START deployment requires the complete authority bundle" \
+  run_dark_without_bundle
+
+missing_dark_sigstore=$(make_dark_pre_bundle dark-preinit-missing-sigstore)
+mv "${missing_dark_sigstore}/SIGSTORE-TRUSTED-ROOT.json" \
+  "${missing_dark_sigstore}/SIGSTORE-TRUSTED-ROOT.json.missing"
+expect_rejected "DARK deployment with missing Sigstore root" \
+  "could not open bundle file SIGSTORE-TRUSTED-ROOT.json" \
+  run_dark_pre "${missing_dark_sigstore}"
+
+corrupt_dark_sigstore=$(make_dark_pre_bundle dark-preinit-corrupt-sigstore)
+bad_component_signature=$(printf 'x%.0s' {1..80} | base64 | tr -d '\r\n')
+canonical_mutate \
+  "${corrupt_dark_sigstore}/ZERONE-2-RUNTIME-SIGNATURE-BUNDLE.json" \
+  '.messageSignature.signature = $signature' \
+  --arg signature "${bad_component_signature}"
+component_bundle_sha=$(sha256_file \
+  "${corrupt_dark_sigstore}/ZERONE-2-RUNTIME-SIGNATURE-BUNDLE.json")
+canonical_mutate \
+  "${corrupt_dark_sigstore}/ZERONE-2-RUNTIME-SIGNATURE-EVIDENCE.json" \
+  '.bundle_sha256 = $sha' --arg sha "${component_bundle_sha}"
+component_evidence_sha=$(sha256_file \
+  "${corrupt_dark_sigstore}/ZERONE-2-RUNTIME-SIGNATURE-EVIDENCE.json")
+canonical_mutate "${corrupt_dark_sigstore}/RELEASE-PACKET.json" \
+  '.components.zerone_2_runtime.signature_sha256 = $sha' \
+  --arg sha "${component_evidence_sha}"
+rebind_dark_release "${corrupt_dark_sigstore}"
+expect_rejected "DARK deployment with corrupt Sigstore signature" \
+  "Sigstore cryptographic verification failed" \
+  run_dark_pre "${corrupt_dark_sigstore}"
+
+corrupt_dark_verifier=$(make_dark_pre_bundle dark-preinit-corrupt-verifier)
+printf '\n# corrupt bundled verifier\n' >> \
+  "${corrupt_dark_verifier}/zerone-component-signature-verifier"
+expect_rejected "DARK deployment with corrupt component verifier" \
+  "bundled component-signature verifier bytes differ" \
+  run_dark_pre "${corrupt_dark_verifier}"
 
 run_cutover_generic() {
   gate_env "${GATE}" --check \
@@ -301,6 +401,15 @@ printf '\n# changed after OPEN was signed\n' >> "${ALTERED_CONFIG}"
 expect_rejected "post-signature Fly config drift" \
   "snapshotted config does not match the signed phase-authority SHA-256" \
   run_open "${ALTERED_CONFIG}"
+
+ALTERED_ARCHIVE_CONFIG="${TMP}/fly.archive-gateway.altered.toml"
+cp "${ARCHIVE_CONFIG}" "${ALTERED_ARCHIVE_CONFIG}"
+sed -i.bak 's/EXPECTED_ARCHIVE_HEIGHT = "1001"/EXPECTED_ARCHIVE_HEIGHT = "1000"/' \
+  "${ALTERED_ARCHIVE_CONFIG}"
+rm -f "${ALTERED_ARCHIVE_CONFIG}.bak"
+expect_rejected "archive gateway FINAL pin drift" \
+  "archive gateway height differs from verified FINAL A" \
+  run_open_archive "${ALTERED_ARCHIVE_CONFIG}"
 
 run_open_wrong_main_signature() {
   FAKE_GPG_MAIN_FINGERPRINT=${OTHER_FINGERPRINT} run_open

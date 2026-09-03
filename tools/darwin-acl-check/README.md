@@ -18,6 +18,12 @@ on every other result, timeout, signal, unsafe helper metadata, or missing
 helper. Linux does not execute this helper because its mode-bit check also
 constrains the effective POSIX ACL mask.
 
+Frontier intake does not rely on Bun 1.3 pipe capture for this tuple. It uses
+separate private, unlinked regular-file descriptors for stdout and stderr,
+then performs a bounded positional read and exact EOF check. This preserves
+the versioned protocol under concurrent macOS execution while still failing
+closed on missing, malformed, truncated, or trailing output.
+
 Run `make darwin-acl-helper` on macOS. It produces a deterministic universal
 arm64/x86_64, ad-hoc-signed generated artifact at `build/darwin-acl-check` and
 copies the identical artifact beside the production Frontier Bun bundle at

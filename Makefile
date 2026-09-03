@@ -51,6 +51,7 @@ install:
 	go install -ldflags "$(LDFLAGS)" ./cmd/zeroned
 
 test:
+	@if [ "$$(/usr/bin/uname -s)" = Darwin ]; then $(MAKE) darwin-acl-helper; fi
 	go test ./... -count=1 -timeout 300s
 
 lint:

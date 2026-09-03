@@ -5,7 +5,8 @@ decisions define the launch:
 
 1. `RELEASE-PACKET.json`, made from `RELEASE-PACKET.example.json`, fixes the
    release components, policies, public identities, invariant config mappings,
-   phase-dependent template hashes, and deterministic archive renderer.
+   phase-dependent template hashes, both deterministic archive renderers, and
+   the exact custom-staking census binary/execution-evidence contract.
 2. `DARK-START-DECISION.json` references the release bytes and may authorize
    only the private successor boot, registration, and soak.
 3. `CUTOVER-DECISION.json` references the unchanged release packet, dark-start
@@ -40,18 +41,24 @@ Canonicalize, sign, and independently verify each with the main operator key
 after its event. Their result is `MATCH`; they add no scope beyond forward
 completion already granted by the corresponding decision.
 
-Two transition-key files are factual attestations, not operator decisions:
+Three transition-key files are factual attestations, not operator decisions:
 
 - `ARCHIVE-ADOPTION-AUTHORITY.json` is emitted—never hand-authored—by
   `deploy/mainnet/render-archive-configs.sh`. It binds the inner transition
   manifest, verified release/CUTOVER payload and signature hashes, exact
   deterministic templates/renderer, construction evidence, and rendered
   private archive config bytes. Its result is `MATCH`, not `GO`.
+- `CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json` is emitted—never
+  hand-authored—by `deploy/run-custom-staking-census-evidence.py` after the
+  full signed `cutover-postinit` gate. It binds the RELEASE/CUTOVER-initiation
+  pairs, release-bound runner and census binary, stopped-copy hashes, exact
+  stdout-mode argv, captured report/stdout hash, empty stderr hash, exit-zero
+  PASS report, atomic publication transport, and declared scan contract.
 - `FINAL-CHECKPOINT.json` attests the frozen historical evidence and private
   A/A archive readiness. It contains no OPEN-BETA reference, history-link
   transaction, public URL, DNS change, or public deployment authority.
 
-Both use the separate transition-attestation OpenPGP fingerprint fixed in the
+All three use the separate transition-attestation OpenPGP fingerprint fixed in the
 release packet and CUTOVER delegation. That fingerprint must differ from the
 main key. It cannot authorize a public service or operator decision.
 
@@ -61,10 +68,12 @@ The resulting acyclic graph is:
 RELEASE -> DARK-START -> dark-initiation -> registration-evidence -> CUTOVER
                                             |
                                             v
-                                  cutover-initiation -> ARCHIVE-ADOPTION
-                                                            |
-                                                            v
-                                                    FINAL-CHECKPOINT
+                                  cutover-initiation -> ARCHIVE-ADOPTION ----+
+                                            |                               |
+                                            +-> CENSUS-EXECUTION-EVIDENCE --+
+                                                                            |
+                                                                            v
+                                                                    FINAL-CHECKPOINT
                                                             |
                                                             v
                                                        OPEN-BETA
@@ -109,6 +118,13 @@ publication. It refuses an existing file or dangling symlink instead of ever
 hashing stale output. Run `bash scripts/zerone-canonical-json-test.sh` as a
 release gate.
 
+The census execution receipt is the exception to the draft workflow: produce
+it only with the release-bound runner and never recreate it from the example.
+After independent review, sign the emitted bytes with the transition key. The
+signature makes the transition custodian accountable for the factual execution
+claim; it is not a cryptographic proof of process execution, retained IAVL
+leaf proofs, or census-binary build provenance.
+
 ## Deterministic archive adoption bytes
 
 After the halt evidence and pre-transition sanitized-copy evidence exist,
@@ -138,15 +154,39 @@ example by hand. A different app, volume, region, image, role, strategy,
 topology, substitution set, or config byte requires a new main-key authority;
 the transition key has no discretion to choose one.
 
+## Deterministic public archive-gateway bytes
+
+RELEASE fixes the archive gateway app/role/image, the public template hash, the
+renderer hash, and declarative bindings to the private archive app/region. It
+cannot fix the concrete config hash because its runtime pins—A, the excluded
+post-A AppHash E, and the application block ID B—exist only in verified FINAL.
+After FINAL is signed and independently verified, render on two isolated
+machines:
+
+```bash
+python3 deploy/query-gateway/render-archive-gateway-config.py \
+  RELEASE-PACKET.json FINAL-CHECKPOINT.json \
+  deploy/query-gateway/fly.zerone-1-archive.public.example.toml \
+  fly.zerone-1-archive-gateway.public.toml
+```
+
+Require byte equality. OPEN, signed by the main key, contains the resulting
+five-field concrete mapping. The authority verifier independently rerenders
+from authenticated RELEASE and FINAL and byte-compares it; only the two z2
+public mappings remain byte-identical to RELEASE. Never put a template hash in
+the RELEASE mapping's `sha256` field or let the transition key authorize public
+exposure.
+
 ## Signed-authority deployment gate
 
 Production DARK/OPEN Fly deployments use `deploy/fly-deploy-authorized.sh`;
 CUTOVER uses only `deploy/mainnet/fly-cutover-authorized.sh`, not manually
 transcribed expected values. It snapshots RELEASE, the canonical phase
 authority, both signatures, and the config; verifies the exact out-of-band
-signer and release-to-phase chain; extracts the app, image, role, component,
-and config hash from the signed `GO`; then passes those values to the
-lower-level immutable-image gate. Example:
+signer and full release-to-phase authority bundle, including release-bound
+operator tools and offline component Sigstore verification; extracts the app,
+image, role, component, and concrete config hash from the signed phase `GO`;
+then passes those values to the lower-level immutable-image gate. Example:
 
 ```bash
 # Valid only before private block 1 and while DARK-START is unexpired:
@@ -154,7 +194,8 @@ deploy/fly-deploy-authorized.sh --check \
   RELEASE-PACKET.json RELEASE-PACKET.json.sig \
   DARK-START-DECISION.json DARK-START-DECISION.json.sig \
   /secure/fly.edge.toml zerone_2_edge_private \
-  '<main-full-fingerprint>'
+  '<main-full-fingerprint>' \
+  /secure/authority-bundle
 
 # After block 1, every remaining DARK profile switch requires its evidence:
 deploy/fly-deploy-authorized.sh --check \
@@ -163,7 +204,8 @@ deploy/fly-deploy-authorized.sh --check \
   /secure/fly.edge.toml zerone_2_edge_private \
   '<main-full-fingerprint>' \
   DARK-START-INITIATION-EVIDENCE.json \
-  DARK-START-INITIATION-EVIDENCE.json.sig
+  DARK-START-INITIATION-EVIDENCE.json.sig \
+  /secure/authority-bundle
 ```
 
 Only DARK-START may deploy private successor profiles; the specialized CUTOVER
@@ -173,10 +215,11 @@ may deploy the three public profiles. CUTOVER and OPEN require their verified
 initiation-evidence payload/signature pairs. OPEN additionally requires the
 transition-signed
 `FINAL-CHECKPOINT.json`, its detached signature, and the separately pinned full
-transition-key fingerprint. Production OPEN verification runs on the dedicated
+transition-key fingerprint. Every production stage runs on the dedicated
 `linux/amd64` release workstation because it executes the exact signed
-Linux/AMD64 predecessor halt binary for offline Comet cryptography; native
-macOS rebuilds and test doubles are forbidden. Archive candidate/final
+component verifier; OPEN also executes the signed Linux/AMD64 predecessor halt
+binary for offline Comet cryptography. Native macOS rebuilds and test doubles
+are forbidden. Archive candidate/final
 deployments use
 `deploy/mainnet/fly-deploy-archive-authorized.sh`, which reruns the renderer and
 byte-compares its output before accepting the transition signature. The release

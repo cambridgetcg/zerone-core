@@ -1,6 +1,7 @@
 package app_test
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"sort"
@@ -8,6 +9,7 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	cmttypes "github.com/cometbft/cometbft/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/stretchr/testify/require"
@@ -17,6 +19,123 @@ import (
 	vestingrewards "github.com/zerone-chain/zerone/x/vesting_rewards"
 	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
+
+func proposalTxBytes(t *testing.T, app *zeroneapp.ZeroneApp, gas uint64, memo string) []byte {
+	t.Helper()
+	builder := app.TxConfig().NewTxBuilder()
+	require.NoError(t, builder.SetMsgs(banktypes.NewMsgSend(
+		sdk.AccAddress(bytes.Repeat([]byte{0x11}, 20)),
+		sdk.AccAddress(bytes.Repeat([]byte{0x22}, 20)),
+		sdk.NewCoins(sdk.NewInt64Coin("uzrn", 1)),
+	)))
+	builder.SetGasLimit(gas)
+	builder.SetMemo(memo)
+	txBytes, err := app.TxConfig().TxEncoder()(builder.GetTx())
+	require.NoError(t, err)
+	return txBytes
+}
+
+func proposalContext(app *zeroneapp.ZeroneApp, maxGas int64) sdk.Context {
+	return app.NewUncachedContext(false, cmtproto.Header{Height: 2}).WithConsensusParams(
+		cmtproto.ConsensusParams{Block: &cmtproto.BlockParams{MaxGas: maxGas}},
+	)
+}
+
+func TestPrepareProposalUsesExactProtobufByteLimit(t *testing.T) {
+	app := newTestApp(t)
+	txBytes := proposalTxBytes(t, app, 100, "protobuf-overhead")
+	protoSize := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{txBytes})
+	require.Greater(t, protoSize, int64(len(txBytes)), "protobuf framing must add bytes")
+
+	handler := app.PrepareProposalHandler()
+	tooSmall, err := handler(proposalContext(app, 1_000), &abci.RequestPrepareProposal{
+		Height:     2,
+		MaxTxBytes: int64(len(txBytes)),
+		Txs:        [][]byte{txBytes},
+	})
+	require.NoError(t, err)
+	require.Empty(t, tooSmall.Txs, "raw byte length must not bypass protobuf framing overhead")
+
+	exact, err := handler(proposalContext(app, 1_000), &abci.RequestPrepareProposal{
+		Height:     2,
+		MaxTxBytes: protoSize,
+		Txs:        [][]byte{txBytes},
+	})
+	require.NoError(t, err)
+	require.Equal(t, [][]byte{txBytes}, exact.Txs)
+}
+
+func TestPrepareProposalUsesCurrentConsensusMaxGas(t *testing.T) {
+	app := newTestApp(t)
+	first := proposalTxBytes(t, app, 60, "first")
+	second := proposalTxBytes(t, app, 50, "second")
+	maxBytes := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{first, second})
+	handler := app.PrepareProposalHandler()
+
+	limited, err := handler(proposalContext(app, 100), &abci.RequestPrepareProposal{
+		Height: 2, MaxTxBytes: maxBytes, Txs: [][]byte{first, second},
+	})
+	require.NoError(t, err)
+	require.Equal(t, [][]byte{first}, limited.Txs)
+
+	expanded, err := handler(proposalContext(app, 110), &abci.RequestPrepareProposal{
+		Height: 2, MaxTxBytes: maxBytes, Txs: [][]byte{first, second},
+	})
+	require.NoError(t, err)
+	require.Equal(t, [][]byte{first, second}, expanded.Txs,
+		"selection must follow the context consensus params rather than a compiled constant")
+
+}
+
+func TestPrepareProposalPreservesZeroConsensusMaxGas(t *testing.T) {
+	app := newTestApp(t)
+	positiveGas := proposalTxBytes(t, app, 1, "positive-gas")
+	zeroGas := proposalTxBytes(t, app, 0, "zero-gas")
+	maxBytes := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{positiveGas, zeroGas})
+
+	response, err := app.PrepareProposalHandler()(proposalContext(app, 0), &abci.RequestPrepareProposal{
+		Height:     2,
+		MaxTxBytes: maxBytes,
+		Txs:        [][]byte{positiveGas, zeroGas},
+	})
+	require.NoError(t, err)
+	require.Equal(t, [][]byte{zeroGas}, response.Txs,
+		"a zero consensus gas ceiling must not be treated as unlimited")
+}
+
+func TestPrepareProposalSkipsMalformedAndHighGasTransactions(t *testing.T) {
+	app := newTestApp(t)
+	highGas := proposalTxBytes(t, app, 101, "high-gas")
+	valid := proposalTxBytes(t, app, 100, "valid")
+	maxBytes := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{highGas, valid})
+
+	response, err := app.PrepareProposalHandler()(proposalContext(app, 100), &abci.RequestPrepareProposal{
+		Height:     2,
+		MaxTxBytes: maxBytes,
+		Txs: [][]byte{
+			{0xff, 0x00, 0xff},
+			highGas,
+			valid,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, [][]byte{valid}, response.Txs)
+}
+
+func TestPrepareProposalCannotWrapDeclaredGasTotal(t *testing.T) {
+	app := newTestApp(t)
+	valid := proposalTxBytes(t, app, 1, "valid-first")
+	overflow := proposalTxBytes(t, app, ^uint64(0), "overflow-second")
+	maxBytes := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{valid, overflow})
+
+	response, err := app.PrepareProposalHandler()(proposalContext(app, 100), &abci.RequestPrepareProposal{
+		Height:     2,
+		MaxTxBytes: maxBytes,
+		Txs:        [][]byte{valid, overflow},
+	})
+	require.NoError(t, err)
+	require.Equal(t, [][]byte{valid}, response.Txs)
+}
 
 func TestVoteExtInjectionEncodeDecode(t *testing.T) {
 	inj := zeroneapp.VoteExtInjection{
@@ -225,7 +344,7 @@ func TestVoteExtensionJSONRoundTrip(t *testing.T) {
 	require.Equal(t, uint64(750_000), decoded.Reveals[0].Confidence)
 }
 
-func TestAcceptedUnsignedTransactionCannotTriggerAutomaticMint(t *testing.T) {
+func TestUnsignedTransactionIsRejectedWithoutAutomaticMint(t *testing.T) {
 	app := newTestApp(t)
 	ctx := app.NewUncachedContext(false, cmtproto.Header{Height: 2})
 	app.VestingRewardsKeeper.InitGenesis(ctx, vestingrewardstypes.DefaultGenesis())
@@ -243,13 +362,13 @@ func TestAcceptedUnsignedTransactionCannotTriggerAutomaticMint(t *testing.T) {
 
 	beforeSupply := app.BankKeeper.GetSupply(ctx, "uzrn").Amount
 	beforeMinted := app.VestingRewardsKeeper.GetTotalMinted(ctx)
-	response, err := app.ProcessProposalHandler()(ctx, &abci.RequestProcessProposal{
-		Height: 2,
+	response, err := app.ProcessProposal(&abci.RequestProcessProposal{
+		Height: 1,
 		Txs:    [][]byte{txBytes},
 	})
 	require.NoError(t, err)
-	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, response.Status,
-		"the fixture must reproduce a stateless-valid proposal tx")
+	require.Equal(t, abci.ResponseProcessProposal_REJECT, response.Status,
+		"every validator must apply signature and account checks to proposal txs")
 
 	module := vestingrewards.NewAppModule(app.AppCodec(), app.VestingRewardsKeeper)
 	require.NoError(t, module.BeginBlock(ctx))

@@ -37,7 +37,7 @@ make build
 git rev-parse HEAD
 ```
 
-Go 1.24 or newer, `make`, `git`, `jq`, and a supported C toolchain are
+Go 1.25.14 exactly, `make`, `git`, `jq`, and a supported C toolchain are
 required. A production release must additionally bind the source commit,
 binary digest, build platform, SBOM/provenance, vulnerability decision, and
 immutable image digest in its signed release packet.
@@ -97,14 +97,18 @@ have not been checked against the selected release.
 ## Consensus upgrade requirement
 
 The consolidated source includes consensus-visible knowledge, vesting, and
-substrate hardening. Existing networks require the coordinated
-`consolidation-safety-v1` upgrade before that behavior can become active.
-That one atomic H1 boundary also advances liquiditypool v3→v5 and
-vesting_rewards v1→v2. The target keeps every swap fee in pool reserves for
-bearer LP shares, retires the founder auto-split, and retires the
-proposer-controlled transaction-presence mint. The H1 binary must not register
-the removed `liquiditypool-safety-v2` H2 handler. H1 still does not authorize
-native pool creation or oracle allowlisting.
+substrate hardening. A legacy SDK v0.50 / IBC-Go v8 network must cross two
+ordered pre-SDK boundaries before the later SDK/IBC transition. H1
+`consolidation-safety-v1` advances knowledge v5→v6, claiming_pot v1→v2, and
+liquiditypool v3→v5 while explicitly preserving vesting_rewards v1. It keeps
+every swap fee in pool reserves for bearer LP shares. H2
+`founder-renunciation-v1` requires the completed H1 state and alone advances
+vesting_rewards v1→v2, retiring the founder auto-split and the
+proposer-controlled transaction-presence mint. The exact H1 binary must not
+register H2; each boundary uses its own accepted source and separately
+attested executable. The obsolete `liquiditypool-safety-v2` name is not a
+handler. Neither H1 nor H2 authorizes native pool creation or oracle
+allowlisting.
 
 Before activation:
 
@@ -123,11 +127,21 @@ Params, module-account balances and permissions, every native pool and LP bank
 supply, and the billing quote-denom allowlist. Positive legacy pools migrate
 `EXIT_ONLY`, so holders may withdraw without silently enabling swaps, deposits,
 or oracle use; any existing pool still requires a separately reviewed
-transition. After H1, verify liquiditypool v5, vesting_rewards v2, zero retired
-fields, unchanged economic custody, empty admission lists, the applied plan,
-handler marker, and matching validator app hashes. See
+transition. After H1, verify liquiditypool v5, vesting_rewards v1, unchanged
+vesting Params and custody, zero protocol skim, empty admission lists, the
+applied H1 plan and marker, and matching validator app hashes.
+
+Before H2, bind the complete H1 poststate, ordered plan and done-height
+evidence, strict persisted vesting_rewards V1 Params, and the vesting
+module-account state. After H2, verify vesting_rewards v2, all retired founder
+and automatic-reward fields zero or empty, both ordered markers and done
+heights, the retained H2 plan-identity commitment, unchanged supply/custody,
+and matching app hashes. The current integrated SDK v0.53 source registers
+neither pre-SDK handler and must not be substituted for either release. See
 [LIQUIDITYPOOL-SAFETY-V2.md](LIQUIDITYPOOL-SAFETY-V2.md) for the full
-invariant, lifecycle, PPM, governance, and external-Osmosis separation gates.
+liquidity invariant, lifecycle, PPM, governance, and external-Osmosis
+separation gates, and [UPGRADES.md](UPGRADES.md) for the ordered H1/H2/H3
+release contract.
 
 ## `zerone-2`
 

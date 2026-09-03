@@ -83,7 +83,9 @@ VOLUME ["/data"]
 EXPOSE 26656 26657 1317 9090
 
 HEALTHCHECK --interval=15s --timeout=3s --start-period=30s --retries=4 \
-  CMD curl -fsS http://127.0.0.1:26657/status | \
-      jq -e '.result.node_info.network == "zerone-2"' >/dev/null || exit 1
+  CMD HEALTH_HOST=127.0.0.1; \
+      if [ "${NODE_ROLE:-}" = edge ] && [ "${QUERY_ORIGIN_ENABLED:-false}" = true ]; then HEALTH_HOST=fly-local-6pn; fi; \
+      curl --noproxy '*' --max-time 2 -fsS "http://${HEALTH_HOST}:26657/status" | \
+      jq -e '.result.node_info.network == "zerone-2" and .result.sync_info.catching_up == false and (.result.sync_info.latest_block_height | type == "string" and test("^[1-9][0-9]*$"))' >/dev/null || exit 1
 
 ENTRYPOINT ["/usr/local/bin/zerone-2-entrypoint"]

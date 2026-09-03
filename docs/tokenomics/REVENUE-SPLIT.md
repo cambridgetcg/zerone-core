@@ -1,8 +1,10 @@
 # Revenue and Fee Routing
 
-> **Implementation status:** this page describes the source target after
-> atomic H1. Query a release-matched network at a bound height before treating
-> it as live state.
+> **Implementation status:** this page describes the source target after H2.
+> H1 `consolidation-safety-v1` preserves vesting_rewards V1; H2
+> `founder-renunciation-v1` alone advances it to V2 and retires the founder and
+> transaction-presence paths. Query a release-matched network at a bound height
+> before treating it as live state.
 
 ## Actual transaction fees
 
@@ -38,25 +40,25 @@ founder address. Swap events retain `protocol_fee = 0` for compatibility.
 
 ## Retired automatic block split
 
-Before H1, transaction presence could call `DistributeBlockReward` and route a
+Before H2, transaction presence could call `DistributeBlockReward` and route a
 new mint through a four-way split. A proposer controlled inclusion before
 signature, fee, balance, or successful execution was known, so the trigger did
 not prove useful work.
 
 Vesting_rewards v2 fixes `block_reward`, `floor_reward`, and
 `empty_block_reward_rate` at zero and removes that BeginBlock call. The former
-55/22/19.67/3.33 minted-reward projection is historical, not a post-H1 revenue
+55/22/19.67/3.33 minted-reward projection is historical, not a post-H2 revenue
 promise. Actual transaction-fee routing above remains active.
 
 ## Retired founder sub-share
 
 `founder_share_bps` and `founder_address` remain compatibility fields but must
-be zero/empty after H1. Every canonical research deposit reaches
+be zero/empty after H2. Every canonical research deposit reaches
 `research_fund` in full, and an ordinary Params proposal cannot restore the
 old auto-split.
 
 The published genesis recorded a 7%-of-research setting with no founder
-address, so the tap was dormant at launch. H1 does not rewrite that artifact or
+address, so the tap was dormant at launch. H2 does not rewrite that artifact or
 claw back history; it permanently removes prospective activation. Any future
 payment to a founder is an ordinary publicly authorised grant, not a protocol
 percentage.

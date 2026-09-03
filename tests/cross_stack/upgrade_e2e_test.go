@@ -2118,6 +2118,8 @@ func TestUpgrade_SDK053IBC10RefusesLegacyFeeBalance(t *testing.T) {
 // wiring under the exact plan name a governance proposal would carry.
 func TestUpgrade_SubstrateDedupeV1SeedsAndArms(t *testing.T) {
 	h := NewTestHarness(t)
+	require.False(t, h.SubstrateBridgeKeeper.IsDedupeArmed(h.Ctx),
+		"pre-upgrade fixture must begin with dedupe enforcement disarmed")
 
 	// A settled attestation that predates the wall — the seed must index its
 	// source so a post-upgrade replay is blocked.
@@ -2250,6 +2252,128 @@ func TestUpgrade_CurrentSDKBinaryExcludesPreSDKHandlersAndLoaders(t *testing.T) 
 		require.NotContains(t, body, forbidden,
 			"the current SDK binary must neither register nor store-load a pre-SDK transition")
 	}
+}
+
+func TestUpgrade_OperatorDocsPreserveOrderedH1H2Boundary(t *testing.T) {
+	operatorDocs := []string{
+		"../../docs/UPGRADES.md",
+		"../../docs/UPGRADE_PROTOCOL.md",
+		"../../docs/VALIDATOR-GUIDE.md",
+		"../../docs/LIQUIDITYPOOL-SAFETY-V2.md",
+		"../../docs/tokenomics/ECONOMIC-NEUTRALITY.md",
+		"../../docs/ROADMAP.md",
+	}
+
+	for _, path := range operatorDocs {
+		body, err := os.ReadFile(path)
+		require.NoError(t, err)
+		require.NotContains(t, string(body), "feat/h1-ignition",
+			"moving or stale ignition branches must not be operator authority in %s", path)
+	}
+
+	runbook, err := os.ReadFile("../../docs/UPGRADES.md")
+	require.NoError(t, err)
+	body := strings.Join(strings.Fields(string(runbook)), " ")
+	require.Contains(t, body, zeroneapp.UpgradeNameConsolidationSafetyV1)
+	require.Contains(t, body, zeroneapp.UpgradeNameFounderRenunciationV1)
+	require.Contains(t, body,
+		"`vesting_rewards=1`: H1 explicitly preserves vesting_rewards V1")
+	require.Contains(t, body,
+		"alone advances `vesting_rewards` V1→V2")
+	require.Contains(t, body,
+		"contains `knowledge=6`, `claiming_pot=2`, `liquiditypool=5`, and `vesting_rewards=2`")
+	require.Contains(t, body,
+		"post-SDK integrated tip registers neither pre-SDK handler")
+}
+
+func TestUpgrade_ActiveGuidanceDoesNotCollapseH2IntoH1(t *testing.T) {
+	publicDocs := []string{
+		"../../deploy/mainnet/JOIN.md",
+		"../../deploy/testnet/JOIN.md",
+		"../../deploy/testnet/RUN-A-NODE.md",
+		"../../docs/FAQ.md",
+		"../../docs/FIRST-TRUTH.md",
+		"../../docs/PARAMETERS.md",
+		"../../docs/TRUTH-PAPER-HUMAN.md",
+		"../../docs/standards/OPEN_CRYPTO_SDK.md",
+		"../../docs/testnet-economics.md",
+		"../../docs/testnet-validator-guide.md",
+		"../../docs/tokenomics/GENESIS.md",
+		"../../docs/tokenomics/GOVERNANCE-MIGRATION.md",
+		"../../docs/tokenomics/README.md",
+		"../../docs/tokenomics/REVENUE-SPLIT.md",
+		"../../docs/tokenomics/SINKS-AND-FLOWS.md",
+		"../../docs/tokenomics/STAKING.md",
+		"../../docs/tokenomics/SUPPLY.md",
+		"../../docs/tokenomics/VESTING.md",
+		"../../networks/zerone-testnet-1/README.md",
+		"../../skills/run-a-zerone-node/SKILL.md",
+	}
+	forbiddenClaims := []string{
+		"Atomic H1 retires",
+		"atomic H1 retires",
+		"retired at H1",
+		"H1 fixes `founder_share_bps",
+		"H1 removes the special founder",
+		"H1 permanently retires the founder",
+		"The H1 source retires that proposer-controlled trigger",
+		"target module versions are liquiditypool 5 and vesting_rewards 2",
+		"require the named `consolidation-safety-v1` upgrade",
+		"requires the named `consolidation-safety-v1` upgrade",
+		"has not activated the `consolidation-safety-v1` upgrade",
+		"through the coordinated `consolidation-safety-v1` upgrade",
+		"Before H1, transaction presence",
+		"not a post-H1 revenue",
+		"zero/empty after H1",
+		"historical after H1",
+		"source target after atomic H1",
+		"Validator compensation after H1",
+		"for the H1 boundary between compensation and issuance",
+		"Atomic H1 does not mint for raw transaction presence",
+	}
+	normalizeDoc := func(contents []byte) string {
+		withoutQuoteWraps := strings.ReplaceAll(string(contents), "\n> ", "\n")
+		return strings.Join(strings.Fields(withoutQuoteWraps), " ")
+	}
+
+	for _, path := range publicDocs {
+		contents, err := os.ReadFile(path)
+		require.NoError(t, err)
+		body := normalizeDoc(contents)
+		for _, forbidden := range forbiddenClaims {
+			require.NotContains(t, body, forbidden,
+				"active guidance %s must assign founder/reward retirement to H2", path)
+		}
+	}
+
+	explicitBoundaryDocs := []string{
+		"../../docs/FIRST-TRUTH.md",
+		"../../docs/TRUTH-PAPER-HUMAN.md",
+		"../../docs/testnet-economics.md",
+		"../../docs/tokenomics/GOVERNANCE-MIGRATION.md",
+		"../../docs/tokenomics/REVENUE-SPLIT.md",
+		"../../docs/tokenomics/SINKS-AND-FLOWS.md",
+		"../../docs/tokenomics/STAKING.md",
+		"../../docs/tokenomics/SUPPLY.md",
+		"../../docs/tokenomics/VESTING.md",
+	}
+	requiredBoundary := "H1 `consolidation-safety-v1` preserves vesting_rewards V1; H2 `founder-renunciation-v1` alone advances it to V2"
+	for _, path := range explicitBoundaryDocs {
+		contents, err := os.ReadFile(path)
+		require.NoError(t, err)
+		body := normalizeDoc(contents)
+		require.Contains(t, body, requiredBoundary,
+			"active guidance %s must state the exact separated H1/H2 vesting boundary", path)
+	}
+
+	overview, err := os.ReadFile("../../docs/tokenomics/README.md")
+	require.NoError(t, err)
+	ordered := string(overview)
+	h1 := strings.Index(ordered, "65c19cd8b00bdfff9b80705b776fd0d49719398a")
+	h2 := strings.Index(ordered, "36728afbf71905a077a0863b41536fa9279109dd")
+	h3 := strings.Index(ordered, "335bb94f0fd54d3752dcb397263b7e84fb1116b4")
+	require.True(t, h1 >= 0 && h1 < h2 && h2 < h3,
+		"public tokenomics overview must name accepted H1, H2, then H3 source commits")
 }
 
 func TestUpgrade_CurrentSDKHandlersCannotCarryFounderRenunciation(t *testing.T) {

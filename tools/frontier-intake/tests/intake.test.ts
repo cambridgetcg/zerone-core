@@ -10,6 +10,7 @@ import {
   mkdtempSync,
   openSync,
   readFileSync,
+  readdirSync,
   renameSync,
   rmSync,
   symlinkSync,
@@ -20,8 +21,11 @@ import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   ACCOUNT_REGISTRATION_PROOF_DOMAIN,
+  DARWIN_ACL_CAPTURE_PARENT,
+  DARWIN_ACL_CAPTURE_PREFIX,
   accountRegistrationCommandArgs,
   accountRegistrationProofSignBytes,
+  decodeDarwinAclInspectionResult,
   loadOrCreatePersistedIdentityKey,
   parsePersistedIdentityKey,
   type PersistedIdentityKey,
@@ -29,6 +33,10 @@ import {
 import { defaultRegisterPath } from "../src/config.ts";
 import { commitHash, decideActions, newSalt, type RoundState } from "../src/panel.ts";
 import { admissibleEntries, firstBatch, loadRegister, validateRegister } from "../src/register.ts";
+import {
+  FRONTIER_INTAKE_BUN_VERSION,
+  requireFrontierIntakeBunVersion,
+} from "../src/runtime.ts";
 
 const registrationSender = "zrn1m037n75vk2jhdr56y2ptzjjj02uljwnqwwzr7z";
 const registrationPublicHex = "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a";
@@ -44,6 +52,13 @@ const inheritedEveryoneAcl =
 const darwinAclHelperPath = fileURLToPath(
   new URL("../build/darwin-acl-check", import.meta.url),
 );
+
+function darwinAclCaptureArtifacts(): string[] {
+  const processPrefix = `${DARWIN_ACL_CAPTURE_PREFIX}${process.pid}-`;
+  return readdirSync(DARWIN_ACL_CAPTURE_PARENT)
+    .filter(name => name.startsWith(processPrefix))
+    .sort();
+}
 
 function inheritedEveryoneAclToolingAvailable(): boolean {
   if (process.platform !== "darwin") return false;
@@ -63,6 +78,41 @@ function inheritedEveryoneAclToolingAvailable(): boolean {
 const hasInheritedEveryoneAclTooling = inheritedEveryoneAclToolingAvailable();
 
 describe("zerone_auth registration", () => {
+  test("production CLI requires the exact audited Bun runtime", () => {
+    expect(FRONTIER_INTAKE_BUN_VERSION).toBe("1.3.5");
+    expect(() => requireFrontierIntakeBunVersion("1.3.5")).not.toThrow();
+    expect(() => requireFrontierIntakeBunVersion("1.3.6")).toThrow(
+      "frontier-intake requires Bun 1.3.5, got 1.3.6",
+    );
+  });
+
+  test("Darwin ACL helper protocol accepts only exact authenticated tuples", () => {
+    expect(decodeDarwinAclInspectionResult(
+      0,
+      undefined,
+      "zerone-darwin-acl-v1 clear\n",
+      "",
+    )).toBe(false);
+    expect(decodeDarwinAclInspectionResult(
+      10,
+      undefined,
+      "zerone-darwin-acl-v1 present\n",
+      "",
+    )).toBe(true);
+
+    for (const tuple of [
+      [0, undefined, "", ""],
+      [0, undefined, "zerone-darwin-acl-v1 clear\nextra", ""],
+      [0, undefined, "zerone-darwin-acl-v1 clear\n", "warning"],
+      [0, "SIGKILL", "zerone-darwin-acl-v1 clear\n", ""],
+      [70, undefined, "", "inspection failed"],
+    ] as const) {
+      expect(() => decodeDarwinAclInspectionResult(...tuple)).toThrow(
+        "descriptor ACL inspection returned an invalid result",
+      );
+    }
+  });
+
   test("proof bytes and PKCS#8 signature match the Go v1 known vector", () => {
     const proofBytes = accountRegistrationProofSignBytes({
       chainId: "zerone-test-1",
@@ -190,8 +240,10 @@ describe("zerone_auth registration", () => {
         expect(addFileAcl.exitCode, addFileAcl.stderr.toString()).toBe(0);
         expect(lstatSync(identityPath).mode & 0o777).toBe(0o600);
 
+        const capturesBefore = darwinAclCaptureArtifacts();
         expect(() => loadOrCreatePersistedIdentityKey(identityPath, "math-v1"))
           .toThrow("extended ACLs are not allowed");
+        expect(darwinAclCaptureArtifacts()).toEqual(capturesBefore);
         expect(readFileSync(identityPath, "utf8")).toBe(encoded);
       } finally {
         rmSync(scratch, { recursive: true, force: true });
@@ -268,7 +320,7 @@ try {
 `, { mode: 0o700 });
 
         const missing = Bun.spawnSync({
-          cmd: ["bun", runner],
+          cmd: [process.execPath, runner],
           stdout: "pipe",
           stderr: "pipe",
         });
@@ -286,7 +338,7 @@ try {
         const unsafeHelper = join(isolatedBuildDirectory, "darwin-acl-check");
         writeFileSync(unsafeHelper, "not a Mach-O executable", { mode: 0o555 });
         const unsafe = Bun.spawnSync({
-          cmd: ["bun", runner],
+          cmd: [process.execPath, runner],
           stdout: "pipe",
           stderr: "pipe",
         });
@@ -343,7 +395,7 @@ if (args[0] === "keys" && args[1] === "show") {
         const intakePath = new URL("../intake.ts", import.meta.url).pathname;
         const run = Bun.spawnSync({
           cmd: [
-            "bun",
+            process.execPath,
             intakePath,
             "setup",
             "--network",
@@ -384,12 +436,13 @@ if (args[0] === "keys" && args[1] === "show") {
       const identityPath = join(scratch, "race.ed25519.json");
       const helperUrl = new URL("../src/account-registration.ts", import.meta.url).href;
       writeFileSync(runner, `import { loadOrCreatePersistedIdentityKey } from ${JSON.stringify(helperUrl)};
+process.umask(0o777);
 const identity = loadOrCreatePersistedIdentityKey(Bun.argv[2], "race-key");
 console.log(JSON.stringify(identity));
 `, { mode: 0o700 });
 
       const children = Array.from({ length: 4 }, () => Bun.spawn({
-        cmd: ["bun", runner, identityPath],
+        cmd: [process.execPath, runner, identityPath],
         stdout: "pipe",
         stderr: "pipe",
       }));
@@ -467,7 +520,7 @@ if (args[0] === "keys" && args[1] === "show") {
 
       const intakePath = new URL("../intake.ts", import.meta.url).pathname;
       const run = Bun.spawnSync({
-        cmd: ["bun", intakePath, "setup", "--network", "zerone-testnet-1", "--live-ack=zerone-testnet-1"],
+        cmd: [process.execPath, intakePath, "setup", "--network", "zerone-testnet-1", "--live-ack=zerone-testnet-1"],
         cwd: new URL("..", import.meta.url).pathname,
         env: {
           ...process.env,

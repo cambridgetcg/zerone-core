@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -35,9 +36,22 @@ func TestAuditGenesisRejectsInvariantDrift(t *testing.T) {
 		{name: "initial height", path: "initial_height", value: "2", issuePath: "initial_height"},
 		{name: "noncanonical initial height", path: "initial_height", value: "+1", issuePath: "initial_height"},
 		{name: "block bytes", path: "consensus.params.block.max_bytes", value: "4194305", issuePath: "max_bytes"},
+		{name: "short evidence block horizon", path: "consensus.params.evidence.max_age_num_blocks", value: "100000", issuePath: "max_age_num_blocks"},
+		{name: "short evidence time horizon", path: "consensus.params.evidence.max_age_duration", value: "172800000000000", issuePath: "max_age_duration"},
 		{name: "vote extensions", path: "consensus.params.abci.vote_extensions_enable_height", value: "1", issuePath: "vote_extensions_enable_height"},
 		{name: "SDK validator count", path: "app_state.staking.params.max_validators", value: 34, issuePath: "staking.params.max_validators"},
 		{name: "SDK min commission", path: "app_state.staking.params.min_commission_rate", value: "0.040000000000000000", issuePath: "min_commission_rate"},
+		{name: "slashing zero window", path: "app_state.slashing.params.signed_blocks_window", value: "0", issuePath: "signed_blocks_window"},
+		{name: "slashing noncanonical window type", path: "app_state.slashing.params.signed_blocks_window", value: 34272, issuePath: "signed_blocks_window"},
+		{name: "slashing weak signing floor", path: "app_state.slashing.params.min_signed_per_window", value: "0.500000000000000000", issuePath: "min_signed_per_window"},
+		{name: "slashing aggressive signing floor", path: "app_state.slashing.params.min_signed_per_window", value: "0.990000000000000000", issuePath: "min_signed_per_window"},
+		{name: "slashing zero jail", path: "app_state.slashing.params.downtime_jail_duration", value: "0s", issuePath: "downtime_jail_duration"},
+		{name: "slashing aggressive jail", path: "app_state.slashing.params.downtime_jail_duration", value: "86400s", issuePath: "downtime_jail_duration"},
+		{name: "slashing zero double-sign penalty", path: "app_state.slashing.params.slash_fraction_double_sign", value: "0.000000000000000000", issuePath: "slash_fraction_double_sign"},
+		{name: "slashing aggressive double-sign penalty", path: "app_state.slashing.params.slash_fraction_double_sign", value: "0.500000000000000000", issuePath: "slash_fraction_double_sign"},
+		{name: "slashing zero downtime penalty", path: "app_state.slashing.params.slash_fraction_downtime", value: "0.000000000000000000", issuePath: "slash_fraction_downtime"},
+		{name: "slashing aggressive downtime penalty", path: "app_state.slashing.params.slash_fraction_downtime", value: "0.010000000000000000", issuePath: "slash_fraction_downtime"},
+		{name: "slashing preloaded signing state", path: "app_state.slashing.signing_infos", value: []any{map[string]any{"address": "unexpected"}}, issuePath: "signing_infos"},
 		{name: "governance deposit", path: "app_state.gov.params.min_deposit", value: []any{coin(denom, "99999999")}, issuePath: "gov.params.min_deposit"},
 		{name: "governance veto burn", path: "app_state.gov.params.burn_vote_veto", value: false, issuePath: "burn_vote_veto"},
 		{name: "supply", path: "app_state.bank.supply", value: []any{coin("uzrn", "13555000001")}, issuePath: "bank.supply"},
@@ -81,6 +95,35 @@ func TestAuditGenesisRejectsInvariantDrift(t *testing.T) {
 			r := auditGenesis(marshalFixture(t, fixture))
 			if !hasIssuePath(r.Issues, tc.issuePath) {
 				t.Fatalf("expected issue containing %q; got:\n%s", tc.issuePath, formatIssues(r.Issues))
+			}
+		})
+	}
+}
+
+func TestAuditGenesisRejectsMissingSlashingPolicy(t *testing.T) {
+	t.Run("module", func(t *testing.T) {
+		fixture := validGenesisFixture(t)
+		delete(fixtureAppState(t, fixture), "slashing")
+		r := auditGenesis(marshalFixture(t, fixture))
+		if !hasIssuePath(r.Issues, "app_state.slashing") || !hasIssueMessage(r.Issues, "missing required pre-genesis slashing state") {
+			t.Fatalf("expected missing slashing module rejection; got:\n%s", formatIssues(r.Issues))
+		}
+	})
+
+	for _, field := range []string{
+		"signed_blocks_window",
+		"min_signed_per_window",
+		"downtime_jail_duration",
+		"slash_fraction_double_sign",
+		"slash_fraction_downtime",
+	} {
+		t.Run(field, func(t *testing.T) {
+			fixture := validGenesisFixture(t)
+			slashing := fixtureAppState(t, fixture)["slashing"].(map[string]any)
+			delete(slashing["params"].(map[string]any), field)
+			r := auditGenesis(marshalFixture(t, fixture))
+			if !hasIssuePath(r.Issues, "app_state.slashing.params."+field) {
+				t.Fatalf("expected missing %s rejection; got:\n%s", field, formatIssues(r.Issues))
 			}
 		})
 	}
@@ -244,6 +287,22 @@ func TestAuditArtifactDirIntegration(t *testing.T) {
 		r := auditArtifactDir(badDir, "drill")
 		if !hasIssueMessage(r.Issues, "symlinks are forbidden") {
 			t.Fatalf("expected symlink rejection; got:\n%s", formatIssues(r.Issues))
+		}
+	})
+
+	t.Run("contradictory human manifest", func(t *testing.T) {
+		badDir := t.TempDir()
+		writePublicArtifactSet(t, badDir, marshalFixture(t, validGenesisFixture(t)))
+		path := filepath.Join(badDir, "GENESIS-MANIFEST.md")
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		contents = bytes.Replace(contents, []byte("Downtime jail:"), []byte("Downtime policy omitted:"), 1)
+		writeFixture(t, path, contents)
+		r := auditArtifactDir(badDir, "drill")
+		if !hasIssuePath(r.Issues, "GENESIS-MANIFEST.md") || !hasIssueMessage(r.Issues, "exactly match") {
+			t.Fatalf("expected deterministic human-manifest rejection; got:\n%s", formatIssues(r.Issues))
 		}
 	})
 }
@@ -411,7 +470,7 @@ func validGenesisFixture(t *testing.T) map[string]any {
 		"consensus": map[string]any{"params": map[string]any{
 			"block": map[string]any{"max_bytes": "4194304", "max_gas": "33333333"},
 			"evidence": map[string]any{
-				"max_age_num_blocks": "100000", "max_age_duration": "172800000000000", "max_bytes": "1048576",
+				"max_age_num_blocks": evidenceMaxAgeBlocks, "max_age_duration": evidenceMaxAgeDuration, "max_bytes": evidenceMaxBytes,
 			},
 			"validator": map[string]any{"pub_key_types": []any{"ed25519"}},
 			"version":   map[string]any{"app": "0"},
@@ -447,6 +506,17 @@ func validGenesisFixture(t *testing.T) map[string]any {
 				"unbonding_time": "1814400s", "max_validators": 33, "max_entries": 7,
 				"historical_entries": 10000, "bond_denom": denom, "min_commission_rate": "0.050000000000000000",
 			}},
+			"slashing": map[string]any{
+				"params": map[string]any{
+					"signed_blocks_window":       slashingWindow,
+					"min_signed_per_window":      slashingMinSigned,
+					"downtime_jail_duration":     slashingDowntimeJail,
+					"slash_fraction_double_sign": slashingDoubleSign,
+					"slash_fraction_downtime":    slashingDowntime,
+				},
+				"signing_infos": []any{},
+				"missed_blocks": []any{},
+			},
 			"gov": map[string]any{"params": map[string]any{
 				"min_deposit": []any{coin(denom, "100000000")}, "max_deposit_period": "259200s",
 				"voting_period": "259200s", "quorum": "0.334000000000000000", "threshold": "0.500000000000000000",
@@ -700,10 +770,19 @@ func genesisChecksum(genesis []byte) string {
 
 func writePublicArtifactSet(t *testing.T, dir string, genesis []byte) {
 	t.Helper()
+	manifestBytes := marshalFixture(t, networkManifestFixture(t, genesis))
+	manifest, issues := decodeNetworkManifest(manifestBytes)
+	if len(issues) != 0 {
+		t.Fatalf("cannot build human manifest from invalid network fixture:\n%s", formatIssues(issues))
+	}
+	audited := auditGenesis(genesis)
+	if len(audited.Issues) != 0 {
+		t.Fatalf("cannot build human manifest from invalid genesis fixture:\n%s", formatIssues(audited.Issues))
+	}
 	writeFixture(t, filepath.Join(dir, "genesis.json"), genesis)
 	writeFixture(t, filepath.Join(dir, "genesis.sha256"), []byte(genesisChecksum(genesis)))
-	writeFixture(t, filepath.Join(dir, "network-manifest.json"), marshalFixture(t, networkManifestFixture(t, genesis)))
-	writeFixture(t, filepath.Join(dir, "GENESIS-MANIFEST.md"), []byte("# synthetic public fixture\n"))
+	writeFixture(t, filepath.Join(dir, "network-manifest.json"), manifestBytes)
+	writeFixture(t, filepath.Join(dir, "GENESIS-MANIFEST.md"), renderHumanManifest(manifest, audited))
 }
 
 func writeFixture(t *testing.T, path string, data []byte) {

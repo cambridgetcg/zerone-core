@@ -25,7 +25,7 @@ on:
         type: string
 
 env:
-  GO_VERSION: "1.25.12"
+  GO_VERSION: "1.25.14"
 
 permissions:
   contents: read
@@ -69,10 +69,14 @@ jobs:
         run: |
           bash deploy/query-gateway/entrypoint_test.sh
           bash deploy/query-gateway/build-image_test.sh
+          bash deploy/query-gateway/nginx-config-test.sh
+          bash deploy/query-gateway/render-archive-gateway-config_test.sh
       - name: Canonical signed-payload publication
         run: bash scripts/zerone-canonical-json-test.sh
       - name: Transitive signed authority chain
-        run: bash deploy/verify-authority-chain_test.sh
+        run: |
+          bash deploy/run-custom-staking-census-evidence_test.sh
+          bash deploy/verify-authority-chain_test.sh
       - name: Signed phase transaction byte gate
         run: |
           bash scripts/zerone-2-bootstrap-tx-broadcast_test.sh
@@ -106,7 +110,7 @@ jobs:
               "source_halt_release", "deployment_config_sha256", "archive",
               "accepted_policy", "attestation"
             ] | sort) and
-            .schema == "zerone-final-checkpoint-v3" and
+            .schema == "zerone-final-checkpoint-v4" and
             .status == "frozen" and
             .chain_id == "zerone-1" and
             (.accepted_policy | keys | sort) == ([
@@ -204,12 +208,20 @@ jobs:
             and (.successor_commitment.public_notice_publication_evidence_sha256 |
               type == "string")
             and (.artifacts | keys | sort) == ([
+              "custom_staking_census_sha256",
+              "custom_staking_census_execution_evidence_sha256",
+              "custom_staking_census_execution_evidence_detached_signature_sha256",
               "post_anchor_state_export_sha256",
               "post_anchor_state_export_included_in_successor_inventory",
               "offline_halted_observer_database_snapshot_sha256",
               "sanitized_a_a_database_snapshot_sha256",
               "archive_rollback_log_sha256"
             ] | sort)
+            and (.artifacts.custom_staking_census_sha256 | type == "string")
+            and (.artifacts.custom_staking_census_execution_evidence_sha256 |
+              type == "string")
+            and (.artifacts.custom_staking_census_execution_evidence_detached_signature_sha256 |
+              type == "string")
             and .artifacts.post_anchor_state_export_included_in_successor_inventory == false
             and (.archive | has("rpc_url") | not)
             and (.archive | has("rest_url") | not)
@@ -217,14 +229,51 @@ jobs:
             and (has("open_beta") | not)
             and (has("dns") | not)
           ' deploy/networks/zerone-1/frozen/FINAL-CHECKPOINT.example.json >/dev/null
+          jq -e '
+            (keys | sort) == ([
+              "schema", "result", "created_at", "release_packet",
+              "cutover_initiation_evidence", "runner", "state", "binary",
+              "source_snapshot", "command", "execution", "scan_guarantees",
+              "signature_authority"
+            ] | sort) and
+            .schema == "zerone-custom-staking-census-execution-evidence-v1" and
+            .result == "PASS" and
+            .runner.path == "deploy/run-custom-staking-census-evidence.py" and
+            .binary.filename == "custom-staking-census-linux-amd64" and
+            .source_snapshot.manifest_filename ==
+              "OFFLINE-HALTED-OBSERVER-SNAPSHOT-MANIFEST.json" and
+            .command.copied_db == true and
+            .command.report_transport ==
+              "stdout-captured-and-atomically-published" and
+            .execution.exit_code == 0 and
+            .execution.report_filename == "CUSTOM-STAKING-CENSUS.json" and
+            .execution.report_result == "PASS" and
+            .scan_guarantees.required_stores ==
+              ["zerone_staking", "bank", "staking"] and
+            .scan_guarantees.complete_logical_store_iteration == true and
+            .scan_guarantees.root_bound_leaf_count == true and
+            .scan_guarantees.ics23_membership_proof_per_leaf == true and
+            .signature_authority.detached_signature_filename ==
+              "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig"
+          ' deploy/networks/zerone-1/frozen/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.example.json >/dev/null
       - name: Scoped immutable decision templates
         run: |
           jq -e '
-            .schema == "zerone-2-release-packet-v1" and
+            .schema == "zerone-2-release-packet-v2" and
             .chain_id == "zerone-2" and
             .signature_authority.algorithm == "openpgp" and
             .signature_authority.authorized_signer_fingerprint == .source.tag_signer_fingerprint and
             .signature_authority.detached_signature_filename == "RELEASE-PACKET.json.sig" and
+            .custom_staking_census_execution.schema ==
+              "zerone-custom-staking-census-execution-contract-v1" and
+            .custom_staking_census_execution.binary.filename ==
+              "custom-staking-census-linux-amd64" and
+            .custom_staking_census_execution.execution_evidence.filename ==
+              "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json" and
+            .custom_staking_census_execution.execution_evidence.detached_signature_filename ==
+              "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig" and
+            .custom_staking_census_execution.execution_evidence.authorized_signer_fingerprint ==
+              .public_identities.transition_attestation.authorized_signer_fingerprint and
             .accepted_policy.one_operator_validator_bft_f == 0 and
             .accepted_policy.public_grpc_live_at_initial_beta == false and
             .accepted_policy.hosted_transaction_submission_live_at_initial_beta == false and
@@ -290,6 +339,16 @@ jobs:
             .archive_render_contract.static_constraints.public_fly_service == false and
             .archive_render_contract.static_constraints.public_ip == false and
             .archive_render_contract.static_constraints.persistent_peers == [] and
+            .archive_gateway_render_contract.schema ==
+              "zerone-1-archive-gateway-render-contract-v1" and
+            .archive_gateway_render_contract.renderer_path ==
+              "deploy/query-gateway/render-archive-gateway-config.py" and
+            .archive_gateway_render_contract.template_path ==
+              "deploy/query-gateway/fly.zerone-1-archive.public.example.toml" and
+            (.deployment_configs.zerone_1_archive_gateway | keys | sort) ==
+              (["app", "role", "image_component", "image_ref"] | sort) and
+            (.phase_dependent_config_template_sha256.zerone_1_archive_gateway |
+              type == "string") and
             (. as $release | all(.deployment_configs | to_entries[];
               .value.image_ref == $release.components[.value.image_component].image_ref))
           ' deploy/networks/zerone-2/RELEASE-PACKET.example.json >/dev/null
@@ -461,7 +520,11 @@ jobs:
               "zerone_1_archive_gateway"
             ] | sort) and
             (.initial_beta_exclusions | index("public gRPC") != null) and
-            (.initial_beta_exclusions | index("hosted transaction submission") != null)
+            (.initial_beta_exclusions | index("hosted transaction submission") != null) and
+            (.initial_beta_exclusions |
+              index("custom-staking census as migration or validator authority") != null) and
+            (.required_preconditions |
+              index("FINAL binds exact passing A/E custom-staking census report bytes and transition-signed release-bound execution evidence; separately, independently verified census binary provenance must exist") != null)
           ' deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json >/dev/null
           jq -e '
             .schema == "zerone-2-dark-start-initiation-evidence-v1" and
@@ -545,7 +608,11 @@ jobs:
           jq -e -s '
             .[0].deployment_configs as $release |
             .[1].deployment_configs as $open |
-            all($open | keys[]; $open[.] == $release[.])
+            $open.zerone_2_edge_public == $release.zerone_2_edge_public and
+            $open.zerone_2_gateway_public == $release.zerone_2_gateway_public and
+            ($open.zerone_1_archive_gateway | del(.sha256)) ==
+              $release.zerone_1_archive_gateway and
+            ($open.zerone_1_archive_gateway.sha256 | type == "string")
           ' deploy/networks/zerone-2/RELEASE-PACKET.example.json \
             deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json >/dev/null
           test "$(jq -r '.public_notice_sha256' \
@@ -590,6 +657,39 @@ jobs:
           cache: true
       - name: Test
         run: make test
+
+  consensus-rehearsal:
+    name: "Consensus rehearsal"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      - name: Download and verify Go modules
+        run: |
+          go mod download
+          go mod verify
+      - name: Isolated four-validator consensus rehearsal
+        env:
+          TMPDIR: ${{ runner.temp }}/zerone-consensus-rehearsal-evidence
+        run: |
+          mkdir -p "$TMPDIR"
+          bash scripts/local-consensus-rehearsal.sh --keep
+      - name: Retain consensus reports and logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: consensus-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/**
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/logs/**
+          if-no-files-found: error
+          retention-days: 30
 
   typescript-sdk:
     name: "TypeScript SDK and dashboard"
@@ -661,7 +761,9 @@ jobs:
       - name: Register validation and intake tests
         run: |
           bun intake.ts validate
-          bun test
+          # Keep discovery rooted to reduce test-runner descriptor pressure;
+          # production subprocess capture is hardened separately.
+          bun test ./tests
 
   frontier-intake-macos:
     name: "Frontier intake macOS ACL boundary"
@@ -700,7 +802,9 @@ jobs:
           LANG: C
         run: |
           bun intake.ts validate
-          bun test
+          # Keep discovery rooted to reduce test-runner descriptor pressure;
+          # this is CI hygiene, not the production capture fix.
+          bun test ./tests
       - name: Verify production Bun bundle layout
         working-directory: tools/frontier-intake
         env:
@@ -772,7 +876,7 @@ jobs:
       - name: Verify downloaded Go modules
         run: go mod verify
       - name: Verify selected toolchain
-        run: test "$(go env GOVERSION)" = "go1.25.12"
+        run: test "$(go env GOVERSION)" = "go1.25.14"
       - name: Test, vet, and race-test
         run: |
           go test ./... -count=1
@@ -829,6 +933,7 @@ jobs:
           packages=(
             ./deploy
             ./tools/authority-graph
+            ./tools/custom-staking-census
             ./tools/fork-genesis
             ./tools/operations-rehearsal
             ./tools/validator-home-manifest
@@ -845,6 +950,7 @@ jobs:
         run: |
           for tool in \
             authority-graph \
+            custom-staking-census \
             fork-genesis \
             operations-rehearsal \
             validator-home-manifest \
@@ -1046,6 +1152,7 @@ jobs:
       - build
       - lint
       - test
+      - consensus-rehearsal
       - typescript-sdk
       - frontier-intake
       - frontier-intake-macos

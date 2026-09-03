@@ -10,6 +10,8 @@ import hashlib
 import json
 import pathlib
 import re
+import subprocess
+import sys
 from typing import Any
 
 
@@ -60,6 +62,263 @@ def canonical_bytes(value: Any) -> bytes:
     return (
         json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         + "\n"
+    ).encode()
+
+
+BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
+CENSUS_MULTISTORE_ROOTS = {
+    "auth": "0" * 64,
+    "bank": "1" * 64,
+    "staking": "2" * 64,
+    "zerone_staking": "3" * 64,
+}
+
+
+def fixture_bech32_polymod(values: list[int]) -> int:
+    checksum = 1
+    generators = (0x3B6A57B2, 0x26508E6D, 0x1EA119FA, 0x3D4233DD, 0x2A1462B3)
+    for value in values:
+        top = checksum >> 25
+        checksum = ((checksum & 0x1FFFFFF) << 5) ^ value
+        for index, generator in enumerate(generators):
+            if (top >> index) & 1:
+                checksum ^= generator
+    return checksum
+
+
+def fixture_bech32(hrp: str, payload: bytes) -> str:
+    accumulator = 0
+    bit_count = 0
+    words: list[int] = []
+    for value in payload:
+        accumulator = (accumulator << 8) | value
+        bit_count += 8
+        while bit_count >= 5:
+            bit_count -= 5
+            words.append((accumulator >> bit_count) & 31)
+    if bit_count:
+        words.append((accumulator << (5 - bit_count)) & 31)
+    expanded_hrp = [ord(character) >> 5 for character in hrp] + [0] + [
+        ord(character) & 31 for character in hrp
+    ]
+    polymod = fixture_bech32_polymod(expanded_hrp + words + [0] * 6) ^ 1
+    checksum = [(polymod >> (5 * (5 - index))) & 31 for index in range(6)]
+    return hrp + "1" + "".join(BECH32_CHARSET[word] for word in words + checksum)
+
+
+def fixture_go_uvarint(value: int) -> bytes:
+    encoded = bytearray()
+    while value >= 0x80:
+        encoded.append((value & 0x7F) | 0x80)
+        value >>= 7
+    encoded.append(value)
+    return bytes(encoded)
+
+
+def fixture_rfc6962_hash(leaves: list[bytes]) -> bytes:
+    if not leaves:
+        return hashlib.sha256(b"").digest()
+    if len(leaves) == 1:
+        return hashlib.sha256(b"\x00" + leaves[0]).digest()
+    split = 1 << ((len(leaves) - 1).bit_length() - 1)
+    return hashlib.sha256(
+        b"\x01"
+        + fixture_rfc6962_hash(leaves[:split])
+        + fixture_rfc6962_hash(leaves[split:])
+    ).digest()
+
+
+def custom_staking_app_hash() -> str:
+    leaves: list[bytes] = []
+    for name, root_hex in sorted(CENSUS_MULTISTORE_ROOTS.items()):
+        key = name.encode()
+        value_hash = hashlib.sha256(bytes.fromhex(root_hex)).digest()
+        leaves.append(
+            fixture_go_uvarint(len(key))
+            + key
+            + fixture_go_uvarint(len(value_hash))
+            + value_hash
+        )
+    return fixture_rfc6962_hash(leaves).hex()
+
+
+def custom_staking_claimant_root(claims: list[dict[str, Any]]) -> str:
+    result = hashlib.sha256()
+
+    def write_field(value: str) -> None:
+        encoded = value.encode("utf-8")
+        result.update(len(encoded).to_bytes(8, "big"))
+        result.update(encoded)
+
+    write_field("zerone/custom-staking-claimants/v1")
+    result.update(len(claims).to_bytes(8, "big"))
+    for claim in claims:
+        for key in (
+            "source_kind",
+            "source_claim_id",
+            "claimant",
+            "validator",
+            "denom",
+            "amount",
+        ):
+            write_field(claim[key])
+    return result.hexdigest()
+
+
+def custom_staking_census_bytes(source_commit: str, app_hash: str) -> bytes:
+    validator_bytes = b"\x11" * 20
+    delegator_bytes = b"\x22" * 20
+    validator = fixture_bech32("zrn", validator_bytes)
+    delegator = fixture_bech32("zrn", delegator_bytes)
+    sdk_operator = fixture_bech32("zrnvaloper", validator_bytes)
+    module_bytes = hashlib.sha256(b"zerone_staking").digest()[:20]
+    claims = [
+        {
+            "source_kind": "delegation",
+            "source_claim_id": f"{delegator}->{validator}",
+            "claimant": delegator,
+            "validator": validator,
+            "denom": "uzrn",
+            "amount": "20",
+        },
+        {
+            "source_kind": "pending_unbonding",
+            "source_claim_id": "unbonding-1",
+            "claimant": delegator,
+            "validator": validator,
+            "denom": "uzrn",
+            "amount": "10",
+        },
+    ]
+    if app_hash.lower() != custom_staking_app_hash():
+        raise ValueError("fixture census AppHash differs from its multistore roots")
+    roots = CENSUS_MULTISTORE_ROOTS
+    keyspace_names = (
+        "validators",
+        "delegations",
+        "unbondings",
+        "tier_configs",
+        "params",
+        "did_indexes",
+        "unbonding_sequence",
+        "redelegation_cooldowns",
+        "validator_delegation_indexes",
+        "app_iavl_init_sentinel",
+    )
+    keyspace_counts = (1, 1, 1, 4, 1, 1, 1, 1, 1, 1)
+    report = {
+        "schema": "zerone/custom-staking-census/v1",
+        "result": "PASS",
+        "evidence": {
+            "chain_id": "zerone-1",
+            "height": "1001",
+            "app_hash": app_hash.lower(),
+            "source_commit": source_commit,
+        },
+        "multistore": [
+            {"name": name, "root_sha256": roots[name]} for name in sorted(roots)
+        ],
+        "stores": [
+            {
+                "name": name,
+                "version": "1001",
+                "root_sha256": roots[name],
+                "leaf_count": "13" if name == "zerone_staking" else "1",
+                "input_bytes": "1300" if name == "zerone_staking" else "100",
+                "leaves_sha256": str(index + 4) * 64,
+            }
+            for index, name in enumerate(("zerone_staking", "bank", "staking"))
+        ],
+        "census": {
+            "module_address": fixture_bech32("zrn", module_bytes),
+            "module_address_hex": module_bytes.hex(),
+            "module_balances": [{"denom": "uzrn", "amount": "30"}],
+            "balance_uzrn": "30",
+            "delegations_uzrn": "20",
+            "pending_unbondings_uzrn": "10",
+            "liabilities_uzrn": "30",
+            "delta_uzrn": "0",
+            "claimant_root": custom_staking_claimant_root(claims),
+            "claimant_root_complete": True,
+            "claim_count": len(claims),
+            "custom_keyspace": [
+                {
+                    "prefix": (
+                        "0x5f6961766c5f696e6974"
+                        if name == "app_iavl_init_sentinel"
+                        else f"0x{index + 1:02x}"
+                    ),
+                    "name": name,
+                    "leaf_count": keyspace_counts[index],
+                    "input_bytes": keyspace_counts[index] * 100,
+                    "digest": str((index % 9) + 1) * 64,
+                }
+                for index, name in enumerate(keyspace_names)
+            ],
+            "validators": [
+                {
+                    "operator": validator,
+                    "address_hex": validator_bytes.hex(),
+                    "legacy_consensus_pubkey": "fixture-untrusted-legacy-key",
+                    "legacy_consensus_pubkey_trusted": False,
+                    "stored_self": "0",
+                    "computed_self": "0",
+                    "stored_delegated": "20",
+                    "computed_delegated": "20",
+                    "stored_total": "20",
+                    "computed_total": "20",
+                    "aggregates_match": True,
+                    "sdk_link": "linked",
+                    "sdk_operator": sdk_operator,
+                }
+            ],
+            "claims": claims,
+            "unbondings": [
+                {
+                    "id": "unbonding-1",
+                    "delegator": delegator,
+                    "validator": validator,
+                    "amount": "10",
+                    "created_at_height": 900,
+                    "completes_at_height": 1100,
+                    "status": "pending",
+                    "sequence": 1,
+                }
+            ],
+            "did_indexes": [{"did": "did:zrn:fixture", "operator": validator}],
+            "reverse_delegation_indexes": [
+                {"validator": validator, "delegator": delegator}
+            ],
+            "redelegation_cooldowns": [{"delegator": delegator, "height": 901}],
+            "sdk_validators": [
+                {
+                    "operator": sdk_operator,
+                    "address_hex": validator_bytes.hex(),
+                    "status": "BOND_STATUS_BONDED",
+                    "jailed": False,
+                    "tokens": "20",
+                }
+            ],
+            "tier_configs": [
+                {
+                    "tier": tier,
+                    "name": f"tier-{tier}",
+                    "stored_digest": str(tier) * 64,
+                    "params_digest": str(tier) * 64,
+                    "matches": True,
+                }
+                for tier in range(1, 5)
+            ],
+            "findings": [],
+        },
+        "report_sha256": "",
+    }
+    unsealed = json.dumps(
+        report, separators=(",", ":"), ensure_ascii=False
+    ).encode()
+    report["report_sha256"] = digest(unsealed)
+    return (
+        json.dumps(report, separators=(",", ":"), ensure_ascii=False) + "\n"
     ).encode()
 
 
@@ -122,6 +381,101 @@ CANONICAL_COMPONENT_SIGNER_IDENTITY = (
 CANONICAL_COMPONENT_CERTIFICATE_ISSUER = (
     "https://token.actions.githubusercontent.com"
 )
+MONITORING_RULE_DEFINITIONS = (
+    (
+        "stalled_height",
+        "ZeroneStalledHeight",
+        "critical",
+        "consensus_height_no_progress",
+        {"maximum_stall_seconds": 120},
+        "hold_height_without_progress_past_threshold",
+    ),
+    (
+        "missed_signing",
+        "ZeroneValidatorMissedSigning",
+        "critical",
+        "validator_missed_blocks_above_threshold",
+        {"maximum_missed_blocks": 0, "window_blocks": 100},
+        "inject_validator_missed_blocks_above_threshold",
+    ),
+    (
+        "double_sign_risk",
+        "ZeroneDoubleSignRisk",
+        "critical",
+        "active_signer_instances_above_threshold",
+        {"maximum_active_signer_instances": 1},
+        "inject_signer_instance_count_above_threshold",
+    ),
+    (
+        "app_hash_divergence",
+        "ZeroneAppHashDivergence",
+        "critical",
+        "equal_height_app_hashes_diverge",
+        {"maximum_distinct_app_hashes": 1, "minimum_independent_sources": 2},
+        "inject_equal_height_mismatched_app_hash",
+    ),
+    (
+        "peer_loss",
+        "ZeronePeerLoss",
+        "critical",
+        "private_peer_count_below_threshold",
+        {"minimum_private_peers": 1},
+        "disconnect_all_private_peers",
+    ),
+    (
+        "disk_capacity",
+        "ZeroneDiskCapacity",
+        "warning",
+        "disk_free_percent_below_threshold",
+        {"minimum_free_percent": 20},
+        "inject_disk_free_percent_below_threshold",
+    ),
+    (
+        "restart_count",
+        "ZeroneRestartCount",
+        "warning",
+        "process_restarts_above_threshold",
+        {"maximum_restarts": 0, "window_seconds": 900},
+        "inject_restart_counter_above_threshold",
+    ),
+    (
+        "stale_backup",
+        "ZeroneStaleBackup",
+        "critical",
+        "verified_backup_age_above_threshold",
+        {"maximum_verified_backup_age_seconds": 86400},
+        "inject_verified_backup_age_above_threshold",
+    ),
+    (
+        "gateway_wrong_chain",
+        "ZeroneGatewayWrongChain",
+        "critical",
+        "gateway_chain_id_mismatch",
+        {"expected_chain_id": "zerone-2"},
+        "inject_gateway_chain_id_mismatch",
+    ),
+    (
+        "gateway_stale_origin",
+        "ZeroneGatewayStaleOrigin",
+        "critical",
+        "gateway_origin_height_lag_above_threshold",
+        {"maximum_height_lag": 3},
+        "inject_gateway_origin_height_lag_above_threshold",
+    ),
+)
+MONITORING_EVIDENCE_KINDS = (
+    "stimulus",
+    "firing",
+    "notification",
+    "resolution",
+)
+
+
+def monitoring_evidence_filename(check: str, kind: str) -> str:
+    return (
+        f"MONITORING-ALERT-{check.replace('_', '-').upper()}-"
+        f"{kind.upper()}-EVIDENCE.json.raw"
+    )
 
 
 def make_component_artifacts(
@@ -243,6 +597,98 @@ def make_component_artifacts(
                 (output / names["vulnerability_decision"]).read_bytes()
             ),
         )
+
+
+def make_monitoring_artifacts(
+    output: pathlib.Path, release: dict[str, Any]
+) -> None:
+    rules = {
+        "schema": "zerone-production-monitoring-rules-v1",
+        "chain_id": "zerone-2",
+        "source_commit": release["source"]["commit"],
+        "ruleset_id": "zerone-2-production",
+        "evaluation_interval_seconds": 15,
+        "notification_route_id": "primary-on-call",
+        "rules": [
+            {
+                "check": check,
+                "alert_name": alert_name,
+                "enabled": True,
+                "severity": severity,
+                "expression": expression,
+                "parameters": parameters,
+            }
+            for check, alert_name, severity, expression, parameters, _ in (
+                MONITORING_RULE_DEFINITIONS
+            )
+        ],
+    }
+    write_json(output, "MONITORING-RULES.json", rules)
+    rules_hash = digest((output / "MONITORING-RULES.json").read_bytes())
+    alert_tests = []
+    for check, alert_name, _, _, _, stimulus in MONITORING_RULE_DEFINITIONS:
+        evidence = {}
+        for kind in MONITORING_EVIDENCE_KINDS:
+            filename = monitoring_evidence_filename(check, kind)
+            evidence_bytes = canonical_bytes(
+                {
+                    "schema": "zerone-monitoring-alert-evidence-fixture-v1",
+                    "fixture_only": True,
+                    "check": check,
+                    "alert_name": alert_name,
+                    "kind": kind,
+                }
+            )
+            (output / filename).write_bytes(evidence_bytes)
+            evidence[kind] = {
+                "filename": filename,
+                "sha256": digest(evidence_bytes),
+            }
+        alert_tests.append(
+            {
+                "check": check,
+                "alert_name": alert_name,
+                "stimulus": stimulus,
+                "observed_states": ["INACTIVE", "FIRING", "RESOLVED"],
+                "notification_delivery": "DELIVERED",
+                "evidence": evidence,
+                "result": "PASS",
+            }
+        )
+    tests = {
+        "schema": "zerone-production-monitoring-alert-tests-v2",
+        "chain_id": "zerone-2",
+        "source_commit": release["source"]["commit"],
+        "ruleset_id": rules["ruleset_id"],
+        "rules_sha256": rules_hash,
+        "started_at": "2026-07-10T09:35:00Z",
+        "completed_at": "2026-07-10T09:45:00Z",
+        "notification_route_id": rules["notification_route_id"],
+        "tests": alert_tests,
+        "result": "PASS",
+    }
+    write_json(output, "MONITORING-ALERT-TESTS.json", tests)
+    manifest = {
+        "schema": "zerone-production-monitoring-alerts-v1",
+        "chain_id": "zerone-2",
+        "source_commit": release["source"]["commit"],
+        "created_at": "2026-07-10T09:50:00Z",
+        "rules": {
+            "filename": "MONITORING-RULES.json",
+            "sha256": rules_hash,
+        },
+        "alert_tests": {
+            "filename": "MONITORING-ALERT-TESTS.json",
+            "sha256": digest(
+                (output / "MONITORING-ALERT-TESTS.json").read_bytes()
+            ),
+        },
+        "result": "PASS",
+    }
+    write_json(output, "MONITORING-ALERTS.json", manifest)
+    release["monitoring_alerts_sha256"] = digest(
+        (output / "MONITORING-ALERTS.json").read_bytes()
+    )
 
 
 def make_ceremony_artifacts(output: pathlib.Path, release: dict[str, Any]) -> str:
@@ -378,6 +824,7 @@ def main() -> None:
     parser.add_argument("--release-binary-file", required=True)
     parser.add_argument("--halt-release-binary-file")
     parser.add_argument("--runtime-release-binary-file")
+    parser.add_argument("--census-binary-file")
     parser.add_argument("--signed-tx-file", required=True)
     args = parser.parse_args()
 
@@ -400,14 +847,22 @@ def main() -> None:
     runtime_binary_bytes = pathlib.Path(
         args.runtime_release_binary_file or shared_binary
     ).read_bytes()
+    census_binary_bytes = (
+        pathlib.Path(args.census_binary_file).read_bytes()
+        if args.census_binary_file
+        else b"#!/bin/sh\n# dedicated synthetic custom-staking-census fixture\nexit 64\n"
+    )
     if digest(halt_binary_bytes) != args.halt_binary_sha:
         raise SystemExit("fixture halt binary hash differs from the signed component hash")
     if digest(runtime_binary_bytes) != args.runtime_binary_sha:
         raise SystemExit("fixture runtime binary hash differs from the signed component hash")
+    if census_binary_bytes in {halt_binary_bytes, runtime_binary_bytes}:
+        raise SystemExit("fixture census binary must be distinct from release daemon bytes")
     signed_tx_bytes = pathlib.Path(args.signed_tx_file).read_bytes()
     for name, binary_bytes in (
         ("zeroned-zerone-1-release", halt_binary_bytes),
         ("zeroned-zerone-2-release", runtime_binary_bytes),
+        ("custom-staking-census-linux-amd64", census_binary_bytes),
     ):
         path = output / name
         path.write_bytes(binary_bytes)
@@ -443,6 +898,7 @@ def main() -> None:
         ".github/workflows/ci.yml",
         "deploy/verify-authority-chain.py",
         "deploy/frozen_evidence.py",
+        "deploy/run-custom-staking-census-evidence.py",
         "deploy/validate-fly-phase-config.py",
         "deploy/fly-deploy-pinned.sh",
         "deploy/fly-deploy-authorized.sh",
@@ -456,6 +912,8 @@ def main() -> None:
         "deploy/mainnet/build-image.sh",
         "deploy/networks/zerone-2/runtime/build-image.sh",
         "deploy/query-gateway/build-image.sh",
+        "deploy/query-gateway/render-archive-gateway-config.py",
+        "deploy/query-gateway/fly.zerone-1-archive.public.example.toml",
         "tools/zerone2-artifact-audit/main.go",
         "tools/sigstore-substrate-compiler/go.mod",
         "tools/sigstore-substrate-compiler/go.sum",
@@ -575,6 +1033,7 @@ sys.stdout.write("\\n")
         "CUTOVER-DECISION.json.sig",
         "CUTOVER-INITIATION-EVIDENCE.json.sig",
         "ARCHIVE-ADOPTION-AUTHORITY.json.sig",
+        "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig",
         "FINAL-CHECKPOINT.json.sig",
         "OPEN-BETA-DECISION.json.sig",
         "OPEN-BETA-INITIATION-EVIDENCE.json.sig",
@@ -629,6 +1088,12 @@ sys.stdout.write("\\n")
         validator_consensus_pubkey=base64.b64encode(b"p" * 32).decode(),
     )
     release["public_identities"]["edge_node_id"] = "e" * 40
+    release["custom_staking_census_execution"]["binary"]["sha256"] = digest(
+        census_binary_bytes
+    )
+    release["custom_staking_census_execution"]["execution_evidence"][
+        "authorized_signer_fingerprint"
+    ] = args.transition
     renderer_path = root / "deploy" / "mainnet" / "render-archive-configs.sh"
     candidate_template_path = (
         root / "deploy" / "mainnet" / "fly.archive-candidate.example.toml"
@@ -641,6 +1106,21 @@ sys.stdout.write("\\n")
         zerone_1_archive_candidate=digest(candidate_template_path.read_bytes()),
         zerone_1_archive=digest(archive_template_path.read_bytes()),
     )
+    archive_gateway_renderer_path = (
+        root / "deploy" / "query-gateway" / "render-archive-gateway-config.py"
+    )
+    archive_gateway_template_path = (
+        root
+        / "deploy"
+        / "query-gateway"
+        / "fly.zerone-1-archive.public.example.toml"
+    )
+    release["archive_gateway_render_contract"]["renderer_sha256"] = digest(
+        archive_gateway_renderer_path.read_bytes()
+    )
+    release["phase_dependent_config_template_sha256"][
+        "zerone_1_archive_gateway"
+    ] = digest(archive_gateway_template_path.read_bytes())
     def rendered_config(path: pathlib.Path, replacements: dict[str, str]) -> bytes:
         text = path.read_text()
         for old, new in replacements.items():
@@ -681,18 +1161,9 @@ sys.stdout.write("\\n")
             "replace-zerone-2-edge-app.internal": "zerone-2-edge.internal",
         },
     )
-    archive_gateway_config = rendered_config(
-        query_dir / "fly.zerone-1-archive.public.example.toml",
-        {
-            "replace-zerone-1-archive-gateway-app": "zerone-1-archive-gateway",
-            "replace-with-pinned-query-gateway-image-digest": args.query_image,
-            "replace-zerone-1-archive-app.internal": "zerone-1-archive.internal",
-        },
-    )
     public_configs = {
         "fly.edge.public.toml": edge_public_config,
         "fly.zerone-2-gateway.public.toml": gateway_public_config,
-        "fly.zerone-1-archive-gateway.public.toml": archive_gateway_config,
     }
     for name, data in public_configs.items():
         (output / name).write_bytes(data)
@@ -727,14 +1198,14 @@ sys.stdout.write("\\n")
             args.query_image,
             digest(gateway_public_config),
         ),
-        "zerone_1_archive_gateway": mapping(
-            "zerone-1-archive-gateway",
-            "zerone-1-archive-query",
-            "query_gateway",
-            args.query_image,
-            digest(archive_gateway_config),
-        ),
+        "zerone_1_archive_gateway": {
+            "app": "zerone-1-archive-gateway",
+            "role": "zerone-1-archive-query",
+            "image_component": "query_gateway",
+            "image_ref": args.query_image,
+        },
     }
+    make_monitoring_artifacts(output, release)
     make_component_artifacts(output, release, tool_manifest, args.main)
     args.genesis_sha = make_ceremony_artifacts(output, release)
     write_json(output, "RELEASE-PACKET.json", release)
@@ -1146,7 +1617,7 @@ sys.stdout.write("\\n")
     checkpoint_app_hash = "B" * 64
     anchor_block_hash = "A" * 64
     halt_trigger_block_hash = "D" * 64
-    post_anchor_app_hash = "E" * 64
+    post_anchor_app_hash = custom_staking_app_hash().upper()
     anchor_block_time = "2026-07-10T14:10:00.111111111Z"
     halt_trigger_block_time = "2026-07-10T14:10:01.222222222Z"
     signer_node_id = release["predecessor"]["trusted_rpc_node_id"]
@@ -1560,6 +2031,9 @@ sys.stdout.write("\\n")
         "included_in_successor_inventory": False,
         "result": "MATCH",
     }
+    custom_staking_census = custom_staking_census_bytes(
+        release["source"]["commit"], post_anchor_app_hash
+    )
     offline_snapshot = {
         "schema": "zerone-1-offline-halted-observer-snapshot-manifest-v1",
         "chain_id": "zerone-1",
@@ -1598,6 +2072,109 @@ sys.stdout.write("\\n")
     }
     offline_snapshot_raw = canonical_bytes(offline_snapshot)
     sanitized_snapshot_raw = canonical_bytes(sanitized_snapshot)
+    census_binary_path = (
+        "/secure/evidence/.custom-staking-census-binary.fixture/"
+        "custom-staking-census-linux-amd64"
+    )
+    census_home_path = "/secure/offline/zerone-1-halted-observer"
+    census_output_path = "/secure/evidence/CUSTOM-STAKING-CENSUS.json"
+    census_execution = {
+        "schema": "zerone-custom-staking-census-execution-evidence-v1",
+        "result": "PASS",
+        "created_at": "2026-07-10T14:13:00Z",
+        "release_packet": release_pair,
+        "cutover_initiation_evidence": cutover_init_pair,
+        "runner": {
+            "path": "deploy/run-custom-staking-census-evidence.py",
+            "sha256": tool_manifest["files"][
+                "deploy/run-custom-staking-census-evidence.py"
+            ],
+        },
+        "state": {
+            "chain_id": "zerone-1",
+            "height": "1001",
+            "app_hash": post_anchor_app_hash.lower(),
+            "source_commit": release["source"]["commit"],
+        },
+        "binary": copy.deepcopy(
+            release["custom_staking_census_execution"]["binary"]
+        ),
+        "source_snapshot": {
+            "manifest_filename": "OFFLINE-HALTED-OBSERVER-SNAPSHOT-MANIFEST.json",
+            "manifest_sha256": digest(offline_snapshot_raw),
+            "database_snapshot_sha256": offline_snapshot[
+                "database_snapshot_sha256"
+            ],
+            "file_manifest_sha256": offline_snapshot["file_manifest_sha256"],
+        },
+        "command": {
+            "argv": [
+                census_binary_path,
+                "--home",
+                census_home_path,
+                "--backend",
+                "goleveldb",
+                "--chain-id",
+                "zerone-1",
+                "--expected-height",
+                "1001",
+                "--expected-app-hash",
+                post_anchor_app_hash.lower(),
+                "--source-commit",
+                release["source"]["commit"],
+                "--copied-db",
+            ],
+            "binary_path": census_binary_path,
+            "home_path": census_home_path,
+            "backend": "goleveldb",
+            "copied_db": True,
+            "report_transport": "stdout-captured-and-atomically-published",
+            "output_path": census_output_path,
+        },
+        "execution": {
+            "started_at": "2026-07-10T14:11:00Z",
+            "completed_at": "2026-07-10T14:12:00Z",
+            "exit_code": 0,
+            "stdout_sha256": digest(custom_staking_census),
+            "stderr_sha256": digest(b""),
+            "report_filename": "CUSTOM-STAKING-CENSUS.json",
+            "report_sha256": digest(custom_staking_census),
+            "report_self_hash": json.loads(custom_staking_census)[
+                "report_sha256"
+            ],
+            "report_result": "PASS",
+        },
+        "scan_guarantees": {
+            "required_stores": ["zerone_staking", "bank", "staking"],
+            "complete_logical_store_iteration": True,
+            "root_bound_leaf_count": True,
+            "ics23_membership_proof_per_leaf": True,
+            "root_commit_info_rechecked_after_scan": True,
+            "database_backend_read_only": True,
+            "write_attempts": 0,
+        },
+        "signature_authority": {
+            "algorithm": "openpgp",
+            "authorized_signer_fingerprint": args.transition,
+            "detached_signature_filename": (
+                "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig"
+            ),
+            "authority_limit": (
+                "factual attestation that the exact RELEASE-bound census binary "
+                "scanned the declared stopped observer copy and produced the bound "
+                "report; no migration, deployment, transaction, public-service, or "
+                "DNS authority"
+            ),
+        },
+    }
+    census_execution_raw = canonical_bytes(census_execution)
+    census_execution_signature = (
+        "fixture signature CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig "
+        f"{digest(census_execution_raw)}\n"
+    )
+    (output / "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig").write_text(
+        census_execution_signature
+    )
     rollback_output = b"fixture: rolled back blockstore H to A and removed staged H\n"
     rollback_log = {
         "schema": "zerone-1-archive-rollback-evidence-v2",
@@ -1623,6 +2200,8 @@ sys.stdout.write("\\n")
         "result": "MATCH",
     }
     source_raw = {
+        "CUSTOM-STAKING-CENSUS.json": custom_staking_census,
+        "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json": census_execution_raw,
         "ZERONE-1-INVENTORY-V3.json": canonical_bytes(inventory),
         "SIGNER-EVIDENCE-MANIFEST.json": canonical_bytes(signer_evidence),
         "OBSERVER-EVIDENCE-MANIFEST.json": canonical_bytes(observer_evidence),
@@ -1972,6 +2551,16 @@ sys.stdout.write("\\n")
         rpc_canonical_sha256=inventory["source"]["rpc_genesis_canonical_sha256"],
     )
     final["artifacts"] = {
+        "custom_staking_census_sha256": digest(custom_staking_census),
+        "custom_staking_census_execution_evidence_sha256": digest(
+            source_raw["CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json"]
+        ),
+        "custom_staking_census_execution_evidence_detached_signature_sha256": digest(
+            (
+                output
+                / "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig"
+            ).read_bytes()
+        ),
         "post_anchor_state_export_sha256": digest(export_raw),
         "post_anchor_state_export_included_in_successor_inventory": False,
         "offline_halted_observer_database_snapshot_sha256": offline_snapshot[
@@ -2037,6 +2626,19 @@ sys.stdout.write("\\n")
     final_pair = pair(
         output, "FINAL-CHECKPOINT.json", "FINAL-CHECKPOINT.json.sig"
     )
+    archive_gateway_output = output / "fly.zerone-1-archive-gateway.public.toml"
+    subprocess.run(
+        [
+            sys.executable,
+            str(archive_gateway_renderer_path),
+            str(output / "RELEASE-PACKET.json"),
+            str(output / "FINAL-CHECKPOINT.json"),
+            str(archive_gateway_template_path),
+            str(archive_gateway_output),
+        ],
+        check=True,
+    )
+    archive_gateway_config_sha = digest(archive_gateway_output.read_bytes())
 
     open_beta = fill_placeholders(
         read_json(templates / "OPEN-BETA-DECISION.example.json"),
@@ -2067,11 +2669,11 @@ sys.stdout.write("\\n")
     }
     open_beta["deployment_configs"] = {
         key: copy.deepcopy(release["deployment_configs"][key])
-        for key in (
-            "zerone_2_edge_public",
-            "zerone_2_gateway_public",
-            "zerone_1_archive_gateway",
-        )
+        for key in ("zerone_2_edge_public", "zerone_2_gateway_public")
+    }
+    open_beta["deployment_configs"]["zerone_1_archive_gateway"] = {
+        **copy.deepcopy(release["deployment_configs"]["zerone_1_archive_gateway"]),
+        "sha256": archive_gateway_config_sha,
     }
     public_coordinates = {
         "zerone_2_p2p": f"{release['public_identities']['edge_node_id']}@p2p.example:26656",
@@ -2100,7 +2702,7 @@ sys.stdout.write("\\n")
             "archive.example": {
                 "app": "zerone-1-archive-gateway",
                 "https": True,
-                "config_sha256": release["deployment_configs"][
+                "config_sha256": open_beta["deployment_configs"][
                     "zerone_1_archive_gateway"
                 ]["sha256"],
             },

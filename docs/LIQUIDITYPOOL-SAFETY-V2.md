@@ -1,4 +1,4 @@
-# Liquiditypool v5 — atomic H1 readiness and operator runbook
+# Liquiditypool v5 — H1 readiness and operator runbook
 
 > **Status: source target, not network-activated.** No upgrade height, pool,
 > oracle quote, validator rollout, or external mainnet liquidity is authorised
@@ -17,20 +17,29 @@ The post-H1 module-version map must include:
 | Module | Pre-H1 | Post-H1 | Boundary |
 |---|---:|---:|---|
 | `liquiditypool` | 3 | 5 | v4 lifecycle/admission safety, then v5 zero protocol skim |
-| `vesting_rewards` | 1 | 2 | zero founder tap and zero transaction-presence mint |
+| `vesting_rewards` | 1 | 1 | explicitly unchanged; its sole v1→v2 migration belongs to H2 |
 
-The H1 binary must not advertise or register a future H2 handler. Native pool
-creation and oracle use are separate governance actions after H1; they are not
-a second software-upgrade height.
+The exact H1 binary must not advertise or register H2
+`founder-renunciation-v1`; that accepted boundary has a separate descendant
+source, must be built as a separately attested executable, and alone advances
+vesting_rewards v1→v2. The obsolete `liquiditypool-safety-v2` name is not a
+handler. Native pool creation and oracle use are separate governance actions
+after H1; neither is a software-upgrade height.
 
 ## Economic-neutrality boundary
 
-H1 changes prospective runtime economics without rewriting history:
+H1 changes prospective liquidity economics without rewriting history:
 
 - `protocol_fee_bps` becomes a retired compatibility field fixed at zero;
 - a swap transfers no pool value to `fee_collector`; the complete input is
   recorded in reserves after output leaves, so the configured swap fee accrues
-  pro rata to bearer LP shares;
+  pro rata to bearer LP shares.
+
+H1 does not run the vesting_rewards migration or edit its Params, balances, or
+history. Its permanent app-wide module-account reconciliation may repair an
+existing account's permissions to the H1 binary's declaration; that exact
+delta must be reported. Only the later H2 founder-renunciation boundary:
+
 - `founder_share_bps` and `founder_address` become retired zero/empty fields;
   every research deposit goes in full to `research_fund`;
 - `block_reward`, `floor_reward`, and `empty_block_reward_rate` become retired
@@ -48,8 +57,9 @@ rule.
 The checked-in mainnet genesis remains an immutable historical artifact. It
 truthfully records `protocol_fee_bps = 450000`,
 `founder_share_bps = 70000` with no founder address, and the former block
-reward settings at launch. H1 migrates live module state. Do not edit or
-rehash historical genesis to make it resemble post-H1 state.
+reward settings at launch. H1 migrates live liquidity state and H2 later
+migrates live vesting state. Do not edit or rehash historical genesis to make
+it resemble either post-upgrade state.
 
 ## Mandatory bound snapshot
 
@@ -82,8 +92,11 @@ The v3→v4 migration remains fail-closed:
 
 The v4→v5 migration changes the retired protocol-fee parameter only. It must
 not change a pool, reserve, LP supply, bank balance, TWAP, index, or custody
-liability. The vesting_rewards v1→v2 migration clears the retired founder and
-automatic-reward fields without moving balances or erasing historical events.
+liability. H1 must also prove that vesting_rewards remains V1 with Params,
+balances, and history unchanged and any generic permission reconciliation
+fully explained. The separate H2 vesting_rewards v1→v2 migration clears the
+retired founder and automatic-reward fields without moving balances or erasing
+historical events.
 
 ## Release and recovery gates
 
@@ -98,8 +111,8 @@ artifact:
   genesis;
 - liquidity custody is solvent, LP bank supply equals recorded LP supply, and
   the post-migration delta is explained field by field;
-- the H1 binary reports liquiditypool v5 and vesting_rewards v2, recognises H1,
-  and does not recognise the removed H2 name;
+- the H1 binary reports liquiditypool v5 and vesting_rewards v1, recognises H1,
+  and does not recognise H2 or the obsolete `liquiditypool-safety-v2` name;
 - `allowed_pool_denoms`, `pool_creators`, and `billing_quote_denoms` remain
   empty after migration;
 - the governance proposal's `plan.name`, height, `info` checksums, and signed
@@ -120,17 +133,18 @@ app hash, and operators must verify:
 
 - `zeroned query upgrade applied consolidation-safety-v1` reports H1;
 - `upgrade_marker_consolidation-safety-v1` reads `migrated`;
-- module versions are liquiditypool 5 and vesting_rewards 2;
+- module versions are liquiditypool 5 and vesting_rewards 1;
 - liquidity `protocol_fee_bps` is zero;
-- founder share/address and block/floor/empty-block reward fields are
-  zero/empty;
+- vesting Params, balances, and history are unchanged from the bound pre-H1
+  state, and any module-account permission repair is exactly explained;
 - no unexpected bank, supply, reserve, research, development, or fee-collector
   delta occurred during migration;
-- automatic transaction-presence issuance remains zero even when a block
-  contains a stateless-valid transaction that fails execution; and
 - pool, creator, and oracle admission remain empty.
 
 Failure of any check is an incident, not permission to patch state manually.
+The separate H2 packet and acceptance checks must then prove
+vesting_rewards v1→v2 and retirement of the founder and automatic-reward
+fields before claiming full economic neutrality; see [UPGRADES.md](UPGRADES.md).
 
 ## Pool property and lifecycle
 

@@ -1,0 +1,87 @@
+{
+  "schema": "zerone-custom-staking-census-execution-evidence-v1",
+  "result": "PASS",
+  "created_at": "REPLACE_WITH_RFC3339_UTC",
+  "release_packet": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "cutover_initiation_evidence": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "runner": {
+    "path": "deploy/run-custom-staking-census-evidence.py",
+    "sha256": "REPLACE_WITH_64_HEX"
+  },
+  "state": {
+    "chain_id": "zerone-1",
+    "height": "REPLACE_A",
+    "app_hash": "REPLACE_WITH_LOWERCASE_64_HEX",
+    "source_commit": "REPLACE_WITH_40_HEX"
+  },
+  "binary": {
+    "filename": "custom-staking-census-linux-amd64",
+    "sha256": "REPLACE_WITH_64_HEX"
+  },
+  "source_snapshot": {
+    "manifest_filename": "OFFLINE-HALTED-OBSERVER-SNAPSHOT-MANIFEST.json",
+    "manifest_sha256": "REPLACE_WITH_64_HEX",
+    "database_snapshot_sha256": "REPLACE_WITH_64_HEX",
+    "file_manifest_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "command": {
+    "argv": [
+      "/secure/evidence/.custom-staking-census-binary.REPLACE_RANDOM/custom-staking-census-linux-amd64",
+      "--home",
+      "/secure/offline/zerone-1-halted-observer",
+      "--backend",
+      "REPLACE_WITH_GOLEVELDB_OR_PEBBLEDB",
+      "--chain-id",
+      "zerone-1",
+      "--expected-height",
+      "REPLACE_A",
+      "--expected-app-hash",
+      "REPLACE_WITH_LOWERCASE_64_HEX",
+      "--source-commit",
+      "REPLACE_WITH_40_HEX",
+      "--copied-db"
+    ],
+    "binary_path": "/secure/evidence/.custom-staking-census-binary.REPLACE_RANDOM/custom-staking-census-linux-amd64",
+    "home_path": "/secure/offline/zerone-1-halted-observer",
+    "backend": "REPLACE_WITH_GOLEVELDB_OR_PEBBLEDB",
+    "copied_db": true,
+    "report_transport": "stdout-captured-and-atomically-published",
+    "output_path": "/secure/evidence/CUSTOM-STAKING-CENSUS.json"
+  },
+  "execution": {
+    "started_at": "REPLACE_WITH_RFC3339_UTC",
+    "completed_at": "REPLACE_WITH_RFC3339_UTC",
+    "exit_code": 0,
+    "stdout_sha256": "REPLACE_WITH_REPORT_SHA256",
+    "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "report_filename": "CUSTOM-STAKING-CENSUS.json",
+    "report_sha256": "REPLACE_WITH_64_HEX",
+    "report_self_hash": "REPLACE_WITH_64_HEX",
+    "report_result": "PASS"
+  },
+  "scan_guarantees": {
+    "required_stores": [
+      "zerone_staking",
+      "bank",
+      "staking"
+    ],
+    "complete_logical_store_iteration": true,
+    "root_bound_leaf_count": true,
+    "ics23_membership_proof_per_leaf": true,
+    "root_commit_info_rechecked_after_scan": true,
+    "database_backend_read_only": true,
+    "write_attempts": 0
+  },
+  "signature_authority": {
+    "algorithm": "openpgp",
+    "authorized_signer_fingerprint": "REPLACE_WITH_TRANSITION_ATTESTATION_40_OR_64_HEX",
+    "detached_signature_filename": "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig",
+    "authority_limit": "factual attestation that the exact RELEASE-bound census binary scanned the declared stopped observer copy and produced the bound report; no migration, deployment, transaction, public-service, or DNS authority"
+  }
+}

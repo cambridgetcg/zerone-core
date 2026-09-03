@@ -18,6 +18,11 @@ RUNTIME_MARKER_VERSION="2"
 ARCHIVE_TRANSITION_SCHEMA="zerone-1-archive-transition-v1"
 ARCHIVE_READINESS_SCHEMA="zerone-1-archive-readiness-v2"
 ARCHIVE_TRANSITION_FILE="${HOME_DIR}/.zerone-1-archive-transition.json"
+readonly QUERY_GAS_LIMIT="5000000"
+readonly API_READ_TIMEOUT_SECONDS="10"
+readonly API_WRITE_TIMEOUT_SECONDS="15"
+readonly RPC_MAX_BODY_BYTES="65536"
+readonly RPC_MAX_HEADER_BYTES="16384"
 
 # Bootstrap custody arrives through exported platform secrets. Copy it into
 # ordinary shell variables, then remove the exported names before spawning even
@@ -29,6 +34,15 @@ unset PRIV_VALIDATOR_KEY_B64 NODE_KEY_B64
 die() {
   echo "[entrypoint] ERROR: $*" >&2
   exit 1
+}
+
+reject_daemon_env_overrides() {
+  local name
+  while IFS= read -r name; do
+    case "${name}" in
+      ZERONED_*) die "daemon configuration environment override is forbidden: ${name}" ;;
+    esac
+  done < <(compgen -e)
 }
 
 require_regular_file() {
@@ -840,8 +854,17 @@ configure_role() {
   require_regular_file "${app}" app.toml
 
   toml_set_root minimum-gas-prices '"0.025uzrn"' "${app}"
+  toml_set_root query-gas-limit "\"${QUERY_GAS_LIMIT}\"" "${app}"
   toml_set rpc unsafe false "${config}"
+  toml_set rpc max_request_batch_size 1 "${config}"
+  toml_set rpc max_body_bytes "${RPC_MAX_BODY_BYTES}" "${config}"
+  toml_set rpc max_header_bytes "${RPC_MAX_HEADER_BYTES}" "${config}"
+  toml_set storage discard_abci_responses false "${config}"
+  toml_set tx_index indexer '"kv"' "${config}"
   toml_set p2p seeds '""' "${config}"
+  toml_set api rpc-read-timeout "${API_READ_TIMEOUT_SECONDS}" "${app}"
+  toml_set api rpc-write-timeout "${API_WRITE_TIMEOUT_SECONDS}" "${app}"
+  toml_set api rpc-max-body-bytes "${RPC_MAX_BODY_BYTES}" "${app}"
 
   if [ "${NODE_ROLE}" = "signer" ]; then
     [ -z "${PERSISTENT_PEERS:-}" ] || \
@@ -862,7 +885,7 @@ configure_role() {
   elif [ "${NODE_ROLE}" = "observer" ]; then
     [ -z "${EXTERNAL_ADDRESS:-}" ] || die "observer role forbids EXTERNAL_ADDRESS"
     validate_observer_peer
-    toml_set rpc laddr '"tcp://0.0.0.0:26657"' "${config}"
+    toml_set rpc laddr '"tcp://fly-local-6pn:26657"' "${config}"
     toml_set rpc cors_allowed_origins '[]' "${config}"
     toml_set p2p persistent_peers "$(toml_quote "${PERSISTENT_PEERS}")" "${config}"
     toml_set p2p private_peer_ids "$(toml_quote "${EXPECTED_NODE_ID}")" "${config}"
@@ -871,7 +894,7 @@ configure_role() {
     toml_set p2p allow_duplicate_ip false "${config}"
     toml_set p2p external_address '""' "${config}"
     toml_set api enable true "${app}"
-    toml_set api address '"tcp://0.0.0.0:1317"' "${app}"
+    toml_set api address '"tcp://fly-local-6pn:1317"' "${app}"
     toml_set api enabled-unsafe-cors false "${app}"
     toml_set grpc enable false "${app}"
     toml_set grpc address '"127.0.0.1:9090"' "${app}"
@@ -880,7 +903,17 @@ configure_role() {
   else
     [ -z "${EXTERNAL_ADDRESS:-}" ] || die "${NODE_ROLE} role forbids EXTERNAL_ADDRESS"
     [ -z "${PERSISTENT_PEERS:-}" ] || die "${NODE_ROLE} role forbids PERSISTENT_PEERS"
-    toml_set rpc laddr '"tcp://0.0.0.0:26657"' "${config}"
+    if [ "${NODE_ROLE}" = "archive-candidate" ]; then
+      # The candidate readiness proof is produced locally before any gateway
+      # is authorized to connect.
+      toml_set rpc laddr '"tcp://127.0.0.1:26657"' "${config}"
+      toml_set api address '"tcp://127.0.0.1:1317"' "${app}"
+    else
+      # Fly .internal publishes only Machine 6PN IPv6 addresses. The frozen
+      # archive is a private gateway origin with no direct Fly service.
+      toml_set rpc laddr '"tcp://fly-local-6pn:26657"' "${config}"
+      toml_set api address '"tcp://fly-local-6pn:1317"' "${app}"
+    fi
     toml_set rpc cors_allowed_origins '[]' "${config}"
     toml_set p2p laddr '"tcp://127.0.0.1:26656"' "${config}"
     toml_set p2p persistent_peers '""' "${config}"
@@ -892,7 +925,6 @@ configure_role() {
     toml_set p2p max_num_inbound_peers 0 "${config}"
     toml_set p2p max_num_outbound_peers 0 "${config}"
     toml_set api enable true "${app}"
-    toml_set api address '"tcp://0.0.0.0:1317"' "${app}"
     toml_set api enabled-unsafe-cors false "${app}"
     toml_set grpc enable false "${app}"
     toml_set grpc address '"127.0.0.1:9090"' "${app}"
@@ -904,6 +936,7 @@ case "${NODE_ROLE}" in
   signer|observer|archive-candidate|archive) ;;
   *) die "NODE_ROLE must be exactly signer, observer, archive-candidate, or archive" ;;
 esac
+reject_daemon_env_overrides
 require_regular_file "${BINARY}" zeroned
 [ -x "${BINARY}" ] || die "zeroned is not executable: ${BINARY}"
 command -v jq >/dev/null 2>&1 || die "jq is required"
@@ -1051,6 +1084,12 @@ if [ "${CHECKPOINT_PLAN_ARMED}" -eq 1 ] && [ "${NODE_ROLE}" = "signer" ]; then
   # coordinates or learn/gossip additional peers after F/A/H is armed.
   toml_set p2p external_address '""' "${HOME_DIR}/config/config.toml"
   toml_set p2p pex false "${HOME_DIR}/config/config.toml"
+  toml_set p2p laddr '"tcp://fly-local-6pn:26656"' "${HOME_DIR}/config/config.toml"
+  toml_set rpc laddr '"tcp://fly-local-6pn:26657"' "${HOME_DIR}/config/config.toml"
+  toml_set rpc cors_allowed_origins '[]' "${HOME_DIR}/config/config.toml"
+  toml_set api address '"tcp://fly-local-6pn:1317"' "${HOME_DIR}/config/app.toml"
+  toml_set api enabled-unsafe-cors false "${HOME_DIR}/config/app.toml"
+  toml_set grpc enable false "${HOME_DIR}/config/app.toml"
 fi
 if [ "${NODE_ROLE}" = "archive-candidate" ]; then
   run_archive_candidate
@@ -1082,7 +1121,8 @@ unset PRIV_VALIDATOR_KEY_B64 NODE_KEY_B64 \
 if [ "${CHECKPOINT_PLAN_ARMED}" -eq 1 ]; then
   exec "${BINARY}" start \
     --halt-height "${ZERONE_HALT_TRIGGER_HEIGHT}" \
-    --home "${HOME_DIR}" --minimum-gas-prices 0.025uzrn
+    --home "${HOME_DIR}" --minimum-gas-prices 0.025uzrn \
+    --query-gas-limit "${QUERY_GAS_LIMIT}" --min-retain-blocks 0
 fi
 # Run the node directly. cosmovisor was trialled here and removed on 2026-07-25:
 # in an immutable-image deployment it cannot help with a NEW upgrade (the
@@ -1107,6 +1147,8 @@ if [ -n "${UNSAFE_SKIP_UPGRADES_HEIGHT:-}" ]; then
     "${UNSAFE_SKIP_UPGRADES_HEIGHT}" 9223372036854775807
   exec "${BINARY}" start \
     --unsafe-skip-upgrades "${UNSAFE_SKIP_UPGRADES_HEIGHT}" \
-    --home "${HOME_DIR}" --minimum-gas-prices 0.025uzrn
+    --home "${HOME_DIR}" --minimum-gas-prices 0.025uzrn \
+    --query-gas-limit "${QUERY_GAS_LIMIT}" --min-retain-blocks 0
 fi
-exec "${BINARY}" start --home "${HOME_DIR}" --minimum-gas-prices 0.025uzrn
+exec "${BINARY}" start --home "${HOME_DIR}" --minimum-gas-prices 0.025uzrn \
+  --query-gas-limit "${QUERY_GAS_LIMIT}" --min-retain-blocks 0

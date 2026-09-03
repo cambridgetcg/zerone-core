@@ -72,6 +72,19 @@ Its Byzantine fault tolerance is zero (`f=0`): downtime can halt the chain and
 the operator controls ordering and governance. This is a custodial public beta,
 not a claim of decentralization.
 
+Genesis fixes the SDK slashing policy at a 34,272-block window, 95% minimum
+signing, a one-hour downtime jail, a 5% double-sign slash, and a 0.01% downtime
+slash. At the 2.521-second target block cadence, that is approximately a
+one-day window with about 72 minutes of aggregate missed-signing allowance.
+Monitoring is expected to alert on the first miss. Because this initial set has
+one validator, no block can commit while it is absent and the downtime
+jail/slash cannot execute. Those parameters are dormant until the set can
+commit without one validator; monitoring and operator recovery are the only
+launch availability controls and do not make intermittent downtime acceptable.
+Comet evidence remains admissible for approximately 21 days (719,714 target-
+cadence blocks), matching the staking unbonding period so delayed equivocation
+evidence does not lose its slashable stake before admission.
+
 Genesis supply is exactly 13,555 ZRN: 11,111 ZRN permanent-locked validator
 self-bond, 222 ZRN validator gas, and 2,222 ZRN operations balance. There is no
 team, investor, foundation, research, or faucet allocation.

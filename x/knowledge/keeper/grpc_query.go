@@ -8,10 +8,14 @@ import (
 	"strconv"
 
 	sdkmath "cosmossdk.io/math"
+	storeprefix "cosmossdk.io/store/prefix"
+	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkquery "github.com/cosmos/cosmos-sdk/types/query"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -19,6 +23,129 @@ import (
 type queryServer struct {
 	keeper Keeper
 	types.UnimplementedQueryServer
+}
+
+const (
+	defaultQueryPageLimit uint64 = 50
+	maxQueryPageLimit     uint64 = 100
+	maxQueryPageOffset    uint64 = 1_000_000
+	// FilteredQueryScanCap bounds the number of records whose values a single
+	// filtered query may inspect. FilteredPaginate otherwise keeps walking until
+	// it finds a full result page (or exhausts the store), even when no records
+	// match. The SDK callback supplies the next raw key, so capped scans remain
+	// resumable without reverting to mutation-sensitive result offsets.
+	FilteredQueryScanCap  uint64 = 1_000
+	maxLineageDepth       uint64 = 64
+	defaultProgenyDepth   uint64 = 3
+	maxProgenyDepth       uint64 = 8
+	defaultGraphTreeDepth uint32 = 5
+	maxGraphTreeDepth     uint32 = 8
+	maxGraphTreeNodes     uint32 = 512
+)
+
+var (
+	errGraphTreeNodeLimit     = errors.New("knowledge graph query exceeds 512 nodes")
+	errFilteredQueryScanLimit = errors.New("knowledge filtered query scan limit reached")
+)
+
+// boundedPageRequest preserves the SDK's raw store-key cursor semantics while
+// placing a module-specific ceiling on both result pages and legacy offsets.
+func boundedPageRequest(request *sdkquery.PageRequest) (*sdkquery.PageRequest, error) {
+	page := &sdkquery.PageRequest{}
+	if request != nil {
+		*page = *request
+	}
+	if page.Offset > 0 && len(page.Key) > 0 {
+		return nil, status.Error(codes.InvalidArgument, "pagination offset and key cannot both be set")
+	}
+	if page.CountTotal {
+		return nil, status.Error(codes.InvalidArgument, "count_total is disabled for bounded knowledge queries")
+	}
+	if page.Offset > maxQueryPageOffset {
+		return nil, status.Errorf(codes.InvalidArgument, "pagination offset exceeds %d", maxQueryPageOffset)
+	}
+	if page.Limit == 0 {
+		page.Limit = defaultQueryPageLimit
+	}
+	if page.Limit > maxQueryPageLimit {
+		return nil, status.Errorf(codes.InvalidArgument, "pagination limit exceeds %d", maxQueryPageLimit)
+	}
+	return page, nil
+}
+
+func (q *queryServer) filteredPaginate(
+	ctx context.Context,
+	prefix []byte,
+	request *sdkquery.PageRequest,
+	onResult func(key, value []byte, accumulate bool) (bool, error),
+) (*sdkquery.PageResponse, error) {
+	page, err := boundedPageRequest(request)
+	if err != nil {
+		return nil, err
+	}
+	store := storeprefix.NewStore(
+		runtime.KVStoreAdapter(q.keeper.storeService.OpenKVStore(ctx)),
+		prefix,
+	)
+	var examined uint64
+	var hits uint64
+	var continuation []byte
+	response, err := sdkquery.FilteredPaginate(store, page, func(key, value []byte, accumulate bool) (bool, error) {
+		if err := ctx.Err(); err != nil {
+			return false, status.FromContextError(err).Err()
+		}
+		if examined >= FilteredQueryScanCap {
+			// FilteredPaginate has already supplied this raw key/value as its
+			// one-record lookahead, but do not decode or otherwise inspect the
+			// value. A key-based follow-up starts at this exact record.
+			continuation = append([]byte(nil), key...)
+			return false, errFilteredQueryScanLimit
+		}
+		examined++
+		hit, err := onResult(key, value, accumulate)
+		if hit {
+			hits++
+		}
+		return hit, err
+	})
+	if !errors.Is(err, errFilteredQueryScanLimit) {
+		return response, err
+	}
+	if len(page.Key) == 0 && hits < page.Offset {
+		// A raw cursor cannot encode the number of filtered hits still to skip.
+		// Fail instead of returning a cursor with silently changed offset
+		// semantics; callers can retry with a selective indexed query or key.
+		return nil, status.Errorf(
+			codes.ResourceExhausted,
+			"knowledge query examined %d records before satisfying pagination offset",
+			FilteredQueryScanCap,
+		)
+	}
+	return &sdkquery.PageResponse{NextKey: continuation}, nil
+}
+
+func decodeFact(value []byte) (*types.Fact, error) {
+	var fact types.Fact
+	if err := proto.Unmarshal(value, &fact); err != nil {
+		return nil, status.Errorf(codes.Internal, "stored fact is malformed: %v", err)
+	}
+	return &fact, nil
+}
+
+func decodeClaim(value []byte) (*types.Claim, error) {
+	var claim types.Claim
+	if err := proto.Unmarshal(value, &claim); err != nil {
+		return nil, status.Errorf(codes.Internal, "stored claim is malformed: %v", err)
+	}
+	return &claim, nil
+}
+
+func decodeDomain(value []byte) (*types.Domain, error) {
+	var domain types.Domain
+	if err := proto.Unmarshal(value, &domain); err != nil {
+		return nil, status.Errorf(codes.Internal, "stored domain is malformed: %v", err)
+	}
+	return &domain, nil
 }
 
 // NewQueryServerImpl returns a types.QueryServer backed by the given Keeper.
@@ -55,63 +182,102 @@ func (q *queryServer) Fact(ctx context.Context, req *types.QueryFactRequest) (*t
 }
 
 func (q *queryServer) Facts(ctx context.Context, req *types.QueryFactsRequest) (*types.QueryFactsResponse, error) {
+	if req == nil {
+		req = &types.QueryFactsRequest{}
+	}
 	var facts []*types.Fact
 
 	// If domain filter is specified, use the secondary index
 	if req.Domain != "" {
-		q.keeper.IterateFactsByDomain(ctx, req.Domain, func(factID string) bool {
-			fact, found := q.keeper.GetFact(ctx, factID)
-			if found {
-				if matchesFactFilters(fact, req.Status, req.Category, req.ClaimType) {
-					facts = append(facts, fact)
-				}
+		indexPrefix := append(
+			append([]byte{}, types.DomainFactIndexPrefix...),
+			[]byte(req.Domain+"/")...,
+		)
+		page, err := q.filteredPaginate(ctx, indexPrefix, req.Pagination, func(key, _ []byte, accumulate bool) (bool, error) {
+			fact, found := q.keeper.GetFact(ctx, string(key))
+			if !found || fact.Domain != req.Domain || !matchesFactFilters(fact, req.Status, req.Category, req.ClaimType) {
+				return false, nil
 			}
-			return false
-		})
-	} else {
-		q.keeper.IterateFacts(ctx, func(fact *types.Fact) bool {
-			if matchesFactFilters(fact, req.Status, req.Category, req.ClaimType) {
+			if accumulate {
 				facts = append(facts, fact)
 			}
-			return false
+			return true, nil
 		})
+		if err != nil {
+			return nil, err
+		}
+		return &types.QueryFactsResponse{Facts: facts, Pagination: page}, nil
+	} else {
+		page, err := q.filteredPaginate(ctx, types.FactKeyPrefix, req.Pagination, func(_, value []byte, accumulate bool) (bool, error) {
+			fact, err := decodeFact(value)
+			if err != nil {
+				return false, err
+			}
+			if !matchesFactFilters(fact, req.Status, req.Category, req.ClaimType) {
+				return false, nil
+			}
+			if accumulate {
+				facts = append(facts, fact)
+			}
+			return true, nil
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &types.QueryFactsResponse{Facts: facts, Pagination: page}, nil
 	}
-
-	return &types.QueryFactsResponse{Facts: facts}, nil
 }
 
 func (q *queryServer) FactsByDomain(ctx context.Context, req *types.QueryFactsByDomainRequest) (*types.QueryFactsByDomainResponse, error) {
-	if req.Domain == "" {
+	if req == nil || req.Domain == "" {
 		return nil, status.Error(codes.InvalidArgument, "domain is required")
 	}
-
 	var facts []*types.Fact
-	q.keeper.IterateFactsByDomain(ctx, req.Domain, func(factID string) bool {
-		fact, found := q.keeper.GetFact(ctx, factID)
-		if found {
+	indexPrefix := append(
+		append([]byte{}, types.DomainFactIndexPrefix...),
+		[]byte(req.Domain+"/")...,
+	)
+	page, err := q.filteredPaginate(ctx, indexPrefix, req.Pagination, func(key, _ []byte, accumulate bool) (bool, error) {
+		fact, found := q.keeper.GetFact(ctx, string(key))
+		if !found || fact.Domain != req.Domain {
+			return false, nil
+		}
+		if accumulate {
 			facts = append(facts, fact)
 		}
-		return false
+		return true, nil
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return &types.QueryFactsByDomainResponse{Facts: facts}, nil
+	return &types.QueryFactsByDomainResponse{Facts: facts, Pagination: page}, nil
 }
 
 func (q *queryServer) FactsBySubmitter(ctx context.Context, req *types.QueryFactsBySubmitterRequest) (*types.QueryFactsBySubmitterResponse, error) {
-	if req.Submitter == "" {
+	if req == nil || req.Submitter == "" {
 		return nil, status.Error(codes.InvalidArgument, "submitter is required")
 	}
-
 	var facts []*types.Fact
-	q.keeper.IterateFactsBySubmitter(ctx, req.Submitter, func(factID string) bool {
-		fact, found := q.keeper.GetFact(ctx, factID)
-		if found {
+	indexPrefix := append(
+		append([]byte{}, types.FactBySubmitterIndexPrefix...),
+		[]byte(req.Submitter+"/")...,
+	)
+	page, err := q.filteredPaginate(ctx, indexPrefix, req.Pagination, func(key, _ []byte, accumulate bool) (bool, error) {
+		fact, found := q.keeper.GetFact(ctx, string(key))
+		if !found || fact.Submitter != req.Submitter {
+			return false, nil
+		}
+		if accumulate {
 			facts = append(facts, fact)
 		}
-		return false
+		return true, nil
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return &types.QueryFactsBySubmitterResponse{Facts: facts}, nil
+	return &types.QueryFactsBySubmitterResponse{Facts: facts, Pagination: page}, nil
 }
 
 func (q *queryServer) Claim(ctx context.Context, req *types.QueryClaimRequest) (*types.QueryClaimResponse, error) {
@@ -125,15 +291,28 @@ func (q *queryServer) Claim(ctx context.Context, req *types.QueryClaimRequest) (
 	return &types.QueryClaimResponse{Claim: claim}, nil
 }
 
-func (q *queryServer) PendingClaims(ctx context.Context, _ *types.QueryPendingClaimsRequest) (*types.QueryPendingClaimsResponse, error) {
+func (q *queryServer) PendingClaims(ctx context.Context, req *types.QueryPendingClaimsRequest) (*types.QueryPendingClaimsResponse, error) {
+	if req == nil {
+		req = &types.QueryPendingClaimsRequest{}
+	}
 	var claims []*types.Claim
-	q.keeper.IterateClaims(ctx, func(claim *types.Claim) bool {
-		if claim.Status == types.ClaimStatus_CLAIM_STATUS_PENDING {
+	page, err := q.filteredPaginate(ctx, types.ClaimKeyPrefix, req.Pagination, func(_, value []byte, accumulate bool) (bool, error) {
+		claim, err := decodeClaim(value)
+		if err != nil {
+			return false, err
+		}
+		if claim.Status != types.ClaimStatus_CLAIM_STATUS_PENDING {
+			return false, nil
+		}
+		if accumulate {
 			claims = append(claims, claim)
 		}
-		return false
+		return true, nil
 	})
-	return &types.QueryPendingClaimsResponse{Claims: claims}, nil
+	if err != nil {
+		return nil, err
+	}
+	return &types.QueryPendingClaimsResponse{Claims: claims, Pagination: page}, nil
 }
 
 func (q *queryServer) VerificationRound(ctx context.Context, req *types.QueryVerificationRoundRequest) (*types.QueryVerificationRoundResponse, error) {
@@ -158,13 +337,25 @@ func (q *queryServer) Domain(ctx context.Context, req *types.QueryDomainRequest)
 	return &types.QueryDomainResponse{Domain: domain}, nil
 }
 
-func (q *queryServer) Domains(ctx context.Context, _ *types.QueryDomainsRequest) (*types.QueryDomainsResponse, error) {
+func (q *queryServer) Domains(ctx context.Context, req *types.QueryDomainsRequest) (*types.QueryDomainsResponse, error) {
+	if req == nil {
+		req = &types.QueryDomainsRequest{}
+	}
 	var domains []*types.Domain
-	q.keeper.IterateDomains(ctx, func(domain *types.Domain) bool {
-		domains = append(domains, domain)
-		return false
+	page, err := q.filteredPaginate(ctx, types.DomainKeyPrefix, req.Pagination, func(_, value []byte, accumulate bool) (bool, error) {
+		domain, err := decodeDomain(value)
+		if err != nil {
+			return false, err
+		}
+		if accumulate {
+			domains = append(domains, domain)
+		}
+		return true, nil
 	})
-	return &types.QueryDomainsResponse{Domains: domains}, nil
+	if err != nil {
+		return nil, err
+	}
+	return &types.QueryDomainsResponse{Domains: domains, Pagination: page}, nil
 }
 
 func (q *queryServer) FactConfidence(ctx context.Context, req *types.QueryFactConfidenceRequest) (*types.QueryFactConfidenceResponse, error) {
@@ -378,18 +569,24 @@ func (q *queryServer) BootstrapFundStatus(ctx context.Context, _ *types.QueryBoo
 	}
 
 	return &types.QueryBootstrapFundStatusResponse{
-		Balance:            balance.Amount.String(),
-		Enabled:            params.BootstrapFundEnabled,
-		TotalClaimsFunded:  fmt.Sprintf("%d", totalClaims),
-		TotalAmountSpent:   "0", // Not tracked separately — can be derived from genesis allocation minus balance
-		RemainingPerEpoch:  fmt.Sprintf("%d", remaining),
+		Balance:           balance.Amount.String(),
+		Enabled:           params.BootstrapFundEnabled,
+		TotalClaimsFunded: fmt.Sprintf("%d", totalClaims),
+		TotalAmountSpent:  "0", // Not tracked separately — can be derived from genesis allocation minus balance
+		RemainingPerEpoch: fmt.Sprintf("%d", remaining),
 	}, nil
 }
 
 func (q *queryServer) FactsAtRisk(ctx context.Context, req *types.QueryFactsAtRiskRequest) (*types.QueryFactsAtRiskResponse, error) {
+	if req == nil {
+		req = &types.QueryFactsAtRiskRequest{}
+	}
 	limit := req.Limit
 	if limit == 0 {
-		limit = 50
+		limit = defaultQueryPageLimit
+	}
+	if limit > maxQueryPageLimit {
+		return nil, status.Errorf(codes.InvalidArgument, "limit exceeds %d", maxQueryPageLimit)
 	}
 
 	var facts []*types.Fact
@@ -463,7 +660,7 @@ func (q *queryServer) MetabolismStatus(ctx context.Context, req *types.QueryMeta
 
 // FactLineage traces a fact's ancestry up to the root.
 func (q *queryServer) FactLineage(ctx context.Context, req *types.QueryFactLineageRequest) (*types.QueryFactLineageResponse, error) {
-	if req.FactId == "" {
+	if req == nil || req.FactId == "" {
 		return nil, status.Error(codes.InvalidArgument, "fact_id is required")
 	}
 
@@ -471,31 +668,65 @@ func (q *queryServer) FactLineage(ctx context.Context, req *types.QueryFactLinea
 	if !found {
 		return nil, status.Errorf(codes.NotFound, "fact %s not found", req.FactId)
 	}
+	if fact.LineageRootId != "" {
+		storedRoot, found := q.keeper.GetFact(ctx, fact.LineageRootId)
+		if !found {
+			return nil, status.Errorf(codes.FailedPrecondition, "stored lineage root %s not found", fact.LineageRootId)
+		}
+		if storedRoot.ParentFactId != "" {
+			return nil, status.Errorf(codes.FailedPrecondition, "stored lineage root %s has a parent", fact.LineageRootId)
+		}
+	}
 
+	traceToRoot := req.Depth == 0
 	maxDepth := req.Depth
-	if maxDepth == 0 {
-		maxDepth = 100 // safe upper bound to reach root
+	if traceToRoot {
+		maxDepth = maxLineageDepth
+	}
+	if maxDepth > maxLineageDepth {
+		return nil, status.Errorf(codes.InvalidArgument, "depth exceeds %d", maxLineageDepth)
 	}
 
 	var ancestors []*types.Fact
 	currentID := fact.ParentFactId
 	depth := uint64(0)
+	visited := map[string]bool{fact.Id: true}
 
 	for currentID != "" && depth < maxDepth {
+		if err := ctx.Err(); err != nil {
+			return nil, status.FromContextError(err).Err()
+		}
+		if visited[currentID] {
+			return nil, status.Error(codes.FailedPrecondition, "cycle detected in fact lineage")
+		}
+		visited[currentID] = true
 		ancestor, found := q.keeper.GetFact(ctx, currentID)
 		if !found {
-			break
+			return nil, status.Errorf(codes.FailedPrecondition, "lineage ancestor %s not found", currentID)
 		}
 		ancestors = append(ancestors, ancestor)
 		currentID = ancestor.ParentFactId
 		depth++
 	}
+	if traceToRoot && currentID != "" {
+		return nil, status.Errorf(codes.ResourceExhausted, "fact lineage exceeds %d ancestors", maxLineageDepth)
+	}
 
-	rootID := ""
-	if len(ancestors) > 0 {
-		rootID = ancestors[len(ancestors)-1].Id
-	} else if fact.LineageRootId != "" {
-		rootID = fact.LineageRootId
+	rootID := fact.LineageRootId
+	if currentID == "" {
+		tracedRootID := fact.Id
+		if len(ancestors) > 0 {
+			tracedRootID = ancestors[len(ancestors)-1].Id
+		}
+		if rootID != "" && rootID != tracedRootID {
+			return nil, status.Errorf(
+				codes.FailedPrecondition,
+				"stored lineage root %s does not match traced root %s",
+				rootID,
+				tracedRootID,
+			)
+		}
+		rootID = tracedRootID
 	}
 
 	return &types.QueryFactLineageResponse{
@@ -506,7 +737,7 @@ func (q *queryServer) FactLineage(ctx context.Context, req *types.QueryFactLinea
 
 // FactProgeny returns a fact's descendant tree.
 func (q *queryServer) FactProgeny(ctx context.Context, req *types.QueryFactProgenyRequest) (*types.QueryFactProgenyResponse, error) {
-	if req.FactId == "" {
+	if req == nil || req.FactId == "" {
 		return nil, status.Error(codes.InvalidArgument, "fact_id is required")
 	}
 
@@ -517,10 +748,22 @@ func (q *queryServer) FactProgeny(ctx context.Context, req *types.QueryFactProge
 
 	maxDepth := req.Depth
 	if maxDepth == 0 {
-		maxDepth = 3
+		maxDepth = defaultProgenyDepth
+	}
+	if maxDepth > maxProgenyDepth {
+		return nil, status.Errorf(codes.InvalidArgument, "depth exceeds %d", maxProgenyDepth)
 	}
 
-	tree := q.buildProgenyTree(ctx, root, maxDepth, 0)
+	nodeCount := uint32(1) // include the separately returned root
+	tree, err := q.buildProgenyTree(
+		ctx, root, maxDepth, 0, map[string]bool{root.Id: true}, &nodeCount,
+	)
+	if err != nil {
+		if errors.Is(err, errGraphTreeNodeLimit) {
+			return nil, status.Error(codes.ResourceExhausted, err.Error())
+		}
+		return nil, err
+	}
 
 	return &types.QueryFactProgenyResponse{
 		Root: root,
@@ -529,24 +772,47 @@ func (q *queryServer) FactProgeny(ctx context.Context, req *types.QueryFactProge
 }
 
 // buildProgenyTree recursively builds the descendant tree for a fact.
-func (q *queryServer) buildProgenyTree(ctx context.Context, parent *types.Fact, maxDepth, currentDepth uint64) []*types.FactWithChildren {
+func (q *queryServer) buildProgenyTree(
+	ctx context.Context,
+	parent *types.Fact,
+	maxDepth, currentDepth uint64,
+	visited map[string]bool,
+	nodeCount *uint32,
+) ([]*types.FactWithChildren, error) {
 	if currentDepth >= maxDepth || len(parent.ChildFactIds) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	var result []*types.FactWithChildren
 	for _, childID := range parent.ChildFactIds {
+		if err := ctx.Err(); err != nil {
+			return nil, status.FromContextError(err).Err()
+		}
+		if visited[childID] {
+			continue
+		}
 		child, found := q.keeper.GetFact(ctx, childID)
 		if !found {
 			continue
 		}
+		if *nodeCount >= maxGraphTreeNodes {
+			return nil, errGraphTreeNodeLimit
+		}
+		visited[childID] = true
+		*nodeCount++
+		children, err := q.buildProgenyTree(
+			ctx, child, maxDepth, currentDepth+1, visited, nodeCount,
+		)
+		if err != nil {
+			return nil, err
+		}
 		node := &types.FactWithChildren{
 			Fact:     child,
-			Children: q.buildProgenyTree(ctx, child, maxDepth, currentDepth+1),
+			Children: children,
 		}
 		result = append(result, node)
 	}
-	return result
+	return result, nil
 }
 
 // Methodologies returns every registered methodology (Phase 1).
@@ -774,10 +1040,10 @@ func (q *queryServer) StructuredCorpus(ctx context.Context, req *types.QueryStru
 	}
 
 	return &types.QueryStructuredCorpusResponse{
-		Entries:                      entries,
-		Total:                        total,
-		SnapshotBlockHeight:          snapshotHeight,
-		TokenizerVersion:             tokenizerVersion,
+		Entries:                       entries,
+		Total:                         total,
+		SnapshotBlockHeight:           snapshotHeight,
+		TokenizerVersion:              tokenizerVersion,
 		CanonicalSerialisationVersion: canonicalVersion,
 	}, nil
 }
@@ -996,8 +1262,8 @@ func (q *queryServer) VindicationCorpus(ctx context.Context, req *types.QueryVin
 			return false
 		}
 		entries = append(entries, &types.VindicationCorpusEntry{
-			FactId:             rec.FactId,
-			Verifier:           rec.Verifier,
+			FactId:   rec.FactId,
+			Verifier: rec.Verifier,
 			// Vote is captured in VindicationEntry (pending) but not retained
 			// on the executed record; training-pipeline consumers reconstruct
 			// it from the round reveals if needed.
@@ -1205,18 +1471,18 @@ func (q *queryServer) TrustProfile(ctx context.Context, req *types.QueryTrustPro
 	grounded := computeGroundedScore(fact)
 
 	return &types.QueryTrustProfileResponse{
-		Fact:                          fact,
-		OwnConfidenceBps:              fact.Confidence,
-		DependencyConfidenceFloor:     fact.DependencyConfidenceFloor,
-		AxiomDistance:                 fact.AxiomDistance,
-		DirectSupporters:              directSupporters,
-		DirectDescendants:             directDescendants,
-		MinimumConfidenceInAncestry:   minInAncestry,
-		Status:                        fact.Status,
-		GroundedScoreBps:              grounded,
-		MethodId:                      fact.MethodId,
-		CorroborationCount:            fact.CorroborationCount,
-		LastCorroboratedBlock:         fact.LastCorroboratedBlock,
+		Fact:                        fact,
+		OwnConfidenceBps:            fact.Confidence,
+		DependencyConfidenceFloor:   fact.DependencyConfidenceFloor,
+		AxiomDistance:               fact.AxiomDistance,
+		DirectSupporters:            directSupporters,
+		DirectDescendants:           directDescendants,
+		MinimumConfidenceInAncestry: minInAncestry,
+		Status:                      fact.Status,
+		GroundedScoreBps:            grounded,
+		MethodId:                    fact.MethodId,
+		CorroborationCount:          fact.CorroborationCount,
+		LastCorroboratedBlock:       fact.LastCorroboratedBlock,
 	}, nil
 }
 
@@ -1283,9 +1549,9 @@ func computeGroundedScore(fact *types.Fact) uint64 {
 
 	// grounded = own × axiomWeight × floorWeight × corrBoost / BPS³
 	// Intermediate steps kept in uint64 space.
-	mid := own * axiomWeight / bps              // ≤ own
-	mid = mid * floorWeight / bps               // ≤ own
-	grounded := mid * corrBoost / bps           // can exceed own if corrBoost > BPS
+	mid := own * axiomWeight / bps    // ≤ own
+	mid = mid * floorWeight / bps     // ≤ own
+	grounded := mid * corrBoost / bps // can exceed own if corrBoost > BPS
 	if grounded > bps {
 		grounded = bps // absolute 100% cap — no claim earns more than this
 	}
@@ -1306,12 +1572,21 @@ func (q *queryServer) DescendantTree(ctx context.Context, req *types.QueryDescen
 	}
 	maxDepth := req.MaxDepth
 	if maxDepth == 0 {
-		maxDepth = 5
+		maxDepth = defaultGraphTreeDepth
 	}
-	visited := make(map[string]bool)
+	if maxDepth > maxGraphTreeDepth {
+		return nil, status.Errorf(codes.InvalidArgument, "max_depth exceeds %d", maxGraphTreeDepth)
+	}
+	visited := map[string]bool{root.Id: true}
 	nodeCount := uint32(1) // count the root
 	maxDepthReached := uint32(0)
-	descendants := q.walkDescendants(ctx, root.Id, 1, maxDepth, visited, &nodeCount, &maxDepthReached)
+	descendants, err := q.walkDescendants(ctx, root.Id, 1, maxDepth, visited, &nodeCount, &maxDepthReached)
+	if err != nil {
+		if errors.Is(err, errGraphTreeNodeLimit) {
+			return nil, status.Error(codes.ResourceExhausted, err.Error())
+		}
+		return nil, err
+	}
 	return &types.QueryDescendantTreeResponse{
 		Root:            root,
 		Descendants:     descendants,
@@ -1329,16 +1604,19 @@ func (q *queryServer) walkDescendants(
 	visited map[string]bool,
 	nodeCount *uint32,
 	maxDepthReached *uint32,
-) []*types.DescendantNode {
+) ([]*types.DescendantNode, error) {
 	if depth > maxDepth {
-		return nil
+		return nil, nil
 	}
 	incoming, err := q.keeper.GetIncomingRelations(ctx, factID)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	var out []*types.DescendantNode
 	for _, rel := range incoming {
+		if err := ctx.Err(); err != nil {
+			return nil, status.FromContextError(err).Err()
+		}
 		switch rel.Relation {
 		case types.RelationType_RELATION_TYPE_SUPPORTS,
 			types.RelationType_RELATION_TYPE_REQUIRES,
@@ -1356,6 +1634,9 @@ func (q *queryServer) walkDescendants(
 		if !ok {
 			continue
 		}
+		if *nodeCount >= maxGraphTreeNodes {
+			return nil, errGraphTreeNodeLimit
+		}
 		*nodeCount++
 		if depth > *maxDepthReached {
 			*maxDepthReached = depth
@@ -1368,13 +1649,16 @@ func (q *queryServer) walkDescendants(
 			Depth:                    depth,
 		}
 		if depth < maxDepth {
-			node.Descendants = q.walkDescendants(ctx, descendant.Id, depth+1, maxDepth, visited, nodeCount, maxDepthReached)
+			node.Descendants, err = q.walkDescendants(ctx, descendant.Id, depth+1, maxDepth, visited, nodeCount, maxDepthReached)
+			if err != nil {
+				return nil, err
+			}
 		} else {
 			node.Truncated = true
 		}
 		out = append(out, node)
 	}
-	return out
+	return out, nil
 }
 
 // ProofTree returns the transitive support ancestry for a fact (ToK Wave 3).
@@ -1394,7 +1678,10 @@ func (q *queryServer) ProofTree(ctx context.Context, req *types.QueryProofTreeRe
 
 	maxDepth := req.MaxDepth
 	if maxDepth == 0 {
-		maxDepth = 5
+		maxDepth = defaultGraphTreeDepth
+	}
+	if maxDepth > maxGraphTreeDepth {
+		return nil, status.Errorf(codes.InvalidArgument, "max_depth exceeds %d", maxGraphTreeDepth)
 	}
 
 	// Traversal state: track visited to avoid cycles (DAG is acyclic in
@@ -1407,11 +1694,17 @@ func (q *queryServer) ProofTree(ctx context.Context, req *types.QueryProofTreeRe
 	}
 	maxDepthReached := uint32(0)
 
-	rootNode := q.buildProofNode(ctx, root,
+	rootNode, err := q.buildProofNode(ctx, root,
 		types.RelationType_RELATION_TYPE_UNSPECIFIED,
 		types.InferenceType_INFERENCE_TYPE_UNSPECIFIED,
 		0, 0, maxDepth, req.IncludeAxioms, visited,
 		&nodeCount, &minConf, &maxDepthReached)
+	if err != nil {
+		if errors.Is(err, errGraphTreeNodeLimit) {
+			return nil, status.Error(codes.ResourceExhausted, err.Error())
+		}
+		return nil, err
+	}
 
 	return &types.QueryProofTreeResponse{
 		Root:                    rootNode,
@@ -1437,7 +1730,13 @@ func (q *queryServer) buildProofNode(
 	nodeCount *uint32,
 	minConf *uint64,
 	maxDepthReached *uint32,
-) *types.ProofTreeNode {
+) (*types.ProofTreeNode, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, status.FromContextError(err).Err()
+	}
+	if *nodeCount >= maxGraphTreeNodes {
+		return nil, errGraphTreeNodeLimit
+	}
 	*nodeCount++
 	if currentDepth > *maxDepthReached {
 		*maxDepthReached = currentDepth
@@ -1445,12 +1744,12 @@ func (q *queryServer) buildProofNode(
 
 	isAxiom := fact.AxiomDistance == 0
 	node := &types.ProofTreeNode{
-		Fact:                    fact,
-		EdgeRelation:            edgeRelation,
-		EdgeInference:           edgeInference,
+		Fact:                     fact,
+		EdgeRelation:             edgeRelation,
+		EdgeInference:            edgeInference,
 		EdgeInferenceStrengthBps: edgeStrengthBps,
-		Depth:                   currentDepth,
-		IsAxiom:                 isAxiom,
+		Depth:                    currentDepth,
+		IsAxiom:                  isAxiom,
 	}
 
 	if fact.Confidence > 0 && fact.Confidence < *minConf {
@@ -1460,22 +1759,22 @@ func (q *queryServer) buildProofNode(
 	// Stop conditions.
 	if currentDepth >= maxDepth {
 		node.Truncated = true
-		return node
+		return node, nil
 	}
 	if isAxiom && !includeAxioms {
-		return node
+		return node, nil
 	}
 	if visited[fact.Id] {
 		// Already expanded this fact elsewhere in the tree — return as leaf
 		// to avoid exponential duplication.
-		return node
+		return node, nil
 	}
 	visited[fact.Id] = true
 
 	// Follow outgoing support edges.
 	rels, err := q.keeper.GetFactRelations(ctx, fact.Id)
 	if err != nil {
-		return node
+		return nil, err
 	}
 	for _, rel := range rels {
 		switch rel.Relation {
@@ -1493,13 +1792,16 @@ func (q *queryServer) buildProofNode(
 		if !ok {
 			continue
 		}
-		child := q.buildProofNode(ctx, target,
+		child, err := q.buildProofNode(ctx, target,
 			rel.Relation, rel.Inference, rel.InferenceStrengthBps,
 			currentDepth+1, maxDepth, includeAxioms, visited,
 			nodeCount, minConf, maxDepthReached)
+		if err != nil {
+			return nil, err
+		}
 		node.Supports = append(node.Supports, child)
 	}
-	return node
+	return node, nil
 }
 
 // ─── Novelty detection queries ────────────────────────────────────────────────
@@ -1986,15 +2288,15 @@ func (q *queryServer) TrainingValueWeight(ctx context.Context, req *types.QueryT
 	}
 	b := q.keeper.ComputeTrainingValueWeight(ctx, req.FactId)
 	return &types.QueryTrainingValueWeightResponse{
-		TvwBps:                    b.Final,
-		BaseWeight:                b.BaseWeight,
-		MethodologyMultiplierBps:  b.MethodologyMultiplier,
-		VindicationMultiplierBps:  b.VindicationMultiplier,
-		SubmitterCalibrationBps:   b.SubmitterCalibration,
-		AxiomProximityBps:         b.AxiomProximity,
-		BlockedIsOught:            b.BlockedByIsOught,
-		Disproven:                 b.Disproven,
-		StatusIneligible:          b.StatusIneligible,
+		TvwBps:                   b.Final,
+		BaseWeight:               b.BaseWeight,
+		MethodologyMultiplierBps: b.MethodologyMultiplier,
+		VindicationMultiplierBps: b.VindicationMultiplier,
+		SubmitterCalibrationBps:  b.SubmitterCalibration,
+		AxiomProximityBps:        b.AxiomProximity,
+		BlockedIsOught:           b.BlockedByIsOught,
+		Disproven:                b.Disproven,
+		StatusIneligible:         b.StatusIneligible,
 	}, nil
 }
 

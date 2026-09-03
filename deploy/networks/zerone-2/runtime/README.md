@@ -25,12 +25,24 @@ material, or deploy anything.
 - An exclusive OS file lock is held through the daemon `exec`, so a second
   process cannot open the same home. Persistent role, signer, peer, RPC, API,
   gRPC, and consensus settings are reasserted on every restart.
+- Every boot pins REST reads/writes to 10/15 seconds and request bodies to 64
+  KiB; CometBFT RPC stays unsafe-disabled with one request per JSON-RPC batch,
+  64 KiB bodies, and 16 KiB headers. It also pins a 5,000,000-gas SDK query
+  ceiling, the `kv` transaction indexer, and retained ABCI responses. The query
+  gas ceiling is passed explicitly to `zeroned start`, so a stale volume cannot
+  silently restore unbounded REST/gRPC application queries. It bounds SDK store
+  work, not native CometBFT methods or response encoding, so the query gateway
+  remains mandatory.
 - Bootstrap secrets are removed from the environment before any `zeroned`
   child runs and are forbidden after first initialization.
 - Edge RPC/REST origin listeners are closed by default. Opening them requires
   the exact `QUERY_ORIGIN_ENABLED=true` latch. Fly service exposure is a
   separate profile decision, so the private gateway path can be soaked without
   publishing either P2P or plaintext query ports.
+- Fly `.internal` names resolve to Machine 6PN IPv6 addresses. The validator's
+  private P2P listener and every enabled edge RPC/REST origin bind explicitly
+  to `fly-local-6pn`; the edge's distinct public P2P listener stays on IPv4 for
+  Fly Proxy. No RPC, REST, or gRPC Fly service is added.
 
 ## Build
 
@@ -115,6 +127,11 @@ URL. Public gRPC is deliberately unavailable in the initial beta. Never expose
 the plaintext query listeners directly. Replace every
 placeholder outside Git; do not commit real app names, addresses, peer
 strings, volume names, or secrets here.
+
+The in-image health check is a readiness gate for the local node: `/status`
+must report the exact `zerone-2` network, `catching_up=false`, and a positive
+canonical decimal block height. It does not replace external height-freshness,
+peer-count, or gateway/origin monitoring.
 
 All Fly deployments must pass the repository's signed-authority gate described in
 [`deploy/FLY-DEPLOY.md`](../../../FLY-DEPLOY.md). The gate rejects tags and

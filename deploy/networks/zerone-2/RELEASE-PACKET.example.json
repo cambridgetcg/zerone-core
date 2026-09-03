@@ -1,5 +1,5 @@
 {
-  "schema": "zerone-2-release-packet-v1",
+  "schema": "zerone-2-release-packet-v2",
   "created_at": "REPLACE_WITH_RFC3339_UTC",
   "chain_id": "zerone-2",
   "signature_authority": {
@@ -89,6 +89,33 @@
       "persistent_peers": []
     }
   },
+  "archive_gateway_render_contract": {
+    "schema": "zerone-1-archive-gateway-render-contract-v1",
+    "renderer_path": "deploy/query-gateway/render-archive-gateway-config.py",
+    "renderer_sha256": "REPLACE_WITH_64_HEX",
+    "template_path": "deploy/query-gateway/fly.zerone-1-archive.public.example.toml",
+    "bindings": {
+      "app": "deployment_configs.zerone_1_archive_gateway.app",
+      "primary_region": "archive_render_contract.static_constraints.region",
+      "image_ref": "deployment_configs.zerone_1_archive_gateway.image_ref",
+      "upstream_host": "archive_render_contract.static_constraints.app + \".internal\"",
+      "expected_archive_height": "FINAL-CHECKPOINT.json.final_application_block.height",
+      "expected_archive_app_hash": "lower(FINAL-CHECKPOINT.json.excluded_post_anchor_state.app_hash)",
+      "expected_archive_block_hash": "lower(FINAL-CHECKPOINT.json.final_application_block.block_id_hash)"
+    }
+  },
+  "custom_staking_census_execution": {
+    "schema": "zerone-custom-staking-census-execution-contract-v1",
+    "binary": {
+      "filename": "custom-staking-census-linux-amd64",
+      "sha256": "REPLACE_WITH_64_HEX"
+    },
+    "execution_evidence": {
+      "filename": "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json",
+      "detached_signature_filename": "CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig",
+      "authorized_signer_fingerprint": "REPLACE_WITH_TRANSITION_ATTESTATION_40_OR_64_HEX"
+    }
+  },
   "deployment_configs": {
     "zerone_2_validator": {
       "app": "REPLACE_WITH_ZERONE_2_VALIDATOR_APP",
@@ -136,15 +163,15 @@
       "app": "REPLACE_WITH_ZERONE_1_ARCHIVE_GATEWAY_APP",
       "role": "zerone-1-archive-query",
       "image_component": "query_gateway",
-      "image_ref": "REPLACE_REGISTRY/REPLACE_QUERY_GATEWAY_REPOSITORY@sha256:REPLACE_WITH_QUERY_GATEWAY_64_HEX",
-      "sha256": "REPLACE_WITH_64_HEX"
+      "image_ref": "REPLACE_REGISTRY/REPLACE_QUERY_GATEWAY_REPOSITORY@sha256:REPLACE_WITH_QUERY_GATEWAY_64_HEX"
     }
   },
   "phase_dependent_config_template_sha256": {
     "zerone_1_halt_signer": "REPLACE_WITH_64_HEX",
     "zerone_1_observer": "REPLACE_WITH_64_HEX",
     "zerone_1_archive_candidate": "REPLACE_WITH_64_HEX",
-    "zerone_1_archive": "REPLACE_WITH_64_HEX"
+    "zerone_1_archive": "REPLACE_WITH_64_HEX",
+    "zerone_1_archive_gateway": "REPLACE_WITH_64_HEX"
   },
   "monitoring_alerts_sha256": "REPLACE_WITH_64_HEX",
   "operator_tool_manifest_sha256": "REPLACE_WITH_64_HEX",

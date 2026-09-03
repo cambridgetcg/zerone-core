@@ -16,7 +16,8 @@ deploy/fly-deploy-authorized.sh --check \
   /secure/DARK-START-DECISION.json.sig \
   /secure/fly.edge.toml \
   zerone_2_edge_private \
-  '<out-of-band-main-signer-full-fingerprint>'
+  '<out-of-band-main-signer-full-fingerprint>' \
+  /secure/authority-bundle
 
 deploy/fly-deploy-authorized.sh \
   /secure/RELEASE-PACKET.json \
@@ -25,7 +26,8 @@ deploy/fly-deploy-authorized.sh \
   /secure/DARK-START-DECISION.json.sig \
   /secure/fly.edge.toml \
   zerone_2_edge_private \
-  '<out-of-band-main-signer-full-fingerprint>'
+  '<out-of-band-main-signer-full-fingerprint>' \
+  /secure/authority-bundle
 ```
 
 The OPEN form has the full closing authority chain:
@@ -44,13 +46,18 @@ deploy/fly-deploy-authorized.sh --check \
 ```
 
 The wrapper snapshots RELEASE, its detached signature, the phase authority,
-its detached signature, and the config. It requires canonical JSON, exactly
-one OpenPGP `VALIDSIG` matching the supplied out-of-band full fingerprint, an
-exact `GO`, and a config key within that payload's scope. It verifies the
-release-to-phase hash and image-component joins, extracts the app, complete
-image reference, role, image component, and config SHA-256 directly from the
-signed bytes, and rejects reserved old-chain app identities or inconsistent
-release topology.
+its detached signature, and the config. Every DARK deployment also requires
+the complete authority bundle and verifies its release-bound operator tools,
+frozen Sigstore trusted root, and each component's offline signature bundle.
+It requires canonical JSON, exactly one OpenPGP `VALIDSIG` matching the
+supplied out-of-band full fingerprint, an exact `GO`, and a config key within
+that payload's scope. It verifies the release-to-phase hash and image-component
+joins, extracts the app, complete image reference, role, image component, and
+config SHA-256 directly from the signed phase bytes, and rejects reserved
+old-chain app identities or inconsistent release topology. The archive gateway
+is the sole phase-dependent public config: RELEASE fixes its static
+mapping/renderer/template, verified
+FINAL supplies A/E/B, and OPEN signs the exact deterministic output hash.
 
 DARK deployment before block 1 also checks wall-clock time against the signed
 deadline; its main-key initiation evidence permits the scoped private
@@ -62,11 +69,12 @@ out-of-band full transition-key fingerprint. Late, mismatched, failed,
 wrong-transaction, incomplete authority-chain, or wrong-key evidence is
 rejected.
 
-Production OPEN checks and deployments run only from the dedicated
-`linux/amd64` release workstation. OPEN executes the exact signed Linux/AMD64
-`zeroned-zerone-1-release` binary to verify Comet evidence; a macOS host,
-native rebuild, emulator wrapper, or test-double binary is not a production
-verification path.
+All production authority checks and deployments run only from the dedicated
+`linux/amd64` release workstation because every stage executes the exact
+release-bound component-signature verifier. OPEN also executes the signed
+Linux/AMD64 `zeroned-zerone-1-release` binary to verify Comet evidence; a macOS
+host, native rebuild, emulator wrapper, or test-double binary is not a
+production verification path.
 
 The gate parses TOML structurally. Private profiles must have no Fly service;
 the public edge may expose only P2P TCP 26656; public gateways may expose only

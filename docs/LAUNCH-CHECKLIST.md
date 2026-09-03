@@ -19,6 +19,7 @@ Use these current artifacts instead:
 - [`zerone-2` release process](../deploy/networks/zerone-2/README.md)
 - [`zerone-2` dress rehearsal](../scripts/zerone-2-dress-rehearsal.sh)
 - [`zerone-2` ceremony gate](../scripts/zerone-2-ceremony-test.sh)
+- [legacy custom-staking census](../tools/custom-staking-census/README.md)
 
 A network-specific launch checklist must be generated from, and shipped beside,
 the exact signed release manifest and ceremony packet. Generic unchecked boxes

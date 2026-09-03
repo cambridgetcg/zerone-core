@@ -67,6 +67,7 @@ import {
   spendableUzrn,
   waitForTx,
 } from "./src/zeroned.ts";
+import { requireFrontierIntakeBunVersion } from "./src/runtime.ts";
 
 interface IntakeState {
   schema: "zerone.frontier-intake-state/v0";
@@ -719,6 +720,7 @@ async function commandSetup(net: NetworkConfig): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  requireFrontierIntakeBunVersion();
   const { values, positionals } = parseArgs({
     args: Bun.argv.slice(2),
     allowPositionals: true,

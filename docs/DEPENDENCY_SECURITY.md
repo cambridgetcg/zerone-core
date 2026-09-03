@@ -1,14 +1,24 @@
 # Go dependency security baseline
 
 This note records the dependency baseline prepared on 2026-07-29 for the
-Cosmos SDK 0.53 / IBC-Go v10 migration branch. It is an audit record, not
-approval for a rolling validator deployment.
+Cosmos SDK 0.53 / IBC-Go v10 migration branch and refreshed on 2026-09-03.
+It is an audit record, not approval for a rolling validator deployment.
 
 ## Baseline
 
 - The root module, CI, Docker builders, node bootstrap and ceremony scripts,
   active operator documentation, and isolated Sigstore compiler use Go
-  1.25.12.
+  1.25.14.
+- Go 1.25.13 (released 2026-08-13) fixed security issues in the `go` command
+  and the `crypto/tls`, `encoding/asn1`, `encoding/xml`, `html/template`,
+  `net/http`, and `net/url` packages. Go 1.25.14 (released 2026-08-19) adds
+  further `net/http` fixes. The 2026-09-03 refresh therefore supersedes the
+  Go 1.25.12 toolchain without changing the Go minor line or module graph.
+  Release history: <https://go.dev/doc/devel/release#go1.25.13> and
+  <https://go.dev/doc/devel/release#go1.25.14>.
+- Every active Docker builder uses the official multi-architecture
+  `golang:1.25.14-bookworm` index pinned at
+  `sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437`.
 - `govulncheck` is run from source with
   `golang.org/x/vuln/cmd/govulncheck@v1.6.0`.
 - The patched graph includes gRPC 1.82.1, `x/text` 0.39.0,
@@ -73,21 +83,26 @@ References:
 <https://github.com/cosmos/cosmos-sdk/security/advisories/GHSA-86h5-xcpx-cfqc>,
 <https://vuln.go.dev/ID/GO-2024-2584.json>
 
-## Module-only findings
+## Non-symbol findings
 
-Verbose scans also report findings for modules without a reachable affected
-package or symbol:
+The 2026-09-03 verbose root scan also reports six module-only findings, for
+which Zerone does not import a known affected package or call an affected
+symbol:
 
-- GO-2025-3442 for CometBFT 0.38.23. The database lists only CometBFT 1.0.1
+- GO-2026-6355, GO-2026-6354, and GO-2026-6303 for `x/crypto/ssh` in
+  `golang.org/x/crypto` 0.53.0;
+- GO-2025-3442 for CometBFT 0.38.25. The database lists only CometBFT 1.0.1
   as fixed; that major line is not compatible with this Cosmos SDK 0.53
-  migration and must be handled as a later coordinated stack upgrade.
+  migration and must be handled as a later coordinated stack upgrade; and
 - GO-2023-1881 and GO-2023-1821 for Cosmos SDK `x/crisis`. Zerone does not
   import or register `x/crisis`; the package is present only inside the
   required Cosmos SDK module.
 
-The isolated compiler reports these three module-only findings plus
-GO-2024-2584 as module-only, because it requires the root module but does not
-call the slashing path.
+The isolated compiler imports `x/crypto/ssh` but does not call the symbols
+affected by GO-2026-6355, GO-2026-6354, or GO-2026-6303, so those three are
+package-only findings there. Its six module-only findings are GO-2026-6180
+and GO-2026-6179 for `golang.org/x/mod`, GO-2025-3442, GO-2024-2584, and the
+two `x/crisis` records.
 
 These are not treated as cleared. Re-run the scanner whenever the consensus
 stack changes.
@@ -101,8 +116,15 @@ go build ./...
 go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 ```
 
+The 2026-09-03 scans used `govulncheck` 1.6.0 and Go 1.25.14. The root scan
+reported exactly the two symbol findings documented above; the isolated
+compiler reported only GO-2026-5932 at symbol level. Neither scan reported a
+standard-library finding. The command still exits non-zero because the
+documented non-standard-library findings remain visible rather than being
+suppressed.
+
 The Sigstore compiler is verified separately from its nested module with
-Go 1.25.12, including tests, vet, race tests, and a reproducible
+Go 1.25.14, including tests, vet, race tests, and a reproducible
 Linux/AMD64 build.
 
 Any validator rollout still requires one reviewed binary and a coordinated

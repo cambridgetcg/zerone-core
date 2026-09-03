@@ -6,10 +6,12 @@ public RPC was observed serving blocks at `http://37.16.28.121:26657` on
 
 This is not a validator or full-node join guide.
 
-The network predates the consolidated source on `main` and has not activated
-the `consolidation-safety-v1` upgrade. Building the current branch and replaying
-or validating this chain is therefore paused until a release-bound upgrade
-packet is published.
+The network predates the consolidated source on `main` and has not completed
+the ordered H1 `consolidation-safety-v1`, H2 `founder-renunciation-v1`, and H3
+`sdk-0.53-ibc-10` boundaries. H1 preserves vesting_rewards V1; H2 alone
+advances it to V2. Building the current branch and replaying or validating this
+chain is therefore paused until separately release-bound upgrade packets are
+published.
 
 Read-only observation:
 

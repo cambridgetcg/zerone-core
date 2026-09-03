@@ -19,14 +19,21 @@ ZERONE_1_HALT_IMAGE_REF=REPLACE_REGISTRY/REPLACE_REPOSITORY@sha256:REPLACE_64_HE
 ZERONE_2_BINARY_SHA=REPLACE_64_HEX
 ZERONE_2_RUNTIME_IMAGE_REF=REPLACE_REGISTRY/REPLACE_REPOSITORY@sha256:REPLACE_64_HEX
 QUERY_GATEWAY_IMAGE_REF=REPLACE_REGISTRY/REPLACE_REPOSITORY@sha256:REPLACE_64_HEX
+MONITORING_ALERTS_SHA256=REPLACE_64_HEX
 ```
 
 Record the exact app, role, image component/reference, and SHA-256 for every
 phase-invariant z2/public Fly config. Also bind the z1 halt/observer/archive
-template hashes, deterministic archive-renderer hash, and fixed private archive
-app/volume/region/topology constraints. A bare digest is insufficient: the
-signed packet must distinguish the live `zerone-1` halt image, `zerone-2`
-runtime image, and query-gateway image.
+template hashes, deterministic archive-renderer hash, fixed private archive
+app/volume/region/topology constraints, and the canonical
+`MONITORING-ALERTS.json`. That monitoring manifest must hash the exact
+`MONITORING-RULES.json` and v2 `MONITORING-ALERT-TESTS.json` bytes. Every test
+must in turn identify its four exact, non-empty
+`MONITORING-ALERT-<CHECK>-<KIND>-EVIDENCE.json.raw` files and their byte hashes.
+A bare digest is insufficient: the signed packet must distinguish the live
+`zerone-1` halt image, `zerone-2` runtime image, and query-gateway image, while
+the monitoring manifest must identify the actual tested rules and byte-bearing
+evidence.
 
 Never edit or reissue that packet merely to choose checkpoint heights; all
 three operator decisions reference its unchanged hash and detached signature.
@@ -80,8 +87,12 @@ configs/coordinates, and DNS manifest.
 - Prove the runbook does not treat a live daemon or green RPC/health endpoint as
   proof of progress or shutdown. Rehearse bounded stability checks followed by
   manual SIGTERM and signer fencing before copying the stopped database.
-- Test alerts for stopped height, app-hash divergence, signer double-start,
-  disk, restart count, and stale snapshots.
+- Test every RELEASE-bound rule for stalled height, missed signing,
+  double-sign risk without starting a second live signer, equal-height AppHash
+  divergence, private-peer loss, disk capacity, restart count, stale verified
+  backup, gateway wrong-chain, and gateway stale-origin. Preserve distinct
+  stimulus, firing, notification-delivery, and resolution evidence for each;
+  every test must observe `INACTIVE` → `FIRING` → `RESOLVED` and end in `PASS`.
 
 Any failed item is a no-go.
 
@@ -104,14 +115,18 @@ As soon as private block 1 commits, capture validator and independent-edge raw
 evidence, complete canonical `DARK-START-INITIATION-EVIDENCE.json`, sign it with
 the main key, and verify its block time is no later than the signed deadline.
 Before the deadline, the DARK decision itself can start the profiles needed to
-produce block 1. After the deadline, any remaining private profile switch must
-also pass that signed evidence pair to the deployment gate.
+produce block 1. Both that pre-block-1 path and every later private profile
+switch must pass the complete authority bundle so the gate revalidates the
+release-bound tools, trusted root, and component Sigstore signatures. After
+block 1, the invocation must additionally pass its signed initiation-evidence
+pair.
 
 Deploy every reviewed config through `deploy/fly-deploy-authorized.sh`, using
 the canonical RELEASE and DARK-START payload/signature pairs, config key, and
-out-of-band main fingerprint. The wrapper derives app, full immutable image
-reference, role, and exact config SHA-256 from the signed release/decision
-chain. Start the validator, then the service-free edge profile. Keep
+out-of-band main fingerprint plus `/secure/authority-bundle`. The wrapper
+derives app, full immutable image reference, role, and exact config SHA-256
+from the signed release/decision chain. Start the validator, then the
+service-free edge profile. Keep
 RPC/REST loopback-only, P2P private, and all public Fly services absent. Verify:
 
 - chain ID, genesis hash, source tag, runtime binary, and image reference;
@@ -506,13 +521,81 @@ private archive role must consume the exact readiness marker on the same
 marker and a fresh private A/A probe-evidence hash. A missing or changed
 readiness marker fails closed.
 
-Independently hash the inventory, post-anchor state export, and sanitized
-database archive. The post-anchor application state at `A` is archival evidence
-only and is explicitly excluded from successor inventory and eligibility. Only
-after candidate readiness, final runtime-marker, and private probe evidence
-exist, complete `FINAL-CHECKPOINT.json` from
+Before completing FINAL, build `custom-staking-census` reproducibly from the
+exact signed RELEASE source and place the exact RELEASE-bound Linux/AMD64 bytes
+in the authority bundle as `custom-staking-census-linux-amd64`. After every
+source daemon is stopped, create a separately captured disposable observer
+database copy. Capture its exact application-DB file manifest without
+overwriting any earlier evidence:
+
+```bash
+python3 deploy/run-custom-staking-census-evidence.py capture-manifest \
+  --home /secure/offline/zerone-1-halted-observer \
+  --output /secure/private/OFFLINE-HALTED-OBSERVER-APPLICATION-DB-FILE-MANIFEST.json
+```
+
+Put the resulting database snapshot hash and file-manifest byte hash into
+`OFFLINE-HALTED-OBSERVER-SNAPSHOT-MANIFEST.json`. Keep the byte-bearing file
+manifest private with the stopped copy; it can reveal database filenames and
+digests. From the first verification through receipt publication, keep both
+the copy and manifest in isolated transition-custodian storage with no
+concurrent same-UID writer. The runner's before/after checks reject persistent
+drift but cannot prove that a transient write was not restored before the
+second scan. After the terminal observer manifest and signed
+CUTOVER-initiation evidence exist, run the release-bound producer from the
+signed checkout:
+
+```bash
+python3 deploy/run-custom-staking-census-evidence.py execute \
+  --authority-bundle /secure/authority-bundle \
+  --release-packet /secure/authority-bundle/RELEASE-PACKET.json \
+  --release-signature /secure/authority-bundle/RELEASE-PACKET.json.sig \
+  --operator-tool-manifest /secure/authority-bundle/OPERATOR-TOOL-MANIFEST.json \
+  --cutover-decision /secure/authority-bundle/CUTOVER-DECISION.json \
+  --cutover-decision-signature /secure/authority-bundle/CUTOVER-DECISION.json.sig \
+  --cutover-initiation-evidence /secure/authority-bundle/CUTOVER-INITIATION-EVIDENCE.json \
+  --cutover-initiation-signature /secure/authority-bundle/CUTOVER-INITIATION-EVIDENCE.json.sig \
+  --snapshot-manifest /secure/authority-bundle/OFFLINE-HALTED-OBSERVER-SNAPSHOT-MANIFEST.json \
+  --terminal-observer-manifest /secure/authority-bundle/OBSERVER-EVIDENCE-MANIFEST.json \
+  --source-file-manifest /secure/private/OFFLINE-HALTED-OBSERVER-APPLICATION-DB-FILE-MANIFEST.json \
+  --binary /secure/authority-bundle/custom-staking-census-linux-amd64 \
+  --home /secure/offline/zerone-1-halted-observer \
+  --backend goleveldb \
+  --report-output /secure/authority-bundle/CUSTOM-STAKING-CENSUS.json \
+  --evidence-output /secure/authority-bundle/CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json \
+  --expected-release-signer-fingerprint '<main-full-fingerprint>' \
+  --expected-transition-signer-fingerprint '<transition-full-fingerprint>' \
+  --config-policy "$(pwd)/deploy/validate-fly-phase-config.py" \
+  --tool-root "$(pwd)"
+```
+
+The producer runs the full `cutover-postinit` authority verifier before the
+census, checks the copied database before and after execution, derives chain
+ID/A/E/source rather than accepting them as operator flags, snapshots the
+authenticated binary bytes to close a source-path swap, and deliberately omits
+the census binary's `--output` flag. It captures stdout in an already-open
+unlinked file, validates and atomically publishes exactly those report bytes,
+binds their hash plus the exact argv/status/stderr, and refuses to replace a
+report or receipt. Review the emitted canonical receipt on the second offline
+machine, then sign those exact bytes with the RELEASE-authorized transition key
+and append
+`CUSTOM-STAKING-CENSUS-EXECUTION-EVIDENCE.json.sig`. Do not hand-author the
+receipt.
+
+The transition signature is accountable operational evidence, not an
+independent proof of execution or a substitute for census-binary SBOM/Sigstore/
+reproducible-build provenance. Independently verify that provenance before
+OPEN. A report at checkpoint `F`, an unsigned receipt, or a census used as a
+migration plan is invalid.
+
+Independently hash the inventory, custom-staking census, post-anchor state
+export, and sanitized database archive. The post-anchor application state at
+`A` is archival/custody evidence only and is explicitly excluded from
+successor inventory and eligibility. Only after candidate readiness, final
+runtime-marker, and private probe evidence exist, complete
+`FINAL-CHECKPOINT.json` from
 [`zerone-1/frozen/FINAL-CHECKPOINT.example.json`](../zerone-1/frozen/FINAL-CHECKPOINT.example.json),
-the single authoritative v3 template. It must bind RELEASE, DARK-START and its
+the single authoritative v4 template. It must bind RELEASE, DARK-START and its
 initiation evidence, CUTOVER and its initiation evidence, ARCHIVE-ADOPTION,
 inner transition, archive config, readiness, runtime-marker, and probe hashes.
 It contains no public URL/config, history-link transaction, or OPEN reference.
@@ -525,9 +608,9 @@ machine.
 Keep the final A/A origin private and service-free. The later public gateway
 must reject `broadcast_tx_*` and non-query REST methods. The signed raw bundle,
 not the serving database, preserves `H`. `FINAL-CHECKPOINT.json` is the signed
-manifest of the v3 inventory, raw response hashes, excluded state, rollback,
-adoption, and private archive evidence; it is not the v3 inventory itself and
-does not authorize exposure.
+manifest of the v3 inventory, raw response hashes, custom-staking custody
+census, excluded state, rollback, adoption, and private archive evidence; it is
+not the v3 inventory itself and does not authorize exposure or migration.
 
 ## 8. Link histories and open the beta
 
@@ -546,9 +629,18 @@ Record the signed TxRaw byte SHA-256 and expected transaction hash. The
 transaction must not contain the future OPEN-BETA payload hash. Complete
 canonical `OPEN-BETA-DECISION.json` with every prior payload/signature hash,
 archive readiness, final checkpoint/signature, successor revalidation,
-pre-signed transaction, exact three public config mappings, coordinates, DNS
+pre-signed transaction, two exact RELEASE public mappings plus the exact
+post-FINAL archive-gateway render, coordinates, DNS
 manifest, and canonical UTC initiation deadline. Reproduce the bytes, sign with
 the main operator key, and verify the full fingerprint on a second machine.
+
+Before canonicalizing OPEN, render
+`fly.zerone-1-archive-gateway.public.toml` independently on two machines with
+`deploy/query-gateway/render-archive-gateway-config.py`. Its only dynamic
+values are FINAL A, lowercase excluded post-A AppHash E, and lowercase
+application block ID B; app/image come from the RELEASE static mapping and
+origin/region from RELEASE's private archive constraints. Require equal bytes
+and put their SHA-256 in OPEN's concrete five-field archive mapping.
 
 Before the deadline, broadcast only the exact pre-signed history-link bytes
 through the same byte-verifying gate:

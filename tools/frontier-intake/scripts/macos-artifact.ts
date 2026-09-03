@@ -21,6 +21,10 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  FRONTIER_INTAKE_BUN_VERSION,
+  requireFrontierIntakeBunVersion,
+} from "../src/runtime.ts";
 
 const SCHEMA = "zerone.frontier-intake-macos-artifact.v1";
 const ACL_PROTOCOL = "zerone-darwin-acl-v1";
@@ -283,8 +287,7 @@ function parseManifest(bytes: string): ArtifactManifest {
     value.minimum_macos !== "12.0" ||
     value.provenance_requirement !==
       "verify an authorized distributor signature over the archive before execution" ||
-    typeof value.bun_version !== "string" ||
-    !/^1\.[0-9]+\.[0-9]+$/.test(value.bun_version) ||
+    value.bun_version !== FRONTIER_INTAKE_BUN_VERSION ||
     typeof value.source_commit !== "string" ||
     !/^[0-9a-f]{40}$/.test(value.source_commit) ||
     !Array.isArray(value.files) ||
@@ -557,6 +560,7 @@ function build(): void {
 }
 
 function main(): void {
+  requireFrontierIntakeBunVersion();
   const operation = process.argv[2] ?? "build";
   if (operation === "build") {
     build();

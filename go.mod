@@ -1,6 +1,6 @@
 module github.com/zerone-chain/zerone
 
-go 1.25.12
+go 1.25.14
 
 require (
 	cosmossdk.io/api v0.9.2

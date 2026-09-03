@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,16 +13,16 @@ import (
 // makeLineageFact creates a fact with lineage and metabolism fields for testing.
 func makeLineageFact(id, content, domain, submitter string, fitnessScore, energy uint64) *types.Fact {
 	return &types.Fact{
-		Id:            id,
-		Content:       content,
-		Domain:        domain,
-		Category:      "empirical",
-		Confidence:    700_000,
-		Submitter:     submitter,
-		Status:        types.FactStatus_FACT_STATUS_VERIFIED,
-		FitnessScore:  fitnessScore,
-		Energy:        energy,
-		EnergyCap:     10_000,
+		Id:           id,
+		Content:      content,
+		Domain:       domain,
+		Category:     "empirical",
+		Confidence:   700_000,
+		Submitter:    submitter,
+		Status:       types.FactStatus_FACT_STATUS_VERIFIED,
+		FitnessScore: fitnessScore,
+		Energy:       energy,
+		EnergyCap:    10_000,
 	}
 }
 
@@ -452,6 +453,46 @@ func TestLineageQuery_TracesToRoot(t *testing.T) {
 	require.Equal(t, "lineage-root", resp.RootId)
 }
 
+func TestLineageQuery_RejectsInconsistentStoredRoot(t *testing.T) {
+	t.Run("missing stored root", func(t *testing.T) {
+		k, ctx := setupKnowledgeTest(t)
+		fact := makeLineageFact("missing-root-leaf", "Leaf with missing root", "physics", makeValidBech32Addr("missing-root"), 300_000, 5000)
+		fact.LineageRootId = "does-not-exist"
+		require.NoError(t, k.SetFact(ctx, fact))
+
+		_, err := keeper.NewQueryServerImpl(k).FactLineage(ctx, &types.QueryFactLineageRequest{FactId: fact.Id})
+		require.ErrorContains(t, err, "stored lineage root does-not-exist not found")
+	})
+
+	t.Run("stored root has parent", func(t *testing.T) {
+		k, ctx := setupKnowledgeTest(t)
+		claimedRoot := makeLineageFact("claimed-non-root", "Claimed root with parent", "physics", makeValidBech32Addr("claimed-root"), 400_000, 5000)
+		claimedRoot.ParentFactId = "some-parent"
+		require.NoError(t, k.SetFact(ctx, claimedRoot))
+		fact := makeLineageFact("non-root-leaf", "Leaf with non-root pointer", "physics", makeValidBech32Addr("non-root-leaf"), 300_000, 5000)
+		fact.LineageRootId = claimedRoot.Id
+		require.NoError(t, k.SetFact(ctx, fact))
+
+		_, err := keeper.NewQueryServerImpl(k).FactLineage(ctx, &types.QueryFactLineageRequest{FactId: fact.Id})
+		require.ErrorContains(t, err, "stored lineage root claimed-non-root has a parent")
+	})
+
+	t.Run("stored root differs from traced root", func(t *testing.T) {
+		k, ctx := setupKnowledgeTest(t)
+		tracedRoot := makeLineageFact("traced-root", "Actual traced root", "physics", makeValidBech32Addr("traced-root"), 500_000, 5000)
+		claimedRoot := makeLineageFact("other-root", "Unrelated claimed root", "physics", makeValidBech32Addr("other-root"), 500_000, 5000)
+		require.NoError(t, k.SetFact(ctx, tracedRoot))
+		require.NoError(t, k.SetFact(ctx, claimedRoot))
+		leaf := makeLineageFact("mismatched-root-leaf", "Leaf with mismatched root", "physics", makeValidBech32Addr("mismatch-leaf"), 300_000, 5000)
+		leaf.ParentFactId = tracedRoot.Id
+		leaf.LineageRootId = claimedRoot.Id
+		require.NoError(t, k.SetFact(ctx, leaf))
+
+		_, err := keeper.NewQueryServerImpl(k).FactLineage(ctx, &types.QueryFactLineageRequest{FactId: leaf.Id})
+		require.ErrorContains(t, err, "stored lineage root other-root does not match traced root traced-root")
+	})
+}
+
 // TestProgenyQuery_ReturnsTree verifies progeny query returns descendant tree.
 func TestProgenyQuery_ReturnsTree(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
@@ -491,4 +532,71 @@ func TestProgenyQuery_ReturnsTree(t *testing.T) {
 	require.NotNil(t, child1Node)
 	require.Len(t, child1Node.Children, 1)
 	require.Equal(t, "progeny-gc1", child1Node.Children[0].Fact.Id)
+}
+
+func TestKnowledgeGraphQueriesRejectUnboundedDepth(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	root := makeLineageFact("bounded-root", "Bounded graph root", "safety", makeValidBech32Addr("bounded-root"), 500_000, 5000)
+	require.NoError(t, k.SetFact(ctx, root))
+	qs := keeper.NewQueryServerImpl(k)
+
+	_, err := qs.FactLineage(ctx, &types.QueryFactLineageRequest{FactId: root.Id, Depth: 65})
+	require.ErrorContains(t, err, "depth exceeds 64")
+
+	_, err = qs.FactProgeny(ctx, &types.QueryFactProgenyRequest{FactId: root.Id, Depth: 9})
+	require.ErrorContains(t, err, "depth exceeds 8")
+
+	_, err = qs.ProofTree(ctx, &types.QueryProofTreeRequest{FactId: root.Id, MaxDepth: 9})
+	require.ErrorContains(t, err, "max_depth exceeds 8")
+
+	_, err = qs.DescendantTree(ctx, &types.QueryDescendantTreeRequest{FactId: root.Id, MaxDepth: 9})
+	require.ErrorContains(t, err, "max_depth exceeds 8")
+
+	_, err = qs.FactsAtRisk(ctx, &types.QueryFactsAtRiskRequest{Limit: 101})
+	require.ErrorContains(t, err, "limit exceeds 100")
+}
+
+func TestLineageQueryZeroDepthFailsClosedBeyondSafetyCap(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	const ancestorCount = 65
+	ids := make([]string, ancestorCount+1)
+	for i := 0; i <= ancestorCount; i++ {
+		ids[i] = fmt.Sprintf("deep-lineage-%02d", i)
+		fact := makeLineageFact(ids[i], "Deep lineage fact", "safety", makeValidBech32Addr(ids[i]), 500_000, 5000)
+		if i > 0 {
+			fact.ParentFactId = ids[i-1]
+			fact.LineageDepth = uint64(i)
+			fact.LineageRootId = ids[0]
+		}
+		require.NoError(t, k.SetFact(ctx, fact))
+	}
+
+	qs := keeper.NewQueryServerImpl(k)
+	_, err := qs.FactLineage(ctx, &types.QueryFactLineageRequest{FactId: ids[ancestorCount]})
+	require.ErrorContains(t, err, "fact lineage exceeds 64 ancestors")
+
+	bounded, err := qs.FactLineage(ctx, &types.QueryFactLineageRequest{
+		FactId: ids[ancestorCount],
+		Depth:  64,
+	})
+	require.NoError(t, err)
+	require.Len(t, bounded.Ancestors, 64)
+	require.Equal(t, ids[0], bounded.RootId)
+}
+
+func TestProgenyQueryRejectsOversizedGraph(t *testing.T) {
+	k, ctx := setupKnowledgeTest(t)
+	root := makeLineageFact("wide-root", "Wide graph root", "safety", makeValidBech32Addr("wide-root"), 500_000, 5000)
+	for i := 0; i < 512; i++ {
+		id := fmt.Sprintf("wide-child-%03d", i)
+		root.ChildFactIds = append(root.ChildFactIds, id)
+		child := makeLineageFact(id, "Wide graph child", "safety", makeValidBech32Addr(id), 400_000, 5000)
+		child.ParentFactId = root.Id
+		require.NoError(t, k.SetFact(ctx, child))
+	}
+	require.NoError(t, k.SetFact(ctx, root))
+
+	qs := keeper.NewQueryServerImpl(k)
+	_, err := qs.FactProgeny(ctx, &types.QueryFactProgenyRequest{FactId: root.Id, Depth: 1})
+	require.ErrorContains(t, err, "knowledge graph query exceeds 512 nodes")
 }

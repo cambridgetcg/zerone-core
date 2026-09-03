@@ -47,23 +47,36 @@ transition-key attestations follow
 [`CANONICAL-SIGNING.md`](CANONICAL-SIGNING.md). The exact append-only file set
 and five fail-closed verification stages are documented in
 [`AUTHORITY-BUNDLE.md`](AUTHORITY-BUNDLE.md).
+
+Preparation for attention gathering and external explanation follows
+[`LAUNCH-COMMUNICATIONS.md`](LAUNCH-COMMUNICATIONS.md). That plan is not
+authority to publish: it keeps claims phase-scoped, evidence-linked, and
+explicit about the custodial and NO-GO boundaries.
+
 The chain/release signature domains and authoritative-time rules are fixed in
 [`docs/SIGNATURE-AND-TIME.md`](../../../docs/SIGNATURE-AND-TIME.md).
+
 The detached-signature payload starts from
 [`zerone-1/frozen/FINAL-CHECKPOINT.example.json`](../zerone-1/frozen/FINAL-CHECKPOINT.example.json),
-the single authoritative v3 template. It is a manifest of hashed evidence, not
+the single authoritative v4 template. It is a manifest of hashed evidence, not
 a replacement for the v3 inventory or raw RPC bundle. Do not create a second
 copy under `zerone-2`; signing two independently editable templates would make
 the transition payload ambiguous.
 
 The signed phase graph is acyclic: RELEASE → DARK-START/initiation → private
-registration evidence → CUTOVER/initiation → generated ARCHIVE-ADOPTION →
-FINAL-CHECKPOINT → OPEN-BETA/initiation → public profiles. CUTOVER may finish
+registration evidence → CUTOVER/initiation → generated ARCHIVE-ADOPTION plus
+generated custom-staking census execution evidence → FINAL-CHECKPOINT →
+OPEN-BETA/initiation → public profiles. CUTOVER may finish
 only the private historical package after its old-chain initiation event.
 Public P2P, query gateways, the history-link transaction, endpoints, and DNS
 require the later main-key OPEN-BETA decision. The transition key signs factual
 archive and checkpoint attestations only; it never grants operator GO
-authority.
+authority. RELEASE v2 additionally binds the exact census binary and execution
+evidence contract. Its transition signature remains a factual operational
+attestation, not proof of process execution or binary provenance. RELEASE binds
+only the archive gateway's static mapping, renderer, and template; verified
+FINAL supplies A/E/B, and OPEN binds the exact deterministically rendered
+public config hash.
 
 ## Ceremony
 
@@ -93,12 +106,41 @@ binary's embedded VCS revision must equal the release commit. The gentx must be
 pre-signed offline by the new validator operator and contain the exact
 self-bond and commission profile.
 
+The ceremony also replaces the SDK's short default slashing window with one
+explicit launch policy: `signed_blocks_window=34272`,
+`min_signed_per_window=0.950000000000000000`,
+`downtime_jail_duration=3600s`,
+`slash_fraction_double_sign=0.050000000000000000`, and
+`slash_fraction_downtime=0.000100000000000000`. At the runtime's 2.521-second
+target commit cadence, the window is approximately one day and the 95% floor
+allows approximately 72 minutes of total missed signing. Release-bound
+monitoring alerts on the first missed signature. In the disclosed one-validator
+set, however, no block can commit while that validator is absent, so the
+downtime jail/slash cannot execute. Those parameters remain dormant until the
+set can commit without one validator; monitoring and operator recovery are the
+only launch availability controls. Double-signing retains the SDK's 5% slash
+and permanent tombstone behavior.
+
+The runtime reasserts `timeout_commit=2521ms` and
+`skip_timeout_commit=false` on every start, rejects all `ZERONED_*` environment
+overrides, and passes `--min-retain-blocks 0` explicitly. Comet evidence
+admission is separately pinned to 719,714 blocks and
+1,814,400,000,000,000 nanoseconds—approximately 21 days at the target cadence,
+matching the SDK staking unbonding period. This keeps delayed equivocation and
+light-client evidence admissible while the responsible stake remains at risk.
+The runtime retains Comet history (`min-retain-blocks=0`); capacity monitoring
+and backup freshness are launch gates.
+
 RELEASE also pins two distinct trusted predecessor node IDs and one exact
 trusted `zerone-1` block height/block ID/AppHash. It hashes the ceremony output,
 the operator-tool manifest, and each component's SBOM, provenance, signature,
-and vulnerability-decision evidence. Those public bytes belong in the
-append-only authority bundle; a source tag, image digest, or genesis hash on its
-own is not sufficient release provenance.
+and vulnerability-decision evidence. It also hashes
+`MONITORING-ALERTS.json`, whose exact transitive inputs are the normalized
+production rules, the v2 alert-test document, and its 40 exact raw stimulus,
+firing, notification, and resolution evidence files. Those public bytes belong
+in the append-only authority bundle; a source tag, image digest, genesis hash,
+or unresolved monitoring digest on its own is not sufficient release
+provenance.
 
 The ceremony emits public artifacts only:
 

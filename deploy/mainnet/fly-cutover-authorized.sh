@@ -147,10 +147,10 @@ done
   die "CUTOVER must satisfy A=F+1 and H=A+1"
 
 python3 "${POLICY}" "${SIGNER_CONFIG}" zerone-2-cutover-decision-v1 \
-  zerone_1_halt_signer - "${F}" "${A}" "${H}" >/dev/null || \
+  zerone_1_halt_signer - "${F}" "${A}" "${H}" - - >/dev/null || \
   die "halt-signer config violates structural policy"
 python3 "${POLICY}" "${OBSERVER_CONFIG}" zerone-2-cutover-decision-v1 \
-  zerone_1_observer - "${F}" "${A}" "${H}" >/dev/null || \
+  zerone_1_observer - "${F}" "${A}" "${H}" - - >/dev/null || \
   die "observer config violates structural policy"
 
 TX_GATE_MODE=--check

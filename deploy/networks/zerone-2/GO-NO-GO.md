@@ -14,6 +14,18 @@ deliberately different scopes.
       and all four main-key initiation/registration evidence fields:
       `REPLACE`
 - [ ] `zerone-2` genesis time and two-machine SHA-256: `REPLACE`
+- [ ] Independent artifact audits confirm the exact pre-genesis slashing
+      policy: 34,272-block window, 95% minimum signing, one-hour downtime jail,
+      5% double-sign slash, 0.01% downtime slash, and empty signing/missed-block
+      state
+- [ ] Decision signers explicitly accept that downtime jail/slash is dormant
+      in the one-validator set; monitoring and tested operator recovery are the
+      only launch availability controls
+- [ ] Comet evidence admission is exactly 719,714 blocks and 21 days, matching
+      the SDK staking unbonding period; block/validator history capacity covers
+      that full window; runtime evidence confirms `timeout_commit=2521ms`,
+      `skip_timeout_commit=false`, no `ZERONED_*` overrides, and
+      `--min-retain-blocks 0`
 - [ ] `zerone-1` halt binary SHA-256 and full immutable image reference:
       `REPLACE` / `REPLACE_REGISTRY/REPLACE_REPOSITORY@sha256:REPLACE`
 - [ ] `zerone-2` binary SHA-256 and full immutable runtime image reference:
@@ -64,10 +76,22 @@ snapshot byte-for-byte.
 - [ ] Service-free edge query-soak config SHA-256 and role `edge`: `REPLACE`
 - [ ] Service-free private gateway config SHA-256 and role `zerone-2-query`:
       `REPLACE`
-- [ ] Monitor/alert configuration SHA-256: `REPLACE`
+- [ ] `MONITORING-ALERTS.json` SHA-256 plus its byte-matched
+      `MONITORING-RULES.json`, v2 `MONITORING-ALERT-TESTS.json`, and all 40
+      fixed-name raw evidence files: `REPLACE`
+- [ ] All ten required rules are enabled and their stalled-height,
+      missed-signing, double-sign-risk, AppHash-divergence, peer-loss, disk,
+      restart-count, stale-backup, gateway-wrong-chain, and
+      gateway-stale-origin alert tests each prove firing, notification delivery,
+      resolution, and `PASS`; each test's exact stimulus, firing, notification,
+      and resolution `{filename, sha256}` reference matches the non-empty
+      bundled bytes: `REPLACE_EVIDENCE_REVIEW`
 - [ ] Full tests, artifact audit, signed-source two-run ceremony comparison,
-      restart/export/import, image-context, deploy-gate, SBOM, and secret gates
-      pass
+      restart and complete stopped-data-directory restore, image-context,
+      deploy-gate, SBOM, and secret gates pass. Genesis export/import remains a
+      diagnostic only: the authoritative-state inventory documents known
+      custom-module round-trip omissions and it is not an authorized recovery
+      path.
 - [ ] All private profiles have no public Fly service or public P2P address
 - [ ] Genesis supply, two owners, locked self-bond, single validator, and every
       protocol-dark invariant independently audited
@@ -100,8 +124,9 @@ The actual authority is canonical `DARK-START-DECISION.json`, created from
 
 - [ ] Exact production chain observed for at least 1,000 blocks and 60 minutes;
       first-block time / evidence height / evidence app hash: `REPLACE`
-- [ ] Validator and edge match at equal heights; cadence, disk, restart,
-      double-sign, stale-height, and divergence alerts pass: `REPLACE_HASH`
+- [ ] Validator and edge match at equal heights; every RELEASE-bound monitoring
+      rule and alert-test artifact remains byte-identical and `PASS`:
+      `REPLACE_HASH`
 - [ ] Exact supply/two balances/one SDK validator/protocol-dark profile still
       match genesis: `REPLACE_HASH`
 - [ ] Operator onboarding and 111,000,000 uzrn custom-staking registration txs
@@ -140,7 +165,7 @@ The actual authority is canonical `DARK-START-DECISION.json`, created from
       removes H while preserving A; the fresh-key candidate proves A/A, H
       absent, commit-A tip `canonical=false`, `catching_up=true`, isolated peers,
       and private query-only origin
-- [ ] Single authoritative final-checkpoint v3 canonicalization,
+- [ ] Single authoritative final-checkpoint v4 canonicalization,
       second-machine reproduction, transition-key signature, and private archive
       monitoring rehearsed
 - [ ] Checkpoint inventory's height-pinned trusted-source/non-Merkle limitation
@@ -186,6 +211,22 @@ endpoint publication, or DNS.
       authority extractor
 - [ ] Candidate readiness, final runtime marker, and private A/A probe evidence
       are hashed and stable; old signer remains stopped and fenced
+- [ ] Exact self-sealed `CUSTOM-STAKING-CENSUS.json` passes at application
+      height `A` against the lowercase excluded post-anchor/ABCI AppHash,
+      binds the RELEASE commit, reconciles `B = D + U`, and has no findings;
+      the RELEASE-bound producer ran only after terminal H through the full
+      `cutover-postinit` gate and matched the actual stopped-copy file manifest
+      before and after execution; transition custody excluded concurrent
+      same-UID writers to both the database and private manifest throughout
+- [ ] Canonical census execution evidence binds the exact RELEASE and
+      CUTOVER-initiation pairs, runner/binary, snapshot hashes, argv, exit-zero
+      PASS, stdout-captured atomic report publication, and full-scan/per-leaf-
+      proof claims; its detached transition-key signature verifies, and FINAL
+      binds report/evidence/signature bytes
+- [ ] Separately, the release-built census binary has independently verified
+      SBOM/Sigstore/reproducible-build provenance; the transition-signed
+      execution attestation does not establish provenance or mechanically
+      prove execution
 - [ ] `FINAL-CHECKPOINT.json` contains the full release/dark/cutover/adoption
       authority chain, private archive evidence, no public URL/config authority,
       and a valid transition-key detached signature
@@ -195,8 +236,10 @@ endpoint publication, or DNS.
 - [ ] Private `zerone-2` health, validator/edge app-hash equality, supply,
       one-validator roster, and all protocol-dark latches were freshly
       revalidated: `REPLACE_HASH`
-- [ ] Public z2 edge, z2 query gateway, and archive query gateway mappings are
-      byte-equal to the immutable release packet; direct origins remain private
+- [ ] Public z2 edge and z2 query gateway mappings are byte-equal to RELEASE;
+      the archive query gateway static mapping equals RELEASE and its concrete
+      config is the deterministic RELEASE-template render of verified FINAL
+      A/E/B; direct origins remain private
 - [ ] Exact P2P/RPC/REST/archive coordinates and reviewed canonical DNS-change
       manifest hash are final and consistent with the earlier notice
 - [ ] OPEN-BETA initiation deadline leaves adequate margin; successful commit
