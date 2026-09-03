@@ -908,7 +908,7 @@ func TestFullNodeDockerfileHasCleanLegacyExtractionBoundary(t *testing.T) {
 	}
 	body := string(bodyBytes)
 	for _, required := range []string{
-		"golang:1.25.12-bookworm@sha256:ea341baa9bd5ba6784f6d7161ace70544349a6242d54d34a0fbfd2c4d51c9d58",
+		"golang:1.25.14-bookworm@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437",
 		"debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818",
 		"FROM ${LEGACY_SOURCE_IMAGE} AS legacy-source",
 		"LEGACY_ZERONED_SHA256",

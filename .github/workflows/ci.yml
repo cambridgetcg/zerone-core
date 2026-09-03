@@ -6,7 +6,7 @@ on:
   pull_request:
 
 env:
-  GO_VERSION: "1.25.12"
+  GO_VERSION: "1.25.14"
 
 permissions:
   contents: read
@@ -666,7 +666,7 @@ jobs:
       - name: Verify downloaded Go modules
         run: go mod verify
       - name: Verify selected toolchain
-        run: test "$(go env GOVERSION)" = "go1.25.12"
+        run: test "$(go env GOVERSION)" = "go1.25.14"
       - name: Test, vet, and race-test
         run: |
           go test ./... -count=1

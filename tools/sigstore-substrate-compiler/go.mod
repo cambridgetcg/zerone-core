@@ -1,6 +1,6 @@
 module github.com/zerone-chain/zerone/tools/sigstore-substrate-compiler
 
-go 1.25.12
+go 1.25.14
 
 require (
 	github.com/google/certificate-transparency-go v1.3.3

@@ -1314,6 +1314,29 @@ func TestCosmovisorEntrypointRejectsMutableSafetyPolicy(t *testing.T) {
 	}
 }
 
+func TestAllActiveGoBuilderImagesUseCurrentPinnedToolchain(t *testing.T) {
+	const goImage = "golang:1.25.14-bookworm@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437"
+	for _, dockerfile := range []string{
+		"../Dockerfile",
+		"../Dockerfile.validator",
+		"Dockerfile.full-node",
+		"mainnet/Dockerfile",
+		"mainnet/Dockerfile.containment",
+		"testnet/Dockerfile.containment",
+	} {
+		t.Run(dockerfile, func(t *testing.T) {
+			bodyBytes, err := os.ReadFile(dockerfile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			body := string(bodyBytes)
+			if strings.Count(body, "golang:") != 1 || !strings.Contains(body, goImage) {
+				t.Fatalf("%s must use exactly the current digest-pinned Go builder %q", dockerfile, goImage)
+			}
+		})
+	}
+}
+
 func TestValidatorDockerfilesPinBuildAndPackageProvenance(t *testing.T) {
 	const goModDownloadRetry = `RUN set -eu; \
     attempt=1; \
@@ -1343,7 +1366,7 @@ func TestValidatorDockerfilesPinBuildAndPackageProvenance(t *testing.T) {
 				t.Fatalf("%s does not contain the shared bounded Go module download retry", dockerfile)
 			}
 			for _, required := range []string{
-				"golang:1.25.12-bookworm@sha256:ea341baa9bd5ba6784f6d7161ace70544349a6242d54d34a0fbfd2c4d51c9d58",
+				"golang:1.25.14-bookworm@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437",
 				"debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818",
 				"ARG VERSION",
 				"ARG COMMIT",

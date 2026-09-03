@@ -39,19 +39,19 @@ current-time fallback.
 
 This directory is a nested Go module so Sigstore dependencies never enter the
 Zerone validator module. It pins `github.com/sigstore/sigstore-go` v1.2.2,
-and uses the same Go 1.25.12 security patch as the chain's root module.
+and uses the same Go 1.25.14 security patch as the chain's root module.
 
 ```sh
 cd tools/sigstore-substrate-compiler
-GOTOOLCHAIN=go1.25.12 go test ./...
-GOTOOLCHAIN=go1.25.12 go build -trimpath -o sigstore-substrate-compiler .
+GOTOOLCHAIN=go1.25.14 go test ./...
+GOTOOLCHAIN=go1.25.14 go build -trimpath -o sigstore-substrate-compiler .
 ```
 
 For the binary hash registered by governance, pin the Zerone commit, Go
 toolchain, target, and build flags. One reproducible Linux target is:
 
 ```sh
-CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=go1.25.12 \
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOTOOLCHAIN=go1.25.14 \
   go build -trimpath -buildvcs=false -ldflags='-buildid=' \
   -o sigstore-substrate-compiler-linux-amd64 .
 shasum -a 256 sigstore-substrate-compiler-linux-amd64

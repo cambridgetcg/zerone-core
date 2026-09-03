@@ -35,7 +35,7 @@ make build
 git rev-parse HEAD
 ```
 
-Go 1.24 or newer, `make`, `git`, `jq`, and a supported C toolchain are
+Go 1.25.14 exactly, `make`, `git`, `jq`, and a supported C toolchain are
 required. A production release must additionally bind the source commit,
 binary digest, build platform, SBOM/provenance, vulnerability decision, and
 immutable image digest in its signed release packet.
