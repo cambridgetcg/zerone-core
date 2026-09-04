@@ -885,15 +885,7 @@ def main() -> None:
         )
 
     raw = {"PUBLIC-NOTICE.md": b"# Fixture public notice\n"}
-    raw["PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json"] = canonical_bytes(
-        {
-            "schema": "zerone-public-notice-publication-evidence-v1",
-            "notice_sha256": digest(raw["PUBLIC-NOTICE.md"]),
-            "published_at": "2026-07-10T12:30:00Z",
-            "publication_capture_sha256": "c" * 64,
-            "public_url": "https://status.example/zerone-relaunch",
-        }
-    )
+    raw["PUBLIC-NOTICE-CAPTURE.md"] = raw["PUBLIC-NOTICE.md"]
     tool_paths = (
         ".github/workflows/ci.yml",
         "deploy/verify-authority-chain.py",
@@ -923,6 +915,8 @@ def main() -> None:
         "deploy/networks/zerone-2/ARCHIVE-ADOPTION-AUTHORITY.example.json",
         "deploy/networks/zerone-1/frozen/FINAL-CHECKPOINT.example.json",
         "deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json",
+        "deploy/networks/zerone-2/PRE-NOTICE-DECISION.example.json",
+        "deploy/networks/zerone-2/PUBLIC-NOTICE-PUBLICATION-EVIDENCE.example.json",
     )
     component_verifier = b'''#!/usr/bin/env python3
 import argparse
@@ -1030,6 +1024,7 @@ sys.stdout.write("\\n")
         "DARK-START-DECISION.json.sig",
         "DARK-START-INITIATION-EVIDENCE.json.sig",
         "DARK-REGISTRATION-EVIDENCE.json.sig",
+        "PRE-NOTICE-DECISION.json.sig",
         "CUTOVER-DECISION.json.sig",
         "CUTOVER-INITIATION-EVIDENCE.json.sig",
         "ARCHIVE-ADOPTION-AUTHORITY.json.sig",
@@ -1455,6 +1450,62 @@ sys.stdout.write("\\n")
     for name in ("PRIVATE-SOAK-EVIDENCE.json", "HALT-REHEARSAL-EVIDENCE.json"):
         (output / name).write_bytes(raw[name])
 
+    checkpoint_plan = {
+        "checkpoint_state_height": "1000",
+        "final_committed_anchor_height": "1001",
+        "halt_trigger_height": "1002",
+    }
+    pre_notice = fill_placeholders(
+        read_json(templates / "PRE-NOTICE-DECISION.example.json"),
+        args.main,
+        args.transition,
+    )
+    pre_notice.update(
+        decision="GO",
+        created_at="2026-07-10T12:26:00Z",
+        signature_authority={
+            "algorithm": "openpgp",
+            "authorized_signer_fingerprint": args.main,
+            "detached_signature_filename": "PRE-NOTICE-DECISION.json.sig",
+        },
+        release_packet=release_pair,
+        dark_start_decision=dark_pair,
+        dark_start_initiation_evidence=dark_init_pair,
+        dark_registration_evidence=dark_registration_pair,
+        private_soak_evidence_sha256=digest(raw["PRIVATE-SOAK-EVIDENCE.json"]),
+        halt_rehearsal_evidence_sha256=digest(raw["HALT-REHEARSAL-EVIDENCE.json"]),
+        notice={
+            "filename": "PUBLIC-NOTICE.md",
+            "sha256": digest(raw["PUBLIC-NOTICE.md"]),
+            "public_url": "https://status.example/zerone-relaunch",
+        },
+        checkpoint_plan=copy.deepcopy(checkpoint_plan),
+        publication_deadline="2026-07-10T12:35:00Z",
+    )
+    write_json(output, "PRE-NOTICE-DECISION.json", pre_notice)
+    pre_notice_pair = pair(
+        output, "PRE-NOTICE-DECISION.json", "PRE-NOTICE-DECISION.json.sig"
+    )
+    notice_publication = fill_placeholders(
+        read_json(templates / "PUBLIC-NOTICE-PUBLICATION-EVIDENCE.example.json"),
+        args.main,
+        args.transition,
+    )
+    notice_publication.update(
+        pre_notice_decision=pre_notice_pair,
+        notice_sha256=digest(raw["PUBLIC-NOTICE.md"]),
+        published_at="2026-07-10T12:30:00Z",
+        publication_capture_sha256=digest(raw["PUBLIC-NOTICE-CAPTURE.md"]),
+        public_url=pre_notice["notice"]["public_url"],
+    )
+    raw["PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json"] = canonical_bytes(
+        notice_publication
+    )
+    (output / "PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json").write_bytes(
+        raw["PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json"]
+    )
+    notice_publication_sha = digest(raw["PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json"])
+
     cutover = fill_placeholders(
         read_json(templates / "CUTOVER-DECISION.example.json"),
         args.main,
@@ -1479,6 +1530,7 @@ sys.stdout.write("\\n")
         dark_registration_evidence_detached_signature_sha256=dark_registration_pair[
             "detached_signature_sha256"
         ],
+        pre_notice_decision=pre_notice_pair,
         private_soak_evidence_sha256=digest(raw["PRIVATE-SOAK-EVIDENCE.json"]),
         halt_rehearsal_evidence_sha256=digest(raw["HALT-REHEARSAL-EVIDENCE.json"]),
         public_notice_sha256=digest(raw["PUBLIC-NOTICE.md"]),
@@ -1498,11 +1550,7 @@ sys.stdout.write("\\n")
         minimum_inclusion_margin_seconds=300,
         minimum_halt_lead_blocks=100,
     )
-    cutover["checkpoint_plan"] = {
-        "checkpoint_state_height": "1000",
-        "final_committed_anchor_height": "1001",
-        "halt_trigger_height": "1002",
-    }
+    cutover["checkpoint_plan"] = copy.deepcopy(checkpoint_plan)
     cutover_memo = (
         f"successor_chain_id=zerone-2;successor_genesis_sha256={args.genesis_sha};"
         "checkpoint_state_height=1000;final_committed_height=1001;halt_trigger_height=1002"
@@ -1595,7 +1643,7 @@ sys.stdout.write("\\n")
     }
     cutover_init["public_notice"] = {
         "sha256": digest(raw["PUBLIC-NOTICE.md"]),
-        "publication_evidence_sha256": "c" * 64,
+        "publication_evidence_sha256": notice_publication_sha,
     }
     cutover_init["successor_commitment_transaction"] = {
         "signed_tx_bytes_sha256": args.tx_raw_sha,
@@ -2233,7 +2281,7 @@ sys.stdout.write("\\n")
             "committed_height": "90",
             "committed_block_time": "2026-07-10T14:00:00.333333333Z",
             "public_notice_sha256": digest(raw["PUBLIC-NOTICE.md"]),
-            "public_notice_publication_evidence_sha256": "c" * 64,
+            "public_notice_publication_evidence_sha256": notice_publication_sha,
             "initiation_evidence_sha256": cutover_init_pair["sha256"],
             "initiation_evidence_detached_signature_sha256": cutover_init_pair[
                 "detached_signature_sha256"
@@ -2591,7 +2639,7 @@ sys.stdout.write("\\n")
         "committed_height": "90",
         "committed_block_time": "2026-07-10T14:00:00.333333333Z",
         "public_notice_sha256": digest(raw["PUBLIC-NOTICE.md"]),
-        "public_notice_publication_evidence_sha256": "c" * 64,
+        "public_notice_publication_evidence_sha256": notice_publication_sha,
         "memo": cutover_memo,
     }
     final["source_halt_release"] = {

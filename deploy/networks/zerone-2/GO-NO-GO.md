@@ -1,16 +1,16 @@
-# Three operator decisions — `zerone-2`
+# Four operator decisions — `zerone-2`
 
 This Markdown file is a working checklist and is never a signed authority.
 Canonicalize and sign the immutable JSON payloads in
 [`CANONICAL-SIGNING.md`](CANONICAL-SIGNING.md). The release packet is signed
-first; the three later decision files reference its exact hash and have
+first; the four later decision files reference its exact hash and have
 deliberately different scopes.
 
 ## Immutable release packet
 
 - [ ] Source commit / signed annotated tag / signer fingerprint: `REPLACE`
 - [ ] Out-of-band authorized OpenPGP decision signer fingerprint equals the
-      release-tag signer, all four canonical operator JSON authority fields,
+      release-tag signer, all five canonical operator JSON authority fields,
       and all four main-key initiation/registration evidence fields:
       `REPLACE`
 - [ ] `zerone-2` genesis time and two-machine SHA-256: `REPLACE`
@@ -118,7 +118,7 @@ notice/post, public Fly service or IP, endpoint publication, or DNS change.
 The actual authority is canonical `DARK-START-DECISION.json`, created from
 `DARK-START-DECISION.example.json`. Its detached `.sig` is outside the payload.
 
-## Decision B — irreversible old-chain CUTOVER
+## Decision B — transition PRE-NOTICE
 
 ### Private-soak evidence
 
@@ -144,7 +144,7 @@ The actual authority is canonical `DARK-START-DECISION.json`, created from
       `REPLACE`
 - [ ] Release-bound archive renderer, candidate/final template hashes, fixed
       app/volume/region/halt-image roles, immediate strategy, empty peers, and
-      service-free constraints equal the CUTOVER delegation: `REPLACE`
+      service-free constraints match the planned CUTOVER delegation: `REPLACE`
 - [ ] Signer and independent fresh-key observer are synced/app-hash matched and
       can be armed with the exact F/A/H plan before `F`
 - [ ] Both transaction ingress and mempools freeze before `F`, forcing empty
@@ -154,7 +154,7 @@ The actual authority is canonical `DARK-START-DECISION.json`, created from
       `canonical=false`, ABCI `A`, and no H results
 - [ ] Rehearsal captures matching v3 inventory and byte-exact signer/observer
       evidence before SIGTERM/fencing; green daemon health is not halt proof
-- [ ] Raw genesis plus complete RELEASE-trusted/A/H validator-set evidence is
+- [ ] Rehearsal raw genesis plus complete RELEASE-trusted/A/H validator-set evidence is
       byte-identical across signer/observer, and the exact release halt binary
       recomputes block IDs, verifies >2/3 commit signatures/power, proves 1/3
       trusted-set continuity to A, and verifies `block_results(A)` AppHash
@@ -172,9 +172,43 @@ The actual authority is canonical `DARK-START-DECISION.json`, created from
       accepted
 - [ ] Pre-cutover public notice contains no placeholder, discloses private dark-start,
       `f=0`, migration/dark policies, query-only RPC/REST, no initial public
-      gRPC, and the exact rollback boundary
-- [ ] CUTOVER initiation deadline leaves sufficient notice/F margin: notice and
-      exact successor transaction must complete before it; once committed,
+      gRPC, and the exact rollback boundary; it publishes no successor network
+      coordinates
+- [ ] Canonical main-key `PRE-NOTICE-DECISION.json` binds the exact RELEASE,
+      DARK decision/initiation/registration payload/signature pairs, completed
+      soak and halt-rehearsal evidence, proposed F/A/H, notice bytes, one HTTPS
+      URL, and publication deadline; only exact notice publication is enabled
+- [ ] The complete `notice-prepublish` gate passes before posting; it requires
+      no future CUTOVER decision or publication evidence
+
+### Pre-notice decision checklist
+
+- [ ] **PRE-NOTICE GO** — publish only the exact signed notice at the exact URL
+      before the publication deadline. Capture the observed response body as
+      `PUBLIC-NOTICE-CAPTURE.md` and complete v2 publication evidence.
+- [ ] **PRE-NOTICE NO-GO** — publish nothing; retain the private successor and
+      leave `zerone-1` untouched.
+
+This decision authorizes no transaction, halt, deployment, endpoint, DNS
+change, or live-network claim. Its actual authority is canonical
+`PRE-NOTICE-DECISION.json`, created from
+`PRE-NOTICE-DECISION.example.json`, with a detached main-key `.sig`.
+
+## Decision C — irreversible old-chain CUTOVER
+
+### Publication and initiation gates
+
+- [ ] CUTOVER binds the exact pre-notice payload/signature pair and unchanged
+      F/A/H, notice bytes, URL, soak, and halt-rehearsal evidence
+- [ ] V2 publication evidence binds the pre-notice pair, exact notice/URL,
+      publication time, and non-empty response-body capture whose bytes equal
+      the notice; publication occurred after signature and by its deadline
+- [ ] CUTOVER creation/signature follows publication. The captured body and
+      recorded URL/time are independently reviewed operator evidence, not
+      cryptographic proof of network delivery or time
+- [ ] CUTOVER initiation deadline leaves sufficient notice/F margin:
+      authorized notice publication must already be complete and the exact successor
+      transaction must commit before the CUTOVER deadline; once committed,
       only exact forward completion remains authorized while preconditions hold
 - [ ] Exact successor transaction bytes/hash are pre-signed in CUTOVER, and the
       main-key `CUTOVER-INITIATION-EVIDENCE` procedure independently proves its
@@ -182,8 +216,8 @@ The actual authority is canonical `DARK-START-DECISION.json`, created from
 
 ### Cutover decision checklist
 
-- [ ] **CUTOVER GO** — authorize the exact public pre-announcement, `zerone-1`
-      successor transaction and F/A/H halt, signer fencing, evidence capture,
+- [ ] **CUTOVER GO** — authorize the exact `zerone-1` successor transaction
+      and F/A/H halt, signer fencing, evidence capture,
       deterministic private archive adoption, and final-checkpoint preparation
       in `CUTOVER.md` sections 4–7.
 - [ ] **CUTOVER NO-GO** — keep all new services private; do not post, mutate or
@@ -192,11 +226,12 @@ The actual authority is canonical `DARK-START-DECISION.json`, created from
 The actual authority is canonical `CUTOVER-DECISION.json`, created from
 `CUTOVER-DECISION.example.json`. It references the unchanged release packet and
 the prior dark-start payload/signature/initiation-evidence hashes and exact
-pre-signed successor transaction; its own `.sig` remains outside.
-It does **not** authorize the history-link transaction, a public Fly service,
-endpoint publication, or DNS.
+pre-notice payload/signature pair and pre-signed successor transaction; its own
+`.sig` remains outside.
+It does **not** authorize notice publication, the history-link transaction,
+a public Fly service, endpoint publication, or DNS.
 
-## Decision C — public OPEN-BETA
+## Decision D — public OPEN-BETA
 
 ### Post-halt evidence and authority gates
 

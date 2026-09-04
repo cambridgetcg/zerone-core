@@ -4,7 +4,7 @@ This runbook is intentionally inert. Replace every `REPLACE_*` value, attach
 the final manifests, and obtain the explicit operator go/no-go before running
 any transaction, Fly mutation, halt, DNS change, or public post.
 
-## 0. Immutable release packet and three scoped decisions
+## 0. Immutable release packet and four scoped decisions
 
 Record these once in canonical signed `RELEASE-PACKET.json` before private
 dark-start:
@@ -36,9 +36,11 @@ the monitoring manifest must identify the actual tested rules and byte-bearing
 evidence.
 
 Never edit or reissue that packet merely to choose checkpoint heights; all
-three operator decisions reference its unchanged hash and detached signature.
-Only the later canonical `CUTOVER-DECISION.json`, after private-soak evidence
-exists, fixes:
+four operator decisions reference its unchanged hash and detached signature.
+After private-soak evidence exists, canonical `PRE-NOTICE-DECISION.json` fixes
+the exact notice bytes, destination URL, publication deadline, evidence hashes,
+and proposed F/A/H. The later `CUTOVER-DECISION.json` must match those inputs
+and adds actual publication evidence, transaction, and halt-config authority:
 
 ```text
 ZERONE_1_CHECKPOINT_STATE_HEIGHT=REPLACE_F
@@ -50,7 +52,7 @@ ZERONE_1_HALT_SIGNER_CONFIG_SHA256=REPLACE_64_HEX
 ZERONE_1_OBSERVER_CONFIG_SHA256=REPLACE_64_HEX
 ```
 
-That decision must prove `A=F+1` and `H=A+1`. `F` must leave enough public
+Both decisions must prove `A=F+1` and `H=A+1`. `F` must leave enough public
 notice time and be well above the successor-commitment transaction height. `H`
 is an SDK trigger and application-unapplied terminal tip, not the final
 application block selected by transition policy.
@@ -203,10 +205,10 @@ tests fail as designed. No public service or P2P address may exist.
 Observe the exact production validator, edge, gateway path, alerts, and recovery
 for at least 1,000 blocks and 60 minutes. Hash the observations, app/hash
 comparisons, registration receipts, reviewed Fly configs, and gateway smoke
-output. Prepare the exact public notice, but do not sign CUTOVER until the
-notice has actually been published and its byte-bound publication evidence has
-been captured in section 4. Until that second immutable decision, `zerone-1`
-remains canonical and untouched.
+output. Prepare and sign the separate PRE-NOTICE decision for the exact public
+notice. Do not sign CUTOVER until the authorized notice has actually been
+published and its byte-bound publication evidence has been captured in section
+4. Until CUTOVER initiates, `zerone-1` remains canonical and untouched.
 
 Before signing CUTOVER, construct and offline-sign the exact z1 successor
 self-send transaction described in section 5. Record its signed TxRaw byte
@@ -214,10 +216,10 @@ SHA-256 and expected transaction hash inside CUTOVER. Do not broadcast it yet.
 The transaction must not contain the CUTOVER payload hash, which would be
 circular.
 
-## 4. Public pre-announcement, then old-chain CUTOVER GO
+## 4. PRE-NOTICE GO, public pre-announcement, then old-chain CUTOVER GO
 
-Publish the completed pre-cutover public notice before signing CUTOVER. The
-notice must include:
+Complete the pre-cutover notice before signing PRE-NOTICE. The notice must
+include:
 
 - both chain IDs and the relaunch reason;
 - `zerone-1` checkpoint state `F`, final committed anchor `A=F+1`, halt trigger
@@ -230,30 +232,73 @@ notice must include:
   separate eligibility policy;
 - explicit statement that PoT, IBC/ICA, bridge, claiming, and issuance are not
   live at genesis;
-- the query-only RPC/REST gateway, explicit initial-beta gRPC unavailability,
-  public P2P address, and permanent archive gateway;
+- the planned query-only RPC/REST gateway, explicit initial-beta gRPC
+  unavailability, public P2P service, and permanent archive gateway, without
+  publishing successor endpoint or peer coordinates;
 - warning to use a distinct home directory and never reuse `zerone-1` keys or
   data.
 
-Capture canonical `PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json` for those exact
-notice bytes. Only then complete and sign `CUTOVER-DECISION.json` with the
+Create canonical `PRE-NOTICE-DECISION.json` from its example and sign it with
+the main operator key. It binds the exact RELEASE, DARK decision/initiation,
+and registration payload/signature pairs, completed private-soak and
+halt-rehearsal hashes, proposed F/A/H, `PUBLIC-NOTICE.md` hash, one exact HTTPS
+URL, and a publication deadline. Its scope permits only that notice
+publication. It grants no transaction, deployment, halt, DNS, endpoint, or
+live-network announcement authority. It contains no future CUTOVER or
+publication-evidence reference.
+
+On the dedicated Linux/AMD64 release workstation, verify before publication:
+
+```bash
+python3 deploy/verify-authority-chain.py notice-prepublish \
+  /secure/authority-bundle '<main-full-fingerprint>' \
+  --release /secure/authority-bundle/RELEASE-PACKET.json \
+  --release-sig /secure/authority-bundle/RELEASE-PACKET.json.sig \
+  --decision /secure/authority-bundle/PRE-NOTICE-DECISION.json \
+  --decision-sig /secure/authority-bundle/PRE-NOTICE-DECISION.json.sig \
+  --config-policy deploy/validate-fly-phase-config.py --tool-root .
+```
+
+This stage verifies all completed predecessor evidence and the unexpired
+publication deadline without requiring a CUTOVER decision, publication
+evidence, or capture. Only after it passes may the operator publish the exact
+notice bytes at the exact authorized URL. Capture the actual observed response
+body as `PUBLIC-NOTICE-CAPTURE.md`; require byte equality with
+`PUBLIC-NOTICE.md`, with no formatting, rendering, or newline substitution.
+Complete canonical v2 `PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json` binding the
+pre-notice payload/signature pair, exact notice hash and URL, publication time,
+and capture hash. Independently review this evidence: offline byte matching and
+the downstream signature attest what the operator observed; they do not
+cryptographically prove HTTPS delivery or publication time.
+
+Only then complete and sign `CUTOVER-DECISION.json` with the
 release, DARK decision/initiation/registration evidence pairs, private-soak and
-halt-rehearsal evidence, exact notice/publication hashes and time, three
-distinct full image references, exact signer/observer config mappings,
+halt-rehearsal evidence, PRE-NOTICE payload/signature pair, exact
+notice/publication hashes and time, three distinct full image references,
+exact signer/observer config mappings,
 deterministic private archive continuation, exact F/A/H plan, transaction
 cutoff/timeout/lead, and accepted launch policies. The CUTOVER creation and
 signature times must follow the recorded publication time.
+
+CUTOVER must preserve the pre-notice F/A/H, notice hash/URL, and evidence
+hashes. Publication must follow the pre-notice signature and occur by its
+publication deadline. A later verifier may authenticate that timely historical
+publication after the deadline has passed; this never authorizes another post
+or different bytes. If the plan changes, stop and prepare a separately
+authorized notice or correction instead of rewriting an existing signed file.
 
 Do not describe a proposed hash, endpoint, or height as final. Do not expose
 the private query gateway or public P2P merely because the notice was posted;
 those remain forbidden until the later OPEN-BETA decision and exact history-link
 transaction commit.
 
-Both the exact notice and exact successor transaction must complete before the
-signed CUTOVER initiation deadline. The committed successor transaction is the
+The exact notice must have been published by its own earlier signed publication
+deadline, and before CUTOVER creation. The exact successor transaction must
+complete before the signed CUTOVER initiation deadline. Its commit is the
 initiation event. If the deadline passes first, do not arm/halt `zerone-1` and
-publish a signed correction for any notice already posted. Once the transaction
-commits on time, expiry does not strand the one-way transition: only the exact
+prepare a separately authorized signed correction for any notice already posted.
+Once the transaction commits on time, expiry does not strand the one-way
+transition: only the exact
 signed F/A/H evidence, signer fencing, deterministically rendered private
 archive adoption, and final-checkpoint preparation remain authorized while
 their preconditions are satisfiable. Public exposure is still forbidden.

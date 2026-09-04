@@ -225,6 +225,42 @@ make_dark_pre_bundle() {
   printf '%s\n' "${destination}"
 }
 
+make_notice_pre_bundle() {
+  local name=$1 destination
+  destination=$(clone_bundle "${name}")
+  canonical_mutate "${destination}/PRE-NOTICE-DECISION.json" \
+    '.publication_deadline = "2099-07-10T12:35:00Z"'
+  printf '%s\n' "${destination}"
+}
+
+rebind_notice_publication_cutover() {
+  local bundle=$1 notice_sha notice_signature_sha publication_sha
+  notice_sha=$(sha256_file "${bundle}/PRE-NOTICE-DECISION.json")
+  notice_signature_sha=$(sha256_file "${bundle}/PRE-NOTICE-DECISION.json.sig")
+  # shellcheck disable=SC2016 # jq variables are not shell variables.
+  canonical_mutate "${bundle}/PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json" \
+    '.pre_notice_decision = {sha256:$notice,detached_signature_sha256:$signature}' \
+    --arg notice "${notice_sha}" --arg signature "${notice_signature_sha}"
+  publication_sha=$(sha256_file \
+    "${bundle}/PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json")
+  # shellcheck disable=SC2016 # jq variables are not shell variables.
+  canonical_mutate "${bundle}/CUTOVER-DECISION.json" \
+    '.pre_notice_decision = {sha256:$notice,detached_signature_sha256:$signature}
+    | .public_notice_publication_evidence_sha256 = $publication' \
+    --arg notice "${notice_sha}" --arg signature "${notice_signature_sha}" \
+    --arg publication "${publication_sha}"
+}
+
+rebind_publication_cutover() {
+  local bundle=$1 publication_sha
+  publication_sha=$(sha256_file \
+    "${bundle}/PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json")
+  # shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+  canonical_mutate "${bundle}/CUTOVER-DECISION.json" \
+    '.public_notice_publication_evidence_sha256 = $sha' \
+    --arg sha "${publication_sha}"
+}
+
 rebind_frozen_source_chain() {
   local bundle=$1
   local signer_manifest_sha observer_manifest_sha transition_sha adoption_sha
@@ -430,6 +466,7 @@ case "${base}" in
   DARK-START-DECISION.json.sig) timestamp=1783678260 ;;
   DARK-START-INITIATION-EVIDENCE.json.sig) timestamp=1783678920 ;;
   DARK-REGISTRATION-EVIDENCE.json.sig) timestamp=1783680000 ;;
+  PRE-NOTICE-DECISION.json.sig) timestamp=${FAKE_GPG_NOTICE_TIMESTAMP:-1783686420} ;;
   CUTOVER-DECISION.json.sig) timestamp=1783688460 ;;
   CUTOVER-INITIATION-EVIDENCE.json.sig) timestamp=1783692120 ;;
   ARCHIVE-ADOPTION-AUTHORITY.json.sig)
@@ -576,12 +613,27 @@ run_cutover_pre() {
     FAKE_GPG_MAIN_FINGERPRINT="${MAIN_FINGERPRINT}" \
     FAKE_GPG_TRANSITION_FINGERPRINT="${TRANSITION_FINGERPRINT}" \
     FAKE_GPG_FUTURE_SIGNATURE="${FAKE_GPG_FUTURE_SIGNATURE:-}" \
+    FAKE_GPG_NOTICE_TIMESTAMP="${FAKE_GPG_NOTICE_TIMESTAMP:-}" \
     "${VERIFY}" cutover-preinit "${bundle}" "${MAIN_FINGERPRINT}" \
       --release "${bundle}/RELEASE-PACKET.json" \
       --release-sig "${bundle}/RELEASE-PACKET.json.sig" \
       --decision "${bundle}/CUTOVER-DECISION.json" \
       --decision-sig "${bundle}/CUTOVER-DECISION.json.sig" \
       --config-policy "${config_policy}" --tool-root "${tool_root}"
+}
+
+run_notice_pre() {
+  local bundle=$1
+  PATH="${TMP}/bin:${PATH}" \
+    FAKE_GPG_MAIN_FINGERPRINT="${MAIN_FINGERPRINT}" \
+    FAKE_GPG_TRANSITION_FINGERPRINT="${TRANSITION_FINGERPRINT}" \
+    FAKE_GPG_NOTICE_TIMESTAMP="${FAKE_GPG_NOTICE_TIMESTAMP:-}" \
+    "${VERIFY}" notice-prepublish "${bundle}" "${MAIN_FINGERPRINT}" \
+      --release "${bundle}/RELEASE-PACKET.json" \
+      --release-sig "${bundle}/RELEASE-PACKET.json.sig" \
+      --decision "${bundle}/PRE-NOTICE-DECISION.json" \
+      --decision-sig "${bundle}/PRE-NOTICE-DECISION.json.sig" \
+      --config-policy "${POLICY}" --tool-root "${ROOT}"
 }
 
 run_dark_registration() {
@@ -671,6 +723,173 @@ run_cutover_pre "${BASE_BUNDLE}" >/dev/null
 run_cutover_post "${BASE_BUNDLE}" >/dev/null
 run_open_pre "${BASE_BUNDLE}" >/dev/null
 run_open_post "${BASE_BUNDLE}" >/dev/null
+
+# Publishing the notice must be possible before any CUTOVER authority,
+# publication receipt, capture, commitment transaction, archive or FINAL exists.
+notice_pre_bundle=$(make_notice_pre_bundle notice-prepublish)
+mkdir "${TMP}/notice-future-artifacts"
+for future_artifact in \
+  CUTOVER-DECISION.json CUTOVER-DECISION.json.sig \
+  CUTOVER-INITIATION-EVIDENCE.json CUTOVER-INITIATION-EVIDENCE.json.sig \
+  CUTOVER-SIGNED-TX.json PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json \
+  PUBLIC-NOTICE-CAPTURE.md fly.halt-signer.toml fly.observer.toml \
+  OPEN-BETA-DECISION.json OPEN-BETA-DECISION.json.sig \
+  OPEN-BETA-INITIATION-EVIDENCE.json OPEN-BETA-INITIATION-EVIDENCE.json.sig \
+  OPEN-BETA-SIGNED-TX.json FINAL-CHECKPOINT.json FINAL-CHECKPOINT.json.sig \
+  ARCHIVE-ADOPTION-AUTHORITY.json ARCHIVE-ADOPTION-AUTHORITY.json.sig \
+  zerone-1-archive-transition.json DNS-CHANGE-MANIFEST.json; do
+  mv "${notice_pre_bundle}/${future_artifact}" "${TMP}/notice-future-artifacts/"
+done
+run_notice_pre "${notice_pre_bundle}" >/dev/null
+expect_rejected "expired notice publication permission" \
+  "PRE-NOTICE publication deadline has passed" \
+  run_notice_pre "${BASE_BUNDLE}"
+# The historical cutover verified above remains valid after the notice deadline.
+
+for missing_notice_artifact in \
+  PRE-NOTICE-DECISION.json PRE-NOTICE-DECISION.json.sig \
+  PUBLIC-NOTICE-CAPTURE.md; do
+  missing_notice=$(clone_bundle "missing-${missing_notice_artifact}")
+  mv "${missing_notice}/${missing_notice_artifact}" \
+    "${missing_notice}/${missing_notice_artifact}.missing"
+  expect_rejected "CUTOVER without ${missing_notice_artifact}" \
+    "could not open bundle file ${missing_notice_artifact}" \
+    run_cutover_pre "${missing_notice}"
+done
+
+notice_bad_signature=$(make_notice_pre_bundle notice-bad-signature)
+printf 'tampered\n' >> "${notice_bad_signature}/PRE-NOTICE-DECISION.json.sig"
+expect_rejected "invalid PRE-NOTICE signature" \
+  "PRE-NOTICE-DECISION.json detached signature verification failed" \
+  run_notice_pre "${notice_bad_signature}"
+
+notice_case_index=0
+for scope_mutation in \
+  '.scope.halt_chain = true' \
+  '.scope.broadcast_transaction = true' \
+  '.scope.publish_exact_notice = 1' \
+  '.scope.change_dns = 0' \
+  'del(.scope.deploy_service)'; do
+  notice_case_index=$((notice_case_index + 1))
+  notice_scope=$(make_notice_pre_bundle "notice-scope-${notice_case_index}")
+  canonical_mutate "${notice_scope}/PRE-NOTICE-DECISION.json" "${scope_mutation}"
+  expect_rejected "PRE-NOTICE scope drift ${scope_mutation}" \
+    "PRE-NOTICE scope must authorize only exact notice publication" \
+    run_notice_pre "${notice_scope}"
+done
+
+notice_no_go=$(make_notice_pre_bundle notice-no-go)
+canonical_mutate "${notice_no_go}/PRE-NOTICE-DECISION.json" '.decision = "NO-GO"'
+expect_rejected "PRE-NOTICE NO-GO" "PRE-NOTICE decision is not an attributed GO" \
+  run_notice_pre "${notice_no_go}"
+
+notice_wrong_prior=$(make_notice_pre_bundle notice-wrong-prior)
+canonical_mutate "${notice_wrong_prior}/PRE-NOTICE-DECISION.json" \
+  '.dark_registration_evidence.sha256 = ("0" * 64)'
+expect_rejected "PRE-NOTICE predecessor substitution" \
+  "PRE-NOTICE dark_registration_evidence differs from the completed authority chain" \
+  run_notice_pre "${notice_wrong_prior}"
+
+notice_wrong_hash=$(make_notice_pre_bundle notice-wrong-hash)
+canonical_mutate "${notice_wrong_hash}/PRE-NOTICE-DECISION.json" \
+  '.notice.sha256 = ("0" * 64)'
+expect_rejected "PRE-NOTICE notice hash substitution" \
+  "PRE-NOTICE notice differs from the exact bundled bytes" \
+  run_notice_pre "${notice_wrong_hash}"
+
+notice_wrong_url=$(make_notice_pre_bundle notice-wrong-url)
+canonical_mutate "${notice_wrong_url}/PRE-NOTICE-DECISION.json" \
+  '.notice.public_url = "https://user:secret@status.example/notice"'
+expect_rejected "PRE-NOTICE credential-bearing URL" \
+  "PRE-NOTICE public URL is not canonical HTTPS" \
+  run_notice_pre "${notice_wrong_url}"
+
+notice_wrong_plan=$(make_notice_pre_bundle notice-wrong-plan)
+canonical_mutate "${notice_wrong_plan}/PRE-NOTICE-DECISION.json" \
+  '.checkpoint_plan.halt_trigger_height = "1003"'
+expect_rejected "PRE-NOTICE invalid F/A/H" \
+  "PRE-NOTICE must satisfy A=F+1 and H=A+1" \
+  run_notice_pre "${notice_wrong_plan}"
+
+notice_before_rehearsal=$(make_notice_pre_bundle notice-before-rehearsal)
+canonical_mutate "${notice_before_rehearsal}/PRE-NOTICE-DECISION.json" \
+  '.created_at = "2026-07-10T12:24:00Z"'
+expect_rejected "PRE-NOTICE created before halt rehearsal" \
+  "PRE-NOTICE signature/soak/rehearsal/deadline chronology is non-monotonic" \
+  run_notice_pre "${notice_before_rehearsal}"
+
+notice_after_deadline=$(clone_bundle notice-after-deadline)
+canonical_mutate "${notice_after_deadline}/PRE-NOTICE-DECISION.json" \
+  '.publication_deadline = "2026-07-10T12:26:30Z"'
+rebind_notice_publication_cutover "${notice_after_deadline}"
+expect_rejected "PRE-NOTICE signed after deadline" \
+  "PRE-NOTICE signature/soak/rehearsal/deadline chronology is non-monotonic" \
+  run_cutover_pre "${notice_after_deadline}"
+
+run_notice_signature_before_creation() {
+  FAKE_GPG_NOTICE_TIMESTAMP=1783686300 run_notice_pre "${notice_pre_bundle}"
+}
+expect_rejected "PRE-NOTICE signature predates creation" \
+  "PRE-NOTICE signature/soak/rehearsal/deadline chronology is non-monotonic" \
+  run_notice_signature_before_creation
+
+for cutover_notice_mutation in \
+  'del(.pre_notice_decision)' \
+  '.pre_notice_decision.detached_signature_sha256 = ("0" * 64)' \
+  '.checkpoint_plan = {checkpoint_state_height:"2000",final_committed_anchor_height:"2001",halt_trigger_height:"2002"}'; do
+  notice_case_index=$((notice_case_index + 1))
+  cutover_notice=$(clone_bundle "cutover-notice-${notice_case_index}")
+  canonical_mutate "${cutover_notice}/CUTOVER-DECISION.json" \
+    "${cutover_notice_mutation}"
+  expect_rejected "CUTOVER notice authority substitution ${cutover_notice_mutation}" \
+    "CUTOVER notice publication differs from PRE-NOTICE authority or bundled evidence" \
+    run_cutover_pre "${cutover_notice}"
+done
+
+for publication_mutation in \
+  '.pre_notice_decision.sha256 = ("0" * 64)' \
+  '.notice_sha256 = ("0" * 64)' \
+  '.public_url = "https://attacker.example/other-notice"'; do
+  notice_case_index=$((notice_case_index + 1))
+  publication_drift=$(clone_bundle "publication-drift-${notice_case_index}")
+  canonical_mutate "${publication_drift}/PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json" \
+    "${publication_mutation}"
+  rebind_publication_cutover "${publication_drift}"
+  expect_rejected "publication receipt substitution ${publication_mutation}" \
+    "CUTOVER notice publication differs from PRE-NOTICE authority or bundled evidence" \
+    run_cutover_pre "${publication_drift}"
+done
+
+notice_capture=$(clone_bundle notice-capture-substitution)
+printf 'Different public notice\n' > "${notice_capture}/PUBLIC-NOTICE-CAPTURE.md"
+# shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+canonical_mutate "${notice_capture}/PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json" \
+  '.publication_capture_sha256 = $sha' \
+  --arg sha "$(sha256_file "${notice_capture}/PUBLIC-NOTICE-CAPTURE.md")"
+rebind_publication_cutover "${notice_capture}"
+expect_rejected "hash-consistent substituted notice capture" \
+  "notice publication capture does not match the authorized notice bytes" \
+  run_cutover_pre "${notice_capture}"
+
+for published_at in 2026-07-10T12:26:00Z 2026-07-10T12:36:00Z; do
+  notice_window=$(clone_bundle "notice-window-${published_at}")
+  # shellcheck disable=SC2016 # $time is a jq variable, not a shell variable.
+  canonical_mutate "${notice_window}/PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json" \
+    '.published_at = $time' --arg time "${published_at}"
+  # shellcheck disable=SC2016 # $time is a jq variable, not a shell variable.
+  canonical_mutate "${notice_window}/CUTOVER-DECISION.json" \
+    '.public_notice_published_at = $time' --arg time "${published_at}"
+  rebind_publication_cutover "${notice_window}"
+  expect_rejected "notice publication outside signed window ${published_at}" \
+    "notice publication was outside its signed authorization window" \
+    run_cutover_pre "${notice_window}"
+done
+
+notice_init_join=$(clone_bundle notice-initiation-publication-join)
+canonical_mutate "${notice_init_join}/CUTOVER-INITIATION-EVIDENCE.json" \
+  '.public_notice.publication_evidence_sha256 = ("c" * 64)'
+expect_rejected "CUTOVER initiation cites unrelated publication evidence" \
+  "CUTOVER initiation evidence" run_cutover_post "${notice_init_join}"
 
 missing_dark_sigstore=$(make_dark_pre_bundle dark-preinit-missing-sigstore)
 mv "${missing_dark_sigstore}/SIGSTORE-TRUSTED-ROOT.json" \

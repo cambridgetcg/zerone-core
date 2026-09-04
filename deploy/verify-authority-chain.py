@@ -20,6 +20,7 @@ import sys
 import tempfile
 import tomllib
 from typing import Any
+from urllib.parse import urlsplit
 
 
 HASH = re.compile(r"^[0-9a-f]{64}$")
@@ -60,6 +61,17 @@ OPERATOR_TOOL_PATHS = {
     "deploy/networks/zerone-2/ARCHIVE-ADOPTION-AUTHORITY.example.json",
     "deploy/networks/zerone-1/frozen/FINAL-CHECKPOINT.example.json",
     "deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json",
+    "deploy/networks/zerone-2/PRE-NOTICE-DECISION.example.json",
+    "deploy/networks/zerone-2/PUBLIC-NOTICE-PUBLICATION-EVIDENCE.example.json",
+}
+NOTICE_MAX_BYTES = 256 * 1024
+NOTICE_SCOPE = {
+    "publish_exact_notice": True,
+    "broadcast_transaction": False,
+    "halt_chain": False,
+    "deploy_service": False,
+    "publish_network_coordinates": False,
+    "change_dns": False,
 }
 CENSUS_BINARY_FILENAME = "custom-staking-census-linux-amd64"
 CENSUS_EXECUTION_RUNNER_PATH = "deploy/run-custom-staking-census-evidence.py"
@@ -305,6 +317,8 @@ def secure_read_path(path: pathlib.Path, label: str) -> bytes:
 
 
 def bundle_file_size_limit(name: str) -> int:
+    if name in {"PUBLIC-NOTICE.md", "PUBLIC-NOTICE-CAPTURE.md"}:
+        return NOTICE_MAX_BYTES
     if name.startswith("zeroned-") or name == CENSUS_BINARY_FILENAME:
         return 384 * 1024 * 1024
     if name == "POST-ANCHOR-STATE-EXPORT.json.raw":
@@ -2819,6 +2833,171 @@ def validate_dark_registration_evidence(
     return evidence_pair, signature_epoch
 
 
+def require_notice_url(value: Any) -> str:
+    """Require one exact HTTPS document URL; never resolve or fetch it."""
+    if not isinstance(value, str) or not 1 <= len(value) <= 2048:
+        fail("PRE-NOTICE public URL must be a bounded HTTPS document URL")
+    # Avoid ambiguous parser normalization, credentials, encoded path aliases,
+    # query tokens and fragments. The human-approved document has one address.
+    if not re.fullmatch(r"https://[a-z0-9.-]+/[A-Za-z0-9._~/-]+", value):
+        fail("PRE-NOTICE public URL is not canonical HTTPS")
+    parsed = urlsplit(value)
+    host = parsed.hostname or ""
+    labels = host.split(".")
+    if (
+        len(host) > 253
+        or len(labels) < 2
+        or not any(character.isalpha() for character in labels[-1])
+        or any(
+            not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", label)
+            for label in labels
+        )
+        or "//" in parsed.path
+        or any(part in {".", ".."} for part in parsed.path.split("/"))
+    ):
+        fail("PRE-NOTICE public URL has an invalid host or ambiguous path")
+    return value
+
+
+def validate_pre_notice(
+    files: dict[str, bytes],
+    objects: dict[str, Any],
+    signature_epoch: int,
+    dark_registration_signature_epoch: int,
+    soak_end_ns: int,
+    rehearsal_epoch: int,
+    prepublish: bool,
+) -> tuple[dict[str, str], int]:
+    decision = objects["PRE-NOTICE-DECISION.json"]
+    if not isinstance(decision, dict) or set(decision) != {
+        "schema", "decision", "created_at", "operator", "signature_authority",
+        "release_packet", "dark_start_decision", "dark_start_initiation_evidence",
+        "dark_registration_evidence", "private_soak_evidence_sha256",
+        "halt_rehearsal_evidence_sha256", "notice", "checkpoint_plan",
+        "publication_deadline", "scope",
+    }:
+        fail("PRE-NOTICE decision has the wrong schema shape")
+    if not (
+        decision["schema"] == "zerone-2-pre-notice-decision-v1"
+        and decision["decision"] == "GO"
+        and isinstance(decision["operator"], str)
+        and decision["operator"].strip()
+        and len(decision["operator"]) <= 256
+    ):
+        fail("PRE-NOTICE decision is not an attributed GO")
+    authority = decision["signature_authority"]
+    if not isinstance(authority, dict) or set(authority) != {
+        "algorithm", "authorized_signer_fingerprint", "detached_signature_filename"
+    }:
+        fail("PRE-NOTICE signature authority has the wrong schema shape")
+    scope = decision["scope"]
+    if not isinstance(scope, dict) or set(scope) != set(NOTICE_SCOPE) or any(
+        scope[key] is not expected for key, expected in NOTICE_SCOPE.items()
+    ):
+        fail("PRE-NOTICE scope must authorize only exact notice publication")
+    for field, name in (
+        ("release_packet", "RELEASE-PACKET.json"),
+        ("dark_start_decision", "DARK-START-DECISION.json"),
+        ("dark_start_initiation_evidence", "DARK-START-INITIATION-EVIDENCE.json"),
+        ("dark_registration_evidence", "DARK-REGISTRATION-EVIDENCE.json"),
+    ):
+        if decision[field] != exact_pair(files, name, name + ".sig"):
+            fail(f"PRE-NOTICE {field} differs from the completed authority chain")
+    for field, name in (
+        ("private_soak_evidence_sha256", "PRIVATE-SOAK-EVIDENCE.json"),
+        ("halt_rehearsal_evidence_sha256", "HALT-REHEARSAL-EVIDENCE.json"),
+    ):
+        if decision[field] != sha256(files[name]):
+            fail(f"PRE-NOTICE {field} differs from the bundled artifact")
+    notice = decision["notice"]
+    if not isinstance(notice, dict) or set(notice) != {
+        "filename", "sha256", "public_url"
+    } or not (
+        notice["filename"] == "PUBLIC-NOTICE.md"
+        and notice["sha256"] == sha256(files["PUBLIC-NOTICE.md"])
+    ):
+        fail("PRE-NOTICE notice differs from the exact bundled bytes")
+    require_notice_url(notice["public_url"])
+    try:
+        notice_text = files["PUBLIC-NOTICE.md"].decode("utf-8")
+    except UnicodeDecodeError:
+        fail("PRE-NOTICE notice must be UTF-8 text")
+    if (
+        not notice_text.strip()
+        or "\x00" in notice_text
+        or contains_placeholder(notice_text)
+    ):
+        fail("PRE-NOTICE notice is empty, contains NUL, or retains a placeholder")
+    plan = decision["checkpoint_plan"]
+    if not isinstance(plan, dict) or set(plan) != {
+        "checkpoint_state_height", "final_committed_anchor_height", "halt_trigger_height"
+    }:
+        fail("PRE-NOTICE checkpoint plan has the wrong schema shape")
+    f, a, h = (
+        plan["checkpoint_state_height"], plan["final_committed_anchor_height"],
+        plan["halt_trigger_height"],
+    )
+    if not all(isinstance(value, str) and POSITIVE_HEIGHT.fullmatch(value) for value in (f, a, h)):
+        fail("PRE-NOTICE F/A/H is malformed")
+    if int(a) != int(f) + 1 or int(h) != int(a) + 1:
+        fail("PRE-NOTICE must satisfy A=F+1 and H=A+1")
+    created_epoch = canonical_epoch(decision["created_at"], "PRE-NOTICE creation time")
+    deadline_epoch = canonical_epoch(
+        decision["publication_deadline"], "PRE-NOTICE publication deadline"
+    )
+    now = int(dt.datetime.now(tz=dt.timezone.utc).timestamp())
+    if not (
+        dark_registration_signature_epoch <= created_epoch <= signature_epoch <= now
+        and soak_end_ns <= created_epoch * 1_000_000_000
+        and rehearsal_epoch <= created_epoch
+        and signature_epoch <= deadline_epoch
+    ):
+        fail("PRE-NOTICE signature/soak/rehearsal/deadline chronology is non-monotonic")
+    if prepublish and now > deadline_epoch:
+        fail("PRE-NOTICE publication deadline has passed")
+    return exact_pair(files, "PRE-NOTICE-DECISION.json", "PRE-NOTICE-DECISION.json.sig"), deadline_epoch
+
+
+def validate_notice_publication(
+    files: dict[str, bytes],
+    objects: dict[str, Any],
+    notice_pair: dict[str, str],
+    signature_epoch: int,
+    deadline_epoch: int,
+) -> int:
+    decision = objects["PRE-NOTICE-DECISION.json"]
+    cutover = objects["CUTOVER-DECISION.json"]
+    publication = objects["PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json"]
+    if not isinstance(publication, dict) or set(publication) != {
+        "schema", "pre_notice_decision", "notice_sha256", "published_at",
+        "publication_capture_sha256", "public_url",
+    }:
+        fail("notice publication evidence has the wrong schema shape")
+    if not (
+        publication["schema"] == "zerone-public-notice-publication-evidence-v2"
+        and publication["pre_notice_decision"] == notice_pair
+        and publication["notice_sha256"] == decision["notice"]["sha256"]
+        and publication["public_url"] == decision["notice"]["public_url"]
+        and cutover.get("pre_notice_decision") == notice_pair
+        and cutover.get("checkpoint_plan") == decision["checkpoint_plan"]
+        and cutover.get("public_notice_publication_evidence_sha256")
+        == sha256(files["PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json"])
+        and cutover.get("public_notice_published_at") == publication["published_at"]
+    ):
+        fail("CUTOVER notice publication differs from PRE-NOTICE authority or bundled evidence")
+    capture = files["PUBLIC-NOTICE-CAPTURE.md"]
+    if (
+        capture != files["PUBLIC-NOTICE.md"]
+        or publication["publication_capture_sha256"] != sha256(capture)
+    ):
+        fail("notice publication capture does not match the authorized notice bytes")
+    published_epoch = canonical_epoch(publication["published_at"], "notice publication time")
+    now = int(dt.datetime.now(tz=dt.timezone.utc).timestamp())
+    if not signature_epoch <= published_epoch <= min(deadline_epoch, now):
+        fail("notice publication was outside its signed authorization window")
+    return published_epoch
+
+
 def validate_cutover_chain(
     files: dict[str, bytes],
     paths: dict[str, pathlib.Path],
@@ -2828,9 +3007,10 @@ def validate_cutover_chain(
     config_policy: pathlib.Path,
     dark_registration_only: bool = False,
     dark_preinit: bool = False,
+    notice_prepublish: bool = False,
 ) -> tuple[str, str, str]:
-    if dark_registration_only and dark_preinit:
-        fail("DARK verification stage is internally inconsistent")
+    if sum((dark_registration_only, dark_preinit, notice_prepublish)) > 1:
+        fail("verification stage is internally inconsistent")
     release = objects["RELEASE-PACKET.json"]
     dark = objects["DARK-START-DECISION.json"]
     dark_init = objects.get("DARK-START-INITIATION-EVIDENCE.json")
@@ -2849,6 +3029,10 @@ def validate_cutover_chain(
             )
         )
     if not dark_registration_only and not dark_preinit:
+        signature_payloads.append(
+            ("PRE-NOTICE-DECISION.json", "PRE-NOTICE-DECISION.json.sig")
+        )
+    if not dark_registration_only and not dark_preinit and not notice_prepublish:
         signature_payloads.append(
             ("CUTOVER-DECISION.json", "CUTOVER-DECISION.json.sig")
         )
@@ -3079,66 +3263,6 @@ def validate_cutover_chain(
         )
     )
 
-    if not isinstance(cutover, dict) or cutover.get("schema") != "zerone-2-cutover-decision-v1":
-        fail("CUTOVER decision schema changed")
-    if not (
-        cutover.get("decision") == "GO"
-        and cutover.get("release_packet_sha256") == release_pair["sha256"]
-        and cutover.get("release_packet_detached_signature_sha256")
-        == release_pair["detached_signature_sha256"]
-        and cutover.get("dark_start_decision_sha256") == dark_pair["sha256"]
-        and cutover.get("dark_start_detached_signature_sha256")
-        == dark_pair["detached_signature_sha256"]
-        and cutover.get("dark_start_initiation_evidence_sha256")
-        == dark_init_pair["sha256"]
-        and cutover.get("dark_start_initiation_evidence_detached_signature_sha256")
-        == dark_init_pair["detached_signature_sha256"]
-        and cutover.get("dark_registration_evidence_sha256")
-        == dark_registration_pair["sha256"]
-        and cutover.get("dark_registration_evidence_detached_signature_sha256")
-        == dark_registration_pair["detached_signature_sha256"]
-    ):
-        fail("CUTOVER does not bind the exact predecessor authority chain")
-    raw_hashes = {
-        "private_soak_evidence_sha256": "PRIVATE-SOAK-EVIDENCE.json",
-        "halt_rehearsal_evidence_sha256": "HALT-REHEARSAL-EVIDENCE.json",
-        "public_notice_sha256": "PUBLIC-NOTICE.md",
-    }
-    for field, filename in raw_hashes.items():
-        if cutover.get(field) != sha256(files[filename]):
-            fail(f"CUTOVER {field} differs from the bundled artifact")
-    for field in raw_hashes:
-        require_hash(cutover.get(field), f"CUTOVER {field}")
-
-    notice_publication = objects["PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json"]
-    if not isinstance(notice_publication, dict) or set(notice_publication) != {
-        "schema",
-        "notice_sha256",
-        "published_at",
-        "publication_capture_sha256",
-        "public_url",
-    }:
-        fail("notice publication evidence has the wrong schema shape")
-    if not (
-        notice_publication["schema"]
-        == "zerone-public-notice-publication-evidence-v1"
-        and notice_publication["notice_sha256"] == sha256(files["PUBLIC-NOTICE.md"])
-        and cutover.get("public_notice_publication_evidence_sha256")
-        == sha256(files["PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json"])
-        and cutover.get("public_notice_published_at")
-        == notice_publication["published_at"]
-        and isinstance(notice_publication["public_url"], str)
-        and notice_publication["public_url"].startswith("https://")
-    ):
-        fail("CUTOVER notice publication evidence is incomplete or mismatched")
-    require_hash(
-        notice_publication["publication_capture_sha256"],
-        "notice publication capture",
-    )
-    notice_epoch = canonical_epoch(
-        notice_publication["published_at"], "notice publication time"
-    )
-
     soak = objects["PRIVATE-SOAK-EVIDENCE.json"]
     soak_keys = {
         "schema",
@@ -3251,6 +3375,47 @@ def validate_cutover_chain(
     )
     rehearsal_epoch = canonical_epoch(
         rehearsal["completed_at"], "halt rehearsal completion time"
+    )
+
+    notice_pair, notice_deadline_epoch = validate_pre_notice(
+        files, objects, signature_times["PRE-NOTICE-DECISION.json"],
+        dark_registration_signature_epoch, soak_end_ns, rehearsal_epoch,
+        notice_prepublish,
+    )
+    if notice_prepublish:
+        return "", "", ""
+
+    if not isinstance(cutover, dict) or cutover.get("schema") != "zerone-2-cutover-decision-v1":
+        fail("CUTOVER decision schema changed")
+    if not (
+        cutover.get("decision") == "GO"
+        and cutover.get("release_packet_sha256") == release_pair["sha256"]
+        and cutover.get("release_packet_detached_signature_sha256")
+        == release_pair["detached_signature_sha256"]
+        and cutover.get("dark_start_decision_sha256") == dark_pair["sha256"]
+        and cutover.get("dark_start_detached_signature_sha256")
+        == dark_pair["detached_signature_sha256"]
+        and cutover.get("dark_start_initiation_evidence_sha256")
+        == dark_init_pair["sha256"]
+        and cutover.get("dark_start_initiation_evidence_detached_signature_sha256")
+        == dark_init_pair["detached_signature_sha256"]
+        and cutover.get("dark_registration_evidence_sha256")
+        == dark_registration_pair["sha256"]
+        and cutover.get("dark_registration_evidence_detached_signature_sha256")
+        == dark_registration_pair["detached_signature_sha256"]
+    ):
+        fail("CUTOVER does not bind the exact predecessor authority chain")
+    raw_hashes = {
+        "private_soak_evidence_sha256": "PRIVATE-SOAK-EVIDENCE.json",
+        "halt_rehearsal_evidence_sha256": "HALT-REHEARSAL-EVIDENCE.json",
+        "public_notice_sha256": "PUBLIC-NOTICE.md",
+    }
+    for field, filename in raw_hashes.items():
+        if cutover.get(field) != sha256(files[filename]):
+            fail(f"CUTOVER {field} differs from the bundled artifact")
+    notice_epoch = validate_notice_publication(
+        files, objects, notice_pair,
+        signature_times["PRE-NOTICE-DECISION.json"], notice_deadline_epoch,
     )
 
     plan = cutover.get("checkpoint_plan", {})
@@ -3432,15 +3597,8 @@ def validate_cutover_chain(
             and evidence.get("deadline_satisfied") is True
             and evidence.get("public_notice", {}).get("sha256")
             == cutover["public_notice_sha256"]
-            and isinstance(
-                evidence.get("public_notice", {}).get(
-                    "publication_evidence_sha256"
-                ),
-                str,
-            )
-            and HASH.fullmatch(
-                evidence["public_notice"]["publication_evidence_sha256"]
-            )
+            and evidence.get("public_notice", {}).get("publication_evidence_sha256")
+            == sha256(files["PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json"])
             and committed.get("signed_tx_bytes_sha256")
             == tx["signed_tx_bytes_sha256"]
             and committed.get("expected_transaction_hash")
@@ -4423,6 +4581,7 @@ def main() -> None:
         choices=(
             "dark-preinit",
             "dark-registration-preinit",
+            "notice-prepublish",
             "cutover-preinit",
             "cutover-postinit",
             "open-preinit",
@@ -4497,13 +4656,18 @@ def main() -> None:
         "DARK-START-INITIATION-EVIDENCE.json",
         "DARK-START-INITIATION-EVIDENCE.json.sig",
     }
-    cutover_files = {
+    notice_files = {
         "DARK-REGISTRATION-EVIDENCE.json",
         "DARK-REGISTRATION-EVIDENCE.json.sig",
         "PRIVATE-SOAK-EVIDENCE.json",
         "HALT-REHEARSAL-EVIDENCE.json",
         "PUBLIC-NOTICE.md",
+        "PRE-NOTICE-DECISION.json",
+        "PRE-NOTICE-DECISION.json.sig",
+    }
+    cutover_files = {
         "PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json",
+        "PUBLIC-NOTICE-CAPTURE.md",
         "fly.halt-signer.toml",
         "fly.observer.toml",
         "CUTOVER-SIGNED-TX.json",
@@ -4550,6 +4714,8 @@ def main() -> None:
     if args.stage != "dark-preinit":
         required |= dark_post
     if args.stage not in {"dark-preinit", "dark-registration-preinit"}:
+        required |= notice_files
+    if args.stage not in {"dark-preinit", "dark-registration-preinit", "notice-prepublish"}:
         required |= cutover_files
     if args.stage in {"cutover-postinit", "open-preinit", "open-postinit"}:
         required |= cutover_post
@@ -4579,6 +4745,8 @@ def main() -> None:
     decision_name = (
         "DARK-START-DECISION.json"
         if args.stage in {"dark-preinit", "dark-registration-preinit"}
+        else "PRE-NOTICE-DECISION.json"
+        if args.stage == "notice-prepublish"
         else "CUTOVER-DECISION.json"
         if args.stage.startswith("cutover")
         else "OPEN-BETA-DECISION.json"
@@ -4647,6 +4815,8 @@ def main() -> None:
             "DARK-START-INITIATION-EVIDENCE.json",
             *MONITORING_ARTIFACT_FILES.values(),
             "DARK-REGISTRATION-EVIDENCE.json",
+            "PRE-NOTICE-DECISION.json",
+            "PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json",
             "CUTOVER-DECISION.json",
             "CUTOVER-INITIATION-EVIDENCE.json",
             "zerone-1-archive-transition.json",
@@ -4702,6 +4872,16 @@ def main() -> None:
                 config_policy_path,
                 dark_registration_only=True,
             )
+        elif args.stage == "notice-prepublish":
+            validate_cutover_chain(
+                files,
+                paths,
+                objects,
+                args.expected_main,
+                False,
+                config_policy_path,
+                notice_prepublish=True,
+            )
         elif args.stage.startswith("cutover"):
             validate_cutover_chain(
                 files,
@@ -4752,7 +4932,10 @@ def main() -> None:
                 temp_path,
             )
 
-    print("authority-chain: MATCH")
+    if args.stage == "notice-prepublish":
+        print("authority-chain: MATCH (pre-notice publication only)")
+    else:
+        print("authority-chain: MATCH")
 
 
 if __name__ == "__main__":

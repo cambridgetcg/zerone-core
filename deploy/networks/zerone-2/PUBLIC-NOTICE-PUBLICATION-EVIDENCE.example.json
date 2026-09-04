@@ -1,0 +1,11 @@
+{
+  "schema": "zerone-public-notice-publication-evidence-v2",
+  "pre_notice_decision": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "notice_sha256": "REPLACE_WITH_64_HEX",
+  "published_at": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+  "publication_capture_sha256": "REPLACE_WITH_PUBLIC_NOTICE_CAPTURE_BODY_64_HEX",
+  "public_url": "https://REPLACE_WITH_REVIEWED_PUBLIC_HOST/REPLACE_WITH_NOTICE_PATH"
+}

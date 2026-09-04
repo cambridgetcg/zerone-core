@@ -1,7 +1,8 @@
 # Draft — Zerone public relaunch notice
 
-**Do not publish until every `REPLACE_*` field is final and the operator gives
-the explicit cutover go-ahead.**
+**Do not publish until every placeholder is final, the exact notice and
+URL have a signed PRE-NOTICE decision, and `notice-prepublish` passes before
+that decision's deadline. CUTOVER authorization comes after publication.**
 
 Zerone is preparing a defensive public relaunch from `zerone-1` to
 `zerone-2`.
@@ -12,11 +13,13 @@ not established that those keys were misused. Because a public chain should not
 ask people to trust an uncertain custody boundary, we are rotating every role
 and rebuilding the infrastructure instead of minimizing the risk in words.
 
-The `zerone-1` transition uses three consecutive heights: checkpoint state
+The proposed `zerone-1` transition uses three consecutive heights: checkpoint
+state
 **F=REPLACE_F** (estimated **REPLACE_TIME**), empty final committed anchor
 **A=REPLACE_A=F+1**, and SDK halt trigger **H=REPLACE_H=A+1**. Block `A`'s
 signed header `AppHash` anchors state `F`, so official `zerone-1` history ends at
-`A`, not `H`. Its original genesis SHA-256 is
+`A`, not `H`, if the later CUTOVER decision authorizes this exact plan. Its
+original genesis SHA-256 is
 `c30a523b9764fb76c84a53d99fcdabb966d16e7a4d3f15426ab7af5e8576170e`.
 
 Transaction ingress and both mempools will be closed before `F`, so `A` and `H`
@@ -53,12 +56,18 @@ inventory by policy.
   **REPLACE_GATEWAY_REGISTRY_REF@sha256:REPLACE_GATEWAY_DIGEST**
 - Validator: **REPLACE_VALIDATOR_PUBLIC_IDENTITY**
 
-Before this cutover authorization, that exact production successor ran
+Before this notice was authorized, that exact production successor ran
 privately for at least 1,000 blocks and 60 minutes with no public Fly service
 or P2P address. Its validator, edge, registration transactions, alerts,
 recovery, and query-gateway path were exercised before any `zerone-1`
 transaction or halt was authorized. The signed transition package contains the
 soak evidence and exact config hashes.
+
+This notice is authorized only for publication; it does not authorize a
+transaction or halt. A separate CUTOVER decision will follow only after the
+exact notice's publication evidence has been reviewed and the proposed plan
+remains feasible. If CUTOVER does not proceed, a separately authorized status
+update will explain the change.
 
 This pre-cutover notice does not itself open any endpoint. A separate main-key
 OPEN-BETA decision will be signed only after the old signer is fenced, the
@@ -105,13 +114,12 @@ knowledge admission/rewards, alignment corrections, counterexamples, and
 liquidity-pool creation are latched off. Activating any of them requires a
 separately reviewed and publicly disclosed upgrade or governance action.
 
-Public endpoints planned for activation only after OPEN-BETA verification:
+Service changes planned only after OPEN-BETA verification:
 
-- RPC: **REPLACE_RPC**
-- REST: **REPLACE_REST**
-- gRPC: **not publicly available in the initial beta**
-- P2P seed: **REPLACE_NODE_ID@REPLACE_HOST:26656**
-- `zerone-1` archive RPC/REST gateway: **REPLACE_ARCHIVE** (serving BlockStore
+- Query-only RPC and REST, with coordinates published after OPEN-BETA initiation.
+- gRPC: **not publicly available in the initial beta**.
+- Public P2P, with peer coordinates published after OPEN-BETA initiation.
+- A `zerone-1` archive RPC/REST gateway (serving BlockStore
   and ABCI both end at `A`; the signed evidence package preserves
   application-unapplied `H`)
 
@@ -136,5 +144,5 @@ reuse a `zerone-1` database, consensus key, node key, identity key, mnemonic, or
 signer state.
 
 We will publish the final hashes, signatures, transaction commitments, custom
-validator registration proof, and relaunch postmortem together. Until then,
-values marked `REPLACE_*` are proposals—not final network coordinates.
+validator registration proof, and relaunch postmortem together. Successor
+network coordinates are withheld until OPEN-BETA initiation.

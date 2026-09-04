@@ -131,6 +131,7 @@ case "${schema}" in
   zerone-2-dark-start-decision-v1) timestamp=1783678260 ;;
   zerone-2-dark-start-initiation-evidence-v1) timestamp=1783678920 ;;
   zerone-2-dark-registration-evidence-v1) timestamp=1783680000 ;;
+  zerone-2-pre-notice-decision-v1) timestamp=1783686420 ;;
   zerone-2-cutover-decision-v1) timestamp=1783688460 ;;
   zerone-2-cutover-initiation-evidence-v1) timestamp=1783692120 ;;
   zerone-1-archive-adoption-authority-v1)
