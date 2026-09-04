@@ -1,0 +1,48 @@
+{
+  "schema": "zerone-2-pre-notice-decision-v1",
+  "decision": "REPLACE_WITH_GO_OR_NO_GO",
+  "created_at": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+  "operator": "REPLACE_WITH_OPERATOR_ID",
+  "signature_authority": {
+    "algorithm": "openpgp",
+    "authorized_signer_fingerprint": "REPLACE_WITH_AUTHORIZED_RELEASE_AND_DECISION_SIGNER_40_OR_64_HEX",
+    "detached_signature_filename": "PRE-NOTICE-DECISION.json.sig"
+  },
+  "release_packet": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "dark_start_decision": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "dark_start_initiation_evidence": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "dark_registration_evidence": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
+  "private_soak_evidence_sha256": "REPLACE_WITH_64_HEX",
+  "halt_rehearsal_evidence_sha256": "REPLACE_WITH_64_HEX",
+  "notice": {
+    "filename": "PUBLIC-NOTICE.md",
+    "sha256": "REPLACE_WITH_64_HEX",
+    "public_url": "https://REPLACE_WITH_REVIEWED_PUBLIC_HOST/REPLACE_WITH_NOTICE_PATH"
+  },
+  "checkpoint_plan": {
+    "checkpoint_state_height": "REPLACE_F",
+    "final_committed_anchor_height": "REPLACE_A",
+    "halt_trigger_height": "REPLACE_H"
+  },
+  "publication_deadline": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
+  "scope": {
+    "publish_exact_notice": true,
+    "broadcast_transaction": false,
+    "halt_chain": false,
+    "deploy_service": false,
+    "publish_network_coordinates": false,
+    "change_dns": false
+  }
+}

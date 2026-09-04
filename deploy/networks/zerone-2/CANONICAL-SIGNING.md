@@ -1,6 +1,6 @@
 # Canonical authority and attestation bytes
 
-One immutable release root and three independently immutable operator
+One immutable release root and four independently immutable operator
 decisions define the launch:
 
 1. `RELEASE-PACKET.json`, made from `RELEASE-PACKET.example.json`, fixes the
@@ -9,15 +9,22 @@ decisions define the launch:
    the exact custom-staking census binary/execution-evidence contract.
 2. `DARK-START-DECISION.json` references the release bytes and may authorize
    only the private successor boot, registration, and soak.
-3. `CUTOVER-DECISION.json` references the unchanged release packet, dark-start
+3. `PRE-NOTICE-DECISION.json` references the unchanged release, dark-start,
+   initiation, and registration payload/signature pairs plus completed soak and
+   halt-rehearsal evidence. It authorizes only the exact notice bytes at one
+   HTTPS URL before its publication deadline and binds the proposed F/A/H plan.
+   It does not depend on a future CUTOVER decision or publication evidence.
+4. `CUTOVER-DECISION.json` references the unchanged release packet, dark-start
    decision/signature, completed soak evidence, exact F/A/H, halt configs, and
-   a narrowly deterministic private archive continuation.
-4. `OPEN-BETA-DECISION.json` is created only after the private archive and final
+   a narrowly deterministic private archive continuation. It also binds the
+   preceding pre-notice payload/signature pair and actual publication evidence;
+   it grants no notice-publication authority.
+5. `OPEN-BETA-DECISION.json` is created only after the private archive and final
    checkpoint exist. It references every prior authority/evidence hash and may
    authorize only the exact history-link transaction followed by the public
    profiles, coordinates, DNS manifest, and evidence publication.
 
-The main release/operator key signs all four. The fingerprint is the same
+The main release/operator key signs all five. The fingerprint is the same
 independently pinned fingerprint used to verify the signed release tag. It is
 supplied out-of-band before the ceremony and must equal the single `VALIDSIG`
 fingerprint for every payload.
@@ -65,21 +72,25 @@ main key. It cannot authorize a public service or operator decision.
 The resulting acyclic graph is:
 
 ```text
-RELEASE -> DARK-START -> dark-initiation -> registration-evidence -> CUTOVER
-                                            |
-                                            v
-                                  cutover-initiation -> ARCHIVE-ADOPTION ----+
-                                            |                               |
-                                            +-> CENSUS-EXECUTION-EVIDENCE --+
-                                                                            |
-                                                                            v
-                                                                    FINAL-CHECKPOINT
-                                                            |
-                                                            v
-                                                       OPEN-BETA
-                                                            |
-                                                            v
-                                          open-beta-initiation -> PUBLIC
+RELEASE -> DARK-START -> dark-initiation -> registration-evidence
+                                                   |
+                                      completed soak/halt rehearsal
+                                                   |
+                                              PRE-NOTICE
+                                                   |
+                                          publication evidence
+                                                   |
+                                                CUTOVER
+                                                   |
+                                            cutover-initiation
+                                                   |
+                              ARCHIVE-ADOPTION + CENSUS-EXECUTION-EVIDENCE
+                                                   |
+                                           FINAL-CHECKPOINT
+                                                   |
+                                               OPEN-BETA
+                                                   |
+                                      open-beta-initiation -> PUBLIC
 ```
 
 The inner archive-transition manifest contains only halt/source/candidate and
@@ -90,6 +101,17 @@ then FINAL, then OPEN-BETA. No earlier file contains a later file's hash.
 The exact append-only inventory and verifier stage contract are in
 [`AUTHORITY-BUNDLE.md`](AUTHORITY-BUNDLE.md). The connected-action order and
 current command lines are in [`CUTOVER.md`](CUTOVER.md).
+
+`notice-prepublish` verifies the completed predecessor evidence and live
+publication deadline before the exact notice may be posted. After publication,
+the v2 publication evidence binds that same authority pair, URL, notice hash,
+publication time, and the hash of `PUBLIC-NOTICE-CAPTURE.md`. The capture must
+be the actual observed response body and byte-equal the signed notice. Later
+CUTOVER verification requires publication after the pre-notice signature and
+no later than its deadline; it may verify that historical event after the
+deadline expires. This grants no new publication or replacement-post authority.
+The capture and signed downstream evidence are an operator attestation, not
+independent cryptographic proof of HTTPS delivery or publication time.
 
 ## Exact canonical bytes
 

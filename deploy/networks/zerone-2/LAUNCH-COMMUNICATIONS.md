@@ -6,11 +6,13 @@ This plan turns attention into informed participation. It does not authorize a
 post, announcement, endpoint, token promotion, validator invitation, or network
 launch. Public communication must follow the evidence order in
 [`CUTOVER.md`](CUTOVER.md). The exact transition notice must be public before
-CUTOVER is signed, but the current artifact graph has no earlier signed
-decision authorizing that publication. The pre-notice and CUTOVER phases
-therefore remain NO-GO until a distinct main-key decision binds the exact notice
-bytes, URL, deadline, and narrow publication-only scope. Only OPEN-BETA may
-publish live `zerone-2` coordinates.
+CUTOVER is signed. A distinct main-key `PRE-NOTICE-DECISION.json` now binds the
+exact notice bytes, URL, proposed F/A/H, completed predecessor evidence, and
+publication deadline with notice-only scope. The `notice-prepublish` gate
+verifies it before posting without requiring any later publication or CUTOVER
+artifact. Real signed inputs and publication evidence remain absent from this
+source preparation; pre-notice and CUTOVER remain NO-GO until those gates pass.
+Only OPEN-BETA may publish `zerone-2` network coordinates.
 
 ## Persuasion standard
 
@@ -95,21 +97,26 @@ blockers—not impressions or follower counts.
 RELEASE does not authorize a live-network announcement or the old-chain
 transition.
 
-### 2. Transition pre-notice — blocked on distinct signed authority
+### 2. Transition pre-notice — after PRE-NOTICE verifies
 
-- Add and independently review a main-key pre-notice decision that binds the
-  exact notice bytes, destination URL, publication deadline, and
-  publication-only scope. A later CUTOVER decision cannot retroactively
-  authorize its own prerequisite.
-- Only after that decision verifies, publish the exact notice stating the
+- Complete and independently review the main-key pre-notice decision binding
+  the exact notice bytes, destination URL, publication deadline, proposed
+  F/A/H, and verified release/DARK/registration/soak/rehearsal evidence.
+- Only after `notice-prepublish` verifies, publish the exact notice stating the
   proposed `F/A/H` boundary, observation window, expected service changes,
   custody model, and abort/forward-only boundaries.
-- Capture byte-bound publication evidence, then complete and sign CUTOVER as
-  specified by the operational contract.
+- Capture the observed response body as `PUBLIC-NOTICE-CAPTURE.md`; it must
+  byte-match the signed notice. Complete v2 publication evidence binding its
+  hash, the exact URL, publication time, and pre-notice authority pair, then
+  complete and sign CUTOVER as specified by the operational contract. This is
+  reviewed operator evidence, not cryptographic proof of network publication.
 - Maintain one timestamped status page; corrections append rather than silently
   replacing earlier claims.
 
 Do not publish successor peers, endpoints, DNS, or a "live" claim in this phase.
+Timely historical publication remains verifiable after the publication
+deadline. That does not authorize a new post, replacement notice, or correction
+with different bytes; those require their own prior communication authority.
 
 ### 3. Open beta — only after OPEN-BETA initiation verifies
 

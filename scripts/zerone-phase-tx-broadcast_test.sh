@@ -115,6 +115,7 @@ case "$*" in
   *DARK-START-DECISION.json.sig*) timestamp=1783678260 ;;
   *DARK-START-INITIATION-EVIDENCE.json.sig*) timestamp=1783678920 ;;
   *DARK-REGISTRATION-EVIDENCE.json.sig*) timestamp=1783680000 ;;
+  *PRE-NOTICE-DECISION.json.sig*) timestamp=1783686420 ;;
   *CUTOVER-DECISION.json.sig*) timestamp=1783688460 ;;
   *CUTOVER-INITIATION-EVIDENCE.json.sig*) timestamp=1783692120 ;;
   *ARCHIVE-ADOPTION-AUTHORITY.json.sig*)

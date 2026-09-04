@@ -14,7 +14,7 @@ Every production gate snapshots the files it needs, rejects symlinks, verifies
 the exact signed graph, and fails if a required byte or release-bound operator
 tool has changed.
 
-`deploy/verify-authority-chain.py` exposes six monotonically stronger stages:
+`deploy/verify-authority-chain.py` exposes seven stages:
 
 1. `dark-preinit` verifies RELEASE, DARK-START, both exact private bootstrap
    transactions, the complete monitoring package, release-bound operator
@@ -22,18 +22,27 @@ tool has changed.
    trusted root before private block 1 may start.
 2. `dark-registration-preinit` adds block-1
    initiation evidence before either exact private bootstrap transaction.
-3. `cutover-preinit` adds ordered registration evidence, private soak, halt
-   rehearsal, public notice, halt configs, and the CUTOVER transaction/decision.
-4. `cutover-postinit` additionally requires the signed evidence that the exact
+3. `notice-prepublish` adds ordered registration evidence, completed private
+   soak and halt rehearsal, exact notice bytes, and the signed PRE-NOTICE
+   decision. It checks the live publication deadline and needs no later
+   publication evidence or CUTOVER artifact.
+4. `cutover-preinit` adds byte-matched notice capture and v2 publication evidence,
+   halt configs, and the CUTOVER transaction/decision. It verifies that the
+   notice was published within PRE-NOTICE authority and before CUTOVER creation.
+5. `cutover-postinit` additionally requires the signed evidence that the exact
    CUTOVER TxRaw committed successfully and before its deadline.
-5. `open-preinit` adds the complete frozen predecessor evidence, deterministic
+6. `open-preinit` adds the complete frozen predecessor evidence, deterministic
    archive adoption, FINAL checkpoint, successor revalidation, public configs,
    DNS manifest, and the exact OPEN history-link transaction.
-6. `open-postinit` additionally requires the signed evidence that the exact
+7. `open-postinit` additionally requires the signed evidence that the exact
    history-link TxRaw committed successfully and before its deadline.
 
-Passing a later stage implies successful revalidation of every earlier stage.
-The verifier is read-only and does not contact a chain, Fly, or DNS.
+Later stages revalidate the earlier authority and evidence. Completed events
+use their signed historical deadlines; they do not require an earlier
+publication or broadcast window to remain open. A timely published notice
+remains verifiable after its deadline, without granting new publication
+authority. The verifier is read-only and does not contact a chain, Fly, DNS,
+or the notice URL.
 
 ## Authority and release files
 
@@ -188,13 +197,30 @@ as the trust bootstrap. Copy the compared verifier as
 `zerone-component-signature-verifier`, calculate both hashes, and place them in
 `OPERATOR-TOOL-MANIFEST.json` before canonicalizing and signing RELEASE.
 
-## CUTOVER additions
+## PRE-NOTICE additions
 
-Before CUTOVER the directory also contains:
+Before exact notice publication the directory also contains:
 
 - `DARK-REGISTRATION-EVIDENCE.json` and `.sig`;
 - `PRIVATE-SOAK-EVIDENCE.json` and `HALT-REHEARSAL-EVIDENCE.json`;
-- `PUBLIC-NOTICE.md` and `PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json`;
+- `PUBLIC-NOTICE.md`;
+- `PRE-NOTICE-DECISION.json` and `.sig`.
+
+The canonical main-key PRE-NOTICE decision binds the exact release/DARK/
+initiation/registration payload and signature pairs, completed soak/rehearsal
+hashes, notice hash, exact HTTPS URL, proposed F/A/H, creation time, and
+publication deadline. Only publication of those exact notice bytes is enabled;
+all chain and infrastructure effects remain excluded. No later CUTOVER or
+publication artifact is a prerequisite of `notice-prepublish`.
+
+## CUTOVER additions
+
+After authorized notice publication, append:
+
+- `PUBLIC-NOTICE-CAPTURE.md`, the non-empty observed response body, byte-equal
+  to `PUBLIC-NOTICE.md`;
+- canonical `PUBLIC-NOTICE-PUBLICATION-EVIDENCE.json` using
+  `zerone-public-notice-publication-evidence-v2`;
 - `fly.halt-signer.toml` and `fly.observer.toml`;
 - `CUTOVER-SIGNED-TX.json`;
 - `CUTOVER-DECISION.json` and `.sig`.
@@ -202,6 +228,15 @@ Before CUTOVER the directory also contains:
 After the CUTOVER transaction commits, append
 `CUTOVER-INITIATION-EVIDENCE.json` and `.sig`. Do not replace any predecessor
 file.
+
+CUTOVER binds the pre-notice payload/signature pair. V2 publication evidence
+binds that same pair, notice hash, URL, publication time, and capture hash.
+Publication must occur after the pre-notice signature and by its deadline, and
+before CUTOVER creation/signature. The CUTOVER initiation evidence must use the
+exact publication JSON hash, which remains the same through archive and FINAL
+bindings. The capture is preserved as observed; no rendering or normalization
+may be substituted. These bytes and the downstream signatures are reviewed
+operator attestations, not cryptographic proof of internet delivery or time.
 
 ## Frozen `zerone-1` evidence
 
@@ -299,8 +334,19 @@ binary with a native rebuild, emulator wrapper, or script to make a production
 check pass.
 
 Run the verifier from the same signed release checkout whose operator-tool
-bytes are named by `OPERATOR-TOOL-MANIFEST.json`. For example, the final
-pre-public and post-public checks are:
+bytes are named by `OPERATOR-TOOL-MANIFEST.json`. Before exact notice publication:
+
+```bash
+python3 deploy/verify-authority-chain.py notice-prepublish \
+  /secure/authority-bundle '<main-full-fingerprint>' \
+  --release /secure/authority-bundle/RELEASE-PACKET.json \
+  --release-sig /secure/authority-bundle/RELEASE-PACKET.json.sig \
+  --decision /secure/authority-bundle/PRE-NOTICE-DECISION.json \
+  --decision-sig /secure/authority-bundle/PRE-NOTICE-DECISION.json.sig \
+  --config-policy deploy/validate-fly-phase-config.py --tool-root .
+```
+
+The final pre-public and post-public checks are:
 
 ```bash
 python3 deploy/verify-authority-chain.py open-preinit \
@@ -336,20 +382,21 @@ python3 deploy/verify-authority-chain.py open-postinit \
 ```
 
 The earlier stages use the same explicit release/config/tool arguments, the
-stage-appropriate DARK or CUTOVER decision pair, and only the initiation pair
-required by that stage. Never substitute a later-stage evidence pair into an
-earlier stage.
+stage-appropriate DARK, PRE-NOTICE, or CUTOVER decision pair, and only the
+initiation pair required by that stage. Never substitute a later-stage evidence
+pair into an earlier stage.
 
 ## Keys and connected actions
 
-The out-of-band main fingerprint signs RELEASE, all three operator decisions,
+The out-of-band main fingerprint signs RELEASE, all four operator decisions,
 and the four initiation/registration evidence files. The distinct transition
 fingerprint signs only the deterministic archive-adoption attestation, census
 execution evidence, and FINAL. Neither bundle possession nor the transition
 key grants deployment or transaction authority.
 
 Connected actions use the specialized gates in the order documented in
-[`CUTOVER.md`](CUTOVER.md): private successor/bootstrap first, CUTOVER observer
+[`CUTOVER.md`](CUTOVER.md): private successor/bootstrap first, separately
+authorized notice publication and capture, CUTOVER observer
 first and signer last, deterministic private archive, then the OPEN
 history-link transaction, public profiles, and DNS. Real signatures, real
 release artifacts, explicit human approval, and current live evidence remain

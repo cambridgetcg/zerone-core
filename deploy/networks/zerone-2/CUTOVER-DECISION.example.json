@@ -16,6 +16,10 @@
   "dark_start_initiation_evidence_detached_signature_sha256": "REPLACE_WITH_64_HEX",
   "dark_registration_evidence_sha256": "REPLACE_WITH_64_HEX",
   "dark_registration_evidence_detached_signature_sha256": "REPLACE_WITH_64_HEX",
+  "pre_notice_decision": {
+    "sha256": "REPLACE_WITH_64_HEX",
+    "detached_signature_sha256": "REPLACE_WITH_64_HEX"
+  },
   "private_soak_evidence_sha256": "REPLACE_WITH_64_HEX",
   "halt_rehearsal_evidence_sha256": "REPLACE_WITH_64_HEX",
   "public_notice_sha256": "REPLACE_WITH_PUBLIC_NOTICE_64_HEX",
@@ -27,7 +31,7 @@
     "broadcast_not_after": "REPLACE_WITH_YYYY_MM_DDTHH_MM_SSZ",
     "minimum_inclusion_margin_seconds": 300,
     "minimum_halt_lead_blocks": 100,
-    "if_not_initiated_by_deadline": "authorization lapses; publish a signed correction if notice was posted and do not arm or halt zerone-1",
+    "if_not_initiated_by_deadline": "authorization lapses; prepare a separately authorized signed correction if notice was posted and do not arm or halt zerone-1",
     "after_initiation": "the exact in-flight F/A/H evidence capture, signer fencing, evidence-derived private archive adoption, and final-checkpoint preparation remains authorized only while the signed plan and preconditions remain satisfiable; public exposure requires a later OPEN-BETA decision"
   },
   "checkpoint_plan": {
@@ -103,7 +107,6 @@
     "authority_limit": "transition key may sign only the deterministic renderer output for private archive candidate/final adoption; it cannot choose app, volume, image, topology, config bytes, public service, history link, endpoint publication, or DNS"
   },
   "scope_if_go": [
-    "publish exact public relaunch notice",
     "broadcast exact zerone-1 successor commitment transaction",
     "arm exact zerone-1 F/A/H halt plan",
     "manually fence zerone-1 signer after evidence capture",

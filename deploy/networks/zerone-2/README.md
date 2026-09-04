@@ -41,11 +41,11 @@ manifest discloses that limitation and preserves hashes of the raw evidence.
 
 The authoritative operational sequence and evidence gates are in
 [`CUTOVER.md`](CUTOVER.md) and [`GO-NO-GO.md`](GO-NO-GO.md). The checklist is
-not signed; the immutable release packet, three scoped operator decisions,
+not signed; the immutable release packet, four scoped operator decisions,
 four main-key initiation/registration evidence attestations, and two narrow
 transition-key attestations follow
 [`CANONICAL-SIGNING.md`](CANONICAL-SIGNING.md). The exact append-only file set
-and five fail-closed verification stages are documented in
+and seven fail-closed verification stages are documented in
 [`AUTHORITY-BUNDLE.md`](AUTHORITY-BUNDLE.md).
 
 Preparation for attention gathering and external explanation follows
@@ -64,9 +64,15 @@ copy under `zerone-2`; signing two independently editable templates would make
 the transition payload ambiguous.
 
 The signed phase graph is acyclic: RELEASE → DARK-START/initiation → private
-registration evidence → CUTOVER/initiation → generated ARCHIVE-ADOPTION plus
+registration and soak/rehearsal evidence → PRE-NOTICE → actual publication
+evidence → CUTOVER/initiation → generated ARCHIVE-ADOPTION plus
 generated custom-staking census execution evidence → FINAL-CHECKPOINT →
-OPEN-BETA/initiation → public profiles. CUTOVER may finish
+OPEN-BETA/initiation → public profiles. PRE-NOTICE authorizes only exact notice
+bytes at one HTTPS URL before its deadline; `notice-prepublish` verifies all
+completed predecessors without requiring future publication or CUTOVER bytes.
+CUTOVER later binds that authority and the byte-matched response-body capture;
+the recorded publication remains an operator attestation rather than a
+cryptographic proof of network delivery or time. CUTOVER may finish
 only the private historical package after its old-chain initiation event.
 Public P2P, query gateways, the history-link transaction, endpoints, and DNS
 require the later main-key OPEN-BETA decision. The transition key signs factual
