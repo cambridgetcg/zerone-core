@@ -226,6 +226,12 @@ not satisfy this contract.
 
 ## Release signatures and timestamps
 
+The standard Makefile build and install targets bind Git metadata to the exact
+checkout, including nested linked worktrees. The binary's `vcs.revision` and
+`vcs.modified` must describe the same source as its SDK commit field; the real
+ceremony and runtime-image gates reject a mismatched or dirty binary. Repeated
+byte equality alone cannot establish correct source provenance.
+
 Release authority and artifact provenance answer different questions:
 
 - OpenPGP signatures authorize a particular RELEASE, DARK, CUTOVER, FINAL, or
