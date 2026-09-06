@@ -8,6 +8,13 @@
 VERSION ?= $(shell git describe --tags --match 'v[0-9]*' --always --dirty 2>/dev/null || echo "dev")
 COMMIT  ?= $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 
+# Go can discover the parent repository when this checkout is a nested linked
+# worktree. Scope Git to the checkout for compilation so vcs.revision and
+# vcs.modified describe the same source as the explicit SDK commit field.
+BUILD_GIT_DIR := $(shell git rev-parse --absolute-git-dir)
+BUILD_WORK_TREE := $(shell git rev-parse --show-toplevel)
+GO_BUILD_ENV = GIT_DIR="$(BUILD_GIT_DIR)" GIT_WORK_TREE="$(BUILD_WORK_TREE)"
+
 LDFLAGS := -s -w \
            -X github.com/cosmos/cosmos-sdk/version.Name=zerone \
            -X github.com/cosmos/cosmos-sdk/version.AppName=zeroned \
@@ -21,7 +28,7 @@ LDFLAGS := -s -w \
 build:
 	mkdir -p build
 	@if [ "$$(/usr/bin/uname -s)" = Darwin ]; then $(MAKE) darwin-acl-helper; fi
-	go build -trimpath -ldflags "$(LDFLAGS)" -o build/zeroned ./cmd/zeroned
+	$(GO_BUILD_ENV) go build -trimpath -buildvcs=true -ldflags "$(LDFLAGS)" -o build/zeroned ./cmd/zeroned
 
 install:
 	@if [ "$$(/usr/bin/uname -s)" = Darwin ]; then $(MAKE) darwin-acl-helper; fi
@@ -48,7 +55,7 @@ install:
 		test "$$("$$bin_dir/darwin-acl-check" < "$$bin_dir")" = \
 			"zerone-darwin-acl-v1 clear"; \
 	fi
-	go install -ldflags "$(LDFLAGS)" ./cmd/zeroned
+	$(GO_BUILD_ENV) go install -buildvcs=true -ldflags "$(LDFLAGS)" ./cmd/zeroned
 
 test:
 	@if [ "$$(/usr/bin/uname -s)" = Darwin ]; then $(MAKE) darwin-acl-helper; fi
@@ -100,11 +107,11 @@ recursion-check:
 
 build-linux-amd64:
 	mkdir -p build
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o build/zeroned-linux-amd64 ./cmd/zeroned
+	$(GO_BUILD_ENV) GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -buildvcs=true -ldflags "$(LDFLAGS)" -o build/zeroned-linux-amd64 ./cmd/zeroned
 
 build-linux-arm64:
 	mkdir -p build
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o build/zeroned-linux-arm64 ./cmd/zeroned
+	$(GO_BUILD_ENV) GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -buildvcs=true -ldflags "$(LDFLAGS)" -o build/zeroned-linux-arm64 ./cmd/zeroned
 
 build-darwin-arm64:
 	@case "$$(/usr/bin/uname -s)" in Darwin) ;; *) \
@@ -112,7 +119,7 @@ build-darwin-arm64:
 		exit 1 ;; esac
 	mkdir -p build
 	@$(MAKE) darwin-acl-helper
-	GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)" -o build/zeroned-darwin-arm64 ./cmd/zeroned
+	$(GO_BUILD_ENV) GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -buildvcs=true -ldflags "$(LDFLAGS)" -o build/zeroned-darwin-arm64 ./cmd/zeroned
 
 build-all: build-linux-amd64 build-linux-arm64 build-darwin-arm64
 

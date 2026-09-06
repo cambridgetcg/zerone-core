@@ -53,6 +53,8 @@ jobs:
           cache: true
       - name: Build
         run: make build
+      - name: Verify nested-worktree build provenance
+        run: bash scripts/build-worktree-provenance-test.sh
       - name: Verify downloaded Go modules
         run: go mod verify
       - name: Mainnet key-custody entrypoint
@@ -782,6 +784,8 @@ jobs:
           cache: true
       - name: Build universal descriptor ACL inspector
         run: make darwin-acl-helper
+      - name: Verify nested-worktree build provenance on macOS
+        run: bash scripts/build-worktree-provenance-test.sh
       - name: Verify deterministic helper identity and bytes
         env:
           LC_ALL: C
