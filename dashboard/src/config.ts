@@ -1,3 +1,7 @@
+export { NETWORK_PROFILE } from "../network-profile";
+
+// Legacy wallet/API constants remain legacy. The observer takes its identity
+// only from NETWORK_PROFILE and never instantiates the legacy wallet client.
 export const CHAIN_ID = "zerone-1";
 export const CHAIN_NAME = "Zerone Mainnet";
 export const DENOM = "uzrn";

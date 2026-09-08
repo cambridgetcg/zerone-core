@@ -6,6 +6,7 @@ import {
   BLOCK_FRESHNESS_WINDOW_MS,
   assessNetworkReadiness,
   onboardingPresentation,
+  observerReadinessPresentation,
   type OnboardingState,
 } from "../src/onboarding";
 
@@ -36,6 +37,16 @@ function visibleText(fragment: string): string {
 const onboarding = elementById(html, "section", "onboarding");
 const onboardingStart = html.indexOf(onboarding);
 const onboardingEnd = onboardingStart + onboarding.length;
+
+describe("observer readiness text", () => {
+  it("separates intentional archive state from active stale and unknown", () => {
+    assert.match(observerReadinessPresentation("archive").label, /Frozen archive matched/);
+    assert.match(observerReadinessPresentation("archive").detail, /No freshness expectation/);
+    assert.match(observerReadinessPresentation("stale").detail, /Old or future/);
+    assert.match(observerReadinessPresentation("unavailable").detail, /Unknown is not zero/);
+    assert.match(observerReadinessPresentation("ready").detail, /Gateway observation only/);
+  });
+});
 
 describe("production onboarding surface", () => {
   it("is the first primary action and follows the honest-state disclosure", () => {

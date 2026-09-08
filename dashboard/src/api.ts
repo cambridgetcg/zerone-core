@@ -1,4 +1,5 @@
 import { CHAIN_ID, DECIMALS, DENOM, REST_ENDPOINT, RPC_ENDPOINT } from "./config";
+export { createObserverClient } from "./observer-api";
 import type { FeeGrantAllowance } from "./feegrant";
 import {
   normalizeLiquidityParams,
