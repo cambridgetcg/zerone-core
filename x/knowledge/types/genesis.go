@@ -321,6 +321,12 @@ func DefaultParams() Params {
 		// regardless — that part is non-optional.
 		GuardianAddresses:       []string{},
 		AddFactVetoWindowBlocks: 0,
+
+		// Signed-use beta starts disabled, without an admitted cohort.
+		FactUseEnabled:             false,
+		FactUseConsumers:           []string{},
+		FactUseMaxPerConsumerEpoch: MaxFactUsePerConsumerEpoch,
+		FactUseMaxPerEpoch:         MaxFactUsePerEpoch,
 	}
 }
 
@@ -520,6 +526,11 @@ func (gs *GenesisState) Validate() error {
 			return fmt.Errorf("duplicate claim ID: %s", c.Id)
 		}
 		seenClaims[c.Id] = true
+		// Bound the new evidence field without retroactively imposing current
+		// transaction reason limits on preserved historical claims.
+		if err := ValidateChallengeEvidenceIDs(c.ChallengeEvidenceIds); err != nil {
+			return fmt.Errorf("claim %s: %w", c.Id, err)
+		}
 	}
 
 	// Verify unique domain names.
@@ -546,7 +557,7 @@ func (gs *GenesisState) Validate() error {
 		}
 	}
 
-	return nil
+	return gs.validateFeedbackGenesis()
 }
 
 // validateGenesisFundAllocation accepts the historical empty value as zero,
@@ -571,6 +582,9 @@ func validateGenesisFundAllocation(field, value string) error {
 
 // Validate validates the Params struct.
 func (p *Params) Validate() error {
+	if err := p.ValidateFactUsePolicy(); err != nil {
+		return err
+	}
 	// Slash params MUST be non-zero (B22-3 audit fix).
 	if p.WrongVerificationSlashBps == 0 {
 		return fmt.Errorf("wrong_verification_slash_bps must be > 0")

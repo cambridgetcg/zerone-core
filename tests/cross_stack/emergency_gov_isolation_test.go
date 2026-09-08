@@ -84,14 +84,13 @@ func TestSDK053IBC10ActivationAuditsTerminalProposalInActiveSDKGovQueue(
 		collections.Join(time.Unix(1_900_000_000, 0).UTC(), proposalID),
 		proposalID,
 	))
+	require.NoError(t, h.App.UpgradeKeeper.SetModuleVersionMap(h.Ctx, sdk053IBC10SourceVM(h)))
 	h.CommitHMinusOne()
 
-	_, err = runSDK053IBC10HandlerForTests(
-		t,
-		h,
-		sdk053IBC10SourceVM(h),
-		testH3ActivationHeight,
-	)
+	// Current coverage exercises the underlying read-only authority audit.
+	// Historical handler wiring is run unchanged by TestFrozenHistoricalUpgradeInvariants.
+	assertCandidateRetiresPlan(t, h, "sdk-0.53-ibc-10")
+	_, err = h.App.VerifyActivationPrestate()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "active SDK governance queue proposal")
 	require.Contains(t, err.Error(), "incoherent")
@@ -117,14 +116,13 @@ func TestSDK053IBC10ActivationRejectsPendingAuthzWrappedEmergencyGovProposal(t *
 		Messages: []*codectypes.Any{anyExec},
 		Status:   govv1.StatusVotingPeriod,
 	}))
+	require.NoError(t, h.App.UpgradeKeeper.SetModuleVersionMap(h.Ctx, sdk053IBC10SourceVM(h)))
 	h.CommitHMinusOne()
 
-	_, err = runSDK053IBC10HandlerForTests(
-		t,
-		h,
-		sdk053IBC10SourceVM(h),
-		testH3ActivationHeight,
-	)
+	// Current coverage exercises the underlying read-only authority audit.
+	// Historical handler wiring is run unchanged by TestFrozenHistoricalUpgradeInvariants.
+	assertCandidateRetiresPlan(t, h, "sdk-0.53-ibc-10")
+	_, err = h.App.VerifyActivationPrestate()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "SDK governance authority audit failed")
 	require.True(
@@ -181,14 +179,13 @@ func TestSDK053IBC10ActivationSkipsUnknownMessagesOnlyInTerminalGovProposals(
 					},
 				),
 			)
+			require.NoError(t, h.App.UpgradeKeeper.SetModuleVersionMap(h.Ctx, sdk053IBC10SourceVM(h)))
 			h.CommitHMinusOne()
 
-			_, err := runSDK053IBC10HandlerForTests(
-				t,
-				h,
-				sdk053IBC10SourceVM(h),
-				testH3ActivationHeight,
-			)
+			assertCandidateRetiresPlan(t, h, "sdk-0.53-ibc-10")
+			before := candidateStoreSnapshot(t, h)
+			_, err := h.App.VerifyActivationPrestate()
+			require.Equal(t, before, candidateStoreSnapshot(t, h))
 			if testCase.wantError {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "SDK governance authority audit failed")
@@ -197,7 +194,7 @@ func TestSDK053IBC10ActivationSkipsUnknownMessagesOnlyInTerminalGovProposals(
 			require.NoError(t, err)
 			require.Equal(
 				t,
-				"migrated",
+				"",
 				h.KnowledgeKeeper.ReadMigrationMarker(
 					h.Ctx,
 					"upgrade_marker_upgrade-incident-operations-v1",

@@ -1,0 +1,3 @@
+# Local fixtures may contain disposable test signing keys. Never publish them.
+local-rehearsals/
+__pycache__/

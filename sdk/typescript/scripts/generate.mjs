@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 import {
   readdirSync,
   readFileSync,
@@ -63,6 +64,27 @@ rmSync(generated, { recursive: true, force: true });
 execFileSync("buf", ["export", resolve(repoRoot, "proto"), "--output", protoExport], {
   stdio: "inherit",
 });
+
+// Telescope 2.2.4 / @cosmology/ast 2.2.0 derives a map's OUTER tag
+// from its scalar VALUE type (e.g. knowledge Params tag140 becomes wire0).
+// Protobuf maps are embedded entry messages and must always use wire2.
+// Correct the pinned generator's map-only AST template, not generated files or
+// node_modules on disk. Keep this in the source digest and fail closed if the
+// dependency changes; SDK and committed-Go transport tests cover the wire.
+const require = createRequire(import.meta.url);
+if (require("@hyperweb/telescope/package.json").version !== "2.2.4" ||
+    require("@cosmology/ast/package.json").version !== "2.2.0") {
+  throw new Error("Re-review the map-wire correction for the new generator version");
+}
+const mapTemplates = require("@cosmology/ast/encoding/proto/encode/utils.js").types;
+const originalMapTemplate = mapTemplates.keyHash;
+if (typeof originalMapTemplate !== "function") throw new Error("Missing pinned map AST template");
+mapTemplates.keyHash = (tag, ...args) => {
+  if (!Number.isSafeInteger(tag) || tag < 8 || tag > 0xffffffff) {
+    throw new Error(`Invalid generated map tag: ${tag}`);
+  }
+  return originalMapTemplate(Math.floor(tag / 8) * 8 + 2, ...args);
+};
 
 await telescope({
   protoDirs: [protoExport],

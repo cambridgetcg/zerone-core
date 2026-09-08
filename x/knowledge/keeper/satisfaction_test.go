@@ -4,311 +4,121 @@ import (
 	"strings"
 	"testing"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
-// ─── 1. TestRecordQueryReceipt ───────────────────────────────────────────────
-
 func TestRecordQueryReceipt(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
-	rater := "zrn1rater1"
-	factID := "fact-abc"
-
-	// No receipt initially
-	require.False(t, k.HasQueryReceipt(ctx, rater, factID))
-
-	// Record receipt
-	require.NoError(t, k.RecordQueryReceipt(ctx, rater, factID))
-
-	// Receipt exists
-	require.True(t, k.HasQueryReceipt(ctx, rater, factID))
-
-	// Different rater has no receipt
-	require.False(t, k.HasQueryReceipt(ctx, "zrn1other", factID))
-
-	// Different fact has no receipt
-	require.False(t, k.HasQueryReceipt(ctx, rater, "fact-xyz"))
+	require.False(t, k.HasQueryReceipt(ctx, "legacy-rater", "fact"))
+	require.NoError(t, k.RecordQueryReceipt(ctx, "legacy-rater", "fact"))
+	require.True(t, k.HasQueryReceipt(ctx, "legacy-rater", "fact"))
+	require.False(t, k.HasQueryReceipt(ctx, "other", "fact"))
 }
-
-// ─── 2. TestConsumeQueryReceipt ──────────────────────────────────────────────
-
 func TestConsumeQueryReceipt(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
-	rater := "zrn1rater1"
-	factID := "fact-abc"
-
-	// Record and verify
-	require.NoError(t, k.RecordQueryReceipt(ctx, rater, factID))
-	require.True(t, k.HasQueryReceipt(ctx, rater, factID))
-
-	// Consume
-	require.NoError(t, k.ConsumeQueryReceipt(ctx, rater, factID))
-
-	// Receipt gone after consumption
-	require.False(t, k.HasQueryReceipt(ctx, rater, factID))
+	require.NoError(t, k.RecordQueryReceipt(ctx, "legacy-rater", "fact"))
+	require.NoError(t, k.ConsumeQueryReceipt(ctx, "legacy-rater", "fact"))
+	require.False(t, k.HasQueryReceipt(ctx, "legacy-rater", "fact"))
 }
-
-// ─── 3. TestClearQueryReceipts ───────────────────────────────────────────────
-
 func TestClearQueryReceipts(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
-
-	// Create multiple receipts
-	require.NoError(t, k.RecordQueryReceipt(ctx, "zrn1a", "fact-1"))
-	require.NoError(t, k.RecordQueryReceipt(ctx, "zrn1b", "fact-2"))
-	require.NoError(t, k.RecordQueryReceipt(ctx, "zrn1c", "fact-3"))
-
-	// All exist
-	require.True(t, k.HasQueryReceipt(ctx, "zrn1a", "fact-1"))
-	require.True(t, k.HasQueryReceipt(ctx, "zrn1b", "fact-2"))
-	require.True(t, k.HasQueryReceipt(ctx, "zrn1c", "fact-3"))
-
-	// Clear all
-	k.ClearQueryReceipts(ctx)
-
-	// All gone
-	require.False(t, k.HasQueryReceipt(ctx, "zrn1a", "fact-1"))
-	require.False(t, k.HasQueryReceipt(ctx, "zrn1b", "fact-2"))
-	require.False(t, k.HasQueryReceipt(ctx, "zrn1c", "fact-3"))
+	for _, rater := range []string{"a", "b", "c"} {
+		require.NoError(t, k.RecordQueryReceipt(ctx, rater, "fact"))
+	}
+	k.ClearQueryReceipts(ctx) // Explicit legacy helper; not called by BeginBlocker.
+	for _, rater := range []string{"a", "b", "c"} {
+		require.False(t, k.HasQueryReceipt(ctx, rater, "fact"))
+	}
 }
-
-// ─── 4. TestRateFactPositive ─────────────────────────────────────────────────
-
-func TestRateFactPositive(t *testing.T) {
-	k, ctx := setupKnowledgeTest(t)
-	rater := "zrn1rater1"
-
-	fact := makeTestFact(t, k, ctx, "fact-pos", "Positive fact content here", "physics", "empirical", "zrn1sub", 800_000)
-
-	// Record query receipt
-	require.NoError(t, k.RecordQueryReceipt(ctx, rater, fact.Id))
-
-	// Rate as useful
-	msgServer := keeper.NewMsgServerImpl(k)
-	_, err := msgServer.RateFact(ctx, &types.MsgRateFact{
-		Rater:  rater,
-		FactId: fact.Id,
-		Useful: true,
-	})
-	require.NoError(t, err)
-
-	// Check satisfaction counters incremented
-	updated, found := k.GetFact(ctx, fact.Id)
-	require.True(t, found)
-	require.Equal(t, uint64(1), updated.SatisfactionUp)
-	require.Equal(t, uint64(1), updated.SatisfactionUpEpoch)
-	require.Equal(t, uint64(0), updated.SatisfactionDown)
-	require.Equal(t, uint64(0), updated.SatisfactionDownEpoch)
+func TestRateFactPositiveAndNegative(t *testing.T) {
+	for _, useful := range []bool{true, false} {
+		t.Run(map[bool]string{true: "positive", false: "negative"}[useful], func(t *testing.T) {
+			k, ctx, _ := setupFeedbackStore(t)
+			f := feedbackFact(t, k, ctx, "fact")
+			m := keeper.NewMsgServerImpl(k)
+			consumer := feedbackConsumer(1)
+			_, err := m.ReportFactUse(ctx, &types.MsgReportFactUse{Consumer: consumer, FactId: f.Id})
+			require.NoError(t, err)
+			_, err = m.RateFact(ctx, &types.MsgRateFact{Rater: consumer, FactId: f.Id, Useful: useful})
+			require.NoError(t, err)
+			updated, found := k.GetFact(ctx, f.Id)
+			require.True(t, found)
+			if useful {
+				require.Equal(t, uint64(1), updated.SatisfactionUp)
+				require.Equal(t, uint64(1), updated.SatisfactionUpEpoch)
+				require.Zero(t, updated.SatisfactionDown)
+			} else {
+				require.Equal(t, uint64(1), updated.SatisfactionDown)
+				require.Equal(t, uint64(1), updated.SatisfactionDownEpoch)
+				require.Zero(t, updated.SatisfactionUp)
+			}
+		})
+	}
 }
-
-// ─── 5. TestRateFactNegative ─────────────────────────────────────────────────
-
-func TestRateFactNegative(t *testing.T) {
-	k, ctx := setupKnowledgeTest(t)
-	rater := "zrn1rater2"
-
-	fact := makeTestFact(t, k, ctx, "fact-neg", "Negative fact content here", "physics", "empirical", "zrn1sub", 800_000)
-
-	// Record query receipt
-	require.NoError(t, k.RecordQueryReceipt(ctx, rater, fact.Id))
-
-	// Rate as not useful
-	msgServer := keeper.NewMsgServerImpl(k)
-	_, err := msgServer.RateFact(ctx, &types.MsgRateFact{
-		Rater:  rater,
-		FactId: fact.Id,
-		Useful: false,
-	})
-	require.NoError(t, err)
-
-	// Check satisfaction counters
-	updated, found := k.GetFact(ctx, fact.Id)
-	require.True(t, found)
-	require.Equal(t, uint64(0), updated.SatisfactionUp)
-	require.Equal(t, uint64(0), updated.SatisfactionUpEpoch)
-	require.Equal(t, uint64(1), updated.SatisfactionDown)
-	require.Equal(t, uint64(1), updated.SatisfactionDownEpoch)
+func TestRateFactNoReceiptAndLegacyNotPromoted(t *testing.T) {
+	k, ctx, _ := setupFeedbackStore(t)
+	feedbackFact(t, k, ctx, "fact")
+	m := keeper.NewMsgServerImpl(k)
+	consumer := feedbackConsumer(1)
+	for _, legacy := range []bool{false, true} {
+		if legacy {
+			require.NoError(t, k.RecordQueryReceipt(ctx, consumer, "fact"))
+		}
+		_, err := m.RateFact(ctx, &types.MsgRateFact{Rater: consumer, FactId: "fact", Useful: true})
+		require.ErrorContains(t, err, "current-epoch signed")
+	}
+	require.True(t, k.HasQueryReceipt(ctx, consumer, "fact"))
 }
-
-// ─── 6. TestRateFactNoReceipt ────────────────────────────────────────────────
-
-func TestRateFactNoReceipt(t *testing.T) {
-	k, ctx := setupKnowledgeTest(t)
-
-	fact := makeTestFact(t, k, ctx, "fact-norec", "No receipt fact content", "physics", "empirical", "zrn1sub", 800_000)
-
-	// Try to rate without querying first
-	msgServer := keeper.NewMsgServerImpl(k)
-	_, err := msgServer.RateFact(ctx, &types.MsgRateFact{
-		Rater:  "zrn1norec",
-		FactId: fact.Id,
-		Useful: true,
-	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "no query receipt")
-}
-
-// ─── 7. TestRateFactDoubleRate ───────────────────────────────────────────────
-
-func TestRateFactDoubleRate(t *testing.T) {
-	k, ctx := setupKnowledgeTest(t)
-	rater := "zrn1double"
-
-	fact := makeTestFact(t, k, ctx, "fact-dbl", "Double rate fact content", "physics", "empirical", "zrn1sub", 800_000)
-
-	// Record receipt and rate once
-	require.NoError(t, k.RecordQueryReceipt(ctx, rater, fact.Id))
-
-	msgServer := keeper.NewMsgServerImpl(k)
-	_, err := msgServer.RateFact(ctx, &types.MsgRateFact{
-		Rater:  rater,
-		FactId: fact.Id,
-		Useful: true,
-	})
-	require.NoError(t, err)
-
-	// Second rating fails (receipt consumed)
-	_, err = msgServer.RateFact(ctx, &types.MsgRateFact{
-		Rater:  rater,
-		FactId: fact.Id,
-		Useful: false,
-	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "no query receipt")
-
-	// Only the first rating was applied
-	updated, found := k.GetFact(ctx, fact.Id)
-	require.True(t, found)
-	require.Equal(t, uint64(1), updated.SatisfactionUp)
-	require.Equal(t, uint64(0), updated.SatisfactionDown)
-}
-
-// ─── 8. TestSatisfactionFitnessImpact ────────────────────────────────────────
-
 func TestSatisfactionFitnessImpact(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
-
-	// Create two facts with similar base stats but different satisfaction
-	highSat := makeTestFact(t, k, ctx, "fact-highsat", "High satisfaction fact content", "physics", "empirical", "zrn1sub", 800_000)
-	highSat.QueryCountEpoch = 100
-	highSat.SatisfactionUpEpoch = 10
-	highSat.SatisfactionDownEpoch = 0
-	require.NoError(t, k.SetFact(ctx, highSat))
-
-	lowSat := makeTestFact(t, k, ctx, "fact-lowsat", "Low satisfaction fact content here", "physics", "empirical", "zrn1sub", 800_000)
-	lowSat.QueryCountEpoch = 100
-	lowSat.SatisfactionUpEpoch = 0
-	lowSat.SatisfactionDownEpoch = 10
-	require.NoError(t, k.SetFact(ctx, lowSat))
-
-	// Calculate fitness for both
-	highFitness := k.CalculateFitness(ctx, highSat, 1)
-	lowFitness := k.CalculateFitness(ctx, lowSat, 1)
-
-	// High satisfaction should score better
-	require.Greater(t, highFitness, lowFitness,
-		"high satisfaction (%d) should beat low satisfaction (%d)", highFitness, lowFitness)
+	high := makeTestFact(t, k, ctx, "high", "High satisfaction content", "physics", "empirical", "submitter", 800000)
+	low := makeTestFact(t, k, ctx, "low", "Low satisfaction content.", "physics", "empirical", "submitter", 800000)
+	high.QueryCountEpoch, low.QueryCountEpoch = 100, 100
+	high.SatisfactionUpEpoch = 10
+	low.SatisfactionDownEpoch = 10
+	require.Greater(t, k.CalculateFitness(ctx, high, 1), k.CalculateFitness(ctx, low, 1)) // Legacy non-beta weights remain supported before any report.
 }
-
-// ─── 9. TestSatisfactionMinRatings ───────────────────────────────────────────
-
 func TestSatisfactionMinRatings(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
-
-	// Fact with fewer ratings than min threshold (default 3)
-	fewRatings := makeTestFact(t, k, ctx, "fact-few", "Few ratings fact content here", "physics", "empirical", "zrn1sub", 800_000)
-	fewRatings.QueryCountEpoch = 100
-	fewRatings.SatisfactionUpEpoch = 0
-	fewRatings.SatisfactionDownEpoch = 2 // Below min (3)
-	require.NoError(t, k.SetFact(ctx, fewRatings))
-
-	// Fact with no ratings at all
-	noRatings := makeTestFact(t, k, ctx, "fact-none", "No ratings fact content here.", "physics", "empirical", "zrn1sub", 800_000)
-	noRatings.QueryCountEpoch = 100
-	require.NoError(t, k.SetFact(ctx, noRatings))
-
-	// Both should have the same fitness (neutral satisfaction = 500k for both)
-	fewFitness := k.CalculateFitness(ctx, fewRatings, 1)
-	noneFitness := k.CalculateFitness(ctx, noRatings, 1)
-
-	require.Equal(t, fewFitness, noneFitness,
-		"below min ratings (%d) and no ratings (%d) should both use neutral default", fewFitness, noneFitness)
+	few := makeTestFact(t, k, ctx, "few", "Few ratings content here.", "physics", "empirical", "submitter", 800000)
+	none := makeTestFact(t, k, ctx, "none", "No ratings content here.", "physics", "empirical", "submitter", 800000)
+	few.QueryCountEpoch, none.QueryCountEpoch = 100, 100
+	few.SatisfactionDownEpoch = 2
+	require.Equal(t, k.CalculateFitness(ctx, few, 1), k.CalculateFitness(ctx, none, 1))
 }
-
-// ─── 10. TestSatisfactionEpochReset ──────────────────────────────────────────
-
 func TestSatisfactionEpochReset(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
-
-	// Create fact with satisfaction data
-	fact := makeTestFact(t, k, ctx, "fact-epoch", "Epoch reset test fact content", "physics", "empirical", "zrn1sub", 800_000)
-	fact.SatisfactionUp = 10
-	fact.SatisfactionDown = 3
-	fact.SatisfactionUpEpoch = 5
-	fact.SatisfactionDownEpoch = 2
-	fact.QueryCountEpoch = 50
-	require.NoError(t, k.SetFact(ctx, fact))
-
-	// Also add some query receipts
-	require.NoError(t, k.RecordQueryReceipt(ctx, "zrn1a", fact.Id))
-	require.NoError(t, k.RecordQueryReceipt(ctx, "zrn1b", fact.Id))
-
-	// Advance to epoch boundary and run update
-	params, _ := k.GetParams(ctx)
-	epochHeight := int64(params.FitnessEpochBlocks)
-	ctx = ctx.WithBlockHeight(epochHeight)
-
+	f := makeTestFact(t, k, ctx, "fact-epoch", "Epoch reset content here.", "physics", "empirical", "submitter", 800000)
+	f.SatisfactionUp, f.SatisfactionDown, f.SatisfactionUpEpoch, f.SatisfactionDownEpoch, f.QueryCountEpoch = 10, 3, 5, 2, 50
+	require.NoError(t, k.SetFact(ctx, f))
+	p, err := k.GetParams(ctx)
+	require.NoError(t, err)
+	ctx = ctx.WithBlockHeight(int64(p.FitnessEpochBlocks))
 	require.NoError(t, k.UpdateAllFitnessScores(ctx))
-
-	// Epoch counters reset, lifetime counters preserved
-	updated, found := k.GetFact(ctx, fact.Id)
+	updated, found := k.GetFact(ctx, f.Id)
 	require.True(t, found)
-	require.Equal(t, uint64(10), updated.SatisfactionUp, "lifetime up should be preserved")
-	require.Equal(t, uint64(3), updated.SatisfactionDown, "lifetime down should be preserved")
-	require.Equal(t, uint64(0), updated.SatisfactionUpEpoch, "epoch up should be reset")
-	require.Equal(t, uint64(0), updated.SatisfactionDownEpoch, "epoch down should be reset")
-	require.Equal(t, uint64(0), updated.QueryCountEpoch, "query count epoch should be reset")
-
-	// Clear receipts (tested separately — called in BeginBlocker)
-	k.ClearQueryReceipts(ctx)
-	require.False(t, k.HasQueryReceipt(ctx, "zrn1a", fact.Id))
-	require.False(t, k.HasQueryReceipt(ctx, "zrn1b", fact.Id))
+	require.Equal(t, uint64(50), updated.QueryCountEpoch, "fitness must leave counters available for metabolism")
+	require.NoError(t, k.ResetFactFeedbackEpochCounters(ctx))
+	updated, found = k.GetFact(ctx, f.Id)
+	require.True(t, found)
+	require.Equal(t, uint64(10), updated.SatisfactionUp)
+	require.Equal(t, uint64(3), updated.SatisfactionDown)
+	require.Zero(t, updated.QueryCountEpoch)
+	require.Zero(t, updated.SatisfactionUpEpoch)
+	require.Zero(t, updated.SatisfactionDownEpoch)
 }
-
-// ─── 11. TestMemoTooLong ─────────────────────────────────────────────────────
-
 func TestMemoTooLong(t *testing.T) {
-	k, ctx := setupKnowledgeTest(t)
-
-	fact := makeTestFact(t, k, ctx, "fact-memo", "Memo test fact content here.", "physics", "empirical", "zrn1sub", 800_000)
-
-	// Record receipt
-	require.NoError(t, k.RecordQueryReceipt(ctx, "zrn1memoer", fact.Id))
-
-	// Rate with memo > 256 chars
-	msgServer := keeper.NewMsgServerImpl(k)
-	_, err := msgServer.RateFact(ctx, &types.MsgRateFact{
-		Rater:  "zrn1memoer",
-		FactId: fact.Id,
-		Useful: true,
-		Memo:   strings.Repeat("x", 257),
-	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "memo exceeds 256 characters")
-
-	// Receipt should NOT be consumed on validation failure
-	require.True(t, k.HasQueryReceipt(ctx, "zrn1memoer", fact.Id))
-
-	// Valid memo succeeds
-	_, err = msgServer.RateFact(sdk.WrapSDKContext(ctx), &types.MsgRateFact{
-		Rater:  "zrn1memoer",
-		FactId: fact.Id,
-		Useful: true,
-		Memo:   strings.Repeat("x", 256), // exactly at limit
-	})
+	k, ctx, _ := setupFeedbackStore(t)
+	feedbackFact(t, k, ctx, "fact")
+	m := keeper.NewMsgServerImpl(k)
+	consumer := feedbackConsumer(1)
+	_, err := m.ReportFactUse(ctx, &types.MsgReportFactUse{Consumer: consumer, FactId: "fact"})
+	require.NoError(t, err)
+	_, err = m.RateFact(ctx, &types.MsgRateFact{Rater: consumer, FactId: "fact", Memo: strings.Repeat("x", 257)})
+	require.ErrorContains(t, err, "256 bytes")
+	_, err = m.RateFact(ctx, &types.MsgRateFact{Rater: consumer, FactId: "fact", Memo: strings.Repeat("x", 256)})
 	require.NoError(t, err)
 }

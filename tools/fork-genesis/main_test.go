@@ -30,6 +30,7 @@ import (
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
+	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
 type fixture struct {
@@ -155,6 +156,29 @@ func newFixture(t *testing.T) fixture {
 	rewardsParams["founder_share_bps"] = json.Number("0")
 	rewardsParams["founder_address"] = ""
 	appState["vesting_rewards"], err = json.Marshal(rewardsGenesis)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Synthetic schema-current source fixture, NOT a historical export or a
+	// custody/successor decision. Like the economic defaults above, feedback
+	// limits must already be present in the source: this narrow compiler must
+	// not migrate knowledge state or bypass the named tok-feedback-v1 boundary.
+	var knowledgeGenesis knowledgetypes.GenesisState
+	if err := encodingConfig.Codec.UnmarshalJSON(appState[knowledgetypes.ModuleName], &knowledgeGenesis); err != nil {
+		t.Fatal(err)
+	}
+	if knowledgeGenesis.Params == nil {
+		t.Fatal("knowledge fixture params are absent")
+	}
+	knowledgeGenesis.Params.FactUseEnabled = false
+	knowledgeGenesis.Params.FactUseConsumers = nil
+	knowledgeGenesis.Params.FactUseMaxPerConsumerEpoch = knowledgetypes.MaxFactUsePerConsumerEpoch
+	knowledgeGenesis.Params.FactUseMaxPerEpoch = knowledgetypes.MaxFactUsePerEpoch
+	if err := knowledgeGenesis.Params.ValidateFactUsePolicy(); err != nil {
+		t.Fatal(err)
+	}
+	appState[knowledgetypes.ModuleName], err = encodingConfig.Codec.MarshalJSON(&knowledgeGenesis)
 	if err != nil {
 		t.Fatal(err)
 	}

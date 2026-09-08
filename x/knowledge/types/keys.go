@@ -1,6 +1,10 @@
 package types
 
-import "encoding/binary"
+import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
+)
 
 const (
 	// ModuleName is the name of the knowledge module.
@@ -120,10 +124,10 @@ var (
 	QueryReceiptPrefix = []byte{0x3e} // 0x3e | rater / fact_id → block height (query receipt)
 
 	// ─── Consensus diversity (R28-2) ────────────────────────────────────
-	RoundDiversityPrefix         = []byte{0x40} // 0x40 | roundID → RoundDiversity (JSON)
-	DomainDiversityPrefix        = []byte{0x41} // 0x41 | domain / epoch_bytes → DomainDiversityScore (JSON)
-	ValidatorIndependencePrefix  = []byte{0x42} // 0x42 | validatorAddr → ValidatorIndependence (JSON)
-	ConformityStreakPrefix       = []byte{0x43} // 0x43 | domain → ConformityStreak (JSON)
+	RoundDiversityPrefix        = []byte{0x40} // 0x40 | roundID → RoundDiversity (JSON)
+	DomainDiversityPrefix       = []byte{0x41} // 0x41 | domain / epoch_bytes → DomainDiversityScore (JSON)
+	ValidatorIndependencePrefix = []byte{0x42} // 0x42 | validatorAddr → ValidatorIndependence (JSON)
+	ConformityStreakPrefix      = []byte{0x43} // 0x43 | domain → ConformityStreak (JSON)
 	DomainEpochRoundIndexPrefix = []byte{0x44} // 0x44 | domain / epoch_bytes / roundID → 0x01
 
 	// Survival-gate escrow: the submitter reward is held until the fact survives its
@@ -163,49 +167,49 @@ var (
 	AgentCalibrationKeyPrefix = []byte{0x5A} // 0x5A | address → AgentCalibration (proto)
 
 	// ─── Route B: model training infrastructure ──────────────────────
-	TokenizerSpecKey               = []byte{0x5B} // singleton: current TokenizerSpec
-	TokenizerSpecHistoryKeyPrefix  = []byte{0x5C} // 0x5C | be64(version) → TokenizerSpec (historical)
-	TrainingPipelineKeyPrefix      = []byte{0x5D} // 0x5D | pipelineID → TrainingPipeline
-	ModelCardKeyPrefix             = []byte{0x5E} // 0x5E | modelID → ModelCard
-	TrainingAttestationKeyPrefix   = []byte{0x5F} // 0x5F | pipelineID → TrainingAttestation
-	ContributionByModelKeyPrefix   = []byte{0x60} // 0x60 | modelID → ContributionRecord
-	ContributionByFactKeyPrefix    = []byte{0x61} // 0x61 | factID | modelID → 1 byte marker
-	AugmentationBountyKeyPrefix    = []byte{0x62} // 0x62 | bountyID → AugmentationBounty
-	AugmentationKeyPrefix          = []byte{0x63} // 0x63 | augID → Augmentation
-	AugmentationByFactKeyPrefix    = []byte{0x64} // 0x64 | factID | augID → marker
-	AugmentationByBountyKeyPrefix  = []byte{0x65} // 0x65 | bountyID | augID → marker
+	TokenizerSpecKey              = []byte{0x5B} // singleton: current TokenizerSpec
+	TokenizerSpecHistoryKeyPrefix = []byte{0x5C} // 0x5C | be64(version) → TokenizerSpec (historical)
+	TrainingPipelineKeyPrefix     = []byte{0x5D} // 0x5D | pipelineID → TrainingPipeline
+	ModelCardKeyPrefix            = []byte{0x5E} // 0x5E | modelID → ModelCard
+	TrainingAttestationKeyPrefix  = []byte{0x5F} // 0x5F | pipelineID → TrainingAttestation
+	ContributionByModelKeyPrefix  = []byte{0x60} // 0x60 | modelID → ContributionRecord
+	ContributionByFactKeyPrefix   = []byte{0x61} // 0x61 | factID | modelID → 1 byte marker
+	AugmentationBountyKeyPrefix   = []byte{0x62} // 0x62 | bountyID → AugmentationBounty
+	AugmentationKeyPrefix         = []byte{0x63} // 0x63 | augID → Augmentation
+	AugmentationByFactKeyPrefix   = []byte{0x64} // 0x64 | factID | augID → marker
+	AugmentationByBountyKeyPrefix = []byte{0x65} // 0x65 | bountyID | augID → marker
 
 	// ─── Route B Wave 4: economic realignment ──────────────────────────
-	ContributionChallengeKeyPrefix          = []byte{0x66} // 0x66 | challenge_id → ContributionChallenge
-	ContributionChallengeByModelKeyPrefix   = []byte{0x67} // 0x67 | model_id | challenge_id → 1 (reverse index)
-	OpenContributionChallengeKeyPrefix      = []byte{0x68} // 0x68 | challenge_id → 1 (open-only set)
-	TrainingFundDisbursementKeyPrefix       = []byte{0x69} // 0x69 | disbursement_id → TrainingFundDisbursement
-	TrainingFundDisbursementByModelPrefix   = []byte{0x6A} // 0x6A | model_id | disbursement_id → 1
-	TrainingFundEscrowLockedKeyPrefix       = []byte{0x6B} // 0x6B | bounty_id → uzrn string (redundant bookkeeping for fast totals)
-	TrainingFundVestingKeyPrefix            = []byte{0x6C} // 0x6C | disbursement_id → uzrn string (redundant)
+	ContributionChallengeKeyPrefix        = []byte{0x66} // 0x66 | challenge_id → ContributionChallenge
+	ContributionChallengeByModelKeyPrefix = []byte{0x67} // 0x67 | model_id | challenge_id → 1 (reverse index)
+	OpenContributionChallengeKeyPrefix    = []byte{0x68} // 0x68 | challenge_id → 1 (open-only set)
+	TrainingFundDisbursementKeyPrefix     = []byte{0x69} // 0x69 | disbursement_id → TrainingFundDisbursement
+	TrainingFundDisbursementByModelPrefix = []byte{0x6A} // 0x6A | model_id | disbursement_id → 1
+	TrainingFundEscrowLockedKeyPrefix     = []byte{0x6B} // 0x6B | bounty_id → uzrn string (redundant bookkeeping for fast totals)
+	TrainingFundVestingKeyPrefix          = []byte{0x6C} // 0x6C | disbursement_id → uzrn string (redundant)
 
 	// ─── Route B Wave 5: unified training data format ─────────────────
-	TraceSchemaKey                = []byte{0x6D} // singleton: current TraceSchema
-	TraceSchemaHistoryKeyPrefix   = []byte{0x6E} // 0x6E | be64(version) → TraceSchema (historical)
+	TraceSchemaKey              = []byte{0x6D} // singleton: current TraceSchema
+	TraceSchemaHistoryKeyPrefix = []byte{0x6E} // 0x6E | be64(version) → TraceSchema (historical)
 
 	// ─── Route B Wave 7: training-run manifests ──────────────────────
-	TrainingManifestKeyPrefix            = []byte{0x6F} // 0x6F | manifest_id → TrainingManifest
-	TrainingManifestByPipelineKeyPrefix  = []byte{0x70} // 0x70 | pipeline_id | manifest_id → 1 (reverse index)
-	TrainingManifestByCreatorKeyPrefix   = []byte{0x71} // 0x71 | creator | manifest_id → 1 (reverse index)
-	TrainingManifestByStatusKeyPrefix    = []byte{0x72} // 0x72 | be8(status) | manifest_id → 1 (reverse index)
+	TrainingManifestKeyPrefix           = []byte{0x6F} // 0x6F | manifest_id → TrainingManifest
+	TrainingManifestByPipelineKeyPrefix = []byte{0x70} // 0x70 | pipeline_id | manifest_id → 1 (reverse index)
+	TrainingManifestByCreatorKeyPrefix  = []byte{0x71} // 0x71 | creator | manifest_id → 1 (reverse index)
+	TrainingManifestByStatusKeyPrefix   = []byte{0x72} // 0x72 | be8(status) | manifest_id → 1 (reverse index)
 
 	// ─── Route B Wave 11: incident response ──────────────────────────
-	IncidentRecordKeyPrefix         = []byte{0x73} // 0x73 | incident_id → IncidentRecord
-	IncidentBySeverityKeyPrefix     = []byte{0x74} // 0x74 | be8(severity) | incident_id → 1
-	IncidentByStatusKeyPrefix       = []byte{0x75} // 0x75 | be8(status) | incident_id → 1
-	OpenIncidentKeyPrefix           = []byte{0x76} // 0x76 | incident_id → 1 (open-only set)
+	IncidentRecordKeyPrefix     = []byte{0x73} // 0x73 | incident_id → IncidentRecord
+	IncidentBySeverityKeyPrefix = []byte{0x74} // 0x74 | be8(severity) | incident_id → 1
+	IncidentByStatusKeyPrefix   = []byte{0x75} // 0x75 | be8(status) | incident_id → 1
+	OpenIncidentKeyPrefix       = []byte{0x76} // 0x76 | incident_id → 1 (open-only set)
 
 	// ─── Route B Wave 12: circuit breakers ───────────────────────────
-	ModulePauseKeyPrefix            = []byte{0x77} // 0x77 | module_name → ModulePause
+	ModulePauseKeyPrefix = []byte{0x77} // 0x77 | module_name → ModulePause
 
 	// ─── Wave 14: privileged-action audit log ────────────────────────
-	PrivilegedActionKeyPrefix       = []byte{0x78} // 0x78 | be64(seq) → PrivilegedAction
-	PrivilegedActionSeqKey          = []byte{0x79} // singleton: next-seq counter (uvarint)
+	PrivilegedActionKeyPrefix = []byte{0x78} // 0x78 | be64(seq) → PrivilegedAction
+	PrivilegedActionSeqKey    = []byte{0x79} // singleton: next-seq counter (uvarint)
 
 	// ─── Wave 16: guardian-veto pending fact-injection queue ────────
 	PendingFactInjectionKeyPrefix          = []byte{0x7A} // 0x7A | id → PendingFactInjection
@@ -216,6 +220,13 @@ var (
 	StatusTransitionSeqKeyPrefix   = []byte{0x7D} // 0x7D | factID → uvarint next-seq counter
 	CascadeEventKeyPrefix          = []byte{0x7E} // 0x7E | disprovenFactID | be64(seq) → CascadeEvent (proto)
 	CascadeEventByDescendantPrefix = []byte{0x7F} // 0x7F | descendantFactID | disprovenFactID → 1 (reverse index)
+
+	// Signed self-reported use v1. Keep 0x80 (probe cursor) and 0x81–0x8F
+	// reserved ground untouched. Legacy QueryReceiptPrefix is not evidence.
+	FactUseReceiptPrefix       = []byte{0x90} // be64(epoch) | canonical consumer | 0 | factID → FactUseReceipt (proto)
+	FactUseEpochCountPrefix    = []byte{0x91} // be64(epoch) → be64(count), derived from retained receipts
+	FactUseConsumerCountPrefix = []byte{0x92} // be64(epoch) | canonical consumer → be64(count), derived
+	FactUsePruningStateKey     = []byte{0x93} // singleton FactUsePruningState (proto)
 )
 
 // PendingFactInjectionKey returns the store key for a pending injection.
@@ -551,7 +562,61 @@ func NicheMembersKey(nicheKey string) []byte {
 	return append(append([]byte{}, NicheMembersPrefix...), []byte(nicheKey)...)
 }
 
-// QueryReceiptKey returns the key for a query receipt: 0x3e | rater / factID.
+// FactUseReceiptEpochPrefix returns 0x90 | be64(epoch). Lexical order groups
+// receipts by epoch, so pruning can stop at the first unexpired epoch.
+func FactUseReceiptEpochPrefix(epoch uint64) []byte {
+	key := append([]byte{}, FactUseReceiptPrefix...)
+	return binary.BigEndian.AppendUint64(key, epoch)
+}
+
+// FactUseReceiptConsumerPrefix requires a validated canonical consumer.
+func FactUseReceiptConsumerPrefix(epoch uint64, consumer string) []byte {
+	key := append(FactUseReceiptEpochPrefix(epoch), []byte(consumer)...)
+	return append(key, 0)
+}
+
+// FactUseReceiptKey requires CanonicalFactUseConsumer and ValidateFactUseFactID
+// at every writer/query boundary. Layout: 0x90 | be64(epoch) | consumer | 0 | factID.
+func FactUseReceiptKey(epoch uint64, consumer, factID string) []byte {
+	return append(FactUseReceiptConsumerPrefix(epoch, consumer), []byte(factID)...)
+}
+
+// ParseFactUseReceiptKey validates a full receipt key, including pruning cursors.
+func ParseFactUseReceiptKey(key []byte) (epoch uint64, consumer, factID string, err error) {
+	if len(key) < 12 || len(key) > MaxFactUseReceiptKeyBytes || !bytes.HasPrefix(key, FactUseReceiptPrefix) {
+		return 0, "", "", fmt.Errorf("invalid fact-use receipt key")
+	}
+	parts := key[9:]
+	sep := bytes.IndexByte(parts, 0)
+	if sep < 1 {
+		return 0, "", "", fmt.Errorf("invalid fact-use receipt key separator")
+	}
+	consumer, err = CanonicalFactUseConsumer(string(parts[:sep]))
+	if err != nil {
+		return 0, "", "", err
+	}
+	factID = string(parts[sep+1:])
+	if err = ValidateFactUseFactID(factID); err != nil {
+		return 0, "", "", err
+	}
+	return binary.BigEndian.Uint64(key[1:9]), consumer, factID, nil
+}
+
+// FactUseEpochCountKey stores an eight-byte big-endian quota count. Rebuild
+// from retained receipts on import; remove/decrement it when pruning receipts.
+func FactUseEpochCountKey(epoch uint64) []byte {
+	return binary.BigEndian.AppendUint64(append([]byte{}, FactUseEpochCountPrefix...), epoch)
+}
+
+// FactUseConsumerCountKey stores the same derived count for one canonical
+// account in one epoch. Never decrement on rating: rated markers still count.
+func FactUseConsumerCountKey(epoch uint64, consumer string) []byte {
+	key := binary.BigEndian.AppendUint64(append([]byte{}, FactUseConsumerCountPrefix...), epoch)
+	return append(key, []byte(consumer)...)
+}
+
+// QueryReceiptKey returns the key for a legacy query-cache receipt: 0x3e | rater / factID.
+// It is not a signed FactUseReceipt and must not authorize signed-use ratings.
 func QueryReceiptKey(rater, factID string) []byte {
 	key := append(append([]byte{}, QueryReceiptPrefix...), []byte(rater)...)
 	key = append(key, '/')

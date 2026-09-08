@@ -7,6 +7,13 @@
 - Authority: none
 - Consensus effect: none
 
+Candidate pin reconciliation (2026-09-08): the manifest's snapshot date and
+`SEALED_STATIC_PROFILE` describe the static profile, not publication of these
+new local bytes. The candidate bindings and seal below are **unpublished**;
+final independent review, generated-baseline and upstream reconciliation remain
+pending. The ToK user's **“Review not ready”** production-signing/activation
+**HOLD** remains unchanged. No scientific result or authority is added.
+
 ## Purpose
 
 Explicit Invariant Discipline v1, or EID-1, is a sealed static format for
@@ -40,11 +47,17 @@ The exact authority statement is:
 
 ## Raw artifact seal
 
-The reviewed raw-byte SHA-256 digest of the manifest is:
+The current candidate manifest's raw-byte SHA-256 is:
 
 ```text
-e60b89cbed8eb26d3fad0ee45ef8c433391341f3abb4865af2755595815354df
+6bf0a3880c60b3a2edd968fa2c051e284edec521c7fe9fc9a061cd7c859765ee
 ```
+
+The previous publication seal
+`e60b89cbed8eb26d3fad0ee45ef8c433391341f3abb4865af2755595815354df`
+is historical provenance, not the seal of these candidate bytes. Rebinding CG-0
+and the knowledge protobuf does not mark any proposed local analogy test run,
+change a paper's result, or prove publication/deployment.
 
 This is non-circular: the specification is not a local source binding inside
 the manifest. Changing either manifest content or byte formatting invalidates
@@ -299,15 +312,17 @@ including every simplification, choice, analogy, and possible error in it.
 
 ## Digest-pinned local sources
 
-Only stable, already-existing local files are bound. Neither this specification
-nor the manifest binds itself.
+The table matches the current candidate manifest and exact local source bytes.
+The CG-0 and protobuf bindings changed; unchanged source pins retain their
+original bytes. Neither this specification nor the manifest binds itself.
+These local digests are not published revision or active-deployment claims.
 
 | ID | Repository path | Raw SHA-256 |
 |---|---|---|
 | `constructive-intelligence-tree` | `dashboard/public/standards/constructive-intelligence-tree.v1.json` | `8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf` |
-| `correspondence-geometry` | `dashboard/public/standards/correspondence-geometry.v0.json` | `f8cfeebf7404ab7e2e86b80362471cdd64015a108c47e98147e80ba7bb9e9a90` |
+| `correspondence-geometry` | `dashboard/public/standards/correspondence-geometry.v0.json` | `687714a10a241f99de61fb217a7360ca845372a811434c83a0b743d5f9295d33` |
 | `knowledge-methodologies` | `x/knowledge/types/methodologies.go` | `fa16ac33e7f2c10a19ed76541af6c2378edb79683578f2cec6f1a0563ebec386` |
-| `knowledge-types` | `proto/zerone/knowledge/v1/types.proto` | `7b2b301c80711587a55ae03216728ec1f6f5bf981035106d26ac1fa4923d8ced` |
+| `knowledge-types` | `proto/zerone/knowledge/v1/types.proto` | `afe56cc24f318ba1a387040c4f8ad3c9c7126ffd79df3cbf5af1b8d210e1a1ea` |
 
 A conforming offline validator resolves each path beneath the repository root,
 refuses path escape and symlinks, reads the exact bytes, and compares the raw

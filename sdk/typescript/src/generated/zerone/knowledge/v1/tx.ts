@@ -1,5 +1,5 @@
 //@ts-nocheck
-import { ClaimType, ClaimRelation, ClaimStructure, TokenizerSpec, AugmentationVerdict, TraceSchema, CorpusSelector, IncidentSeverity, RemediationType } from "./types";
+import { ClaimType, ClaimRelation, ClaimStructure, TokenizerSpec, AugmentationVerdict, TraceSchema, CorpusSelector, IncidentSeverity, RemediationType, FactUseReceipt } from "./types";
 import { Params } from "./genesis";
 import { BinaryReader, BinaryWriter } from "../../../binary";
 import { DeepPartial } from "../../../helpers";
@@ -501,8 +501,9 @@ export interface DemandReport {
  */
 export interface MsgReportDemandResponse {}
 /**
- * MsgRateFact allows a querier to provide relevance feedback on a fact.
- * The querier must have previously queried this fact (enforced by query receipt).
+ * MsgRateFact rates a valid current-epoch FactUseReceipt once. Its wire fields
+ * remain unchanged; the rated receipt is retained as a dedup marker.
+ * Legacy query-cache receipts do not authorize a rating.
  * @name MsgRateFact
  * @package zerone.knowledge.v1
  * @see proto type: zerone.knowledge.v1.MsgRateFact
@@ -521,7 +522,7 @@ export interface MsgRateFact {
    */
   useful: boolean;
   /**
-   * Optional: brief reason (max 256 chars)
+   * Optional UTF-8 reason (max 256 bytes)
    */
   memo: string;
 }
@@ -1181,6 +1182,25 @@ export interface MsgVetoFactInjection {
  * @see proto type: zerone.knowledge.v1.MsgVetoFactInjectionResponse
  */
 export interface MsgVetoFactInjectionResponse {}
+/**
+ * MsgReportFactUse attributes exactly one self-reported use to its SDK signer.
+ * Consumer must be a canonical SDK account address admitted by fact_use_consumers.
+ * @name MsgReportFactUse
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgReportFactUse
+ */
+export interface MsgReportFactUse {
+  consumer: string;
+  factId: string;
+}
+/**
+ * @name MsgReportFactUseResponse
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgReportFactUseResponse
+ */
+export interface MsgReportFactUseResponse {
+  receipt?: FactUseReceipt;
+}
 function createBaseMsgSubmitClaim(): MsgSubmitClaim {
   return {
     submitter: "",
@@ -3494,8 +3514,9 @@ function createBaseMsgRateFact(): MsgRateFact {
   };
 }
 /**
- * MsgRateFact allows a querier to provide relevance feedback on a fact.
- * The querier must have previously queried this fact (enforced by query receipt).
+ * MsgRateFact rates a valid current-epoch FactUseReceipt once. Its wire fields
+ * remain unchanged; the rated receipt is retained as a dedup marker.
+ * Legacy query-cache receipts do not authorize a rating.
  * @name MsgRateFact
  * @package zerone.knowledge.v1
  * @see proto type: zerone.knowledge.v1.MsgRateFact
@@ -6648,6 +6669,98 @@ export const MsgVetoFactInjectionResponse = {
   },
   fromPartial(_: DeepPartial<MsgVetoFactInjectionResponse>): MsgVetoFactInjectionResponse {
     const message = createBaseMsgVetoFactInjectionResponse();
+    return message;
+  }
+};
+function createBaseMsgReportFactUse(): MsgReportFactUse {
+  return {
+    consumer: "",
+    factId: ""
+  };
+}
+/**
+ * MsgReportFactUse attributes exactly one self-reported use to its SDK signer.
+ * Consumer must be a canonical SDK account address admitted by fact_use_consumers.
+ * @name MsgReportFactUse
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgReportFactUse
+ */
+export const MsgReportFactUse = {
+  typeUrl: "/zerone.knowledge.v1.MsgReportFactUse",
+  encode(message: MsgReportFactUse, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.consumer !== "") {
+      writer.uint32(10).string(message.consumer);
+    }
+    if (message.factId !== "") {
+      writer.uint32(18).string(message.factId);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): MsgReportFactUse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgReportFactUse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.consumer = reader.string();
+          break;
+        case 2:
+          message.factId = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<MsgReportFactUse>): MsgReportFactUse {
+    const message = createBaseMsgReportFactUse();
+    message.consumer = object.consumer ?? "";
+    message.factId = object.factId ?? "";
+    return message;
+  }
+};
+function createBaseMsgReportFactUseResponse(): MsgReportFactUseResponse {
+  return {
+    receipt: undefined
+  };
+}
+/**
+ * @name MsgReportFactUseResponse
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgReportFactUseResponse
+ */
+export const MsgReportFactUseResponse = {
+  typeUrl: "/zerone.knowledge.v1.MsgReportFactUseResponse",
+  encode(message: MsgReportFactUseResponse, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.receipt !== undefined) {
+      FactUseReceipt.encode(message.receipt, writer.uint32(10).fork()).ldelim();
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): MsgReportFactUseResponse {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseMsgReportFactUseResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.receipt = FactUseReceipt.decode(reader, reader.uint32());
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<MsgReportFactUseResponse>): MsgReportFactUseResponse {
+    const message = createBaseMsgReportFactUseResponse();
+    message.receipt = object.receipt !== undefined && object.receipt !== null ? FactUseReceipt.fromPartial(object.receipt) : undefined;
     return message;
   }
 };

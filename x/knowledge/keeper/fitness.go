@@ -2,7 +2,10 @@ package keeper
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
+	"google.golang.org/protobuf/proto"
 	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -97,8 +100,8 @@ func (k Keeper) CalculateFitness(ctx context.Context, fact *types.Fact, epoch ui
 	return fitness
 }
 
-// UpdateAllFitnessScores recalculates fitness for all verified/active facts
-// and resets epoch query counters. Called at fitness epoch boundaries.
+// UpdateAllFitnessScores recalculates fitness for eligible facts without
+// resetting counters: metabolism and other epoch consumers still need them.
 func (k Keeper) UpdateAllFitnessScores(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
@@ -113,27 +116,22 @@ func (k Keeper) UpdateAllFitnessScores(ctx context.Context) error {
 		epoch = height / params.FitnessEpochBlocks
 	}
 
-	// Collect facts to update (avoid modifying store during iteration)
-	var factsToUpdate []*types.Fact
-	k.IterateFacts(ctx, func(fact *types.Fact) bool {
-		// Only score verified or active facts
-		if fact.Status == types.FactStatus_FACT_STATUS_VERIFIED ||
-			fact.Status == types.FactStatus_FACT_STATUS_ACTIVE ||
-			fact.Status == types.FactStatus_FACT_STATUS_PROVISIONAL {
-			factsToUpdate = append(factsToUpdate, fact)
-		}
-		return false
-	})
-
+	// Collect before writes and propagate iterator/decode failures.
+	factsToUpdate, err := k.factsForFeedbackEpoch(ctx)
+	if err != nil {
+		return err
+	}
 	for _, fact := range factsToUpdate {
+		if fact.Status != types.FactStatus_FACT_STATUS_VERIFIED &&
+			fact.Status != types.FactStatus_FACT_STATUS_ACTIVE &&
+			fact.Status != types.FactStatus_FACT_STATUS_PROVISIONAL {
+			continue
+		}
 		oldFitness := fact.FitnessScore
 		newFitness := k.CalculateFitness(ctx, fact, epoch)
 
 		fact.FitnessScore = newFitness
 		fact.FitnessUpdatedBlock = height
-		fact.QueryCountEpoch = 0         // Reset epoch query counter
-		fact.SatisfactionUpEpoch = 0     // Reset epoch satisfaction counters
-		fact.SatisfactionDownEpoch = 0
 
 		// Confidence growth for healthy facts
 		if params.ConfidenceGrowthPerEpochBps > 0 && fact.Confidence > 0 {
@@ -144,9 +142,8 @@ func (k Keeper) UpdateAllFitnessScores(ctx context.Context) error {
 			}
 		}
 
-		if err := k.SetFact(ctx, fact); err != nil {
-			k.Logger(ctx).Error("failed to update fitness", "fact_id", fact.Id, "error", err)
-			continue
+		if err := k.writeFeedbackFact(ctx, fact); err != nil {
+			return err
 		}
 
 		// Only emit events for significant changes (>50,000 BPS delta)
@@ -177,6 +174,48 @@ func (k Keeper) UpdateAllFitnessScores(ctx context.Context) error {
 	return nil
 }
 
+func (k Keeper) factsForFeedbackEpoch(ctx context.Context) (facts []*types.Fact, err error) {
+	it, err := k.storeService.OpenKVStore(ctx).Iterator(types.FactKeyPrefix, prefixEndBytes(types.FactKeyPrefix))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errors.Join(err, it.Close()) }()
+	for ; it.Valid(); it.Next() {
+		f := new(types.Fact)
+		if err := proto.Unmarshal(it.Value(), f); err != nil {
+			return nil, err
+		}
+		if string(it.Key()) != string(types.FactKey(f.Id)) {
+			return nil, fmt.Errorf("fact key/payload mismatch")
+		}
+		facts = append(facts, f)
+	}
+	return facts, feedbackIteratorError(it)
+}
+
+// ResetFactFeedbackEpochCounters is the final usage-consumer step, not part of
+// fitness scoring. Excluded statuses reset too, preventing cross-epoch carry.
+func (k Keeper) ResetFactFeedbackEpochCounters(ctx context.Context) error {
+	cache, write := sdk.UnwrapSDKContext(ctx).CacheContext()
+	facts, err := k.factsForFeedbackEpoch(cache)
+	if err != nil {
+		return err
+	}
+	for _, fact := range facts {
+		if fact.QueryCountEpoch == 0 && fact.SatisfactionUpEpoch == 0 && fact.SatisfactionDownEpoch == 0 {
+			continue
+		}
+		fact.QueryCountEpoch, fact.SatisfactionUpEpoch, fact.SatisfactionDownEpoch = 0, 0, 0
+		if err := k.writeFeedbackFact(cache, fact); err != nil {
+			return err
+		}
+	}
+	write()
+	return nil
+}
+
+// IncrementFactQueryCount is legacy, unsigned accounting. Feedback does not use
+// this unchecked helper and queries must never call it.
 // IncrementFactQueryCount increments both lifetime and epoch query counters for a fact.
 func (k Keeper) IncrementFactQueryCount(ctx context.Context, factID string) {
 	fact, found := k.GetFact(ctx, factID)

@@ -110,7 +110,13 @@ func (k Keeper) GatherRootedSubtree(
 	ctx context.Context,
 	sel *types.RootedSubtreeSelector,
 ) (nodeIDs []string, edges []*types.ToKEdge, err error) {
-	root, found := k.GetFact(ctx, sel.RootFactId)
+	ctx = withToKReadBudget(ctx)
+	defer func() {
+		if e := readBudget(ctx).check(ctx); e != nil {
+			nodeIDs, edges, err = nil, nil, e
+		}
+	}()
+	root, found := k.readFact(ctx, sel.RootFactId)
 	if !found {
 		return nil, nil, fmt.Errorf("%w: %s", ErrToKRootFactNotFound, sel.RootFactId)
 	}
@@ -140,7 +146,7 @@ func (k Keeper) gatherDescendantsRecursive(
 	if depth > maxDepth {
 		return nil
 	}
-	incoming, err := k.GetIncomingRelations(ctx, factID)
+	incoming, err := k.readRelations(ctx, factID, true)
 	if err != nil {
 		return err
 	}
@@ -157,20 +163,16 @@ func (k Keeper) gatherDescendantsRecursive(
 			continue
 		}
 		// Guard against ghost nodes: skip if the source fact no longer exists.
-		if _, ok := k.GetFact(ctx, rel.SourceFactId); !ok {
+		if _, ok := k.readFact(ctx, rel.SourceFactId); !ok {
 			continue
 		}
-		edgeKey := rel.SourceFactId + "->" + rel.TargetFactId + "|" + rel.Relation.String()
-		if _, ok := edges[edgeKey]; !ok {
-			edges[edgeKey] = &types.ToKEdge{
-				FromFactId: rel.SourceFactId,
-				ToFactId:   rel.TargetFactId,
-				Relation:   rel.Relation.String(),
-				Inference:  rel.Inference.String(),
-			}
+		if err := readEdge(ctx, edges, rel); err != nil {
+			return err
 		}
 		if !visited[rel.SourceFactId] {
-			visited[rel.SourceFactId] = true
+			if err := readNode(ctx, visited, rel.SourceFactId); err != nil {
+				return err
+			}
 			if err := k.gatherDescendantsRecursive(ctx, rel.SourceFactId, depth+1, maxDepth, visited, edges); err != nil {
 				return err
 			}
@@ -186,7 +188,13 @@ func (k Keeper) GatherAncestorCone(
 	ctx context.Context,
 	sel *types.AncestorConeSelector,
 ) (nodeIDs []string, edges []*types.ToKEdge, err error) {
-	leaf, found := k.GetFact(ctx, sel.LeafFactId)
+	ctx = withToKReadBudget(ctx)
+	defer func() {
+		if e := readBudget(ctx).check(ctx); e != nil {
+			nodeIDs, edges, err = nil, nil, e
+		}
+	}()
+	leaf, found := k.readFact(ctx, sel.LeafFactId)
 	if !found {
 		return nil, nil, fmt.Errorf("%w: %s", ErrToKLeafFactNotFound, sel.LeafFactId)
 	}
@@ -219,11 +227,14 @@ func (k Keeper) gatherAncestorsRecursive(
 		return nil
 	}
 	// GetFactRelations returns all outgoing relations from factID (source → target).
-	outgoing, err := k.GetFactRelations(ctx, factID)
+	outgoing, err := k.readRelations(ctx, factID, false)
 	if err != nil {
 		return err
 	}
 	for _, rel := range outgoing {
+		if *pathCount >= maxPaths {
+			break
+		}
 		// FILTER: only support-bearing relations — mirror of gatherDescendantsRecursive.
 		// CONTRADICTS, SUPERSEDES, UNSPECIFIED, REFORMULATES must not appear in an ancestor bundle.
 		switch rel.Relation {
@@ -236,21 +247,17 @@ func (k Keeper) gatherAncestorsRecursive(
 			continue
 		}
 		// GUARD: skip if target fact missing (ghost node).
-		if _, ok := k.GetFact(ctx, rel.TargetFactId); !ok {
+		if _, ok := k.readFact(ctx, rel.TargetFactId); !ok {
 			continue
 		}
 		*pathCount++
-		edgeKey := rel.SourceFactId + "->" + rel.TargetFactId + "|" + rel.Relation.String()
-		if _, ok := edges[edgeKey]; !ok {
-			edges[edgeKey] = &types.ToKEdge{
-				FromFactId: rel.SourceFactId,
-				ToFactId:   rel.TargetFactId,
-				Relation:   rel.Relation.String(),
-				Inference:  rel.Inference.String(),
-			}
+		if err := readEdge(ctx, edges, rel); err != nil {
+			return err
 		}
 		if !visited[rel.TargetFactId] {
-			visited[rel.TargetFactId] = true
+			if err := readNode(ctx, visited, rel.TargetFactId); err != nil {
+				return err
+			}
 			if err := k.gatherAncestorsRecursive(ctx, rel.TargetFactId, depth+1, maxDepth, maxPaths, pathCount, visited, edges); err != nil {
 				return err
 			}
@@ -271,6 +278,12 @@ func (k Keeper) GatherFrontier(
 	ctx context.Context,
 	sel *types.FrontierSelector,
 ) (nodeIDs []string, edges []*types.ToKEdge, err error) {
+	ctx = withToKReadBudget(ctx)
+	defer func() {
+		if e := readBudget(ctx).check(ctx); e != nil {
+			nodeIDs, edges, err = nil, nil, e
+		}
+	}()
 	if sel == nil || sel.Domain == "" {
 		return nil, nil, fmt.Errorf("frontier selector requires a non-empty domain")
 	}
@@ -282,27 +295,28 @@ func (k Keeper) GatherFrontier(
 		limit = int(ToKFrontierCap)
 	}
 
-	// Collect qualifying facts by iterating the domain index.
+	// Preserve the legacy domain-index order and explicit selector limit, but
+	// bound rejected/ghost records too. Never claim an exhausted scan is complete.
 	included := map[string]*types.Fact{}
-	k.IterateFactsByDomain(ctx, sel.Domain, func(factID string) bool {
-		if len(included) >= limit {
-			return true // stop iteration
-		}
-		fact, ok := k.GetFact(ctx, factID)
+	pfx := append(append([]byte{}, types.DomainFactIndexPrefix...), []byte(sel.Domain+"/")...)
+	err = k.scanReadPrefix(ctx, pfx, func(key, _ []byte) (bool, error) {
+		factID := string(key[len(pfx):])
+		fact, ok := k.readFact(ctx, factID)
 		if !ok {
-			return false // ghost — skip
+			return false, readBudget(ctx).check(ctx)
 		}
-		// Filter: exclude unverified facts (VerifiedAtBlock == 0) unconditionally.
-		if fact.VerifiedAtBlock == 0 {
-			return false // never verified — not part of the knowledge substrate
+		if fact.VerifiedAtBlock == 0 || fact.VerifiedAtBlock < sel.SinceBlock {
+			return false, nil
 		}
-		// Filter: exclude facts older than the since-block cutoff.
-		if fact.VerifiedAtBlock < sel.SinceBlock {
-			return false
+		if len(included) >= ToKReadMaxNodes {
+			return false, readBudget(ctx).exhaust("128 nodes")
 		}
 		included[factID] = fact
-		return false
+		return len(included) >= limit, nil
 	})
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// Build sorted node list.
 	for id := range included {
@@ -314,9 +328,9 @@ func (k Keeper) GatherFrontier(
 	// and keep only those whose target is also in the included set.
 	edgeSet := map[string]*types.ToKEdge{}
 	for _, factID := range nodeIDs {
-		relations, relErr := k.GetFactRelations(ctx, factID)
+		relations, relErr := k.readRelations(ctx, factID, false)
 		if relErr != nil {
-			continue
+			return nil, nil, relErr
 		}
 		for _, rel := range relations {
 			// Only support-bearing relation types (consistent with subtree/cone).
@@ -333,14 +347,8 @@ func (k Keeper) GatherFrontier(
 			if _, ok := included[rel.TargetFactId]; !ok {
 				continue
 			}
-			edgeKey := rel.SourceFactId + "->" + rel.TargetFactId + "|" + rel.Relation.String()
-			if _, ok := edgeSet[edgeKey]; !ok {
-				edgeSet[edgeKey] = &types.ToKEdge{
-					FromFactId: rel.SourceFactId,
-					ToFactId:   rel.TargetFactId,
-					Relation:   rel.Relation.String(),
-					Inference:  rel.Inference.String(),
-				}
+			if err := readEdge(ctx, edgeSet, rel); err != nil {
+				return nil, nil, err
 			}
 		}
 	}

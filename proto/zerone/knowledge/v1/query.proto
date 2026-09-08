@@ -21,6 +21,12 @@ service Query {
     option (google.api.http).get = "/zerone/knowledge/v1/facts/{id}";
   }
 
+  // FactUseReceipt reads a single receipt in the query context's current
+  // fitness epoch. No historical epoch selector and no state mutation.
+  rpc FactUseReceipt(QueryFactUseReceiptRequest) returns (QueryFactUseReceiptResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/fact_use_receipts/{consumer}/{fact_id}";
+  }
+
   // Facts queries facts with optional domain, status, and category filters.
   rpc Facts(QueryFactsRequest) returns (QueryFactsResponse) {
     option (google.api.http).get = "/zerone/knowledge/v1/facts";
@@ -517,8 +523,10 @@ message QueryParamsResponse {
 
 message QueryFactRequest {
   string id         = 1;
-  bool track_query  = 2;  // Increment query counter (agents set this)
-  string querier    = 3;  // Address of the querier (required if track_query=true, for receipt)
+  // Deprecated metadata: ignored; a query never increments counters or writes receipts.
+  bool track_query  = 2 [deprecated = true];
+  // Deprecated metadata: ignored; cannot attribute use to an unsigned address.
+  string querier    = 3 [deprecated = true];
 }
 
 message QueryFactResponse {
@@ -1650,4 +1658,16 @@ message ToKCapabilities {
   uint32          frontier_limit_cap       = 4;
   repeated string supported_serialisations = 5;  // ["jsonl_adjacency_v1"]
   string          tok_doctrine_version     = 6;  // "TC1-TC5 (2026-05-09)"
+}
+
+message QueryFactUseReceiptRequest {
+  string consumer = 1;
+  string fact_id = 2;
+}
+
+message QueryFactUseReceiptResponse {
+  FactUseReceipt receipt = 1;
+  bool found = 2;
+  uint64 epoch = 3; // current query-context epoch, even when not found
+  uint64 snapshot_block_height = 4;
 }

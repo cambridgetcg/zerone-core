@@ -97,7 +97,11 @@ service Msg {
 
   // ─── Query satisfaction ──────────────────────────────────────────────
 
-  // RateFact allows a querier to provide relevance feedback on a fact.
+  // ReportFactUse records one signed self-report about one existing fact.
+  // It is not measured readership and creates no bounty, mint or payout.
+  rpc ReportFactUse(MsgReportFactUse) returns (MsgReportFactUseResponse);
+
+  // RateFact rates the signer's current-epoch signed-use receipt once.
   rpc RateFact(MsgRateFact) returns (MsgRateFactResponse);
 
   // ─── Route B: training infrastructure ─────────────────────────────
@@ -512,15 +516,16 @@ message MsgReportDemandResponse {}
 
 // ─── Query satisfaction messages ────────────────────────────────────────────
 
-// MsgRateFact allows a querier to provide relevance feedback on a fact.
-// The querier must have previously queried this fact (enforced by query receipt).
+// MsgRateFact rates a valid current-epoch FactUseReceipt once. Its wire fields
+// remain unchanged; the rated receipt is retained as a dedup marker.
+// Legacy query-cache receipts do not authorize a rating.
 message MsgRateFact {
     option (cosmos.msg.v1.signer) = "rater";
 
     string rater   = 1;  // Address of the rating agent
     string fact_id = 2;  // Fact being rated
     bool   useful  = 3;  // true = satisfied, false = dissatisfied
-    string memo    = 4;  // Optional: brief reason (max 256 chars)
+    string memo    = 4;  // Optional UTF-8 reason (max 256 bytes)
 }
 
 message MsgRateFactResponse {}
@@ -889,3 +894,16 @@ message MsgVetoFactInjection {
   string reason     = 3;  // free-form audit comment
 }
 message MsgVetoFactInjectionResponse {}
+
+// MsgReportFactUse attributes exactly one self-reported use to its SDK signer.
+// Consumer must be a canonical SDK account address admitted by fact_use_consumers.
+message MsgReportFactUse {
+  option (cosmos.msg.v1.signer) = "consumer";
+
+  string consumer = 1;
+  string fact_id = 2;
+}
+
+message MsgReportFactUseResponse {
+  FactUseReceipt receipt = 1;
+}

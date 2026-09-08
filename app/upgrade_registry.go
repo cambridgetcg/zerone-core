@@ -68,6 +68,7 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 	// coherence; the test in Wave 10.2 asserts parity between this list
 	// and the registered handlers so drift gets caught immediately.
 	known := []UpgradeLineageEntry{
+		{UpgradeName: UpgradeNameToKFeedbackV1, Description: "tok-feedback-v1 — knowledge v7 signed non-economic feedback and durable graph/history; requires exact completed accepted H3 and refuses historical boundary execution; source-only NO_GO pending custody and exact-binary rehearsal."},
 		{
 			UpgradeName: UpgradeNameTestnet,
 			Description: "v1.0.0-testnet — initial testnet launch; runs all module migrations from v1→v2.",
@@ -106,7 +107,7 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 		},
 		{
 			UpgradeName: UpgradeNameSDK053IBC10,
-			Description: "sdk-0.53-ibc-10 — H3 SDK/IBC migration, fail-closed signer policy, and upgrade/incident operations hardening; consumes separately completed H1 consolidation and H2 founder-renunciation state proofs, reconciles legacy emergency state before hardened getters, requires the raw-DB IBC keyset commitment, validates the exact full source version map, refuses to orphan ICS-29 funds, removes legacy stores, and retires the custom software-upgrade lane.",
+			Description: "sdk-0.53-ibc-10 — historical H3 SDK/IBC boundary, retained for lineage and SDK downgrade recognition only. The tok-feedback-v1 candidate refuses to execute it; use accepted source 335bb94f0fd54d3752dcb397263b7e84fb1116b4 and its independently attested executable after completed H1/H2. Historical source requires exact source map, IBC keyset and loader proof, zero ICS-29 funds and ordered lineage before removing legacy stores.",
 		},
 	}
 

@@ -55,7 +55,7 @@ export interface KnowledgeGeometrySnapshot {
     blockHeight: string;
     statusHeight: string;
     catchingUp: boolean;
-    queryPath: "/zerone/knowledge/v1/facts?pagination.limit=100&pagination.count_total=true";
+    queryPath: "/zerone/knowledge/v1/facts?pagination.limit=100";
     queryTracked: false;
     writes: false;
     completeness: "NOT_CLAIMED";
@@ -71,7 +71,7 @@ type JsonRecord = Record<string, unknown>;
 
 export const KNOWLEDGE_SCHEMA = "zerone.knowledge-geometry-snapshot/v0" as const;
 export const KNOWLEDGE_FACTS_QUERY_PATH =
-  "/zerone/knowledge/v1/facts?pagination.limit=100&pagination.count_total=true" as const;
+  "/zerone/knowledge/v1/facts?pagination.limit=100" as const;
 export const KNOWLEDGE_FACT_CAP = 128;
 export const KNOWLEDGE_RELATION_CAP = 512;
 export const KNOWLEDGE_FACTS_BODY_MAX_BYTES = 384 * 1024;
@@ -88,7 +88,8 @@ const MAX_METRIC = 1_000_000;
 const MAX_CONTENT_BYTES = 16_384;
 const MAX_LABEL_BYTES = 128;
 const MAX_METHOD_ID_BYTES = 128;
-const MAX_UPSTREAM_RECORDS = 8_192;
+const MAX_UPSTREAM_RECORDS = KNOWLEDGE_FACT_CAP;
+const MAX_EXAMINED_RELATIONS = 1024;
 const FACT_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
 const FORBIDDEN_TEXT_CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u;
 const FORBIDDEN_BIDI_CONTROL = /[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u;
@@ -142,13 +143,6 @@ const INFERENCE_TYPES = new Set([
   "INFERENCE_TYPE_ANALOGICAL",
   "INFERENCE_TYPE_CITATION",
 ]);
-
-const DEFAULT_UPSTREAMS = {
-  // This independently read-only HTTPS edge exposes only bounded query paths;
-  // the dashboard never needs a direct route to the signer node.
-  rest: "https://zerone-rpc.fly.dev/rest",
-  rpc: "https://zerone-rpc.fly.dev/rpc",
-} as const;
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -447,20 +441,6 @@ function lexicalCompare(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function maximumFittingPrefix<T>(
-  values: readonly T[],
-  fits: (prefix: T[]) => boolean,
-): T[] {
-  let lower = 0;
-  let upper = values.length;
-  while (lower < upper) {
-    const middle = Math.ceil((lower + upper) / 2);
-    if (fits(values.slice(0, middle))) lower = middle;
-    else upper = middle - 1;
-  }
-  return values.slice(0, lower);
-}
-
 function paginationClaimsMore(value: unknown, observedRecords: number): boolean {
   if (value === null || value === undefined) return false;
   if (!isRecord(value)) {
@@ -489,7 +469,9 @@ function paginationClaimsMore(value: unknown, observedRecords: number): boolean 
     } else {
       throw new KnowledgeUpstreamError("Mainnet facts response has invalid pagination metadata");
     }
-    if (!Number.isSafeInteger(parsed) || parsed < observedRecords) {
+    // Cosmos emits total=0 when count_total was not requested. This is an
+    // unknown total, not a claim that a nonempty page contains zero facts.
+    if (!Number.isSafeInteger(parsed) || parsed < 0 || (parsed !== 0 && parsed < observedRecords)) {
       throw new KnowledgeUpstreamError("Mainnet facts response has invalid pagination metadata");
     }
     totalClaimsMore = parsed > observedRecords;
@@ -518,7 +500,14 @@ function parseFactsSnapshot(
   }> = [];
   const factIds = new Set<string>();
 
+  let examinedRelations = 0;
   for (const candidate of value.facts) {
+    if (isRecord(candidate) && Array.isArray(candidate.outgoingRelations) && Array.isArray(candidate.incomingRelations)) {
+      examinedRelations += candidate.outgoingRelations.length + candidate.incomingRelations.length;
+      if (examinedRelations > MAX_EXAMINED_RELATIONS) {
+        throw new KnowledgeUpstreamError("Knowledge projection exceeded its examined relation limit");
+      }
+    }
     const parsed = parseFact(candidate, blockHeight, statusHeight);
     if (factIds.has(parsed.fact.id)) {
       throw new KnowledgeUpstreamError("Mainnet facts response contains duplicate fact IDs");
@@ -595,39 +584,14 @@ function parseFactsSnapshot(
     facts: boundedFacts,
     relations: boundedRelations,
   });
-  const fits = (snapshot: KnowledgeGeometrySnapshot): boolean =>
-    utf8Length(JSON.stringify(snapshot)) <= KNOWLEDGE_OUTPUT_MAX_BYTES;
-
-  let boundedFacts = facts;
-  if (!fits(assemble(boundedFacts, [], baseTruncated))) {
-    boundedFacts = maximumFittingPrefix(facts, (prefix) =>
-      fits(assemble(prefix, [], true)),
-    );
+  if (allRelations.length > KNOWLEDGE_RELATION_CAP) {
+    throw new KnowledgeUpstreamError("Knowledge projection exceeded its relation limit");
   }
-  const boundedFactIds = new Set(boundedFacts.map(({ id }) => id));
-  const eligibleRelations = allRelations.filter(
-    ({ sourceFactId, targetFactId }) =>
-      boundedFactIds.has(sourceFactId) || boundedFactIds.has(targetFactId),
-  );
-  const cappedRelations = eligibleRelations.slice(0, KNOWLEDGE_RELATION_CAP);
-  const outputAlreadyTruncated =
-    baseTruncated ||
-    boundedFacts.length !== facts.length ||
-    eligibleRelations.length > KNOWLEDGE_RELATION_CAP;
-  const boundedRelations = maximumFittingPrefix(cappedRelations, (prefix) =>
-    fits(
-      assemble(
-        boundedFacts,
-        prefix,
-        outputAlreadyTruncated || prefix.length !== eligibleRelations.length,
-      ),
-    ),
-  );
-  return assemble(
-    boundedFacts,
-    boundedRelations,
-    outputAlreadyTruncated || boundedRelations.length !== eligibleRelations.length,
-  );
+  const snapshot = assemble(facts, selectedRelations, baseTruncated);
+  if (utf8Length(JSON.stringify(snapshot)) > KNOWLEDGE_OUTPUT_MAX_BYTES) {
+    throw new KnowledgeUpstreamError("Knowledge projection exceeded its byte limit");
+  }
+  return snapshot;
 }
 
 function parseStatus(value: unknown): { statusHeight: string; catchingUp: boolean } {
@@ -795,7 +759,7 @@ function normalizedMetric(value: unknown, relation = false): number {
   return safeMetric(value, relation);
 }
 
-function cachedProjection(raw: string): KnowledgeGeometrySnapshot | null {
+export function cachedProjection(raw: string): KnowledgeGeometrySnapshot | null {
   try {
     const value = parseBoundedJson(raw, "facts");
     if (
@@ -1259,10 +1223,14 @@ export async function knowledgeRequest(
 }
 
 export async function knowledgeMainnet(context: KnowledgePagesContext): Promise<Response> {
-  const edgeCache = (globalThis.caches as unknown as { default: KnowledgeCache }).default;
-  return knowledgeRequest(context, {
-    fetch: globalThis.fetch.bind(globalThis),
-    cache: edgeCache,
-    upstreams: DEFAULT_UPSTREAMS,
-  });
+  const incoming = new URL(context.request.url);
+  const method = context.request.method.toUpperCase();
+  const head = method === "HEAD";
+  if (incoming.pathname !== ENDPOINT_PATH) return errorResponse("Knowledge endpoint path is invalid", 400, head);
+  if (incoming.search !== "") return errorResponse("Knowledge endpoint does not accept query parameters", 400, head);
+  if (method === "OPTIONS") return optionsResponse();
+  if (method !== "GET" && !head) return errorResponse("Knowledge endpoint supports only GET, HEAD, and OPTIONS", 405, false);
+  // Source-only beta: no reviewed immutable snapshot binding is installed.
+  // Never fall back to live list queries on public requests/cache misses.
+  return errorResponse("Knowledge snapshot publication is not configured", 503, context.request.method === "HEAD");
 }

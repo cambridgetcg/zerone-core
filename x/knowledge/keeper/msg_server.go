@@ -614,9 +614,20 @@ func (m *msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 	if err := msg.Params.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	current, err := m.keeper.GetParams(ctx)
+	current, err := m.keeper.getFactUseParams(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("load current params: %w", err)
+	}
+	pruning, err := m.keeper.GetFactUsePruningState(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load fact-use pruning state: %w", err)
+	}
+	hasRetained, err := m.keeper.HasRetainedFactUseReceipts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("check retained fact-use receipts: %w", err)
+	}
+	if err := types.ValidateFactUseParamChange(current, msg.Params, pruning, hasRetained); err != nil {
+		return nil, fmt.Errorf("invalid fact-use param change: %w", err)
 	}
 	if err := types.ValidateRuntimeParamChange(current, msg.Params); err != nil {
 		return nil, fmt.Errorf("invalid runtime param change: %w", err)
@@ -657,11 +668,20 @@ func (m *msgServer) UpdateExtendedParams(ctx context.Context, msg *types.MsgUpda
 
 // ─── Challenge/contradiction handlers ────────────────────────────────────────
 
-func (m *msgServer) ChallengeFact(ctx context.Context, msg *types.MsgChallengeFact) (*types.MsgChallengeFactResponse, error) {
+func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFact) (*types.MsgChallengeFactResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, err
+	}
+	if err := m.keeper.validateExistingChallengeEvidence(ctx, msg.EvidenceIds); err != nil {
+		return nil, err
+	}
 
-	fact, found := m.keeper.GetFact(ctx, msg.FactId)
+	fact, found, err := m.keeper.getFeedbackFact(ctx, msg.FactId)
+	if err != nil {
+		return nil, err
+	}
 	if !found {
 		return nil, fmt.Errorf("fact %s not found", msg.FactId)
 	}
@@ -674,7 +694,7 @@ func (m *msgServer) ChallengeFact(ctx context.Context, msg *types.MsgChallengeFa
 
 	// Risk-scaled stake check (T12): higher-confidence facts require more stake
 	// to challenge, proportional to params.ChallengeConfidenceScalingBps.
-	params, err := m.keeper.GetParams(ctx)
+	params, err := m.keeper.getFactUseParams(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load params: %w", err)
 	}
@@ -700,24 +720,25 @@ func (m *msgServer) ChallengeFact(ctx context.Context, msg *types.MsgChallengeFa
 		}
 	}
 
-	// Mark fact as challenged
-	fact.Status = types.FactStatus_FACT_STATUS_CHALLENGED
-	if err := m.keeper.SetFact(ctx, fact); err != nil {
+	// Mark fact as challenged with an explicit checked transition.
+	if err := m.keeper.setChallengeStatus(ctx, fact, types.FactStatus_FACT_STATUS_CHALLENGED, "challenge_submitted", GenerateClaimID(msg.Challenger, msg.FactId, height)); err != nil {
 		return nil, err
 	}
 
 	// Create a challenge claim and round
 	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
 	challengeClaim := &types.Claim{
-		Id:                challengeClaimID,
-		FactContent:       fmt.Sprintf("Challenge of fact %s: %s", msg.FactId, msg.Reason),
-		Domain:            fact.Domain,
-		Category:          fact.Category,
-		Submitter:         msg.Challenger,
-		SubmittedAtBlock:  height,
-		Status:            types.ClaimStatus_CLAIM_STATUS_PENDING,
-		Stake:             msg.Stake,
-		ProvisionalFactId: msg.FactId, // Track challenged fact for resolution
+		Id:                   challengeClaimID,
+		FactContent:          fmt.Sprintf("Challenge of fact %s: %s", msg.FactId, msg.Reason),
+		Domain:               fact.Domain,
+		Category:             fact.Category,
+		Submitter:            msg.Challenger,
+		SubmittedAtBlock:     height,
+		Status:               types.ClaimStatus_CLAIM_STATUS_PENDING,
+		Stake:                msg.Stake,
+		ProvisionalFactId:    msg.FactId, // Track challenged fact for resolution
+		ArgumentText:         msg.Reason,
+		ChallengeEvidenceIds: append([]string(nil), msg.EvidenceIds...),
 	}
 	if err := m.keeper.SetClaim(ctx, challengeClaim); err != nil {
 		return nil, err
@@ -747,11 +768,20 @@ func (m *msgServer) ChallengeFact(ctx context.Context, msg *types.MsgChallengeFa
 	return &types.MsgChallengeFactResponse{RoundId: round.Id}, nil
 }
 
-func (m *msgServer) ChallengeProvisionalFact(ctx context.Context, msg *types.MsgChallengeProvisionalFact) (*types.MsgChallengeProvisionalFactResponse, error) {
+func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.MsgChallengeProvisionalFact) (*types.MsgChallengeProvisionalFactResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, err
+	}
+	if err := m.keeper.validateExistingChallengeEvidence(ctx, msg.EvidenceIds); err != nil {
+		return nil, err
+	}
 
-	fact, found := m.keeper.GetFact(ctx, msg.FactId)
+	fact, found, err := m.keeper.getFeedbackFact(ctx, msg.FactId)
+	if err != nil {
+		return nil, err
+	}
 	if !found {
 		return nil, fmt.Errorf("fact %s not found", msg.FactId)
 	}
@@ -774,12 +804,17 @@ func (m *msgServer) ChallengeProvisionalFact(ctx context.Context, msg *types.Msg
 	// bought the CHALLENGED status transition and everything that followed
 	// from it. A conjecture sits at confidence 0, so the confidence-scaled
 	// EffectiveMinChallengeStake would floor out; use the unscaled param.
-	if cp, err := m.keeper.GetParams(ctx); err == nil && cp.MinChallengeStake != "" {
-		minStake, ok := new(big.Int).SetString(cp.MinChallengeStake, 10)
-		stakeVal, ok2 := new(big.Int).SetString(msg.Stake, 10)
-		if ok && ok2 && stakeVal.Cmp(minStake) < 0 {
-			return nil, fmt.Errorf("challenge stake %suzrn below minimum %suzrn", msg.Stake, cp.MinChallengeStake)
-		}
+	cp, err := m.keeper.getFactUseParams(ctx)
+	if err != nil {
+		return nil, err
+	}
+	minStake, minOK := new(big.Int).SetString(cp.MinChallengeStake, 10)
+	stakeVal, stakeOK := new(big.Int).SetString(msg.Stake, 10)
+	if !minOK || minStake.Sign() < 0 || !stakeOK || stakeVal.Sign() <= 0 {
+		return nil, fmt.Errorf("invalid challenge stake or configured minimum")
+	}
+	if stakeVal.Cmp(minStake) < 0 {
+		return nil, fmt.Errorf("challenge stake %suzrn below minimum %suzrn", msg.Stake, cp.MinChallengeStake)
 	}
 
 	// Lock stake
@@ -798,22 +833,27 @@ func (m *msgServer) ChallengeProvisionalFact(ctx context.Context, msg *types.Msg
 		}
 	}
 
-	fact.Status = types.FactStatus_FACT_STATUS_CHALLENGED
-	_ = m.keeper.SetFact(ctx, fact)
+	if err := m.keeper.setChallengeStatus(ctx, fact, types.FactStatus_FACT_STATUS_CHALLENGED, "challenge_submitted", GenerateClaimID(msg.Challenger, msg.FactId, height)); err != nil {
+		return nil, err
+	}
 
 	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
 	challengeClaim := &types.Claim{
-		Id:                challengeClaimID,
-		FactContent:       fmt.Sprintf("Provisional challenge of fact %s: %s", msg.FactId, msg.Reason),
-		Domain:            fact.Domain,
-		Category:          fact.Category,
-		Submitter:         msg.Challenger,
-		SubmittedAtBlock:  height,
-		Status:            types.ClaimStatus_CLAIM_STATUS_PENDING,
-		Stake:             msg.Stake,
-		ProvisionalFactId: msg.FactId, // Track challenged fact for resolution
+		Id:                   challengeClaimID,
+		FactContent:          fmt.Sprintf("Provisional challenge of fact %s: %s", msg.FactId, msg.Reason),
+		Domain:               fact.Domain,
+		Category:             fact.Category,
+		Submitter:            msg.Challenger,
+		SubmittedAtBlock:     height,
+		Status:               types.ClaimStatus_CLAIM_STATUS_PENDING,
+		Stake:                msg.Stake,
+		ProvisionalFactId:    msg.FactId, // Track challenged fact for resolution
+		ArgumentText:         msg.Reason,
+		ChallengeEvidenceIds: append([]string(nil), msg.EvidenceIds...),
 	}
-	_ = m.keeper.SetClaim(ctx, challengeClaim)
+	if err := m.keeper.SetClaim(ctx, challengeClaim); err != nil {
+		return nil, err
+	}
 	round, err := m.keeper.CreateVerificationRound(ctx, challengeClaim)
 	if err != nil {
 		return nil, err
@@ -1290,47 +1330,5 @@ func (m *msgServer) ReportDemand(ctx context.Context, msg *types.MsgReportDemand
 // ─── Query satisfaction handlers ────────────────────────────────────────────
 
 func (m *msgServer) RateFact(ctx context.Context, msg *types.MsgRateFact) (*types.MsgRateFactResponse, error) {
-	// Validate memo length
-	if len(msg.Memo) > 256 {
-		return nil, fmt.Errorf("memo exceeds 256 characters")
-	}
-
-	// Verify fact exists
-	fact, found := m.keeper.GetFact(ctx, msg.FactId)
-	if !found {
-		return nil, fmt.Errorf("fact not found: %s", msg.FactId)
-	}
-
-	// Verify query receipt (proof-of-query)
-	if !m.keeper.HasQueryReceipt(ctx, msg.Rater, msg.FactId) {
-		return nil, fmt.Errorf("no query receipt: you must query a fact before rating it")
-	}
-
-	// Prevent double-rating: consume the receipt
-	if err := m.keeper.ConsumeQueryReceipt(ctx, msg.Rater, msg.FactId); err != nil {
-		return nil, fmt.Errorf("failed to consume receipt: %w", err)
-	}
-
-	// Apply rating
-	if msg.Useful {
-		fact.SatisfactionUp++
-		fact.SatisfactionUpEpoch++
-	} else {
-		fact.SatisfactionDown++
-		fact.SatisfactionDownEpoch++
-	}
-
-	if err := m.keeper.SetFact(ctx, fact); err != nil {
-		return nil, fmt.Errorf("failed to update fact: %w", err)
-	}
-
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
-		"zerone.knowledge.fact_rated",
-		sdk.NewAttribute("fact_id", msg.FactId),
-		sdk.NewAttribute("rater", msg.Rater),
-		sdk.NewAttribute("useful", fmt.Sprintf("%t", msg.Useful)),
-	))
-
-	return &types.MsgRateFactResponse{}, nil
+	return m.rateFactUse(ctx, msg)
 }

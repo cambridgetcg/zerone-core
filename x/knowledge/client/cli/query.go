@@ -69,6 +69,7 @@ func GetQueryCmd() *cobra.Command {
 		NewQueryEffectiveFeesCmd(),
 		NewQueryClaimWatchCmd(),
 		NewQueryFactCmd(),
+		NewQueryFactUseReceiptCmd(),
 		NewQueryFactsCmd(),
 		NewQueryFactsByDomainCmd(),
 		NewQueryFactsBySubmitterCmd(),

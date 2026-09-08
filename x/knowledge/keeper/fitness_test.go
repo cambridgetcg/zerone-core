@@ -38,12 +38,12 @@ func TestCalculateFitness_HighCitation(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 
 	fact := &types.Fact{
-		Id:                   "fact-hc",
-		Content:              "Well-cited foundational fact",
-		Domain:               "mathematics",
-		Status:               types.FactStatus_FACT_STATUS_VERIFIED,
+		Id:                    "fact-hc",
+		Content:               "Well-cited foundational fact",
+		Domain:                "mathematics",
+		Status:                types.FactStatus_FACT_STATUS_VERIFIED,
 		IncomingCitationCount: 10, // Max citation score
-		EpochBorn:            0,
+		EpochBorn:             0,
 	}
 	require.NoError(t, k.SetFact(ctx, fact))
 
@@ -80,12 +80,12 @@ func TestCalculateFitness_AgeResistance(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 
 	fact := &types.Fact{
-		Id:                   "fact-ar",
-		Content:              "2+2=4",
-		Domain:               "mathematics",
-		Status:               types.FactStatus_FACT_STATUS_VERIFIED,
+		Id:                    "fact-ar",
+		Content:               "2+2=4",
+		Domain:                "mathematics",
+		Status:                types.FactStatus_FACT_STATUS_VERIFIED,
 		IncomingCitationCount: 10, // Well-cited
-		EpochBorn:            0,
+		EpochBorn:             0,
 	}
 	require.NoError(t, k.SetFact(ctx, fact))
 
@@ -126,13 +126,13 @@ func TestCalculateFitness_PatronageKeepsAlive(t *testing.T) {
 	ctx = ctx.WithBlockHeader(cmtproto.Header{Height: 500})
 
 	fact := &types.Fact{
-		Id:                  "fact-pk",
-		Content:             "Patronized fact",
-		Domain:              "general",
-		Status:              types.FactStatus_FACT_STATUS_VERIFIED,
-		PatronageAmount:     "1000000", // 1 ZRN
-		PatronageExpiryBlock: 10000,    // Far in the future
-		EpochBorn:           0,
+		Id:                   "fact-pk",
+		Content:              "Patronized fact",
+		Domain:               "general",
+		Status:               types.FactStatus_FACT_STATUS_VERIFIED,
+		PatronageAmount:      "1000000", // 1 ZRN
+		PatronageExpiryBlock: 10000,     // Far in the future
+		EpochBorn:            0,
 	}
 	require.NoError(t, k.SetFact(ctx, fact))
 
@@ -197,8 +197,12 @@ func TestUpdateAllFitness_EpochBoundary(t *testing.T) {
 
 	// Fitness should be recalculated
 	require.Equal(t, uint64(params.FitnessEpochBlocks), updated.FitnessUpdatedBlock)
-	// Epoch query counter should be reset
-	require.Equal(t, uint64(0), updated.QueryCountEpoch)
+	// Fitness must leave counters for downstream consumers such as metabolism.
+	require.Equal(t, uint64(500), updated.QueryCountEpoch)
+	require.NoError(t, k.ResetFactFeedbackEpochCounters(ctx))
+	updated, found = k.GetFact(ctx, "fact-ub")
+	require.True(t, found)
+	require.Zero(t, updated.QueryCountEpoch)
 }
 
 func TestQueryByFitness_Sorted(t *testing.T) {

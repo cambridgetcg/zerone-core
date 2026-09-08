@@ -10,6 +10,8 @@ import (
 	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -250,6 +252,13 @@ func (k Keeper) AssembleToKBundle(
 	sel *types.ToKSelector,
 	atBlockHeight uint64,
 ) (*types.ToKBundle, error) {
+	if atBlockHeight != 0 {
+		return nil, status.Error(codes.InvalidArgument, "at_block_height is unsupported; use the SDK query context height")
+	}
+	ctx = withToKReadBudget(ctx)
+	if err := readBudget(ctx).check(ctx); err != nil {
+		return nil, err
+	}
 	capped, err := ValidateAndCapToKSelector(sel)
 	if err != nil {
 		return nil, err
@@ -271,7 +280,10 @@ func (k Keeper) assembleToKBundleV1(ctx context.Context, capped *types.ToKSelect
 
 	var nodes []*types.Fact
 	for _, id := range nodeIDs {
-		f, ok := k.GetFact(ctx, id)
+		f, ok := k.readFact(ctx, id)
+		if err := readBudget(ctx).check(ctx); err != nil {
+			return nil, err
+		}
 		if !ok {
 			return nil, fmt.Errorf("%w: selected fact %s not found", ErrToKInconsistentState, id)
 		}
@@ -303,11 +315,17 @@ func (k Keeper) assembleToKBundleV1(ctx context.Context, capped *types.ToKSelect
 		},
 	}
 
+	if err := checkReadOutput(ctx, bundle); err != nil {
+		return nil, err
+	}
 	payload, err := SerialiseToK_JSONL(bundle)
 	if err != nil {
 		return nil, err
 	}
 	bundle.SerialisedPayload = payload
+	if err := checkReadOutput(ctx, &types.QueryBundleToKResponse{Bundle: bundle}); err != nil {
+		return nil, err
+	}
 
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 		EventTypeToKBundleExtracted,
@@ -337,7 +355,11 @@ func (k Keeper) assembleToKBundleV2(ctx context.Context, capped *types.ToKSelect
 	var statusHistory []*types.StatusTransition
 	if cascadeSel.IncludeStatusHistory {
 		for _, id := range nodeIDs {
-			statusHistory = append(statusHistory, k.GetStatusHistory(ctx, id)...)
+			history, err := k.readStatusHistory(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			statusHistory = append(statusHistory, history...)
 		}
 	}
 
@@ -345,7 +367,10 @@ func (k Keeper) assembleToKBundleV2(ctx context.Context, capped *types.ToKSelect
 
 	var nodes []*types.Fact
 	for _, id := range nodeIDs {
-		f, ok := k.GetFact(ctx, id)
+		f, ok := k.readFact(ctx, id)
+		if err := readBudget(ctx).check(ctx); err != nil {
+			return nil, err
+		}
 		if !ok {
 			return nil, fmt.Errorf("%w: selected fact %s not found", ErrToKInconsistentState, id)
 		}
@@ -381,11 +406,17 @@ func (k Keeper) assembleToKBundleV2(ctx context.Context, capped *types.ToKSelect
 		},
 	}
 
+	if err := checkReadOutput(ctx, bundle); err != nil {
+		return nil, err
+	}
 	payload, err := SerialiseToK_JSONL(bundle)
 	if err != nil {
 		return nil, err
 	}
 	bundle.SerialisedPayload = payload
+	if err := checkReadOutput(ctx, &types.QueryBundleToKResponse{Bundle: bundle}); err != nil {
+		return nil, err
+	}
 	k.emitToKBundleEvents(ctx, bundle, capped, "TC0,TC1,TC4,TC5")
 	k.emitCascadeReplayedEvent(ctx, cascadeSel, bundle)
 	return bundle, nil
@@ -426,6 +457,10 @@ func (k Keeper) SelectToKIds(
 	ctx context.Context,
 	sel *types.ToKSelector,
 ) (nodeIDs []string, edges []*types.ToKEdge, err error) {
+	ctx = withToKReadBudget(ctx)
+	if err := ValidateToKSelector(sel); err != nil {
+		return nil, nil, err
+	}
 	switch v := sel.Variant.(type) {
 	case *types.ToKSelector_RootedSubtree:
 		nodeIDs, edges, err = k.GatherRootedSubtree(ctx, v.RootedSubtree)
@@ -439,7 +474,11 @@ func (k Keeper) SelectToKIds(
 	if err != nil {
 		return nil, nil, err
 	}
-	return k.excludeConjectures(ctx, nodeIDs, edges), edges, nil
+	nodeIDs = k.excludeConjectures(ctx, nodeIDs, edges)
+	if err := readBudget(ctx).check(ctx); err != nil {
+		return nil, nil, err
+	}
+	return nodeIDs, edges, nil
 }
 
 // excludeConjectures removes open questions from a ToK bundle.
@@ -460,7 +499,7 @@ func (k Keeper) SelectToKIds(
 func (k Keeper) excludeConjectures(ctx context.Context, nodeIDs []string, edges []*types.ToKEdge) []string {
 	out := nodeIDs[:0:0]
 	for _, id := range nodeIDs {
-		fact, ok := k.GetFact(ctx, id)
+		fact, ok := k.readFact(ctx, id)
 		if ok && IsConjecture(fact) && fact.Status != types.FactStatus_FACT_STATUS_DISPROVEN {
 			continue
 		}

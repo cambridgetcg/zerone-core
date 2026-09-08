@@ -34,12 +34,12 @@ var (
 	chainIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 
 	expectedSourcePins = []sourcePin{
-		{"zerone.research-commons-spec", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "264f3c383f408729f4d0c27d332cd454c9eb4400", "docs/specs/research-commons-rc-0.1.md", "sha256:cff28edbbc7bbad80a101555257046173c19ac05b80b14a9d93317f220dccce7", "CURRENT", "LOCAL_BYTES"},
-		{"zerone.research-commons-manifest", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "264f3c383f408729f4d0c27d332cd454c9eb4400", "dashboard/public/standards/research-commons.v0.1.json", "sha256:94f020f1d37faac48300d14071ec995245aedbdc7f08fc19cafd3797450cdb8c", "CURRENT", "LOCAL_BYTES"},
+		{"zerone.research-commons-spec", "ZERONE", "CANDIDATE_LOCAL_BYTES", "https://github.com/cambridgetcg/zerone-core", "UNPUBLISHED", "docs/specs/research-commons-rc-0.1.md", "sha256:52d32f8fde9f14ae4729cb0ee575eadd17dbe94208822b9c90bd1d6b90770656", "CURRENT", "LOCAL_BYTES"},
+		{"zerone.research-commons-manifest", "ZERONE", "CANDIDATE_LOCAL_BYTES", "https://github.com/cambridgetcg/zerone-core", "UNPUBLISHED", "dashboard/public/standards/research-commons.v0.1.json", "sha256:5792dd97b2dbea54011af3c80074ad9e1271fb8085fb474d8b2b8bd6ace829bb", "CURRENT", "LOCAL_BYTES"},
 		{"zerone.tok-substrate-doctrine", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "264f3c383f408729f4d0c27d332cd454c9eb4400", "docs/TOK_SUBSTRATE.md", "sha256:4fec6e3a410d5736f61cd43f4d9c421380b93f649c2f0d026a5f4e68a6534328", "CURRENT", "LOCAL_BYTES"},
-		{"zerone.tok-bundle-implementation", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "264f3c383f408729f4d0c27d332cd454c9eb4400", "x/knowledge/keeper/tok_bundle.go", "sha256:e2d786d7287a2194ff858d47de84e3b140c9922b7ef37dcfadaec74be675f248", "CURRENT", "LOCAL_BYTES"},
+		{"zerone.tok-bundle-implementation", "ZERONE", "CANDIDATE_LOCAL_BYTES", "https://github.com/cambridgetcg/zerone-core", "UNPUBLISHED", "x/knowledge/keeper/tok_bundle.go", "sha256:f9fb7d803a77dd3aa0b3a5338130c172dd29371084e31ffe95079aa00a5aadbd", "CURRENT", "LOCAL_BYTES"},
 		{"zerone.static-tree", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "264f3c383f408729f4d0c27d332cd454c9eb4400", "dashboard/public/standards/constructive-intelligence-tree.v1.json", "sha256:8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf", "CURRENT", "LOCAL_BYTES"},
-		{"zerone.knowledge-geometry-projection", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "264f3c383f408729f4d0c27d332cd454c9eb4400", "dashboard/functions/api/_knowledge.ts", "sha256:c828c0cd0cdca353d6fd6005d3e3e113cda964123d4a7722d060ad5ed9baed9e", "CURRENT", "LOCAL_BYTES"},
+		{"zerone.knowledge-geometry-projection", "ZERONE", "CANDIDATE_LOCAL_BYTES", "https://github.com/cambridgetcg/zerone-core", "UNPUBLISHED", "dashboard/functions/api/_knowledge.ts", "sha256:1769be14b17ec0e2efa6763291e5ea65416cd4bab3ebf7b4f49a228e5252ba6f", "CURRENT", "LOCAL_BYTES"},
 		{"agenttool.research-commons-static-interop", "AGENTTOOL", "CURRENT_TRACKED", "https://github.com/cambridgetcg/agenttool", "796a753ab8624ad11af621ef4572544ea3b8f463", "packages/research-commons/interop/research-commons-zerone-v0.1.json", "sha256:8c5b1749447c1587b89b238dadb5113e10230df19fd3f4e7942d9a163aef6a8a", "CURRENT", "EXTERNAL_PIN_LITERAL"},
 		{"agenttool.supabase-stack-baseline", "AGENTTOOL", "CURRENT_TRACKED", "https://github.com/cambridgetcg/agenttool", "796a753ab8624ad11af621ef4572544ea3b8f463", "docs/STACK.md", "sha256:207b66a20bf8dd34ac8637d9783858a7ae897afeb531285bbe5078f3bd890d43", "CURRENT", "EXTERNAL_PIN_LITERAL"},
 	}
@@ -142,7 +142,7 @@ func validateManifestSeal(data []byte) error {
 }
 
 func validateManifest(contract manifest) error {
-	if contract.Format != manifestFormat || contract.Protocol != protocolID || contract.Status != "SOURCE_ONLY_OFFLINE_NO_EFFECT" || contract.AsOf != "2026-08-21T09:42:59Z" {
+	if contract.Format != manifestFormat || contract.Protocol != protocolID || contract.Status != "SOURCE_ONLY_OFFLINE_NO_EFFECT" || contract.AsOf != "2026-09-08T15:08:59Z" {
 		return errors.New("manifest identity or observation cutoff drifted")
 	}
 	if len(contract.SourcePins) != len(expectedSourcePins) {

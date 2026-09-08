@@ -140,6 +140,11 @@ func (app *ZeroneApp) VerifyScheduledActivationPrestate() (
 	ActivationPreflightReport,
 	error,
 ) {
+	latest := app.CommitMultiStore().LastCommitID().Version
+	ctx := app.NewUncachedContext(true, cmtproto.Header{Height: latest})
+	if plan, err := app.UpgradeKeeper.GetUpgradePlan(ctx); err == nil && plan.Name == UpgradeNameToKFeedbackV1 {
+		return app.verifyToKFeedbackPrestate(ctx, plan)
+	}
 	return app.verifyActivationPrestate(true)
 }
 
@@ -350,7 +355,24 @@ func (app *ZeroneApp) verifyNamedActivationPreconditions(
 	committedHeight int64,
 	lineageEvidence *preSDKTransitionLineageEvidence,
 ) error {
+	if err := requireToKFeedbackPlan(plan.Name); err != nil {
+		return err
+	}
 	switch plan.Name {
+	case UpgradeNameToKFeedbackV1:
+		if plan.Height != committedHeight+1 {
+			return fmt.Errorf("ToK feedback preflight requires H-1")
+		}
+		if err := validateToKFeedbackPlanInfo(plan.Info); err != nil {
+			return err
+		}
+		if err := requireToKFeedbackVersionMap(versionMap, 6); err != nil {
+			return err
+		}
+		if err := app.requireAbsentToKFeedbackCompletion(ctx); err != nil {
+			return err
+		}
+		return app.requireToKFeedbackH3(ctx, plan.Height)
 	case UpgradeNameSDK053IBC10:
 		manifest, err := parseSDK053IBC10PlanInfo(plan.Info)
 		if err != nil {

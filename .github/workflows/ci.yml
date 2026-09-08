@@ -26,6 +26,7 @@ on:
 
 env:
   GO_VERSION: "1.25.14"
+  NODE_VERSION: "22.23.2"
 
 permissions:
   contents: read
@@ -648,15 +649,43 @@ jobs:
   test:
     name: "Test"
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
+    env:
+      GOFLAGS: -mod=readonly -p=2
+      GOTOOLCHAIN: local
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Historical invariant tests archive a pinned ancestor offline; a
+          # depth-one candidate checkout cannot supply that source object.
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
+      # Signed transport tests load CosmJS and the generated SDK in this job;
+      # the separate typescript-sdk runner cannot supply its node_modules.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: sdk/typescript/package-lock.json
+      - name: Use declared npm release
+        run: |
+          npm install --global npm@11.9.0
+          test "$(npm --version)" = "11.9.0"
+      - name: Install SDK dependencies
+        working-directory: sdk/typescript
+        run: npm ci
+      - name: Verify SDK codecs and rebuild distribution
+        working-directory: sdk/typescript
+        run: |
+          npm run check:generated
+          npm run check:registry
+          npm run build
+      - name: Verify committed SDK distribution
+        run: test -z "$(git status --porcelain --untracked-files=all -- sdk/typescript/dist)"
       - name: Test
         run: make test
 
@@ -696,18 +725,49 @@ jobs:
   typescript-sdk:
     name: "TypeScript SDK and dashboard"
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
+    env:
+      GOFLAGS: -mod=readonly -p=2
+      GOTOOLCHAIN: local
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+          cache-dependency-path: go.sum
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: "22"
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: |
             sdk/typescript/package-lock.json
             dashboard/package-lock.json
+      # Cache restoration is optional. Populate and verify modules even on a
+      # clean runner before the canonical-wire test deliberately disables fetches.
+      - name: Download and verify Go modules for canonical-wire test
+        run: |
+          attempt=1
+          until go mod download; do
+            if [ "${attempt}" -ge 3 ]; then
+              printf 'go mod download failed after %s attempts\n' "$attempt" >&2
+              exit 1
+            fi
+            delay_seconds=$((attempt * 5))
+            printf 'go mod download failed (attempt %s/3); retrying in %ss\n' "$attempt" "$delay_seconds" >&2
+            sleep "${delay_seconds}"
+            attempt=$((attempt + 1))
+          done
+          go mod verify
+      # Keep a first-time keeper compilation outside the dashboard test's
+      # 120-second subprocess timeout; this still runs the real Go assertion.
+      - name: Prime canonical-wire test build cache
+        env:
+          GOPROXY: "off"
+          GOSUMDB: "off"
+        run: go test -mod=readonly -p 2 ./x/knowledge/keeper -run '^TestReadCanonicalProjectionWire$' -count=1
       - name: Use declared npm release
         run: |
           npm install --global npm@11.9.0

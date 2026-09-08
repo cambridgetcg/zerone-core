@@ -12,10 +12,9 @@ import (
 
 // ─── Wave 12: resilience drill — every primitive in one exercise ────────
 //
-// The crown-jewel test. Simulates a full incident-response cycle exercising
-// EVERY resilience primitive: circuit breaker, incident record, named
-// upgrade, migration marker, event audit trail. If this passes, the chain
-// has a working damage-containment + recovery pipeline end-to-end.
+// A local synthetic incident-response cycle exercises the circuit breaker,
+// incident record, candidate upgrade, marker and audit trail. This is neither
+// custody evidence nor a production damage-containment/recovery rehearsal.
 
 // TestResilience_FullDrillP0 — end-to-end simulation:
 //  1. Bug discovered: a future build of CreateTrainingManifest would
@@ -23,9 +22,9 @@ import (
 //  2. Pause the knowledge module (circuit breaker on — writes refuse).
 //  3. Verify the write-path rejects with a clear error.
 //  4. Record a PauseModule remediation on the incident.
-//  5. Register the named upgrade (already registered in app.go).
-//  6. Apply the upgrade via RunUpgradeHandlerForTests.
-//  7. Verify the v4 migration marker present (fix "deployed").
+//  5. Refuse the retired plan without mutation.
+//  6. Apply tok-feedback-v1 to explicitly synthetic H3 unit state.
+//  7. Verify knowledge7 and named/migration markers (local only).
 //  8. Record a NAMED_UPGRADE remediation on the incident.
 //  9. Unpause the knowledge module.
 //  10. Verify the write-path succeeds again.
@@ -34,6 +33,7 @@ import (
 //  13. Dashboard queries confirm zero open incidents, zero paused modules.
 func TestResilience_FullDrillP0(t *testing.T) {
 	h := NewTestHarness(t)
+	seedSyntheticCompletedH3(t, h) // unit fixture, not a historical binary handoff
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -97,22 +97,17 @@ func TestResilience_FullDrillP0(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// ── STEP 5 + 6: apply the named upgrade ───────────────────────────
-	fromVM := h.App.CurrentModuleVersionMap()
-	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV2, fromVM, h.Height())
-	require.NoError(t, err, "named upgrade runs despite the module being paused (handlers, not migrations, gate writes)")
-	require.Equal(t, uint64(6), toVM["knowledge"])
-
-	// ── STEP 7: current named-upgrade marker present — fix "deployed" ─
-	require.Equal(t, "migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_v1.0.1"))
+	// STEP 5–7: the real candidate handler on synthetic H3 unit state,
+	// even while the module is paused. No historical plan is re-enabled.
+	assertCandidateRetiresPlan(t, h, zeroneapp.UpgradeNameTestnetV2)
+	runSyntheticFeedbackUpgrade(t, h)
 
 	// ── STEP 8: record the named-upgrade remediation ──────────────────
 	_, err = ms.RecordRemediation(h.Ctx, &knowledgetypes.MsgRecordRemediation{
 		Authority:  authority,
 		IncidentId: "ZR-DRILL-001",
 		Type:       knowledgetypes.RemediationType_REMEDIATION_TYPE_NAMED_UPGRADE,
-		Reference:  zeroneapp.UpgradeNameTestnetV2,
+		Reference:  zeroneapp.UpgradeNameToKFeedbackV1,
 		Note:       "fix crossed a named boundary registered by the current binary",
 	})
 	require.NoError(t, err)

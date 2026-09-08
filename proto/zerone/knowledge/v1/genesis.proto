@@ -4,6 +4,7 @@ package zerone.knowledge.v1;
 option go_package = "github.com/zerone-chain/zerone/x/knowledge/types";
 
 import "zerone/knowledge/v1/types.proto";
+import "zerone/knowledge/v1/tok_cascade.proto";
 
 // Params are the governance parameters for the knowledge module.
 // All BPS values use a 1,000,000 scale (1,000,000 = 100%).
@@ -307,6 +308,18 @@ message Params {
   // "no individual can unilaterally inject untruth."
   repeated string guardian_addresses              = 159; // veto-eligible addresses; empty = no guardian set, immediate execution
   uint64 add_fact_veto_window_blocks              = 160; // default 0 (immediate); set > 0 to enable veto window
+
+  // Signed self-reported use beta: independent of authorized_demand_reporters.
+  // Enabled policy requires both query/satisfaction fitness weights and
+  // metabolism_energy_per_query to be zero. No demand bounty or payout link.
+  // Runtime updates must freeze fitness_epoch_blocks while enabled or any
+  // receipts remain retained, including when disabling in the same update.
+  bool fact_use_enabled = 161; // default false
+  repeated string fact_use_consumers = 162; // default empty; max 32 canonical distinct SDK accounts
+  uint64 fact_use_max_per_consumer_epoch = 163; // default/ceiling 100; positive
+  uint64 fact_use_max_per_epoch = 164; // default/ceiling 1000; positive
+  // Version-1 retention (2 epochs), pruning (100 examined records/block) and
+  // total retained capacity (2000 receipts) are fixed bounded code constants.
 }
 
 // GenesisState is the genesis state of the knowledge module.
@@ -353,4 +366,36 @@ message GenesisState {
   // to bootstrap_fund_allocation but for the KnowledgeTrainingFund module
   // account).
   string training_fund_allocation                      = 60;
+
+  // Canonical graph/history records. Reverse/adjacency indexes are rebuilt;
+  // embedded Fact relation arrays are not substitutes for these stored edges.
+  repeated FactRelation fact_relations = 70;
+  repeated StatusTransition status_transitions = 71;
+  repeated StatusTransitionSequence status_transition_sequences = 72;
+  repeated CascadeEvent cascade_events = 73;
+  // Terminal COMPLETE/EXPIRED rounds, distinct from active_rounds. The legacy
+  // pending_claims field carries ALL stored claims, including terminal claims.
+  repeated VerificationRound completed_rounds = 74;
+  // Preserve the actual completion metadata and key, not a reconstruction
+  // from possibly absent/changed claims. Only export existing index records.
+  repeated CompletedRoundRecord completed_round_records = 75;
+  repeated FactUseReceipt fact_use_receipts = 76;
+  FactUsePruningState fact_use_pruning = 77;
+  // Use quota counters are derived from retained receipts and rebuilt on import.
+}
+
+// Exact counter value stored by status_transitions.go at StatusTransitionSeqKey.
+// Despite the old next-seq comment, its writer persists the LAST allocated seq
+// then increments on the next write. Preserve gaps/counters without synthesizing
+// missing history. Absence of an entry means the counter key was absent.
+message StatusTransitionSequence {
+  string fact_id = 1;
+  uint64 last_sequence = 2;
+}
+
+// Keyed existing completion metadata; no parallel round/history representation.
+message CompletedRoundRecord {
+  string round_id = 1;
+  uint64 verdict_block = 2;
+  CompletedRoundMeta meta = 3;
 }

@@ -1,4 +1,4 @@
-import { ClaimType, ClaimRelation, ClaimStructure, TokenizerSpec, AugmentationVerdict, TraceSchema, CorpusSelector, IncidentSeverity, RemediationType } from "./types.js";
+import { ClaimType, ClaimRelation, ClaimStructure, TokenizerSpec, AugmentationVerdict, TraceSchema, CorpusSelector, IncidentSeverity, RemediationType, FactUseReceipt } from "./types.js";
 import { Params } from "./genesis.js";
 import { BinaryReader, BinaryWriter } from "../../../binary.js";
 import { DeepPartial } from "../../../helpers.js";
@@ -512,8 +512,9 @@ export interface DemandReport {
 export interface MsgReportDemandResponse {
 }
 /**
- * MsgRateFact allows a querier to provide relevance feedback on a fact.
- * The querier must have previously queried this fact (enforced by query receipt).
+ * MsgRateFact rates a valid current-epoch FactUseReceipt once. Its wire fields
+ * remain unchanged; the rated receipt is retained as a dedup marker.
+ * Legacy query-cache receipts do not authorize a rating.
  * @name MsgRateFact
  * @package zerone.knowledge.v1
  * @see proto type: zerone.knowledge.v1.MsgRateFact
@@ -532,7 +533,7 @@ export interface MsgRateFact {
      */
     useful: boolean;
     /**
-     * Optional: brief reason (max 256 chars)
+     * Optional UTF-8 reason (max 256 bytes)
      */
     memo: string;
 }
@@ -1209,6 +1210,25 @@ export interface MsgVetoFactInjection {
 export interface MsgVetoFactInjectionResponse {
 }
 /**
+ * MsgReportFactUse attributes exactly one self-reported use to its SDK signer.
+ * Consumer must be a canonical SDK account address admitted by fact_use_consumers.
+ * @name MsgReportFactUse
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgReportFactUse
+ */
+export interface MsgReportFactUse {
+    consumer: string;
+    factId: string;
+}
+/**
+ * @name MsgReportFactUseResponse
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgReportFactUseResponse
+ */
+export interface MsgReportFactUseResponse {
+    receipt?: FactUseReceipt;
+}
+/**
  * @name MsgSubmitClaim
  * @package zerone.knowledge.v1
  * @see proto type: zerone.knowledge.v1.MsgSubmitClaim
@@ -1691,8 +1711,9 @@ export declare const MsgReportDemandResponse: {
     fromPartial(_: DeepPartial<MsgReportDemandResponse>): MsgReportDemandResponse;
 };
 /**
- * MsgRateFact allows a querier to provide relevance feedback on a fact.
- * The querier must have previously queried this fact (enforced by query receipt).
+ * MsgRateFact rates a valid current-epoch FactUseReceipt once. Its wire fields
+ * remain unchanged; the rated receipt is retained as a dedup marker.
+ * Legacy query-cache receipts do not authorize a rating.
  * @name MsgRateFact
  * @package zerone.knowledge.v1
  * @see proto type: zerone.knowledge.v1.MsgRateFact
@@ -2339,4 +2360,28 @@ export declare const MsgVetoFactInjectionResponse: {
     encode(_: MsgVetoFactInjectionResponse, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): MsgVetoFactInjectionResponse;
     fromPartial(_: DeepPartial<MsgVetoFactInjectionResponse>): MsgVetoFactInjectionResponse;
+};
+/**
+ * MsgReportFactUse attributes exactly one self-reported use to its SDK signer.
+ * Consumer must be a canonical SDK account address admitted by fact_use_consumers.
+ * @name MsgReportFactUse
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgReportFactUse
+ */
+export declare const MsgReportFactUse: {
+    typeUrl: string;
+    encode(message: MsgReportFactUse, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): MsgReportFactUse;
+    fromPartial(object: DeepPartial<MsgReportFactUse>): MsgReportFactUse;
+};
+/**
+ * @name MsgReportFactUseResponse
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.MsgReportFactUseResponse
+ */
+export declare const MsgReportFactUseResponse: {
+    typeUrl: string;
+    encode(message: MsgReportFactUseResponse, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): MsgReportFactUseResponse;
+    fromPartial(object: DeepPartial<MsgReportFactUseResponse>): MsgReportFactUseResponse;
 };

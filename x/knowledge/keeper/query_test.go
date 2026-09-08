@@ -158,7 +158,7 @@ func TestQuery_Facts_PaginationUsesStableRawStoreCursor(t *testing.T) {
 	require.Zero(t, second.Pagination.Total)
 }
 
-func TestQuery_Facts_SelectiveScanCapReturnsStableRawCursor(t *testing.T) {
+func TestQuery_Facts_SelectiveScanCapRefusesPartialSuccess(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 	qs := keeper.NewQueryServerImpl(k)
 
@@ -184,128 +184,27 @@ func TestQuery_Facts_SelectiveScanCapReturnsStableRawCursor(t *testing.T) {
 		)
 	}
 
-	first, err := qs.Facts(ctx, &types.QueryFactsRequest{
-		Domain:   domain,
-		Category: "selected",
-		Pagination: &sdkquery.PageRequest{
-			Limit: 2,
-		},
+	// Resource exhaustion is not an ordinary page boundary. No partial page
+	// or synthetic continuation is returned for either direction/offset shape.
+	for _, page := range []*sdkquery.PageRequest{
+		{Limit: 2}, {Limit: 1, Offset: 1}, {Limit: 1, Offset: 2},
+		{Limit: 2, Reverse: true},
+	} {
+		response, err := qs.Facts(ctx, &types.QueryFactsRequest{Domain: domain, Category: "selected", Pagination: page})
+		require.Nil(t, response)
+		require.Equal(t, codes.ResourceExhausted, status.Code(err))
+	}
+	// A caller-selected raw key still provides normal bounded pagination; it is
+	// not mislabeled as continuation from a failed/exhausted scan.
+	response, err := qs.Facts(ctx, &types.QueryFactsRequest{
+		Domain: domain, Category: "selected",
+		Pagination: &sdkquery.PageRequest{Key: []byte(factID(keeper.FilteredQueryScanCap)), Limit: 1},
 	})
 	require.NoError(t, err)
-	require.Len(t, first.Facts, 1)
-	require.Equal(t, factID(0), first.Facts[0].Id)
-	require.Equal(
-		t,
-		[]byte(factID(keeper.FilteredQueryScanCap)),
-		first.Pagination.NextKey,
-	)
+	require.Len(t, response.Facts, 1)
+	require.Equal(t, factID(keeper.FilteredQueryScanCap), response.Facts[0].Id)
+	require.Empty(t, response.Pagination.NextKey)
 
-	// A newly matching record before the returned raw key must not shift or
-	// repeat the capped continuation page.
-	makeTestFact(
-		t,
-		k,
-		ctx,
-		factID(keeper.FilteredQueryScanCap-1)+"a",
-		"Inserted before capped raw cursor",
-		domain,
-		"selected",
-		"zrn1scan",
-		700_000,
-	)
-	second, err := qs.Facts(ctx, &types.QueryFactsRequest{
-		Domain:   domain,
-		Category: "selected",
-		Pagination: &sdkquery.PageRequest{
-			Key:   first.Pagination.NextKey,
-			Limit: 1,
-		},
-	})
-	require.NoError(t, err)
-	require.Len(t, second.Facts, 1)
-	require.Equal(t, factID(keeper.FilteredQueryScanCap), second.Facts[0].Id)
-	require.Empty(t, second.Pagination.NextKey)
-
-	_, err = qs.Facts(ctx, &types.QueryFactsRequest{
-		Domain:   domain,
-		Category: "selected",
-		Pagination: &sdkquery.PageRequest{
-			Offset: 2,
-			Limit:  1,
-		},
-	})
-	require.Equal(t, codes.ResourceExhausted, status.Code(err))
-	require.ErrorContains(
-		t,
-		err,
-		fmt.Sprintf(
-			"examined %d records before satisfying pagination offset",
-			keeper.FilteredQueryScanCap,
-		),
-	)
-
-	// Exactly satisfying an offset at the cap is resumable: the offset is fully
-	// consumed, and the raw key identifies the first record of the result page.
-	offsetPage, err := qs.Facts(ctx, &types.QueryFactsRequest{
-		Domain:   domain,
-		Category: "selected",
-		Pagination: &sdkquery.PageRequest{
-			Offset: 1,
-			Limit:  1,
-		},
-	})
-	require.NoError(t, err)
-	require.Empty(t, offsetPage.Facts)
-	require.Equal(
-		t,
-		[]byte(factID(keeper.FilteredQueryScanCap-1)+"a"),
-		offsetPage.Pagination.NextKey,
-	)
-	offsetContinuation, err := qs.Facts(ctx, &types.QueryFactsRequest{
-		Domain:   domain,
-		Category: "selected",
-		Pagination: &sdkquery.PageRequest{
-			Key:   offsetPage.Pagination.NextKey,
-			Limit: 1,
-		},
-	})
-	require.NoError(t, err)
-	require.Len(t, offsetContinuation.Facts, 1)
-	require.Equal(
-		t,
-		factID(keeper.FilteredQueryScanCap-1)+"a",
-		offsetContinuation.Facts[0].Id,
-	)
-
-	// Reverse pagination uses the same inclusive raw-key continuation contract.
-	reversePage, err := qs.Facts(ctx, &types.QueryFactsRequest{
-		Domain:   domain,
-		Category: "reverse-selected",
-		Pagination: &sdkquery.PageRequest{
-			Limit:   1,
-			Reverse: true,
-		},
-	})
-	require.NoError(t, err)
-	require.Empty(t, reversePage.Facts)
-	require.NotEmpty(t, reversePage.Pagination.NextKey)
-	reverseCursor := string(reversePage.Pagination.NextKey)
-	cursorFact, found := k.GetFact(ctx, reverseCursor)
-	require.True(t, found)
-	cursorFact.Category = "reverse-selected"
-	require.NoError(t, k.SetFact(ctx, cursorFact))
-	reverseContinuation, err := qs.Facts(ctx, &types.QueryFactsRequest{
-		Domain:   domain,
-		Category: "reverse-selected",
-		Pagination: &sdkquery.PageRequest{
-			Key:     reversePage.Pagination.NextKey,
-			Limit:   1,
-			Reverse: true,
-		},
-	})
-	require.NoError(t, err)
-	require.Len(t, reverseContinuation.Facts, 1)
-	require.Equal(t, reverseCursor, reverseContinuation.Facts[0].Id)
 }
 
 func TestQuery_Facts_RejectsUnboundedPagination(t *testing.T) {

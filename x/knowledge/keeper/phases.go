@@ -12,6 +12,18 @@ import (
 // BeginBlocker runs knowledge module begin-block logic.
 // Advances verification round phases by deadline and triggers fitness epoch updates.
 func (k Keeper) BeginBlocker(ctx context.Context) error {
+	cache, write := sdk.UnwrapSDKContext(ctx).CacheContext()
+	if err := k.beginBlocker(cache); err != nil {
+		return err
+	}
+	write()
+	return nil
+}
+
+func (k Keeper) beginBlocker(ctx context.Context) error {
+	if err := k.PruneFactUseReceipts(ctx); err != nil {
+		return err
+	}
 	// Route B Wave 8: the heartbeat. Self-maintenance of the training
 	// infrastructure — bounty expiry / vesting release / manifest
 	// supersession. Runs first so a round-advance error cannot silently
@@ -29,9 +41,9 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 	// Check if we're at a fitness epoch boundary
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
-	params, err := k.GetParams(ctx)
+	params, err := k.getFactUseParams(ctx)
 	if err != nil {
-		return nil // non-fatal: don't block consensus for param read failure
+		return err // Never reset counters after a failed epoch configuration read.
 	}
 	// Prune expired vindication entries every 1000 blocks
 	if height > 0 && height%1000 == 0 && params.VindicationRefundEnabled {
@@ -44,31 +56,37 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		// Order matters:
 		// 1. Update fitness scores (current usage data)
 		if err := k.UpdateAllFitnessScores(ctx); err != nil {
-			k.Logger(ctx).Error("fitness update failed", "error", err)
+			return fmt.Errorf("fitness update: %w", err)
 		}
 		// 2. Process competition (uses fitness to rank niches)
 		if err := k.ProcessCompetition(ctx, epoch); err != nil {
-			k.Logger(ctx).Error("competition processing failed", "epoch", epoch, "error", err)
+			return fmt.Errorf("competition processing: %w", err)
 		}
 		// 3. Process symbiosis (adjusts fitness based on relationships)
 		k.ProcessSymbiosis(ctx, params)
 		// 4. Process metabolism (uses fitness + competition tax to drain/replenish energy)
 		if err := k.ProcessMetabolism(ctx, epoch); err != nil {
-			k.Logger(ctx).Error("metabolism processing failed", "epoch", epoch, "error", err)
+			return fmt.Errorf("metabolism processing: %w", err)
 		}
 		// 5. Process agent demand bounties
 		if err := k.ProcessDemandBounties(ctx, epoch); err != nil {
-			k.Logger(ctx).Error("demand bounty processing failed", "epoch", epoch, "error", err)
+			return fmt.Errorf("demand bounty processing: %w", err)
 		}
 		// 6. Clean up expired bounties
 		k.ProcessExpiredBounties(ctx)
-		// 7. Clear query receipts (bound receipt storage to one epoch)
-		k.ClearQueryReceipts(ctx)
-		// 8. Aggregate diversity metrics and check conformity alerts (R28-2)
-		if err := k.ProcessDiversity(ctx, epoch); err != nil {
-			k.Logger(ctx).Error("diversity processing failed", "epoch", epoch, "error", err)
+		// 7. Reset usage only AFTER every consumer, including metabolism. All
+		// fact statuses reset, including excluded/expired facts. Legacy unsigned
+		// receipts are inert, not promoted or scanned by the new epoch path.
+		if err := k.ResetFactFeedbackEpochCounters(ctx); err != nil {
+			return err
 		}
-		// 9. Update epistemic temperature for all domains (R29-2)
+		// 8. Close epoch E-1. Rounds finalized above at the boundary are indexed
+		// into E and must not be prematurely aggregated as the closed epoch.
+		if err := k.ProcessDiversity(ctx, epoch-1); err != nil {
+			return err
+		}
+		// 9. Consume that same closed diversity epoch for conformity cooling;
+		// vindication windows and LastTemperatureUpdate still use this height.
 		k.IterateDomains(ctx, func(domain *types.Domain) bool {
 			if dErr := k.UpdateEpistemicTemperature(ctx, domain.Name); dErr != nil {
 				k.Logger(ctx).Error("epistemic temperature update failed", "domain", domain.Name, "error", dErr)
@@ -115,20 +133,29 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 // AdvanceRoundPhases iterates all active rounds and transitions phases by
 // deadline — or early, once a round's reveal set is closed (see GetExpectedPhase).
 func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
+	cache, write := sdk.UnwrapSDKContext(ctx).CacheContext()
+	if err := k.advanceRoundPhases(cache); err != nil {
+		return err
+	}
+	write()
+	return nil
+}
+
+func (k Keeper) advanceRoundPhases(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
-	params, err := k.GetParams(ctx)
+	params, err := k.getFactUseParams(ctx)
 	if err != nil {
 		return err
 	}
 
-	// Collect rounds to process (avoid modifying store during iteration)
-	var roundsToProcess []*types.VerificationRound
-	k.IterateActiveRounds(ctx, func(round *types.VerificationRound) bool {
-		roundsToProcess = append(roundsToProcess, round)
-		return false
-	})
+	// Collect rounds to process (no writes under an iterator, no swallowed
+	// missing/corrupt active round or iterator errors).
+	roundsToProcess, err := k.activeFeedbackRounds(ctx)
+	if err != nil {
+		return err
+	}
 
 	for _, round := range roundsToProcess {
 		expectedPhase := GetExpectedPhase(round, height, params)
@@ -141,8 +168,8 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 		case types.VerificationPhase_VERIFICATION_PHASE_REVEAL:
 			// COMMIT → REVEAL transition
 			round.Phase = types.VerificationPhase_VERIFICATION_PHASE_REVEAL
-			if err := k.SetVerificationRound(ctx, round); err != nil {
-				k.Logger(ctx).Error("failed to transition round to REVEAL", "round_id", round.Id, "error", err)
+			if err := k.setFeedbackRound(ctx, round); err != nil {
+				return fmt.Errorf("transition round %s to REVEAL: %w", round.Id, err)
 			}
 			sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 				"zerone.knowledge.round_phase_changed",
@@ -167,9 +194,8 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 			}
 			// REVEAL → AGGREGATION transition
 			round.Phase = types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION
-			if err := k.SetVerificationRound(ctx, round); err != nil {
-				k.Logger(ctx).Error("failed to transition round to AGGREGATION", "round_id", round.Id, "error", err)
-				continue
+			if err := k.setFeedbackRound(ctx, round); err != nil {
+				return fmt.Errorf("transition round %s to AGGREGATION: %w", round.Id, err)
 			}
 			sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 				"zerone.knowledge.round_phase_changed",
@@ -179,7 +205,7 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 			))
 			// Perform aggregation immediately
 			if err := k.performAggregation(ctx, round); err != nil {
-				k.Logger(ctx).Error("aggregation failed", "round_id", round.Id, "error", err)
+				return fmt.Errorf("aggregate round %s: %w", round.Id, err)
 			}
 
 		case types.VerificationPhase_VERIFICATION_PHASE_EXPIRED:
@@ -187,24 +213,29 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 			if uint64(len(round.Reveals)) >= params.MinVerifiers {
 				// Enough reveals — aggregate
 				round.Phase = types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION
-				if err := k.SetVerificationRound(ctx, round); err != nil {
-					continue
+				if err := k.setFeedbackRound(ctx, round); err != nil {
+					return err
 				}
 				if err := k.performAggregation(ctx, round); err != nil {
-					k.Logger(ctx).Error("late aggregation failed", "round_id", round.Id, "error", err)
+					return fmt.Errorf("late aggregate round %s: %w", round.Id, err)
 				}
 			} else {
 				// Insufficient reveals — mark as expired
 				round.Phase = types.VerificationPhase_VERIFICATION_PHASE_EXPIRED
 				round.Verdict = types.Verdict_VERDICT_INCONCLUSIVE
-				if err := k.SetVerificationRound(ctx, round); err != nil {
-					continue
+				if err := k.setFeedbackRound(ctx, round); err != nil {
+					return err
 				}
 				// Review fee is non-refundable — mark claim as insufficient
-				claim, found := k.GetClaim(ctx, round.ClaimId)
-				if found {
+				claim, err := k.getFeedbackClaim(ctx, round.ClaimId)
+				if err != nil {
+					return err
+				}
+				{
 					claim.Status = types.ClaimStatus_CLAIM_STATUS_INSUFFICIENT
-					_ = k.SetClaim(ctx, claim)
+					if err := k.SetClaim(ctx, claim); err != nil {
+						return err
+					}
 					// A starved round (the chain failed to seat a panel) must
 					// not silently erase the attempt or become a griefing
 					// weapon. Perform the same three side effects the
@@ -228,7 +259,9 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 					// (3) Attack fix: a starved CHALLENGE must not leave its
 					//     target fact locked CHALLENGED forever — restore it with
 					//     no survival credit, since no panel actually judged it.
-					k.restoreChallengedFactOnInconclusive(ctx, claim)
+					if err := k.restoreChallengedFactOnInconclusive(ctx, claim, "starved_panel"); err != nil {
+						return err
+					}
 					// K-alpha: this is the one terminal close outside
 					// CompleteRound — and the default fate of any claim that
 					// cannot attract MinVerifiers reveals, i.e. the most

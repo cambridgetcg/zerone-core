@@ -1423,6 +1423,10 @@ func newZeroneApp(
 			)
 			os.Exit(1)
 		}
+		if err := app.ValidateToKFeedbackStartupCoordination(); err != nil {
+			logger.Error("refusing unsafe ToK feedback startup", "err", err)
+			os.Exit(1)
+		}
 	}
 
 	return app

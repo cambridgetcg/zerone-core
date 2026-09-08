@@ -1,5 +1,5 @@
 import { GeneratedType, Registry } from "@cosmjs/proto-signing";
-import { MsgSubmitClaim, MsgSubmitCommitment, MsgSubmitReveal, MsgChallengeFact, MsgAddFact, MsgSubmitContradiction, MsgPatronizeFact, MsgProposeDomain, MsgEndorseDomainProposal, MsgChallengeDomainProposal, MsgRegisterStratum, MsgPostConjecture, MsgChallengeProvisionalFact, MsgUpdateParams, MsgUpdateExtendedParams, MsgProposeResearchFund, MsgVoteResearchProposal, MsgExecuteResearchProposal, MsgAddCommonKnowledge, MsgRemoveCommonKnowledge, MsgReportDemand, MsgRateFact, MsgRegisterTrainingPipeline, MsgUpdateTrainingPipeline, MsgRegisterModelCard, MsgUpdateModelCard, MsgRetireModelCard, MsgAmendTokenizerSpec, MsgAttributeContributions, MsgAttestTraining, MsgCreateAugmentationBounty, MsgSubmitAugmentation, MsgAcceptAugmentation, MsgVoteOnAugmentation, MsgSponsorVetoAugmentation, MsgChallengeContribution, MsgResolveContributionChallenge, MsgClaimTrainingFundDisbursement, MsgAmendTraceSchema, MsgCreateTrainingManifest, MsgFinalizeTrainingManifest, MsgBindManifestToAttestation, MsgOpenIncident, MsgRecordRemediation, MsgResolveIncident, MsgCloseIncident, MsgPauseModule, MsgUnpauseModule, MsgCorrectManifestMerkleRoot, MsgVetoFactInjection } from "./tx.js";
+import { MsgSubmitClaim, MsgSubmitCommitment, MsgSubmitReveal, MsgChallengeFact, MsgAddFact, MsgSubmitContradiction, MsgPatronizeFact, MsgProposeDomain, MsgEndorseDomainProposal, MsgChallengeDomainProposal, MsgRegisterStratum, MsgPostConjecture, MsgChallengeProvisionalFact, MsgUpdateParams, MsgUpdateExtendedParams, MsgProposeResearchFund, MsgVoteResearchProposal, MsgExecuteResearchProposal, MsgAddCommonKnowledge, MsgRemoveCommonKnowledge, MsgReportDemand, MsgReportFactUse, MsgRateFact, MsgRegisterTrainingPipeline, MsgUpdateTrainingPipeline, MsgRegisterModelCard, MsgUpdateModelCard, MsgRetireModelCard, MsgAmendTokenizerSpec, MsgAttributeContributions, MsgAttestTraining, MsgCreateAugmentationBounty, MsgSubmitAugmentation, MsgAcceptAugmentation, MsgVoteOnAugmentation, MsgSponsorVetoAugmentation, MsgChallengeContribution, MsgResolveContributionChallenge, MsgClaimTrainingFundDisbursement, MsgAmendTraceSchema, MsgCreateTrainingManifest, MsgFinalizeTrainingManifest, MsgBindManifestToAttestation, MsgOpenIncident, MsgRecordRemediation, MsgResolveIncident, MsgCloseIncident, MsgPauseModule, MsgUnpauseModule, MsgCorrectManifestMerkleRoot, MsgVetoFactInjection } from "./tx.js";
 export declare const registry: ReadonlyArray<[string, GeneratedType]>;
 export declare const load: (protoRegistry: Registry) => void;
 export declare const MessageComposer: {
@@ -85,6 +85,10 @@ export declare const MessageComposer: {
             value: Uint8Array<ArrayBufferLike>;
         };
         reportDemand(value: MsgReportDemand): {
+            typeUrl: string;
+            value: Uint8Array<ArrayBufferLike>;
+        };
+        reportFactUse(value: MsgReportFactUse): {
             typeUrl: string;
             value: Uint8Array<ArrayBufferLike>;
         };
@@ -290,6 +294,10 @@ export declare const MessageComposer: {
             typeUrl: string;
             value: MsgReportDemand;
         };
+        reportFactUse(value: MsgReportFactUse): {
+            typeUrl: string;
+            value: MsgReportFactUse;
+        };
         rateFact(value: MsgRateFact): {
             typeUrl: string;
             value: MsgRateFact;
@@ -491,6 +499,10 @@ export declare const MessageComposer: {
         reportDemand(value: MsgReportDemand): {
             typeUrl: string;
             value: MsgReportDemand;
+        };
+        reportFactUse(value: MsgReportFactUse): {
+            typeUrl: string;
+            value: MsgReportFactUse;
         };
         rateFact(value: MsgRateFact): {
             typeUrl: string;

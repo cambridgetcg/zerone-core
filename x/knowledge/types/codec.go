@@ -28,6 +28,7 @@ func RegisterCodec(cdc *codec.LegacyAmino) {
 	cdc.RegisterConcrete(&MsgExecuteResearchProposal{}, "zerone_knowledge/ExecuteResearchProposal", nil)
 	cdc.RegisterConcrete(&MsgAddCommonKnowledge{}, "zerone_knowledge/AddCommonKnowledge", nil)
 	cdc.RegisterConcrete(&MsgRemoveCommonKnowledge{}, "zerone_knowledge/RemoveCommonKnowledge", nil)
+	cdc.RegisterConcrete(&MsgReportFactUse{}, "zerone_knowledge/ReportFactUse", nil)
 	cdc.RegisterConcrete(&MsgRateFact{}, "zerone_knowledge/RateFact", nil)
 	// Route B: training infrastructure
 	cdc.RegisterConcrete(&MsgRegisterTrainingPipeline{}, "zerone_knowledge/RegisterTrainingPipeline", nil)
@@ -92,6 +93,7 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 		&MsgAddCommonKnowledge{},
 		&MsgRemoveCommonKnowledge{},
 		&MsgReportDemand{},
+		&MsgReportFactUse{},
 		&MsgRateFact{},
 		// Route B: training infrastructure
 		&MsgRegisterTrainingPipeline{},

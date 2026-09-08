@@ -8828,6 +8828,8 @@ __export(tx_exports12, {
   MsgRemoveCommonKnowledgeResponse: () => MsgRemoveCommonKnowledgeResponse,
   MsgReportDemand: () => MsgReportDemand,
   MsgReportDemandResponse: () => MsgReportDemandResponse,
+  MsgReportFactUse: () => MsgReportFactUse,
+  MsgReportFactUseResponse: () => MsgReportFactUseResponse,
   MsgResolveContributionChallenge: () => MsgResolveContributionChallenge,
   MsgResolveContributionChallengeResponse: () => MsgResolveContributionChallengeResponse,
   MsgResolveIncident: () => MsgResolveIncident,
@@ -9373,6 +9375,98 @@ var CorpusSelector = {
     return message;
   }
 };
+function createBaseFactUseReceipt() {
+  return {
+    version: 0,
+    epoch: BigInt(0),
+    consumer: "",
+    factId: "",
+    useHeight: BigInt(0),
+    expiryHeight: BigInt(0),
+    rating: 0,
+    ratingHeight: BigInt(0)
+  };
+}
+var FactUseReceipt = {
+  typeUrl: "/zerone.knowledge.v1.FactUseReceipt",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.version !== 0) {
+      writer.uint32(8).uint32(message.version);
+    }
+    if (message.epoch !== BigInt(0)) {
+      writer.uint32(16).uint64(message.epoch);
+    }
+    if (message.consumer !== "") {
+      writer.uint32(26).string(message.consumer);
+    }
+    if (message.factId !== "") {
+      writer.uint32(34).string(message.factId);
+    }
+    if (message.useHeight !== BigInt(0)) {
+      writer.uint32(40).uint64(message.useHeight);
+    }
+    if (message.expiryHeight !== BigInt(0)) {
+      writer.uint32(48).uint64(message.expiryHeight);
+    }
+    if (message.rating !== 0) {
+      writer.uint32(56).int32(message.rating);
+    }
+    if (message.ratingHeight !== BigInt(0)) {
+      writer.uint32(64).uint64(message.ratingHeight);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseFactUseReceipt();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.version = reader.uint32();
+          break;
+        case 2:
+          message.epoch = reader.uint64();
+          break;
+        case 3:
+          message.consumer = reader.string();
+          break;
+        case 4:
+          message.factId = reader.string();
+          break;
+        case 5:
+          message.useHeight = reader.uint64();
+          break;
+        case 6:
+          message.expiryHeight = reader.uint64();
+          break;
+        case 7:
+          message.rating = reader.int32();
+          break;
+        case 8:
+          message.ratingHeight = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseFactUseReceipt();
+    message.version = object.version ?? 0;
+    message.epoch = object.epoch !== void 0 && object.epoch !== null ? BigInt(object.epoch.toString()) : BigInt(0);
+    message.consumer = object.consumer ?? "";
+    message.factId = object.factId ?? "";
+    message.useHeight = object.useHeight !== void 0 && object.useHeight !== null ? BigInt(object.useHeight.toString()) : BigInt(0);
+    message.expiryHeight = object.expiryHeight !== void 0 && object.expiryHeight !== null ? BigInt(object.expiryHeight.toString()) : BigInt(0);
+    message.rating = object.rating ?? 0;
+    message.ratingHeight = object.ratingHeight !== void 0 && object.ratingHeight !== null ? BigInt(object.ratingHeight.toString()) : BigInt(0);
+    return message;
+  }
+};
 
 // src/generated/zerone/knowledge/v1/genesis.ts
 function createBaseParams_MethodologyNormalizationBpsEntry() {
@@ -9568,7 +9662,11 @@ function createBaseParams12() {
     probeBountyMaxPoolSize: "",
     invitationBonusAmount: "",
     guardianAddresses: [],
-    addFactVetoWindowBlocks: BigInt(0)
+    addFactVetoWindowBlocks: BigInt(0),
+    factUseEnabled: false,
+    factUseConsumers: [],
+    factUseMaxPerConsumerEpoch: BigInt(0),
+    factUseMaxPerEpoch: BigInt(0)
   };
 }
 var Params12 = {
@@ -9962,7 +10060,7 @@ var Params12 = {
       Params_MethodologyNormalizationBpsEntry.encode({
         key,
         value
-      }, writer.uint32(1120).fork()).ldelim();
+      }, writer.uint32(1122).fork()).ldelim();
     });
     if (message.vindicationTvwMultiplierBps !== BigInt(0)) {
       writer.uint32(1128).uint64(message.vindicationTvwMultiplierBps);
@@ -10023,6 +10121,18 @@ var Params12 = {
     }
     if (message.addFactVetoWindowBlocks !== BigInt(0)) {
       writer.uint32(1280).uint64(message.addFactVetoWindowBlocks);
+    }
+    if (message.factUseEnabled === true) {
+      writer.uint32(1288).bool(message.factUseEnabled);
+    }
+    for (const v of message.factUseConsumers) {
+      writer.uint32(1298).string(v);
+    }
+    if (message.factUseMaxPerConsumerEpoch !== BigInt(0)) {
+      writer.uint32(1304).uint64(message.factUseMaxPerConsumerEpoch);
+    }
+    if (message.factUseMaxPerEpoch !== BigInt(0)) {
+      writer.uint32(1312).uint64(message.factUseMaxPerEpoch);
     }
     return writer;
   },
@@ -10483,6 +10593,18 @@ var Params12 = {
         case 160:
           message.addFactVetoWindowBlocks = reader.uint64();
           break;
+        case 161:
+          message.factUseEnabled = reader.bool();
+          break;
+        case 162:
+          message.factUseConsumers.push(reader.string());
+          break;
+        case 163:
+          message.factUseMaxPerConsumerEpoch = reader.uint64();
+          break;
+        case 164:
+          message.factUseMaxPerEpoch = reader.uint64();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -10646,6 +10768,10 @@ var Params12 = {
     message.invitationBonusAmount = object.invitationBonusAmount ?? "";
     message.guardianAddresses = object.guardianAddresses?.map((e) => e) || [];
     message.addFactVetoWindowBlocks = object.addFactVetoWindowBlocks !== void 0 && object.addFactVetoWindowBlocks !== null ? BigInt(object.addFactVetoWindowBlocks.toString()) : BigInt(0);
+    message.factUseEnabled = object.factUseEnabled ?? false;
+    message.factUseConsumers = object.factUseConsumers?.map((e) => e) || [];
+    message.factUseMaxPerConsumerEpoch = object.factUseMaxPerConsumerEpoch !== void 0 && object.factUseMaxPerConsumerEpoch !== null ? BigInt(object.factUseMaxPerConsumerEpoch.toString()) : BigInt(0);
+    message.factUseMaxPerEpoch = object.factUseMaxPerEpoch !== void 0 && object.factUseMaxPerEpoch !== null ? BigInt(object.factUseMaxPerEpoch.toString()) : BigInt(0);
     return message;
   }
 };
@@ -15595,9 +15721,89 @@ var MsgVetoFactInjectionResponse = {
     return message;
   }
 };
+function createBaseMsgReportFactUse() {
+  return {
+    consumer: "",
+    factId: ""
+  };
+}
+var MsgReportFactUse = {
+  typeUrl: "/zerone.knowledge.v1.MsgReportFactUse",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.consumer !== "") {
+      writer.uint32(10).string(message.consumer);
+    }
+    if (message.factId !== "") {
+      writer.uint32(18).string(message.factId);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgReportFactUse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.consumer = reader.string();
+          break;
+        case 2:
+          message.factId = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseMsgReportFactUse();
+    message.consumer = object.consumer ?? "";
+    message.factId = object.factId ?? "";
+    return message;
+  }
+};
+function createBaseMsgReportFactUseResponse() {
+  return {
+    receipt: void 0
+  };
+}
+var MsgReportFactUseResponse = {
+  typeUrl: "/zerone.knowledge.v1.MsgReportFactUseResponse",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.receipt !== void 0) {
+      FactUseReceipt.encode(message.receipt, writer.uint32(10).fork()).ldelim();
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseMsgReportFactUseResponse();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.receipt = FactUseReceipt.decode(reader, reader.uint32());
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseMsgReportFactUseResponse();
+    message.receipt = object.receipt !== void 0 && object.receipt !== null ? FactUseReceipt.fromPartial(object.receipt) : void 0;
+    return message;
+  }
+};
 
 // src/generated/zerone/knowledge/v1/tx.registry.ts
-var registry12 = [["/zerone.knowledge.v1.MsgSubmitClaim", MsgSubmitClaim], ["/zerone.knowledge.v1.MsgSubmitCommitment", MsgSubmitCommitment], ["/zerone.knowledge.v1.MsgSubmitReveal", MsgSubmitReveal], ["/zerone.knowledge.v1.MsgChallengeFact", MsgChallengeFact], ["/zerone.knowledge.v1.MsgAddFact", MsgAddFact], ["/zerone.knowledge.v1.MsgSubmitContradiction", MsgSubmitContradiction], ["/zerone.knowledge.v1.MsgPatronizeFact", MsgPatronizeFact], ["/zerone.knowledge.v1.MsgProposeDomain", MsgProposeDomain], ["/zerone.knowledge.v1.MsgEndorseDomainProposal", MsgEndorseDomainProposal], ["/zerone.knowledge.v1.MsgChallengeDomainProposal", MsgChallengeDomainProposal], ["/zerone.knowledge.v1.MsgRegisterStratum", MsgRegisterStratum], ["/zerone.knowledge.v1.MsgPostConjecture", MsgPostConjecture], ["/zerone.knowledge.v1.MsgChallengeProvisionalFact", MsgChallengeProvisionalFact], ["/zerone.knowledge.v1.MsgUpdateParams", MsgUpdateParams12], ["/zerone.knowledge.v1.MsgUpdateExtendedParams", MsgUpdateExtendedParams], ["/zerone.knowledge.v1.MsgProposeResearchFund", MsgProposeResearchFund], ["/zerone.knowledge.v1.MsgVoteResearchProposal", MsgVoteResearchProposal], ["/zerone.knowledge.v1.MsgExecuteResearchProposal", MsgExecuteResearchProposal], ["/zerone.knowledge.v1.MsgAddCommonKnowledge", MsgAddCommonKnowledge], ["/zerone.knowledge.v1.MsgRemoveCommonKnowledge", MsgRemoveCommonKnowledge], ["/zerone.knowledge.v1.MsgReportDemand", MsgReportDemand], ["/zerone.knowledge.v1.MsgRateFact", MsgRateFact], ["/zerone.knowledge.v1.MsgRegisterTrainingPipeline", MsgRegisterTrainingPipeline], ["/zerone.knowledge.v1.MsgUpdateTrainingPipeline", MsgUpdateTrainingPipeline], ["/zerone.knowledge.v1.MsgRegisterModelCard", MsgRegisterModelCard], ["/zerone.knowledge.v1.MsgUpdateModelCard", MsgUpdateModelCard], ["/zerone.knowledge.v1.MsgRetireModelCard", MsgRetireModelCard], ["/zerone.knowledge.v1.MsgAmendTokenizerSpec", MsgAmendTokenizerSpec], ["/zerone.knowledge.v1.MsgAttributeContributions", MsgAttributeContributions], ["/zerone.knowledge.v1.MsgAttestTraining", MsgAttestTraining], ["/zerone.knowledge.v1.MsgCreateAugmentationBounty", MsgCreateAugmentationBounty], ["/zerone.knowledge.v1.MsgSubmitAugmentation", MsgSubmitAugmentation], ["/zerone.knowledge.v1.MsgAcceptAugmentation", MsgAcceptAugmentation], ["/zerone.knowledge.v1.MsgVoteOnAugmentation", MsgVoteOnAugmentation], ["/zerone.knowledge.v1.MsgSponsorVetoAugmentation", MsgSponsorVetoAugmentation], ["/zerone.knowledge.v1.MsgChallengeContribution", MsgChallengeContribution], ["/zerone.knowledge.v1.MsgResolveContributionChallenge", MsgResolveContributionChallenge], ["/zerone.knowledge.v1.MsgClaimTrainingFundDisbursement", MsgClaimTrainingFundDisbursement], ["/zerone.knowledge.v1.MsgAmendTraceSchema", MsgAmendTraceSchema], ["/zerone.knowledge.v1.MsgCreateTrainingManifest", MsgCreateTrainingManifest], ["/zerone.knowledge.v1.MsgFinalizeTrainingManifest", MsgFinalizeTrainingManifest], ["/zerone.knowledge.v1.MsgBindManifestToAttestation", MsgBindManifestToAttestation], ["/zerone.knowledge.v1.MsgOpenIncident", MsgOpenIncident], ["/zerone.knowledge.v1.MsgRecordRemediation", MsgRecordRemediation], ["/zerone.knowledge.v1.MsgResolveIncident", MsgResolveIncident], ["/zerone.knowledge.v1.MsgCloseIncident", MsgCloseIncident], ["/zerone.knowledge.v1.MsgPauseModule", MsgPauseModule], ["/zerone.knowledge.v1.MsgUnpauseModule", MsgUnpauseModule], ["/zerone.knowledge.v1.MsgCorrectManifestMerkleRoot", MsgCorrectManifestMerkleRoot], ["/zerone.knowledge.v1.MsgVetoFactInjection", MsgVetoFactInjection]];
+var registry12 = [["/zerone.knowledge.v1.MsgSubmitClaim", MsgSubmitClaim], ["/zerone.knowledge.v1.MsgSubmitCommitment", MsgSubmitCommitment], ["/zerone.knowledge.v1.MsgSubmitReveal", MsgSubmitReveal], ["/zerone.knowledge.v1.MsgChallengeFact", MsgChallengeFact], ["/zerone.knowledge.v1.MsgAddFact", MsgAddFact], ["/zerone.knowledge.v1.MsgSubmitContradiction", MsgSubmitContradiction], ["/zerone.knowledge.v1.MsgPatronizeFact", MsgPatronizeFact], ["/zerone.knowledge.v1.MsgProposeDomain", MsgProposeDomain], ["/zerone.knowledge.v1.MsgEndorseDomainProposal", MsgEndorseDomainProposal], ["/zerone.knowledge.v1.MsgChallengeDomainProposal", MsgChallengeDomainProposal], ["/zerone.knowledge.v1.MsgRegisterStratum", MsgRegisterStratum], ["/zerone.knowledge.v1.MsgPostConjecture", MsgPostConjecture], ["/zerone.knowledge.v1.MsgChallengeProvisionalFact", MsgChallengeProvisionalFact], ["/zerone.knowledge.v1.MsgUpdateParams", MsgUpdateParams12], ["/zerone.knowledge.v1.MsgUpdateExtendedParams", MsgUpdateExtendedParams], ["/zerone.knowledge.v1.MsgProposeResearchFund", MsgProposeResearchFund], ["/zerone.knowledge.v1.MsgVoteResearchProposal", MsgVoteResearchProposal], ["/zerone.knowledge.v1.MsgExecuteResearchProposal", MsgExecuteResearchProposal], ["/zerone.knowledge.v1.MsgAddCommonKnowledge", MsgAddCommonKnowledge], ["/zerone.knowledge.v1.MsgRemoveCommonKnowledge", MsgRemoveCommonKnowledge], ["/zerone.knowledge.v1.MsgReportDemand", MsgReportDemand], ["/zerone.knowledge.v1.MsgReportFactUse", MsgReportFactUse], ["/zerone.knowledge.v1.MsgRateFact", MsgRateFact], ["/zerone.knowledge.v1.MsgRegisterTrainingPipeline", MsgRegisterTrainingPipeline], ["/zerone.knowledge.v1.MsgUpdateTrainingPipeline", MsgUpdateTrainingPipeline], ["/zerone.knowledge.v1.MsgRegisterModelCard", MsgRegisterModelCard], ["/zerone.knowledge.v1.MsgUpdateModelCard", MsgUpdateModelCard], ["/zerone.knowledge.v1.MsgRetireModelCard", MsgRetireModelCard], ["/zerone.knowledge.v1.MsgAmendTokenizerSpec", MsgAmendTokenizerSpec], ["/zerone.knowledge.v1.MsgAttributeContributions", MsgAttributeContributions], ["/zerone.knowledge.v1.MsgAttestTraining", MsgAttestTraining], ["/zerone.knowledge.v1.MsgCreateAugmentationBounty", MsgCreateAugmentationBounty], ["/zerone.knowledge.v1.MsgSubmitAugmentation", MsgSubmitAugmentation], ["/zerone.knowledge.v1.MsgAcceptAugmentation", MsgAcceptAugmentation], ["/zerone.knowledge.v1.MsgVoteOnAugmentation", MsgVoteOnAugmentation], ["/zerone.knowledge.v1.MsgSponsorVetoAugmentation", MsgSponsorVetoAugmentation], ["/zerone.knowledge.v1.MsgChallengeContribution", MsgChallengeContribution], ["/zerone.knowledge.v1.MsgResolveContributionChallenge", MsgResolveContributionChallenge], ["/zerone.knowledge.v1.MsgClaimTrainingFundDisbursement", MsgClaimTrainingFundDisbursement], ["/zerone.knowledge.v1.MsgAmendTraceSchema", MsgAmendTraceSchema], ["/zerone.knowledge.v1.MsgCreateTrainingManifest", MsgCreateTrainingManifest], ["/zerone.knowledge.v1.MsgFinalizeTrainingManifest", MsgFinalizeTrainingManifest], ["/zerone.knowledge.v1.MsgBindManifestToAttestation", MsgBindManifestToAttestation], ["/zerone.knowledge.v1.MsgOpenIncident", MsgOpenIncident], ["/zerone.knowledge.v1.MsgRecordRemediation", MsgRecordRemediation], ["/zerone.knowledge.v1.MsgResolveIncident", MsgResolveIncident], ["/zerone.knowledge.v1.MsgCloseIncident", MsgCloseIncident], ["/zerone.knowledge.v1.MsgPauseModule", MsgPauseModule], ["/zerone.knowledge.v1.MsgUnpauseModule", MsgUnpauseModule], ["/zerone.knowledge.v1.MsgCorrectManifestMerkleRoot", MsgCorrectManifestMerkleRoot], ["/zerone.knowledge.v1.MsgVetoFactInjection", MsgVetoFactInjection]];
 var MessageComposer12 = {
   encoded: {
     submitClaim(value) {
@@ -15724,6 +15930,12 @@ var MessageComposer12 = {
       return {
         typeUrl: "/zerone.knowledge.v1.MsgReportDemand",
         value: MsgReportDemand.encode(value).finish()
+      };
+    },
+    reportFactUse(value) {
+      return {
+        typeUrl: "/zerone.knowledge.v1.MsgReportFactUse",
+        value: MsgReportFactUse.encode(value).finish()
       };
     },
     rateFact(value) {
@@ -16028,6 +16240,12 @@ var MessageComposer12 = {
         value
       };
     },
+    reportFactUse(value) {
+      return {
+        typeUrl: "/zerone.knowledge.v1.MsgReportFactUse",
+        value
+      };
+    },
     rateFact(value) {
       return {
         typeUrl: "/zerone.knowledge.v1.MsgRateFact",
@@ -16328,6 +16546,12 @@ var MessageComposer12 = {
       return {
         typeUrl: "/zerone.knowledge.v1.MsgReportDemand",
         value: MsgReportDemand.fromPartial(value)
+      };
+    },
+    reportFactUse(value) {
+      return {
+        typeUrl: "/zerone.knowledge.v1.MsgReportFactUse",
+        value: MsgReportFactUse.fromPartial(value)
       };
     },
     rateFact(value) {

@@ -1,0 +1,15 @@
+{
+  "schema": "zerone.knowledge-read-config/v1",
+  "profile": "loopback-preview",
+  "listen": "127.0.0.1:8088",
+  "restOrigin": "http://127.0.0.1:1317",
+  "rpcOrigin": "http://127.0.0.1:26657",
+  "chainId": "zerone-1",
+  "snapshotRoot": "/absolute/operator-selected/snapshots",
+  "headId": "0000000000000000000000000000000000000000000000000000000000000000",
+  "instanceId": "local-synthetic",
+  "deploymentReviewPath": "",
+  "deploymentReviewSha256": "",
+  "tlsCertificatePath": "",
+  "tlsPrivateKeyPath": ""
+}

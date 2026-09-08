@@ -85,6 +85,7 @@ func GetTxCmd() *cobra.Command {
 		NewProposeResearchFundCmd(),
 		NewVoteResearchProposalCmd(),
 		NewExecuteResearchProposalCmd(),
+		NewReportFactUseCmd(),
 		NewRateFactCmd(),
 		NewReportDemandCmd(),
 	)
@@ -456,14 +457,14 @@ func NewSubmitContradictionCmd() *cobra.Command {
 			}
 
 			msg := &types.MsgSubmitContradiction{
-				Submitter:   clientCtx.GetFromAddress().String(),
-				FactId:      args[0],
+				Submitter:    clientCtx.GetFromAddress().String(),
+				FactId:       args[0],
 				CounterClaim: args[1],
-				Stake:       args[2],
-				Reason:      args[3],
-				Domain:      domain,
-				Category:    category,
-				EvidenceIds: evidenceIds,
+				Stake:        args[2],
+				Reason:       args[3],
+				Domain:       domain,
+				Category:     category,
+				EvidenceIds:  evidenceIds,
 			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
@@ -810,15 +811,18 @@ func NewExecuteResearchProposalCmd() *cobra.Command {
 }
 
 // NewRateFactCmd creates a CLI command for MsgRateFact.
-// Requires a prior query receipt for the fact (emitted by QueryFact).
+// Requires a committed current-epoch signed self-report, never an unsigned read.
 func NewRateFactCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rate-fact [fact-id] [useful] [memo]",
-		Short: "Rate a queried fact as useful or not (max 256-char memo, optional)",
-		Long: `Rate a fact you previously queried.
+		Short: "Rate your current-epoch signed fact-use receipt once (cohort only)",
+		Long: `Rate a fact after your report-fact-use transaction commits in the same epoch.
   useful: "true" (satisfied) or "false" (not satisfied)
-  memo:   optional reason, max 256 chars. Pass "" for no memo.
-Requires a valid query receipt; each receipt rates at most once.`,
+  memo: optional public UTF-8 reason, max 256 bytes. Pass "" for no memo.
+Uses your existing --from wallet. Normal transaction gas fees apply, including
+validly signed message failures. Requires the enabled beta, a registered Zerone
+account and consumer-cohort admission. One rating per receipt; the rated marker
+is retained. Reads create no receipts. Feedback earns no economic credit.`,
 		Args: cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)
@@ -841,6 +845,9 @@ Requires a valid query receipt; each receipt rates at most once.`,
 				FactId: args[0],
 				Useful: useful,
 				Memo:   memo,
+			}
+			if err := msg.ValidateBasic(); err != nil {
+				return err
 			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)

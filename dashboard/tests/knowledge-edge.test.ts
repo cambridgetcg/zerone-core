@@ -771,7 +771,7 @@ describe("knowledge upstream trust boundary", () => {
     assert.equal(crossBoundaryResponse.status, 502);
     assert.match(
       await errorMessage(crossBoundaryResponse),
-      /conflicting duplicate relations/,
+      /conflicting duplicate relations|too many records/,
     );
 
     const outsideEdge = relation("y998", "z999");
@@ -796,119 +796,25 @@ describe("knowledge upstream trust boundary", () => {
     assert.equal(outsideResponse.status, 502);
     assert.match(
       await errorMessage(outsideResponse),
-      /conflicting duplicate relations/,
+      /conflicting duplicate relations|too many records/,
     );
   });
 });
 
 describe("knowledge projection caps", () => {
-  it("returns at most 128 sorted facts and 512 sorted directional relations", async () => {
-    const facts = Array.from({ length: KNOWLEDGE_FACT_CAP + 1 }, (_, index) =>
-      fact(`fact-${String(index).padStart(3, "0")}`));
-    let relationNumber = 0;
-    for (let source = 0; source < 32 && relationNumber <= KNOWLEDGE_RELATION_CAP; source += 1) {
-      const outgoing: unknown[] = [];
-      for (let target = 0; target < 32 && relationNumber <= KNOWLEDGE_RELATION_CAP; target += 1) {
-        if (source === target) continue;
-        outgoing.push(
-          relation(
-            `fact-${String(source).padStart(3, "0")}`,
-            `fact-${String(target).padStart(3, "0")}`,
-          ),
-        );
-        relationNumber += 1;
-      }
-      facts[source] = { ...facts[source], outgoingRelations: outgoing };
-    }
-    facts.reverse();
-
-    const harness = createHarness(async (target) =>
-      target.pathname.endsWith("/status")
-        ? statusResponse()
-        : factsResponse(factsBody(facts)));
-    const response = await knowledgeRequest(harness.context(), harness.runtime);
-    const snapshot = (await response.json()) as {
-      source: { upstreamRecords: number; returnedRecords: number; truncated: boolean };
-      facts: Array<{ id: string }>;
-      relations: Array<{ sourceFactId: string; targetFactId: string }>;
-    };
-
-    assert.equal(response.status, 200);
-    assert.equal(snapshot.source.upstreamRecords, KNOWLEDGE_FACT_CAP + 1);
-    assert.equal(snapshot.source.returnedRecords, KNOWLEDGE_FACT_CAP);
-    assert.equal(snapshot.source.truncated, true);
-    assert.equal(snapshot.facts.length, KNOWLEDGE_FACT_CAP);
-    assert.equal(snapshot.facts[0]?.id, "fact-000");
-    assert.equal(snapshot.facts.at(-1)?.id, "fact-127");
-    assert.equal(snapshot.relations.length, KNOWLEDGE_RELATION_CAP);
-    const relationKeys = snapshot.relations.map(
-      ({ sourceFactId, targetFactId }) => `${sourceFactId}\u0000${targetFactId}`,
-    );
-    assert.deepEqual(relationKeys, [...relationKeys].sort());
-    assert.ok(Number(response.headers.get("Content-Length")) <= KNOWLEDGE_OUTPUT_MAX_BYTES);
-  });
-
-  it("shrinks a deterministic fact prefix until serialized output fits 262144 bytes", async () => {
-    const facts = Array.from({ length: 20 }, (_, index) =>
-      fact(`large-${String(index).padStart(2, "0")}`, {
-        content: `${String(index).padStart(2, "0")}:${"x".repeat(15_900)}`,
-      }));
-    facts.reverse();
-    const harness = createHarness(async (target) =>
-      target.pathname.endsWith("/status")
-        ? statusResponse()
-        : factsResponse(factsBody(facts)));
-
-    const response = await knowledgeRequest(harness.context(), harness.runtime);
-    const raw = await response.text();
-    const snapshot = JSON.parse(raw) as {
-      source: { upstreamRecords: number; returnedRecords: number; truncated: boolean };
-      facts: Array<{ id: string }>;
-    };
-
-    assert.equal(response.status, 200);
-    assert.ok(utf8Bytes(raw) <= KNOWLEDGE_OUTPUT_MAX_BYTES);
-    assert.equal(Number(response.headers.get("Content-Length")), utf8Bytes(raw));
-    assert.equal(snapshot.source.upstreamRecords, 20);
-    assert.ok(snapshot.source.returnedRecords > 0);
-    assert.ok(snapshot.source.returnedRecords < 20);
-    assert.equal(snapshot.source.truncated, true);
-    assert.deepEqual(
-      snapshot.facts.map(({ id }) => id),
-      Array.from(
-        { length: snapshot.source.returnedRecords },
-        (_, index) => `large-${String(index).padStart(2, "0")}`,
-      ),
-    );
-  });
-
-  it("uses the truthful truncation flag at the exact 262144-byte boundary", async () => {
-    const contentLengths = [
-      ...Array<number>(5).fill(16_384),
-      16_017,
-      ...Array<number>(10).fill(16_000),
+  it("refuses node, edge, scan and byte budget excess rather than a partial snapshot", async () => {
+    const cases = [
+      Array.from({length:129}, (_,i)=>fact(`f-${i}`)),
+      [fact("root", {outgoingRelations:Array.from({length:KNOWLEDGE_RELATION_CAP+1},(_,i)=>relation("root",`other-${i}`))})],
+      [fact("root", {outgoingRelations:Array.from({length:1025},()=>relation("root","other"))})],
+      Array.from({length:20},(_,i)=>fact(`large-${i}`, {content:"x".repeat(15900)})),
     ];
-    const facts = contentLengths.map((length, index) =>
-      fact(`boundary-${String(index).padStart(2, "0")}`, {
-        content: "x".repeat(length),
-      }));
-    const harness = createHarness(async (target) =>
-      target.pathname.endsWith("/status")
-        ? statusResponse()
-        : factsResponse(factsBody(facts)));
-
-    const response = await knowledgeRequest(harness.context(), harness.runtime);
-    const raw = await response.text();
-    const snapshot = JSON.parse(raw) as {
-      source: { upstreamRecords: number; returnedRecords: number; truncated: boolean };
-    };
-
-    assert.equal(response.status, 200);
-    assert.ok(utf8Bytes(raw) <= KNOWLEDGE_OUTPUT_MAX_BYTES);
-    assert.equal(Number(response.headers.get("Content-Length")), utf8Bytes(raw));
-    assert.equal(snapshot.source.upstreamRecords, contentLengths.length);
-    assert.ok(snapshot.source.returnedRecords < contentLengths.length);
-    assert.equal(snapshot.source.truncated, true);
+    for (const facts of cases) {
+      const harness=createHarness(async target=>target.pathname.endsWith("/status")?statusResponse():factsResponse(factsBody(facts)));
+      const response=await knowledgeRequest(harness.context(),harness.runtime);
+      assert.equal(response.status,502);
+      assert.equal(harness.cachePuts.length,0);
+    }
   });
 
   it("marks advertised pagination without claiming completeness", async () => {

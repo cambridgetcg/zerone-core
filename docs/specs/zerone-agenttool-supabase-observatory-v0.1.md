@@ -2,16 +2,31 @@
 
 - Protocol: `zerone-agenttool-supabase-observatory/0.1`
 - Status: `SOURCE_ONLY_OFFLINE_NO_EFFECT`
-- Decision: `COHERENT_SOURCE_ONLY`
-- Observation cutoff: `2026-08-21T09:42:59Z`
-- Zerone source revision: `264f3c383f408729f4d0c27d332cd454c9eb4400`
+- Validator success label: `COHERENT_SOURCE_ONLY` (verified candidate-local reseal)
+- Original observation cutoff: `2026-08-21T09:42:59Z`
+- Candidate source-pin snapshot: `2026-09-08T15:08:59Z` (not a live observation)
+- Historical Zerone baseline: `264f3c383f408729f4d0c27d332cd454c9eb4400`
+- Changed Zerone bindings: `CANDIDATE_LOCAL_BYTES`, revision `UNPUBLISHED`
 - AgentTool baseline revision: `796a753ab8624ad11af621ef4572544ea3b8f463`
 - Runtime integration: none
 
 The machine-readable contract is
 [`tools/zerone-supabase-observatory/protocol/manifest.v0.1.json`](../../tools/zerone-supabase-observatory/protocol/manifest.v0.1.json).
-Its raw SHA-256 at this revision is
-`e314476971a702453709710c0ea376216b704a696bc70041dde450600cc06578`.
+The previous publication's raw SHA-256
+`e314476971a702453709710c0ea376216b704a696bc70041dde450600cc06578`
+is historical provenance. The pre-reconciliation candidate seal was
+`7ebd7ba7131e0ac6f00d08d23c9753b90e99ddb918e467c0fe5c17a9a1c3b23e`.
+The reviewed RC-0.1 dependency is now included in the current candidate seal:
+`a3e3a8e3448b873bb21a93fcd2881c2376361a1ccf68e929081985ad74235205`.
+The existing offline verifier passed for these exact bytes and all six local
+source bindings. The original candidate observation cutoff is unchanged.
+Candidate-local bindings assert no verified publication revision; publishing
+this code does not upgrade that assurance or establish deployment.
+
+Local independent review and offline validation passed. Formal publication
+checks and reviewed upstream reconciliation are separate gates. The ToK user's
+**“Review not ready”** production-signing/activation **HOLD** remains prominent:
+local tests or static pin coherence do not clear it.
 
 ## 1. Purpose
 
@@ -58,10 +73,12 @@ chain height or ToK snapshot root.
 
 ### `TOK_ONCHAIN`
 
-This is the shape of a future observation of `BundleToK`. Current Zerone
-source does not implement historical state replay: a non-zero
-`at_block_height` can label current state with mismatched historical metadata.
-Observatory 0.1 therefore accepts only:
+This is the shape of a future observation of `BundleToK`. The historical
+baseline allowed a non-zero `at_block_height` to mislabel current state;
+**the current candidate rejects every non-zero value** in
+`x/knowledge/keeper/tok_bundle.go:255` and uses the actual SDK context height.
+It still implements no historical replay through that field. Observatory 0.1
+retains its current-only request boundary:
 
 ```text
 request.at_block_height = 0
@@ -89,7 +106,11 @@ This is a bounded read projection, presently described by Zerone's
 `zerone.knowledge-geometry-snapshot/v0` source. It explicitly claims
 `completeness = NOT_CLAIMED` and fixes `returned_chain_id = zerone-1`, matching
 the exact pinned `_knowledge.ts` source. It has no ToK snapshot-root field and
-cannot be relabeled as a ToK bundle or static Tree.
+cannot be relabeled as a ToK bundle or static Tree. The candidate projection
+uses the actual Facts-query wire shape and bounded canonical relations; it is
+not proof of whole-graph coverage. The separate finite facade/publisher described
+in `tok-feedback-v1.md` does not activate this observatory, import its observations
+into Supabase, or open the dashboard's unconfigured public snapshot route.
 
 ## 4. Observation identity and ordering
 
@@ -202,10 +223,21 @@ go run ./tools/zerone-supabase-observatory --repository-root .
 ```
 
 The verifier first requires the exact sealed manifest bytes, then reads six
-local Zerone source pins, checks two exact external
-AgentTool pin literals without fetching them, verifies schema and fixture raw
-hashes, applies semantic rules beyond JSON Schema, and returns
-`COHERENT_SOURCE_ONLY` only when the negative fixture is rejected as expected.
+local Zerone source pins, checks two exact external AgentTool pin literals
+without fetching them, verifies schema and fixture raw hashes, applies semantic
+rules beyond JSON Schema, and returns `COHERENT_SOURCE_ONLY` only when the
+negative fixture is rejected as expected. Current changed local implementation
+bindings explicitly use `CANDIDATE_LOCAL_BYTES`/`UNPUBLISHED`; unchanged static
+Tree/doctrine bytes retain their historical revision. These are source-byte
+checks, not live observations or publication proofs.
+
+**Documentation-reconciliation boundary:** the changed
+`docs/specs/research-commons-rc-0.1.md` is now bound to raw SHA-256
+`52d32f8fde9f14ae4729cb0ee575eadd17dbe94208822b9c90bd1d6b90770656`
+as `CANDIDATE_LOCAL_BYTES`/`UNPUBLISHED`. The paired validator literals, manifest
+seal and four-candidate regression agree. Any future dependency edit requires
+another explicit review and reseal; a previous seal is not acceptance of new
+bytes.
 
 Schema validation alone is insufficient. The Go verifier additionally checks
 content IDs, current-only height, exact projection losses, source status,

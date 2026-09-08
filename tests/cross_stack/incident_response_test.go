@@ -23,7 +23,7 @@ import (
 //  1. Authority opens a P0 incident (chain-halt-class bug).
 //  2. Records an EMERGENCY_HALT remediation pointing at a ceremony id.
 //  3. Records a NAMED_UPGRADE remediation pointing at a registered handler.
-//  4. Runs the upgrade via RunUpgradeHandlerForTests — the actual fix.
+//  4. Runs the candidate handler on explicitly synthetic completed-H3 state.
 //  5. Records a documentation remediation with the post-mortem URI.
 //  6. Resolves the incident.
 //  7. Closes it.
@@ -31,6 +31,7 @@ import (
 // Asserts full status progression, SLA tracking, event-log audit trail.
 func TestIncident_P0_ChainHaltWithNamedUpgrade(t *testing.T) {
 	h := NewTestHarness(t)
+	seedSyntheticCompletedH3(t, h) // unit fixture, not a historical binary handoff
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -75,18 +76,14 @@ func TestIncident_P0_ChainHaltWithNamedUpgrade(t *testing.T) {
 		Authority:  authority,
 		IncidentId: "ZR-2026-0001",
 		Type:       knowledgetypes.RemediationType_REMEDIATION_TYPE_NAMED_UPGRADE,
-		Reference:  zeroneapp.UpgradeNameTestnetV2,
+		Reference:  zeroneapp.UpgradeNameToKFeedbackV1,
 		Note:       "fix ships through a handler registered by the current binary",
 	})
 	require.NoError(t, err)
 
-	// 4. Actually execute the upgrade (coupling the incident to Wave 10).
-	fromVM := h.App.CurrentModuleVersionMap()
-	toVM, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameTestnetV2, fromVM, h.Height())
-	require.NoError(t, err)
-	require.Equal(t, uint64(6), toVM["knowledge"], "upgrade referenced by remediation succeeded")
-	require.Equal(t, "migrated", h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_v1.0.1"),
-		"remediation's named upgrade actually ran on the chain")
+	// 4. Execute the candidate boundary on explicitly synthetic H3 state.
+	assertCandidateRetiresPlan(t, h, zeroneapp.UpgradeNameTestnetV2)
+	runSyntheticFeedbackUpgrade(t, h)
 
 	// 5. Emergency resume + documentation remediations.
 	_, err = ms.RecordRemediation(h.Ctx, &knowledgetypes.MsgRecordRemediation{

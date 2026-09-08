@@ -29,6 +29,18 @@ verification report to stdout. It does not write a report to disk.
 The full normative boundary and next gate are in
 [`docs/specs/zerone-agenttool-supabase-observatory-v0.1.md`](../../docs/specs/zerone-agenttool-supabase-observatory-v0.1.md).
 
+The four changed ToK-feedback source pins are exact `CANDIDATE_LOCAL_BYTES`
+with revision `UNPUBLISHED`, not bytes attributed to the historical commit.
+Their digests bind the inspected candidate source without asserting a verified
+publication revision. Publishing this code does not upgrade that source-binding
+assurance. No release signature, deployed source identity, or network observation
+is implied. The current manifest's exact raw-byte seal is
+`sha256:a3e3a8e3448b873bb21a93fcd2881c2376361a1ccf68e929081985ad74235205`.
+Unchanged historical and external pins retain their own provenance. The bounded
+current-only ToK root still excludes full payload; the projection still does not
+claim completeness, and its default public entrypoint is closed without a
+publication binding. Passing this offline contract does not activate the facade.
+
 The future AgentTool hosting profile is intentionally `PENDING_UNTRACKED` with
 null revision/path/digest. Current AgentTool main is a baseline pin only; this
 artifact makes no reciprocal conformance or integration-ready claim.

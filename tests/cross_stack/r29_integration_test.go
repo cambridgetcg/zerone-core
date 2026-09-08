@@ -72,7 +72,9 @@ func TestR29_FullEcosystemCycle(t *testing.T) {
 	kParams.FitnessEpochBlocks = 10
 	require.NoError(t, h.KnowledgeKeeper.SetParams(h.Ctx, kParams))
 
-	// Create a low-diversity record for the current epoch → triggers conformity cooling.
+	// Seed the open epoch, then close it before consuming its diversity summary.
+	// This direct keeper-cycle fixture advances both harness and context clocks;
+	// boundary aggregation itself is covered by the signed/epoch integration tests.
 	currentEpoch := uint64(h.Height()) / kParams.FitnessEpochBlocks
 	err = h.KnowledgeKeeper.SetDomainDiversity(h.Ctx, domain, currentEpoch, knowledgekeeper.DomainDiversityRecord{
 		Domain:         domain,
@@ -83,7 +85,12 @@ func TestR29_FullEcosystemCycle(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Run temperature update — should cool the domain.
+	// Run temperature update at the closing height — should cool the domain.
+	h.currentHeight = int64((currentEpoch + 1) * kParams.FitnessEpochBlocks)
+	header := h.Ctx.BlockHeader()
+	header.Height = h.currentHeight
+	h.Ctx = h.Ctx.WithBlockHeader(header)
+	require.Equal(t, h.Height(), h.Ctx.BlockHeight())
 	err = h.KnowledgeKeeper.UpdateEpistemicTemperature(h.Ctx, domain)
 	require.NoError(t, err)
 

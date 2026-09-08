@@ -3,6 +3,32 @@
 Notable source changes are recorded here. Network activation and package
 publication are separate events and are stated explicitly when they occur.
 
+## Unreleased — 2026-09-08 signed feedback source candidate
+
+### Added and changed
+
+- Proto-first `MsgReportFactUse`, versioned current-epoch receipts and keyed
+  read-only receipt queries. Existing wallet/direct-signing flow now exposes
+  `report-fact-use`; `rate-fact` requires a committed signed receipt rather
+  than an unsigned query. Feedback is public and pays ordinary gas fees.
+- Explicit paid-gas and registered-account classification for report/rating,
+  with a separate consensus-enforced consumer cohort, bounded quotas,
+  permanent semantic markers through their retention window, and no economics.
+- Default-disabled policy and permanent `EverReported` economic latch: disabling
+  the beta and pruning receipts cannot turn self-report counters into rewards.
+- Generated SDK signing and real gRPC ABCI transport regressions use only
+  explicit local genesis/keys. These are not production transactions or proof
+  of release admission. Current-source inventories below are measured from
+  protobuf services and regenerated Swagger, not from a deployed binary.
+
+### Activation boundary
+
+Production remains **NO_GO**: custody evidence and accepted H1→H2→H3 lineage
+must precede the separately named `tok-feedback-v1` upgrade. No release,
+deployment, npm publication, public-write activation, reset or successor is
+performed by this source candidate. Independent review and full release/state-
+copy/load/restore gates remain required.
+
 ## Unreleased — 2026-08-15 correspondence geometry
 
 ### Added
@@ -110,8 +136,8 @@ behavior.
 - A cursor-bounded knowledge probe heartbeat.
 - CAIP account-identifier projections, unsigned in-toto training provenance,
   and an isolated Sigstore-to-substrate evidence compiler.
-- A repository TypeScript SDK covering 169 request message types across 20
-  Zerone `Msg` services.
+- A repository TypeScript SDK; its current-source inventory now covers
+  170 request message types across 20 Zerone `Msg` services.
 - A fail-closed `zerone-2` ceremony, authority, runtime, query-gateway, and
   cutover kit.
 
@@ -137,7 +163,7 @@ behavior.
 - Falsification clawback requires an adjudicated verdict.
 - Genesis/state validation and protobuf ownership handling are hardened.
 - Manual API inventories now defer to the generated Swagger document, which
-  contains 217 paths and 446 definitions across the current application.
+  now contains 218 paths and 449 definitions across the current source application.
 
 ### Consensus activation
 

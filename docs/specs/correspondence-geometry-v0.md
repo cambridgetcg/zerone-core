@@ -5,6 +5,13 @@
 - Snapshot: `2026-08-15`
 - Authority: none
 
+Candidate pin reconciliation (2026-09-08): the original snapshot date is not a
+publication date for the updated local manifest. Its candidate protobuf binding
+and raw seal below are **unpublished**, pending final independent review,
+generated-baseline and upstream reconciliation. The ToK user's **“Review not
+ready”** production-signing/activation **HOLD** remains in force. All seven
+correspondences stay proposed, with no new equivalence or authority claim.
+
 ## Purpose
 
 Correspondence Geometry v0 is a sealed, static atlas for asking what can be
@@ -58,14 +65,16 @@ projection declare empty round-trip arrays because they have no inverse.
 Bindings are raw-byte SHA-256 commitments. A validator resolves each path
 inside the repository, refuses symlinks and path escape, reads the exact local
 bytes, and compares the digest. A binding imports only the named source role,
-not authority or live network state.
+not authority or live network state. The table matches current candidate local
+bytes, not a published commit or active deployment. The knowledge protobuf pin
+changed from the previous publication; the other six source pins are unchanged.
 
 | ID | Path | Raw SHA-256 |
 |---|---|---|
 | `compassion` | `docs/COMPASSION.md` | `ddebabc2b875532c2a3ec76c50f8f63fcef1007a728b7e260a5da36d24c619ad` |
 | `knowledge-metabolism` | `x/knowledge/keeper/metabolism.go` | `7b252c5134a6c78b753820890dbcd1eac9d3b263c8bf798c44bc1b41f50aafc6` |
 | `knowledge-methodologies` | `x/knowledge/types/methodologies.go` | `fa16ac33e7f2c10a19ed76541af6c2378edb79683578f2cec6f1a0563ebec386` |
-| `knowledge-types` | `proto/zerone/knowledge/v1/types.proto` | `7b2b301c80711587a55ae03216728ec1f6f5bf981035106d26ac1fa4923d8ced` |
+| `knowledge-types` | `proto/zerone/knowledge/v1/types.proto` | `afe56cc24f318ba1a387040c4f8ad3c9c7126ffd79df3cbf5af1b8d210e1a1ea` |
 | `relational-topology` | `dashboard/public/standards/relational-topology.v0.json` | `9786674730febfe47150f29adffa4e4f7bd98e2aff502c552fa5b9669d935711` |
 | `research-training-trace` | `docs/RESEARCH_TRAINING_TRACE.md` | `2bca7a4164e2a52e7e4f5830ba6de6ef67542af1fa06ee913b6b2fbdf2640919` |
 | `tok-substrate` | `docs/TOK_SUBSTRATE.md` | `4fec6e3a410d5736f61cd43f4d9c421380b93f649c2f0d026a5f4e68a6534328` |
@@ -226,11 +235,17 @@ claim and every possible error in its proposed transfer.
 
 ## Validation
 
-The reviewed raw artifact digest is:
+The current candidate raw artifact SHA-256 is:
 
 ```text
-f8cfeebf7404ab7e2e86b80362471cdd64015a108c47e98147e80ba7bb9e9a90
+687714a10a241f99de61fb217a7360ca845372a811434c83a0b743d5f9295d33
 ```
+
+The previous publication digest
+`f8cfeebf7404ab7e2e86b80362471cdd64015a108c47e98147e80ba7bb9e9a90`
+remains historical provenance only. Its protobuf source pin was
+`7b2b301c80711587a55ae03216728ec1f6f5bf981035106d26ac1fa4923d8ced`;
+neither old digest identifies the new local bytes.
 
 The offline validator rejects oversized, excessively nested, duplicate-key,
 malformed, non-UTF-8, missing-field, reordered-field, or unknown-field JSON.
@@ -263,7 +278,9 @@ trip, prove physics, settle theology, observe a chain, or activate a system.
 
 ## Release and live verification
 
-Deploy only the exact merged, CI-verified commit from a clean detached
+The following is a conditional release procedure, **not authorization to deploy
+this candidate**. Production remains on HOLD. After separate release approval,
+deploy only the exact merged, CI-verified commit from a clean detached
 worktree, after `npm ci`, `npm audit`, and `npm run build`:
 
 ```sh

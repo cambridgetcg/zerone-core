@@ -3,7 +3,7 @@
 export const AUTHORITY_GEOMETRY_ENDPOINT =
   "/standards/authority-geometry.v1.json";
 export const AUTHORITY_GEOMETRY_SHA256 =
-  "f2ff3c64274a19dc850583e614a7fae4f2a9b0b4f22f12b81b64e3a2f2a160ef";
+  "c59ece0053187f80987326cda56bccd3ac70dbd6e4057546ce9b7df26f844755";
 export const AUTHORITY_GEOMETRY_MAX_BYTES = 65_536;
 export const AUTHORITY_GEOMETRY_TIMEOUT_MS = 8_000;
 
@@ -197,6 +197,7 @@ export const AUTHORITY_GEOMETRY_SOURCE_ANCHOR_IDS = [
   "claiming-pot-staking-callsite",
   "custom-gov-quarantine-wrapper",
   "custom-gov-emergency-hold-writer",
+  "tok-feedback-boundary",
 ] as const;
 
 export const AUTHORITY_GEOMETRY_FINDING_IDS = [

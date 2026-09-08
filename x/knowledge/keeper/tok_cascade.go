@@ -16,7 +16,7 @@ var ErrToKCascadeNotDisproven = fmt.Errorf("cascade-replay root is not DISPROVEN
 //   - edges:   CONTRADICTS + first-hop support edges to descendants (sorted)
 //   - cascadeEvents: every recorded CascadeEvent for this disproof
 //   - vindications:  every ToKVindicationRecord for this disproof's facts
-//                    (only populated if sel.IncludeVindications)
+//     (only populated if sel.IncludeVindications)
 //   - supersessionChain: SUPERSEDES walk (only if sel.IncludeSupersessions)
 //
 // TC4: the graph carries its disprovals. The disproval-graph is the parallel
@@ -33,7 +33,13 @@ func (k Keeper) GatherCascade(
 	supersessionChain []string,
 	err error,
 ) {
-	root, found := k.GetFact(ctx, sel.DisprovenFactId)
+	ctx = withToKReadBudget(ctx)
+	defer func() {
+		if e := readBudget(ctx).check(ctx); e != nil {
+			nodeIDs, edges, cascadeEvents, vindications, supersessionChain, err = nil, nil, nil, nil, nil, e
+		}
+	}()
+	root, found := k.readFact(ctx, sel.DisprovenFactId)
 	if !found {
 		return nil, nil, nil, nil, nil, fmt.Errorf("%w: %s", ErrToKRootFactNotFound, sel.DisprovenFactId)
 	}
@@ -43,12 +49,17 @@ func (k Keeper) GatherCascade(
 	}
 
 	// Collect cascade events for this disproof.
-	cascadeEvents = k.GetCascadeEventsForDisproof(ctx, sel.DisprovenFactId)
+	cascadeEvents, err = k.readCascadeEvents(ctx, sel.DisprovenFactId)
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
 
 	// Build node set: root + every descendant in cascade events.
 	visited := map[string]bool{root.Id: true}
 	for _, ev := range cascadeEvents {
-		visited[ev.DescendantFactId] = true
+		if err := readNode(ctx, visited, ev.DescendantFactId); err != nil {
+			return nil, nil, nil, nil, nil, err
+		}
 	}
 
 	// For depth > 1, walk transitively from each cascaded descendant.
@@ -72,18 +83,17 @@ func (k Keeper) GatherCascade(
 	//       "this fact requires the now-disproven root" relations that
 	//       triggered the cascade in the first place)
 	edgeSet := map[string]*types.ToKEdge{}
-	rootIncoming, _ := k.GetIncomingRelations(ctx, root.Id)
+	rootIncoming, err := k.readRelations(ctx, root.Id, true)
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
 	for _, rel := range rootIncoming {
 		// Include CONTRADICTS to the root (the challenge edges) and any
 		// support edges from descendants we already counted.
 		if rel.Relation == types.RelationType_RELATION_TYPE_CONTRADICTS ||
 			visited[rel.SourceFactId] {
-			edgeKey := rel.SourceFactId + "->" + rel.TargetFactId + "|" + rel.Relation.String()
-			edgeSet[edgeKey] = &types.ToKEdge{
-				FromFactId: rel.SourceFactId,
-				ToFactId:   rel.TargetFactId,
-				Relation:   rel.Relation.String(),
-				Inference:  rel.Inference.String(),
+			if err := readEdge(ctx, edgeSet, rel); err != nil {
+				return nil, nil, nil, nil, nil, err
 			}
 		}
 	}
@@ -94,19 +104,16 @@ func (k Keeper) GatherCascade(
 			if nodeID == root.Id {
 				continue
 			}
-			outgoing, _ := k.GetFactRelations(ctx, nodeID)
+			outgoing, err := k.readRelations(ctx, nodeID, false)
+			if err != nil {
+				return nil, nil, nil, nil, nil, err
+			}
 			for _, rel := range outgoing {
 				if !visited[rel.TargetFactId] {
 					continue
 				}
-				edgeKey := rel.SourceFactId + "->" + rel.TargetFactId + "|" + rel.Relation.String()
-				if _, ok := edgeSet[edgeKey]; !ok {
-					edgeSet[edgeKey] = &types.ToKEdge{
-						FromFactId: rel.SourceFactId,
-						ToFactId:   rel.TargetFactId,
-						Relation:   rel.Relation.String(),
-						Inference:  rel.Inference.String(),
-					}
+				if err := readEdge(ctx, edgeSet, rel); err != nil {
+					return nil, nil, nil, nil, nil, err
 				}
 			}
 		}
@@ -121,7 +128,10 @@ func (k Keeper) GatherCascade(
 	if sel.IncludeVindications {
 		// Pull vindication records for the disproven fact (its slashed
 		// minority voters whose unpopular vote turned out right).
-		records := k.GetVindicationRecordsForFact(ctx, root.Id)
+		records, err := k.readVindications(ctx, root.Id)
+		if err != nil {
+			return nil, nil, nil, nil, nil, err
+		}
 		for i := range records {
 			r := records[i] // local copy
 			vindications = append(vindications, &types.ToKVindicationRecord{
@@ -138,7 +148,10 @@ func (k Keeper) GatherCascade(
 
 	// Optional: supersession chain.
 	if sel.IncludeSupersessions {
-		supersessionChain = k.collectSupersessionChain(ctx, root.Id)
+		supersessionChain, err = k.readSupersessionChain(ctx, root.Id)
+		if err != nil {
+			return nil, nil, nil, nil, nil, err
+		}
 	}
 
 	return nodeIDs, edges, cascadeEvents, vindications, supersessionChain, nil
@@ -153,7 +166,7 @@ func (k Keeper) gatherCascadeRecursive(
 	if depth >= maxDepth {
 		return nil
 	}
-	incoming, err := k.GetIncomingRelations(ctx, factID)
+	incoming, err := k.readRelations(ctx, factID, true)
 	if err != nil {
 		return err
 	}
@@ -172,7 +185,9 @@ func (k Keeper) gatherCascadeRecursive(
 			continue
 		}
 		if !visited[rel.SourceFactId] {
-			visited[rel.SourceFactId] = true
+			if err := readNode(ctx, visited, rel.SourceFactId); err != nil {
+				return err
+			}
 			if err := k.gatherCascadeRecursive(ctx, rel.SourceFactId, depth+1, maxDepth, visited); err != nil {
 				return err
 			}
