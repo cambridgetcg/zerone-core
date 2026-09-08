@@ -43,6 +43,8 @@ state evidence and carries neither pre-SDK handler. See
 | [VESTING.md](VESTING.md) | Truth-linked vesting schedules and clawback |
 | [STAKING.md](STAKING.md) | Custom tiers, Cosmos staking, fees, and validator economics |
 | [GENESIS.md](GENESIS.md) | Immutable launch distribution and prospective H1/H2/H3 boundaries |
+| [LEGACY-ASSET-MIGRATION.md](LEGACY-ASSET-MIGRATION.md) | Adopted opt-in historical nominal 1:1 direction; eligibility, funding, and activation unresolved; no genesis carry-over or beta claims launch |
+| [../specs/legacy-snapshot-accounting-v0.md](../specs/legacy-snapshot-accounting-v0.md) | Bounded offline snapshot-v3 native-custody accounting; all eligibility undetermined, unknown entitlement/reserve totals, no payout authority |
 | [SINKS-AND-FLOWS.md](SINKS-AND-FLOWS.md) | Source-backed map of ZRN creation, destruction, locks, and movement |
 | [GOVERNANCE-MIGRATION.md](GOVERNANCE-MIGRATION.md) | Research-fund committee model and implementation gaps |
 | [LIQUIDITY-TRANSPARENCY.md](LIQUIDITY-TRANSPARENCY.md) | External Osmosis testnet position, separate from the native module |

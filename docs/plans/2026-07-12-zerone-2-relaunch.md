@@ -131,6 +131,23 @@ anchor `A` is excluded. Any later `zerone-2` claim or migration is a separate
 public policy and must be implemented as an audited, invariant-checked module.
 It must not be a hand-edited genesis allocation.
 
+The adopted allocation direction is an **opt-in historical snapshot at nominal
+1:1**, one successor `uzrn` per approved, reconciled legacy `uzrn` entitlement.
+See [Legacy assets — historical snapshot allocation](../tokenomics/LEGACY-ASSET-MIGRATION.md)
+for its unresolved checkpoint, eligibility, funding, issuance, and authority
+boundaries and proposed safeguards. It is not exclusive redemption: source
+assets persist, and post-cutoff transfers do not automatically carry historical
+entitlements. Nominal parity is no market-value or payment guarantee.
+
+The first [offline accounting report](../specs/legacy-snapshot-accounting-v0.md)
+partitions native snapshot-v3 bank custody, not beneficial entitlements: every
+row remains `UNDETERMINED`, entitlement and reserve totals are unknown, and no
+payout is authorized. The staged public beta offers a read-only hosted observer;
+already-funded native users may transact through their own nodes after public
+P2P is authorized. It does not launch claims or fund a migration reserve. The
+exact genesis scaffold, protocol-dark latches, and notice/activation gates below
+remain unchanged.
+
 ## Exact `zerone-2` genesis scaffold
 
 Total initial bank supply is exactly **13,555,000,000 uzrn (13,555 ZRN)**:
