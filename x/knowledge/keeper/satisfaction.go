@@ -8,8 +8,9 @@ import (
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
-// RecordQueryReceipt stores proof that an address queried a specific fact.
-// Receipts are ephemeral — cleared at epoch boundaries to bound storage.
+// RecordQueryReceipt is retained only for legacy compatibility/tests. It is an
+// unsigned cache marker, not proof of readership, and never authorizes RateFact.
+// New query paths must not call it; new epoch processing does not scan it.
 func (k Keeper) RecordQueryReceipt(ctx context.Context, rater, factID string) error {
 	store := k.storeService.OpenKVStore(ctx)
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
@@ -30,7 +31,8 @@ func (k Keeper) ConsumeQueryReceipt(ctx context.Context, rater, factID string) e
 	return store.Delete(types.QueryReceiptKey(rater, factID))
 }
 
-// ClearQueryReceipts deletes all query receipts. Called at epoch boundaries.
+// ClearQueryReceipts is a legacy maintenance helper, NOT called by BeginBlocker.
+// Signed receipts use bounded PruneFactUseReceipts instead.
 func (k Keeper) ClearQueryReceipts(ctx context.Context) {
 	store := k.storeService.OpenKVStore(ctx)
 	iter, err := store.Iterator(types.QueryReceiptPrefix, prefixEndBytes(types.QueryReceiptPrefix))

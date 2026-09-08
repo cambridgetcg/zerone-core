@@ -9,7 +9,10 @@ source-only authority observatory.
 
 `network-profile.json` is the **single public build input** imported by the
 browser, Vite and Pages Functions. Its checked-in default is explicitly
-`{"mode":"legacy"}`; that preserves the existing zerone-1 dashboard and relay.
+`{"mode":"legacy"}`; that preserves the existing zerone-1 page and RPC/REST
+relay selection. The ToK source candidate separately closes `/api/knowledge`
+until an approved immutable publication is configured; it must not be deployed
+over the current site merely because the source build passes.
 A beta deployment must deliberately replace that profile and rebuild **both**
 static assets and Functions from the same reviewed bytes. Never deploy a beta
 browser bundle with a legacy worker or mix separately built profile versions.
@@ -198,14 +201,22 @@ an H4 or H5 activation gate.
 
 ## Knowledge Geometry
 
-The Knowledge Geometry lens is a bounded, read-only projection of the public
-`zerone-1` knowledge query. `/api/knowledge` checks the chain identity against
-RPC status, then returns at most 128 explicitly declared facts and 512
-deduplicated embedded `FactRelation` records from the typed facts response. It
-does not call a transaction, publish endpoint, relation search, or inference
-service. The edge reads at most 384 KiB from the facts response and 64 KiB
-from status; the browser independently refuses redirects and reads at most
-256 KiB from the same-origin projection.
+This source candidate makes public `/api/knowledge` return HTTP 503 without
+upstream reads until an approved immutable publication is configured; non-legacy
+observer profiles separately refuse that route. The retained legacy projection
+helper is tested but is not a public live-list fallback. Its input bounds remain
+384 KiB for facts and 64 KiB for status, and its output is limited to 128 facts,
+512 relations and 256 KiB, with refusal rather than silent truncation on budget
+excess.
+
+The candidate's canonical snapshot adapter uses separately returned relation
+records, actual observed height, exact payload/metadata digests and explicit
+coverage/freshness. It does not infer graph edges from missing legacy embedded
+arrays. The bounded singleton facade and its synthetic preview are documented
+in [`deploy/knowledge-read-facade/README.md`](../deploy/knowledge-read-facade/README.md).
+No production snapshot binding, facade deployment or hosted cohort-write ingress
+is supplied by this source publication; production signing and activation remain
+on HOLD.
 
 The visualization groups facts only by their declared domains, gives every
 fact the same node size, and draws a line only for an actual typed relation.
@@ -302,7 +313,7 @@ attainment, qualification, or reward is recorded.
 
 The EID-1 initializer performs exactly one bounded same-origin static read per
 page load, fetches no paper, verifies the reviewed raw SHA-256
-`e60b89cbed8eb26d3fad0ee45ef8c433391341f3abb4865af2755595815354df`,
+`6bf0a3880c60b3a2edd968fa2c051e284edec521c7fe9fc9a061cd7c859765ee`,
 and renders only local text nodes. The offline validator authenticates the
 profile before resolving its four repository-relative source bindings, rejects
 symlinks and path escape, and checks their exact bytes without network access.

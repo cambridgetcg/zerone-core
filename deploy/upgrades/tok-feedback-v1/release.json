@@ -1,0 +1,42 @@
+{
+  "schema": "zerone.tok-feedback-v1/source-packet/v1",
+  "status": "NO_GO",
+  "scope": "source-only; no signing, scheduling or production activation authority conveyed",
+  "upgrade_name": "tok-feedback-v1",
+  "knowledge_from": 6,
+  "knowledge_to": 7,
+  "h1_source": "65c19cd8b00bdfff9b80705b776fd0d49719398a",
+  "h2_source": "36728afbf71905a077a0863b41536fa9279109dd",
+  "h3_source": "335bb94f0fd54d3752dcb397263b7e84fb1116b4",
+  "h3_tree": "769f67f1cfa108be3d31cace7777cf954f731c42",
+  "candidate_base": "89553a0132dafa1ba9670f53b8a3195b33a6e720",
+  "candidate_commit": null,
+  "candidate_binary_sha256": null,
+  "historical_binary_handoff_executed": false,
+  "custody": "SUSPECT historical 1/1 images; independent assessment not supplied",
+  "gates": {
+    "independent_custody_assessment": "NO_GO",
+    "exact_H1_H2_H3_source_and_executable_attestations": "NO_GO",
+    "full_H3_to_candidate_consensus_delta_review": "NO_GO",
+    "exact_historical_binary_handoff_restore_fencing": "NO_GO",
+    "signed_transport_and_retained_capacity_gas_acceptance": "NO_GO",
+    "release_matched_testnet": "NO_GO",
+    "production_1000_blocks_and_60_minutes": "NO_GO"
+  },
+  "consensus_delta_review_scope": [
+    "ALL source between accepted H3 and candidate, not merely version-number changes",
+    "inherited app/abci.go scheduler/phase execution and app/export.go",
+    "inherited x/auth keeper, messages, key rotation and genesis admission changes with unchanged module version",
+    "inherited auth ante and dependency changes",
+    "inherited canonical knowledge query projection",
+    "new fact-use signing, ante gas/capability classification, receipt/report/rating policy and irreversible economic latch",
+    "challenge evidence, terminal restoration and epoch settlement ordering",
+    "bounded reads, persistent graph/history import-export, checked status sequence allocation",
+    "knowledge v7 migration, exact full H3 map/lineage guards and startup refusal"
+  ],
+  "plan_info": {
+    "schema": "zerone.tok-feedback-v1/lineage/v1",
+    "h3_source": "335bb94f0fd54d3752dcb397263b7e84fb1116b4",
+    "h3_tree": "769f67f1cfa108be3d31cace7777cf954f731c42"
+  }
+}

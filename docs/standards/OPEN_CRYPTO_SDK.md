@@ -96,14 +96,43 @@ activity.
 ### Generated REST and transaction coverage
 
 All generated custom query gateways are registered. The canonical generated
-Swagger document currently contains 217 paths and 446 definitions:
+Swagger document currently contains 218 paths and 449 definitions:
 [`docs/swagger-ui/swagger.json`](../swagger-ui/swagger.json).
 
 The repository TypeScript package contains protobuf/direct-signing codecs for
-169 request message types across 20 Zerone `Msg` services. Its registry
+170 request message types across 20 Zerone `Msg` services. Its registry
 composes with CosmJS standard message types, and its CAIP helpers share golden
 vectors with Go. These codecs serialize messages; they do not supply authority
 policy, legacy Amino support, or automatic mainnet controls.
+
+### Signed non-economic fact use — source candidate
+
+The existing generated `knowledgeMessages.withTypeUrl.reportFactUse({ consumer,
+factId })` and `.rateFact({ rater, factId, useful, memo })` composers are already
+exported by `@zerone-chain/sdk/messages`; `createZeroneRegistry` registers their
+actual generated codecs. CosmJS direct signing uses the caller's existing
+wallet. Unknown message types are rejected by the registry, not encoded as an
+opaque fallback. No backend user-signer, new wallet, public dashboard write
+control or automatic fee sponsorship is added.
+
+These are public, paid, cohort-gated self-reports, not observed readership or
+rewards. The normal SDK ante fee and sequence effects can survive a failed
+message; message atomicity applies to the feedback module's effects. A receipt
+query is read-only and cannot create the prerequisite for rating. The disabled
+beta, empty cohort and permanent post-report economic latch are consensus
+policy, not merely client warnings. Canonical signer/account and input bounds
+are independently enforced on the chain path.
+
+Local tests use generated signing → gRPC ABCI transport → CheckTx →
+FinalizeBlock/Commit → query with explicitly local keys/genesis. These tests do
+not establish custody, deployment, production gas under full retained-state
+load, or completed release admission. Production stays **NO_GO** until exact
+accepted H1→H2→H3 and the separately reviewed `tok-feedback-v1` release gates
+pass. Source hashes, SDK build checks and registry/Swagger audits remain
+mandatory; this candidate does not publish an npm package.
+
+See [API semantics and CLI examples](../API.md#signed-fact-use-source-candidate)
+and the [source contract](../specs/tok-feedback-v1.md).
 
 ### Unsigned in-toto training provenance
 
@@ -209,7 +238,7 @@ H−1 state, and an explicit activation height.
 
 ## Implemented TypeScript SDK boundary
 
-- Typed protobuf/direct-signing codecs cover all 169 request messages in
+- Typed protobuf/direct-signing codecs cover all 170 request messages in
   Zerone's 20 `Msg` services.
 - The registry composes with CosmJS's standard Cosmos message types.
 - CAIP-2 and CAIP-10 parsing implements the Cosmos chain-reference profile.

@@ -6,31 +6,36 @@ language: see repo
 runs-on: this machine
 
 ## state
-phase: source-consolidation
-health: green
-last-commit: 7f3405b fix(release): close post-rebase safety and truth gaps
-uncommitted: 0 files
-freshness: reviewed 2026-07-29T20:11:01Z
+phase: tok-feedback-source-candidate
+health: unverified
+source-base: 89553a0132dafa1ba9670f53b8a3195b33a6e720
+source-status: implemented and locally reviewed; feature-branch source publication only, not production admission
+activation: NO_GO
+freshness: source inventory measured 2026-09-08; not a live network probe
 
 ## knows
-- 23 custom Cosmos SDK modules and 169 protobuf Msg request types
-- consensus store version 6 and the consolidation-safety-v1 upgrade
-- provisional knowledge conjectures and the K-alpha recognition layer
-- fail-closed zerone-2 release, authority, and ceremony controls
+- 23 custom Cosmos SDK modules and 170 protobuf Msg request types
+- the source candidate adds signed non-economic fact-use receipts after accepted H3
+- feedback defaults disabled with an empty consumer cohort
+- permanent EverReported state prevents economic reinterpretation after disable/prune
+- source, local test commitment, public publication, and production activation differ
 
 ## can
-- declare its state via STATE.md
-- be discovered by discover.py
-- be cross-checked by trust.py
-- build a commit-identifiable zeroned binary
-- verify creed, recursion, generated API, SDK, and release integrity
-- preserve claiming, vesting, and substrate-bridge state across relaunch
+- declare its bounded source status via STATE.md
+- build a commit-identifiable zeroned binary from a reviewed revision
+- verify generated API and SDK inventory without bypassing source/output hash gates
+- use existing wallet signing for report-fact-use and rate-fact
+- query current-epoch receipts without creating self-report evidence
 
 ## needs
-- a governance-scheduled consolidation-safety-v1 validator rollout
-- cryptographic Sigstore verification and CI OIDC signing before image or validator publication
-- complete, signed zerone-2 ceremony artifacts before any launch
-- runtime wiring for adapter dispatch and an activated work creed
+- independent custody evidence; existing production activation remains NO_GO
+- exact accepted H1, H2, H3 and tok-feedback-v1 release lineage and state-copy rehearsal
+- independent consensus review, resource-load measurements and restore/fencing checks
+- configured finite public-read publication and separately gated cohort write ingress
+- source integration, pinned release provenance and post-activation observation
+
+No ledger reset or state-preserving successor decision is made by this candidate.
+No production transaction, deployment or package publication is implied.
 
 ## how-to-talk-to-me
 entry-point: README.md

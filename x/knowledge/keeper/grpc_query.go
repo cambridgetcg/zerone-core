@@ -94,6 +94,17 @@ func (q *queryServer) filteredPaginate(
 		if err := ctx.Err(); err != nil {
 			return false, status.FromContextError(err).Err()
 		}
+		if b, ok := ctx.Value(tokReadBudgetKey{}).(*tokReadBudget); ok {
+			if err := b.examine(ctx); err != nil {
+				return false, err
+			}
+			if err := b.materialize(len(value)); err != nil {
+				return false, err
+			}
+			if examined >= FilteredQueryScanCap {
+				return false, b.exhaust("filtered scan")
+			}
+		}
 		if examined >= FilteredQueryScanCap {
 			// FilteredPaginate has already supplied this raw key/value as its
 			// one-record lookahead, but do not decode or otherwise inspect the
@@ -162,29 +173,35 @@ func (q *queryServer) Params(ctx context.Context, _ *types.QueryParamsRequest) (
 }
 
 func (q *queryServer) Fact(ctx context.Context, req *types.QueryFactRequest) (*types.QueryFactResponse, error) {
-	if req.Id == "" {
+	if req == nil || req.Id == "" {
 		return nil, status.Error(codes.InvalidArgument, "fact id is required")
 	}
-	fact, found := q.keeper.GetFact(ctx, req.Id)
+	ctx = withToKReadBudget(ctx)
+	fact, found := q.keeper.readFact(ctx, req.Id)
+	if err := readBudget(ctx).check(ctx); err != nil {
+		return nil, err
+	}
 	if !found {
 		return nil, status.Errorf(codes.NotFound, "fact %s not found", req.Id)
 	}
-
-	// Track query — increment counter and record receipt for satisfaction rating
-	if req.TrackQuery {
-		q.keeper.IncrementFactQueryCount(ctx, req.Id)
-		if req.Querier != "" {
-			_ = q.keeper.RecordQueryReceipt(ctx, req.Querier, req.Id)
-		}
+	// Legacy tracking fields remain wire-compatible but inert. Signed reports
+	// are the only source of new self-reported use receipts.
+	fact, err := q.keeper.hydrateReadFact(ctx, fact)
+	if err != nil {
+		return nil, err
 	}
-
-	return &types.QueryFactResponse{Fact: fact}, nil
+	response := &types.QueryFactResponse{Fact: fact}
+	if err := checkReadOutput(ctx, response); err != nil {
+		return nil, err
+	}
+	return response, nil
 }
 
 func (q *queryServer) Facts(ctx context.Context, req *types.QueryFactsRequest) (*types.QueryFactsResponse, error) {
 	if req == nil {
 		req = &types.QueryFactsRequest{}
 	}
+	ctx = withToKReadBudget(ctx)
 	var facts []*types.Fact
 
 	// If domain filter is specified, use the secondary index
@@ -194,7 +211,7 @@ func (q *queryServer) Facts(ctx context.Context, req *types.QueryFactsRequest) (
 			[]byte(req.Domain+"/")...,
 		)
 		page, err := q.filteredPaginate(ctx, indexPrefix, req.Pagination, func(key, _ []byte, accumulate bool) (bool, error) {
-			fact, found := q.keeper.GetFact(ctx, string(key))
+			fact, found := q.keeper.readFact(ctx, string(key))
 			if !found || fact.Domain != req.Domain || !matchesFactFilters(fact, req.Status, req.Category, req.ClaimType) {
 				return false, nil
 			}
@@ -206,7 +223,18 @@ func (q *queryServer) Facts(ctx context.Context, req *types.QueryFactsRequest) (
 		if err != nil {
 			return nil, err
 		}
-		return &types.QueryFactsResponse{Facts: facts, Pagination: page}, nil
+		for i, fact := range facts {
+			hydrated, err := q.keeper.hydrateReadFact(ctx, fact)
+			if err != nil {
+				return nil, err
+			}
+			facts[i] = hydrated
+		}
+		response := &types.QueryFactsResponse{Facts: facts, Pagination: page}
+		if err := checkReadOutput(ctx, response); err != nil {
+			return nil, err
+		}
+		return response, nil
 	} else {
 		page, err := q.filteredPaginate(ctx, types.FactKeyPrefix, req.Pagination, func(_, value []byte, accumulate bool) (bool, error) {
 			fact, err := decodeFact(value)
@@ -224,7 +252,18 @@ func (q *queryServer) Facts(ctx context.Context, req *types.QueryFactsRequest) (
 		if err != nil {
 			return nil, err
 		}
-		return &types.QueryFactsResponse{Facts: facts, Pagination: page}, nil
+		for i, fact := range facts {
+			hydrated, err := q.keeper.hydrateReadFact(ctx, fact)
+			if err != nil {
+				return nil, err
+			}
+			facts[i] = hydrated
+		}
+		response := &types.QueryFactsResponse{Facts: facts, Pagination: page}
+		if err := checkReadOutput(ctx, response); err != nil {
+			return nil, err
+		}
+		return response, nil
 	}
 }
 
@@ -1403,14 +1442,22 @@ func (q *queryServer) TrustProfile(ctx context.Context, req *types.QueryTrustPro
 	if req == nil || req.FactId == "" {
 		return nil, status.Error(codes.InvalidArgument, "fact_id is required")
 	}
-	fact, found := q.keeper.GetFact(ctx, req.FactId)
+	ctx = withToKReadBudget(ctx)
+	fact, found := q.keeper.readFact(ctx, req.FactId)
+	if err := readBudget(ctx).check(ctx); err != nil {
+		return nil, err
+	}
 	if !found {
 		return nil, status.Errorf(codes.NotFound, "fact %s not found", req.FactId)
 	}
 
 	// Count direct support-bearing edges (outgoing = supporters).
 	directSupporters := uint32(0)
-	if outRels, err := q.keeper.GetFactRelations(ctx, fact.Id); err == nil {
+	outRels, err := q.keeper.readRelations(ctx, fact.Id, false)
+	if err != nil {
+		return nil, err
+	}
+	{
 		for _, rel := range outRels {
 			if isSupportBearing(rel.Relation) {
 				directSupporters++
@@ -1419,7 +1466,11 @@ func (q *queryServer) TrustProfile(ctx context.Context, req *types.QueryTrustPro
 	}
 	// Count direct descendants (incoming = facts that cite me).
 	directDescendants := uint32(0)
-	if inRels, err := q.keeper.GetIncomingRelations(ctx, fact.Id); err == nil {
+	inRels, err := q.keeper.readRelations(ctx, fact.Id, true)
+	if err != nil {
+		return nil, err
+	}
+	{
 		for _, rel := range inRels {
 			if isSupportBearing(rel.Relation) {
 				directDescendants++
@@ -1439,9 +1490,9 @@ func (q *queryServer) TrustProfile(ctx context.Context, req *types.QueryTrustPro
 	for depth := 0; depth < ancestryDepthCap && len(frontier) > 0; depth++ {
 		var next []string
 		for _, fid := range frontier {
-			outRels, err := q.keeper.GetFactRelations(ctx, fid)
+			outRels, err := q.keeper.readRelations(ctx, fid, false)
 			if err != nil {
-				continue
+				return nil, err
 			}
 			for _, rel := range outRels {
 				if !isSupportBearing(rel.Relation) {
@@ -1450,8 +1501,10 @@ func (q *queryServer) TrustProfile(ctx context.Context, req *types.QueryTrustPro
 				if visited[rel.TargetFactId] {
 					continue
 				}
-				visited[rel.TargetFactId] = true
-				target, ok := q.keeper.GetFact(ctx, rel.TargetFactId)
+				if err := readNode(ctx, visited, rel.TargetFactId); err != nil {
+					return nil, err
+				}
+				target, ok := q.keeper.readFact(ctx, rel.TargetFactId)
 				if !ok {
 					continue
 				}
@@ -1459,7 +1512,7 @@ func (q *queryServer) TrustProfile(ctx context.Context, req *types.QueryTrustPro
 				if target.DependencyConfidenceFloor > 0 && target.DependencyConfidenceFloor < conf {
 					conf = target.DependencyConfidenceFloor
 				}
-				if conf > 0 && conf < minInAncestry {
+				if conf < minInAncestry {
 					minInAncestry = conf
 				}
 				next = append(next, target.Id)
@@ -1470,7 +1523,7 @@ func (q *queryServer) TrustProfile(ctx context.Context, req *types.QueryTrustPro
 
 	grounded := computeGroundedScore(fact)
 
-	return &types.QueryTrustProfileResponse{
+	response := &types.QueryTrustProfileResponse{
 		Fact:                        fact,
 		OwnConfidenceBps:            fact.Confidence,
 		DependencyConfidenceFloor:   fact.DependencyConfidenceFloor,
@@ -1483,7 +1536,11 @@ func (q *queryServer) TrustProfile(ctx context.Context, req *types.QueryTrustPro
 		MethodId:                    fact.MethodId,
 		CorroborationCount:          fact.CorroborationCount,
 		LastCorroboratedBlock:       fact.LastCorroboratedBlock,
-	}, nil
+	}
+	if err := checkReadOutput(ctx, response); err != nil {
+		return nil, err
+	}
+	return response, nil
 }
 
 func isSupportBearing(r types.RelationType) bool {
@@ -1566,7 +1623,11 @@ func (q *queryServer) DescendantTree(ctx context.Context, req *types.QueryDescen
 	if req == nil || req.FactId == "" {
 		return nil, status.Error(codes.InvalidArgument, "fact_id is required")
 	}
-	root, found := q.keeper.GetFact(ctx, req.FactId)
+	ctx = withToKReadBudget(ctx)
+	root, found := q.keeper.readFact(ctx, req.FactId)
+	if err := readBudget(ctx).check(ctx); err != nil {
+		return nil, err
+	}
 	if !found {
 		return nil, status.Errorf(codes.NotFound, "fact %s not found", req.FactId)
 	}
@@ -1587,12 +1648,16 @@ func (q *queryServer) DescendantTree(ctx context.Context, req *types.QueryDescen
 		}
 		return nil, err
 	}
-	return &types.QueryDescendantTreeResponse{
+	response := &types.QueryDescendantTreeResponse{
 		Root:            root,
 		Descendants:     descendants,
 		TotalNodes:      nodeCount,
 		MaxDepthReached: maxDepthReached,
-	}, nil
+	}
+	if err := checkReadOutput(ctx, response); err != nil {
+		return nil, err
+	}
+	return response, nil
 }
 
 // walkDescendants returns DescendantNodes for facts that cite factID via
@@ -1608,7 +1673,7 @@ func (q *queryServer) walkDescendants(
 	if depth > maxDepth {
 		return nil, nil
 	}
-	incoming, err := q.keeper.GetIncomingRelations(ctx, factID)
+	incoming, err := q.keeper.readRelations(ctx, factID, true)
 	if err != nil {
 		return nil, err
 	}
@@ -1629,13 +1694,15 @@ func (q *queryServer) walkDescendants(
 		if visited[rel.SourceFactId] {
 			continue
 		}
-		visited[rel.SourceFactId] = true
-		descendant, ok := q.keeper.GetFact(ctx, rel.SourceFactId)
+		if err := readNode(ctx, visited, rel.SourceFactId); err != nil {
+			return nil, err
+		}
+		descendant, ok := q.keeper.readFact(ctx, rel.SourceFactId)
 		if !ok {
 			continue
 		}
-		if *nodeCount >= maxGraphTreeNodes {
-			return nil, errGraphTreeNodeLimit
+		if *nodeCount >= ToKReadMaxNodes {
+			return nil, readBudget(ctx).exhaust("128 nodes")
 		}
 		*nodeCount++
 		if depth > *maxDepthReached {
@@ -1671,7 +1738,11 @@ func (q *queryServer) ProofTree(ctx context.Context, req *types.QueryProofTreeRe
 		return nil, status.Error(codes.InvalidArgument, "fact_id is required")
 	}
 
-	root, found := q.keeper.GetFact(ctx, req.FactId)
+	ctx = withToKReadBudget(ctx)
+	root, found := q.keeper.readFact(ctx, req.FactId)
+	if err := readBudget(ctx).check(ctx); err != nil {
+		return nil, err
+	}
 	if !found {
 		return nil, status.Errorf(codes.NotFound, "fact %s not found", req.FactId)
 	}
@@ -1706,12 +1777,16 @@ func (q *queryServer) ProofTree(ctx context.Context, req *types.QueryProofTreeRe
 		return nil, err
 	}
 
-	return &types.QueryProofTreeResponse{
+	response := &types.QueryProofTreeResponse{
 		Root:                    rootNode,
 		TotalNodes:              nodeCount,
 		MaxDepthReached:         maxDepthReached,
 		MinimumConfidenceInTree: minConf,
-	}, nil
+	}
+	if err := checkReadOutput(ctx, response); err != nil {
+		return nil, err
+	}
+	return response, nil
 }
 
 // buildProofNode recursively constructs a ProofTreeNode. Only outgoing
@@ -1734,8 +1809,8 @@ func (q *queryServer) buildProofNode(
 	if err := ctx.Err(); err != nil {
 		return nil, status.FromContextError(err).Err()
 	}
-	if *nodeCount >= maxGraphTreeNodes {
-		return nil, errGraphTreeNodeLimit
+	if *nodeCount >= ToKReadMaxNodes {
+		return nil, readBudget(ctx).exhaust("128 nodes")
 	}
 	*nodeCount++
 	if currentDepth > *maxDepthReached {
@@ -1752,7 +1827,7 @@ func (q *queryServer) buildProofNode(
 		IsAxiom:                  isAxiom,
 	}
 
-	if fact.Confidence > 0 && fact.Confidence < *minConf {
+	if fact.Confidence < *minConf {
 		*minConf = fact.Confidence
 	}
 
@@ -1772,7 +1847,7 @@ func (q *queryServer) buildProofNode(
 	visited[fact.Id] = true
 
 	// Follow outgoing support edges.
-	rels, err := q.keeper.GetFactRelations(ctx, fact.Id)
+	rels, err := q.keeper.readRelations(ctx, fact.Id, false)
 	if err != nil {
 		return nil, err
 	}
@@ -1788,7 +1863,7 @@ func (q *queryServer) buildProofNode(
 			// CONTRADICTS / SUPERSEDES / UNSPECIFIED — skip
 			continue
 		}
-		target, ok := q.keeper.GetFact(ctx, rel.TargetFactId)
+		target, ok := q.keeper.readFact(ctx, rel.TargetFactId)
 		if !ok {
 			continue
 		}
@@ -2688,6 +2763,9 @@ func (q *queryServer) BundleToK(ctx context.Context, req *types.QueryBundleToKRe
 	}
 	bundle, err := q.keeper.AssembleToKBundle(ctx, req.Selector, req.AtBlockHeight)
 	if err != nil {
+		if _, ok := status.FromError(err); ok {
+			return nil, err
+		}
 		switch {
 		case errors.Is(err, ErrToKRootFactNotFound), errors.Is(err, ErrToKLeafFactNotFound):
 			return nil, status.Errorf(codes.NotFound, "%v", err)

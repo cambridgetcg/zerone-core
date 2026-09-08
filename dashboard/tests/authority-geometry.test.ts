@@ -146,7 +146,21 @@ describe("Authority Geometry v1", () => {
     assert.equal(geometry.nodes.length, 18);
     assert.equal(geometry.edges.length, 26);
     assert.equal(geometry.currentFindings.length, 7);
-    assert.equal(geometry.sourceAnchors.length, 17);
+    assert.equal(geometry.sourceAnchors.length, 18);
+  });
+
+  it("does not confuse the named feedback boundary with H4/H5 authority activation", () => {
+    const geometry = parseAuthorityGeometryJson(canonicalRaw);
+    const boundary = geometry.sourceAnchors.find((anchor) => anchor.id === "tok-feedback-boundary");
+    assert.ok(boundary);
+    assert.equal(boundary.path, "app/upgrades_tok_feedback.go");
+    assert.ok(boundary.requiredSnippets.includes("ActivationReady: false"));
+    validateAuthorityGeometrySourceAnchors(geometry, repositoryRoot);
+    assert.equal(geometry.currentTruth.sourceRegistersH4FreezeHandler, false);
+    assert.equal(geometry.currentTruth.sourceRegistersH4UnificationHandler, false);
+    assert.equal(geometry.currentTruth.sourceRegistersH5NonEconomicGovernanceHandler, false);
+    assert.ok(Object.values(geometry.releaseBoundary).every((effect) => effect === false));
+    assert.throws(() => assertAuthorityGeometryTargetGate(geometry), /target gate REFUSED: 1\/7 static surfaces pass, H4 0\/24, H5 0\/14; current source remains NO-GO/);
   });
 
   it("computes the current NO-GO assessment instead of promoting a green report", () => {
@@ -411,7 +425,7 @@ describe("Authority Geometry v1", () => {
       geometry,
       repositoryRoot,
     );
-    assert.equal(summary.sourceAnchorCount, 17);
+    assert.equal(summary.sourceAnchorCount, 18);
     assert.ok(summary.requiredSnippetCount >= 30);
     assert.equal(summary.forbiddenSnippetCount, 1);
 

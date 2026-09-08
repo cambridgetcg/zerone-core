@@ -1,7 +1,8 @@
 # Zerone development roadmap
 
-> Status snapshot: 2026-08-01. This is a dependency-ordered roadmap, not a
-> release promise.
+> Source inventory/feedback update: 2026-09-08; other milestones retain their
+> stated evidence dates. This is a dependency-ordered roadmap, not a live probe
+> or release promise.
 
 ## Current shape
 
@@ -9,16 +10,34 @@
   [`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core).
   The Go module path remains `github.com/zerone-chain/zerone`; changing that
   import path is a separate migration.
-- The application wires 23 custom modules. Its transaction SDK covers 169
+- The application wires 23 custom modules. Its transaction SDK covers 170
   request message types across 20 Zerone `Msg` services.
 - The protobuf-generated Swagger document is the API inventory of record:
   [`docs/swagger-ui/swagger.json`](swagger-ui/swagger.json) currently contains
-  217 paths and 446 definitions.
+  218 paths and 449 definitions.
 - The truth-seeking creed contains 20 commitments, and the ToK substrate
   doctrine contains TC0–TC6. Their executable bindings remain the authority
   over prose summaries.
 - Repository material describes the existing `zerone-1` custodial launch.
   Source consolidation does not update a running validator.
+
+## Signed feedback beta — source candidate, activation NO_GO
+
+The bounded target is signed self-reported use → rating → evidence-preserving
+correction → inspectable export. It does not promise measured readership,
+economic allocation, decentralization or a production launch date. The
+[feedback contract](specs/tok-feedback-v1.md) and
+[existing-wallet API flow](API.md#signed-fact-use-source-candidate) are the source
+interfaces. Feedback defaults disabled with an empty cohort; once a report
+commits, its permanent economic latch survives disabling and complete pruning.
+
+Source implementation and local signed-transport acceptance are distinct from
+release acceptance. Independent consensus review, exact old-state rehearsal,
+load measurements, immutable public-read bindings and bounded cohort ingress
+remain release gates. Existing production custody is unresolved and its H1–H3
+lineage must be independently established before the later `tok-feedback-v1`
+activation. No reset or successor is selected. The user-approved rollout remains
+gate-conditional; this client/transport implementation performs source work only.
 
 ## Consolidated in this source line
 

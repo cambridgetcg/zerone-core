@@ -3732,6 +3732,13 @@
         "category": {
           "type": "string"
         },
+        "challengeEvidenceIds": {
+          "description": "Challenge evidence only: at most 16 distinct existing fact IDs.\nNever aliases references or relation edges (no confidence inheritance).",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "challengeWindowEnd": {
           "format": "uint64",
           "type": "string"
@@ -4908,6 +4915,54 @@
       ],
       "type": "string"
     },
+    "zerone.knowledge.v1.FactUseRating": {
+      "default": "FACT_USE_RATING_UNSPECIFIED",
+      "description": "FactUseRating is signed self-reported relevance, not a truth verdict.",
+      "enum": [
+        "FACT_USE_RATING_UNSPECIFIED",
+        "FACT_USE_RATING_UNRATED",
+        "FACT_USE_RATING_USEFUL",
+        "FACT_USE_RATING_NOT_USEFUL"
+      ],
+      "type": "string"
+    },
+    "zerone.knowledge.v1.FactUseReceipt": {
+      "description": "FactUseReceipt version 1 records a committed signed self-report, not proof\nthat an off-chain use occurred at any time. Key: (epoch, consumer, fact_id).\nepoch = floor(use_height / fitness_epoch_blocks), including real epoch 0.\nRating is valid only in that same epoch. The marker is retained through the\nfollowing epoch and becomes prunable at expiry_height = (epoch + 2) *\nfitness_epoch_blocks (exclusive). Expiry is retention policy, not use time.",
+      "properties": {
+        "consumer": {
+          "title": "canonical SDK account address, never a third party",
+          "type": "string"
+        },
+        "epoch": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "expiryHeight": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "factId": {
+          "type": "string"
+        },
+        "rating": {
+          "$ref": "#/definitions/zerone.knowledge.v1.FactUseRating"
+        },
+        "ratingHeight": {
+          "format": "uint64",
+          "title": "zero iff UNRATED",
+          "type": "string"
+        },
+        "useHeight": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "version": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
     "zerone.knowledge.v1.FactWithChildren": {
       "properties": {
         "children": {
@@ -5914,6 +5969,27 @@
         "factExpiryBlocks": {
           "format": "uint64",
           "title": "compatibility-only; no expiry sweep reads it; runtime-immutable",
+          "type": "string"
+        },
+        "factUseConsumers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "default empty; max 32 canonical distinct SDK accounts",
+          "type": "array"
+        },
+        "factUseEnabled": {
+          "description": "Signed self-reported use beta: independent of authorized_demand_reporters.\nEnabled policy requires both query/satisfaction fitness weights and\nmetabolism_energy_per_query to be zero. No demand bounty or payout link.\nRuntime updates must freeze fitness_epoch_blocks while enabled or any\nreceipts remain retained, including when disabling in the same update.\n\ndefault false",
+          "type": "boolean"
+        },
+        "factUseMaxPerConsumerEpoch": {
+          "format": "uint64",
+          "title": "default/ceiling 100; positive",
+          "type": "string"
+        },
+        "factUseMaxPerEpoch": {
+          "format": "uint64",
+          "title": "default/ceiling 1000; positive",
           "type": "string"
         },
         "failedChallengeSlashBps": {
@@ -7008,6 +7084,26 @@
       "properties": {
         "fact": {
           "$ref": "#/definitions/zerone.knowledge.v1.Fact"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.knowledge.v1.QueryFactUseReceiptResponse": {
+      "properties": {
+        "epoch": {
+          "format": "uint64",
+          "title": "current query-context epoch, even when not found",
+          "type": "string"
+        },
+        "found": {
+          "type": "boolean"
+        },
+        "receipt": {
+          "$ref": "#/definitions/zerone.knowledge.v1.FactUseReceipt"
+        },
+        "snapshotBlockHeight": {
+          "format": "uint64",
+          "type": "string"
         }
       },
       "type": "object"
@@ -14935,6 +15031,43 @@
         ]
       }
     },
+    "/zerone/knowledge/v1/fact_use_receipts/{consumer}/{factId}": {
+      "get": {
+        "operationId": "FactUseReceipt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "consumer",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "path",
+            "name": "factId",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.knowledge.v1.QueryFactUseReceiptResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "summary": "FactUseReceipt reads a single receipt in the query context's current\nfitness epoch. No historical epoch selector and no state mutation.",
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/zerone/knowledge/v1/facts": {
       "get": {
         "operationId": "Facts",
@@ -15241,14 +15374,14 @@
             "type": "string"
           },
           {
-            "description": "Increment query counter (agents set this)",
+            "description": "Deprecated metadata: ignored; a query never increments counters or writes receipts.",
             "in": "query",
             "name": "trackQuery",
             "required": false,
             "type": "boolean"
           },
           {
-            "description": "Address of the querier (required if track_query=true, for receipt)",
+            "description": "Deprecated metadata: ignored; cannot attribute use to an unsigned address.",
             "in": "query",
             "name": "querier",
             "required": false,

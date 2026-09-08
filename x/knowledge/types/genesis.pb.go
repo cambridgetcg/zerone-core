@@ -282,8 +282,17 @@ type Params struct {
 	// "no individual can unilaterally inject untruth."
 	GuardianAddresses       []string `protobuf:"bytes,159,rep,name=guardian_addresses,json=guardianAddresses,proto3" json:"guardian_addresses,omitempty"`                          // veto-eligible addresses; empty = no guardian set, immediate execution
 	AddFactVetoWindowBlocks uint64   `protobuf:"varint,160,opt,name=add_fact_veto_window_blocks,json=addFactVetoWindowBlocks,proto3" json:"add_fact_veto_window_blocks,omitempty"` // default 0 (immediate); set > 0 to enable veto window
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
+	// Signed self-reported use beta: independent of authorized_demand_reporters.
+	// Enabled policy requires both query/satisfaction fitness weights and
+	// metabolism_energy_per_query to be zero. No demand bounty or payout link.
+	// Runtime updates must freeze fitness_epoch_blocks while enabled or any
+	// receipts remain retained, including when disabling in the same update.
+	FactUseEnabled             bool     `protobuf:"varint,161,opt,name=fact_use_enabled,json=factUseEnabled,proto3" json:"fact_use_enabled,omitempty"`                                           // default false
+	FactUseConsumers           []string `protobuf:"bytes,162,rep,name=fact_use_consumers,json=factUseConsumers,proto3" json:"fact_use_consumers,omitempty"`                                      // default empty; max 32 canonical distinct SDK accounts
+	FactUseMaxPerConsumerEpoch uint64   `protobuf:"varint,163,opt,name=fact_use_max_per_consumer_epoch,json=factUseMaxPerConsumerEpoch,proto3" json:"fact_use_max_per_consumer_epoch,omitempty"` // default/ceiling 100; positive
+	FactUseMaxPerEpoch         uint64   `protobuf:"varint,164,opt,name=fact_use_max_per_epoch,json=factUseMaxPerEpoch,proto3" json:"fact_use_max_per_epoch,omitempty"`                           // default/ceiling 1000; positive
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *Params) Reset() {
@@ -1359,6 +1368,34 @@ func (x *Params) GetAddFactVetoWindowBlocks() uint64 {
 	return 0
 }
 
+func (x *Params) GetFactUseEnabled() bool {
+	if x != nil {
+		return x.FactUseEnabled
+	}
+	return false
+}
+
+func (x *Params) GetFactUseConsumers() []string {
+	if x != nil {
+		return x.FactUseConsumers
+	}
+	return nil
+}
+
+func (x *Params) GetFactUseMaxPerConsumerEpoch() uint64 {
+	if x != nil {
+		return x.FactUseMaxPerConsumerEpoch
+	}
+	return 0
+}
+
+func (x *Params) GetFactUseMaxPerEpoch() uint64 {
+	if x != nil {
+		return x.FactUseMaxPerEpoch
+	}
+	return 0
+}
+
 // GenesisState is the genesis state of the knowledge module.
 type GenesisState struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1393,8 +1430,22 @@ type GenesisState struct {
 	// to bootstrap_fund_allocation but for the KnowledgeTrainingFund module
 	// account).
 	TrainingFundAllocation string `protobuf:"bytes,60,opt,name=training_fund_allocation,json=trainingFundAllocation,proto3" json:"training_fund_allocation,omitempty"`
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	// Canonical graph/history records. Reverse/adjacency indexes are rebuilt;
+	// embedded Fact relation arrays are not substitutes for these stored edges.
+	FactRelations             []*FactRelation             `protobuf:"bytes,70,rep,name=fact_relations,json=factRelations,proto3" json:"fact_relations,omitempty"`
+	StatusTransitions         []*StatusTransition         `protobuf:"bytes,71,rep,name=status_transitions,json=statusTransitions,proto3" json:"status_transitions,omitempty"`
+	StatusTransitionSequences []*StatusTransitionSequence `protobuf:"bytes,72,rep,name=status_transition_sequences,json=statusTransitionSequences,proto3" json:"status_transition_sequences,omitempty"`
+	CascadeEvents             []*CascadeEvent             `protobuf:"bytes,73,rep,name=cascade_events,json=cascadeEvents,proto3" json:"cascade_events,omitempty"`
+	// Terminal COMPLETE/EXPIRED rounds, distinct from active_rounds. The legacy
+	// pending_claims field carries ALL stored claims, including terminal claims.
+	CompletedRounds []*VerificationRound `protobuf:"bytes,74,rep,name=completed_rounds,json=completedRounds,proto3" json:"completed_rounds,omitempty"`
+	// Preserve the actual completion metadata and key, not a reconstruction
+	// from possibly absent/changed claims. Only export existing index records.
+	CompletedRoundRecords []*CompletedRoundRecord `protobuf:"bytes,75,rep,name=completed_round_records,json=completedRoundRecords,proto3" json:"completed_round_records,omitempty"`
+	FactUseReceipts       []*FactUseReceipt       `protobuf:"bytes,76,rep,name=fact_use_receipts,json=factUseReceipts,proto3" json:"fact_use_receipts,omitempty"`
+	FactUsePruning        *FactUsePruningState    `protobuf:"bytes,77,opt,name=fact_use_pruning,json=factUsePruning,proto3" json:"fact_use_pruning,omitempty"` // Use quota counters are derived from retained receipts and rebuilt on import.
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -1595,11 +1646,184 @@ func (x *GenesisState) GetTrainingFundAllocation() string {
 	return ""
 }
 
+func (x *GenesisState) GetFactRelations() []*FactRelation {
+	if x != nil {
+		return x.FactRelations
+	}
+	return nil
+}
+
+func (x *GenesisState) GetStatusTransitions() []*StatusTransition {
+	if x != nil {
+		return x.StatusTransitions
+	}
+	return nil
+}
+
+func (x *GenesisState) GetStatusTransitionSequences() []*StatusTransitionSequence {
+	if x != nil {
+		return x.StatusTransitionSequences
+	}
+	return nil
+}
+
+func (x *GenesisState) GetCascadeEvents() []*CascadeEvent {
+	if x != nil {
+		return x.CascadeEvents
+	}
+	return nil
+}
+
+func (x *GenesisState) GetCompletedRounds() []*VerificationRound {
+	if x != nil {
+		return x.CompletedRounds
+	}
+	return nil
+}
+
+func (x *GenesisState) GetCompletedRoundRecords() []*CompletedRoundRecord {
+	if x != nil {
+		return x.CompletedRoundRecords
+	}
+	return nil
+}
+
+func (x *GenesisState) GetFactUseReceipts() []*FactUseReceipt {
+	if x != nil {
+		return x.FactUseReceipts
+	}
+	return nil
+}
+
+func (x *GenesisState) GetFactUsePruning() *FactUsePruningState {
+	if x != nil {
+		return x.FactUsePruning
+	}
+	return nil
+}
+
+// Exact counter value stored by status_transitions.go at StatusTransitionSeqKey.
+// Despite the old next-seq comment, its writer persists the LAST allocated seq
+// then increments on the next write. Preserve gaps/counters without synthesizing
+// missing history. Absence of an entry means the counter key was absent.
+type StatusTransitionSequence struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	FactId        string                 `protobuf:"bytes,1,opt,name=fact_id,json=factId,proto3" json:"fact_id,omitempty"`
+	LastSequence  uint64                 `protobuf:"varint,2,opt,name=last_sequence,json=lastSequence,proto3" json:"last_sequence,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StatusTransitionSequence) Reset() {
+	*x = StatusTransitionSequence{}
+	mi := &file_zerone_knowledge_v1_genesis_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StatusTransitionSequence) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StatusTransitionSequence) ProtoMessage() {}
+
+func (x *StatusTransitionSequence) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_genesis_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StatusTransitionSequence.ProtoReflect.Descriptor instead.
+func (*StatusTransitionSequence) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_genesis_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *StatusTransitionSequence) GetFactId() string {
+	if x != nil {
+		return x.FactId
+	}
+	return ""
+}
+
+func (x *StatusTransitionSequence) GetLastSequence() uint64 {
+	if x != nil {
+		return x.LastSequence
+	}
+	return 0
+}
+
+// Keyed existing completion metadata; no parallel round/history representation.
+type CompletedRoundRecord struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	RoundId       string                 `protobuf:"bytes,1,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
+	VerdictBlock  uint64                 `protobuf:"varint,2,opt,name=verdict_block,json=verdictBlock,proto3" json:"verdict_block,omitempty"`
+	Meta          *CompletedRoundMeta    `protobuf:"bytes,3,opt,name=meta,proto3" json:"meta,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompletedRoundRecord) Reset() {
+	*x = CompletedRoundRecord{}
+	mi := &file_zerone_knowledge_v1_genesis_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompletedRoundRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompletedRoundRecord) ProtoMessage() {}
+
+func (x *CompletedRoundRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_knowledge_v1_genesis_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompletedRoundRecord.ProtoReflect.Descriptor instead.
+func (*CompletedRoundRecord) Descriptor() ([]byte, []int) {
+	return file_zerone_knowledge_v1_genesis_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *CompletedRoundRecord) GetRoundId() string {
+	if x != nil {
+		return x.RoundId
+	}
+	return ""
+}
+
+func (x *CompletedRoundRecord) GetVerdictBlock() uint64 {
+	if x != nil {
+		return x.VerdictBlock
+	}
+	return 0
+}
+
+func (x *CompletedRoundRecord) GetMeta() *CompletedRoundMeta {
+	if x != nil {
+		return x.Meta
+	}
+	return nil
+}
+
 var File_zerone_knowledge_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\"\xacM\n" +
+	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\x1a%zerone/knowledge/v1/tok_cascade.proto\"\x81O\n" +
 	"\x06Params\x12#\n" +
 	"\rmin_verifiers\x18\x01 \x01(\x04R\fminVerifiers\x12#\n" +
 	"\rmax_verifiers\x18\x02 \x01(\x04R\fmaxVerifiers\x12.\n" +
@@ -1750,10 +1974,14 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x1aprobe_bounty_max_pool_size\x18\x9d\x01 \x01(\tR\x16probeBountyMaxPoolSize\x127\n" +
 	"\x17invitation_bonus_amount\x18\x9e\x01 \x01(\tR\x15invitationBonusAmount\x12.\n" +
 	"\x12guardian_addresses\x18\x9f\x01 \x03(\tR\x11guardianAddresses\x12=\n" +
-	"\x1badd_fact_veto_window_blocks\x18\xa0\x01 \x01(\x04R\x17addFactVetoWindowBlocks\x1aN\n" +
+	"\x1badd_fact_veto_window_blocks\x18\xa0\x01 \x01(\x04R\x17addFactVetoWindowBlocks\x12)\n" +
+	"\x10fact_use_enabled\x18\xa1\x01 \x01(\bR\x0efactUseEnabled\x12-\n" +
+	"\x12fact_use_consumers\x18\xa2\x01 \x03(\tR\x10factUseConsumers\x12D\n" +
+	"\x1ffact_use_max_per_consumer_epoch\x18\xa3\x01 \x01(\x04R\x1afactUseMaxPerConsumerEpoch\x123\n" +
+	"\x16fact_use_max_per_epoch\x18\xa4\x01 \x01(\x04R\x12factUseMaxPerEpoch\x1aN\n" +
 	" MethodologyNormalizationBpsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\xe5\x0e\n" +
+	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\x99\x14\n" +
 	"\fGenesisState\x123\n" +
 	"\x06params\x18\x01 \x01(\v2\x1b.zerone.knowledge.v1.ParamsR\x06params\x12/\n" +
 	"\x05facts\x18\x02 \x03(\v2\x19.zerone.knowledge.v1.FactR\x05facts\x12A\n" +
@@ -1779,7 +2007,22 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x1btraining_fund_disbursements\x18/ \x03(\v2-.zerone.knowledge.v1.TrainingFundDisbursementR\x19trainingFundDisbursements\x12T\n" +
 	"\x12training_manifests\x180 \x03(\v2%.zerone.knowledge.v1.TrainingManifestR\x11trainingManifests\x12T\n" +
 	"\x12agent_calibrations\x182 \x03(\v2%.zerone.knowledge.v1.AgentCalibrationR\x11agentCalibrations\x128\n" +
-	"\x18training_fund_allocation\x18< \x01(\tR\x16trainingFundAllocationB2Z0github.com/zerone-chain/zerone/x/knowledge/typesb\x06proto3"
+	"\x18training_fund_allocation\x18< \x01(\tR\x16trainingFundAllocation\x12H\n" +
+	"\x0efact_relations\x18F \x03(\v2!.zerone.knowledge.v1.FactRelationR\rfactRelations\x12T\n" +
+	"\x12status_transitions\x18G \x03(\v2%.zerone.knowledge.v1.StatusTransitionR\x11statusTransitions\x12m\n" +
+	"\x1bstatus_transition_sequences\x18H \x03(\v2-.zerone.knowledge.v1.StatusTransitionSequenceR\x19statusTransitionSequences\x12H\n" +
+	"\x0ecascade_events\x18I \x03(\v2!.zerone.knowledge.v1.CascadeEventR\rcascadeEvents\x12Q\n" +
+	"\x10completed_rounds\x18J \x03(\v2&.zerone.knowledge.v1.VerificationRoundR\x0fcompletedRounds\x12a\n" +
+	"\x17completed_round_records\x18K \x03(\v2).zerone.knowledge.v1.CompletedRoundRecordR\x15completedRoundRecords\x12O\n" +
+	"\x11fact_use_receipts\x18L \x03(\v2#.zerone.knowledge.v1.FactUseReceiptR\x0ffactUseReceipts\x12R\n" +
+	"\x10fact_use_pruning\x18M \x01(\v2(.zerone.knowledge.v1.FactUsePruningStateR\x0efactUsePruning\"X\n" +
+	"\x18StatusTransitionSequence\x12\x17\n" +
+	"\afact_id\x18\x01 \x01(\tR\x06factId\x12#\n" +
+	"\rlast_sequence\x18\x02 \x01(\x04R\flastSequence\"\x93\x01\n" +
+	"\x14CompletedRoundRecord\x12\x19\n" +
+	"\bround_id\x18\x01 \x01(\tR\aroundId\x12#\n" +
+	"\rverdict_block\x18\x02 \x01(\x04R\fverdictBlock\x12;\n" +
+	"\x04meta\x18\x03 \x01(\v2'.zerone.knowledge.v1.CompletedRoundMetaR\x04metaB2Z0github.com/zerone-chain/zerone/x/knowledge/typesb\x06proto3"
 
 var (
 	file_zerone_knowledge_v1_genesis_proto_rawDescOnce sync.Once
@@ -1793,60 +2036,77 @@ func file_zerone_knowledge_v1_genesis_proto_rawDescGZIP() []byte {
 	return file_zerone_knowledge_v1_genesis_proto_rawDescData
 }
 
-var file_zerone_knowledge_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_zerone_knowledge_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_zerone_knowledge_v1_genesis_proto_goTypes = []any{
 	(*Params)(nil),                   // 0: zerone.knowledge.v1.Params
 	(*GenesisState)(nil),             // 1: zerone.knowledge.v1.GenesisState
-	nil,                              // 2: zerone.knowledge.v1.Params.MethodologyNormalizationBpsEntry
-	(*Fact)(nil),                     // 3: zerone.knowledge.v1.Fact
-	(*Claim)(nil),                    // 4: zerone.knowledge.v1.Claim
-	(*VerificationRound)(nil),        // 5: zerone.knowledge.v1.VerificationRound
-	(*Domain)(nil),                   // 6: zerone.knowledge.v1.Domain
-	(*CommonKnowledgeEntry)(nil),     // 7: zerone.knowledge.v1.CommonKnowledgeEntry
-	(*Methodology)(nil),              // 8: zerone.knowledge.v1.Methodology
-	(*NormativeCommitment)(nil),      // 9: zerone.knowledge.v1.NormativeCommitment
-	(*TokenizerSpec)(nil),            // 10: zerone.knowledge.v1.TokenizerSpec
-	(*TraceSchema)(nil),              // 11: zerone.knowledge.v1.TraceSchema
-	(*TrainingPipeline)(nil),         // 12: zerone.knowledge.v1.TrainingPipeline
-	(*ModelCard)(nil),                // 13: zerone.knowledge.v1.ModelCard
-	(*TrainingAttestation)(nil),      // 14: zerone.knowledge.v1.TrainingAttestation
-	(*ContributionRecord)(nil),       // 15: zerone.knowledge.v1.ContributionRecord
-	(*AugmentationBounty)(nil),       // 16: zerone.knowledge.v1.AugmentationBounty
-	(*Augmentation)(nil),             // 17: zerone.knowledge.v1.Augmentation
-	(*ContributionChallenge)(nil),    // 18: zerone.knowledge.v1.ContributionChallenge
-	(*TrainingFundDisbursement)(nil), // 19: zerone.knowledge.v1.TrainingFundDisbursement
-	(*TrainingManifest)(nil),         // 20: zerone.knowledge.v1.TrainingManifest
-	(*AgentCalibration)(nil),         // 21: zerone.knowledge.v1.AgentCalibration
+	(*StatusTransitionSequence)(nil), // 2: zerone.knowledge.v1.StatusTransitionSequence
+	(*CompletedRoundRecord)(nil),     // 3: zerone.knowledge.v1.CompletedRoundRecord
+	nil,                              // 4: zerone.knowledge.v1.Params.MethodologyNormalizationBpsEntry
+	(*Fact)(nil),                     // 5: zerone.knowledge.v1.Fact
+	(*Claim)(nil),                    // 6: zerone.knowledge.v1.Claim
+	(*VerificationRound)(nil),        // 7: zerone.knowledge.v1.VerificationRound
+	(*Domain)(nil),                   // 8: zerone.knowledge.v1.Domain
+	(*CommonKnowledgeEntry)(nil),     // 9: zerone.knowledge.v1.CommonKnowledgeEntry
+	(*Methodology)(nil),              // 10: zerone.knowledge.v1.Methodology
+	(*NormativeCommitment)(nil),      // 11: zerone.knowledge.v1.NormativeCommitment
+	(*TokenizerSpec)(nil),            // 12: zerone.knowledge.v1.TokenizerSpec
+	(*TraceSchema)(nil),              // 13: zerone.knowledge.v1.TraceSchema
+	(*TrainingPipeline)(nil),         // 14: zerone.knowledge.v1.TrainingPipeline
+	(*ModelCard)(nil),                // 15: zerone.knowledge.v1.ModelCard
+	(*TrainingAttestation)(nil),      // 16: zerone.knowledge.v1.TrainingAttestation
+	(*ContributionRecord)(nil),       // 17: zerone.knowledge.v1.ContributionRecord
+	(*AugmentationBounty)(nil),       // 18: zerone.knowledge.v1.AugmentationBounty
+	(*Augmentation)(nil),             // 19: zerone.knowledge.v1.Augmentation
+	(*ContributionChallenge)(nil),    // 20: zerone.knowledge.v1.ContributionChallenge
+	(*TrainingFundDisbursement)(nil), // 21: zerone.knowledge.v1.TrainingFundDisbursement
+	(*TrainingManifest)(nil),         // 22: zerone.knowledge.v1.TrainingManifest
+	(*AgentCalibration)(nil),         // 23: zerone.knowledge.v1.AgentCalibration
+	(*FactRelation)(nil),             // 24: zerone.knowledge.v1.FactRelation
+	(*StatusTransition)(nil),         // 25: zerone.knowledge.v1.StatusTransition
+	(*CascadeEvent)(nil),             // 26: zerone.knowledge.v1.CascadeEvent
+	(*FactUseReceipt)(nil),           // 27: zerone.knowledge.v1.FactUseReceipt
+	(*FactUsePruningState)(nil),      // 28: zerone.knowledge.v1.FactUsePruningState
+	(*CompletedRoundMeta)(nil),       // 29: zerone.knowledge.v1.CompletedRoundMeta
 }
 var file_zerone_knowledge_v1_genesis_proto_depIdxs = []int32{
-	2,  // 0: zerone.knowledge.v1.Params.methodology_normalization_bps:type_name -> zerone.knowledge.v1.Params.MethodologyNormalizationBpsEntry
+	4,  // 0: zerone.knowledge.v1.Params.methodology_normalization_bps:type_name -> zerone.knowledge.v1.Params.MethodologyNormalizationBpsEntry
 	0,  // 1: zerone.knowledge.v1.GenesisState.params:type_name -> zerone.knowledge.v1.Params
-	3,  // 2: zerone.knowledge.v1.GenesisState.facts:type_name -> zerone.knowledge.v1.Fact
-	4,  // 3: zerone.knowledge.v1.GenesisState.pending_claims:type_name -> zerone.knowledge.v1.Claim
-	5,  // 4: zerone.knowledge.v1.GenesisState.active_rounds:type_name -> zerone.knowledge.v1.VerificationRound
-	6,  // 5: zerone.knowledge.v1.GenesisState.domains:type_name -> zerone.knowledge.v1.Domain
-	7,  // 6: zerone.knowledge.v1.GenesisState.common_knowledge:type_name -> zerone.knowledge.v1.CommonKnowledgeEntry
-	8,  // 7: zerone.knowledge.v1.GenesisState.methodologies:type_name -> zerone.knowledge.v1.Methodology
-	9,  // 8: zerone.knowledge.v1.GenesisState.normative_commitments:type_name -> zerone.knowledge.v1.NormativeCommitment
-	10, // 9: zerone.knowledge.v1.GenesisState.tokenizer_spec:type_name -> zerone.knowledge.v1.TokenizerSpec
-	10, // 10: zerone.knowledge.v1.GenesisState.tokenizer_spec_history:type_name -> zerone.knowledge.v1.TokenizerSpec
-	11, // 11: zerone.knowledge.v1.GenesisState.trace_schema:type_name -> zerone.knowledge.v1.TraceSchema
-	11, // 12: zerone.knowledge.v1.GenesisState.trace_schema_history:type_name -> zerone.knowledge.v1.TraceSchema
-	12, // 13: zerone.knowledge.v1.GenesisState.training_pipelines:type_name -> zerone.knowledge.v1.TrainingPipeline
-	13, // 14: zerone.knowledge.v1.GenesisState.model_cards:type_name -> zerone.knowledge.v1.ModelCard
-	14, // 15: zerone.knowledge.v1.GenesisState.training_attestations:type_name -> zerone.knowledge.v1.TrainingAttestation
-	15, // 16: zerone.knowledge.v1.GenesisState.contribution_records:type_name -> zerone.knowledge.v1.ContributionRecord
-	16, // 17: zerone.knowledge.v1.GenesisState.augmentation_bounties:type_name -> zerone.knowledge.v1.AugmentationBounty
-	17, // 18: zerone.knowledge.v1.GenesisState.augmentations:type_name -> zerone.knowledge.v1.Augmentation
-	18, // 19: zerone.knowledge.v1.GenesisState.contribution_challenges:type_name -> zerone.knowledge.v1.ContributionChallenge
-	19, // 20: zerone.knowledge.v1.GenesisState.training_fund_disbursements:type_name -> zerone.knowledge.v1.TrainingFundDisbursement
-	20, // 21: zerone.knowledge.v1.GenesisState.training_manifests:type_name -> zerone.knowledge.v1.TrainingManifest
-	21, // 22: zerone.knowledge.v1.GenesisState.agent_calibrations:type_name -> zerone.knowledge.v1.AgentCalibration
-	23, // [23:23] is the sub-list for method output_type
-	23, // [23:23] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	5,  // 2: zerone.knowledge.v1.GenesisState.facts:type_name -> zerone.knowledge.v1.Fact
+	6,  // 3: zerone.knowledge.v1.GenesisState.pending_claims:type_name -> zerone.knowledge.v1.Claim
+	7,  // 4: zerone.knowledge.v1.GenesisState.active_rounds:type_name -> zerone.knowledge.v1.VerificationRound
+	8,  // 5: zerone.knowledge.v1.GenesisState.domains:type_name -> zerone.knowledge.v1.Domain
+	9,  // 6: zerone.knowledge.v1.GenesisState.common_knowledge:type_name -> zerone.knowledge.v1.CommonKnowledgeEntry
+	10, // 7: zerone.knowledge.v1.GenesisState.methodologies:type_name -> zerone.knowledge.v1.Methodology
+	11, // 8: zerone.knowledge.v1.GenesisState.normative_commitments:type_name -> zerone.knowledge.v1.NormativeCommitment
+	12, // 9: zerone.knowledge.v1.GenesisState.tokenizer_spec:type_name -> zerone.knowledge.v1.TokenizerSpec
+	12, // 10: zerone.knowledge.v1.GenesisState.tokenizer_spec_history:type_name -> zerone.knowledge.v1.TokenizerSpec
+	13, // 11: zerone.knowledge.v1.GenesisState.trace_schema:type_name -> zerone.knowledge.v1.TraceSchema
+	13, // 12: zerone.knowledge.v1.GenesisState.trace_schema_history:type_name -> zerone.knowledge.v1.TraceSchema
+	14, // 13: zerone.knowledge.v1.GenesisState.training_pipelines:type_name -> zerone.knowledge.v1.TrainingPipeline
+	15, // 14: zerone.knowledge.v1.GenesisState.model_cards:type_name -> zerone.knowledge.v1.ModelCard
+	16, // 15: zerone.knowledge.v1.GenesisState.training_attestations:type_name -> zerone.knowledge.v1.TrainingAttestation
+	17, // 16: zerone.knowledge.v1.GenesisState.contribution_records:type_name -> zerone.knowledge.v1.ContributionRecord
+	18, // 17: zerone.knowledge.v1.GenesisState.augmentation_bounties:type_name -> zerone.knowledge.v1.AugmentationBounty
+	19, // 18: zerone.knowledge.v1.GenesisState.augmentations:type_name -> zerone.knowledge.v1.Augmentation
+	20, // 19: zerone.knowledge.v1.GenesisState.contribution_challenges:type_name -> zerone.knowledge.v1.ContributionChallenge
+	21, // 20: zerone.knowledge.v1.GenesisState.training_fund_disbursements:type_name -> zerone.knowledge.v1.TrainingFundDisbursement
+	22, // 21: zerone.knowledge.v1.GenesisState.training_manifests:type_name -> zerone.knowledge.v1.TrainingManifest
+	23, // 22: zerone.knowledge.v1.GenesisState.agent_calibrations:type_name -> zerone.knowledge.v1.AgentCalibration
+	24, // 23: zerone.knowledge.v1.GenesisState.fact_relations:type_name -> zerone.knowledge.v1.FactRelation
+	25, // 24: zerone.knowledge.v1.GenesisState.status_transitions:type_name -> zerone.knowledge.v1.StatusTransition
+	2,  // 25: zerone.knowledge.v1.GenesisState.status_transition_sequences:type_name -> zerone.knowledge.v1.StatusTransitionSequence
+	26, // 26: zerone.knowledge.v1.GenesisState.cascade_events:type_name -> zerone.knowledge.v1.CascadeEvent
+	7,  // 27: zerone.knowledge.v1.GenesisState.completed_rounds:type_name -> zerone.knowledge.v1.VerificationRound
+	3,  // 28: zerone.knowledge.v1.GenesisState.completed_round_records:type_name -> zerone.knowledge.v1.CompletedRoundRecord
+	27, // 29: zerone.knowledge.v1.GenesisState.fact_use_receipts:type_name -> zerone.knowledge.v1.FactUseReceipt
+	28, // 30: zerone.knowledge.v1.GenesisState.fact_use_pruning:type_name -> zerone.knowledge.v1.FactUsePruningState
+	29, // 31: zerone.knowledge.v1.CompletedRoundRecord.meta:type_name -> zerone.knowledge.v1.CompletedRoundMeta
+	32, // [32:32] is the sub-list for method output_type
+	32, // [32:32] is the sub-list for method input_type
+	32, // [32:32] is the sub-list for extension type_name
+	32, // [32:32] is the sub-list for extension extendee
+	0,  // [0:32] is the sub-list for field type_name
 }
 
 func init() { file_zerone_knowledge_v1_genesis_proto_init() }
@@ -1855,13 +2115,14 @@ func file_zerone_knowledge_v1_genesis_proto_init() {
 		return
 	}
 	file_zerone_knowledge_v1_types_proto_init()
+	file_zerone_knowledge_v1_tok_cascade_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_knowledge_v1_genesis_proto_rawDesc), len(file_zerone_knowledge_v1_genesis_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

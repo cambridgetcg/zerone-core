@@ -834,11 +834,10 @@ func TestSDK053IBC10NamedPreflightRefusesMissingH2BeforeLoaderProof(
 		commitID.Version,
 		nil,
 	)
-	require.ErrorContains(
-		t,
-		err,
-		`marker "upgrade_marker_founder-renunciation-v1" to be present`,
-	)
+	require.ErrorContains(t, err, `candidate cannot execute "sdk-0.53-ibc-10"`)
+	// The candidate refuses H3, but its retained H1/H2 proof must remain strict.
+	err = application.requirePreSDKTransitionLineage(ctx, UpgradeNameSDK053IBC10, 3, versionMap, nil)
+	require.ErrorContains(t, err, `marker "upgrade_marker_founder-renunciation-v1" to be present`)
 	require.Nil(t, application.sdk053IBC10LoaderProof,
 		"H2 refusal must happen before recording a loader proof")
 }
@@ -1121,20 +1120,17 @@ func TestSDK053IBC10ScheduledPreflightBindsStrictH2PlanIdentity(t *testing.T) {
 			beforeCommitID := application.CommitMultiStore().LastCommitID()
 
 			report, err := application.VerifyScheduledActivationPrestate()
+			require.ErrorContains(t, err, `candidate cannot execute "sdk-0.53-ibc-10"`)
+			require.False(t, report.ActivationReady)
+			// H3's historical handler no longer runs in this candidate, but the
+			// retained H2 identity validator still rejects the same malformed data.
+			proofCtx := application.NewUncachedContext(true, cmtproto.Header{Height: beforeCommitID.Version})
+			identity, identityErr := application.requireFounderRenunciationPlanIdentity(proofCtx, UpgradeNameSDK053IBC10)
 			if test.wantError != "" {
-				require.ErrorContains(t, err, test.wantError)
-				require.False(t, report.ActivationReady)
+				require.ErrorContains(t, identityErr, test.wantError)
 			} else {
-				require.NoError(t, err)
-				require.True(t, report.ActivationReady)
-				require.Equal(t, "zerone.activation-preflight/v5", report.Schema)
-				require.Equal(t, "scheduled-plan-h-minus-one", report.Scope)
-				require.Equal(t, sdk053IBC10SourceVersionMapSHA256,
-					report.SourceVersionMapSHA256)
-				require.Equal(t, test.value, report.H2PlanIdentitySHA256,
-					"the report must expose observed state evidence, not a compiled expected value")
-				require.Contains(t, report.CompletedChecks,
-					"h2_plan_identity_state_evidence")
+				require.NoError(t, identityErr)
+				require.Equal(t, test.value, identity, "preserve observed H2 state evidence")
 			}
 			require.Equal(t, beforeCommitID, application.CommitMultiStore().LastCommitID(),
 				"scheduled preflight and handler dry-run must not commit mutation")

@@ -3,6 +3,9 @@ package integration_test
 import (
 	"bufio"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -62,7 +65,11 @@ func TestEventAudit_AllHandlersEmitEvents(t *testing.T) {
 			if h.failClosed && !approvedFailClosed[handlerName] {
 				unapprovedExemptions = append(unapprovedExemptions, handlerName)
 			}
-			if !h.hasEvent && !(h.failClosed && approvedFailClosed[handlerName]) {
+			// A thin same-receiver return wrapper may delegate the emission. Trace
+			// the actual AST call into production files; a comment, unrelated
+			// emitter, missing helper or recursion cycle cannot satisfy the audit.
+			delegatesEvent := !h.hasEvent && !h.failClosed && delegatedHandlerEmits(t, filepath.Dir(file), h.name)
+			if !h.hasEvent && !delegatesEvent && !(h.failClosed && approvedFailClosed[handlerName]) {
 				missing = append(missing, handlerName)
 			}
 		}
@@ -75,6 +82,118 @@ func TestEventAudit_AllHandlersEmitEvents(t *testing.T) {
 	if len(missing) > 0 {
 		t.Errorf("handlers missing event emission or explicit fail-closed annotation (%d):\n  %s",
 			len(missing), strings.Join(missing, "\n  "))
+	}
+}
+
+// delegatedHandlerEmits is syntactic event-path coverage, not proof that every
+// successful execution reaches the emitter; committed transport tests supply
+// that behavioral evidence. Only a single return of a same-receiver call counts
+// as delegation, and the resolved helper must contain an actual event call.
+func delegatedHandlerEmits(t *testing.T, directory, handler string) bool {
+	t.Helper()
+	packages, err := parser.ParseDir(token.NewFileSet(), directory, func(info os.FileInfo) bool {
+		return strings.HasSuffix(info.Name(), ".go") && !strings.HasSuffix(info.Name(), "_test.go")
+	}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	methods := map[string]*ast.FuncDecl{}
+	var entry string
+	for _, pkg := range packages {
+		for _, file := range pkg.Files {
+			for _, declaration := range file.Decls {
+				fn, ok := declaration.(*ast.FuncDecl)
+				if !ok || fn.Recv == nil || len(fn.Recv.List) != 1 || len(fn.Recv.List[0].Names) != 1 {
+					continue
+				}
+				receiver := fn.Recv.List[0].Type
+				if pointer, ok := receiver.(*ast.StarExpr); ok {
+					receiver = pointer.X
+				}
+				name, ok := receiver.(*ast.Ident)
+				if !ok {
+					continue
+				}
+				key := pkg.Name + "." + name.Name + "." + fn.Name.Name
+				if methods[key] != nil {
+					return false // ambiguous build-tagged implementations
+				}
+				methods[key] = fn
+				if fn.Name.Name == handler {
+					if entry != "" {
+						return false
+					}
+					entry = key
+				}
+			}
+		}
+	}
+	seen := map[string]bool{}
+	for key := entry; key != "" && !seen[key]; {
+		seen[key] = true
+		fn := methods[key]
+		if fn == nil || fn.Body == nil {
+			return false
+		}
+		emits := false
+		ast.Inspect(fn.Body, func(node ast.Node) bool {
+			call, ok := node.(*ast.CallExpr)
+			if ok {
+				if selector, ok := call.Fun.(*ast.SelectorExpr); ok && (selector.Sel.Name == "EmitEvent" || selector.Sel.Name == "EmitTypedEvent") {
+					emits = true
+				}
+			}
+			return true
+		})
+		if emits {
+			return true
+		}
+		if len(fn.Body.List) != 1 {
+			return false
+		}
+		returned, ok := fn.Body.List[0].(*ast.ReturnStmt)
+		if !ok || len(returned.Results) != 1 {
+			return false
+		}
+		call, ok := returned.Results[0].(*ast.CallExpr)
+		if !ok {
+			return false
+		}
+		selector, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok {
+			return false
+		}
+		receiver, ok := selector.X.(*ast.Ident)
+		if !ok || receiver.Name != fn.Recv.List[0].Names[0].Name {
+			return false
+		}
+		key = key[:strings.LastIndex(key, ".")+1] + selector.Sel.Name
+	}
+	return false
+}
+
+func TestEventAudit_DelegationRequiresActualReachableHelper(t *testing.T) {
+	for _, tc := range []struct {
+		name, helper string
+		want         bool
+	}{
+		{"emitter", "func(m *msgServer) helper() { ctx.EventManager().EmitEvent(event) }", true},
+		{"removed emitter", "func(m *msgServer) helper() {}", false},
+		{"comment only", "func(m *msgServer) helper() { /* EmitEvent(event) */ }", false},
+		{"unrelated receiver", "func(m *other) helper() { ctx.EmitEvent(event) }", false},
+		{"cycle", "func(m *msgServer) helper() { return m.RateFact() }", false},
+		{"missing helper", "func(m *msgServer) unrelated() { ctx.EmitEvent(event) }", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			source := "package keeper\nfunc(m *msgServer) RateFact() { return m.helper() }\n" + tc.helper
+			if err := os.WriteFile(filepath.Join(dir, "msg_server.go"), []byte(source), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if got := delegatedHandlerEmits(t, dir, "RateFact"); got != tc.want {
+				t.Fatalf("delegated emission = %t, want %t", got, tc.want)
+			}
+		})
 	}
 }
 

@@ -29,6 +29,34 @@ func TestRepositoryArtifactIsCoherentSourceOnly(t *testing.T) {
 	}
 }
 
+func TestCandidatePinsCannotClaimHistoricalPublication(t *testing.T) {
+	data := mustRead(t, filepath.Join(repositoryRoot(t), manifestRelativePath))
+	var original manifest
+	if err := json.Unmarshal(data, &original); err != nil {
+		t.Fatal(err)
+	}
+	candidates := 0
+	for index, pin := range original.SourcePins {
+		if pin.SourceState != "CANDIDATE_LOCAL_BYTES" {
+			continue
+		}
+		candidates++
+		if pin.Revision != "UNPUBLISHED" || pin.Verification != "LOCAL_BYTES" {
+			t.Fatalf("candidate claims publication: %#v", pin)
+		}
+		changed := original
+		changed.SourcePins = append([]sourcePin(nil), original.SourcePins...)
+		changed.SourcePins[index].Revision = "264f3c383f408729f4d0c27d332cd454c9eb4400"
+		changed.SourcePins[index].SourceState = "CURRENT_TRACKED"
+		if err := validateManifest(changed); err == nil {
+			t.Fatalf("candidate %s accepted false historical provenance", pin.ID)
+		}
+	}
+	if candidates != 4 {
+		t.Fatalf("candidate pin count = %d, want 4", candidates)
+	}
+}
+
 func TestCommandEmitsClosedVerificationReport(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if err := run([]string{"--repository-root", repositoryRoot(t)}, &stdout, &stderr); err != nil {

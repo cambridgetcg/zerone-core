@@ -95,6 +95,37 @@ handler and is not an H1 or H2 artifact for that legacy state; use it only for
 the later SDK/IBC boundary after both H1 and H2 are committed and independently
 verified.
 
+## ToK feedback v7 is a separate, source-only boundary
+
+The accepted H3 source is `335bb94f0fd54d3752dcb397263b7e84fb1116b4`, tree
+`769f67f1cfa108be3d31cace7777cf954f731c42`. The `tok-feedback-v1` candidate is
+**not** an H1, H2 or H3 executable. It refuses legacy roots before a destructive
+loader, refuses H3's broad migration handler, and permits knowledge V6→V7 only
+under the new name with the exact completed H3 version map, retained H1/H2/H3
+markers and ordered done heights. Source pins in plan info are claims to verify
+against independently attested binaries, not on-chain executable attestations.
+
+The migration initializes disabled/empty feedback with explicit 100/account and
+1,000/global epoch ceilings. It never promotes legacy read receipts, resets
+prior counters or clears the permanent `EverReported` latch on replay. The
+new export includes canonical relations, sparse status counters/history,
+cascades, completed rounds, actual completion metadata, receipts and pruning
+state. Missing historical metadata stays missing. Export/import is a durability
+check, not production rollback or permission to reset a ledger.
+
+See [`deploy/upgrades/tok-feedback-v1/`](../deploy/upgrades/tok-feedback-v1/)
+for the NO_GO packet and local-only rehearsal driver. Its default status remains
+NO_GO: old 1/1 images are SUSPECT, independent custody assessment is not supplied,
+and no exact accepted-H3→candidate binary handoff is claimed here. The entire
+accepted-H3→candidate consensus delta includes inherited authentication and ABCI
+changes, not just knowledge V7. Review and attest that whole delta.
+
+The post-H3 scheduled preflight verifies committed IAVL roots and dry-runs the
+new handler in a discarded cache. It deliberately returns `activation_ready:
+false`; local source checks cannot clear custody, executable provenance, fencing,
+restore, transport/gas or production observation gates. Do not substitute an old
+H3 preflight or source-only handler test for this handoff.
+
 ## Operator steps
 
 1. **Freeze and attest the release.** Add the new named handler (copy the

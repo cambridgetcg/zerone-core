@@ -427,6 +427,16 @@ export declare enum PrivilegedActionType {
 }
 export declare function privilegedActionTypeFromJSON(object: any): PrivilegedActionType;
 export declare function privilegedActionTypeToJSON(object: PrivilegedActionType): string;
+/** FactUseRating is signed self-reported relevance, not a truth verdict. */
+export declare enum FactUseRating {
+    FACT_USE_RATING_UNSPECIFIED = 0,
+    FACT_USE_RATING_UNRATED = 1,
+    FACT_USE_RATING_USEFUL = 2,
+    FACT_USE_RATING_NOT_USEFUL = 3,
+    UNRECOGNIZED = -1
+}
+export declare function factUseRatingFromJSON(object: any): FactUseRating;
+export declare function factUseRatingToJSON(object: FactUseRating): string;
 /**
  * FactRelation is a typed, directional edge in the knowledge graph.
  * @name FactRelation
@@ -1549,6 +1559,11 @@ export interface Claim {
      * MALFORMED. Empty for every other claim type.
      */
     falsificationPredicate: string;
+    /**
+     * Challenge evidence only: at most 16 distinct existing fact IDs.
+     * Never aliases references or relation edges (no confidence inheritance).
+     */
+    challengeEvidenceIds: string[];
 }
 /**
  * VerificationRound tracks one commit-reveal verification cycle.
@@ -2582,6 +2597,57 @@ export interface PendingFactInjection {
     executeAtBlock: bigint;
 }
 /**
+ * FactUseReceipt version 1 records a committed signed self-report, not proof
+ * that an off-chain use occurred at any time. Key: (epoch, consumer, fact_id).
+ * epoch = floor(use_height / fitness_epoch_blocks), including real epoch 0.
+ * Rating is valid only in that same epoch. The marker is retained through the
+ * following epoch and becomes prunable at expiry_height = (epoch + 2) *
+ * fitness_epoch_blocks (exclusive). Expiry is retention policy, not use time.
+ * @name FactUseReceipt
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.FactUseReceipt
+ */
+export interface FactUseReceipt {
+    version: number;
+    epoch: bigint;
+    /**
+     * canonical SDK account address, never a third party
+     */
+    consumer: string;
+    factId: string;
+    useHeight: bigint;
+    expiryHeight: bigint;
+    rating: FactUseRating;
+    /**
+     * zero iff UNRATED
+     */
+    ratingHeight: bigint;
+}
+/**
+ * FactUsePruningState preserves bounded-pruner progress and the permanent
+ * self-report non-economic latch across restart/import, even with no receipts.
+ * @name FactUsePruningState
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.FactUsePruningState
+ */
+export interface FactUsePruningState {
+    /**
+     * Full receipt key of the next record to examine (inclusive); empty starts
+     * at the receipt prefix. A cursor never grants rating validity.
+     */
+    nextKey: Uint8Array;
+    /**
+     * Set true atomically on the first accepted ReportFactUse; never clear when
+     * disabling the beta or pruning the last receipt. Once true, query and
+     * satisfaction fitness weights and query-derived energy must remain zero.
+     * Reversing this restriction requires a future explicit named upgrade, not
+     * a parameter toggle. This latch neither proves readership nor authorizes
+     * economics, and does not by itself freeze the receipt epoch length.
+     * New state defaults false at migration; absent legacy genesis is compatible.
+     */
+    everReported: boolean;
+}
+/**
  * FactRelation is a typed, directional edge in the knowledge graph.
  * @name FactRelation
  * @package zerone.knowledge.v1
@@ -3291,4 +3357,34 @@ export declare const PendingFactInjection: {
     encode(message: PendingFactInjection, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): PendingFactInjection;
     fromPartial(object: DeepPartial<PendingFactInjection>): PendingFactInjection;
+};
+/**
+ * FactUseReceipt version 1 records a committed signed self-report, not proof
+ * that an off-chain use occurred at any time. Key: (epoch, consumer, fact_id).
+ * epoch = floor(use_height / fitness_epoch_blocks), including real epoch 0.
+ * Rating is valid only in that same epoch. The marker is retained through the
+ * following epoch and becomes prunable at expiry_height = (epoch + 2) *
+ * fitness_epoch_blocks (exclusive). Expiry is retention policy, not use time.
+ * @name FactUseReceipt
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.FactUseReceipt
+ */
+export declare const FactUseReceipt: {
+    typeUrl: string;
+    encode(message: FactUseReceipt, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): FactUseReceipt;
+    fromPartial(object: DeepPartial<FactUseReceipt>): FactUseReceipt;
+};
+/**
+ * FactUsePruningState preserves bounded-pruner progress and the permanent
+ * self-report non-economic latch across restart/import, even with no receipts.
+ * @name FactUsePruningState
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.FactUsePruningState
+ */
+export declare const FactUsePruningState: {
+    typeUrl: string;
+    encode(message: FactUsePruningState, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): FactUsePruningState;
+    fromPartial(object: DeepPartial<FactUsePruningState>): FactUsePruningState;
 };

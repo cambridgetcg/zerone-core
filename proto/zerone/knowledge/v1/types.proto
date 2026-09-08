@@ -726,6 +726,9 @@ message Claim {
   // conjecture with no stated killer is not well-posed and must be returned
   // MALFORMED. Empty for every other claim type.
   string falsification_predicate = 24;
+  // Challenge evidence only: at most 16 distinct existing fact IDs.
+  // Never aliases references or relation edges (no confidence inheritance).
+  repeated string challenge_evidence_ids = 25;
 }
 
 // VerificationRound tracks one commit-reveal verification cycle.
@@ -1548,4 +1551,45 @@ message PendingFactInjection {
   string proposer            = 7;  // the authority that called MsgAddFact
   uint64 proposed_at_block   = 8;
   uint64 execute_at_block    = 9;  // proposed_at_block + Params.add_fact_veto_window_blocks
+}
+
+// FactUseRating is signed self-reported relevance, not a truth verdict.
+enum FactUseRating {
+  FACT_USE_RATING_UNSPECIFIED = 0;
+  FACT_USE_RATING_UNRATED = 1;
+  FACT_USE_RATING_USEFUL = 2;
+  FACT_USE_RATING_NOT_USEFUL = 3;
+}
+
+// FactUseReceipt version 1 records a committed signed self-report, not proof
+// that an off-chain use occurred at any time. Key: (epoch, consumer, fact_id).
+// epoch = floor(use_height / fitness_epoch_blocks), including real epoch 0.
+// Rating is valid only in that same epoch. The marker is retained through the
+// following epoch and becomes prunable at expiry_height = (epoch + 2) *
+// fitness_epoch_blocks (exclusive). Expiry is retention policy, not use time.
+message FactUseReceipt {
+  uint32 version = 1;
+  uint64 epoch = 2;
+  string consumer = 3; // canonical SDK account address, never a third party
+  string fact_id = 4;
+  uint64 use_height = 5;
+  uint64 expiry_height = 6;
+  FactUseRating rating = 7;
+  uint64 rating_height = 8; // zero iff UNRATED
+}
+
+// FactUsePruningState preserves bounded-pruner progress and the permanent
+// self-report non-economic latch across restart/import, even with no receipts.
+message FactUsePruningState {
+  // Full receipt key of the next record to examine (inclusive); empty starts
+  // at the receipt prefix. A cursor never grants rating validity.
+  bytes next_key = 1;
+  // Set true atomically on the first accepted ReportFactUse; never clear when
+  // disabling the beta or pruning the last receipt. Once true, query and
+  // satisfaction fitness weights and query-derived energy must remain zero.
+  // Reversing this restriction requires a future explicit named upgrade, not
+  // a parameter toggle. This latch neither proves readership nor authorizes
+  // economics, and does not by itself freeze the receipt epoch length.
+  // New state defaults false at migration; absent legacy genesis is compatible.
+  bool ever_reported = 2;
 }

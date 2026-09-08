@@ -128,14 +128,18 @@ func (k Keeper) UpdateEpistemicTemperature(ctx context.Context, domain string) e
 		state.Temperature = neutral - safeMulDiv(diff, params.EpistemicTemperatureDecayBps, BPS)
 	}
 
-	// 2. Conformity cooling — check current epoch diversity
-	epoch := uint64(0)
+	// 2. Conformity cooling consumes the same closed epoch E-1 that
+	// BeginBlocker aggregates. Boundary completions belong to the still-open E.
+	// Epoch zero has no predecessor: neither read its open data nor underflow.
+	var rec DomainDiversityRecord
+	var found bool
 	if params.FitnessEpochBlocks > 0 {
-		epoch = height / params.FitnessEpochBlocks
-	}
-	rec, found, err := k.GetDomainDiversity(ctx, domain, epoch)
-	if err != nil {
-		return err
+		if epoch := height / params.FitnessEpochBlocks; epoch > 0 {
+			rec, found, err = k.GetDomainDiversity(ctx, domain, epoch-1)
+			if err != nil {
+				return err
+			}
+		}
 	}
 	if found && rec.RoundCount > 0 && rec.AvgEntropy < params.DiversityConformityAlertThreshold {
 		state.ConformityStreak++

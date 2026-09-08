@@ -93,52 +93,21 @@ func TestEarlyAggregation_AllRevealsInCompletesBeforeDeadline(t *testing.T) {
 	require.Equal(t, 1, earlyAggCountEvents(ctx, "zerone.knowledge.round_phase_changed"))
 }
 
-// (b) Aggregation-failure path: CompleteRound fails (claim missing — the
-// phases.go failure branch logs and leaves the round standing in
-// AGGREGATION). The round must not regress phase, and the BeginBlocker must
-// not reprocess it every block: it parks until the aggregation deadline,
-// where the existing EXPIRED branch retries — exactly the pre-early-advance
-// failure semantics.
-func TestEarlyAggregation_FailedAggregationParksWithoutLivelock(t *testing.T) {
+// (b) tok-feedback-v1 propagates failed aggregation instead of silently parking
+// a partially changed round. The SDK cache preserves the prior phase/events;
+// invalid state must be repaired rather than reported as a successful block.
+func TestEarlyAggregation_FailedAggregationReturnsErrorAtomically(t *testing.T) {
 	k, ctx := setupKnowledgeKeeper(t)
-
-	// No claim stored: performAggregation → CompleteRound errors on the
-	// claim lookup after the round was already stored in AGGREGATION.
 	round := earlyAggRound("round-early-fail", "claim-early-missing", types.VerificationPhase_VERIFICATION_PHASE_REVEAL, 4, 4)
 	require.NoError(t, k.SetVerificationRound(ctx, round))
-
-	// Block 1: early advance fires, aggregation fails, round left standing.
-	ctx = ctx.WithBlockHeight(160).WithEventManager(sdk.NewEventManager())
-	require.NoError(t, k.AdvanceRoundPhases(ctx))
-
-	updated, found := k.GetVerificationRound(ctx, "round-early-fail")
-	require.True(t, found)
-	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, updated.Phase)
-	require.Equal(t, 1, earlyAggCountEvents(ctx, "zerone.knowledge.round_phase_changed"))
-
-	// Every remaining block before the aggregation deadline (250): the round
-	// stays parked in AGGREGATION — no phase regression, no transition
-	// events, no re-aggregation.
-	for h := int64(161); h < 250; h++ {
-		ctx = ctx.WithBlockHeight(h).WithEventManager(sdk.NewEventManager())
-		require.NoError(t, k.AdvanceRoundPhases(ctx))
-
-		updated, found = k.GetVerificationRound(ctx, "round-early-fail")
+	for _, height := range []int64{160, 161, 249, 250} {
+		ctx = ctx.WithBlockHeight(height).WithEventManager(sdk.NewEventManager())
+		require.ErrorContains(t, k.AdvanceRoundPhases(ctx), "claim-early-missing")
+		updated, found := k.GetVerificationRound(ctx, round.Id)
 		require.True(t, found)
-		require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, updated.Phase,
-			"phase regressed at height %d", h)
-		require.Empty(t, ctx.EventManager().Events(),
-			"round reprocessed at height %d", h)
+		require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_REVEAL, updated.Phase)
+		require.Empty(t, ctx.EventManager().Events())
 	}
-
-	// At the aggregation deadline the pre-existing EXPIRED branch retries the
-	// late aggregation (still failing here). The round still never regresses.
-	ctx = ctx.WithBlockHeight(250).WithEventManager(sdk.NewEventManager())
-	require.NoError(t, k.AdvanceRoundPhases(ctx))
-
-	updated, found = k.GetVerificationRound(ctx, "round-early-fail")
-	require.True(t, found)
-	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, updated.Phase)
 }
 
 // (c) Fewer reveals than commitments: no early advance — an outstanding

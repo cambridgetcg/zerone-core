@@ -1213,11 +1213,29 @@ Established fact disproven via vindication.
 - `fact_id` -- disproven fact identifier
 - `creed_commitment` -- "3"
 
+### zerone.knowledge.fact_use_reported
+`tok-feedback-v1` source contract, disabled by default: an admitted signer reports
+one use of an existing fact. This is a public self-report, not measured readership,
+independent validation or economic credit. Observe the successful committed
+transaction before treating the event as a retained receipt; CheckTx is not a commit.
+- `consumer` -- canonical signing account
+- `fact_id` -- existing fact identifier
+- `epoch` -- floor of committed use height divided by fitness epoch blocks
+- `use_height` -- committed report height, not an off-chain reading timestamp
+- `expiry_height` -- exclusive two-epoch retention deadline
+- `provenance` -- `signed_self_report`
+- `economic_credit` -- `none`
+
 ### zerone.knowledge.fact_rated
-User rated a fact as useful or not.
+In `tok-feedback-v1`, the signer rates their retained, unrated current-epoch
+self-report once. The rated marker remains for deduplication. This changes no fact
+standing, energy or monetary entitlement; it does not assert production activation.
 - `fact_id` -- rated fact identifier
-- `rater` -- rater address
+- `rater` -- canonical signing account
 - `useful` -- `"true"` or `"false"`
+- `epoch` -- current receipt epoch
+- `provenance` -- `signed_self_report`
+- `economic_credit` -- `none`
 
 ### zerone.knowledge.fact_relation_created
 Semantic relation created between two facts.

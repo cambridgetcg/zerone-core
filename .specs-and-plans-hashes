@@ -24,6 +24,7 @@ authority-state-v1 22d523ee25060957e2c93aba441542e35d767f28f0f0e5e86c800f5fd7ea8
 constructive-intelligence-branch-flow-v1 6bc9e137f666e2675649f8270024ef029cf168c89c007e9164ea90bd0edd82e4  docs/specs/constructive-intelligence-branch-flow-v1.md
 constructive-intelligence-branch-flow-profile-v1 6b83912450fec94772dad8a7bde11c980c4dea6bdb6b867e495e4480d4cc55aa  dashboard/public/standards/constructive-intelligence-branch-flow.v1.json
 authority-geometry-v1 73ef1d24e47bb88cadcb20f4d8444823648f134d63943b90e1a2bdd9f2698021  docs/specs/authority-geometry-v1.md
-authority-geometry-v1-manifest f2ff3c64274a19dc850583e614a7fae4f2a9b0b4f22f12b81b64e3a2f2a160ef  dashboard/public/standards/authority-geometry.v1.json
+authority-geometry-v1-manifest c59ece0053187f80987326cda56bccd3ac70dbd6e4057546ce9b7df26f844755  dashboard/public/standards/authority-geometry.v1.json
 legacy-asset-migration-policy 326a6e3adaa6b94f86a782892a7f49ef5a74dcaef7dea71d53acfe67acb157c3  docs/tokenomics/LEGACY-ASSET-MIGRATION.md
 legacy-snapshot-accounting-v0 b42ff33235f96b3633e66c07ad88ad6ba3ac9d8425edb02bbb6dfc457b58c035  docs/specs/legacy-snapshot-accounting-v0.md
+tok-feedback-v1 12cf8d386ab1ebea70f3b96c58ec80952beb2942e04b78a1c75e80f0a91ac6a4  docs/specs/tok-feedback-v1.md

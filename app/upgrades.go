@@ -103,7 +103,11 @@ func (app *ZeroneApp) runMigrationsForPlan(
 	plan upgradetypes.Plan,
 	fromVM module.VersionMap,
 ) (module.VersionMap, error) {
-	if err := requireCompletedPreSDKTransitionVersions(plan.Name, fromVM); err != nil {
+	// This candidate may not advance knowledge=7 under any historical plan.
+	if err := requireToKFeedbackPlan(plan.Name); err != nil {
+		return nil, err
+	}
+	if err := requireToKFeedbackVersionMap(fromVM, 6); err != nil {
 		return nil, err
 	}
 	return app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
@@ -136,6 +140,7 @@ func requireCompletedPreSDKTransitionVersions(
 //
 // Call this AFTER RegisterServices but BEFORE LoadLatestVersion.
 func (app *ZeroneApp) RegisterUpgradeHandlers() {
+	app.registerToKFeedbackUpgrade()
 	// v1.0.0-testnet — initial testnet launch.
 	// Runs all module migrations from ConsensusVersion 1 → 2.
 	app.UpgradeKeeper.SetUpgradeHandler(
@@ -437,6 +442,9 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 		func(ctx context.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 			app.Logger().Info(fmt.Sprintf("applying upgrade %q at height %d", plan.Name, plan.Height))
 
+			if err := requireToKFeedbackPlan(plan.Name); err != nil {
+				return nil, err
+			}
 			if err := app.requireSDK053IBC10LoaderProof(ctx, plan); err != nil {
 				return nil, err
 			}
@@ -1119,6 +1127,12 @@ func (app *ZeroneApp) RegisterStoreUpgrades() error {
 			legacyIBCFeeStoreKey,
 			hasFeeIBC,
 		)
+	}
+	if hasCapability && !app.activationPreflightReadOnly {
+		return fmt.Errorf("tok-feedback-v1 candidate refuses legacy H1/H2/H3 stores before loader; use accepted historical binary")
+	}
+	if upgradeInfo.Name == UpgradeNameToKFeedbackV1 && app.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
+		return fmt.Errorf("tok-feedback-v1 refuses unsafe skip")
 	}
 	if hasCapability {
 		latest := rootmulti.GetLatestVersion(app.db)

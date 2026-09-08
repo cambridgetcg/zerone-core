@@ -1,4 +1,5 @@
-import { Fact, Claim, VerificationRound, Domain, CommonKnowledgeEntry, Methodology, NormativeCommitment, TokenizerSpec, TraceSchema, TrainingPipeline, ModelCard, TrainingAttestation, ContributionRecord, AugmentationBounty, Augmentation, ContributionChallenge, TrainingFundDisbursement, TrainingManifest, AgentCalibration } from "./types.js";
+import { Fact, Claim, VerificationRound, Domain, CommonKnowledgeEntry, Methodology, NormativeCommitment, TokenizerSpec, TraceSchema, TrainingPipeline, ModelCard, TrainingAttestation, ContributionRecord, AugmentationBounty, Augmentation, ContributionChallenge, TrainingFundDisbursement, TrainingManifest, AgentCalibration, FactRelation, FactUseReceipt, FactUsePruningState, CompletedRoundMeta } from "./types.js";
+import { StatusTransition, CascadeEvent } from "./tok_cascade.js";
 import { BinaryReader, BinaryWriter } from "../../../binary.js";
 import { DeepPartial } from "../../../helpers.js";
 /**
@@ -667,6 +668,26 @@ export interface Params {
      * default 0 (immediate); set > 0 to enable veto window
      */
     addFactVetoWindowBlocks: bigint;
+    /**
+     * Signed self-reported use beta: independent of authorized_demand_reporters.
+     * Enabled policy requires both query/satisfaction fitness weights and
+     * metabolism_energy_per_query to be zero. No demand bounty or payout link.
+     * Runtime updates must freeze fitness_epoch_blocks while enabled or any
+     * receipts remain retained, including when disabling in the same update.
+     */
+    factUseEnabled: boolean;
+    /**
+     * default empty; max 32 canonical distinct SDK accounts
+     */
+    factUseConsumers: string[];
+    /**
+     * default/ceiling 100; positive
+     */
+    factUseMaxPerConsumerEpoch: bigint;
+    /**
+     * default/ceiling 1000; positive
+     */
+    factUseMaxPerEpoch: bigint;
 }
 /**
  * GenesisState is the genesis state of the knowledge module.
@@ -727,6 +748,50 @@ export interface GenesisState {
      * account).
      */
     trainingFundAllocation: string;
+    /**
+     * Canonical graph/history records. Reverse/adjacency indexes are rebuilt;
+     * embedded Fact relation arrays are not substitutes for these stored edges.
+     */
+    factRelations: FactRelation[];
+    statusTransitions: StatusTransition[];
+    statusTransitionSequences: StatusTransitionSequence[];
+    cascadeEvents: CascadeEvent[];
+    /**
+     * Terminal COMPLETE/EXPIRED rounds, distinct from active_rounds. The legacy
+     * pending_claims field carries ALL stored claims, including terminal claims.
+     */
+    completedRounds: VerificationRound[];
+    /**
+     * Preserve the actual completion metadata and key, not a reconstruction
+     * from possibly absent/changed claims. Only export existing index records.
+     */
+    completedRoundRecords: CompletedRoundRecord[];
+    factUseReceipts: FactUseReceipt[];
+    factUsePruning?: FactUsePruningState;
+}
+/**
+ * Exact counter value stored by status_transitions.go at StatusTransitionSeqKey.
+ * Despite the old next-seq comment, its writer persists the LAST allocated seq
+ * then increments on the next write. Preserve gaps/counters without synthesizing
+ * missing history. Absence of an entry means the counter key was absent.
+ * @name StatusTransitionSequence
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.StatusTransitionSequence
+ */
+export interface StatusTransitionSequence {
+    factId: string;
+    lastSequence: bigint;
+}
+/**
+ * Keyed existing completion metadata; no parallel round/history representation.
+ * @name CompletedRoundRecord
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.CompletedRoundRecord
+ */
+export interface CompletedRoundRecord {
+    roundId: string;
+    verdictBlock: bigint;
+    meta?: CompletedRoundMeta;
 }
 /**
  * @name Params_MethodologyNormalizationBpsEntry
@@ -762,4 +827,31 @@ export declare const GenesisState: {
     encode(message: GenesisState, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): GenesisState;
     fromPartial(object: DeepPartial<GenesisState>): GenesisState;
+};
+/**
+ * Exact counter value stored by status_transitions.go at StatusTransitionSeqKey.
+ * Despite the old next-seq comment, its writer persists the LAST allocated seq
+ * then increments on the next write. Preserve gaps/counters without synthesizing
+ * missing history. Absence of an entry means the counter key was absent.
+ * @name StatusTransitionSequence
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.StatusTransitionSequence
+ */
+export declare const StatusTransitionSequence: {
+    typeUrl: string;
+    encode(message: StatusTransitionSequence, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): StatusTransitionSequence;
+    fromPartial(object: DeepPartial<StatusTransitionSequence>): StatusTransitionSequence;
+};
+/**
+ * Keyed existing completion metadata; no parallel round/history representation.
+ * @name CompletedRoundRecord
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.CompletedRoundRecord
+ */
+export declare const CompletedRoundRecord: {
+    typeUrl: string;
+    encode(message: CompletedRoundRecord, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): CompletedRoundRecord;
+    fromPartial(object: DeepPartial<CompletedRoundRecord>): CompletedRoundRecord;
 };

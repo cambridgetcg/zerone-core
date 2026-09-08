@@ -66,6 +66,7 @@ lint:
 
 proto-gen:
 	cd proto && buf generate
+	go run ./tools/gogo-map-compat
 
 proto-swagger-gen:
 	@echo "Generating Swagger from proto files..."

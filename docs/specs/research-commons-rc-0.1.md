@@ -10,6 +10,16 @@
 Machine-readable companion:
 `dashboard/public/standards/research-commons.v0.1.json`.
 
+Candidate pin reconciliation (2026-09-08): that companion's current local
+SHA-256 is
+`5792dd97b2dbea54011af3c80074ad9e1271fb8085fb474d8b2b8bd6ace829bb`.
+Its updated EID-1 method-input binding is **unpublished candidate local bytes**,
+not a new scientific result or proof of deployment. Historical AgentTool/Phase
+A/Phase B revisions and immutable compatibility pins below remain unchanged.
+Final independent review, generated-baseline and upstream reconciliation remain
+pending; the ToK user's **“Review not ready”** production-signing/activation
+**HOLD** is not relaxed. All RC-0.1 runtime and authority boundaries remain closed.
+
 ## 1. What RC-0.1 is
 
 RC-0.1 is a static public-observatory model for a possible scientific research
@@ -233,11 +243,14 @@ is not fraud.
 
 The first proposed pilot is a small, public-safe fixture-coherence garden capped
 at E2. It binds the exact EID-1 record
-`bootstrap-conditional-solution-space` inside the reviewed EID-1 bytes
-`sha256:e60b89cbed8eb26d3fad0ee45ef8c433391341f3abb4865af2755595815354df`
+`bootstrap-conditional-solution-space` inside the current candidate EID-1 bytes
+`sha256:6bf0a3880c60b3a2edd968fa2c051e284edec521c7fe9fc9a061cd7c859765ee`
 and the version-pinned primary source
-`https://arxiv.org/abs/2406.02665v2`. EID-1 is a pinned method input; the
-paper's scientific result is not imported or rerun.
+`https://arxiv.org/abs/2406.02665v2`. The previous publication's method-input pin,
+`sha256:e60b89cbed8eb26d3fad0ee45ef8c433391341f3abb4865af2755595815354df`,
+is historical provenance only. EID-1 remains a pinned method input; rebinding
+its local sources does not run its `NOT_RUN` analogy tests or import/rerun the
+paper's scientific result.
 
 The candidate is the planar, color-ordered, weakly coupled tree-level
 four-point amplitude class in that paper's analytically solvable bootstrap

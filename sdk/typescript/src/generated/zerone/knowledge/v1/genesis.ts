@@ -1,5 +1,6 @@
 //@ts-nocheck
-import { Fact, Claim, VerificationRound, Domain, CommonKnowledgeEntry, Methodology, NormativeCommitment, TokenizerSpec, TraceSchema, TrainingPipeline, ModelCard, TrainingAttestation, ContributionRecord, AugmentationBounty, Augmentation, ContributionChallenge, TrainingFundDisbursement, TrainingManifest, AgentCalibration } from "./types";
+import { Fact, Claim, VerificationRound, Domain, CommonKnowledgeEntry, Methodology, NormativeCommitment, TokenizerSpec, TraceSchema, TrainingPipeline, ModelCard, TrainingAttestation, ContributionRecord, AugmentationBounty, Augmentation, ContributionChallenge, TrainingFundDisbursement, TrainingManifest, AgentCalibration, FactRelation, FactUseReceipt, FactUsePruningState, CompletedRoundMeta } from "./types";
+import { StatusTransition, CascadeEvent } from "./tok_cascade";
 import { BinaryReader, BinaryWriter } from "../../../binary";
 import { DeepPartial } from "../../../helpers";
 /**
@@ -668,6 +669,26 @@ export interface Params {
    * default 0 (immediate); set > 0 to enable veto window
    */
   addFactVetoWindowBlocks: bigint;
+  /**
+   * Signed self-reported use beta: independent of authorized_demand_reporters.
+   * Enabled policy requires both query/satisfaction fitness weights and
+   * metabolism_energy_per_query to be zero. No demand bounty or payout link.
+   * Runtime updates must freeze fitness_epoch_blocks while enabled or any
+   * receipts remain retained, including when disabling in the same update.
+   */
+  factUseEnabled: boolean;
+  /**
+   * default empty; max 32 canonical distinct SDK accounts
+   */
+  factUseConsumers: string[];
+  /**
+   * default/ceiling 100; positive
+   */
+  factUseMaxPerConsumerEpoch: bigint;
+  /**
+   * default/ceiling 1000; positive
+   */
+  factUseMaxPerEpoch: bigint;
 }
 /**
  * GenesisState is the genesis state of the knowledge module.
@@ -728,6 +749,50 @@ export interface GenesisState {
    * account).
    */
   trainingFundAllocation: string;
+  /**
+   * Canonical graph/history records. Reverse/adjacency indexes are rebuilt;
+   * embedded Fact relation arrays are not substitutes for these stored edges.
+   */
+  factRelations: FactRelation[];
+  statusTransitions: StatusTransition[];
+  statusTransitionSequences: StatusTransitionSequence[];
+  cascadeEvents: CascadeEvent[];
+  /**
+   * Terminal COMPLETE/EXPIRED rounds, distinct from active_rounds. The legacy
+   * pending_claims field carries ALL stored claims, including terminal claims.
+   */
+  completedRounds: VerificationRound[];
+  /**
+   * Preserve the actual completion metadata and key, not a reconstruction
+   * from possibly absent/changed claims. Only export existing index records.
+   */
+  completedRoundRecords: CompletedRoundRecord[];
+  factUseReceipts: FactUseReceipt[];
+  factUsePruning?: FactUsePruningState;
+}
+/**
+ * Exact counter value stored by status_transitions.go at StatusTransitionSeqKey.
+ * Despite the old next-seq comment, its writer persists the LAST allocated seq
+ * then increments on the next write. Preserve gaps/counters without synthesizing
+ * missing history. Absence of an entry means the counter key was absent.
+ * @name StatusTransitionSequence
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.StatusTransitionSequence
+ */
+export interface StatusTransitionSequence {
+  factId: string;
+  lastSequence: bigint;
+}
+/**
+ * Keyed existing completion metadata; no parallel round/history representation.
+ * @name CompletedRoundRecord
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.CompletedRoundRecord
+ */
+export interface CompletedRoundRecord {
+  roundId: string;
+  verdictBlock: bigint;
+  meta?: CompletedRoundMeta;
 }
 function createBaseParams_MethodologyNormalizationBpsEntry(): Params_MethodologyNormalizationBpsEntry {
   return {
@@ -927,7 +992,11 @@ function createBaseParams(): Params {
     probeBountyMaxPoolSize: "",
     invitationBonusAmount: "",
     guardianAddresses: [],
-    addFactVetoWindowBlocks: BigInt(0)
+    addFactVetoWindowBlocks: BigInt(0),
+    factUseEnabled: false,
+    factUseConsumers: [],
+    factUseMaxPerConsumerEpoch: BigInt(0),
+    factUseMaxPerEpoch: BigInt(0)
   };
 }
 /**
@@ -1328,7 +1397,7 @@ export const Params = {
       Params_MethodologyNormalizationBpsEntry.encode({
         key: key as any,
         value
-      }, writer.uint32(1120).fork()).ldelim();
+      }, writer.uint32(1122).fork()).ldelim();
     });
     if (message.vindicationTvwMultiplierBps !== BigInt(0)) {
       writer.uint32(1128).uint64(message.vindicationTvwMultiplierBps);
@@ -1389,6 +1458,18 @@ export const Params = {
     }
     if (message.addFactVetoWindowBlocks !== BigInt(0)) {
       writer.uint32(1280).uint64(message.addFactVetoWindowBlocks);
+    }
+    if (message.factUseEnabled === true) {
+      writer.uint32(1288).bool(message.factUseEnabled);
+    }
+    for (const v of message.factUseConsumers) {
+      writer.uint32(1298).string(v!);
+    }
+    if (message.factUseMaxPerConsumerEpoch !== BigInt(0)) {
+      writer.uint32(1304).uint64(message.factUseMaxPerConsumerEpoch);
+    }
+    if (message.factUseMaxPerEpoch !== BigInt(0)) {
+      writer.uint32(1312).uint64(message.factUseMaxPerEpoch);
     }
     return writer;
   },
@@ -1849,6 +1930,18 @@ export const Params = {
         case 160:
           message.addFactVetoWindowBlocks = reader.uint64();
           break;
+        case 161:
+          message.factUseEnabled = reader.bool();
+          break;
+        case 162:
+          message.factUseConsumers.push(reader.string());
+          break;
+        case 163:
+          message.factUseMaxPerConsumerEpoch = reader.uint64();
+          break;
+        case 164:
+          message.factUseMaxPerEpoch = reader.uint64();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -2014,6 +2107,10 @@ export const Params = {
     message.invitationBonusAmount = object.invitationBonusAmount ?? "";
     message.guardianAddresses = object.guardianAddresses?.map(e => e) || [];
     message.addFactVetoWindowBlocks = object.addFactVetoWindowBlocks !== undefined && object.addFactVetoWindowBlocks !== null ? BigInt(object.addFactVetoWindowBlocks.toString()) : BigInt(0);
+    message.factUseEnabled = object.factUseEnabled ?? false;
+    message.factUseConsumers = object.factUseConsumers?.map(e => e) || [];
+    message.factUseMaxPerConsumerEpoch = object.factUseMaxPerConsumerEpoch !== undefined && object.factUseMaxPerConsumerEpoch !== null ? BigInt(object.factUseMaxPerConsumerEpoch.toString()) : BigInt(0);
+    message.factUseMaxPerEpoch = object.factUseMaxPerEpoch !== undefined && object.factUseMaxPerEpoch !== null ? BigInt(object.factUseMaxPerEpoch.toString()) : BigInt(0);
     return message;
   }
 };
@@ -2042,7 +2139,15 @@ function createBaseGenesisState(): GenesisState {
     trainingFundDisbursements: [],
     trainingManifests: [],
     agentCalibrations: [],
-    trainingFundAllocation: ""
+    trainingFundAllocation: "",
+    factRelations: [],
+    statusTransitions: [],
+    statusTransitionSequences: [],
+    cascadeEvents: [],
+    completedRounds: [],
+    completedRoundRecords: [],
+    factUseReceipts: [],
+    factUsePruning: undefined
   };
 }
 /**
@@ -2126,6 +2231,30 @@ export const GenesisState = {
     if (message.trainingFundAllocation !== "") {
       writer.uint32(482).string(message.trainingFundAllocation);
     }
+    for (const v of message.factRelations) {
+      FactRelation.encode(v!, writer.uint32(562).fork()).ldelim();
+    }
+    for (const v of message.statusTransitions) {
+      StatusTransition.encode(v!, writer.uint32(570).fork()).ldelim();
+    }
+    for (const v of message.statusTransitionSequences) {
+      StatusTransitionSequence.encode(v!, writer.uint32(578).fork()).ldelim();
+    }
+    for (const v of message.cascadeEvents) {
+      CascadeEvent.encode(v!, writer.uint32(586).fork()).ldelim();
+    }
+    for (const v of message.completedRounds) {
+      VerificationRound.encode(v!, writer.uint32(594).fork()).ldelim();
+    }
+    for (const v of message.completedRoundRecords) {
+      CompletedRoundRecord.encode(v!, writer.uint32(602).fork()).ldelim();
+    }
+    for (const v of message.factUseReceipts) {
+      FactUseReceipt.encode(v!, writer.uint32(610).fork()).ldelim();
+    }
+    if (message.factUsePruning !== undefined) {
+      FactUsePruningState.encode(message.factUsePruning, writer.uint32(618).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -2207,6 +2336,30 @@ export const GenesisState = {
         case 60:
           message.trainingFundAllocation = reader.string();
           break;
+        case 70:
+          message.factRelations.push(FactRelation.decode(reader, reader.uint32()));
+          break;
+        case 71:
+          message.statusTransitions.push(StatusTransition.decode(reader, reader.uint32()));
+          break;
+        case 72:
+          message.statusTransitionSequences.push(StatusTransitionSequence.decode(reader, reader.uint32()));
+          break;
+        case 73:
+          message.cascadeEvents.push(CascadeEvent.decode(reader, reader.uint32()));
+          break;
+        case 74:
+          message.completedRounds.push(VerificationRound.decode(reader, reader.uint32()));
+          break;
+        case 75:
+          message.completedRoundRecords.push(CompletedRoundRecord.decode(reader, reader.uint32()));
+          break;
+        case 76:
+          message.factUseReceipts.push(FactUseReceipt.decode(reader, reader.uint32()));
+          break;
+        case 77:
+          message.factUsePruning = FactUsePruningState.decode(reader, reader.uint32());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -2240,6 +2393,125 @@ export const GenesisState = {
     message.trainingManifests = object.trainingManifests?.map(e => TrainingManifest.fromPartial(e)) || [];
     message.agentCalibrations = object.agentCalibrations?.map(e => AgentCalibration.fromPartial(e)) || [];
     message.trainingFundAllocation = object.trainingFundAllocation ?? "";
+    message.factRelations = object.factRelations?.map(e => FactRelation.fromPartial(e)) || [];
+    message.statusTransitions = object.statusTransitions?.map(e => StatusTransition.fromPartial(e)) || [];
+    message.statusTransitionSequences = object.statusTransitionSequences?.map(e => StatusTransitionSequence.fromPartial(e)) || [];
+    message.cascadeEvents = object.cascadeEvents?.map(e => CascadeEvent.fromPartial(e)) || [];
+    message.completedRounds = object.completedRounds?.map(e => VerificationRound.fromPartial(e)) || [];
+    message.completedRoundRecords = object.completedRoundRecords?.map(e => CompletedRoundRecord.fromPartial(e)) || [];
+    message.factUseReceipts = object.factUseReceipts?.map(e => FactUseReceipt.fromPartial(e)) || [];
+    message.factUsePruning = object.factUsePruning !== undefined && object.factUsePruning !== null ? FactUsePruningState.fromPartial(object.factUsePruning) : undefined;
+    return message;
+  }
+};
+function createBaseStatusTransitionSequence(): StatusTransitionSequence {
+  return {
+    factId: "",
+    lastSequence: BigInt(0)
+  };
+}
+/**
+ * Exact counter value stored by status_transitions.go at StatusTransitionSeqKey.
+ * Despite the old next-seq comment, its writer persists the LAST allocated seq
+ * then increments on the next write. Preserve gaps/counters without synthesizing
+ * missing history. Absence of an entry means the counter key was absent.
+ * @name StatusTransitionSequence
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.StatusTransitionSequence
+ */
+export const StatusTransitionSequence = {
+  typeUrl: "/zerone.knowledge.v1.StatusTransitionSequence",
+  encode(message: StatusTransitionSequence, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.factId !== "") {
+      writer.uint32(10).string(message.factId);
+    }
+    if (message.lastSequence !== BigInt(0)) {
+      writer.uint32(16).uint64(message.lastSequence);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): StatusTransitionSequence {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseStatusTransitionSequence();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.factId = reader.string();
+          break;
+        case 2:
+          message.lastSequence = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<StatusTransitionSequence>): StatusTransitionSequence {
+    const message = createBaseStatusTransitionSequence();
+    message.factId = object.factId ?? "";
+    message.lastSequence = object.lastSequence !== undefined && object.lastSequence !== null ? BigInt(object.lastSequence.toString()) : BigInt(0);
+    return message;
+  }
+};
+function createBaseCompletedRoundRecord(): CompletedRoundRecord {
+  return {
+    roundId: "",
+    verdictBlock: BigInt(0),
+    meta: undefined
+  };
+}
+/**
+ * Keyed existing completion metadata; no parallel round/history representation.
+ * @name CompletedRoundRecord
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.CompletedRoundRecord
+ */
+export const CompletedRoundRecord = {
+  typeUrl: "/zerone.knowledge.v1.CompletedRoundRecord",
+  encode(message: CompletedRoundRecord, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.roundId !== "") {
+      writer.uint32(10).string(message.roundId);
+    }
+    if (message.verdictBlock !== BigInt(0)) {
+      writer.uint32(16).uint64(message.verdictBlock);
+    }
+    if (message.meta !== undefined) {
+      CompletedRoundMeta.encode(message.meta, writer.uint32(26).fork()).ldelim();
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): CompletedRoundRecord {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseCompletedRoundRecord();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.roundId = reader.string();
+          break;
+        case 2:
+          message.verdictBlock = reader.uint64();
+          break;
+        case 3:
+          message.meta = CompletedRoundMeta.decode(reader, reader.uint32());
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<CompletedRoundRecord>): CompletedRoundRecord {
+    const message = createBaseCompletedRoundRecord();
+    message.roundId = object.roundId ?? "";
+    message.verdictBlock = object.verdictBlock !== undefined && object.verdictBlock !== null ? BigInt(object.verdictBlock.toString()) : BigInt(0);
+    message.meta = object.meta !== undefined && object.meta !== null ? CompletedRoundMeta.fromPartial(object.meta) : undefined;
     return message;
   }
 };

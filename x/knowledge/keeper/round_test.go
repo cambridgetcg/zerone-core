@@ -95,8 +95,8 @@ func TestCreateVerificationRound_Success(t *testing.T) {
 	require.Equal(t, uint64(100), round.StartedAtBlock) // ctx height is 100
 
 	// Deadlines based on DefaultParams
-	require.Equal(t, uint64(300), round.CommitDeadline)  // +200
-	require.Equal(t, uint64(500), round.RevealDeadline)  // +400
+	require.Equal(t, uint64(300), round.CommitDeadline)      // +200
+	require.Equal(t, uint64(500), round.RevealDeadline)      // +400
 	require.Equal(t, uint64(550), round.AggregationDeadline) // +450
 
 	// Claim should be updated
@@ -488,6 +488,11 @@ func TestConcurrentRounds_NoInterference(t *testing.T) {
 
 func TestConcurrentRounds_IndependentPhases(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
+	// Terminal handling now requires the actual claim; a dangling active-round
+	// index is an error, not successful expiry with silently skipped effects.
+	for _, id := range []string{"c1", "c2"} {
+		require.NoError(t, k.SetClaim(ctx, &types.Claim{Id: id, Submitter: "test-submitter", Status: types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION}))
+	}
 
 	// Round 1: starts later (commit phase, deadline far away)
 	round1 := makeRoundInPhase("r-ind-1", "c1", types.VerificationPhase_VERIFICATION_PHASE_COMMIT, 1000)

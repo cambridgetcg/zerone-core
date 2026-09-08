@@ -119,8 +119,10 @@ func TestInitGenesis_SkipsNilEntries(t *testing.T) {
 		Domains:       []*types.Domain{nil, {Name: "valid_domain", Status: types.DomainStatus_DOMAIN_STATUS_ACTIVE}, nil},
 		Facts:         []*types.Fact{nil},
 		PendingClaims: []*types.Claim{nil},
-		ActiveRounds:  []*types.VerificationRound{nil},
 	}
+	gs.ActiveRounds = []*types.VerificationRound{nil}
+	require.ErrorContains(t, k.InitGenesis(ctx, gs), "nil, empty or duplicate active round")
+	gs.ActiveRounds = nil // Legacy nil fact/claim/domain entries remain ignored.
 	require.NoError(t, k.InitGenesis(ctx, gs))
 
 	_, found := k.GetDomain(ctx, "valid_domain")
@@ -185,11 +187,11 @@ func TestInitGenesis_RejectsMalformedOrUnboundedFundAllocationsWithoutPanic(t *t
 		value    string
 		wantText string
 	}{
-		{name: "negative bootstrap", field: "bootstrap", value: "-1", wantText: "bootstrap fund"},
-		{name: "noncanonical bootstrap", field: "bootstrap", value: "01", wantText: "bootstrap fund"},
-		{name: "overflow bootstrap", field: "bootstrap", value: strings.Repeat("9", 100), wantText: "bootstrap fund"},
-		{name: "malformed training", field: "training", value: "1.0", wantText: "training fund"},
-		{name: "overflow training", field: "training", value: strings.Repeat("9", 100), wantText: "training fund"},
+		{name: "negative bootstrap", field: "bootstrap", value: "-1", wantText: "bootstrap_fund_allocation"},
+		{name: "noncanonical bootstrap", field: "bootstrap", value: "01", wantText: "bootstrap_fund_allocation"},
+		{name: "overflow bootstrap", field: "bootstrap", value: strings.Repeat("9", 100), wantText: "bootstrap_fund_allocation"},
+		{name: "malformed training", field: "training", value: "1.0", wantText: "training_fund_allocation"},
+		{name: "overflow training", field: "training", value: strings.Repeat("9", 100), wantText: "training_fund_allocation"},
 	}
 
 	for _, tc := range tests {

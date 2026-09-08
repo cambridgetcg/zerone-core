@@ -565,6 +565,8 @@ var msgTypeURLToGas = map[string]uint64{
 	"/zerone.knowledge.v1.MsgAddFact":                 TransactionGasCosts["add_fact"],
 	"/zerone.knowledge.v1.MsgSubmitContradiction":     TransactionGasCosts["submit_contradiction"],
 	"/zerone.knowledge.v1.MsgPatronizeFact":           TransactionGasCosts["patronize_fact"],
+	"/zerone.knowledge.v1.MsgReportFactUse":           TransactionGasCosts["report_fact_use"],
+	"/zerone.knowledge.v1.MsgRateFact":                TransactionGasCosts["rate_fact"],
 	"/zerone.knowledge.v1.MsgProposeDomain":           TransactionGasCosts["propose_domain"],
 	"/zerone.knowledge.v1.MsgEndorseDomainProposal":   TransactionGasCosts["endorse_domain"],
 	"/zerone.knowledge.v1.MsgChallengeDomainProposal": TransactionGasCosts["challenge_domain"],
@@ -1037,6 +1039,11 @@ func (zcd ZeroneCapabilityDecorator) checkRegisteredAccountCapability(account *z
 			return zeroneauthtypes.ErrAccountCapabilityDenied
 		}
 		return nil
+	case isFactFeedbackMsg(msgType):
+		// Non-economic self-reports are not claims or challenges. Registration
+		// and frozen-account policy apply in ante; the separate bounded cohort
+		// and disabled-state checks are enforced by the consensus handler.
+		return nil
 	case isTransferMsg(msgType):
 		// Allowed for all registered account types
 		return nil
@@ -1086,7 +1093,12 @@ func isAuthManagementMsg(msgType string) bool {
 // that requires registration. Used for unregistered account gating.
 func isZeroneSpecificMsg(msgType string) bool {
 	return isClaimSubmissionMsg(msgType) ||
-		isChallengeMsg(msgType)
+		isChallengeMsg(msgType) || isFactFeedbackMsg(msgType)
+}
+
+func isFactFeedbackMsg(msgType string) bool {
+	return msgType == "/zerone.knowledge.v1.MsgReportFactUse" ||
+		msgType == "/zerone.knowledge.v1.MsgRateFact"
 }
 
 func isVoteMsg(msgType string) bool {

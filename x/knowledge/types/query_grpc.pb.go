@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion9
 const (
 	Query_Params_FullMethodName                       = "/zerone.knowledge.v1.Query/Params"
 	Query_Fact_FullMethodName                         = "/zerone.knowledge.v1.Query/Fact"
+	Query_FactUseReceipt_FullMethodName               = "/zerone.knowledge.v1.Query/FactUseReceipt"
 	Query_Facts_FullMethodName                        = "/zerone.knowledge.v1.Query/Facts"
 	Query_FactsByDomain_FullMethodName                = "/zerone.knowledge.v1.Query/FactsByDomain"
 	Query_FactsBySubmitter_FullMethodName             = "/zerone.knowledge.v1.Query/FactsBySubmitter"
@@ -121,6 +122,9 @@ type QueryClient interface {
 	Params(ctx context.Context, in *QueryParamsRequest, opts ...grpc.CallOption) (*QueryParamsResponse, error)
 	// Fact queries a single fact by ID.
 	Fact(ctx context.Context, in *QueryFactRequest, opts ...grpc.CallOption) (*QueryFactResponse, error)
+	// FactUseReceipt reads a single receipt in the query context's current
+	// fitness epoch. No historical epoch selector and no state mutation.
+	FactUseReceipt(ctx context.Context, in *QueryFactUseReceiptRequest, opts ...grpc.CallOption) (*QueryFactUseReceiptResponse, error)
 	// Facts queries facts with optional domain, status, and category filters.
 	Facts(ctx context.Context, in *QueryFactsRequest, opts ...grpc.CallOption) (*QueryFactsResponse, error)
 	// FactsByDomain queries all facts in a domain.
@@ -387,6 +391,16 @@ func (c *queryClient) Fact(ctx context.Context, in *QueryFactRequest, opts ...gr
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueryFactResponse)
 	err := c.cc.Invoke(ctx, Query_Fact_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) FactUseReceipt(ctx context.Context, in *QueryFactUseReceiptRequest, opts ...grpc.CallOption) (*QueryFactUseReceiptResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryFactUseReceiptResponse)
+	err := c.cc.Invoke(ctx, Query_FactUseReceipt_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1283,6 +1297,9 @@ type QueryServer interface {
 	Params(context.Context, *QueryParamsRequest) (*QueryParamsResponse, error)
 	// Fact queries a single fact by ID.
 	Fact(context.Context, *QueryFactRequest) (*QueryFactResponse, error)
+	// FactUseReceipt reads a single receipt in the query context's current
+	// fitness epoch. No historical epoch selector and no state mutation.
+	FactUseReceipt(context.Context, *QueryFactUseReceiptRequest) (*QueryFactUseReceiptResponse, error)
 	// Facts queries facts with optional domain, status, and category filters.
 	Facts(context.Context, *QueryFactsRequest) (*QueryFactsResponse, error)
 	// FactsByDomain queries all facts in a domain.
@@ -1540,6 +1557,9 @@ func (UnimplementedQueryServer) Params(context.Context, *QueryParamsRequest) (*Q
 }
 func (UnimplementedQueryServer) Fact(context.Context, *QueryFactRequest) (*QueryFactResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Fact not implemented")
+}
+func (UnimplementedQueryServer) FactUseReceipt(context.Context, *QueryFactUseReceiptRequest) (*QueryFactUseReceiptResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method FactUseReceipt not implemented")
 }
 func (UnimplementedQueryServer) Facts(context.Context, *QueryFactsRequest) (*QueryFactsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Facts not implemented")
@@ -1858,6 +1878,24 @@ func _Query_Fact_Handler(srv interface{}, ctx context.Context, dec func(interfac
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(QueryServer).Fact(ctx, req.(*QueryFactRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_FactUseReceipt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryFactUseReceiptRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).FactUseReceipt(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_FactUseReceipt_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).FactUseReceipt(ctx, req.(*QueryFactUseReceiptRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3460,6 +3498,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Fact",
 			Handler:    _Query_Fact_Handler,
+		},
+		{
+			MethodName: "FactUseReceipt",
+			Handler:    _Query_FactUseReceipt_Handler,
 		},
 		{
 			MethodName: "Facts",

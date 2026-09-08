@@ -24,7 +24,7 @@ func TestReportSucceedsWithDeclaredConflictsVisible(t *testing.T) {
 	if got.Status != "CURRENT_SOURCE_COMPLETELY_CLASSIFIED" {
 		t.Fatalf("status = %q", got.Status)
 	}
-	if got.ManifestSHA256 != canonicalManifestSHA256 || got.SourceAnchorsVerified != 17 {
+	if got.ManifestSHA256 != canonicalManifestSHA256 || got.SourceAnchorsVerified != 18 {
 		t.Fatalf("manifest/source seal not reported: %#v", got)
 	}
 	wantBlockers := expectedBlockerIDs()

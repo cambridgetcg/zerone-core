@@ -12,6 +12,24 @@ import (
 
 // InitGenesis initializes the module state from a genesis state.
 func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
+	if gs == nil {
+		return fmt.Errorf("nil knowledge genesis")
+	}
+	if err := gs.Validate(); err != nil {
+		return err
+	}
+	if err := validateDurableGenesis(gs); err != nil {
+		return err
+	}
+	cache, write := sdk.UnwrapSDKContext(ctx).CacheContext()
+	if err := k.initGenesis(cache, gs); err != nil {
+		return err
+	}
+	write()
+	return nil
+}
+
+func (k Keeper) initGenesis(ctx context.Context, gs *types.GenesisState) error {
 	if gs.Params != nil {
 		if err := k.SetParams(ctx, gs.Params); err != nil {
 			return err
@@ -56,7 +74,7 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 		if fact == nil {
 			continue
 		}
-		if err := k.SetFact(ctx, fact); err != nil {
+		if err := k.SetFactSkipTransition(ctx, fact); err != nil {
 			return err
 		}
 	}
@@ -74,7 +92,7 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 		if round == nil {
 			continue
 		}
-		if err := k.SetVerificationRound(ctx, round); err != nil {
+		if err := k.setFeedbackRound(ctx, round); err != nil {
 			return err
 		}
 	}
@@ -232,11 +250,15 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	// Load doctrine Facts (SL-M1): every commitment in every doctrine
 	// becomes a verified Fact under domain=doctrine_*. Cross-doctrine
 	// "Echoes:" become real SUPPORTS/REQUIRES/REFINES edges.
-	if err := k.LoadDoctrineFacts(ctx); err != nil {
-		return fmt.Errorf("load doctrine facts: %w", err)
+	// Only fresh genesis seeds doctrine. A state export is authoritative: do
+	// not overwrite its relation metadata or resurrect absent historical facts.
+	if gs.FactUsePruning == nil && len(gs.Facts) == 0 && len(gs.FactRelations) == 0 && len(gs.StatusTransitions) == 0 && len(gs.StatusTransitionSequences) == 0 && len(gs.CascadeEvents) == 0 {
+		if err := k.LoadDoctrineFacts(ctx); err != nil {
+			return fmt.Errorf("load doctrine facts: %w", err)
+		}
 	}
 
-	return nil
+	return k.initDurableGenesis(ctx, gs)
 }
 
 // ensureGenesisFundBalance brings a module account up to its declared genesis
@@ -393,7 +415,7 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		trainingFundAllocation = bal.Amount.String()
 	}
 
-	return &types.GenesisState{
+	gs := &types.GenesisState{
 		Params:                    params,
 		Facts:                     facts,
 		PendingClaims:             claims,
@@ -419,6 +441,12 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		AgentCalibrations:         calibrations,
 		TrainingFundAllocation:    trainingFundAllocation,
 	}
+	// Module export has no error return. Refuse a partial export rather than
+	// silently turning unreadable durable records into missing history.
+	if err := k.exportDurableGenesis(ctx, gs); err != nil {
+		panic(err)
+	}
+	return gs
 }
 
 // authtypesNewModuleAddress is a local shim to avoid importing authtypes at

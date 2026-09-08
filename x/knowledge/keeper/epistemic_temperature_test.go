@@ -166,10 +166,10 @@ func TestUpdateEpistemicTemperature_ConformityCooling(t *testing.T) {
 		Temperature: 500_000, // neutral
 	}))
 
-	// Create low-diversity epoch data
-	require.NoError(t, k.SetDomainDiversity(ctx, "physics", 1, keeper.DomainDiversityRecord{
+	// Create low-diversity data for the just-closed epoch 0, not open epoch 1.
+	require.NoError(t, k.SetDomainDiversity(ctx, "physics", 0, keeper.DomainDiversityRecord{
 		Domain:     "physics",
-		Epoch:      1,
+		Epoch:      0,
 		AvgEntropy: 10_000, // Very low (below 50,000 threshold)
 		RoundCount: 5,
 	}))
@@ -394,7 +394,7 @@ func TestEpistemicTemperature_FullCycle(t *testing.T) {
 		}
 
 		sdkCtx := sdk.UnwrapSDKContext(ctx)
-		epoch := uint64(sdkCtx.BlockHeight()) / params.FitnessEpochBlocks
+		epoch := uint64(sdkCtx.BlockHeight())/params.FitnessEpochBlocks - 1
 
 		// Record low-diversity epoch data (very low entropy triggers conformity cooling)
 		require.NoError(t, k.SetDomainDiversity(ctx, domain, epoch, keeper.DomainDiversityRecord{
@@ -434,7 +434,7 @@ func TestEpistemicTemperature_FullCycle(t *testing.T) {
 	// Advance to next epoch boundary and update with healthy diversity
 	ctx = advanceBlocks(ctx, epochBlocks)
 	sdkCtx = sdk.UnwrapSDKContext(ctx)
-	nextEpoch := uint64(sdkCtx.BlockHeight()) / params.FitnessEpochBlocks
+	nextEpoch := uint64(sdkCtx.BlockHeight())/params.FitnessEpochBlocks - 1
 
 	// Healthy diversity data prevents further conformity cooling
 	require.NoError(t, k.SetDomainDiversity(ctx, domain, nextEpoch, keeper.DomainDiversityRecord{
@@ -460,7 +460,7 @@ func TestEpistemicTemperature_FullCycle(t *testing.T) {
 	for i := 0; i < 500; i++ {
 		ctx = advanceBlocks(ctx, epochBlocks)
 		sdkCtx2 := sdk.UnwrapSDKContext(ctx)
-		ep := uint64(sdkCtx2.BlockHeight()) / params.FitnessEpochBlocks
+		ep := uint64(sdkCtx2.BlockHeight())/params.FitnessEpochBlocks - 1
 		require.NoError(t, k.SetDomainDiversity(ctx, domain, ep, keeper.DomainDiversityRecord{
 			Domain:     domain,
 			Epoch:      ep,

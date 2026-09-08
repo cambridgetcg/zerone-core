@@ -16,7 +16,7 @@ const (
 	manifestPath            = "dashboard/public/standards/authority-geometry.v1.json"
 	manifestSchema          = "zerone.authority-geometry/v1"
 	checkerSchema           = "zerone.authority-graph-check/v1"
-	canonicalManifestSHA256 = "f2ff3c64274a19dc850583e614a7fae4f2a9b0b4f22f12b81b64e3a2f2a160ef"
+	canonicalManifestSHA256 = "c59ece0053187f80987326cda56bccd3ac70dbd6e4057546ce9b7df26f844755"
 	canonicalDesignSHA256   = "22d523ee25060957e2c93aba441542e35d767f28f0f0e5e86c800f5fd7ea82e9"
 )
 
@@ -396,6 +396,19 @@ var expectedAnchors = []expectedAnchor{
 		},
 		Forbidden: []string{},
 	},
+	{
+		ID:   "tok-feedback-boundary",
+		Path: "app/upgrades_tok_feedback.go",
+		Required: []string{
+			"const UpgradeNameToKFeedbackV1 = \"tok-feedback-v1\"",
+			"if name != UpgradeNameToKFeedbackV1 {",
+			"requireToKFeedbackVersionMap(from, 6)",
+			"requireToKFeedbackVersionMap(to, 7)",
+			"ActivationReady: false",
+			"external_custody_and_historical_binary_handoff_NOT_verified",
+		},
+		Forbidden: []string{},
+	},
 }
 
 type expectedCapability struct {
@@ -511,7 +524,7 @@ type expectedFinding struct {
 
 var expectedFindings = []expectedFinding{
 	{"dual-staking-ledgers", "CUSTOM_STAKING_RUNTIME", []string{"sdk-staking", "custom-staking"}, []string{"app-wiring", "knowledge-staking-adapter"}},
-	{"dual-governance-systems", "ORDINARY_GOVERNANCE_EXECUTION", []string{"sdk-gov", "custom-gov"}, []string{"app-wiring", "custom-gov-resolution"}},
+	{"dual-governance-systems", "ORDINARY_GOVERNANCE_EXECUTION", []string{"sdk-gov", "custom-gov"}, []string{"app-wiring", "custom-gov-resolution", "tok-feedback-boundary"}},
 	{"dual-domain-registries", "DOMAIN_REGISTRY", []string{"ontology", "knowledge"}, []string{"ontology-writer", "knowledge-writers"}},
 	{"direct-fact-adoption", "DIRECT_FACT_ADOPTION", []string{"sdk-gov", "knowledge"}, []string{"knowledge-writers", "app-wiring"}},
 	{"legacy-research-disbursement", "RESEARCH_DISBURSEMENT", []string{"custom-gov", "vesting-rewards"}, []string{"custom-research-spend", "research-router-restriction", "app-wiring"}},
@@ -624,7 +637,7 @@ func validateManifest(m manifest, issues *issueSet) {
 	if m.Revision != "1.0.0" {
 		issues.add("MANIFEST_REVISION_INVALID", "revision must be 1.0.0")
 	}
-	if m.SnapshotDate != "2026-08-11" {
+	if m.SnapshotDate != "2026-09-08" {
 		issues.add("MANIFEST_SNAPSHOT_INVALID", "snapshotDate must remain the reviewed v1 date")
 	}
 	if m.Status != "SOURCE_OBSERVATORY_ONLY" {

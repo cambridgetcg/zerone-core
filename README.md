@@ -320,16 +320,25 @@ make proto-gen
 ## SDK and API
 
 - The generated [Swagger document](docs/swagger-ui/swagger.json) is the REST
-  inventory of record: 217 paths and 446 definitions.
-- The repository [TypeScript SDK](sdk/typescript/) covers 169 request messages
+  inventory of record: 218 paths and 449 definitions.
+- The repository [TypeScript SDK](sdk/typescript/) covers 170 request messages
   across 20 Zerone `Msg` services. The package is not yet published to npm.
 - [Open crypto SDK and standards integration](docs/standards/OPEN_CRYPTO_SDK.md)
   documents the implemented CAIP, in-toto, and isolated Sigstore seams and the
   boundaries still deliberately kept off-chain.
 
-The consensus-visible consolidation work requires the named
-`consolidation-safety-v1` upgrade on an existing network. Publishing this source
-does not activate it.
+The consensus-visible consolidation work requires ordered, separately attested
+H1 `consolidation-safety-v1`, H2 `founder-renunciation-v1`, and H3
+`sdk-0.53-ibc-10` upgrades on a legacy network. The subsequent
+[`tok-feedback-v1` source candidate](docs/specs/tok-feedback-v1.md) adds paid,
+cohort-gated **signed self-reports**, not measured readership or rewards. It is
+disabled by default; its separate named upgrade must follow accepted H3.
+
+Production activation remains **NO_GO**: independent custody evidence and the
+legacy upgrade lineage are not established by this source checkout or its local
+tests. No reset or successor is selected. Publishing source does not activate a
+network, enable public writes, or satisfy release/rehearsal gates. See the
+[feedback API and existing-wallet flow](docs/API.md#signed-fact-use-source-candidate).
 
 ---
 

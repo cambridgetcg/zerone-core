@@ -3,10 +3,12 @@ package keeper
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -30,26 +32,26 @@ type log2Entry struct {
 
 // log2Table is sorted ascending by pBPS.
 var log2Table = []log2Entry{
-	{10_000, 6_643_856},   // p=0.01
-	{20_000, 5_643_856},   // p=0.02
-	{50_000, 4_321_928},   // p=0.05
-	{75_000, 3_736_966},   // p=0.075
-	{100_000, 3_321_928},  // p=0.10
-	{125_000, 3_000_000},  // p=0.125
-	{150_000, 2_736_966},  // p=0.15
-	{200_000, 2_321_928},  // p=0.20
-	{250_000, 2_000_000},  // p=0.25
-	{300_000, 1_736_966},  // p=0.30
-	{350_000, 1_514_573},  // p=0.35
-	{400_000, 1_321_928},  // p=0.40
-	{450_000, 1_152_003},  // p=0.45
-	{500_000, 1_000_000},  // p=0.50
-	{600_000, 736_966},    // p=0.60
-	{700_000, 514_573},    // p=0.70
-	{750_000, 415_037},    // p=0.75
-	{800_000, 321_928},    // p=0.80
-	{900_000, 152_003},    // p=0.90
-	{1_000_000, 0},        // p=1.00
+	{10_000, 6_643_856},  // p=0.01
+	{20_000, 5_643_856},  // p=0.02
+	{50_000, 4_321_928},  // p=0.05
+	{75_000, 3_736_966},  // p=0.075
+	{100_000, 3_321_928}, // p=0.10
+	{125_000, 3_000_000}, // p=0.125
+	{150_000, 2_736_966}, // p=0.15
+	{200_000, 2_321_928}, // p=0.20
+	{250_000, 2_000_000}, // p=0.25
+	{300_000, 1_736_966}, // p=0.30
+	{350_000, 1_514_573}, // p=0.35
+	{400_000, 1_321_928}, // p=0.40
+	{450_000, 1_152_003}, // p=0.45
+	{500_000, 1_000_000}, // p=0.50
+	{600_000, 736_966},   // p=0.60
+	{700_000, 514_573},   // p=0.70
+	{750_000, 415_037},   // p=0.75
+	{800_000, 321_928},   // p=0.80
+	{900_000, 152_003},   // p=0.90
+	{1_000_000, 0},       // p=1.00
 }
 
 // log2BPS returns -log2(pBPS / BPS) * BPS via table lookup with linear interpolation.
@@ -362,7 +364,6 @@ func (k Keeper) AggregateDomainDiversity(ctx context.Context, domain string, epo
 	if err != nil {
 		return err
 	}
-	defer iter.Close()
 
 	var totalEntropy uint64
 	var roundCount uint64
@@ -372,8 +373,11 @@ func (k Keeper) AggregateDomainDiversity(ctx context.Context, domain string, epo
 		// Extract roundID from key
 		roundID := string(iter.Key()[len(pfx):])
 		rec, found, err := k.GetRoundDiversity(ctx, roundID)
-		if err != nil || !found {
-			continue
+		if err != nil {
+			return errors.Join(err, iter.Close())
+		}
+		if !found || rec.Domain != domain || rec.Epoch != epoch || rec.RoundID != roundID {
+			return errors.Join(fmt.Errorf("diversity index/record mismatch"), iter.Close())
 		}
 
 		totalEntropy += rec.Entropy
@@ -381,6 +385,10 @@ func (k Keeper) AggregateDomainDiversity(ctx context.Context, domain string, epo
 		if rec.Entropy == 0 {
 			unanimousCount++
 		}
+	}
+
+	if err := errors.Join(feedbackIteratorError(iter), iter.Close()); err != nil {
+		return err
 	}
 
 	if roundCount == 0 {
@@ -473,31 +481,41 @@ func (k Keeper) CheckConformityAlert(ctx context.Context, domain string, avgEntr
 // ProcessDiversity iterates all domains, aggregates diversity for the epoch,
 // and checks conformity alerts.
 func (k Keeper) ProcessDiversity(ctx context.Context, epoch uint64) error {
-	var processErr error
-
-	k.IterateDomains(ctx, func(domain *types.Domain) bool {
-		if err := k.AggregateDomainDiversity(ctx, domain.Name, epoch); err != nil {
-			processErr = err
-			return true
+	// Close the domain iterator before aggregators write their derived records.
+	store := k.storeService.OpenKVStore(ctx)
+	it, err := store.Iterator(types.DomainKeyPrefix, prefixEndBytes(types.DomainKeyPrefix))
+	if err != nil {
+		return err
+	}
+	var domains []string
+	for ; it.Valid(); it.Next() {
+		domain := new(types.Domain)
+		if err := proto.Unmarshal(it.Value(), domain); err != nil {
+			return errors.Join(err, it.Close())
 		}
-
-		rec, found, err := k.GetDomainDiversity(ctx, domain.Name, epoch)
+		if string(it.Key()) != string(types.DomainKey(domain.Name)) {
+			return errors.Join(fmt.Errorf("domain key/payload mismatch"), it.Close())
+		}
+		domains = append(domains, domain.Name)
+	}
+	if err := errors.Join(feedbackIteratorError(it), it.Close()); err != nil {
+		return err
+	}
+	for _, domain := range domains {
+		if err := k.AggregateDomainDiversity(ctx, domain, epoch); err != nil {
+			return err
+		}
+		rec, found, err := k.GetDomainDiversity(ctx, domain, epoch)
 		if err != nil {
-			processErr = err
-			return true
+			return err
 		}
-
 		if found {
-			if err := k.CheckConformityAlert(ctx, domain.Name, rec.AvgEntropy, epoch); err != nil {
-				processErr = err
-				return true
+			if err := k.CheckConformityAlert(ctx, domain, rec.AvgEntropy, epoch); err != nil {
+				return err
 			}
 		}
-
-		return false
-	})
-
-	return processErr
+	}
+	return nil
 }
 
 // GetGlobalConsensusDiversity computes the average diversity across all domains

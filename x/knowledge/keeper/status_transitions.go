@@ -1,9 +1,12 @@
 package keeper
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
+	"math"
 
 	"google.golang.org/protobuf/proto"
 
@@ -28,30 +31,72 @@ func (k Keeper) RecordStatusTransition(ctx context.Context, t *types.StatusTrans
 		return nil
 	}
 
-	store := k.storeService.OpenKVStore(ctx)
-
-	// Allocate next seq.
+	cache, write := sdk.UnwrapSDKContext(ctx).CacheContext()
+	store := k.storeService.OpenKVStore(cache)
 	seqKey := types.StatusTransitionSeqKey(t.FactId)
-	var nextSeq uint64
-	if buf, err := store.Get(seqKey); err == nil && buf != nil {
-		nextSeq, _ = binary.Uvarint(buf)
+	buf, err := store.Get(seqKey)
+	if err != nil {
+		return fmt.Errorf("read status sequence: %w", err)
 	}
-	nextSeq++
-	t.Seq = nextSeq
-
-	// Persist seq counter.
-	seqBuf := make([]byte, binary.MaxVarintLen64)
-	n := binary.PutUvarint(seqBuf, nextSeq)
-	if err := store.Set(seqKey, seqBuf[:n]); err != nil {
+	var last uint64
+	if buf != nil {
+		last, err = decodeStatusSequence(buf)
+		if err != nil {
+			return err
+		}
+	}
+	if last == math.MaxUint64 {
+		return fmt.Errorf("status sequence exhausted")
+	}
+	prefix := types.StatusTransitionPrefixForFact(t.FactId)
+	it, err := store.ReverseIterator(prefix, prefixEndBytes(prefix))
+	if err != nil {
 		return err
 	}
-
-	// Persist transition.
-	bz, err := marshalOpts.Marshal(t)
+	var historyErr error
+	if it.Valid() {
+		previous := new(types.StatusTransition)
+		if e := proto.Unmarshal(it.Value(), previous); e != nil {
+			historyErr = e
+		} else if !bytes.Equal(it.Key(), types.StatusTransitionKey(t.FactId, previous.Seq)) || previous.Seq == 0 || previous.Seq > last {
+			historyErr = fmt.Errorf("status counter missing or behind retained history")
+		}
+	}
+	if err := errors.Join(historyErr, feedbackIteratorError(it), it.Close()); err != nil {
+		return err
+	}
+	next := last + 1
+	key := types.StatusTransitionKey(t.FactId, next)
+	if found, err := store.Has(key); err != nil {
+		return err
+	} else if found {
+		return fmt.Errorf("status sequence would overwrite existing history")
+	}
+	record := proto.Clone(t).(*types.StatusTransition)
+	record.Seq = next
+	bz, err := marshalOpts.Marshal(record)
 	if err != nil {
 		return fmt.Errorf("marshal status transition: %w", err)
 	}
-	return store.Set(types.StatusTransitionKey(t.FactId, nextSeq), bz)
+	if err := store.Set(key, bz); err != nil {
+		return err
+	}
+	if err := store.Set(seqKey, binary.AppendUvarint(nil, next)); err != nil {
+		return err
+	}
+	write()
+	t.Seq = next
+	return nil
+}
+
+// decodeStatusSequence rejects truncated, overflowed and noncanonical counters.
+// A counter may legitimately exceed the last surviving history sequence.
+func decodeStatusSequence(buf []byte) (uint64, error) {
+	n, size := binary.Uvarint(buf)
+	if size <= 0 || size != len(buf) || !bytes.Equal(buf, binary.AppendUvarint(nil, n)) {
+		return 0, fmt.Errorf("invalid status sequence counter")
+	}
+	return n, nil
 }
 
 // GetStatusHistory returns all status transitions for a fact, sorted by seq.
@@ -112,10 +157,14 @@ func (k Keeper) SetFactSkipTransition(ctx context.Context, fact *types.Fact) err
 	}
 	// Secondary indexes
 	if fact.Submitter != "" {
-		_ = store.Set(types.FactBySubmitterKey(fact.Submitter, fact.Id), []byte{0x01})
+		if err := store.Set(types.FactBySubmitterKey(fact.Submitter, fact.Id), []byte{0x01}); err != nil {
+			return err
+		}
 	}
 	if fact.Domain != "" {
-		_ = store.Set(types.FactByDomainKey(fact.Domain, fact.Id), []byte{0x01})
+		if err := store.Set(types.FactByDomainKey(fact.Domain, fact.Id), []byte{0x01}); err != nil {
+			return err
+		}
 	}
 	return nil
 }

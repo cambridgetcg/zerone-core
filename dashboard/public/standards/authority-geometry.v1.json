@@ -1,10 +1,10 @@
 {
   "schema": "zerone.authority-geometry/v1",
   "revision": "1.0.0",
-  "snapshotDate": "2026-08-11",
+  "snapshotDate": "2026-09-08",
   "status": "SOURCE_OBSERVATORY_ONLY",
   "title": "Authority Geometry",
-  "summary": "A source-pinned map of Zerone authority, influence, challenge, repair, and exit. It reports the current split honestly and describes the accepted target without claiming that H4 or H5 is implemented or live.",
+  "summary": "A source-pinned map of Zerone authority, influence, challenge, repair, and exit. It reports the current split honestly and describes the accepted target without claiming that H4 or H5 is implemented or live. The separate named tok-feedback-v1 knowledge upgrade does not implement those authority targets or clear their NO_GO gates; this observatory itself remains zero-effect.",
   "sourceDesign": {
     "repositoryPath": "docs/AUTHORITATIVE-STATE.md",
     "sha256": "22d523ee25060957e2c93aba441542e35d767f28f0f0e5e86c800f5fd7ea82e9",
@@ -739,7 +739,7 @@
     {
       "id": "app-wiring",
       "path": "app/app.go",
-      "sha256": "2e2de1e779eb95c7c8b95cc4059f76d79dd65fea6b22ad80b2c69df369220a94",
+      "sha256": "81546dacb09467ec8736bb434ffa1867ad1b8b0b587ae9039d08eeb057b57e4d",
       "requiredSnippets": [
         "app.StakingKeeper = stakingkeeper.NewKeeper(",
         "app.GovKeeper = govkeeper.NewKeeper(",
@@ -783,7 +783,7 @@
     {
       "id": "knowledge-writers",
       "path": "x/knowledge/keeper/msg_server.go",
-      "sha256": "20c580e2a54cb8038803029ec88a1dc6e403a2f226e8d239ea21152e5b20ab3a",
+      "sha256": "bb9e5bd2aa875c23863506f07783435c0e55fc3e7419f5bb64c949f3d759e9cd",
       "requiredSnippets": [
         "func (m *msgServer) AddFact(ctx context.Context, msg *types.MsgAddFact)",
         "func (m *msgServer) ProposeDomain(ctx context.Context, msg *types.MsgProposeDomain)",
@@ -848,7 +848,7 @@
     {
       "id": "knowledge-slash-callsites",
       "path": "x/knowledge/keeper/rounds.go",
-      "sha256": "bbfc78328c9ba22e1c0b130254c9a342ecc378c91d2bdbe69b9129b3030ab279",
+      "sha256": "854f582fa2d68befaafb7338562091b5a587be7daa1eec43223464b24bc397f8",
       "requiredSnippets": [
         "for _, slash := range result.Slashes {",
         "slashedAmt, err := k.stakingKeeper.SlashValidatorToModule(ctx, slash.Verifier, slash.SlashBps, types.VindicationEscrowModuleName)",
@@ -922,6 +922,20 @@
         "func (k Keeper) EnsureEmergencyTransitionHold("
       ],
       "forbiddenSnippets": []
+    },
+    {
+      "id": "tok-feedback-boundary",
+      "path": "app/upgrades_tok_feedback.go",
+      "sha256": "d2af16381ffe472a468cdeb9cfa2580934fa81735f2039a9c40e340b4ed0d610",
+      "requiredSnippets": [
+        "const UpgradeNameToKFeedbackV1 = \"tok-feedback-v1\"",
+        "if name != UpgradeNameToKFeedbackV1 {",
+        "requireToKFeedbackVersionMap(from, 6)",
+        "requireToKFeedbackVersionMap(to, 7)",
+        "ActivationReady: false",
+        "external_custody_and_historical_binary_handoff_NOT_verified"
+      ],
+      "forbiddenSnippets": []
     }
   ],
   "currentFindings": [
@@ -939,7 +953,7 @@
       "status": "OPEN",
       "releaseSurface": "ORDINARY_GOVERNANCE_EXECUTION",
       "nodes": ["sdk-gov", "custom-gov"],
-      "evidence": ["app-wiring", "custom-gov-resolution"]
+      "evidence": ["app-wiring", "custom-gov-resolution", "tok-feedback-boundary"]
     },
     {
       "id": "dual-domain-registries",

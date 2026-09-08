@@ -40,6 +40,7 @@ const (
 	Msg_AddCommonKnowledge_FullMethodName            = "/zerone.knowledge.v1.Msg/AddCommonKnowledge"
 	Msg_RemoveCommonKnowledge_FullMethodName         = "/zerone.knowledge.v1.Msg/RemoveCommonKnowledge"
 	Msg_ReportDemand_FullMethodName                  = "/zerone.knowledge.v1.Msg/ReportDemand"
+	Msg_ReportFactUse_FullMethodName                 = "/zerone.knowledge.v1.Msg/ReportFactUse"
 	Msg_RateFact_FullMethodName                      = "/zerone.knowledge.v1.Msg/RateFact"
 	Msg_RegisterTrainingPipeline_FullMethodName      = "/zerone.knowledge.v1.Msg/RegisterTrainingPipeline"
 	Msg_UpdateTrainingPipeline_FullMethodName        = "/zerone.knowledge.v1.Msg/UpdateTrainingPipeline"
@@ -122,7 +123,10 @@ type MsgClient interface {
 	RemoveCommonKnowledge(ctx context.Context, in *MsgRemoveCommonKnowledge, opts ...grpc.CallOption) (*MsgRemoveCommonKnowledgeResponse, error)
 	// ReportDemand reports agent query demand (authorized reporters only).
 	ReportDemand(ctx context.Context, in *MsgReportDemand, opts ...grpc.CallOption) (*MsgReportDemandResponse, error)
-	// RateFact allows a querier to provide relevance feedback on a fact.
+	// ReportFactUse records one signed self-report about one existing fact.
+	// It is not measured readership and creates no bounty, mint or payout.
+	ReportFactUse(ctx context.Context, in *MsgReportFactUse, opts ...grpc.CallOption) (*MsgReportFactUseResponse, error)
+	// RateFact rates the signer's current-epoch signed-use receipt once.
 	RateFact(ctx context.Context, in *MsgRateFact, opts ...grpc.CallOption) (*MsgRateFactResponse, error)
 	// ─── Route B: training infrastructure ─────────────────────────────
 	// RegisterTrainingPipeline creates a new pipeline declaration (operator-auth).
@@ -437,6 +441,16 @@ func (c *msgClient) ReportDemand(ctx context.Context, in *MsgReportDemand, opts 
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(MsgReportDemandResponse)
 	err := c.cc.Invoke(ctx, Msg_ReportDemand_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *msgClient) ReportFactUse(ctx context.Context, in *MsgReportFactUse, opts ...grpc.CallOption) (*MsgReportFactUseResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MsgReportFactUseResponse)
+	err := c.cc.Invoke(ctx, Msg_ReportFactUse_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -784,7 +798,10 @@ type MsgServer interface {
 	RemoveCommonKnowledge(context.Context, *MsgRemoveCommonKnowledge) (*MsgRemoveCommonKnowledgeResponse, error)
 	// ReportDemand reports agent query demand (authorized reporters only).
 	ReportDemand(context.Context, *MsgReportDemand) (*MsgReportDemandResponse, error)
-	// RateFact allows a querier to provide relevance feedback on a fact.
+	// ReportFactUse records one signed self-report about one existing fact.
+	// It is not measured readership and creates no bounty, mint or payout.
+	ReportFactUse(context.Context, *MsgReportFactUse) (*MsgReportFactUseResponse, error)
+	// RateFact rates the signer's current-epoch signed-use receipt once.
 	RateFact(context.Context, *MsgRateFact) (*MsgRateFactResponse, error)
 	// ─── Route B: training infrastructure ─────────────────────────────
 	// RegisterTrainingPipeline creates a new pipeline declaration (operator-auth).
@@ -957,6 +974,9 @@ func (UnimplementedMsgServer) RemoveCommonKnowledge(context.Context, *MsgRemoveC
 }
 func (UnimplementedMsgServer) ReportDemand(context.Context, *MsgReportDemand) (*MsgReportDemandResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReportDemand not implemented")
+}
+func (UnimplementedMsgServer) ReportFactUse(context.Context, *MsgReportFactUse) (*MsgReportFactUseResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReportFactUse not implemented")
 }
 func (UnimplementedMsgServer) RateFact(context.Context, *MsgRateFact) (*MsgRateFactResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RateFact not implemented")
@@ -1440,6 +1460,24 @@ func _Msg_ReportDemand_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(MsgServer).ReportDemand(ctx, req.(*MsgReportDemand))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Msg_ReportFactUse_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgReportFactUse)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).ReportFactUse(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Msg_ReportFactUse_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).ReportFactUse(ctx, req.(*MsgReportFactUse))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2056,6 +2094,10 @@ var Msg_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReportDemand",
 			Handler:    _Msg_ReportDemand_Handler,
+		},
+		{
+			MethodName: "ReportFactUse",
+			Handler:    _Msg_ReportFactUse_Handler,
 		},
 		{
 			MethodName: "RateFact",

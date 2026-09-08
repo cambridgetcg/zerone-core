@@ -2,11 +2,13 @@ package keeper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -62,7 +64,7 @@ func (k Keeper) CreateVerificationRound(ctx context.Context, claim *types.Claim)
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
-	params, err := k.GetParams(ctx)
+	params, err := k.getFactUseParams(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +81,7 @@ func (k Keeper) CreateVerificationRound(ctx context.Context, claim *types.Claim)
 		AggregationDeadline: height + params.CommitPhaseBlocks + params.RevealPhaseBlocks + params.AggregationPhaseBlocks,
 	}
 
-	if err := k.SetVerificationRound(ctx, round); err != nil {
+	if err := k.setFeedbackRound(ctx, round); err != nil {
 		return nil, err
 	}
 
@@ -100,14 +102,101 @@ func (k Keeper) CreateVerificationRound(ctx context.Context, claim *types.Claim)
 	return round, nil
 }
 
+// The correction lifecycle cannot use SetVerificationRound's legacy swallowed
+// index writes: a terminal round must leave the active index atomically.
+func (k Keeper) setFeedbackRound(ctx context.Context, round *types.VerificationRound) error {
+	store := k.storeService.OpenKVStore(ctx)
+	bz, err := marshalOpts.Marshal(round)
+	if err != nil {
+		return err
+	}
+	if err := store.Set(types.RoundKey(round.Id), bz); err != nil {
+		return err
+	}
+	if round.ClaimId != "" {
+		if err := store.Set(types.ClaimRoundIndexKey(round.ClaimId), []byte(round.Id)); err != nil {
+			return err
+		}
+	}
+	if round.Phase == types.VerificationPhase_VERIFICATION_PHASE_COMPLETE || round.Phase == types.VerificationPhase_VERIFICATION_PHASE_EXPIRED {
+		return store.Delete(activeRoundKey(round.Id))
+	}
+	return store.Set(activeRoundKey(round.Id), []byte{1})
+}
+
+func (k Keeper) activeFeedbackRounds(ctx context.Context) (rounds []*types.VerificationRound, err error) {
+	store := k.storeService.OpenKVStore(ctx)
+	it, err := store.Iterator(types.ActiveRoundIndexPrefix, prefixEndBytes(types.ActiveRoundIndexPrefix))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errors.Join(err, it.Close()) }()
+	for ; it.Valid(); it.Next() {
+		id := string(it.Key()[len(types.ActiveRoundIndexPrefix):])
+		bz, err := store.Get(types.RoundKey(id))
+		if err != nil {
+			return nil, err
+		}
+		if bz == nil {
+			return nil, fmt.Errorf("active round %s missing", id)
+		}
+		round := new(types.VerificationRound)
+		if err := proto.Unmarshal(bz, round); err != nil {
+			return nil, err
+		}
+		if round.Id != id {
+			return nil, fmt.Errorf("round key/payload mismatch")
+		}
+		rounds = append(rounds, round)
+	}
+	return rounds, feedbackIteratorError(it)
+}
+
+func (k Keeper) getFeedbackClaim(ctx context.Context, id string) (*types.Claim, error) {
+	bz, err := k.storeService.OpenKVStore(ctx).Get(types.ClaimKey(id))
+	if err != nil {
+		return nil, err
+	}
+	if bz == nil {
+		return nil, fmt.Errorf("claim %s not found", id)
+	}
+	claim := new(types.Claim)
+	if err := proto.Unmarshal(bz, claim); err != nil {
+		return nil, err
+	}
+	if claim.Id != id {
+		return nil, fmt.Errorf("claim key/payload mismatch")
+	}
+	return claim, nil
+}
+
 // CompleteRound finalizes a verification round based on the aggregated result.
 func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRound, result *VerificationResult) error {
+	if round == nil || result == nil {
+		return fmt.Errorf("round and result required")
+	}
+	cache, write := sdk.UnwrapSDKContext(ctx).CacheContext()
+	completed := proto.Clone(round).(*types.VerificationRound)
+	if err := k.completeRound(cache, completed, result); err != nil {
+		return err
+	}
+	write()
+	proto.Reset(round)
+	proto.Merge(round, completed)
+	return nil
+}
+
+func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRound, result *VerificationResult) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
+	params, err := k.getFactUseParams(ctx)
+	if err != nil {
+		return err
+	}
 
-	claim, found := k.GetClaim(ctx, round.ClaimId)
-	if !found {
-		return fmt.Errorf("claim %s not found for round %s", round.ClaimId, round.Id)
+	claim, err := k.getFeedbackClaim(ctx, round.ClaimId)
+	if err != nil {
+		return fmt.Errorf("load claim for round %s: %w", round.Id, err)
 	}
 
 	round.Verdict = result.Verdict
@@ -120,8 +209,7 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	// look stale retroactively. Check here, while the state still
 	// reflects what the challenger saw when they submitted.
 	if claim.ProvisionalFactId != "" {
-		paramsEarly, _ := k.GetParams(ctx)
-		k.payInvitationBonus(ctx, claim, paramsEarly)
+		k.payInvitationBonus(ctx, claim, params)
 	}
 
 	// Record submitter calibration (Phase 5 — feedback loop). Every round
@@ -169,11 +257,17 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 		// Review fee already distributed at submission time — no additional slashing needed.
 		claim.Status = types.ClaimStatus_CLAIM_STATUS_MALFORMED
 		k.reverseContradictionsFromClaim(ctx, claim)
+		if err := k.restoreChallengedFactOnInconclusive(ctx, claim, "completed_malformed"); err != nil {
+			return err
+		}
 
 	case types.Verdict_VERDICT_INCONCLUSIVE:
 		// Review fee is non-refundable — verifiers still did work even if inconclusive.
 		claim.Status = types.ClaimStatus_CLAIM_STATUS_INSUFFICIENT
 		k.reverseContradictionsFromClaim(ctx, claim)
+		if err := k.restoreChallengedFactOnInconclusive(ctx, claim, "completed_inconclusive"); err != nil {
+			return err
+		}
 	}
 
 	// K-alpha: every aggregated terminal verdict — INCONCLUSIVE included —
@@ -191,7 +285,7 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	if err := k.SetClaim(ctx, claim); err != nil {
 		return err
 	}
-	if err := k.SetVerificationRound(ctx, round); err != nil {
+	if err := k.setFeedbackRound(ctx, round); err != nil {
 		return err
 	}
 
@@ -213,7 +307,6 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	// created (ACCEPT verdict) — non-ACCEPT verdicts have no fact that can later be
 	// disproven, so vindication is structurally unreachable and any escrowed tokens
 	// would be orphaned (T-i3).
-	params, _ := k.GetParams(ctx)
 	var vindicationEntries []types.VindicationEntry
 	// A conjecture being refuted is the mechanism succeeding. The panel that
 	// judged it well-posed was not wrong about anything, so there is nothing
@@ -313,7 +406,7 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 
 	// Record round diversity metrics (R28-2)
 	if err := k.RecordRoundDiversity(ctx, round.Id, claim.Domain, result.AcceptCount, result.RejectCount); err != nil {
-		k.Logger(ctx).Error("failed to record round diversity", "round_id", round.Id, "error", err)
+		return fmt.Errorf("record round diversity: %w", err)
 	}
 
 	// Update validator independence for each revealed voter
@@ -335,7 +428,7 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 		DurationBlocks: duration,
 	}
 	if idxErr := k.IndexCompletedRound(ctx, height, round.Id, completionMeta); idxErr != nil {
-		k.Logger(ctx).Debug("failed to index completed round", "round", round.Id, "error", idxErr)
+		return fmt.Errorf("index completed round: %w", idxErr)
 	}
 
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
@@ -1047,8 +1140,8 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 }
 
 // restoreChallengedFactOnInconclusive undoes the CHALLENGED flip that
-// ChallengeFact applies at submission, for the case where a challenge round
-// dies without a verdict (a starved panel, reveals < MinVerifiers). Unlike
+// ChallengeFact applies at submission when a panel starves or completes with
+// INCONCLUSIVE/MALFORMED: none adjudicates the target's truth. Unlike
 // handleChallengeSurvival (which runs on REJECT and credits energy,
 // corroboration, and the survival reward), this credits NOTHING: the fact was
 // never actually judged, only un-suppressed. Without it, a challenge whose
@@ -1056,22 +1149,40 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 // permanently un-rechallengeable and its survival escrow blocked — for the
 // price of one starved round. RestoredStatusFor keeps conjectures PROVISIONAL;
 // starvation must never promote a question into ACTIVE truth-standing.
-func (k Keeper) restoreChallengedFactOnInconclusive(ctx context.Context, challengeClaim *types.Claim) {
-	if challengeClaim.ProvisionalFactId == "" {
-		return
+func (k Keeper) restoreChallengedFactOnInconclusive(ctx context.Context, challengeClaim *types.Claim, cause string) error {
+	if challengeClaim == nil || challengeClaim.ProvisionalFactId == "" {
+		return nil
 	}
-	fact, found := k.GetFact(ctx, challengeClaim.ProvisionalFactId)
-	if !found || fact.Status != types.FactStatus_FACT_STATUS_CHALLENGED {
-		return
+	if cause == "" {
+		return fmt.Errorf("challenge restoration requires explicit cause")
 	}
-	fact.Status = RestoredStatusFor(fact)
+	fact, found, err := k.getFeedbackFact(ctx, challengeClaim.ProvisionalFactId)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("challenged fact %s missing", challengeClaim.ProvisionalFactId)
+	}
+	if fact.Status != types.FactStatus_FACT_STATUS_CHALLENGED {
+		return nil
+	}
 	fact.AtRiskSinceEpoch = 0
-	_ = k.SetFact(ctx, fact)
+	if err := k.setChallengeStatus(ctx, fact, RestoredStatusFor(fact), cause, challengeClaim.Id); err != nil {
+		return err
+	}
+	verdict := types.Verdict_VERDICT_INCONCLUSIVE
+	if challengeClaim.Status == types.ClaimStatus_CLAIM_STATUS_MALFORMED {
+		verdict = types.Verdict_VERDICT_MALFORMED
+	}
 	sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent(
 		"zerone.knowledge.challenge_inconclusive_restored",
 		sdk.NewAttribute("fact_id", fact.Id),
 		sdk.NewAttribute("challenge_claim_id", challengeClaim.Id),
+		sdk.NewAttribute("cause", cause),
+		sdk.NewAttribute("verdict", verdict.String()),
+		sdk.NewAttribute("survival_credit", "none"),
 	))
+	return nil
 }
 
 // settleChallengeStake applies the challenge economic parameters to a

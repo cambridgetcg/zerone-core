@@ -1544,6 +1544,49 @@ export function privilegedActionTypeToJSON(object: PrivilegedActionType): string
       return "UNRECOGNIZED";
   }
 }
+/** FactUseRating is signed self-reported relevance, not a truth verdict. */
+export enum FactUseRating {
+  FACT_USE_RATING_UNSPECIFIED = 0,
+  FACT_USE_RATING_UNRATED = 1,
+  FACT_USE_RATING_USEFUL = 2,
+  FACT_USE_RATING_NOT_USEFUL = 3,
+  UNRECOGNIZED = -1,
+}
+export function factUseRatingFromJSON(object: any): FactUseRating {
+  switch (object) {
+    case 0:
+    case "FACT_USE_RATING_UNSPECIFIED":
+      return FactUseRating.FACT_USE_RATING_UNSPECIFIED;
+    case 1:
+    case "FACT_USE_RATING_UNRATED":
+      return FactUseRating.FACT_USE_RATING_UNRATED;
+    case 2:
+    case "FACT_USE_RATING_USEFUL":
+      return FactUseRating.FACT_USE_RATING_USEFUL;
+    case 3:
+    case "FACT_USE_RATING_NOT_USEFUL":
+      return FactUseRating.FACT_USE_RATING_NOT_USEFUL;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return FactUseRating.UNRECOGNIZED;
+  }
+}
+export function factUseRatingToJSON(object: FactUseRating): string {
+  switch (object) {
+    case FactUseRating.FACT_USE_RATING_UNSPECIFIED:
+      return "FACT_USE_RATING_UNSPECIFIED";
+    case FactUseRating.FACT_USE_RATING_UNRATED:
+      return "FACT_USE_RATING_UNRATED";
+    case FactUseRating.FACT_USE_RATING_USEFUL:
+      return "FACT_USE_RATING_USEFUL";
+    case FactUseRating.FACT_USE_RATING_NOT_USEFUL:
+      return "FACT_USE_RATING_NOT_USEFUL";
+    case FactUseRating.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
 /**
  * FactRelation is a typed, directional edge in the knowledge graph.
  * @name FactRelation
@@ -2666,6 +2709,11 @@ export interface Claim {
    * MALFORMED. Empty for every other claim type.
    */
   falsificationPredicate: string;
+  /**
+   * Challenge evidence only: at most 16 distinct existing fact IDs.
+   * Never aliases references or relation edges (no confidence inheritance).
+   */
+  challengeEvidenceIds: string[];
 }
 /**
  * VerificationRound tracks one commit-reveal verification cycle.
@@ -3698,6 +3746,57 @@ export interface PendingFactInjection {
    */
   executeAtBlock: bigint;
 }
+/**
+ * FactUseReceipt version 1 records a committed signed self-report, not proof
+ * that an off-chain use occurred at any time. Key: (epoch, consumer, fact_id).
+ * epoch = floor(use_height / fitness_epoch_blocks), including real epoch 0.
+ * Rating is valid only in that same epoch. The marker is retained through the
+ * following epoch and becomes prunable at expiry_height = (epoch + 2) *
+ * fitness_epoch_blocks (exclusive). Expiry is retention policy, not use time.
+ * @name FactUseReceipt
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.FactUseReceipt
+ */
+export interface FactUseReceipt {
+  version: number;
+  epoch: bigint;
+  /**
+   * canonical SDK account address, never a third party
+   */
+  consumer: string;
+  factId: string;
+  useHeight: bigint;
+  expiryHeight: bigint;
+  rating: FactUseRating;
+  /**
+   * zero iff UNRATED
+   */
+  ratingHeight: bigint;
+}
+/**
+ * FactUsePruningState preserves bounded-pruner progress and the permanent
+ * self-report non-economic latch across restart/import, even with no receipts.
+ * @name FactUsePruningState
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.FactUsePruningState
+ */
+export interface FactUsePruningState {
+  /**
+   * Full receipt key of the next record to examine (inclusive); empty starts
+   * at the receipt prefix. A cursor never grants rating validity.
+   */
+  nextKey: Uint8Array;
+  /**
+   * Set true atomically on the first accepted ReportFactUse; never clear when
+   * disabling the beta or pruning the last receipt. Once true, query and
+   * satisfaction fitness weights and query-derived energy must remain zero.
+   * Reversing this restriction requires a future explicit named upgrade, not
+   * a parameter toggle. This latch neither proves readership nor authorizes
+   * economics, and does not by itself freeze the receipt epoch length.
+   * New state defaults false at migration; absent legacy genesis is compatible.
+   */
+  everReported: boolean;
+}
 function createBaseFactRelation(): FactRelation {
   return {
     sourceFactId: "",
@@ -4096,7 +4195,7 @@ export const Methodology = {
       Methodology_CrossMethodDiscountBpsEntry.encode({
         key: key as any,
         value
-      }, writer.uint32(48).fork()).ldelim();
+      }, writer.uint32(50).fork()).ldelim();
     });
     if (message.minQualificationWeight !== BigInt(0)) {
       writer.uint32(56).uint64(message.minQualificationWeight);
@@ -6544,7 +6643,8 @@ function createBaseClaim(): Claim {
     reasoningTrace: "",
     argumentText: "",
     rebuttalText: "",
-    falsificationPredicate: ""
+    falsificationPredicate: "",
+    challengeEvidenceIds: []
   };
 }
 /**
@@ -6628,6 +6728,9 @@ export const Claim = {
     if (message.falsificationPredicate !== "") {
       writer.uint32(194).string(message.falsificationPredicate);
     }
+    for (const v of message.challengeEvidenceIds) {
+      writer.uint32(202).string(v!);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): Claim {
@@ -6709,6 +6812,9 @@ export const Claim = {
         case 24:
           message.falsificationPredicate = reader.string();
           break;
+        case 25:
+          message.challengeEvidenceIds.push(reader.string());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -6742,6 +6848,7 @@ export const Claim = {
     message.argumentText = object.argumentText ?? "";
     message.rebuttalText = object.rebuttalText ?? "";
     message.falsificationPredicate = object.falsificationPredicate ?? "";
+    message.challengeEvidenceIds = object.challengeEvidenceIds?.map(e => e) || [];
     return message;
   }
 };
@@ -10275,6 +10382,160 @@ export const PendingFactInjection = {
     message.proposer = object.proposer ?? "";
     message.proposedAtBlock = object.proposedAtBlock !== undefined && object.proposedAtBlock !== null ? BigInt(object.proposedAtBlock.toString()) : BigInt(0);
     message.executeAtBlock = object.executeAtBlock !== undefined && object.executeAtBlock !== null ? BigInt(object.executeAtBlock.toString()) : BigInt(0);
+    return message;
+  }
+};
+function createBaseFactUseReceipt(): FactUseReceipt {
+  return {
+    version: 0,
+    epoch: BigInt(0),
+    consumer: "",
+    factId: "",
+    useHeight: BigInt(0),
+    expiryHeight: BigInt(0),
+    rating: 0,
+    ratingHeight: BigInt(0)
+  };
+}
+/**
+ * FactUseReceipt version 1 records a committed signed self-report, not proof
+ * that an off-chain use occurred at any time. Key: (epoch, consumer, fact_id).
+ * epoch = floor(use_height / fitness_epoch_blocks), including real epoch 0.
+ * Rating is valid only in that same epoch. The marker is retained through the
+ * following epoch and becomes prunable at expiry_height = (epoch + 2) *
+ * fitness_epoch_blocks (exclusive). Expiry is retention policy, not use time.
+ * @name FactUseReceipt
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.FactUseReceipt
+ */
+export const FactUseReceipt = {
+  typeUrl: "/zerone.knowledge.v1.FactUseReceipt",
+  encode(message: FactUseReceipt, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.version !== 0) {
+      writer.uint32(8).uint32(message.version);
+    }
+    if (message.epoch !== BigInt(0)) {
+      writer.uint32(16).uint64(message.epoch);
+    }
+    if (message.consumer !== "") {
+      writer.uint32(26).string(message.consumer);
+    }
+    if (message.factId !== "") {
+      writer.uint32(34).string(message.factId);
+    }
+    if (message.useHeight !== BigInt(0)) {
+      writer.uint32(40).uint64(message.useHeight);
+    }
+    if (message.expiryHeight !== BigInt(0)) {
+      writer.uint32(48).uint64(message.expiryHeight);
+    }
+    if (message.rating !== 0) {
+      writer.uint32(56).int32(message.rating);
+    }
+    if (message.ratingHeight !== BigInt(0)) {
+      writer.uint32(64).uint64(message.ratingHeight);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): FactUseReceipt {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFactUseReceipt();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.version = reader.uint32();
+          break;
+        case 2:
+          message.epoch = reader.uint64();
+          break;
+        case 3:
+          message.consumer = reader.string();
+          break;
+        case 4:
+          message.factId = reader.string();
+          break;
+        case 5:
+          message.useHeight = reader.uint64();
+          break;
+        case 6:
+          message.expiryHeight = reader.uint64();
+          break;
+        case 7:
+          message.rating = reader.int32() as any;
+          break;
+        case 8:
+          message.ratingHeight = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<FactUseReceipt>): FactUseReceipt {
+    const message = createBaseFactUseReceipt();
+    message.version = object.version ?? 0;
+    message.epoch = object.epoch !== undefined && object.epoch !== null ? BigInt(object.epoch.toString()) : BigInt(0);
+    message.consumer = object.consumer ?? "";
+    message.factId = object.factId ?? "";
+    message.useHeight = object.useHeight !== undefined && object.useHeight !== null ? BigInt(object.useHeight.toString()) : BigInt(0);
+    message.expiryHeight = object.expiryHeight !== undefined && object.expiryHeight !== null ? BigInt(object.expiryHeight.toString()) : BigInt(0);
+    message.rating = object.rating ?? 0;
+    message.ratingHeight = object.ratingHeight !== undefined && object.ratingHeight !== null ? BigInt(object.ratingHeight.toString()) : BigInt(0);
+    return message;
+  }
+};
+function createBaseFactUsePruningState(): FactUsePruningState {
+  return {
+    nextKey: new Uint8Array(),
+    everReported: false
+  };
+}
+/**
+ * FactUsePruningState preserves bounded-pruner progress and the permanent
+ * self-report non-economic latch across restart/import, even with no receipts.
+ * @name FactUsePruningState
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.FactUsePruningState
+ */
+export const FactUsePruningState = {
+  typeUrl: "/zerone.knowledge.v1.FactUsePruningState",
+  encode(message: FactUsePruningState, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.nextKey.length !== 0) {
+      writer.uint32(10).bytes(message.nextKey);
+    }
+    if (message.everReported === true) {
+      writer.uint32(16).bool(message.everReported);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): FactUsePruningState {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFactUsePruningState();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.nextKey = reader.bytes();
+          break;
+        case 2:
+          message.everReported = reader.bool();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<FactUsePruningState>): FactUsePruningState {
+    const message = createBaseFactUsePruningState();
+    message.nextKey = object.nextKey ?? new Uint8Array();
+    message.everReported = object.everReported ?? false;
     return message;
   }
 };

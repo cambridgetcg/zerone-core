@@ -65,9 +65,11 @@ var TransactionGasCosts = map[string]uint64{
 	"freeze_account":   30_000,
 	"unfreeze_account": 30_000,
 
-	// Knowledge pruning
-	"patronize_fact": 50_000,
-	"rate_fact":      20_000,
+	// Knowledge pruning and signed self-report feedback. These are admission
+	// floors, not measured gas estimates; simulate the complete signed tx.
+	"patronize_fact":  50_000,
+	"report_fact_use": 50_000,
+	"rate_fact":       20_000,
 
 	// Knowledge (extended — hand-written types)
 	"submit_contradiction":       80_000,

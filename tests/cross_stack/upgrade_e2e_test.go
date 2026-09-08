@@ -307,10 +307,13 @@ func runSDK053IBC10HandlerForTests(
 	)
 }
 
-func TestStandardSDKGovernanceSchedulesAndExecutesUpgradeAcrossRestart(
+// Synthetic H3 state exercises current governance, height dispatch, committed
+// v7 state and startup validation. This is not an old-binary handoff rehearsal.
+func TestToKFeedbackGovernanceSchedulesAndExecutesAcrossSyntheticH3Restart(
 	t *testing.T,
 ) {
 	h := NewTestHarness(t)
+	seedSyntheticCompletedH3(t, h) // not historical executable/custody proof
 	startTime := time.Unix(1_900_000_000, 0).UTC()
 	h.Ctx = h.Ctx.
 		WithBlockTime(startTime).
@@ -319,23 +322,14 @@ func TestStandardSDKGovernanceSchedulesAndExecutesUpgradeAcrossRestart(
 			ChainID: testChainID,
 			Time:    startTime,
 		})
-	require.NoError(t, h.App.UpgradeKeeper.SetModuleVersionMap(
-		h.Ctx,
-		h.App.CurrentModuleVersionMap(),
-	))
-	require.NoError(t, h.KnowledgeKeeper.WriteMigrationMarker(
-		h.Ctx,
-		"chain_lineage_native_sdk-0.53-ibc-10",
-		"genesis",
-	))
 	authority := h.App.AccountKeeper.GetModuleAddress("gov")
 	require.NotNil(t, authority)
 	voter := sdkGovLifecycleVoter(t, h)
 	const upgradeHeight int64 = 8
 	plan := upgradetypes.Plan{
-		Name:   zeroneapp.UpgradeNameTestnetV2,
+		Name:   zeroneapp.UpgradeNameToKFeedbackV1,
 		Height: upgradeHeight,
-		Info:   `{"release_id":"governance-lifecycle"}`,
+		Info:   syntheticFeedbackPlanInfo,
 	}
 
 	passExpeditedSDKGovProposal(t, h, voter, &upgradetypes.MsgSoftwareUpgrade{
@@ -355,6 +349,9 @@ func TestStandardSDKGovernanceSchedulesAndExecutesUpgradeAcrossRestart(
 			Time:    h.Ctx.BlockTime(),
 		})
 	h.CommitHMinusOne()
+	for h.App.LastCommitID().Version < upgradeHeight-1 {
+		h.App.CommitMultiStore().Commit()
+	}
 
 	h.currentHeight = upgradeHeight
 	upgradeTime := h.Ctx.BlockTime().Add(time.Second)
@@ -379,16 +376,16 @@ func TestStandardSDKGovernanceSchedulesAndExecutesUpgradeAcrossRestart(
 	require.NoError(t, err)
 	doneHeight, err := h.App.UpgradeKeeper.GetDoneHeight(
 		h.Ctx,
-		zeroneapp.UpgradeNameTestnetV2,
+		zeroneapp.UpgradeNameToKFeedbackV1,
 	)
 	require.NoError(t, err)
 	require.Equal(t, upgradeHeight, doneHeight)
 	require.Equal(
 		t,
-		"genesis",
+		"completed-h3-to-knowledge7-v1",
 		h.KnowledgeKeeper.ReadMigrationMarker(
 			h.Ctx,
-			"chain_lineage_native_sdk-0.53-ibc-10",
+			"upgrade_marker_tok-feedback-v1",
 		),
 	)
 	_, err = h.App.UpgradeKeeper.GetUpgradePlan(h.Ctx)
@@ -409,6 +406,7 @@ func TestStandardSDKGovernanceSchedulesAndExecutesUpgradeAcrossRestart(
 	)
 	require.NoError(t, restarted.LoadLatestVersion())
 	require.NoError(t, restarted.ValidateSDK053IBC10StartupCoordination())
+	require.NoError(t, restarted.ValidateToKFeedbackStartupCoordination())
 	restartTime := upgradeTime.Add(time.Second)
 	restartCtx := restarted.NewContext(true).
 		WithBlockHeight(upgradeHeight + 1).
@@ -426,7 +424,7 @@ func TestStandardSDKGovernanceSchedulesAndExecutesUpgradeAcrossRestart(
 		})
 	doneHeight, err = restarted.UpgradeKeeper.GetDoneHeight(
 		restartCtx,
-		zeroneapp.UpgradeNameTestnetV2,
+		zeroneapp.UpgradeNameToKFeedbackV1,
 	)
 	require.NoError(t, err)
 	require.Equal(t, upgradeHeight, doneHeight)
@@ -590,7 +588,7 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 		switch m.ModuleName {
 		case "knowledge":
 			sawKnowledge = true
-			require.Equal(t, uint64(6), m.ConsensusVersion,
+			require.Equal(t, uint64(7), m.ConsensusVersion,
 				"knowledge module advertises its current ConsensusVersion")
 		case liquiditypooltypes.ModuleName:
 			sawLiquidityPool = true
@@ -664,13 +662,10 @@ func TestUpgrade_UnknownHandlerRejected(t *testing.T) {
 // TestUpgrade_MigrationMarkerIdempotent — writing the same marker twice
 // is a no-op (idempotent); writing a DIFFERENT value for the same key is
 // rejected without overwriting (first writer wins).
-// TestUpgrade_CompassionCalibrationV1RefreshesScores drives the real
-// compassion-calibration-v1 handler and asserts it refreshes a stored
-// calibration score under the inconclusive-excluding formula (docs/COMPASSION.md
-// commitment C2). A record whose honest inconclusive attempts had dragged its
-// stored score down is lifted to its true decisive-accuracy score, and the
-// migration marker is written.
-func TestUpgrade_CompassionCalibrationV1RefreshesScores(t *testing.T) {
+// The current helper preserves compassion's decisive-only accuracy invariant.
+// The original named-handler wiring/marker assertions execute unchanged against
+// historicalInvariantSource in TestFrozenHistoricalUpgradeInvariants.
+func TestHistoricalHelper_CompassionCalibrationRefreshesScores(t *testing.T) {
 	h := NewTestHarness(t)
 
 	addr := "zerone1compassionupgrade00000000000000aa"
@@ -684,20 +679,17 @@ func TestUpgrade_CompassionCalibrationV1RefreshesScores(t *testing.T) {
 		CalibrationScoreBps: 300_000, // stale, old-formula value
 	}))
 
-	// Run the real upgrade handler through the full pipeline.
-	fromVM := h.App.CurrentModuleVersionMap()
-	_, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameCompassionCalibrationV1, fromVM, h.Height())
+	assertCandidateRetiresPlan(t, h, zeroneapp.UpgradeNameCompassionCalibrationV1)
+	_, err := h.KnowledgeKeeper.RecomputeAllCalibrationScores(h.Ctx)
 	require.NoError(t, err)
 
 	// The 7 inconclusive attempts leave the denominator: 3/3 decisive = BPS.
 	refreshed, found := h.KnowledgeKeeper.GetAgentCalibration(h.Ctx, addr)
 	require.True(t, found)
 	require.Equal(t, uint64(1_000_000), refreshed.CalibrationScoreBps,
-		"handler must recompute the stale score under the inconclusive-excluding formula")
+		"helper must recompute the stale score under the inconclusive-excluding formula")
 
-	require.Equal(t, "migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_compassion-calibration-v1"),
-		"handler must write the compassion-calibration-v1 migration marker")
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_compassion-calibration-v1"), "pure helper must not claim named activation")
 }
 
 func TestUpgrade_MigrationMarkerIdempotent(t *testing.T) {
@@ -1031,7 +1023,7 @@ func TestFlyEntrypointRefusesDigestValidPersistedSignerDrift(t *testing.T) {
 	}
 }
 
-func TestUpgrade_SDK053IBC10RunsIBCStateMigrations(t *testing.T) {
+func TestToKFeedbackRetiresH3WithoutMigratingIBCState(t *testing.T) {
 	h := NewTestHarness(t)
 	seedPreSDKTransitionLineage(t, h)
 	h.GovKeeper.SetLIP(h.Ctx, &zeronegovtypes.LIP{
@@ -1056,56 +1048,12 @@ func TestUpgrade_SDK053IBC10RunsIBCStateMigrations(t *testing.T) {
 			},
 		))
 	}
+	require.NoError(t, h.App.UpgradeKeeper.SetModuleVersionMap(h.Ctx, sdk053IBC10SourceVM(h)))
 	h.CommitHMinusOne()
 
-	fromVM := sdk053IBC10SourceVM(h)
-
-	planInfo, err := zeroneapp.BuildSDK053IBC10PlanInfo(nil, nil)
-	require.NoError(t, err)
-	toVM, err := h.App.RunUpgradeHandlerWithInfoForTests(
-		h.Ctx,
-		zeroneapp.UpgradeNameSDK053IBC10,
-		fromVM,
-		testH3ActivationHeight,
-		planInfo,
-	)
-	require.NoError(t, err)
-	require.Equal(t, uint64(8), toVM["ibc"], "IBC core must run v6→v7→v8 migrations")
-	require.Equal(t, uint64(6), toVM["transfer"], "ICS-20 must run its v5→v6 denom migration")
-	require.Equal(t, uint64(3), toVM["interchainaccounts"])
-	require.NotContains(t, toVM, "capability")
-	require.NotContains(t, toVM, "feeibc")
-	require.Equal(
-		t,
-		"migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_auth-ante-hardening-v1"),
-		"the unified guarded plan must activate and mark signer-policy hardening",
-	)
-	require.Equal(
-		t,
-		"migrated-with-loader-proof-v1",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_sdk-0.53-ibc-10"),
-	)
-	require.Equal(
-		t,
-		"migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_upgrade-incident-operations-v1"),
-	)
-	require.Equal(t, zeroneemergencytypes.StatusNormal, h.EmergencyKeeper.GetEmergencyStatus(h.Ctx))
-	_, active := h.EmergencyKeeper.GetActiveCeremony(h.Ctx)
-	require.False(t, active)
-	legacyUpgrade, found := h.GovKeeper.GetLIP(h.Ctx, "LIP-sdk-plan-legacy-upgrade")
-	require.True(t, found)
-	require.Equal(t, zeronegovtypes.StatusFailed, legacyUpgrade.Stage)
-
-	// Both the compiled module manager and persisted x/upgrade map exclude the
-	// retired modules. The handler explicitly deletes those merge-only version
-	// keys so post-H startup can detect unsafe-skip aftermath.
-	targetVM := h.App.CurrentModuleVersionMap()
-	require.Equal(t, targetVM, toVM,
-		"H3 must produce the current binary's complete target VersionMap")
-	require.NotContains(t, targetVM, "capability")
-	require.NotContains(t, targetVM, "feeibc")
+	// The pinned source suite proves IBC6→8, transfer5→6 and retirement.
+	// This candidate must do none of those things, including on legacy queues.
+	assertCandidateRetiresPlan(t, h, zeroneapp.UpgradeNameSDK053IBC10)
 }
 
 func TestUpgrade_SDK053IBC10RefusesMissingKeysetManifestBeforeAuthMarker(t *testing.T) {
@@ -1757,7 +1705,7 @@ func TestSDK053IBC10RefusesInvalidFounderRenunciationPoststateBeforeMutation(
 	}
 }
 
-func TestSDK053IBC10FounderRenunciationPoststateAcceptsAbsentModuleAccount(
+func TestToKFeedbackRetiresH3WithAbsentFounderModuleAccount(
 	t *testing.T,
 ) {
 	h := NewTestHarness(t)
@@ -1769,17 +1717,9 @@ func TestSDK053IBC10FounderRenunciationPoststateAcceptsAbsentModuleAccount(
 	}
 	require.Nil(t, h.AccountKeeper.GetAccount(h.Ctx, moduleAddress))
 
-	planInfo, err := zeroneapp.BuildSDK053IBC10PlanInfo(nil, nil)
-	require.NoError(t, err)
-	toVM, err := h.App.RunUpgradeHandlerWithInfoForTests(
-		h.Ctx,
-		zeroneapp.UpgradeNameSDK053IBC10,
-		sdk053IBC10SourceVM(h),
-		testH3ActivationHeight,
-		planInfo,
-	)
-	require.NoError(t, err)
-	require.Equal(t, h.App.CurrentModuleVersionMap(), toVM)
+	// Historical acceptance remains executable in the pinned source suite.
+	assertCandidateRetiresPlan(t, h, zeroneapp.UpgradeNameSDK053IBC10)
+	require.Nil(t, h.AccountKeeper.GetAccount(h.Ctx, moduleAddress))
 }
 
 func TestSDK053IBC10ScheduledPreflightRefusesPersistedUnconsolidatedVersion(
@@ -1807,9 +1747,11 @@ func TestSDK053IBC10ScheduledPreflightRefusesPersistedUnconsolidatedVersion(
 		"fixture must exercise the exact scheduled H-1 verifier",
 	)
 
+	before := candidateStoreSnapshot(t, h)
 	report, err := h.App.VerifyScheduledActivationPrestate()
+	require.Equal(t, before, candidateStoreSnapshot(t, h))
 	require.ErrorContains(t, err,
-		`requires exact full source VersionMap entry "knowledge"=6: got 5 (present=true)`)
+		`tok-feedback-v1 candidate cannot execute "sdk-0.53-ibc-10"`)
 	require.False(t, report.ActivationReady)
 	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(
 		h.Ctx,
@@ -2001,15 +1943,8 @@ func TestSDK053IBC10RefusesUnattributedCustomUpgradeStakeBeforeMutation(
 	require.Contains(t, err.Error(), "would strand 42 uzrn")
 	require.Contains(t, err.Error(), "stake manifest sha256")
 
-	_, err = runSDK053IBC10HandlerForTests(
-		t,
-		h,
-		fromVM,
-		testH3ActivationHeight,
-	)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "would strand 42 uzrn")
-	require.Contains(t, err.Error(), "stake manifest sha256")
+	assertCandidateRetiresPlan(t, h, zeroneapp.UpgradeNameSDK053IBC10)
+
 	require.False(
 		t,
 		h.Ctx.KVStore(
@@ -2050,17 +1985,8 @@ func TestSDK053IBC10RefusesPreseededCustomGovernanceHoldKey(
 		err,
 		"pre-seeds reserved emergency transition hold key",
 	)
-	_, err = runSDK053IBC10HandlerForTests(
-		t,
-		h,
-		fromVM,
-		testH3ActivationHeight,
-	)
-	require.ErrorContains(
-		t,
-		err,
-		"pre-seeds reserved emergency transition hold key",
-	)
+	assertCandidateRetiresPlan(t, h, zeroneapp.UpgradeNameSDK053IBC10)
+
 	require.Equal(
 		t,
 		[]byte("source-version-must-not-own-this-key"),
@@ -2085,19 +2011,8 @@ func TestUpgrade_SDK053IBC10RefusesLegacyFeeBalance(t *testing.T) {
 		sdk.NewCoins(sdk.NewCoin(zeroneapp.BondDenom, sdkmath.NewInt(1))),
 	))
 
-	fromVM := sdk053IBC10SourceVM(h)
+	assertCandidateRetiresPlan(t, h, zeroneapp.UpgradeNameSDK053IBC10)
 
-	planInfo, err := zeroneapp.BuildSDK053IBC10PlanInfo(nil, nil)
-	require.NoError(t, err)
-	_, err = h.App.RunUpgradeHandlerWithInfoForTests(
-		h.Ctx,
-		zeroneapp.UpgradeNameSDK053IBC10,
-		fromVM,
-		testH3ActivationHeight,
-		planInfo,
-	)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "cannot remove legacy IBC fee middleware")
 	require.Equal(
 		t,
 		sdkmath.NewInt(1),
@@ -2111,12 +2026,10 @@ func TestUpgrade_SDK053IBC10RefusesLegacyFeeBalance(t *testing.T) {
 	)
 }
 
-// TestUpgrade_SubstrateDedupeV1SeedsAndArms drives the real substrate-dedupe-v1
-// handler end-to-end: it must run RunMigrations + ReconcileModuleAccountPerms +
-// SeedSourceRefs + WriteMigrationMarker without error, index a pre-existing
-// settled attestation's source, and leave enforcement armed. Guards the whole
-// wiring under the exact plan name a governance proposal would carry.
-func TestUpgrade_SubstrateDedupeV1SeedsAndArms(t *testing.T) {
+// Preserve source-index backfill and arming behavior through the underlying
+// helpers. Named historical activation is tested in the pinned source suite;
+// this candidate must refuse that plan before any mutation.
+func TestHistoricalHelper_SubstrateDedupeSeedsAndArms(t *testing.T) {
 	h := NewTestHarness(t)
 	require.False(t, h.SubstrateBridgeKeeper.IsDedupeArmed(h.Ctx),
 		"pre-upgrade fixture must begin with dedupe enforcement disarmed")
@@ -2138,26 +2051,22 @@ func TestUpgrade_SubstrateDedupeV1SeedsAndArms(t *testing.T) {
 		Link:          link,
 	}))
 
-	fromVM := h.App.CurrentModuleVersionMap()
-	_, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameSubstrateDedupeV1, fromVM, h.Height())
+	assertCandidateRetiresPlan(t, h, zeroneapp.UpgradeNameSubstrateDedupeV1)
+	_, _, _, err := h.SubstrateBridgeKeeper.SeedSourceRefs(h.Ctx)
 	require.NoError(t, err)
+	h.SubstrateBridgeKeeper.SetDedupeArmed(h.Ctx)
 
 	holder, taken := h.SubstrateBridgeKeeper.GetSourceRef(h.Ctx, "agenttool-invocation-v1", "inv-preupgrade")
-	require.True(t, taken, "handler must seed the pre-existing attestation's source")
+	require.True(t, taken, "helper must seed the pre-existing attestation's source")
 	require.Equal(t, "att-1-1", holder)
-	require.True(t, h.SubstrateBridgeKeeper.IsDedupeArmed(h.Ctx), "handler must arm enforcement")
-	require.Equal(t, "migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_substrate-dedupe-v1"),
-		"handler must write the substrate-dedupe-v1 migration marker")
+	require.True(t, h.SubstrateBridgeKeeper.IsDedupeArmed(h.Ctx), "explicit arming helper must enable enforcement")
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_substrate-dedupe-v1"), "pure helper must not claim named activation")
 }
 
-// TestUpgrade_AgenttoolSeamV1DeclaresAxisBounds drives the real agenttool-seam-v1
-// handler end-to-end under the exact plan name a governance proposal would carry.
-// The adapter is written in the genesis shape of agenttool-invocation-v1 — active,
-// AxisBounds nil — which is the state that let recursion weight through unbounded.
-// After the handler, the ceiling must exist, and a weighted claim must be refused
-// by the same code path a real submission takes.
-func TestUpgrade_AgenttoolSeamV1DeclaresAxisBounds(t *testing.T) {
+// Preserve the actual data repair: explicit axis ceilings close the weighted
+// drain while ordinary source-only relay links remain valid. Historical handler
+// wiring/marker assertions execute in the mandatory pinned source suite.
+func TestHistoricalHelper_AgenttoolSeamDeclaresAxisBounds(t *testing.T) {
 	h := NewTestHarness(t)
 
 	require.NoError(t, h.SubstrateBridgeKeeper.WriteAdapter(h.Ctx, &substratebridgetypes.AdapterRegistration{
@@ -2170,13 +2079,13 @@ func TestUpgrade_AgenttoolSeamV1DeclaresAxisBounds(t *testing.T) {
 	require.True(t, found)
 	require.Nil(t, before.AxisBounds, "precondition: the drain state must be reproduced")
 
-	fromVM := h.App.CurrentModuleVersionMap()
-	_, err := h.App.RunUpgradeHandlerForTests(h.Ctx, zeroneapp.UpgradeNameAgenttoolSeamV1, fromVM, h.Height())
+	assertCandidateRetiresPlan(t, h, zeroneapp.UpgradeNameAgenttoolSeamV1)
+	_, err := h.SubstrateBridgeKeeper.DeclareMissingAxisBounds(h.Ctx)
 	require.NoError(t, err)
 
 	after, found := h.SubstrateBridgeKeeper.GetAdapter(h.Ctx, "agenttool-invocation-v1")
 	require.True(t, found)
-	require.NotNil(t, after.AxisBounds, "handler must leave the adapter declaring a ceiling")
+	require.NotNil(t, after.AxisBounds, "helper must leave the adapter declaring a ceiling")
 
 	// The drain, attempted through the real validation path.
 	drain := &substratebridgetypes.SubstrateLink{
@@ -2213,9 +2122,7 @@ func TestUpgrade_AgenttoolSeamV1DeclaresAxisBounds(t *testing.T) {
 	require.NoError(t, h.SubstrateBridgeKeeper.ValidateLink(h.Ctx, relayShaped, substrateParams),
 		"the upgrade must not stall the live bridge")
 
-	require.Equal(t, "migrated",
-		h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_agenttool-seam-v1"),
-		"handler must write the agenttool-seam-v1 migration marker")
+	require.Empty(t, h.KnowledgeKeeper.ReadMigrationMarker(h.Ctx, "upgrade_marker_agenttool-seam-v1"), "pure helper must not claim named activation")
 }
 
 func TestUpgrade_CurrentSDKBinaryExcludesPreSDKHandlersAndLoaders(t *testing.T) {
@@ -2379,6 +2286,7 @@ func TestUpgrade_ActiveGuidanceDoesNotCollapseH2IntoH1(t *testing.T) {
 func TestUpgrade_CurrentSDKHandlersCannotCarryFounderRenunciation(t *testing.T) {
 	h := NewTestHarness(t)
 	fromVM := h.App.CurrentModuleVersionMap()
+	fromVM["knowledge"] = 6
 	fromVM[vestingrewardstypes.ModuleName] = 1
 	before := h.App.VestingRewardsKeeper.GetParams(h.Ctx)
 
