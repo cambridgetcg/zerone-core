@@ -127,8 +127,8 @@ func (k Keeper) SetQuarantineReleaseBlock(
 	if height == 0 {
 		panic("refusing to persist zero quarantine release block")
 	}
-	if height == ^uint64(0) {
-		panic("refusing quarantine release block without an H+1 reopening height")
+	if height > types.MaxSDKBlockHeight-types.PostResumeCancellationGraceBlocks {
+		panic("refusing quarantine release block without a representable post-resume grace window")
 	}
 	var bz [8]byte
 	binary.BigEndian.PutUint64(bz[:], height)

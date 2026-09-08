@@ -836,10 +836,28 @@ func TestResumeLifecycle(t *testing.T) {
 
 	nextCtx := resumeCtx.WithBlockHeight(resumeCtx.BlockHeight() + 1)
 	if err := emergency.NewAppModule(nil, k).BeginBlock(nextCtx); err != nil {
-		t.Fatalf("clear expired release latch: %v", err)
+		t.Fatalf("retain post-resume release marker: %v", err)
 	}
-	if k.GetQuarantineReleaseBlock(nextCtx) != 0 || k.IsHalted(nextCtx) {
-		t.Fatal("H+1 BeginBlock did not reopen and clear the release latch")
+	if k.GetQuarantineReleaseBlock(nextCtx) != releaseBlock || k.IsHalted(nextCtx) {
+		t.Fatal("H+1 must reopen admission while retaining the scheduler grace marker")
+	}
+
+	lastGraceCtx := resumeCtx.WithBlockHeight(
+		resumeCtx.BlockHeight() + int64(types.PostResumeCancellationGraceBlocks),
+	)
+	if err := emergency.NewAppModule(nil, k).BeginBlock(lastGraceCtx); err != nil {
+		t.Fatalf("retain release marker through final grace block: %v", err)
+	}
+	if got := k.GetQuarantineReleaseBlock(lastGraceCtx); got != releaseBlock {
+		t.Fatalf("final grace block release marker = %d, want %d", got, releaseBlock)
+	}
+
+	afterGraceCtx := lastGraceCtx.WithBlockHeight(lastGraceCtx.BlockHeight() + 1)
+	if err := emergency.NewAppModule(nil, k).BeginBlock(afterGraceCtx); err != nil {
+		t.Fatalf("clear expired scheduler grace marker: %v", err)
+	}
+	if k.GetQuarantineReleaseBlock(afterGraceCtx) != 0 || k.IsHalted(afterGraceCtx) {
+		t.Fatal("post-grace BeginBlock did not clear the release marker")
 	}
 }
 
@@ -3158,11 +3176,19 @@ func TestQuarantineReleaseLatchGenesisRoundTripAndZeroHeight(t *testing.T) {
 		t.Fatal("round-tripped same-height release latch reopened early")
 	}
 	if _, err := k.ExportGenesisForZeroHeight(ctx); err == nil ||
-		!strings.Contains(err.Error(), "release latch") {
-		t.Fatalf("active latch survived zero-height safety check: %v", err)
+		!strings.Contains(err.Error(), "cancellation grace") {
+		t.Fatalf("active grace survived zero-height safety check: %v", err)
 	}
 
-	expiredCtx := ctx.WithBlockHeight(ctx.BlockHeight() + 1)
+	withinGraceCtx := ctx.WithBlockHeight(
+		ctx.BlockHeight() + int64(types.PostResumeCancellationGraceBlocks),
+	)
+	if _, err := k.ExportGenesisForZeroHeight(withinGraceCtx); err == nil ||
+		!strings.Contains(err.Error(), "cancellation grace") {
+		t.Fatalf("live cancellation grace survived zero-height safety check: %v", err)
+	}
+
+	expiredCtx := withinGraceCtx.WithBlockHeight(withinGraceCtx.BlockHeight() + 1)
 	rebased, err := k.ExportGenesisForZeroHeight(expiredCtx)
 	if err != nil {
 		t.Fatalf("expired release latch could not be rebased: %v", err)

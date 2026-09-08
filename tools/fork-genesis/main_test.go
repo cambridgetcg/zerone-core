@@ -30,6 +30,7 @@ import (
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
+	scheduletypes "github.com/zerone-chain/zerone/x/schedule/types"
 )
 
 type fixture struct {
@@ -340,6 +341,30 @@ func TestCompileGenesisConsensusKeyOnly(t *testing.T) {
 	if err := json.Unmarshal(target.AppState, &appState); err != nil {
 		t.Fatal(err)
 	}
+	if _, found := appState["schedule"]; found {
+		t.Fatal("target retained the retired schedule module namespace")
+	}
+	var schedule scheduletypes.GenesisState
+	rawSchedule, found := appState[scheduletypes.ModuleName]
+	if !found {
+		t.Fatal("target omitted fresh message_schedule genesis")
+	}
+	if err := json.Unmarshal(rawSchedule, &schedule); err != nil {
+		t.Fatalf("decode message_schedule genesis: %v", err)
+	}
+	if err := schedule.Validate(); err != nil {
+		t.Fatalf("invalid message_schedule genesis: %v", err)
+	}
+	wantSchedule, err := json.Marshal(scheduletypes.DefaultGenesis())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(rawSchedule, wantSchedule) {
+		t.Fatalf("message_schedule genesis is not the exact default: got %s want %s", rawSchedule, wantSchedule)
+	}
+	if schedule.Params.AcceptNewSchedules {
+		t.Fatal("fresh message_schedule genesis must be admission-closed")
+	}
 	encodingConfig := zeroneapp.MakeEncodingConfig()
 	var emergency emergencytypes.GenesisState
 	if err := encodingConfig.Codec.UnmarshalJSON(appState["emergency"], &emergency); err != nil {
@@ -355,9 +380,16 @@ func TestCompileGenesisConsensusKeyOnly(t *testing.T) {
 			emergency.HaltStartBlock,
 		)
 	}
+	foundScheduleDigest := false
 	for _, module := range reportA.ModuleDigests {
+		if module.Module == scheduletypes.ModuleName {
+			foundScheduleDigest = true
+			if !module.Changed || module.BeforeSHA256 != absentModuleSHA256 {
+				t.Fatalf("message_schedule addition is not truthfully inventoried: %#v", module)
+			}
+		}
 		switch module.Module {
-		case "staking", "slashing", "emergency", "ibc", "transfer":
+		case "staking", "slashing", "emergency", "ibc", "transfer", scheduletypes.ModuleName:
 			if !module.Changed {
 				t.Fatalf("expected %s to change", module.Module)
 			}
@@ -367,9 +399,13 @@ func TestCompileGenesisConsensusKeyOnly(t *testing.T) {
 			}
 		}
 	}
-	if len(reportA.SchemaMigrations) != 2 ||
+	if !foundScheduleDigest {
+		t.Fatal("compiler report omitted message_schedule from the module digest inventory")
+	}
+	if len(reportA.SchemaMigrations) != 3 ||
 		reportA.SchemaMigrations[0] != "ibc-transfer-v8-empty-denom-traces-to-v10-empty-denoms" ||
-		reportA.SchemaMigrations[1] != "ibc-core-v8-empty-to-v10-empty-v2-state" {
+		reportA.SchemaMigrations[1] != "ibc-core-v8-empty-to-v10-empty-v2-state" ||
+		reportA.SchemaMigrations[2] != messageScheduleGenesisMigration {
 		t.Fatalf("unexpected schema migrations: %#v", reportA.SchemaMigrations)
 	}
 	sealed, err := sealReport(reportA)
@@ -433,6 +469,113 @@ func TestCompileGenesisRejectsUnsafeProfiles(t *testing.T) {
 		mutate  func(t *testing.T, f *fixture)
 		wantErr string
 	}{
+		{
+			name: "retired scheduler namespace",
+			mutate: func(t *testing.T, f *fixture) {
+				mutateAppState(t, f, func(state map[string]any) {
+					state["schedule"] = map[string]any{"retired": "state"}
+				})
+			},
+			wantErr: `refuses retired scheduler namespace "schedule"`,
+		},
+		{
+			name: "retired scheduler module account balance in another denom",
+			mutate: func(t *testing.T, f *fixture) {
+				mutateAppState(t, f, func(state map[string]any) {
+					bank := state[banktypes.ModuleName].(map[string]any)
+					bank["balances"] = append(bank["balances"].([]any), map[string]any{
+						"address": authtypes.NewModuleAddress(retiredScheduleModuleName).String(),
+						"coins": []any{map[string]any{
+							"denom":  "uretired",
+							"amount": "7",
+						}},
+					})
+					bank["supply"] = append(bank["supply"].([]any), map[string]any{
+						"denom":  "uretired",
+						"amount": "7",
+					})
+				})
+			},
+			wantErr: "retired scheduler module account",
+		},
+		{
+			name: "fresh scheduler module account balance in another denom",
+			mutate: func(t *testing.T, f *fixture) {
+				mutateAppState(t, f, func(state map[string]any) {
+					bank := state[banktypes.ModuleName].(map[string]any)
+					bank["balances"] = append(bank["balances"].([]any), map[string]any{
+						"address": authtypes.NewModuleAddress(scheduletypes.ModuleName).String(),
+						"coins": []any{map[string]any{
+							"denom":  "ufreshdust",
+							"amount": "9",
+						}},
+					})
+					bank["supply"] = append(bank["supply"].([]any), map[string]any{
+						"denom":  "ufreshdust",
+						"amount": "9",
+					})
+				})
+			},
+			wantErr: "requires fresh scheduler module account",
+		},
+		{
+			name: "pre-existing current scheduler default",
+			mutate: func(t *testing.T, f *fixture) {
+				mutateAppState(t, f, func(state map[string]any) {
+					state[scheduletypes.ModuleName] = scheduleGenesisJSONValue(
+						t,
+						scheduletypes.DefaultGenesis(),
+					)
+				})
+			},
+			wantErr: `requires source module "message_schedule" to be absent`,
+		},
+		{
+			name: "pre-existing source-chain-bound scheduler history",
+			mutate: func(t *testing.T, f *fixture) {
+				mutateAppState(t, f, func(state map[string]any) {
+					id := scheduletypes.FormatScheduleID(1)
+					creator := sdk.AccAddress(bytes.Repeat([]byte{0x71}, 20)).String()
+					recipient := sdk.AccAddress(bytes.Repeat([]byte{0x72}, 20)).String()
+					genesis := scheduletypes.DefaultGenesis()
+					genesis.Schedules = []*scheduletypes.Schedule{{
+						Id:                     id,
+						Creator:                creator,
+						Revision:               1,
+						Status:                 scheduletypes.ScheduleStatus_SCHEDULE_STATUS_COMPLETED,
+						Recipient:              recipient,
+						AmountPerExecutionUzrn: "7",
+						ExecutionFeeUzrn:       "3",
+						ExecutionCount:         1,
+						PrincipalRemainingUzrn: "0",
+						FeeRemainingUzrn:       "0",
+						CreatedHeight:          80,
+						UpdatedHeight:          90,
+						LastExecutionHeight:    90,
+						TerminalReason:         "all_occurrences_succeeded",
+					}}
+					genesis.Receipts = []*scheduletypes.ExecutionReceipt{{
+						OccurrenceId:   scheduletypes.OccurrenceID(f.policy.SourceChainID, id, 1, 1, 90),
+						ScheduleId:     id,
+						Revision:       1,
+						Sequence:       1,
+						DueHeight:      90,
+						ExecutedHeight: 90,
+						Recipient:      recipient,
+						AmountUzrn:     "7",
+						FeeUzrn:        "3",
+						ActionSha256:   scheduletypes.ActionDigest(recipient, "7", "3"),
+						Outcome:        scheduletypes.ExecutionOutcome_EXECUTION_OUTCOME_SUCCEEDED,
+					}}
+					genesis.NextScheduleId = 2
+					if err := genesis.ValidateForChainID(f.policy.SourceChainID); err != nil {
+						t.Fatalf("source-chain scheduler fixture is invalid: %v", err)
+					}
+					state[scheduletypes.ModuleName] = scheduleGenesisJSONValue(t, genesis)
+				})
+			},
+			wantErr: `requires source module "message_schedule" to be absent`,
+		},
 		{
 			name: "live IBC client",
 			mutate: func(t *testing.T, f *fixture) {
@@ -586,6 +729,148 @@ func TestCompileGenesisRejectsUnsafeProfiles(t *testing.T) {
 				t.Fatalf("expected %q, got %v", test.wantErr, err)
 			}
 		})
+	}
+}
+
+func TestCompileGenesisPreservesFunded32ByteBankOwner(t *testing.T) {
+	address := sdk.AccAddress(bytes.Repeat([]byte{0x71}, 32)).String()
+	for _, spelling := range []string{address, strings.ToUpper(address)} {
+		t.Run(spelling, func(t *testing.T) {
+			f := newFixture(t)
+			var sourceBank []byte
+			mutateAppState(t, &f, func(state map[string]any) {
+				bank := state[banktypes.ModuleName].(map[string]any)
+				coins := []any{map[string]any{"denom": "uother", "amount": "7"}}
+				bank["balances"] = append(bank["balances"].([]any), map[string]any{
+					"address": spelling,
+					"coins":   coins,
+				})
+				// uother sorts before the fixture's uzrn supply.
+				bank["supply"] = append(coins, bank["supply"].([]any)...)
+				var err error
+				sourceBank, err = json.Marshal(bank)
+				if err != nil {
+					t.Fatal(err)
+				}
+			})
+			encodingConfig := zeroneapp.MakeEncodingConfig()
+			var bank banktypes.GenesisState
+			if err := encodingConfig.Codec.UnmarshalJSON(sourceBank, &bank); err != nil {
+				t.Fatal(err)
+			}
+			if err := bank.Validate(); err != nil {
+				t.Fatalf("funded 32-byte source owner is not valid SDK bank genesis: %v", err)
+			}
+			total := sdk.NewCoins()
+			for _, balance := range bank.Balances {
+				total = total.Add(balance.Coins...)
+			}
+			if !total.Equal(bank.Supply) {
+				t.Fatalf("source bank supply does not equal balances: %s != %s", bank.Supply, total)
+			}
+			output, report, err := compileGenesis(f.input, f.inputDigest, f.policy, f.policyFile, "did:zrn:reproducer-a")
+			if err != nil {
+				t.Fatalf("unrelated funded 32-byte source owner rejected: %v", err)
+			}
+			target, err := genutiltypes.AppGenesisFromReader(bytes.NewReader(output))
+			if err != nil {
+				t.Fatal(err)
+			}
+			var state map[string]json.RawMessage
+			if err := json.Unmarshal(target.AppState, &state); err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(sourceBank, state[banktypes.ModuleName]) {
+				t.Fatal("compiler changed committed bank state or normalized address spelling")
+			}
+			foundBank := false
+			for _, module := range report.ModuleDigests {
+				if module.Module == banktypes.ModuleName {
+					foundBank = true
+					if module.Changed || module.BeforeSHA256 != module.AfterSHA256 {
+						t.Fatalf("compiler reports a bank mutation: %#v", module)
+					}
+				}
+			}
+			if !foundBank {
+				t.Fatal("compiler omitted bank digest")
+			}
+		})
+	}
+}
+
+func TestSchedulerBalancePreflightPreservesSDKBankAddressDomain(t *testing.T) {
+	encodingConfig := zeroneapp.MakeEncodingConfig()
+	payloads := [][]byte{}
+	for _, length := range []int{1, 19, 20, 21, 31, 32, 33, 50, 51, 255} {
+		payloads = append(payloads, bytes.Repeat([]byte{0x71}, length))
+	}
+	for _, module := range []string{retiredScheduleModuleName, scheduletypes.ModuleName} {
+		// A full 20-byte scheduler prefix is still an unrelated 32-byte owner.
+		payloads = append(payloads, append(authtypes.NewModuleAddress(module).Bytes(), bytes.Repeat([]byte{0x71}, 12)...))
+	}
+	for _, payload := range payloads {
+		address := sdk.AccAddress(payload).String()
+		for _, spelling := range []string{address, strings.ToUpper(address)} {
+			t.Run(spelling, func(t *testing.T) {
+				decoded, err := sdk.AccAddressFromBech32(spelling)
+				if err != nil || !bytes.Equal(decoded, payload) {
+					t.Fatalf("SDK bank address did not decode to its complete payload: %v", err)
+				}
+				bank := banktypes.DefaultGenesisState()
+				bank.Balances = []banktypes.Balance{{
+					Address: spelling,
+					Coins:   sdk.NewCoins(sdk.NewInt64Coin("uother", 7)),
+				}}
+				bank.Supply = bank.Balances[0].Coins
+				if err := bank.Validate(); err != nil {
+					t.Fatalf("SDK bank genesis rejected fixture: %v", err)
+				}
+				raw, err := encodingConfig.Codec.MarshalJSON(bank)
+				if err != nil {
+					t.Fatal(err)
+				}
+				before := append([]byte(nil), raw...)
+				if err := requireNoSchedulerBankBalances(encodingConfig.Codec, raw); err != nil {
+					t.Fatalf("unrelated SDK bank owner rejected: %v", err)
+				}
+				if !bytes.Equal(before, raw) {
+					t.Fatal("scheduler preflight changed bank JSON")
+				}
+			})
+		}
+	}
+}
+
+func TestSchedulerBalancePreflightRejectsEquivalentAddressEncodings(t *testing.T) {
+	encodingConfig := zeroneapp.MakeEncodingConfig()
+	for _, moduleName := range []string{retiredScheduleModuleName, scheduletypes.ModuleName} {
+		for _, denom := range []string{"uzrn", "uother"} {
+			t.Run(moduleName+"/"+denom, func(t *testing.T) {
+				address := authtypes.NewModuleAddress(moduleName)
+				uppercaseAddress := strings.ToUpper(address.String())
+				decoded, err := sdk.AccAddressFromBech32(uppercaseAddress)
+				if err != nil || !bytes.Equal(decoded, address) {
+					t.Fatalf("uppercase address does not resolve to the scheduler: %v", err)
+				}
+				bankGenesis := banktypes.DefaultGenesisState()
+				bankGenesis.Balances = []banktypes.Balance{{
+					Address: uppercaseAddress,
+					Coins:   sdk.NewCoins(sdk.NewInt64Coin(denom, 1)),
+				}}
+				bankGenesis.Supply = bankGenesis.Balances[0].Coins
+				if err := bankGenesis.Validate(); err != nil {
+					t.Fatalf("scheduler balance fixture is not valid SDK genesis: %v", err)
+				}
+				raw, err := encodingConfig.Codec.MarshalJSON(bankGenesis)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := requireNoSchedulerBankBalances(encodingConfig.Codec, raw); err == nil {
+					t.Fatal("scheduler balance escaped preflight through equivalent Bech32 encoding")
+				}
+			})
+		}
 	}
 }
 
@@ -896,6 +1181,21 @@ func mutateAppState(t *testing.T, f *fixture, mutate func(map[string]any)) {
 		t.Fatal(err)
 	}
 	f.policyFile = digest(f.policyBytes)
+}
+
+func scheduleGenesisJSONValue(t *testing.T, genesis *scheduletypes.GenesisState) any {
+	t.Helper()
+	raw, err := json.Marshal(genesis)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var value any
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
+		t.Fatal(err)
+	}
+	return value
 }
 
 func TestDigestKnownAnswer(t *testing.T) {

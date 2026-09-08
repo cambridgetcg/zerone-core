@@ -31,6 +31,7 @@ import (
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	bip39 "github.com/cosmos/go-bip39"
 	"golang.org/x/crypto/ripemd160"
+	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
@@ -158,11 +159,12 @@ type networkManifest struct {
 		AccountAddress string `json:"account_address"`
 	} `json:"operations"`
 	Activations struct {
-		VoteExtensions  string `json:"vote_extensions"`
-		PoT             string `json:"pot"`
-		IBC             string `json:"ibc"`
-		SubstrateBridge string `json:"substrate_bridge"`
-		Claiming        string `json:"claiming"`
+		VoteExtensions           string `json:"vote_extensions"`
+		PoT                      string `json:"pot"`
+		IBC                      string `json:"ibc"`
+		SubstrateBridge          string `json:"substrate_bridge"`
+		Claiming                 string `json:"claiming"`
+		MessageScheduleAdmission string `json:"message_schedule_admission"`
 	} `json:"activations"`
 }
 
@@ -209,103 +211,147 @@ func auditArtifactDir(dir, requiredMode string) result {
 		return result{Issues: []issue{{Path: "artifact-dir", Message: "must be a directory"}}}
 	}
 
+	// Pin the selected directory. All children are flat code-owned names opened
+	// relative to this descriptor; a rename cannot redirect later reads.
+	fd, err := unix.Open(clean, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
+	if err != nil {
+		return result{Issues: []issue{{Path: "artifact-dir", Message: "cannot open directory safely"}}}
+	}
+	directory := os.NewFile(uintptr(fd), "artifact-dir")
+	defer directory.Close()
+	opened, err := directory.Stat()
+	if err != nil || !opened.IsDir() || !os.SameFile(info, opened) {
+		return result{Issues: []issue{{Path: "artifact-dir", Message: "directory changed while opening"}}}
+	}
+	// Five entries suffice to reject an oversized set; never recurse or open
+	// any child before the complete four-name intake policy has passed.
+	entries, err := directory.ReadDir(len(requiredArtifactFiles) + 1)
+	if err != nil && !errors.Is(err, io.EOF) {
+		return result{Issues: []issue{{Path: "artifact-dir", Message: "cannot list directory"}}}
+	}
+	if issues := auditArtifactEntries(entries); len(issues) != 0 {
+		return result{Issues: issues}
+	}
+	files := make(map[string][]byte, len(requiredArtifactFiles))
 	var filesystemIssues []issue
-	err = filepath.WalkDir(clean, func(path string, entry os.DirEntry, walkErr error) error {
-		rel, relErr := filepath.Rel(clean, path)
-		if relErr != nil {
-			filesystemIssues = append(filesystemIssues, issue{Path: path, Message: relErr.Error()})
-			return nil
-		}
-		if walkErr != nil {
-			filesystemIssues = append(filesystemIssues, issue{Path: rel, Message: walkErr.Error()})
-			return nil
-		}
-		if rel == "." {
-			return nil
-		}
-		if entry.Type()&os.ModeSymlink != 0 {
-			filesystemIssues = append(filesystemIssues, issue{Path: rel, Message: "symlinks are forbidden in release artifacts"})
-			if entry.IsDir() {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if entry.IsDir() {
-			filesystemIssues = append(filesystemIssues, issue{Path: rel, Message: "subdirectories are forbidden; the release artifact set has exactly four files"})
-			return filepath.SkipDir
-		}
-		if !entry.Type().IsRegular() {
-			filesystemIssues = append(filesystemIssues, issue{Path: rel, Message: "only regular public artifact files are allowed"})
-			return nil
-		}
-		if artifactNameLooksPrivate(entry.Name()) {
-			filesystemIssues = append(filesystemIssues, issue{Path: rel, Message: "private key/secret filename is forbidden"})
-		}
-		if _, allowed := requiredArtifactFiles[rel]; !allowed {
-			filesystemIssues = append(filesystemIssues, issue{Path: rel, Message: "unexpected file; the release artifact set has exactly four allowlisted files"})
-		}
-		contents, readErr := os.ReadFile(path)
+	for _, entry := range entries {
+		name := entry.Name()
+		contents, readErr := readPublicArtifact(fd, name)
 		if readErr != nil {
-			filesystemIssues = append(filesystemIssues, issue{Path: rel, Message: readErr.Error()})
-			return nil
+			filesystemIssues = append(filesystemIssues, issue{Path: name, Message: readErr.Error()})
+			continue
 		}
+		files[name] = contents
 		for _, marker := range prohibitedContent {
 			if bytes.Contains(contents, marker) {
-				filesystemIssues = append(filesystemIssues, issue{Path: rel, Message: fmt.Sprintf("contains prohibited private-key marker %q", marker)})
+				filesystemIssues = append(filesystemIssues, issue{Path: name, Message: fmt.Sprintf("contains prohibited private-key marker %q", marker)})
 			}
 		}
 		if containsValidMnemonic(contents) {
-			filesystemIssues = append(filesystemIssues, issue{Path: rel, Message: "contains a valid BIP-39 mnemonic"})
+			filesystemIssues = append(filesystemIssues, issue{Path: name, Message: "contains a valid BIP-39 mnemonic"})
 		}
-		return nil
-	})
-	if err != nil {
-		filesystemIssues = append(filesystemIssues, issue{Path: "artifact-dir", Message: err.Error()})
+	}
+	if len(filesystemIssues) != 0 {
+		sortIssues(filesystemIssues)
+		return result{Issues: filesystemIssues}
 	}
 
-	genesis, genesisErr := os.ReadFile(filepath.Join(clean, "genesis.json"))
-	checksum, checksumErr := os.ReadFile(filepath.Join(clean, "genesis.sha256"))
-	manifest, manifestErr := os.ReadFile(filepath.Join(clean, "network-manifest.json"))
-	humanManifest, humanManifestErr := os.ReadFile(filepath.Join(clean, "GENESIS-MANIFEST.md"))
-	if genesisErr != nil {
-		filesystemIssues = append(filesystemIssues, issue{Path: "genesis.json", Message: "required artifact missing or unreadable: " + genesisErr.Error()})
+	// Audit precisely the bounded bytes already read, never reopen a path.
+	genesis := files["genesis.json"]
+	manifest := files["network-manifest.json"]
+	r := auditGenesis(genesis)
+	digest := sha256.Sum256(genesis)
+	genesisHash := hex.EncodeToString(digest[:])
+	r.Issues = append(r.Issues, auditGenesisChecksum(files["genesis.sha256"], genesisHash)...)
+	r.Issues = append(r.Issues, auditNetworkManifest(manifest, r, genesisHash, requiredMode)...)
+	parsedManifest, parseIssues := decodeNetworkManifest(manifest)
+	if len(parseIssues) == 0 {
+		r.Issues = append(r.Issues, auditHumanManifest(files["GENESIS-MANIFEST.md"], parsedManifest, r)...)
 	}
-	if checksumErr != nil {
-		filesystemIssues = append(filesystemIssues, issue{Path: "genesis.sha256", Message: "required artifact missing or unreadable: " + checksumErr.Error()})
-	}
-	if manifestErr != nil {
-		filesystemIssues = append(filesystemIssues, issue{Path: "network-manifest.json", Message: "required artifact missing or unreadable: " + manifestErr.Error()})
-	}
-	if humanManifestErr != nil {
-		filesystemIssues = append(filesystemIssues, issue{Path: "GENESIS-MANIFEST.md", Message: "required artifact missing or unreadable: " + humanManifestErr.Error()})
-	}
-
-	r := result{}
-	if genesisErr == nil {
-		r = auditGenesis(genesis)
-		digest := sha256.Sum256(genesis)
-		genesisHash := hex.EncodeToString(digest[:])
-		if checksumErr == nil {
-			r.Issues = append(r.Issues, auditGenesisChecksum(checksum, genesisHash)...)
-		}
-		if manifestErr == nil {
-			r.Issues = append(r.Issues, auditNetworkManifest(manifest, r, genesisHash, requiredMode)...)
-			if humanManifestErr == nil {
-				parsedManifest, parseIssues := decodeNetworkManifest(manifest)
-				if len(parseIssues) == 0 {
-					r.Issues = append(r.Issues, auditHumanManifest(humanManifest, parsedManifest, r)...)
-				}
-			}
-		}
-	} else if manifestErr == nil {
-		// Still report strict JSON errors even when the source genesis needed for
-		// semantic comparison is absent.
-		_, parseIssues := decodeNetworkManifest(manifest)
-		r.Issues = append(r.Issues, parseIssues...)
-	}
-	r.Issues = append(r.Issues, filesystemIssues...)
 	sortIssues(r.Issues)
 	return r
+}
+
+// Pure name/type preflight. In particular, never inspect the contents of an
+// unexpected or private entry in an attempt to explain its rejection.
+func auditArtifactEntries(entries []os.DirEntry) []issue {
+	var issues []issue
+	seen := make(map[string]bool)
+	for _, entry := range entries {
+		name := entry.Name()
+		seen[name] = true
+		if artifactNameLooksPrivate(name) {
+			issues = append(issues, issue{Path: name, Message: "private key/secret filename is forbidden"})
+		} else if _, allowed := requiredArtifactFiles[name]; !allowed {
+			issues = append(issues, issue{Path: name, Message: "unexpected file; the release artifact set has exactly four allowlisted files"})
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			issues = append(issues, issue{Path: name, Message: "symlinks are forbidden in release artifacts"})
+		} else if !entry.Type().IsRegular() {
+			issues = append(issues, issue{Path: name, Message: "only regular public artifact files are allowed; no subdirectories"})
+		}
+	}
+	for name := range requiredArtifactFiles {
+		if !seen[name] {
+			issues = append(issues, issue{Path: name, Message: "required artifact missing"})
+		}
+	}
+	if len(entries) != len(requiredArtifactFiles) {
+		issues = append(issues, issue{Path: "artifact-dir", Message: "must contain exactly four allowlisted files"})
+	}
+	sortIssues(issues)
+	return issues
+}
+
+func artifactSizeLimit(name string) int64 {
+	switch name {
+	case "genesis.json":
+		return 32 << 20
+	case "network-manifest.json":
+		return 1 << 20
+	case "GENESIS-MANIFEST.md":
+		return 256 << 10
+	case "genesis.sha256":
+		return 1024
+	default:
+		return 0
+	}
+}
+
+func readPublicArtifact(directoryFD int, name string) ([]byte, error) {
+	if _, allowed := requiredArtifactFiles[name]; !allowed || artifactNameLooksPrivate(name) {
+		return nil, errors.New("refusing non-allowlisted artifact before open")
+	}
+	var before unix.Stat_t
+	if err := unix.Fstatat(directoryFD, name, &before, unix.AT_SYMLINK_NOFOLLOW); err != nil {
+		return nil, errors.New("required artifact missing or unreadable")
+	}
+	limit := artifactSizeLimit(name)
+	if before.Mode&unix.S_IFMT != unix.S_IFREG || before.Nlink != 1 {
+		return nil, errors.New("required artifact must be a regular file without symlinks or hardlinks")
+	}
+	if before.Size < 0 || before.Size > limit {
+		return nil, errors.New("required artifact exceeds its size limit")
+	}
+	fd, err := unix.Openat(directoryFD, name, unix.O_RDONLY|unix.O_NOFOLLOW|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
+	if err != nil {
+		return nil, errors.New("required artifact cannot be opened safely")
+	}
+	file := os.NewFile(uintptr(fd), name)
+	defer file.Close()
+	var opened unix.Stat_t
+	if err := unix.Fstat(fd, &opened); err != nil || opened.Mode&unix.S_IFMT != unix.S_IFREG ||
+		opened.Dev != before.Dev || opened.Ino != before.Ino || opened.Nlink != 1 {
+		return nil, errors.New("required artifact changed while opening or is not regular")
+	}
+	contents, err := io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil {
+		return nil, errors.New("required artifact cannot be read")
+	}
+	if int64(len(contents)) > limit {
+		return nil, errors.New("required artifact grew beyond its size limit")
+	}
+	return contents, nil
 }
 
 func auditGenesisChecksum(contents []byte, genesisHash string) []issue {
@@ -343,6 +389,7 @@ func renderHumanManifest(manifest networkManifest, genesis result) []byte {
 - Binary version: %s
 - Binary target: %s/%s
 - Trust model: %s
+- Native message-schedule admission: disabled (`+"`accept_new_schedules=false`"+`).
 
 ## Exact supply
 
@@ -374,8 +421,8 @@ Total: **%s uzrn (13,555 ZRN)**.
 
 Vote extensions and PoT settlement are not live. IBC/ICA, transfers, the
 substrate bridge, knowledge admission/rewards, claiming, alignment corrections,
-counterexamples, and liquidity creation are latched off in genesis and enforced
-by the mandatory artifact audit.
+counterexamples, liquidity creation, and native message-schedule admission are
+latched off in genesis and enforced by the mandatory artifact audit.
 `,
 		manifest.Mode,
 		manifest.GenesisTime,
@@ -616,6 +663,7 @@ func auditNetworkManifest(contents []byte, genesis result, genesisHash, required
 		{path: "activations.ibc", got: manifest.Activations.IBC, expected: "external-disabled; localhost-only"},
 		{path: "activations.substrate_bridge", got: manifest.Activations.SubstrateBridge, expected: "disabled"},
 		{path: "activations.claiming", got: manifest.Activations.Claiming, expected: "disabled"},
+		{path: "activations.message_schedule_admission", got: manifest.Activations.MessageScheduleAdmission, expected: "disabled"},
 	} {
 		if declaration.got != declaration.expected {
 			addMismatch(declaration.path, declaration.got, declaration.expected)
@@ -1386,6 +1434,54 @@ func (a *auditor) auditProtocolDark() {
 	a.requireEmptyArray("app_state.claiming_pot.pots")
 	a.requireEmptyArray("app_state.claiming_pot.claims")
 
+	// Source presence is not activation authority. The native transfer
+	// scheduler begins empty and admission-closed; a later governance action
+	// needs its own reviewed operational decision and load rehearsal. The
+	// retired generic scheduler namespace is forbidden, not silently ignored.
+	a.requireAbsent("app_state.schedule")
+	messageSchedule, _ := a.get("app_state.message_schedule")
+	messageScheduleObject := a.requireExactObjectKeys(
+		"app_state.message_schedule",
+		messageSchedule,
+		"params",
+		"schedules",
+		"receipts",
+		"next_schedule_id",
+		"total_escrow_uzrn",
+	)
+	if messageScheduleObject != nil {
+		a.requireExactObjectKeys(
+			"app_state.message_schedule.params",
+			messageScheduleObject["params"],
+			"accept_new_schedules",
+			"min_schedule_delay_blocks",
+			"min_interval_blocks",
+			"max_executions_per_schedule",
+			"max_active_schedules_per_creator",
+			"max_due_records_per_block",
+			"max_query_limit",
+			"execution_fee_uzrn",
+			"max_transfer_per_execution_uzrn",
+		)
+	}
+	a.requireBool("app_state.message_schedule.params.accept_new_schedules", false)
+	for path, expected := range map[string]string{
+		"min_schedule_delay_blocks":        "2",
+		"min_interval_blocks":              "10",
+		"max_executions_per_schedule":      "365",
+		"max_active_schedules_per_creator": "32",
+		"max_due_records_per_block":        "64",
+		"max_query_limit":                  "100",
+		"execution_fee_uzrn":               "100000",
+		"max_transfer_per_execution_uzrn":  "1000000000000",
+	} {
+		a.requireInteger("app_state.message_schedule.params."+path, expected)
+	}
+	a.requireEmptyArray("app_state.message_schedule.schedules")
+	a.requireEmptyArray("app_state.message_schedule.receipts")
+	a.requireInteger("app_state.message_schedule.next_schedule_id", "1")
+	a.requireInteger("app_state.message_schedule.total_escrow_uzrn", "0")
+
 	// An empty genesis council and a four-address floor keep the one-validator
 	// launch from presenting unilateral operator control as plural emergency
 	// governance. The guardian stake floor also exceeds all genesis supply.
@@ -1604,6 +1700,12 @@ func (a *auditor) requireEmptyArrayValue(path string, value any, required bool) 
 	}
 	if len(items) != 0 {
 		a.add(path, "must be empty, got %d item(s)", len(items))
+	}
+}
+
+func (a *auditor) requireAbsent(path string) {
+	if _, ok := a.get(path); ok {
+		a.add(path, "retired or forbidden field must be absent")
 	}
 }
 

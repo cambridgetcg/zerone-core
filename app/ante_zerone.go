@@ -618,6 +618,12 @@ var msgTypeURLToGas = map[string]uint64{
 	"/zerone.claiming_pot.v1.MsgClaimFromPot": TransactionGasCosts["claim_from_pot"],
 	"/zerone.claiming_pot.v1.MsgClosePot":     TransactionGasCosts["close_pot"],
 
+	// Durable transfer scheduling
+	"/zerone.schedule.v2.MsgCreateSchedule": TransactionGasCosts["create_schedule"],
+	"/zerone.schedule.v2.MsgUpdateSchedule": TransactionGasCosts["update_schedule"],
+	"/zerone.schedule.v2.MsgCancelSchedule": TransactionGasCosts["cancel_schedule"],
+	"/zerone.schedule.v2.MsgUpdateParams":   TransactionGasCosts["update_schedule_params"],
+
 	// Capture defense
 	"/zerone.capture_defense.v1.MsgRequestQualification": TransactionGasCosts["request_capture_qualification"],
 	"/zerone.capture_defense.v1.MsgEndorseQualification": TransactionGasCosts["endorse_capture_qualification"],

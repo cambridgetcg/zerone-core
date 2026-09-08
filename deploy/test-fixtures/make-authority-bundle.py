@@ -734,6 +734,23 @@ def make_ceremony_artifacts(output: pathlib.Path, release: dict[str, Any]) -> st
                 "supply": [{"denom": "uzrn", "amount": "13555000000"}],
             },
             "genutil": {"gen_txs": [gentx]},
+            "message_schedule": {
+                "params": {
+                    "accept_new_schedules": False,
+                    "min_schedule_delay_blocks": 2,
+                    "min_interval_blocks": 10,
+                    "max_executions_per_schedule": 365,
+                    "max_active_schedules_per_creator": 32,
+                    "max_due_records_per_block": 64,
+                    "max_query_limit": 100,
+                    "execution_fee_uzrn": "100000",
+                    "max_transfer_per_execution_uzrn": "1000000000000",
+                },
+                "schedules": [],
+                "receipts": [],
+                "next_schedule_id": 1,
+                "total_escrow_uzrn": "0",
+            },
         },
     }
     write_json(output, "genesis.json", genesis)
@@ -778,6 +795,7 @@ def make_ceremony_artifacts(output: pathlib.Path, release: dict[str, Any]) -> st
             "ibc": "external-disabled; localhost-only",
             "substrate_bridge": "disabled",
             "claiming": "disabled",
+            "message_schedule_admission": "disabled",
         },
     }
     write_json(output, "network-manifest.json", manifest)
@@ -792,6 +810,7 @@ def make_ceremony_artifacts(output: pathlib.Path, release: dict[str, Any]) -> st
         f"- Binary SHA-256: {manifest['release']['binary_sha256']}\n"
         f"- Binary version: {manifest['release']['binary_version']}\n"
         f"- Binary target: {manifest['release']['binary_goos']}/{manifest['release']['binary_goarch']}\n"
+        "- Native message-schedule admission: disabled (`accept_new_schedules=false`).\n"
     )
     (output / "GENESIS-MANIFEST.md").write_text(human_manifest)
     release["ceremony_artifacts"] = {
@@ -803,7 +822,56 @@ def make_ceremony_artifacts(output: pathlib.Path, release: dict[str, Any]) -> st
     return genesis_sha
 
 
+def rebind_dark_genesis(output: pathlib.Path) -> None:
+    """Rebind mutated genesis bytes through DARK pre-init, using fake signatures only.
+
+    Later-stage references are intentionally not rebuilt: these clones are for
+    dark-preinit tests, not historical CUTOVER/OPEN fixtures or real signing.
+    """
+    for payload in ("RELEASE-PACKET.json", "DARK-START-DECISION.json"):
+        signature = f"{payload}.sig"
+        if (output / signature).read_bytes() != f"fixture signature {signature}\n".encode():
+            raise SystemExit("genesis rebinding requires fake-GPG fixture signatures")
+
+    release = read_json(output / "RELEASE-PACKET.json")
+    old_hash = release["genesis"]["sha256"]
+    genesis_hash = digest((output / "genesis.json").read_bytes())
+    manifest = read_json(output / "network-manifest.json")
+    human = (output / "GENESIS-MANIFEST.md").read_text()
+    old_line = f"- Genesis SHA-256: {old_hash}\n"
+    if human.count(old_line) != 1:
+        raise SystemExit("fixture human genesis hash line is not unique")
+    (output / "GENESIS-MANIFEST.md").write_text(
+        human.replace(old_line, f"- Genesis SHA-256: {genesis_hash}\n")
+    )
+    (output / "genesis.sha256").write_text(f"{genesis_hash}  genesis.json\n")
+    manifest["genesis_sha256"] = genesis_hash
+    write_json(output, "network-manifest.json", manifest)
+    release["genesis"]["sha256"] = genesis_hash
+    for field, filename in {
+        "genesis_checksum_sha256": "genesis.sha256",
+        "network_manifest_sha256": "network-manifest.json",
+        "human_manifest_sha256": "GENESIS-MANIFEST.md",
+    }.items():
+        release["ceremony_artifacts"][field] = digest((output / filename).read_bytes())
+    write_json(output, "RELEASE-PACKET.json", release)
+    release_pair = pair(output, "RELEASE-PACKET.json", "RELEASE-PACKET.json.sig")
+    dark = read_json(output / "DARK-START-DECISION.json")
+    dark["release_packet_sha256"] = release_pair["sha256"]
+    dark["release_packet_detached_signature_sha256"] = release_pair[
+        "detached_signature_sha256"
+    ]
+    write_json(output, "DARK-START-DECISION.json", dark)
+
+
 def main() -> None:
+    if sys.argv[1:2] == ["rebind-dark-genesis"]:
+        parser = argparse.ArgumentParser(description="Rebind fake-GPG DARK genesis fixtures only")
+        parser.add_argument("command", choices=["rebind-dark-genesis"])
+        parser.add_argument("bundle", type=pathlib.Path)
+        args = parser.parse_args()
+        rebind_dark_genesis(args.bundle)
+        return
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True)
     parser.add_argument("--main", required=True)

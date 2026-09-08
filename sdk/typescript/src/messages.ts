@@ -28,6 +28,8 @@ export * as ontology from "./generated/zerone/ontology/v1/tx";
 export { MessageComposer as ontologyMessages } from "./generated/zerone/ontology/v1/tx.registry";
 export * as qualification from "./generated/zerone/qualification/v1/tx";
 export { MessageComposer as qualificationMessages } from "./generated/zerone/qualification/v1/tx.registry";
+export * as schedule from "./generated/zerone/schedule/v2/tx";
+export { MessageComposer as scheduleMessages } from "./generated/zerone/schedule/v2/tx.registry";
 export * as sponsorship from "./generated/zerone/sponsorship/v1/tx";
 export { MessageComposer as sponsorshipMessages } from "./generated/zerone/sponsorship/v1/tx.registry";
 export * as staking from "./generated/zerone/staking/v1/tx";

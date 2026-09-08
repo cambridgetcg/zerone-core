@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Isolated four-validator consensus and MsgSend rehearsal.
+# Isolated four-validator consensus, scheduler/MsgSend, and fifth-observer replay/restart rehearsal.
 #
 # Every binary, home, key, log, and Go build cache lives below a fresh mktemp
 # directory. All listeners and peers are loopback-only. The directory is
@@ -10,6 +10,9 @@ set -euo pipefail
 export LC_ALL=C
 export LANG=C
 export GOPROXY=off
+export GOSUMDB=off
+export GOTOOLCHAIN=local
+export GOMAXPROCS=2
 export GOFLAGS=-mod=readonly
 umask 077
 
@@ -25,6 +28,7 @@ TX_FEE="250000"
 TX_GAS="250000"
 KEEP="${KEEP_REHEARSAL:-0}"
 ALLOW_DIRTY=0
+OBSERVER_ONLY=0
 SUCCESS=0
 RUN_ROOT=""
 BINARY=""
@@ -40,18 +44,34 @@ declare -a NODE_HOME NODE_LOG NODE_PID NODE_ID P2P_PORT RPC_PORT
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/local-consensus-rehearsal.sh [--keep] [--allow-dirty]
+Usage: scripts/local-consensus-rehearsal.sh [--keep] [--allow-dirty] [--observer-only]
 
-Builds the current checkout into fresh temporary state and proves:
+By default, builds the current checkout into fresh temporary state and proves:
   * four equal-power validators agree on block ID and app hash;
   * three validators continue finality after one validator stops;
   * two validators cannot finalize after a second validator stops;
   * the stopped validators recover and converge;
+  * closed-admission, fully backed test-genesis schedules execute without a
+    requester or ordinary transactions, with a bounded prefix and late recurrence;
+  * a validator recovers the same known-key, AppHash-proven scheduler/bank state
+    after separately measured graceful TERM and immediate owned-PID KILL outages;
   * one signed MsgSend commits, verifies with a Merkle proof on all nodes,
     increments the sender sequence exactly once, and is rejected on replay; and
+  * a fifth fresh non-signing observer replays public genesis/history over P2P,
+    proves its applied checkpoint against header H+1, and retains it after a
+    graceful same-home restart without account keys, signing, or state sync; and
   * two stopped, independently copied application databases produce the same
     AppHash-bound, passing legacy custom-staking census.
 
+--observer-only
+        Targeted diagnostic only: use the SAME fresh four-validator genesis and
+        runner, wait above initial height 10, prove initial quorum agreement, then
+        run the fifth observer replay/clean same-home restart/checkpoint phase.
+        NOT RUN: scheduler timing/TERM/KILL/bank-zero proofs, 75% progress/50% halt
+        and validator recovery tests, MsgSend/replay, or offline census.
+        Imported schedules may execute, but are not assessed in this mode.
+        A targeted PASS does NOT establish the full integrated suite or fix the
+        upstream empty-valued bank-index/nonmembership proof limitation.
 --keep  Retain successful state and logs (failures are always retained).
 --allow-dirty
         Development-only escape hatch. A dirty build is labeled NON-FINAL;
@@ -101,37 +121,90 @@ is_owned_pid() {
   pid="${NODE_PID[$index]:-}"
   [ -n "${pid}" ] || return 1
   kill -0 "${pid}" 2>/dev/null || return 1
-  command_line="$(ps -p "${pid}" -o command= 2>/dev/null || true)"
-  case "${command_line}" in
-    *"${BINARY}"*"start"*"--home ${NODE_HOME[$index]}"*) return 0 ;;
+  command_line="$(ps -ww -p "${pid}" -o command= 2>/dev/null || true)"
+  # start_node supplies this exact argv prefix. Reject a different executable
+  # or a home with a matching prefix; do not signal from truncated ps output.
+  case "${command_line} " in
+    "${BINARY} start --home ${NODE_HOME[$index]} "*) return 0 ;;
     *) return 1 ;;
   esac
 }
 
 stop_node() {
-  local index="$1" pid
+  local index="$1" mode="${2:-cleanup}" pid wait_status
+  case "${mode}" in cleanup|graceful) ;; *) die "unsupported stop mode" ;; esac
   pid="${NODE_PID[$index]:-}"
-  [ -n "${pid}" ] || return 0
+  # Cleanup is idempotent; a graceful-restart proof requires a live child and
+  # successful TERM delivery followed by its successful (zero-status) exit.
+  if [ -z "${pid}" ]; then
+    [ "${mode}" != "graceful" ] || die "node ${index} has no recorded PID for graceful stop"
+    return 0
+  fi
 
   if kill -0 "${pid}" 2>/dev/null; then
     is_owned_pid "${index}" || die "refusing to signal unrecognized PID ${pid} for node ${index}"
-    kill -TERM "${pid}" 2>/dev/null || true
+    kill -TERM "${pid}" 2>/dev/null || {
+      [ "${mode}" != "graceful" ] || die "could not TERM owned node ${index}; no graceful restart-pass claim"
+    }
     for _ in $(seq 1 40); do
       kill -0 "${pid}" 2>/dev/null || break
       sleep 0.25
     done
     if kill -0 "${pid}" 2>/dev/null; then
+      [ "${mode}" != "graceful" ] || die "node ${index} did not stop gracefully; no restart-pass claim"
       is_owned_pid "${index}" || die "PID ${pid} changed identity while stopping node ${index}"
       kill -KILL "${pid}" 2>/dev/null || true
     fi
-    wait "${pid}" 2>/dev/null || true
+    wait "${pid}" 2>/dev/null || {
+      wait_status=$?
+      [ "${mode}" != "graceful" ] || die "node ${index} exited with status ${wait_status}; no graceful restart-pass claim"
+    }
+  else
+    [ "${mode}" != "graceful" ] || die "node ${index} exited before graceful stop; no restart-pass claim"
   fi
   NODE_PID[index]=""
 }
 
+# Deliberate test signals are separate from cleanup's TERM-then-KILL fallback.
+# A graceful test fails instead of silently counting escalation as TERM recovery.
+stop_for_scheduler_restart() {
+  local index="$1" signal="$2" pid
+  case "${signal}" in TERM|KILL) ;; *) die "unsupported restart signal ${signal}" ;; esac
+  pid="${NODE_PID[$index]:-}"
+  is_owned_pid "${index}" || die "refusing ${signal} for unrecognized scheduler test PID ${pid}"
+  kill -"${signal}" "${pid}" || die "could not signal owned scheduler test PID ${pid}"
+  for _ in $(seq 1 80); do
+    kill -0 "${pid}" 2>/dev/null || break
+    sleep 0.25
+  done
+  if kill -0 "${pid}" 2>/dev/null; then
+    die "scheduler ${signal} did not stop node ${index}; no graceful-pass claim"
+  fi
+  wait "${pid}" 2>/dev/null || true
+  NODE_PID[index]=""
+}
+
+record_scheduler_timeline() {
+  local phase="$1" signal="$2" node_height="" state_sha=""
+  if is_owned_pid 3; then node_height="$(current_height 3)"; fi
+  if [ -f "${NODE_HOME[3]}/data/priv_validator_state.json" ]; then
+    state_sha="$(sha256_file "${NODE_HOME[3]}/data/priv_validator_state.json")"
+  fi
+  jq -cnS --arg timestamp "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+    --arg phase "${phase}" --arg signal "${signal}" \
+    --arg pid "${NODE_PID[3]:-}" --arg node_height "${node_height}" \
+    --arg peer_height "$(current_height 0)" --arg state_sha256 "${state_sha}" \
+    --arg binary_sha256 "$(sha256_file "${BINARY}")" \
+    '{timestamp:$timestamp,phase:$phase,signal:$signal,validator:3,pid:$pid,
+      observed_node_committed_height:(if $node_height == "" then null else $node_height end),observed_peer_committed_height:$peer_height,
+      priv_validator_state_sha256:$state_sha256,binary_sha256:$binary_sha256,
+      boundary:"sampled committed heights, not a measured FinalizeBlock/Commit boundary"}' \
+    >> "${RUN_ROOT}/reports/scheduler-restart-timeline.jsonl"
+}
+
 stop_all() {
   local index
-  for index in 0 1 2 3; do
+  for index in 0 1 2 3 4; do
     stop_node "${index}" || true
   done
 }
@@ -202,7 +275,7 @@ allocate_ports() {
     done
     if [ "${available}" -eq 1 ]; then
       BASE_PORT="${candidate}"
-      for offset in 0 1 2 3; do
+      for offset in 0 1 2 3 4; do
         P2P_PORT[offset]=$((candidate + offset * 2))
         RPC_PORT[offset]=$((candidate + offset * 2 + 1))
       done
@@ -274,6 +347,10 @@ configure_node() {
   sed_in_place 's|^timeout_commit = .*|timeout_commit = "500ms"|' "${config}"
   sed_in_place 's|^prometheus = .*|prometheus = false|' "${config}"
   sed_in_place 's|^pprof_laddr = .*|pprof_laddr = ""|' "${config}"
+  sed_in_place 's|^priv_validator_laddr = .*|priv_validator_laddr = ""|' "${config}"
+  sed_in_place 's|^unsafe = .*|unsafe = false|' "${config}"
+  sed_in_place '/^\[statesync\]/,/^\[/s|^enable = .*|enable = false|' "${config}"
+  sed_in_place 's|^rpc_servers = .*|rpc_servers = ""|' "${config}"
   sed_in_place 's|^minimum-gas-prices = .*|minimum-gas-prices = "1uzrn"|' "${app}"
 }
 
@@ -293,6 +370,8 @@ start_node() {
   port_is_free "${P2P_PORT[$index]}" || die "node ${index} P2P port is no longer free"
   port_is_free "${RPC_PORT[$index]}" || die "node ${index} RPC port is no longer free"
   peers="$(persistent_peers "${index}")"
+  [ "$(sha256_file "${BINARY}")" = "${BINARY_SHA}" ] || die "candidate daemon bytes changed before node ${index} start"
+  [ "$(sha256_file "${NODE_HOME[$index]}/config/genesis.json")" = "${GENESIS_SHA}" ] || die "public genesis bytes changed before node ${index} start"
 
   "${BINARY}" start \
     --home "${NODE_HOME[$index]}" \
@@ -360,6 +439,67 @@ verify_phase() {
     > "${report}" || die "cross-node consensus verification failed in ${label} phase"
   run_commit_test "${label}" "$1"
   ok "${label}: canonical commit and cross-node hashes verified"
+}
+
+verify_scheduler_checkpoint() {
+  local height="$1" label="$2" index endpoints=""
+  shift 2
+  for index in "$@"; do
+    wait_for_height "${index}" "$((height + 2))" "scheduler version ${height}, anchor $((height + 1))"
+    [ -z "${endpoints}" ] || endpoints="${endpoints},"
+    endpoints="${endpoints}$(rpc_url "${index}")"
+  done
+  "${VERIFY_BINARY}" -rpcs "${endpoints}" -expect-chain-id "${CHAIN_ID}" \
+    -expect-validators 4 -expect-equal-power \
+    -scheduler-expect "${RUN_ROOT}/reports/scheduler-expect-${height}.json" \
+    > "${RUN_ROOT}/reports/scheduler-${label}.json" || die "scheduler checkpoint ${label} failed"
+  ok "scheduler ${label}: exact known state/balance keys and proofs at ${height}, signed anchor $((height + 1)); no ordinary transactions"
+}
+
+scheduler_restart_phase() {
+  local signal="$1" due="$2" index target
+  [ "$(current_height 0)" -lt "${due}" ] || die "missed ${signal} pre-due window at ${due}; no precise-boundary claim"
+  wait_for_height 3 "$((due - 8))" "${signal} pre-due restart window"
+  record_scheduler_timeline before-signal "${signal}"
+  [ "$(current_height 3)" -lt "${due}" ] || die "validator 3 already reached ${signal} due height ${due}"
+  stop_for_scheduler_restart 3 "${signal}"
+  for index in 0 1 2; do
+    [ "$(current_height "${index}")" -lt "${due}" ] || die "${signal} stop completed after peer ${index} reached due height ${due}; outage claim unavailable"
+  done
+  record_scheduler_timeline stopped-before-due "${signal}"
+  for index in 0 1 2; do
+    wait_for_height "${index}" "$((due + 2))" "scheduled execution while validator 3 is offline"
+  done
+  [ -z "${NODE_PID[3]:-}" ] || die "validator 3 was not offline through due occurrence"
+  record_scheduler_timeline offline-after-due "${signal}"
+  # Prove the actual due occurrence on the surviving quorum before restart.
+  verify_scheduler_checkpoint "${due}" "${signal}-offline" 0 1 2
+  record_scheduler_timeline before-restart "${signal}"
+  start_node 3
+  target=$(( $(current_height 0) + 2 ))
+  for index in 0 1 2 3; do wait_for_height "${index}" "${target}" "${signal} same-home recovery"; done
+  assert_loopback_listeners 3
+  record_scheduler_timeline recovered "${signal}"
+  verify_scheduler_checkpoint "${due}" "${signal}-recovered" 0 1 2 3
+}
+
+verify_scheduler_flow() {
+  local manifest="${RUN_ROOT}/reports/scheduler-test-manifest.json" term_due kill_due index
+  jq -e '.test_only == true and .accept_new_schedules == false and .due_cap == 2' "${manifest}" >/dev/null || die "scheduler fixture manifest is not explicitly closed/test-only"
+  term_due="$(jq -er '.term_due_height' "${manifest}")"
+  kill_due="$(jq -er '.kill_due_height' "${manifest}")"
+  info "TERM validator 3 before scheduler due ${term_due}; three validators continue without a requester"
+  scheduler_restart_phase TERM "${term_due}"
+  verify_scheduler_checkpoint "$((term_due - 1))" pre-due 0 1 2 3
+  verify_scheduler_checkpoint "$((term_due + 1))" bounded-backlog-late 0 1 2 3
+  verify_scheduler_checkpoint "$((term_due + 11))" fixed-delay-recurrence 0 1 2 3
+  info "KILL verified owned validator 3 before scheduler due ${kill_due}; reuse identical binary/home/signing state"
+  scheduler_restart_phase KILL "${kill_due}"
+  for index in 0 1 2 3; do
+    [ "$(query_balance "$(jq -er '.recipient' "${manifest}")" "${index}")" = "$(jq -er '.recipient_final_uzrn' "${manifest}")" ] || die "scheduler recipient does not have exactly one payment per expected occurrence"
+    [ "$(query_balance "$(jq -er '.escrow_address' "${manifest}")" "${index}")" = "0" ] || die "scheduler escrow is not exhausted"
+  done
+  ok "scheduler known receipts/indexes, exact payments and zero liability converge; synthetic imported history remains labelled"
 }
 
 query_balance() {
@@ -541,6 +681,85 @@ verify_message_flow() {
   ok "MsgSend ${hash}: inclusion proof matched all nodes; replay rejected; sequence advanced once"
 }
 
+verify_observer_flow() {
+  local history public_key peer_abci state_height app_hash target index expectation endpoints
+  history="$(current_height 0)"
+  [ "${history}" -gt 10 ] || die "observer cannot join before historical blocks exist"
+  [ ! -e "${NODE_HOME[4]}" ] && [ ! -L "${NODE_HOME[4]}" ] || die "observer home already exists"
+  info "initializing a fifth non-signing observer after history height ${history}"
+  # This is the entire transfer boundary: public genesis only. Fresh Comet
+  # identity files are expected; no validator home, database or keyring is copied.
+  [ "$(sha256_file "${BINARY}")" = "${BINARY_SHA}" ] || die "observer binary binding changed"
+  [ "$(sha256_file "${COORDINATOR}/config/genesis.json")" = "${GENESIS_SHA}" ] || die "observer source genesis binding changed"
+  "${BINARY}" init observer --chain-id "${CHAIN_ID}" --default-denom "${DENOM}" \
+    --home "${NODE_HOME[4]}" >/dev/null 2>> "${RUN_ROOT}/logs/init.log" || die "observer init failed"
+  cp "${COORDINATOR}/config/genesis.json" "${NODE_HOME[4]}/config/genesis.json"
+  configure_node 4
+  "${BINARY}" genesis validate --home "${NODE_HOME[4]}" \
+    >> "${RUN_ROOT}/logs/init.log" 2>&1 || die "observer public genesis validation failed"
+  NODE_ID[4]="$("${BINARY}" comet show-node-id --home "${NODE_HOME[4]}" 2>/dev/null || \
+    "${BINARY}" tendermint show-node-id --home "${NODE_HOME[4]}")"
+  public_key="$("${BINARY}" comet show-validator --home "${NODE_HOME[4]}" 2>/dev/null || \
+    "${BINARY}" tendermint show-validator --home "${NODE_HOME[4]}")"
+  public_key="$(printf '%s' "${public_key}" | jq -er '.key')"
+  for index in 0 1 2 3; do
+    [ "${NODE_ID[4]}" != "${NODE_ID[$index]}" ] || die "observer shares a validator P2P identity"
+  done
+  peer_abci="$(rpc_get 0 /abci_info)"
+  state_height="$(printf '%s' "${peer_abci}" | jq -er '.result.response.last_block_height')"
+  app_hash="$(normalize_app_hash "$(printf '%s' "${peer_abci}" | jq -er '.result.response.last_block_app_hash')")"
+  expectation="${RUN_ROOT}/reports/observer-expect-replay.json"
+  jq -cnS --arg chain "${CHAIN_ID}" --arg rpc "$(rpc_url 4)" --arg node "${NODE_ID[4]}" \
+    --arg public_key "${public_key}" --arg genesis "${GENESIS_SHA}" --arg binary "${BINARY_SHA}" \
+    --argjson history "${history}" --argjson height "${state_height}" --arg app_hash "${app_hash}" \
+    '{schema:"zerone.local-observer-checkpoint/v1",phase:"replay",chain_id:$chain,rpc:$rpc,node_id:$node,
+      consensus_public_key:$public_key,genesis_sha256:$genesis,binary_sha256:$binary,
+      history_before_join:$history,state_height:$height,app_hash:$app_hash}' > "${expectation}"
+  "${VERIFY_BINARY}" -observer-expect "${expectation}" -observer-home "${NODE_HOME[4]}" \
+    -observer-preflight -expect-chain-id "${CHAIN_ID}" -expect-validators 4 -expect-equal-power \
+    > "${RUN_ROOT}/reports/observer-preflight.json" || die "observer fresh-home preflight failed"
+  jq -cnS --arg node "4" --arg genesis "${GENESIS_SHA}" \
+    --arg config "$(sha256_file "${NODE_HOME[4]}/config/config.toml")" \
+    --arg app "$(sha256_file "${NODE_HOME[4]}/config/app.toml")" \
+    '{node:$node,role:"non-signing-observer",genesis_sha256:$genesis,config_sha256:$config,app_config_sha256:$app,accept_new_schedules:false}' \
+    >> "${RUN_ROOT}/reports/node-config-digests.jsonl"
+  start_node 4
+  wait_for_height 4 "$((history + 3))" "fresh observer P2P historical replay"
+  assert_loopback_listeners 4
+  # Sample applied H (not status.latest_app_hash, whose boundary is different).
+  # Keep this same public checkpoint through restart, even if stopping races
+  # later commits. The retained version-H proof below must still verify.
+  peer_abci="$(rpc_get 4 /abci_info)"
+  state_height="$(printf '%s' "${peer_abci}" | jq -er '.result.response.last_block_height')"
+  app_hash="$(normalize_app_hash "$(printf '%s' "${peer_abci}" | jq -er '.result.response.last_block_app_hash')")"
+  jq --argjson height "${state_height}" --arg app_hash "${app_hash}" \
+    '.state_height=$height | .app_hash=$app_hash' "${expectation}" > "${RUN_ROOT}/reports/observer-expect-applied.json"
+  expectation="${RUN_ROOT}/reports/observer-expect-applied.json"
+  endpoints="$(rpc_url 0),$(rpc_url 1),$(rpc_url 2),$(rpc_url 3),$(rpc_url 4)"
+  for index in 0 1 2 3 4; do wait_for_height "${index}" "$((state_height + 2))" "observer canonical H+1 checkpoint"; done
+  "${VERIFY_BINARY}" -rpcs "${endpoints}" -expect-chain-id "${CHAIN_ID}" -expect-validators 4 -expect-equal-power \
+    -observer-expect "${expectation}" -observer-home "${NODE_HOME[4]}" \
+    > "${RUN_ROOT}/reports/observer-replay.json" || die "observer replay/checkpoint verification failed"
+  stop_node 4 graceful
+  [ -z "${NODE_PID[4]:-}" ] || die "observer PID not cleared after graceful stop"
+  if ! port_is_free "${P2P_PORT[4]}" || ! port_is_free "${RPC_PORT[4]}"; then
+    die "observer listeners survived clean stop"
+  fi
+  wait_for_advance 3 observer-offline 0 1 2 3
+  # No init/reset/copy/key generation between these starts; identical home and
+  # binary. Validators stay online and never add observer identity to custody.
+  start_node 4
+  target=$(( $(current_height 0) + 3 ))
+  for index in 0 1 2 3 4; do wait_for_height "${index}" "${target}" "observer same-home restart catch-up"; done
+  assert_loopback_listeners 4
+  jq '.phase="restart"' "${expectation}" > "${RUN_ROOT}/reports/observer-expect-restart.json"
+  "${VERIFY_BINARY}" -rpcs "${endpoints}" -expect-chain-id "${CHAIN_ID}" -expect-validators 4 -expect-equal-power \
+    -observer-expect "${RUN_ROOT}/reports/observer-expect-restart.json" -observer-home "${NODE_HOME[4]}" \
+    > "${RUN_ROOT}/reports/observer-restart.json" || die "observer restart/retained checkpoint verification failed"
+  verify_phase five-up-observer-recovered 0 1 2 3 4
+  ok "fresh observer replayed history and retained applied H=${state_height} after restart; four validators, zero observer votes/signing state"
+}
+
 verify_offline_custom_staking_census() {
   local first_height second_height peer_height chain_id
   local abci_0 abci_1 app_height_0 app_height_1 app_hash_0 app_hash_1
@@ -599,7 +818,8 @@ verify_offline_custom_staking_census() {
 
   stop_node 0
   stop_node 1
-  for index in 0 1 2 3; do
+  stop_node 4
+  for index in 0 1 2 3 4; do
     [ -z "${NODE_PID[$index]:-}" ] || die "node ${index} still has an owned PID before database copy"
   done
   [ -z "$(find "${NODE_HOME[0]}" "${NODE_HOME[1]}" -type l -print -quit)" ] || \
@@ -652,24 +872,39 @@ verify_offline_custom_staking_census() {
   ok "offline custom-staking census matched two stopped copies at height ${app_height_0}, AppHash ${app_hash_0}"
 }
 
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    --keep) KEEP=1 ;;
-    --allow-dirty) ALLOW_DIRTY=1 ;;
-    -h|--help) usage; SUCCESS=1; exit 0 ;;
-    *) usage >&2; die "unknown argument $1" ;;
-  esac
-  shift
-done
+parse_args() {
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --keep) KEEP=1 ;;
+      --allow-dirty) ALLOW_DIRTY=1 ;;
+      --observer-only) OBSERVER_ONLY=1 ;;
+      -h|--help) usage; SUCCESS=1; exit 0 ;;
+      *) usage >&2; die "unknown argument $1" ;;
+    esac
+    shift
+  done
+}
+parse_args "$@"
 
 case "${KEEP}" in
   0|1) ;;
   *) die "KEEP_REHEARSAL must be 0 or 1" ;;
 esac
 
+# Viper environment overrides must not redirect a disposable node to a signer,
+# state-sync service, or another home. Check names only; never print values.
+assert_local_environment() {
+  python3 - <<'PY'
+import os
+if any(name.upper().startswith(("ZERONED_", "CMT_", "TM_")) for name in os.environ):
+    raise SystemExit("node configuration environment overrides are refused in this isolated rehearsal")
+PY
+}
+
 for dependency in go git jq curl lsof ps awk sed shasum grep python3; do
   command -v "${dependency}" >/dev/null 2>&1 || die "${dependency} is required"
 done
+assert_local_environment || die "unsafe node configuration environment"
 [ -f "${ROOT}/go.mod" ] || die "repository root not found at ${ROOT}"
 [ -f "${ROOT}/tests/multivalidator/multivalidator_test.go" ] || die "multivalidator test source is missing"
 grep -Eq 'ZERONE_TEST_RPC_ADDR' "${ROOT}/tests/multivalidator/multivalidator_test.go" || \
@@ -694,6 +929,27 @@ else
   SOURCE_LABEL="${SOURCE_HEAD}"
 fi
 
+snapshot_candidate_sources() {
+  python3 - "${ROOT}" "$1" <<'PY'
+import hashlib, json, os, pathlib, subprocess, sys
+root, output = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+paths = subprocess.check_output(["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard"]).split(b"\0")
+records = []
+for raw in sorted(set(p for p in paths if p)):
+    relative = os.fsdecode(raw)
+    path = root / relative
+    if path.is_symlink():
+        content, kind = os.fsencode(os.readlink(path)), "symlink-target-text"
+    elif path.is_file():
+        content, kind = path.read_bytes(), "file"
+    else:
+        records.append({"path": relative, "kind": "missing-or-directory"})
+        continue
+    records.append({"path": relative, "kind": kind, "sha256": hashlib.sha256(content).hexdigest()})
+output.write_text(json.dumps(records, sort_keys=True, indent=2) + "\n")
+PY
+}
+
 RUN_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/zerone-consensus-rehearsal.XXXXXX")"
 touch "${RUN_ROOT}/.zerone-consensus-rehearsal-owned"
 mkdir -p "${RUN_ROOT}/bin" "${RUN_ROOT}/logs" "${RUN_ROOT}/reports" \
@@ -702,26 +958,40 @@ BINARY="${RUN_ROOT}/bin/zeroned"
 VERIFY_BINARY="${RUN_ROOT}/bin/local-consensus-verify"
 CENSUS_BINARY="${RUN_ROOT}/bin/custom-staking-census"
 git -C "${ROOT}" status --short > "${RUN_ROOT}/reports/source-status.txt"
+snapshot_candidate_sources "${RUN_ROOT}/reports/candidate-source-sha256.json"
+go version > "${RUN_ROOT}/reports/toolchain.txt"
 allocate_ports
 
 info "isolated state: ${RUN_ROOT}"
 info "building checkout ${SOURCE_HEAD} into temporary binaries"
 VERSION="rehearsal-${SOURCE_LABEL}"
 LDFLAGS="-s -w -X github.com/cosmos/cosmos-sdk/version.Name=zerone -X github.com/cosmos/cosmos-sdk/version.AppName=zeroned -X github.com/cosmos/cosmos-sdk/version.Version=${VERSION} -X github.com/cosmos/cosmos-sdk/version.Commit=${SOURCE_FULL_HEAD}"
+printf '%s\n' \
+  "GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off GOFLAGS=-mod=readonly GOMAXPROCS=2" \
+  "go build -p 2 -trimpath -buildvcs=true -ldflags ${LDFLAGS} -o ${BINARY} ./cmd/zeroned" \
+  "go build -p 2 -trimpath -buildvcs=true -o ${VERIFY_BINARY} ./tools/local-consensus-verify" \
+  "go build -p 2 -trimpath -buildvcs=true -o ${CENSUS_BINARY} ./tools/custom-staking-census" \
+  > "${RUN_ROOT}/reports/build-commands.txt"
 (
 	cd "${ROOT}"
 	GIT_DIR="${SOURCE_GIT_DIR}" GIT_WORK_TREE="${ROOT}" \
 		GOCACHE="${RUN_ROOT}/go-cache" GOTMPDIR="${RUN_ROOT}/go-tmp" \
-		go build -trimpath -buildvcs=true -ldflags "${LDFLAGS}" -o "${BINARY}" ./cmd/zeroned
+		go build -p 2 -trimpath -buildvcs=true -ldflags "${LDFLAGS}" -o "${BINARY}" ./cmd/zeroned
 	GIT_DIR="${SOURCE_GIT_DIR}" GIT_WORK_TREE="${ROOT}" \
 		GOCACHE="${RUN_ROOT}/go-cache" GOTMPDIR="${RUN_ROOT}/go-tmp" \
-		go build -trimpath -buildvcs=true -o "${VERIFY_BINARY}" ./tools/local-consensus-verify
+		go build -p 2 -trimpath -buildvcs=true -o "${VERIFY_BINARY}" ./tools/local-consensus-verify
 	GIT_DIR="${SOURCE_GIT_DIR}" GIT_WORK_TREE="${ROOT}" \
 		GOCACHE="${RUN_ROOT}/go-cache" GOTMPDIR="${RUN_ROOT}/go-tmp" \
-		go build -trimpath -buildvcs=true -o "${CENSUS_BINARY}" ./tools/custom-staking-census
+		go build -p 2 -trimpath -buildvcs=true -o "${CENSUS_BINARY}" ./tools/custom-staking-census
 ) > "${RUN_ROOT}/logs/build.log" 2>&1 || die "fresh binary build failed"
 
+snapshot_candidate_sources "${RUN_ROOT}/reports/candidate-source-after-build-sha256.json"
+cmp "${RUN_ROOT}/reports/candidate-source-sha256.json" "${RUN_ROOT}/reports/candidate-source-after-build-sha256.json" || die "candidate source bytes changed during build"
 BINARY_SHA="$(sha256_file "${BINARY}")"
+jq -cnS --arg source_label "${SOURCE_LABEL}" --arg candidate "$(sha256_file "${RUN_ROOT}/reports/candidate-source-sha256.json")" \
+  --arg daemon "${BINARY_SHA}" --arg verifier "$(sha256_file "${VERIFY_BINARY}")" --arg census "$(sha256_file "${CENSUS_BINARY}")" \
+  '{source_label:$source_label,candidate_source_manifest_sha256:$candidate,daemon_sha256:$daemon,verifier_sha256:$verifier,census_sha256:$census}' \
+  > "${RUN_ROOT}/reports/build-digests.json"
 EXPECTED_COMET="$(cd "${ROOT}" && go list -m -f '{{.Version}}' github.com/cometbft/cometbft)"
 go version -m "${BINARY}" > "${RUN_ROOT}/reports/binary-build-info.txt"
 "${BINARY}" version --long --home "${RUN_ROOT}/cli" \
@@ -745,9 +1015,15 @@ if [ -n "${VCS_REVISION}" ] || [ -n "${VCS_MODIFIED}" ]; then
       die "dirty development binary unexpectedly reports vcs.modified=${VCS_MODIFIED:-missing}"
   fi
 else
-  printf '%s\n' \
-    "Go omitted optional VCS settings; exact commit is bound by the clean checkout, build command, and verified SDK commit field." \
-    > "${RUN_ROOT}/reports/go-vcs-stamp-note.txt"
+  if [ "${ALLOW_DIRTY}" -eq 1 ]; then
+    printf '%s\n' \
+      "Go omitted optional VCS settings; NON-FINAL candidate bytes are identified by the source digest manifest and binary hash, not by the baseline commit alone." \
+      > "${RUN_ROOT}/reports/go-vcs-stamp-note.txt"
+  else
+    printf '%s\n' \
+      "Go omitted optional VCS settings; exact commit is bound by the clean checkout, build command, and verified SDK commit field." \
+      > "${RUN_ROOT}/reports/go-vcs-stamp-note.txt"
+  fi
 fi
 grep -F "github.com/cometbft/cometbft" "${RUN_ROOT}/reports/binary-build-info.txt" | \
   grep -F "${EXPECTED_COMET}" >/dev/null || die "built binary does not embed CometBFT ${EXPECTED_COMET}"
@@ -774,17 +1050,32 @@ for index in 0 1 2 3; do
     >> "${RUN_ROOT}/logs/init.log" 2>&1 || die "could not fund validator ${index}"
 done
 
-mkdir -p "${COORDINATOR}/config/gentx"
-for index in 0 1 2 3; do
+# Lifecycle arrays include the observer; custody, gentxs and accounts below do not.
+for index in 0 1 2 3 4; do
   NODE_HOME[index]="${RUN_ROOT}/node${index}"
   NODE_LOG[index]="${RUN_ROOT}/logs/node${index}.log"
   NODE_PID[index]=""
+done
+mkdir -p "${COORDINATOR}/config/gentx"
+for index in 0 1 2 3; do
   "${BINARY}" init "val${index}" --chain-id "${CHAIN_ID}" --default-denom "${DENOM}" \
     --home "${NODE_HOME[$index]}" > /dev/null 2>> "${RUN_ROOT}/logs/init.log" || die "node ${index} init failed"
   cp "${COORDINATOR}/config/genesis.json" "${NODE_HOME[$index]}/config/genesis.json"
   cp -R "${COORDINATOR}/keyring-test" "${NODE_HOME[$index]}/"
+  VALIDATOR_ADDR="$("${BINARY}" keys show "val${index}" -a --keyring-backend test --home "${COORDINATOR}")"
+  VALIDATOR_ACCOUNT_NUMBER="$(jq -er --arg address "${VALIDATOR_ADDR}" '
+    [.app_state.auth.accounts[] | select(.address == $address)] |
+    select(length == 1) | .[0].account_number |
+    select(type == "string" and test("^(0|[1-9][0-9]*)$"))
+  ' "${COORDINATOR}/config/genesis.json")" || die "validator ${index} has no unique genesis account number"
+  # Above height zero, gentxs use real account numbers and the normal fee floor.
   "${BINARY}" genesis gentx "val${index}" "${VALIDATOR_STAKE}${DENOM}" \
     --chain-id "${CHAIN_ID}" \
+    --offline \
+    --account-number "${VALIDATOR_ACCOUNT_NUMBER}" \
+    --sequence 0 \
+    --fees "${TX_FEE}${DENOM}" \
+    --gas "${TX_GAS}" \
     --keyring-backend test \
     --home "${NODE_HOME[$index]}" \
     --moniker "val${index}" \
@@ -797,8 +1088,12 @@ done
 
 "${BINARY}" genesis collect-gentxs --home "${COORDINATOR}" \
   >> "${RUN_ROOT}/logs/init.log" 2>&1 || die "gentx collection failed"
+"${VERIFY_BINARY}" -scheduler-fixture-root "${RUN_ROOT}" -expect-chain-id "${CHAIN_ID}" \
+  >> "${RUN_ROOT}/logs/init.log" 2>&1 || die "closed, fully backed scheduler test fixture construction failed"
+jq -e '.app_state.message_schedule.params.accept_new_schedules == false' "${COORDINATOR}/config/genesis.json" >/dev/null || die "runtime genesis scheduler admission is not closed"
 "${BINARY}" genesis validate --home "${COORDINATOR}" \
   >> "${RUN_ROOT}/logs/init.log" 2>&1 || die "generated genesis is invalid"
+GENESIS_SHA="$(sha256_file "${COORDINATOR}/config/genesis.json")"
 
 for index in 0 1 2 3; do
   cp "${COORDINATOR}/config/genesis.json" "${NODE_HOME[$index]}/config/genesis.json"
@@ -808,73 +1103,120 @@ for index in 0 1 2 3; do
   configure_node "${index}"
 done
 ok "fresh genesis contains four validators with identical ${VALIDATOR_STAKE}${DENOM} stake"
+for index in 0 1 2 3; do
+  jq -cnS --arg node "${index}" \
+    --arg genesis "$(sha256_file "${NODE_HOME[$index]}/config/genesis.json")" \
+    --arg config "$(sha256_file "${NODE_HOME[$index]}/config/config.toml")" \
+    --arg app "$(sha256_file "${NODE_HOME[$index]}/config/app.toml")" \
+    '{node:$node,genesis_sha256:$genesis,config_sha256:$config,app_config_sha256:$app,accept_new_schedules:false}' \
+    >> "${RUN_ROOT}/reports/node-config-digests.jsonl"
+done
 
 info "starting four validators on loopback ports ${BASE_PORT}-$((BASE_PORT + 7))"
 for index in 0 1 2 3; do
   start_node "${index}"
 done
 for index in 0 1 2 3; do
-  wait_for_height "${index}" 4 "initial height 4"
+  wait_for_height "${index}" 10 "test-fixture initial height 10"
   assert_loopback_listeners "${index}"
 done
-verify_phase four-up 0 1 2 3
+verify_integrated_flow() {
+  # Run fixed due windows before the integration-test compilation in verify_phase;
+  # its cold build duration must not silently consume an intended offline window.
+  verify_scheduler_flow
+  verify_phase four-up 0 1 2 3
 
-info "stopping validator 3; 75% voting power must continue finality"
-stop_node 3
-wait_for_advance 3 one-validator-down 0 1 2
-verify_phase one-down 0 1 2
+  info "stopping validator 3; 75% voting power must continue finality"
+  stop_node 3
+  wait_for_advance 3 one-validator-down 0 1 2
+  verify_phase one-down 0 1 2
 
-info "stopping validator 2; 50% voting power must halt finality"
-stop_node 2
-sleep 3
-HALT_HEIGHT_0="$(current_height 0)"
-HALT_HEIGHT_1="$(current_height 1)"
-[ "${HALT_HEIGHT_0}" -gt 0 ] && [ "${HALT_HEIGHT_1}" -gt 0 ] || die "remaining validators became unreachable"
-[ "${HALT_HEIGHT_0}" -eq "${HALT_HEIGHT_1}" ] || \
-  die "two surviving validators froze at different heights (${HALT_HEIGHT_0} vs ${HALT_HEIGHT_1})"
-HALT_BLOCK_0="$(rpc_get 0 "/block?height=${HALT_HEIGHT_0}")"
-HALT_BLOCK_1="$(rpc_get 1 "/block?height=${HALT_HEIGHT_1}")"
-HALT_BLOCK_ID_0="$(printf '%s' "${HALT_BLOCK_0}" | jq -er '.result.block_id.hash | select(test("^[0-9A-Fa-f]{64}$"))')"
-HALT_BLOCK_ID_1="$(printf '%s' "${HALT_BLOCK_1}" | jq -er '.result.block_id.hash | select(test("^[0-9A-Fa-f]{64}$"))')"
-HALT_APP_HASH_0="$(printf '%s' "${HALT_BLOCK_0}" | jq -er '.result.block.header.app_hash')"
-HALT_APP_HASH_1="$(printf '%s' "${HALT_BLOCK_1}" | jq -er '.result.block.header.app_hash')"
-[ "${HALT_BLOCK_ID_0}" = "${HALT_BLOCK_ID_1}" ] || \
-  die "surviving validators disagree on frozen block ID at height ${HALT_HEIGHT_0}"
-[ "${HALT_APP_HASH_0}" = "${HALT_APP_HASH_1}" ] || \
-  die "surviving validators disagree on frozen app hash at height ${HALT_HEIGHT_0}"
-[ "${HALT_HEIGHT_0}" -gt 1 ] || die "frozen chain has no preceding canonical commit"
-"${VERIFY_BINARY}" \
-  -rpcs "$(rpc_url 0),$(rpc_url 1)" \
-  -height "$((HALT_HEIGHT_0 - 1))" \
-  -expect-chain-id "${CHAIN_ID}" \
-  -expect-validators 4 \
-  -expect-equal-power \
-  > "${RUN_ROOT}/reports/two-down-frozen.json" || \
-  die "surviving validators disagree on the frozen block/app hash"
-sleep 4
-is_owned_pid 0 || die "node 0 exited during the halt check"
-is_owned_pid 1 || die "node 1 exited during the halt check"
-[ "$(current_height 0)" -eq "${HALT_HEIGHT_0}" ] || die "node 0 finalized a block with only 50% voting power"
-[ "$(current_height 1)" -eq "${HALT_HEIGHT_1}" ] || die "node 1 finalized a block with only 50% voting power"
-ok "two-validator partition stayed live but finalized no block at height ${HALT_HEIGHT_0}"
+  info "stopping validator 2; 50% voting power must halt finality"
+  stop_node 2
+  sleep 3
+  HALT_HEIGHT_0="$(current_height 0)"
+  HALT_HEIGHT_1="$(current_height 1)"
+  [ "${HALT_HEIGHT_0}" -gt 0 ] && [ "${HALT_HEIGHT_1}" -gt 0 ] || die "remaining validators became unreachable"
+  [ "${HALT_HEIGHT_0}" -eq "${HALT_HEIGHT_1}" ] || \
+    die "two surviving validators froze at different heights (${HALT_HEIGHT_0} vs ${HALT_HEIGHT_1})"
+  HALT_BLOCK_0="$(rpc_get 0 "/block?height=${HALT_HEIGHT_0}")"
+  HALT_BLOCK_1="$(rpc_get 1 "/block?height=${HALT_HEIGHT_1}")"
+  HALT_BLOCK_ID_0="$(printf '%s' "${HALT_BLOCK_0}" | jq -er '.result.block_id.hash | select(test("^[0-9A-Fa-f]{64}$"))')"
+  HALT_BLOCK_ID_1="$(printf '%s' "${HALT_BLOCK_1}" | jq -er '.result.block_id.hash | select(test("^[0-9A-Fa-f]{64}$"))')"
+  HALT_APP_HASH_0="$(printf '%s' "${HALT_BLOCK_0}" | jq -er '.result.block.header.app_hash')"
+  HALT_APP_HASH_1="$(printf '%s' "${HALT_BLOCK_1}" | jq -er '.result.block.header.app_hash')"
+  [ "${HALT_BLOCK_ID_0}" = "${HALT_BLOCK_ID_1}" ] || \
+    die "surviving validators disagree on frozen block ID at height ${HALT_HEIGHT_0}"
+  [ "${HALT_APP_HASH_0}" = "${HALT_APP_HASH_1}" ] || \
+    die "surviving validators disagree on frozen app hash at height ${HALT_HEIGHT_0}"
+  [ "${HALT_HEIGHT_0}" -gt 1 ] || die "frozen chain has no preceding canonical commit"
+  "${VERIFY_BINARY}" \
+    -rpcs "$(rpc_url 0),$(rpc_url 1)" \
+    -height "$((HALT_HEIGHT_0 - 1))" \
+    -expect-chain-id "${CHAIN_ID}" \
+    -expect-validators 4 \
+    -expect-equal-power \
+    > "${RUN_ROOT}/reports/two-down-frozen.json" || \
+    die "surviving validators disagree on the frozen block/app hash"
+  sleep 4
+  is_owned_pid 0 || die "node 0 exited during the halt check"
+  is_owned_pid 1 || die "node 1 exited during the halt check"
+  [ "$(current_height 0)" -eq "${HALT_HEIGHT_0}" ] || die "node 0 finalized a block with only 50% voting power"
+  [ "$(current_height 1)" -eq "${HALT_HEIGHT_1}" ] || die "node 1 finalized a block with only 50% voting power"
+  ok "two-validator partition stayed live but finalized no block at height ${HALT_HEIGHT_0}"
 
-info "restarting validator 2; 75% voting power must recover finality"
-start_node 2
-wait_for_advance 3 three-up-recovery 0 1 2
-verify_phase three-up-recovery 0 1 2
+  info "restarting validator 2; 75% voting power must recover finality"
+  start_node 2
+  wait_for_advance 3 three-up-recovery 0 1 2
+  verify_phase three-up-recovery 0 1 2
 
-info "restarting validator 3 and waiting for all four nodes to converge"
-start_node 3
-RECOVERY_TARGET=$(( $(current_height 0) + 3 ))
-for index in 0 1 2 3; do
-  wait_for_height "${index}" "${RECOVERY_TARGET}" "four-node recovery"
-done
-verify_phase four-up-recovered 0 1 2 3
+  info "restarting validator 3 and waiting for all four nodes to converge"
+  start_node 3
+  RECOVERY_TARGET=$(( $(current_height 0) + 3 ))
+  for index in 0 1 2 3; do
+    wait_for_height "${index}" "${RECOVERY_TARGET}" "four-node recovery"
+  done
+  verify_phase four-up-recovered 0 1 2 3
 
-info "broadcasting, proving, and replay-testing one signed local MsgSend"
-verify_message_flow
+  info "broadcasting, proving, and replay-testing one signed local MsgSend"
+  verify_message_flow
 
-verify_offline_custom_staking_census
+  verify_observer_flow
+  verify_offline_custom_staking_census
+}
+
+observer_only_scope() {
+  printf '  NOT RUN: scheduler timing/TERM/KILL/bank-zero proofs; 75%% progress/50%% halt and validator recovery; MsgSend/replay; offline census.\n'
+  printf '  Full integrated suite not established; upstream empty-valued bank-index/nonmembership limitation unchanged.\n'
+}
+
+verify_selected_flow() {
+  local index
+  if [ "${OBSERVER_ONLY}" -eq 1 ]; then
+    info "targeted observer diagnostic selected; same fresh four-validator fixture and runner"
+    observer_only_scope
+    # A canonical commit must exist above the fixture's initial height 10 before
+    # sampling history. No scheduler timing or outage assertions in this branch.
+    for index in 0 1 2 3; do
+      wait_for_height "${index}" 13 "observer-only canonical history above initial height 10"
+    done
+    verify_phase observer-only-initial-quorum 0 1 2 3
+    verify_observer_flow
+  else
+    verify_integrated_flow
+  fi
+}
+
+report_success() {
+  if [ "${OBSERVER_ONLY}" -eq 1 ]; then
+    printf '\nPASS targeted observer replay/restart diagnostic\n'
+    observer_only_scope
+  else
+    printf '\nPASS isolated consensus rehearsal\n'
+  fi
+}
+
+verify_selected_flow
 
 [ "$(git -C "${ROOT}" rev-parse HEAD)" = "${SOURCE_FULL_HEAD}" ] || \
   die "checkout HEAD changed during the rehearsal"
@@ -882,8 +1224,10 @@ if [ "${ALLOW_DIRTY}" -eq 0 ] && \
    [ -n "$(git -C "${ROOT}" status --porcelain=v1 --untracked-files=all --ignore-submodules=none)" ]; then
   die "worktree changed during the definitive rehearsal"
 fi
+snapshot_candidate_sources "${RUN_ROOT}/reports/candidate-source-final-sha256.json"
+cmp "${RUN_ROOT}/reports/candidate-source-sha256.json" "${RUN_ROOT}/reports/candidate-source-final-sha256.json" || die "candidate source bytes changed during rehearsal (including dirty/untracked inputs)"
 SUCCESS=1
-printf '\nPASS isolated consensus rehearsal\n'
+report_success
 if [ "${ALLOW_DIRTY}" -eq 1 ]; then
   printf '  status: NON-FINAL dirty development run\n'
 fi

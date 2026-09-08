@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -26,6 +27,7 @@ var requiredForkGenesisModules = []string{
 	"ibc",
 	"ibcratelimit",
 	"interchainaccounts",
+	"message_schedule",
 	"slashing",
 	"staking",
 	"transfer",
@@ -37,7 +39,20 @@ var requiredForkGenesisModules = []string{
 var requiredForkSchemaMigrations = []string{
 	"ibc-transfer-v8-empty-denom-traces-to-v10-empty-denoms",
 	"ibc-core-v8-empty-to-v10-empty-v2-state",
+	"message-schedule-v1-absent-to-default-closed",
 }
+
+const (
+	messageScheduleGenesisMigration = "message-schedule-v1-absent-to-default-closed"
+	// absentModuleSHA256 is SHA-256 over the canonical JSON literal `null`.
+	// It can appear only as before_sha256 for an explicitly declared module
+	// addition; it never represents an application-state value.
+	absentModuleSHA256 = "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+)
+
+var freshMessageScheduleGenesis = json.RawMessage(
+	`{"params":{"min_schedule_delay_blocks":2,"min_interval_blocks":10,"max_executions_per_schedule":365,"max_active_schedules_per_creator":32,"max_due_records_per_block":64,"max_query_limit":100,"execution_fee_uzrn":"100000","max_transfer_per_execution_uzrn":"1000000000000"},"next_schedule_id":1,"total_escrow_uzrn":"0"}`,
+)
 
 func decodeForkGenesis(data []byte) (ForkGenesis, error) {
 	var zero ForkGenesis
@@ -485,6 +500,11 @@ func validateForkGenesisModuleDigests(
 			if digest.Changed != expected {
 				return errors.New("compiler report transfer change does not match its schema migration")
 			}
+		case "message_schedule":
+			if !slices.Contains(schemaMigrations, messageScheduleGenesisMigration) ||
+				digest.BeforeSHA256 != absentModuleSHA256 || !digest.Changed {
+				return errors.New("compiler report message_schedule addition is not the exact audited absent-to-default migration")
+			}
 		case "zerone_staking":
 			// The custom validator metadata exists only on some source
 			// exports, so this audited rewrite is optional.
@@ -737,6 +757,23 @@ func validateForkGenesisQuiescence(
 			return fmt.Errorf("fork genesis required module %s is absent", module)
 		}
 	}
+	if _, found := modules["schedule"]; found {
+		return errors.New("fork genesis retains the retired schedule module namespace")
+	}
+	actualSchedule, err := canonicalJSONValue(modules["message_schedule"])
+	if err != nil {
+		return errors.New("fork genesis message_schedule module is invalid")
+	}
+	expectedSchedule, err := canonicalJSONValue(freshMessageScheduleGenesis)
+	if err != nil {
+		panic("invalid embedded fresh message_schedule genesis: " + err.Error())
+	}
+	if !bytes.Equal(actualSchedule, expectedSchedule) {
+		return errors.New("fork genesis message_schedule module is not the exact empty admission-closed default")
+	}
+	if err := validateForkSchedulerBankBalances(modules["bank"]); err != nil {
+		return err
+	}
 
 	emergencyValue, err := decodeJSONAny(modules["emergency"])
 	if err != nil {
@@ -810,6 +847,135 @@ func validateForkGenesisQuiescence(
 		return err
 	}
 	return nil
+}
+
+func validateForkSchedulerBankBalances(raw json.RawMessage) error {
+	value, err := decodeJSONAny(raw)
+	if err != nil {
+		return errors.New("fork genesis bank module is invalid")
+	}
+	bank, ok := value.(map[string]any)
+	if !ok {
+		return errors.New("fork genesis bank module must be an object")
+	}
+	rawBalances, found := bank["balances"]
+	balances, ok := rawBalances.([]any)
+	if !found || !ok {
+		return errors.New("fork genesis bank.balances must be an array")
+	}
+	targets := []struct {
+		address []byte
+		label   string
+	}{
+		{address: schedulerModuleAccountAddressBytes("schedule"), label: "retired schedule"},
+		{address: schedulerModuleAccountAddressBytes("message_schedule"), label: "fresh message_schedule"},
+	}
+	for index, rawBalance := range balances {
+		balance, ok := rawBalance.(map[string]any)
+		if !ok {
+			return fmt.Errorf("fork genesis bank.balances[%d] must be an object", index)
+		}
+		address, ok := balance["address"].(string)
+		if !ok || address == "" {
+			return fmt.Errorf("fork genesis bank.balances[%d].address is invalid", index)
+		}
+		addressBytes, err := decodeForkBankAddress(
+			fmt.Sprintf("fork genesis bank.balances[%d].address", index),
+			address,
+		)
+		if err != nil {
+			return err
+		}
+		label := ""
+		for _, target := range targets {
+			if bytes.Equal(addressBytes, target.address) {
+				label = target.label
+				break
+			}
+		}
+		if label == "" {
+			continue
+		}
+		coins, ok := balance["coins"].([]any)
+		if !ok {
+			return fmt.Errorf("fork genesis %s module account balance is not a coin array", label)
+		}
+		if len(coins) != 0 {
+			return fmt.Errorf("fork genesis %s module account must have zero all-denom balance", label)
+		}
+	}
+	return nil
+}
+
+// decodeForkBankAddress mirrors the compiler's SDK AccAddressFromBech32 domain:
+// the zrn prefix, original Bech32 checksum, single-case ASCII, canonical padding,
+// and a nonempty payload of at most 255 bytes (SDK address.MaxAddrLen). Bank
+// owners are not validator identities; their encodings can exceed BIP-0173's
+// 90-character limit. Keep the strict validator decoders unchanged.
+//
+// Normal SDK exports are lowercase. Accept the SDK's equivalent all-uppercase
+// spelling for comparison only: never normalize the committed bank JSON.
+func decodeForkBankAddress(name, value string) ([]byte, error) {
+	const (
+		hrp             = "zrn"
+		maxAddressBytes = 255
+		maxEncodedBytes = len(hrp) + 1 + (maxAddressBytes*8+4)/5 + bech32ChecksumLength
+	)
+	invalid := func() ([]byte, error) {
+		return nil, fmt.Errorf("%s must be single-case %s Bech32 for 1 to %d bytes", name, hrp, maxAddressBytes)
+	}
+	if len(value) < len(hrp)+1+2+bech32ChecksumLength || len(value) > maxEncodedBytes {
+		return invalid()
+	}
+	lower, upper := false, false
+	for index := range len(value) {
+		character := value[index]
+		if character < 33 || character > 126 {
+			return invalid()
+		}
+		lower = lower || character >= 'a' && character <= 'z'
+		upper = upper || character >= 'A' && character <= 'Z'
+	}
+	if lower && upper {
+		return invalid()
+	}
+	value = strings.ToLower(value)
+	if !strings.HasPrefix(value, hrp+"1") {
+		return invalid()
+	}
+	encodedData := value[len(hrp)+1:]
+	data := make([]byte, len(encodedData))
+	for index := range encodedData {
+		character := strings.IndexByte(bech32Charset, encodedData[index])
+		if character < 0 {
+			return invalid()
+		}
+		data[index] = byte(character)
+	}
+	if bech32Polymod(append(bech32HRPExpand(hrp), data...)) != bech32ChecksumConstant {
+		return invalid()
+	}
+	payload, err := convertBits(data[:len(data)-bech32ChecksumLength], 5, 8, false)
+	if err != nil || len(payload) == 0 || len(payload) > maxAddressBytes {
+		return invalid()
+	}
+	return payload, nil
+}
+
+// schedulerModuleAccountAddressBytes mirrors the SDK's no-derivation-key module
+// address: SHA-256(module name) truncated to 20 bytes. Keep this verifier
+// independent of the application, SDK, and CometBFT packages.
+func schedulerModuleAccountAddressBytes(moduleName string) []byte {
+	sum := sha256.Sum256([]byte(moduleName))
+	return sum[:cometAddressBytes]
+}
+
+func schedulerModuleAccountAddress(moduleName string) string {
+	encoded, err := encodeBech32("zrn", schedulerModuleAccountAddressBytes(moduleName))
+	if err != nil {
+		panic("encode scheduler module account address: " + err.Error())
+	}
+	return encoded
 }
 
 func canonicalJSONUint64Equals(value any, expected uint64) bool {

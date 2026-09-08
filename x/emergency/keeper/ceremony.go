@@ -569,6 +569,10 @@ func (k Keeper) HandleCeremonyFinalization(ctx context.Context, ceremonyId strin
 			panic("failed to clear stale recovery authorization: " + err.Error())
 		}
 		k.SetEmergencyStatus(ctx, types.StatusHalted)
+		// Only a finalized new quarantine supersedes an earlier resume grace.
+		// Proposals and failed votes retain that grace; a later affirmative
+		// resume installs its own full cancellation window.
+		k.ClearQuarantineReleaseBlock(ctx)
 		k.SetActiveHaltCeremonyId(ctx, ceremony.Id)
 		k.SetHaltStartBlock(ctx, uint64(sdkCtx.BlockHeight()))
 		k.AddAuditEntry(ctx, &types.EmergencyAuditEntry{

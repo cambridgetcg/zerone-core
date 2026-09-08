@@ -56,6 +56,7 @@ import (
 	liquiditypoolcli "github.com/zerone-chain/zerone/x/liquiditypool/client/cli"
 	ontologycli "github.com/zerone-chain/zerone/x/ontology/client/cli"
 	qualificationcli "github.com/zerone-chain/zerone/x/qualification/client/cli"
+	schedulecli "github.com/zerone-chain/zerone/x/schedule/client/cli"
 	stakingcli "github.com/zerone-chain/zerone/x/staking/client/cli"
 	tokenscli "github.com/zerone-chain/zerone/x/tokens/client/cli"
 	vestingrewardscli "github.com/zerone-chain/zerone/x/vesting_rewards/client/cli"
@@ -244,6 +245,7 @@ func queryCommand(_ app.EncodingConfig) *cobra.Command {
 		liquiditypoolcli.NewQueryCmd(),
 		ontologycli.NewQueryCmd(),
 		qualificationcli.NewQueryCmd(),
+		schedulecli.NewQueryCmd(),
 		stakingcli.GetQueryCmd(),
 		tokenscli.NewQueryCmd(),
 		vestingrewardscli.NewQueryCmd(),
@@ -307,6 +309,7 @@ func txCommand(encodingConfig app.EncodingConfig) *cobra.Command {
 		liquiditypoolcli.NewTxCmd(),
 		ontologycli.NewTxCmd(),
 		qualificationcli.NewTxCmd(),
+		schedulecli.NewTxCmd(),
 		stakingcli.GetTxCmd(),
 		tokenscli.NewTxCmd(),
 		vestingrewardscli.NewTxCmd(),

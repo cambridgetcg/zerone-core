@@ -125,6 +125,7 @@ jobs:
               "ibc_transfer_live_at_genesis", "ica_live_at_genesis",
               "knowledge_admission_rewards_live_at_genesis",
               "liquidity_pool_creation_live_at_genesis",
+              "message_schedule_admission_live_at_genesis",
               "one_operator_validator_bft_f", "pot_live_at_genesis",
               "public_grpc_live_at_initial_beta",
               "substrate_bridge_live_at_genesis", "vote_extensions_live_at_genesis"
@@ -277,6 +278,7 @@ jobs:
             .custom_staking_census_execution.execution_evidence.authorized_signer_fingerprint ==
               .public_identities.transition_attestation.authorized_signer_fingerprint and
             .accepted_policy.one_operator_validator_bft_f == 0 and
+            .accepted_policy.message_schedule_admission_live_at_genesis == false and
             .accepted_policy.public_grpc_live_at_initial_beta == false and
             .accepted_policy.hosted_transaction_submission_live_at_initial_beta == false and
             (.operator_tool_manifest_sha256 | type == "string") and
@@ -678,20 +680,76 @@ jobs:
         run: |
           go mod download
           go mod verify
-      - name: Isolated four-validator consensus rehearsal
+      - name: Test consensus verifier and isolated lifecycle guards
+        run: go test -p 2 ./tools/local-consensus-verify -count=1
+      - name: Isolated four-validator consensus and fifth-observer rehearsal
         env:
           TMPDIR: ${{ runner.temp }}/zerone-consensus-rehearsal-evidence
         run: |
           mkdir -p "$TMPDIR"
           bash scripts/local-consensus-rehearsal.sh --keep
-      - name: Retain consensus reports and logs
+          reports=("$TMPDIR"/zerone-consensus-rehearsal.*/reports)
+          [ "${#reports[@]}" -eq 1 ]
+          for phase in replay restart; do
+            jq -e --arg phase "$phase" '
+              (.nodes | length) == 5 and
+              all(.nodes[]; .canonical_commit and .signed_power * 3 > .total_power * 2) and
+              .observer.schema == "zerone.local-observer-checkpoint/v1" and
+              .observer.phase == $phase and .observer.voting_power == 0 and
+              .observer.last_sign_height == 0 and .observer.catching_up == false and
+              .observer.account_keyring_present == false and .observer.state_sync_enabled == false and
+              .observer.state_height >= .observer.history_before_join and
+              .height == .observer.state_height + 1 and
+              (.pre_state_app_hash | ascii_downcase) == (.observer.app_hash | ascii_downcase) and
+              .observer.checkpoint_record == "cosmos.bank.v1beta1.Params" and
+              .observer.checkpoint_proof.store == "bank" and
+              .observer.checkpoint_proof.key_hex == "05" and
+              .observer.checkpoint_proof.absent == false and
+              .observer.checkpoint_proof.value == "EAE=" and
+              .observer.checkpoint_proof.value_sha256 == "27c24fcb8474773e2af799d0848495ff053272d33c432dc26277993df45c9276" and
+              (.observer.checkpoint_proof.proof_ops.ops | length) > 0
+            ' "${reports[0]}/observer-$phase.json" >/dev/null
+          done
+          jq -se '
+            .[0].observer.node_id == .[1].observer.node_id and
+            .[0].observer.consensus_public_key == .[1].observer.consensus_public_key and
+            .[0].observer.state_height == .[1].observer.state_height and
+            .[0].observer.app_hash == .[1].observer.app_hash and
+            .[1].observer.observed_applied_height > .[1].observer.state_height
+          ' "${reports[0]}/observer-replay.json" "${reports[0]}/observer-restart.json" >/dev/null
+      - name: Retain allowlisted public consensus reports (no homes or raw logs)
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: consensus-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
-            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/**
-            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/logs/**
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/four-up.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/one-down.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/two-down-frozen.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/three-up-recovery.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/four-up-recovered.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/five-up-observer-recovered.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/observer-preflight.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/observer-expect-*.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/observer-replay.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/observer-restart.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/scheduler-*.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/scheduler-restart-timeline.jsonl
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/msgsend-all-nodes.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/msgsend-decoded.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/msgsend-replay.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/custom-staking-census.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/custom-staking-census-node1.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/custom-staking-census-source-evidence.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/node-config-digests.jsonl
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/build-digests.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/build-commands.txt
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/binary-build-info.txt
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/candidate-source-*.json
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/toolchain.txt
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/zeroned-version.txt
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/go-vcs-stamp-note.txt
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/source-status.txt
           if-no-files-found: error
           retention-days: 30
 

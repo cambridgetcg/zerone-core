@@ -157,6 +157,26 @@ MONITORING_ARTIFACT_FILES = {
     "rules": "MONITORING-RULES.json",
     "tests": "MONITORING-ALERT-TESTS.json",
 }
+ZERONE_2_ACCEPTED_POLICY = {
+    "one_operator_validator_bft_f": 0,
+    "direct_zerone_1_balance_migration": False,
+    "checkpoint_inventory_is_entitlement": False,
+    "vote_extensions_live_at_genesis": False,
+    "pot_live_at_genesis": False,
+    "external_ibc_clients_live_at_genesis": False,
+    "ibc_transfer_live_at_genesis": False,
+    "ica_live_at_genesis": False,
+    "substrate_bridge_live_at_genesis": False,
+    "claims_live_at_genesis": False,
+    "automatic_issuance_live_at_genesis": False,
+    "knowledge_admission_rewards_live_at_genesis": False,
+    "alignment_corrections_live_at_genesis": False,
+    "counterexamples_live_at_genesis": False,
+    "liquidity_pool_creation_live_at_genesis": False,
+    "message_schedule_admission_live_at_genesis": False,
+    "public_grpc_live_at_initial_beta": False,
+    "hosted_transaction_submission_live_at_initial_beta": False,
+}
 MONITORING_RULE_SPECS = {
     "stalled_height": {
         "alert_name": "ZeroneStalledHeight",
@@ -337,17 +357,28 @@ def bundle_file_size_limit(name: str) -> int:
     return 32 * 1024 * 1024
 
 
-def secure_read_bundle(bundle_fd: int, name: str) -> bytes:
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+def secure_read_bundle(
+    bundle_fd: int, name: str, maximum_bytes: int | None = None
+) -> bytes:
+    if not name or name in {".", ".."} or "/" in name or "\\" in name:
+        fail("bundle filename must be a single literal basename")
+    flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+    size_limit = bundle_file_size_limit(name)
+    if maximum_bytes is not None:
+        size_limit = min(size_limit, maximum_bytes)
     try:
+        before = os.stat(name, dir_fd=bundle_fd, follow_symlinks=False)
+        if not stat.S_ISREG(before.st_mode):
+            fail(f"bundle file {name} is not regular")
+        if before.st_size < 0 or before.st_size > size_limit:
+            fail(f"bundle file {name} exceeds its pre-authentication size limit")
         fd = os.open(name, flags, dir_fd=bundle_fd)
     except OSError as exc:
         fail(f"could not open bundle file {name}: {exc}")
     try:
         info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode):
-            fail(f"bundle file {name} is not regular")
-        size_limit = bundle_file_size_limit(name)
+        if not stat.S_ISREG(info.st_mode) or not os.path.samestat(before, info):
+            fail(f"bundle file {name} changed while opening or is not regular")
         if info.st_size < 0 or info.st_size > size_limit:
             fail(f"bundle file {name} exceeds its pre-authentication size limit")
         chunks: list[bytes] = []
@@ -365,7 +396,10 @@ def secure_read_bundle(bundle_fd: int, name: str) -> bytes:
         os.close(fd)
 
 
-def parse_json(data: bytes, label: str) -> Any:
+def parse_json(
+    data: bytes, label: str, *, strict_constants: bool = False,
+    preserve_negative_zero: bool = False,
+) -> Any:
     def reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         value: dict[str, Any] = {}
         for key, item in pairs:
@@ -374,8 +408,22 @@ def parse_json(data: bytes, label: str) -> Any:
             value[key] = item
         return value
 
+    def parse_constant(value: str) -> float:
+        if strict_constants:
+            raise ValueError("non-finite JSON number")
+        return float(value)
+
+    def parse_integer(value: str) -> int | float:
+        # JSON permits -0, but Go's canonical integerString rejects it. Retain
+        # its sign as a float for genesis integer checks rather than erasing it.
+        return -0.0 if preserve_negative_zero and value == "-0" else int(value)
+
     try:
-        return json.loads(data, object_pairs_hook=reject_duplicate_keys)
+        return json.loads(
+            data, object_pairs_hook=reject_duplicate_keys,
+            parse_constant=parse_constant,
+            parse_int=parse_integer if preserve_negative_zero else int,
+        )
     except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
         fail(f"{label} is not valid JSON: {exc}")
 
@@ -432,6 +480,16 @@ def require_exact_object(value: Any, keys: set[str], label: str) -> dict[str, An
     if not isinstance(value, dict) or set(value) != keys:
         fail(f"{label} does not have the exact required fields")
     return value
+
+
+def require_zerone_2_accepted_policy(value: Any, label: str) -> dict[str, Any]:
+    policy = require_exact_object(value, set(ZERONE_2_ACCEPTED_POLICY), label)
+    if any(
+        type(policy[key]) is not type(expected) or policy[key] != expected
+        for key, expected in ZERONE_2_ACCEPTED_POLICY.items()
+    ):
+        fail(f"{label} differs from the admission-closed launch policy")
+    return policy
 
 
 def require_nonempty_string(value: Any, label: str) -> str:
@@ -1228,12 +1286,65 @@ def validate_frozen_terminal_cryptography(
             fail(f"{prefix} terminal crypto verifier returned unexpected output")
 
 
+def validate_bundled_scheduler_genesis(app_state: Any) -> None:
+    """Check the actual bounded-intake genesis, not its activation disclosures.
+
+    Keep this pure launch profile aligned with tools/zerone2-artifact-audit.
+    Inventory deliberately does not call it: byte presence is not policy approval.
+    """
+    if not isinstance(app_state, dict):
+        fail("bundled genesis app_state must be an object")
+    if "schedule" in app_state:
+        fail("bundled genesis app_state.schedule must be absent")
+    label = "bundled genesis app_state.message_schedule"
+    scheduler = require_exact_object(
+        app_state.get("message_schedule"),
+        {"params", "schedules", "receipts", "next_schedule_id", "total_escrow_uzrn"},
+        label,
+    )
+    expected_params = {
+        "min_schedule_delay_blocks": 2,
+        "min_interval_blocks": 10,
+        "max_executions_per_schedule": 365,
+        "max_active_schedules_per_creator": 32,
+        "max_due_records_per_block": 64,
+        "max_query_limit": 100,
+        "execution_fee_uzrn": 100000,
+        "max_transfer_per_execution_uzrn": 1000000000000,
+    }
+    params = require_exact_object(
+        scheduler["params"], set(expected_params) | {"accept_new_schedules"},
+        f"{label}.params",
+    )
+    if params["accept_new_schedules"] is not False:
+        fail(f"{label}.params.accept_new_schedules must be false")
+
+    def require_launch_integer(value: Any, expected: int, field: str) -> None:
+        # Go's integerString accepts canonical decimal strings or JSON integers.
+        # Only these fixed values can match; avoid parsing attacker-sized strings.
+        if isinstance(value, str) and value == str(expected):
+            value = expected
+        if require_nonnegative_integer(value, field) != expected:
+            fail(f"{field} must equal integer {expected}")
+
+    for key, expected in expected_params.items():
+        require_launch_integer(params[key], expected, f"{label}.params.{key}")
+    for key in ("schedules", "receipts"):
+        if not isinstance(scheduler[key], list) or scheduler[key]:
+            fail(f"{label}.{key} must be an empty array")
+    require_launch_integer(scheduler["next_schedule_id"], 1, f"{label}.next_schedule_id")
+    require_launch_integer(scheduler["total_escrow_uzrn"], 0, f"{label}.total_escrow_uzrn")
+
+
 def validate_release_ceremony(
     files: dict[str, bytes],
     objects: dict[str, Any],
     release: dict[str, Any],
     main: str,
 ) -> None:
+    accepted_policy = require_zerone_2_accepted_policy(
+        release.get("accepted_policy"), "RELEASE accepted policy"
+    )
     signature_authority = require_exact_object(
         release.get("signature_authority"),
         {"algorithm", "authorized_signer_fingerprint", "detached_signature_filename"},
@@ -1447,7 +1558,14 @@ def validate_release_ceremony(
     )
     manifest_activations = require_exact_object(
         manifest["activations"],
-        {"vote_extensions", "pot", "ibc", "substrate_bridge", "claiming"},
+        {
+            "vote_extensions",
+            "pot",
+            "ibc",
+            "substrate_bridge",
+            "claiming",
+            "message_schedule_admission",
+        },
         "ceremony manifest activations",
     )
     if not (
@@ -1487,7 +1605,9 @@ def validate_release_ceremony(
             "ibc": "external-disabled; localhost-only",
             "substrate_bridge": "disabled",
             "claiming": "disabled",
+            "message_schedule_admission": "disabled",
         }
+        and accepted_policy["message_schedule_admission_live_at_genesis"] is False
     ):
         fail("ceremony network manifest differs from RELEASE or the production profile")
 
@@ -1499,6 +1619,7 @@ def validate_release_ceremony(
     ):
         fail("bundled genesis chain/time differs from RELEASE")
     app_state = genesis.get("app_state")
+    validate_bundled_scheduler_genesis(app_state)
     bank = app_state.get("bank") if isinstance(app_state, dict) else None
     if not isinstance(bank, dict) or bank.get("supply") != [
         {"denom": "uzrn", "amount": "13555000000"}
@@ -1559,6 +1680,7 @@ def validate_release_ceremony(
         f"- Binary SHA-256: {manifest_release['binary_sha256']}",
         f"- Binary version: {manifest_release['binary_version']}",
         f"- Binary target: {manifest_release['binary_goos']}/{manifest_release['binary_goarch']}",
+        "- Native message-schedule admission: disabled (`accept_new_schedules=false`).",
     )
     if any(line not in human_lines for line in required_human_lines):
         fail("ceremony human manifest does not repeat the exact signed release facts")
@@ -4574,62 +4696,22 @@ def validate_open_chain(
             fail("OPEN decision/commit/evidence chronology is non-monotonic")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument(
-        "stage",
-        choices=(
-            "dark-preinit",
-            "dark-registration-preinit",
-            "notice-prepublish",
-            "cutover-preinit",
-            "cutover-postinit",
-            "open-preinit",
-            "open-postinit",
-        ),
-    )
-    parser.add_argument("bundle")
-    parser.add_argument("expected_main")
-    parser.add_argument("expected_transition", nargs="?", default=None)
-    parser.add_argument("--release", required=True)
-    parser.add_argument("--release-sig", required=True)
-    parser.add_argument("--decision", required=True)
-    parser.add_argument("--decision-sig", required=True)
-    parser.add_argument("--initiation")
-    parser.add_argument("--initiation-sig")
-    parser.add_argument("--final")
-    parser.add_argument("--final-sig")
-    parser.add_argument("--final-template")
-    parser.add_argument("--open-template")
-    parser.add_argument("--adoption-template")
-    parser.add_argument("--config-policy", required=True)
-    parser.add_argument("--tool-root", required=True)
-    args = parser.parse_args()
-    if not FINGERPRINT.fullmatch(args.expected_main):
-        fail("expected main signer must be a full 40- or 64-hex fingerprint")
-    if args.stage.startswith("open"):
-        if args.expected_transition is None or not FINGERPRINT.fullmatch(
-            args.expected_transition
-        ):
-            fail("OPEN verification requires a full transition fingerprint")
-        if not args.final_template or not args.open_template or not args.adoption_template:
-            fail("OPEN verification requires adoption, FINAL, and OPEN templates")
-        if not args.final or not args.final_sig:
-            fail("OPEN verification requires the explicit FINAL payload/signature pair")
-    elif args.expected_transition is not None:
-        fail("transition fingerprint is valid only for OPEN verification")
+INVENTORY_MAX_BYTES = 1024 * 1024 * 1024
+STAGES = (
+    "dark-preinit",
+    "dark-registration-preinit",
+    "notice-prepublish",
+    "cutover-preinit",
+    "cutover-postinit",
+    "open-preinit",
+    "open-postinit",
+)
 
-    bundle_path = pathlib.Path(args.bundle)
-    try:
-        bundle_info = os.lstat(bundle_path)
-    except OSError as exc:
-        fail(f"could not inspect authority bundle: {exc}")
-    if not stat.S_ISDIR(bundle_info.st_mode) or stat.S_ISLNK(bundle_info.st_mode):
-        fail("authority bundle must be a real directory, not a symlink")
-    bundle_fd = os.open(
-        bundle_path,
-        os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
-    )
+
+def required_bundle_files(stage: str) -> set[str]:
+    """Fixed public filenames only; no paths or declarations from bundle contents."""
+    if stage not in STAGES:
+        raise ValueError("unknown authority stage")
     base = {
         "RELEASE-PACKET.json",
         "RELEASE-PACKET.json.sig",
@@ -4711,18 +4793,227 @@ def main() -> None:
         "OPEN-BETA-INITIATION-EVIDENCE.json.sig",
     }
     required = set(base)
-    if args.stage != "dark-preinit":
+    if stage != "dark-preinit":
         required |= dark_post
-    if args.stage not in {"dark-preinit", "dark-registration-preinit"}:
+    if stage not in {"dark-preinit", "dark-registration-preinit"}:
         required |= notice_files
-    if args.stage not in {"dark-preinit", "dark-registration-preinit", "notice-prepublish"}:
+    if stage not in {"dark-preinit", "dark-registration-preinit", "notice-prepublish"}:
         required |= cutover_files
-    if args.stage in {"cutover-postinit", "open-preinit", "open-postinit"}:
+    if stage in {"cutover-postinit", "open-preinit", "open-postinit"}:
         required |= cutover_post
-    if args.stage in {"open-preinit", "open-postinit"}:
+    if stage in {"open-preinit", "open-postinit"}:
         required |= open_files
-    if args.stage == "open-postinit":
+    if stage == "open-postinit":
         required |= open_post
+    return required
+
+
+def open_inventory_directory(directory: str) -> int:
+    """Pin an explicitly selected directory, refusing traversal and all symlinks."""
+    if not directory or "://" in directory or "\\" in directory or ".." in directory.split("/"):
+        raise ValueError("use a literal local directory without parent traversal")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    fd = os.open("/" if directory.startswith("/") else ".", flags)
+    try:
+        for part in directory.split("/"):
+            if part in {"", "."}:
+                continue
+            child = os.open(part, flags, dir_fd=fd)
+            os.close(fd)
+            fd = child
+        return fd
+    except BaseException:
+        os.close(fd)
+        raise
+
+
+def inventory_consistency(
+    items: dict[str, dict[str, Any]], objects: dict[str, Any], checksum: bytes | None
+) -> list[dict[str, str]]:
+    """Only fixed byte-hash bindings; never discover paths or authenticate claims."""
+    checks: list[dict[str, str]] = []
+
+    def compare(owner: str, field: str, target: str, declared: Any) -> None:
+        actual = items.get(target, {}).get("sha256")
+        status = "not_assessed"
+        if actual is not None and declared is not None:
+            status = "matches_bytes" if declared == actual else "mismatch"
+            if status == "mismatch":
+                items[owner]["status"] = "invalid"
+        checks.append({"file": owner, "field": field, "target": target, "status": status})
+
+    if checksum is not None:
+        actual = items["genesis.json"].get("sha256")
+        expected = f"{actual}  genesis.json\n".encode() if actual else None
+        if re.fullmatch(rb"[0-9a-f]{64}  genesis\.json\n", checksum) is None:
+            status = "invalid_format"
+        else:
+            status = "not_assessed" if expected is None else (
+                "matches_bytes" if checksum == expected else "mismatch"
+            )
+        if status in {"mismatch", "invalid_format"}:
+            items["genesis.sha256"]["status"] = "invalid"
+        checks.append({"file": "genesis.sha256", "field": "exact_checksum_line",
+                       "target": "genesis.json", "status": status})
+
+    for owner in ("genesis.json", "network-manifest.json", "RELEASE-PACKET.json"):
+        obj = objects.get(owner)
+        if not isinstance(obj, dict):
+            continue
+        if "chain_id" in obj:
+            status = "equals_zerone_2" if obj["chain_id"] == "zerone-2" else "mismatch"
+            if status == "mismatch":
+                items[owner]["status"] = "invalid"
+            checks.append({"file": owner, "field": "chain_id", "status": status})
+
+    # These field paths are code-owned, not supplied filesystem references.
+    bindings = {
+        "network-manifest.json": {
+            "genesis_sha256": "genesis.json",
+            "release.binary_sha256": "zeroned-zerone-2-release",
+        },
+        "RELEASE-PACKET.json": {
+            "genesis.sha256": "genesis.json",
+            "ceremony_artifacts.genesis_checksum_sha256": "genesis.sha256",
+            "ceremony_artifacts.network_manifest_sha256": "network-manifest.json",
+            "ceremony_artifacts.human_manifest_sha256": "GENESIS-MANIFEST.md",
+            "components.zerone_1_halt.binary_sha256": "zeroned-zerone-1-release",
+            "components.zerone_2_runtime.binary_sha256": "zeroned-zerone-2-release",
+            "operator_tool_manifest_sha256": "OPERATOR-TOOL-MANIFEST.json",
+            "monitoring_alerts_sha256": "MONITORING-ALERTS.json",
+        },
+    }
+    for owner, fields in bindings.items():
+        for field, target in fields.items():
+            value = objects.get(owner)
+            for part in field.split("."):
+                value = value.get(part) if isinstance(value, dict) else None
+            compare(owner, field, target, value)
+    return checks
+
+
+def inventory_bundle(stage: str, directory: str | None = None) -> dict[str, Any]:
+    """Read only stage-allowlisted public bytes; no tools, signatures or effects."""
+    items = {name: {"status": "not_provided"} for name in sorted(required_bundle_files(stage))}
+    report: dict[str, Any] = {
+        "schema": "zerone-authority-inventory-v1",
+        "stage": stage,
+        "authority_status": "not_assessed",
+        "non_authorizing": True,
+        "trusted_signer_status": "not_provided",
+        "directory_status": "not_provided",
+        "scope": "allowlisted bytes, JSON syntax and listed unsigned consistency checks only; "
+                 "not release authentication, policy verification, execution or join readiness",
+        "files": items,
+        "checks": [],
+    }
+    if directory is None:
+        return report
+    try:
+        fd = open_inventory_directory(directory)
+    except (OSError, ValueError):
+        report["directory_status"] = "invalid"
+        for item in items.values():
+            item.update(status="invalid", reason="supplied_directory_not_safely_openable")
+        return report
+    report["directory_status"] = "present_unverified"
+    objects: dict[str, Any] = {}
+    checksum = None
+    remaining = INVENTORY_MAX_BYTES
+    try:
+        for name, item in items.items():
+            try:
+                info = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1:
+                    item.update(status="invalid", reason="not_single_link_regular_file")
+                    continue
+            except FileNotFoundError:
+                item["status"] = "absent_in_supplied_directory"
+                continue
+            except OSError:
+                item.update(status="invalid", reason="file_not_safely_inspectable")
+                continue
+            try:
+                data = secure_read_bundle(fd, name, remaining)
+                remaining -= len(data)
+                item.update(status="present_unverified", size_bytes=len(data), sha256=sha256(data))
+                if not data:
+                    item.update(status="invalid", reason="empty_required_file")
+                elif name.endswith(".json"):
+                    obj = parse_json(data, name, strict_constants=True)
+                    item["json_check"] = "syntax_only"
+                    if name in {"genesis.json", "network-manifest.json", "RELEASE-PACKET.json"}:
+                        objects[name] = obj
+                elif name == "genesis.sha256":
+                    checksum = data
+            except (OSError, SystemExit, RecursionError, ValueError):
+                # Never expose exception text, JSON values, arbitrary filenames or bodies.
+                item.update(status="invalid", reason="unsafe_unreadable_oversized_or_malformed")
+    finally:
+        os.close(fd)
+    report["checks"] = inventory_consistency(items, objects, checksum)
+    return report
+
+
+def inventory_main(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(description="Non-authorizing public release evidence inventory")
+    parser.add_argument("stage", choices=STAGES)
+    parser.add_argument("--bundle", help="explicit public bundle directory; no discovery if omitted")
+    args = parser.parse_args(argv)
+    report = inventory_bundle(args.stage, args.bundle)
+    print(json.dumps(report, sort_keys=True, indent=2))
+    if report["directory_status"] == "invalid" or any(
+        item["status"] == "invalid" for item in report["files"].values()
+    ):
+        raise SystemExit(1)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("stage", choices=STAGES)
+    parser.add_argument("bundle")
+    parser.add_argument("expected_main")
+    parser.add_argument("expected_transition", nargs="?", default=None)
+    parser.add_argument("--release", required=True)
+    parser.add_argument("--release-sig", required=True)
+    parser.add_argument("--decision", required=True)
+    parser.add_argument("--decision-sig", required=True)
+    parser.add_argument("--initiation")
+    parser.add_argument("--initiation-sig")
+    parser.add_argument("--final")
+    parser.add_argument("--final-sig")
+    parser.add_argument("--final-template")
+    parser.add_argument("--open-template")
+    parser.add_argument("--adoption-template")
+    parser.add_argument("--config-policy", required=True)
+    parser.add_argument("--tool-root", required=True)
+    args = parser.parse_args()
+    if not FINGERPRINT.fullmatch(args.expected_main):
+        fail("expected main signer must be a full 40- or 64-hex fingerprint")
+    if args.stage.startswith("open"):
+        if args.expected_transition is None or not FINGERPRINT.fullmatch(
+            args.expected_transition
+        ):
+            fail("OPEN verification requires a full transition fingerprint")
+        if not args.final_template or not args.open_template or not args.adoption_template:
+            fail("OPEN verification requires adoption, FINAL, and OPEN templates")
+        if not args.final or not args.final_sig:
+            fail("OPEN verification requires the explicit FINAL payload/signature pair")
+    elif args.expected_transition is not None:
+        fail("transition fingerprint is valid only for OPEN verification")
+
+    bundle_path = pathlib.Path(args.bundle)
+    try:
+        bundle_info = os.lstat(bundle_path)
+    except OSError as exc:
+        fail(f"could not inspect authority bundle: {exc}")
+    if not stat.S_ISDIR(bundle_info.st_mode) or stat.S_ISLNK(bundle_info.st_mode):
+        fail("authority bundle must be a real directory, not a symlink")
+    bundle_fd = os.open(
+        bundle_path,
+        os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
+    )
+    required = required_bundle_files(args.stage)
     try:
         files: dict[str, bytes] = {}
         total_bundle_bytes = 0
@@ -4832,7 +5123,9 @@ def main() -> None:
             for filename in component_files.values()
         )
         for name in json_names:
-            objects[name] = parse_json(files[name], name)
+            objects[name] = parse_json(
+                files[name], name, preserve_negative_zero=(name == "genesis.json")
+            )
             if name in canonical_json_names:
                 verify_canonical(paths[name], files[name], name)
             if contains_placeholder(objects[name]):
@@ -4939,6 +5232,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["inventory"]:
+        inventory_main(sys.argv[2:])
+        raise SystemExit(0)
     if shutil.which("jq") is None:
         fail("jq is required")
     if shutil.which("gpg") is None:

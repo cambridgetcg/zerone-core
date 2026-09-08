@@ -19,7 +19,11 @@ make proto-gen
 make proto-swagger-gen
 
 echo ""
-echo "=== Step 2: Checking for drift in generated files ==="
+echo "=== Step 2: Validating merged Swagger operation IDs ==="
+go test scripts/merge_swagger.go scripts/merge_swagger_test.go
+
+echo ""
+echo "=== Step 3: Checking for drift in generated files ==="
 if ! git diff --quiet -- '*.pb.go' '*.pb.gw.go' 'docs/swagger-ui/swagger.json'; then
     echo "ERROR: Protobuf-generated files are stale. Run 'make proto-gen proto-swagger-gen' and commit the results."
     echo ""
@@ -30,7 +34,7 @@ else
 fi
 
 echo ""
-echo "=== Step 3: Checking for hand-rolled gRPC services ==="
+echo "=== Step 4: Checking for hand-rolled gRPC services ==="
 EXT_FILES=$(find x/ -name "query_ext.go" -path "*/types/*" 2>/dev/null || true)
 if [ -n "$EXT_FILES" ]; then
     echo "ERROR: Hand-rolled gRPC services found (must migrate to proto Query service):"
@@ -41,7 +45,7 @@ else
 fi
 
 echo ""
-echo "=== Step 4: Checking for RegisterQueryExtServer ==="
+echo "=== Step 5: Checking for RegisterQueryExtServer ==="
 EXT_REGS=$(grep -rn "RegisterQueryExtServer" x/*/module.go 2>/dev/null || true)
 if [ -n "$EXT_REGS" ]; then
     echo "ERROR: QueryExt registrations found (must use proto-generated services):"

@@ -92,6 +92,11 @@ snapshot byte-for-byte.
       diagnostic only: the authoritative-state inventory documents known
       custom-module round-trip omissions and it is not an authorized recovery
       path.
+- [ ] Scheduler admission is false, schedules/receipts are empty, total escrow
+      is zero, and no launch communication claims native scheduling is active
+- [ ] Retired `schedule` store and VersionMap entry are absent; both retired
+      and fresh scheduler module addresses have zero coins in every
+      denomination, are distinct, and are blocked from ordinary receipt
 - [ ] All private profiles have no public Fly service or public P2P address
 - [ ] Genesis supply, two owners, locked self-bond, single validator, and every
       protocol-dark invariant independently audited
@@ -299,3 +304,26 @@ references the unchanged RELEASE, DARK-START, CUTOVER, adoption, final
 checkpoint, both earlier initiation evidence pairs, readiness, exact
 transaction, public configs, coordinates, and DNS
 manifest. Its detached `.sig` remains outside the payload.
+
+## Separate native-scheduler admission gate
+
+Decisions A–D launch the module admission-closed and do not authorize changing
+`accept_new_schedules` to true. Before a later governance proposal may open
+admission, every item below remains an explicit NO-GO gate:
+
+- [ ] Multi-validator daemon evidence covers creation, amendment, cancellation,
+      emergency halt plus the full ten-block cancellation grace, restart,
+      state sync, nonempty export/import, and AppHash equality.
+- [ ] Historical schedule/receipt growth has an explicit retention, rent, or
+      capacity decision.
+- [ ] Real exported signals plus release-bound alert tests cover proposal
+      rejection, due backlog, failed-and-refunded occurrences, and escrow
+      invariant failure. Scheduler events or query availability alone are not
+      monitoring evidence.
+- [ ] A separately reviewed and signed activation decision binds the parameter
+      proposal, safe-stop/recovery procedure, cancellation exposure, and the
+      completed evidence above.
+
+Until that separate gate is complete, scheduler admission remains false; no
+unchecked item here may be represented as launch evidence or inferred from the
+existing release monitoring rules.

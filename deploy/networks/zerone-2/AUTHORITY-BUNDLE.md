@@ -321,6 +321,96 @@ five-field mapping after deterministic substitution of FINAL A, lowercase E,
 and lowercase B. The verifier rerenders and byte-compares it; a hand-authored
 config or a template hash masquerading as deployable config bytes is invalid.
 
+## Non-authorizing preparation inventory
+
+Inventory is a separate early-dispatched mode, usable on the macOS preparation
+workspace without `jq`, `gpg`, a keyring, or executable release tools:
+
+```bash
+# Select an existing phase, without supplying or discovering a directory.
+python3 -B deploy/verify-authority-chain.py inventory open-postinit
+
+# Only if an operator explicitly supplies a public bundle directory:
+python3 -B deploy/verify-authority-chain.py inventory open-postinit \
+  --bundle /explicit/public/authority-bundle
+```
+
+No actual public bundle location or independently trusted signer has been
+supplied for this preparation. Their status is **`not_provided`**; this is not
+evidence that a release does not exist. Do not search node homes, custody
+folders, keyrings, or the home directory to fill the gap. Select the stage whose
+inputs you intend to inventory; the required filenames come from the same pure
+helper used by production phase verification, never from manifest-selected paths.
+
+The JSON report always has `authority_status: "not_assessed"`,
+`non_authorizing: true`, and `trusted_signer_status: "not_provided"`. Per-file
+states mean only:
+
+- `not_provided`: no directory was supplied; no filesystem inspection occurred.
+- `absent_in_supplied_directory`: a safely opened selected directory lacks this
+  required literal filename, not a claim about any other location.
+- `present_unverified`: bounded regular-file bytes were read and hashed. For
+  `.json` files, duplicate-key/trailing-data/non-finite-number rejection and
+  JSON syntax checks were performed, **not full schema or policy validation**.
+- `invalid`: an unsafe/unreadable/oversized/empty/malformed input or a listed
+  contradictory binding was observed. An unsafe or nonexistent selected
+  directory is itself `invalid`, not an absent-file finding in a real directory.
+
+Only fixed metadata is emitted: literal required names, byte counts, computed
+SHA-256 values, status/reason codes, and individually scoped consistency results.
+The listed checks compare the genesis checksum line, declared chain IDs, and
+selected RELEASE/network-manifest hashes against the bytes read. A
+`matches_bytes` result proves that comparison only. Missing declarations or
+unavailable counterpart bytes remain `not_assessed`; even complete unsigned
+consistency is never authenticated authority. Source bodies, arbitrary fields,
+signer claims, URLs, and non-allowlisted entry names are not printed.
+
+Inventory opens no unexpected/private entries, does not enumerate the directory,
+and does not follow paths or URLs from documents. Supply a literal local path
+without `..` or symlink components (use the physical directory path). Required
+files must be single-link regular files, read relative to the pinned directory
+with no-follow/nonblocking guards and existing per-file bounds, up to 1 GiB
+aggregate. This is a record of the bytes read, not an atomic directory snapshot;
+keep the selected public inputs quiescent while inspecting them. There are no
+subprocesses, signature checks, binary execution, network requests, temporary
+files, or writes by inventory. Exit 0 means the
+inventory completed without an `invalid` item; absent and not-provided inputs
+can still exist. Invalid inputs exit 1; CLI usage errors exit 2. None means a
+release is accepted, a node is join-ready, or any live action is authorized.
+
+The separate genesis artifact auditor still requires **exactly four files**:
+`genesis.json`, `genesis.sha256`, `network-manifest.json`, and
+`GENESIS-MANIFEST.md`. It rejects unexpected/private names and non-regular
+entries before any child-file opens, then reads each allowed file once through
+a pinned-directory no-follow descriptor. Its byte caps are respectively 32 MiB,
+1 KiB, 1 MiB, and 256 KiB; hardlinks are refused. All later checks use those same
+bytes. The chain-specific **one-validator, zero-BFT-tolerance** launch policy,
+closed/empty/zero-escrow message scheduler, and exact human renderer are unchanged.
+
+### Select a release-bound joining tuple
+
+Before a separately authorized clean-machine non-signing join, explicitly select
+and independently review all of these inputs together:
+
+| Input | Required binding / present preparation boundary |
+| --- | --- |
+| Chain and role | `zerone-2`, non-signing full node/observer, not a genesis custodian or consensus validator. A custom knowledge verifier is a separate role. |
+| Genesis | Exact public genesis bytes and externally authenticated SHA-256; not supplied. |
+| Executable | Exact checksum, GOOS/GOARCH, source commit and signed release tag; not supplied. No native rebuild substitution for release-bound verification tools. |
+| Image, when used | Exact component and immutable digest with its release-bound provenance/signature evidence; not supplied. |
+| Trust anchors | Independently obtained authorized full signer fingerprints, source/release anchors and applicable checkpoint trust; not supplied. Bundle self-assertions cannot select them. |
+| Public peers | Explicit release-matched public Comet P2P node IDs/endpoints and reachability evidence; not supplied. Private Fly peers are not public joining instructions. |
+| Synchronization | Ordinary historical P2P replay from the authenticated public genesis for the non-signing procedure; state sync disabled unless separately selected and evidenced. |
+| Checkpoint and rehearsal | Release-matched height/block/validator-set/quorum and applied ABCI height/AppHash evidence, clean restart/catch-up evidence, and a clean-machine repetition; not supplied as production acceptance. Header H+1 pre-state AppHash must not be confused with post-H application state. |
+
+The hosted query gateway is **GET-only**, not standard Cosmos JSON-RPC POST
+transport, a transaction broadcaster, or a state-sync provider. A gateway URL
+does not supply missing public P2P coordinates. The local observer rehearsal
+proves loopback replay/restart mechanics only, not public reachability,
+clean-machine isolation, or production joining. Inventory prepares the tuple;
+actual phase authentication still uses the dedicated release-bound
+Linux/amd64 workstation and the existing production verifier below.
+
 ## Read-only verification
 
 Every production verification stage, and every deployment or transaction gate

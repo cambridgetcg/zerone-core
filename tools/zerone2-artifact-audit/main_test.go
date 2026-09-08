@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"testing"
 
 	"golang.org/x/crypto/ripemd160"
+	"golang.org/x/sys/unix"
 )
 
 func TestAuditGenesisAcceptsLockedProtocolDarkProfile(t *testing.T) {
@@ -80,6 +82,25 @@ func TestAuditGenesisRejectsInvariantDrift(t *testing.T) {
 		{name: "founder", path: "app_state.vesting_rewards.params.founder_share_bps", value: 1, issuePath: "founder_share_bps"},
 		{name: "vesting", path: "app_state.vesting_rewards.params.vesting_enabled", value: true, issuePath: "vesting_enabled"},
 		{name: "registrar", path: "app_state.claiming_pot.params.bootstrap_registrar", value: "zrn1operator", issuePath: "bootstrap_registrar"},
+		{name: "schedule admission", path: "app_state.message_schedule.params.accept_new_schedules", value: true, issuePath: "accept_new_schedules"},
+		{name: "schedule admission must be boolean", path: "app_state.message_schedule.params.accept_new_schedules", value: "false", issuePath: "accept_new_schedules"},
+		{name: "schedule admission cannot be null", path: "app_state.message_schedule.params.accept_new_schedules", value: nil, issuePath: "accept_new_schedules"},
+		{name: "schedule missing state", path: "app_state.message_schedule", value: nil, issuePath: "message_schedule"},
+		{name: "schedule delay", path: "app_state.message_schedule.params.min_schedule_delay_blocks", value: 1, issuePath: "min_schedule_delay_blocks"},
+		{name: "schedule interval", path: "app_state.message_schedule.params.min_interval_blocks", value: 1, issuePath: "min_interval_blocks"},
+		{name: "schedule execution bound", path: "app_state.message_schedule.params.max_executions_per_schedule", value: 366, issuePath: "max_executions_per_schedule"},
+		{name: "schedule creator bound", path: "app_state.message_schedule.params.max_active_schedules_per_creator", value: 33, issuePath: "max_active_schedules_per_creator"},
+		{name: "schedule due bound", path: "app_state.message_schedule.params.max_due_records_per_block", value: 256, issuePath: "max_due_records_per_block"},
+		{name: "schedule query bound", path: "app_state.message_schedule.params.max_query_limit", value: 101, issuePath: "max_query_limit"},
+		{name: "schedule execution fee", path: "app_state.message_schedule.params.execution_fee_uzrn", value: "0", issuePath: "execution_fee_uzrn"},
+		{name: "schedule transfer bound", path: "app_state.message_schedule.params.max_transfer_per_execution_uzrn", value: "1000000000001", issuePath: "max_transfer_per_execution_uzrn"},
+		{name: "schedule receipts preloaded", path: "app_state.message_schedule.receipts", value: []any{map[string]any{"schedule_id": "schedule-00000000000000000001"}}, issuePath: "message_schedule.receipts"},
+		{name: "schedule escrow preloaded", path: "app_state.message_schedule.total_escrow_uzrn", value: "1", issuePath: "total_escrow_uzrn"},
+		{name: "schedule sequence advanced", path: "app_state.message_schedule.next_schedule_id", value: 2, issuePath: "next_schedule_id"},
+		{name: "schedule preloaded", path: "app_state.message_schedule.schedules", value: []any{map[string]any{"id": "schedule-00000000000000000001"}}, issuePath: "message_schedule.schedules"},
+		{name: "schedule unknown top-level field", path: "app_state.message_schedule.unexpected_records", value: []any{}, issuePath: "message_schedule.unexpected_records"},
+		{name: "schedule unknown parameter", path: "app_state.message_schedule.params.unexpected_consensus_switch", value: false, issuePath: "message_schedule.params.unexpected_consensus_switch"},
+		{name: "retired schedule namespace", path: "app_state.schedule", value: map[string]any{}, issuePath: "app_state.schedule"},
 		{name: "emergency council", path: "app_state.emergency.params.genesis_council", value: []any{"zrn1operator"}, issuePath: "genesis_council"},
 		{name: "custom staking minimum", path: "app_state.zerone_staking.params.min_self_delegation", value: "111000", issuePath: "min_self_delegation"},
 		{name: "custom validator preloaded", path: "app_state.zerone_staking.validators", value: []any{map[string]any{"operator_address": "zrn1operator"}}, issuePath: "zerone_staking.validators"},
@@ -97,6 +118,52 @@ func TestAuditGenesisRejectsInvariantDrift(t *testing.T) {
 				t.Fatalf("expected issue containing %q; got:\n%s", tc.issuePath, formatIssues(r.Issues))
 			}
 		})
+	}
+}
+
+func TestAuditGenesisRejectsMissingSchedulerPolicy(t *testing.T) {
+	for _, params := range []bool{false, true} {
+		fixture := validGenesisFixture(t)
+		state := fixtureAppState(t, fixture)["message_schedule"].(map[string]any)
+		path := "app_state.message_schedule"
+		if params {
+			state = state["params"].(map[string]any)
+			path += ".params"
+		}
+		for field := range state {
+			t.Run(path+"."+field, func(t *testing.T) {
+				fixture := validGenesisFixture(t)
+				state := fixtureAppState(t, fixture)["message_schedule"].(map[string]any)
+				if params {
+					state = state["params"].(map[string]any)
+				}
+				delete(state, field)
+				r := auditGenesis(marshalFixture(t, fixture))
+				if !hasIssuePath(r.Issues, path+"."+field) {
+					t.Fatalf("expected missing %s rejection; got:\n%s", field, formatIssues(r.Issues))
+				}
+			})
+		}
+	}
+}
+
+func TestAuditGenesisRejectsSchedulerBankAllocations(t *testing.T) {
+	for _, name := range []string{"schedule", "message_schedule"} {
+		for _, coinDenom := range []string{denom, "uother"} {
+			t.Run(name+"/"+coinDenom, func(t *testing.T) {
+				fixture := validGenesisFixture(t)
+				bank := fixtureAppState(t, fixture)["bank"].(map[string]any)
+				hash := sha256.Sum256([]byte(name))
+				bank["balances"] = append(bank["balances"].([]any), map[string]any{
+					"address": bech32Encode(t, "zrn", hash[:20]),
+					"coins":   []any{coin(coinDenom, "1")},
+				})
+				r := auditGenesis(marshalFixture(t, fixture))
+				if !hasIssuePath(r.Issues, "app_state.bank.balances") {
+					t.Fatalf("expected forbidden scheduler allocation rejection; got:\n%s", formatIssues(r.Issues))
+				}
+			})
+		}
 	}
 }
 
@@ -239,7 +306,7 @@ func TestAuditArtifactDirIntegration(t *testing.T) {
 	t.Run("private content", func(t *testing.T) {
 		badDir := t.TempDir()
 		writePublicArtifactSet(t, badDir, marshalFixture(t, validGenesisFixture(t)))
-		writeFixture(t, filepath.Join(badDir, "notes.txt"), []byte("-----BEGIN PRIVATE KEY-----\nredacted\n"))
+		writeFixture(t, filepath.Join(badDir, "GENESIS-MANIFEST.md"), []byte("-----BEGIN PRIVATE KEY-----\nredacted\n"))
 		r := auditArtifactDir(badDir, "drill")
 		if !hasIssueMessage(r.Issues, "private-key marker") {
 			t.Fatalf("expected private content rejection; got:\n%s", formatIssues(r.Issues))
@@ -249,7 +316,7 @@ func TestAuditArtifactDirIntegration(t *testing.T) {
 	t.Run("renamed mnemonic", func(t *testing.T) {
 		badDir := t.TempDir()
 		writePublicArtifactSet(t, badDir, marshalFixture(t, validGenesisFixture(t)))
-		writeFixture(t, filepath.Join(badDir, "innocent-looking-notes.txt"), []byte("now aware tomorrow wire robust regular unveil swallow trigger about immune wool humor allow inch runway sock acoustic scare weather outdoor shield attract direct\n"))
+		writeFixture(t, filepath.Join(badDir, "GENESIS-MANIFEST.md"), []byte("now aware tomorrow wire robust regular unveil swallow trigger about immune wool humor allow inch runway sock acoustic scare weather outdoor shield attract direct\n"))
 		r := auditArtifactDir(badDir, "drill")
 		if !hasIssueMessage(r.Issues, "valid BIP-39 mnemonic") {
 			t.Fatalf("expected renamed mnemonic rejection; got:\n%s", formatIssues(r.Issues))
@@ -259,7 +326,7 @@ func TestAuditArtifactDirIntegration(t *testing.T) {
 	t.Run("punctuated JSON mnemonic", func(t *testing.T) {
 		badDir := t.TempDir()
 		writePublicArtifactSet(t, badDir, marshalFixture(t, validGenesisFixture(t)))
-		writeFixture(t, filepath.Join(badDir, "public-notes.txt"), []byte(
+		writeFixture(t, filepath.Join(badDir, "GENESIS-MANIFEST.md"), []byte(
 			`["now","aware","tomorrow","wire","robust","regular","unveil","swallow","trigger","about","immune","wool","humor","allow","inch","runway","sock","acoustic","scare","weather","outdoor","shield","attract","direct"]`,
 		))
 		r := auditArtifactDir(badDir, "drill")
@@ -290,6 +357,25 @@ func TestAuditArtifactDirIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("missing scheduler human disclosure", func(t *testing.T) {
+		badDir := t.TempDir()
+		writePublicArtifactSet(t, badDir, marshalFixture(t, validGenesisFixture(t)))
+		path := filepath.Join(badDir, "GENESIS-MANIFEST.md")
+		contents, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		disclosure := []byte("- Native message-schedule admission: disabled (`accept_new_schedules=false`).\n")
+		if !bytes.Contains(contents, disclosure) {
+			t.Fatal("human renderer omitted the scheduler admission disclosure")
+		}
+		writeFixture(t, path, bytes.Replace(contents, disclosure, nil, 1))
+		r := auditArtifactDir(badDir, "drill")
+		if !hasIssuePath(r.Issues, "GENESIS-MANIFEST.md") || !hasIssueMessage(r.Issues, "exactly match") {
+			t.Fatalf("expected deterministic scheduler-disclosure rejection; got:\n%s", formatIssues(r.Issues))
+		}
+	})
+
 	t.Run("contradictory human manifest", func(t *testing.T) {
 		badDir := t.TempDir()
 		writePublicArtifactSet(t, badDir, marshalFixture(t, validGenesisFixture(t)))
@@ -305,6 +391,128 @@ func TestAuditArtifactDirIntegration(t *testing.T) {
 			t.Fatalf("expected deterministic human-manifest rejection; got:\n%s", formatIssues(r.Issues))
 		}
 	})
+}
+
+// A pure preflight must not call Info (which could inspect a target). These
+// entries have no corresponding files and cannot be opened or read.
+type intakeEntry string
+
+func (e intakeEntry) Name() string               { return string(e) }
+func (e intakeEntry) IsDir() bool                { return false }
+func (e intakeEntry) Type() fs.FileMode          { return 0 }
+func (e intakeEntry) Info() (fs.FileInfo, error) { panic("intake must use names/types only") }
+
+func TestArtifactIntakeRejectsNamesWithoutInspection(t *testing.T) {
+	for _, name := range []string{"priv_validator_key.json", "node_key.json", "notes.txt", "../genesis.json", "/genesis.json"} {
+		t.Run(name, func(t *testing.T) {
+			entries := []os.DirEntry{intakeEntry(name)}
+			if issues := auditArtifactEntries(entries); !hasIssuePath(issues, name) {
+				t.Fatalf("missing name rejection: %v", issues)
+			}
+			// An invalid descriptor is deliberate: name rejection must precede
+			// even a stat/open attempt, not depend on a permission-denied target.
+			if _, err := readPublicArtifact(-1, name); err == nil || err.Error() != "refusing non-allowlisted artifact before open" {
+				t.Fatalf("non-allowlisted name reached filesystem intake: %v", err)
+			}
+		})
+	}
+}
+
+func TestArtifactIntakeNeverReadsUnexpectedContents(t *testing.T) {
+	for _, name := range []string{"priv_validator_key.json", "notes.txt"} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			writePublicArtifactSet(t, dir, marshalFixture(t, validGenesisFixture(t)))
+			// No contents exist at this sentinel target. The directory preflight
+			// must reject it without opening it, or even parsing allowed files.
+			if err := os.Symlink("absent-sentinel", filepath.Join(dir, name)); err != nil {
+				t.Fatal(err)
+			}
+			writeFixture(t, filepath.Join(dir, "genesis.json"), []byte("not JSON"))
+			r := auditArtifactDir(dir, "drill")
+			if !hasIssuePath(r.Issues, name) || hasIssueMessage(r.Issues, "JSON") || hasIssueMessage(r.Issues, "unreadable") {
+				t.Fatalf("unexpected content inspection: %s", formatIssues(r.Issues))
+			}
+		})
+	}
+}
+
+func TestArtifactIntakeRejectsUnsafeRequiredFiles(t *testing.T) {
+	for name := range requiredArtifactFiles {
+		for _, kind := range []string{"symlink", "fifo", "directory", "oversized", "hardlink"} {
+			t.Run(name+"/"+kind, func(t *testing.T) {
+				dir := t.TempDir()
+				writePublicArtifactSet(t, dir, marshalFixture(t, validGenesisFixture(t)))
+				path := filepath.Join(dir, name)
+				if err := os.Remove(path); err != nil {
+					t.Fatal(err)
+				}
+				var err error
+				switch kind {
+				case "symlink":
+					err = os.Symlink("absent-sentinel", path)
+				case "fifo":
+					err = unix.Mkfifo(path, 0o600)
+				case "directory":
+					err = os.Mkdir(path, 0o700)
+				case "oversized":
+					writeFixture(t, path, nil)
+					err = os.Truncate(path, artifactSizeLimit(name)+1)
+				case "hardlink":
+					target := filepath.Join(t.TempDir(), "synthetic-public-bytes")
+					writeFixture(t, target, []byte("fixture"))
+					err = os.Link(target, path)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				if r := auditArtifactDir(dir, "drill"); !hasIssuePath(r.Issues, name) {
+					t.Fatalf("unsafe required artifact passed: %s", formatIssues(r.Issues))
+				}
+				// Exercise the descriptor reader too, independently of preflight.
+				directory, err := os.Open(dir)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer directory.Close()
+				if _, err := readPublicArtifact(int(directory.Fd()), name); err == nil {
+					t.Fatal("descriptor reader accepted unsafe file")
+				}
+			})
+		}
+	}
+}
+
+func TestArtifactReaderPinsDirectoryAndReturnsBoundedBytes(t *testing.T) {
+	parent := t.TempDir()
+	dir := filepath.Join(parent, "selected")
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeFixture(t, filepath.Join(dir, "genesis.sha256"), []byte("original"))
+	directory, err := os.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer directory.Close()
+	if err := os.Rename(dir, filepath.Join(parent, "renamed")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	writeFixture(t, filepath.Join(dir, "genesis.sha256"), []byte("replacement"))
+	got, err := readPublicArtifact(int(directory.Fd()), "genesis.sha256")
+	if err != nil || string(got) != "original" {
+		t.Fatalf("reader followed replacement directory: %q, %v", got, err)
+	}
+	link := filepath.Join(parent, "directory-link")
+	if err := os.Symlink(dir, link); err != nil {
+		t.Fatal(err)
+	}
+	if r := auditArtifactDir(link, "drill"); !hasIssuePath(r.Issues, "artifact-dir") {
+		t.Fatal("symlink directory passed")
+	}
 }
 
 func TestAuditArtifactDirRequiresPublishedMetadata(t *testing.T) {
@@ -385,6 +593,7 @@ func TestAuditArtifactDirCrossChecksNetworkManifest(t *testing.T) {
 		{name: "ops account", path: "operations.account_address", value: "zrn1wrong", issuePath: "operations.account_address"},
 		{name: "gentx hash", path: "validator.gentx_sha256", value: strings.Repeat("c", 64), issuePath: "validator.gentx_sha256"},
 		{name: "dark activation", path: "activations.ibc", value: "enabled", issuePath: "activations.ibc"},
+		{name: "schedule admission declaration", path: "activations.message_schedule_admission", value: "enabled", issuePath: "activations.message_schedule_admission"},
 	}
 
 	for _, tc := range tests {
@@ -615,6 +824,20 @@ func validGenesisFixture(t *testing.T) map[string]any {
 			"claiming_pot": map[string]any{
 				"params": map[string]any{"bootstrap_registrar": ""}, "pots": []any{}, "claims": []any{},
 			},
+			"message_schedule": map[string]any{
+				"params": map[string]any{
+					"accept_new_schedules":             false,
+					"min_schedule_delay_blocks":        2,
+					"min_interval_blocks":              10,
+					"max_executions_per_schedule":      365,
+					"max_active_schedules_per_creator": 32,
+					"max_due_records_per_block":        64,
+					"max_query_limit":                  100,
+					"execution_fee_uzrn":               "100000",
+					"max_transfer_per_execution_uzrn":  "1000000000000",
+				},
+				"schedules": []any{}, "receipts": []any{}, "next_schedule_id": 1, "total_escrow_uzrn": "0",
+			},
 			"emergency": map[string]any{
 				"params": map[string]any{
 					"genesis_council": []any{}, "council_expiry_block": 0, "min_distinct_voters": 4,
@@ -758,7 +981,7 @@ func networkManifestFixture(t *testing.T, genesis []byte) map[string]any {
 		"operations": map[string]any{"account_address": audited.OpsAddress},
 		"activations": map[string]any{
 			"vote_extensions": "disabled", "pot": "not live", "ibc": "external-disabled; localhost-only",
-			"substrate_bridge": "disabled", "claiming": "disabled",
+			"substrate_bridge": "disabled", "claiming": "disabled", "message_schedule_admission": "disabled",
 		},
 	}
 }

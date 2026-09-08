@@ -105,15 +105,15 @@ func (gs *GenesisState) Validate() error {
 		return fmt.Errorf("normal status cannot carry active quarantine linkage")
 	}
 	if gs.QuarantineReleaseBlock != 0 {
-		if status != StatusNormal {
+		if status != StatusNormal && status != StatusHaltVoting {
 			return fmt.Errorf(
-				"quarantine_release_block requires normal status, got %s",
+				"quarantine_release_block requires normal or later halt_voting status, got %s",
 				status,
 			)
 		}
-		if gs.QuarantineReleaseBlock == ^uint64(0) {
+		if gs.QuarantineReleaseBlock > MaxSDKBlockHeight-PostResumeCancellationGraceBlocks {
 			return fmt.Errorf(
-				"quarantine_release_block cannot represent an H+1 reopening height",
+				"quarantine_release_block cannot represent the full post-resume grace window",
 			)
 		}
 	}
@@ -225,6 +225,11 @@ func (gs *GenesisState) Validate() error {
 		}
 		if gs.ActiveHaltCeremonyId != "" {
 			return fmt.Errorf("halt_voting status cannot carry finalized quarantine linkage")
+		}
+		// A later proposal may coexist with the original scheduler grace, but
+		// ProposeHalt cannot open a vote in or before the resume block itself.
+		if gs.QuarantineReleaseBlock != 0 && active.StartBlock <= gs.QuarantineReleaseBlock {
+			return fmt.Errorf("halt ceremony carrying post-resume grace must start after quarantine_release_block")
 		}
 	case StatusHalted:
 		if active != nil &&
