@@ -1,0 +1,9 @@
+/* Observer-only geometry. Existing text, surface, status and chart tokens stay unchanged. */
+.observer-evidence dd { margin: 0 0 1rem; overflow-wrap: anywhere; }
+.observer-evidence dt { font-weight: 600; }
+#lookup-result { overflow-wrap: anywhere; }
+#observer-lookup { grid-template-columns: minmax(10rem, 1fr) minmax(12rem, 2fr) auto; }
+#observer-lookup label { min-width: 0; }
+.metric-card > strong { overflow: visible; overflow-wrap: anywhere; line-height: 1.2; }
+@media (max-width: 720px) { #observer-lookup { grid-template-columns: 1fr; } }
+#block-rows td:last-child { overflow-wrap: anywhere; max-width: 24rem; }

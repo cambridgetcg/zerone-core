@@ -54,6 +54,15 @@ export function assessNetworkReadiness(input: {
   return input.catchingUp ? "syncing" : "ready";
 }
 
+export function observerReadinessPresentation(state: NetworkReadiness | "archive"): { label: string; detail: string } {
+  if (state === "archive") return { label: "Frozen archive matched", detail: "Fixed height, block hash and header app hash matched. No freshness expectation; not a light-client proof." };
+  if (state === "ready") return { label: "Active record fresh", detail: "Identity matched; block age is at most 30 seconds, with at most 10 seconds of future clock skew. Gateway observation only." };
+  if (state === "syncing") return { label: "Node syncing", detail: "Identity matched; active chain data may be incomplete." };
+  if (state === "stale") return { label: "Active record stale / time invalid", detail: "Old or future block time, or height regression. Do not rely on freshness." };
+  if (state === "unavailable") return { label: "Record unavailable", detail: "No current identity check. Unknown is not zero." };
+  return { label: "Checking record", detail: "Reading configured identity and bounded point block." };
+}
+
 function shortAddress(address: string): string {
   return address.length > 17
     ? `${address.slice(0, 10)}…${address.slice(-6)}`
