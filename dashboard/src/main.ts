@@ -11,6 +11,7 @@ import {
 } from "./api";
 import {
   CHAIN_ID,
+  NETWORK_PROFILE,
   FEEGRANT_SPONSORSHIP_ENABLED,
   HARD_CAP_ZRN,
 } from "./config";
@@ -34,6 +35,10 @@ import {
   initialiseOnboarding,
 } from "./onboarding";
 import type { WalletState } from "./wallet";
+
+// Beta builds select observer.ts before bundling; a stale legacy entry must
+// never attach wallet or transaction handlers to a non-legacy profile.
+if (NETWORK_PROFILE.mode !== "legacy") throw new Error("Legacy controls disabled for this profile");
 
 const byId = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);

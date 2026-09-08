@@ -1,3 +1,5 @@
+import { NETWORK_PROFILE, type NetworkProfile } from "../../network-profile";
+
 export type ProxyKind = "rpc" | "rest";
 
 export interface PagesContext {
@@ -20,6 +22,7 @@ export interface ProxyRuntime {
   fetch: ProxyFetch;
   cache: ProxyCache;
   upstreams: Readonly<Record<ProxyKind, string>>;
+  profile?: NetworkProfile;
 }
 
 type JsonRecord = Record<string, unknown>;
@@ -480,11 +483,68 @@ async function syncingCompatibilityResponse(
   );
 }
 
+// Deliberately a subset of deploy/query-gateway/default.conf.template. Raw
+// query grammar is exact: no duplicate keys, alternate encodings or pagination.
+export function validObserverQuery(kind: ProxyKind, path: string, query: string): boolean {
+  if (kind === "rpc") {
+    if (path === "status") return query === "";
+    if (path === "block") return /^\?height=[1-9]\d{0,9}$/.test(query) && Number(query.slice(8)) <= 1_000_000_000;
+    if (path === "validators") return query === "?page=1&per_page=100";
+    if (path === "tx") return /^\?hash=0x[A-Fa-f0-9]{64}&prove=false$/.test(query);
+    return false;
+  }
+  if ([SYNCING_ROUTE, "cosmos/base/tendermint/v1beta1/node_info", "cosmos/bank/v1beta1/denoms_metadata/uzrn", "zerone/liquiditypool/v1/params", "zerone/liquiditypool/v1/pools"].includes(path)) return query === "";
+  if (path === "cosmos/bank/v1beta1/supply/by_denom") return query === "?denom=uzrn";
+  const balance = /^cosmos\/bank\/v1beta1\/balances\/([^/]+)\/by_denom$/.exec(path);
+  if (balance) return validZeroneAccount(balance[1] ?? "") && query === "?denom=uzrn";
+  const account = /^(?:cosmos\/auth\/v1beta1\/accounts|zerone\/auth\/v1\/account_identifier)\/([^/]+)$/.exec(path);
+  return account !== null && validZeroneAccount(account[1] ?? "") && query === "";
+}
+
+async function proxyObserver(context: PagesContext, kind: ProxyKind, runtime: ProxyRuntime, profile: NetworkProfile): Promise<Response> {
+  const method = context.request.method.toUpperCase();
+  const headers = { ...API_HEADERS, "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS", "Cache-Control": "no-store" };
+  const observerError = (message: string, status: number): Response =>
+    Response.json({ error: message }, { status, headers });
+  if (profile.mode === "unconfigured" || profile.mode === "legacy") return observerError("Observer profile is not configured", 503);
+  if (method === "OPTIONS") return new Response(null, { status: 204, headers });
+  if (!["GET", "HEAD"].includes(method)) return new Response(JSON.stringify({ error: "Observer is read-only" }), { status: 405, headers });
+  const incoming = new URL(context.request.url);
+  const path = Array.isArray(context.params.path) ? context.params.path.join("/") : context.params.path ?? "";
+  if (incoming.pathname !== `/api/${kind}/${path}` || !validObserverQuery(kind, path, incoming.search)) return observerError("Query is outside the observer gateway allowlist", 403);
+  const cacheUrl = new URL(incoming);
+  // Partition on the entire public profile, including its release and origin.
+  cacheUrl.searchParams.set("__observer_profile", JSON.stringify(profile));
+  const cacheKey = new Request(cacheUrl, { method: "GET" });
+  if (method === "GET") {
+    const cached = await runtime.cache.match(cacheKey);
+    if (cached) return cached;
+  }
+  let upstream: Response;
+  try {
+    // Never use legacy runtime.upstreams, an incoming host, or a redirect.
+    upstream = await runtime.fetch(new URL(`/${path}${incoming.search}`, profile.gatewayOrigin), {
+      method, redirect: "manual", headers: { Accept: "application/json" }, signal: AbortSignal.timeout(10_000),
+    });
+  } catch { return observerError("Observer gateway unavailable", 502); }
+  if (upstream.status >= 300 && upstream.status < 400) return observerError("Observer gateway redirect refused", 502);
+  if (!upstream.ok) return new Response(JSON.stringify({ error: `Observer gateway returned HTTP ${upstream.status}` }), { status: upstream.status, headers });
+  if (method === "HEAD") return new Response(null, { status: 200, headers });
+  const body = await readLimitedResponseBody(upstream, 2_097_152);
+  if ("error" in body) return observerError("Observer response unavailable or exceeds size limit", 502);
+  try { JSON.parse(body.value); } catch { return observerError("Observer gateway returned malformed JSON", 502); }
+  const response = new Response(body.value, { status: 200, headers: { ...headers, "Cache-Control": "public, max-age=2, s-maxage=3" } });
+  context.waitUntil(runtime.cache.put(cacheKey, response.clone()));
+  return response;
+}
+
 export async function proxyRequest(
   context: PagesContext,
   kind: ProxyKind,
   runtime: ProxyRuntime,
 ): Promise<Response> {
+  const profile = runtime.profile ?? NETWORK_PROFILE;
+  if (profile.mode !== "legacy") return proxyObserver(context, kind, runtime, profile);
   const { request } = context;
   const method = request.method.toUpperCase();
 
