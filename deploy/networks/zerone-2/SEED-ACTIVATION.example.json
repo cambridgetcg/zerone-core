@@ -1,0 +1,123 @@
+{
+  "schema": "zerone-seed-activation/v1",
+  "environment": "production",
+  "activation_id": "REPLACE_WITH_APPROVED_UNIQUE_COHORT_ID",
+  "trust_sha256": "REPLACE_WITH_INDEPENDENT_PUBLIC_TRUST_FILE_SHA256_ID",
+  "profile": {
+    "protocol": "agent-wallet-zerone.seed-profile/0.1",
+    "chain_reference": "zerone-2",
+    "chain_id": "cosmos:zerone-2",
+    "native_asset_id": "cosmos:zerone-2/denom:uzrn",
+    "claiming_pot_account": "REPLACE_WITH_DERIVED_CLAIMING_POT_CAIP10",
+    "genesis_hash": "REPLACE_WITH_APPROVED_GENESIS_RAW_FILE_SHA256_ID",
+    "source_digest": "REPLACE_WITH_CANONICAL_SOURCE_MANIFEST_SHA256_ID",
+    "zerone_core_commit": "REPLACE_WITH_RELEASE_40_LOWERCASE_HEX_COMMIT",
+    "cosmos_sdk_version": "v0.53.8",
+    "runtime_sha256": "REPLACE_WITH_EXACT_ZERONED_SHA256_ID",
+    "helper_sha256": "REPLACE_WITH_EXACT_NATIVE_HELPER_SHA256_ID",
+    "native_denom": "uzrn",
+    "bech32_prefix": "zrn",
+    "seed_amount_uzrn": "222000",
+    "claim_type_url": "/zerone.claiming_pot.v1.MsgClaim",
+    "claim_gas_floor": "22222",
+    "tx_gas_cap": "11111111",
+    "min_gas_price_uzrn": "1",
+    "confirmation_depth": 1,
+    "profile_id": "REPLACE_WITH_WALLET_CANONICAL_PROFILE_CORE_SHA256_ID"
+  },
+  "artifacts": {
+    "runtime_sha256": "REPLACE_WITH_EXACT_ZERONED_SHA256_ID",
+    "helper_sha256": "REPLACE_WITH_EXACT_NATIVE_HELPER_SHA256_ID",
+    "wallet_sha256": "REPLACE_WITH_EXACT_REVIEWED_WALLET_ARCHIVE_SHA256_ID",
+    "cli_sha256": "REPLACE_WITH_EXACT_SEED_CLI_ARTIFACT_SHA256_ID",
+    "source_digest": "REPLACE_WITH_CANONICAL_SOURCE_MANIFEST_SHA256_ID",
+    "verifier_sha256": "REPLACE_WITH_THIS_REVIEWED_SEED_VERIFIER_FILE_SHA256_ID"
+  },
+  "prerequisites": {
+    "RELEASE-PACKET.json": "REPLACE_WITH_SHA256_ID",
+    "RELEASE-PACKET.json.sig": "REPLACE_WITH_SHA256_ID",
+    "OPEN-BETA-DECISION.json": "REPLACE_WITH_SHA256_ID",
+    "OPEN-BETA-DECISION.json.sig": "REPLACE_WITH_SHA256_ID",
+    "OPEN-BETA-INITIATION-EVIDENCE.json": "REPLACE_WITH_SHA256_ID",
+    "OPEN-BETA-INITIATION-EVIDENCE.json.sig": "REPLACE_WITH_SHA256_ID",
+    "RELEASE-VERIFY.stdout": "REPLACE_WITH_ACTUAL_SUCCESSFUL_DARK_PREINIT_STDOUT_SHA256_ID",
+    "OPEN-BETA-VERIFY.stdout": "REPLACE_WITH_ACTUAL_SUCCESSFUL_OPEN_POSTINIT_STDOUT_SHA256_ID",
+    "BETA-VERIFICATION.json": "REPLACE_WITH_INDEPENDENT_SIGNED_EXECUTION_RECEIPT_SHA256_ID",
+    "BETA-VERIFICATION.json.sig": "REPLACE_WITH_SHA256_ID"
+  },
+  "admission": {
+    "mechanism": "governance",
+    "authority": "REPLACE_WITH_NATIVE_GOV_MODULE_ADDRESS_AND_REAL_EXECUTION_ROUTE",
+    "route_evidence_sha256": "REPLACE_WITH_REVIEWED_NATIVE_ROUTE_EVIDENCE_SHA256_ID",
+    "params_before": {
+      "max_pots_active": null,
+      "min_claim_amount": "REPLACE_WITH_OBSERVED_CANONICAL_DECIMAL",
+      "bootstrap_registrar": "",
+      "bootstrap_emission_cap_uzrn": "REPLACE_WITH_OBSERVED_NATIVE_LIFETIME_CAP",
+      "bootstrap_daily_admission_cap": "REPLACE_WITH_OBSERVED_CANONICAL_UINT64"
+    },
+    "params_after": {
+      "max_pots_active": null,
+      "min_claim_amount": "REPLACE_WITH_SAME_OBSERVED_CANONICAL_DECIMAL",
+      "bootstrap_registrar": "",
+      "bootstrap_emission_cap_uzrn": "REPLACE_WITH_SAME_OBSERVED_NATIVE_LIFETIME_CAP",
+      "bootstrap_daily_admission_cap": "REPLACE_WITH_SAME_OBSERVED_CANONICAL_UINT64"
+    }
+  },
+  "sponsor": {
+    "account": "REPLACE_WITH_APPROVED_DISTINCT_SPONSOR_CAIP10",
+    "dedicated": true,
+    "single_signer_host_id": "REPLACE_WITH_APPROVED_OPAQUE_HOST_ID"
+  },
+  "custody": {
+    "sponsor": "REPLACE_WITH_APPROVED_PUBLIC_BINDING_ID",
+    "admission": "REPLACE_WITH_APPROVED_PUBLIC_BINDING_ID",
+    "claimant_records": "REPLACE_WITH_APPROVED_PUBLIC_BINDING_ID"
+  },
+  "recipients": [
+    {
+      "protocol": "agent-wallet-zerone.seed-policy/0.1",
+      "profile_id": "REPLACE_WITH_PROFILE_ID_ABOVE",
+      "node_trust_id": "REPLACE_WITH_INDEPENDENTLY_APPROVED_NODE_TRUST_SHA256_ID",
+      "claimant_account": "REPLACE_WITH_APPROVED_RECIPIENT_CAIP10",
+      "sponsor_account": "REPLACE_WITH_APPROVED_SPONSOR_CAIP10",
+      "pot_id": "REPLACE_WITH_bootstrap_DASH_EXACT_RAW_CLAIMANT_ADDRESS",
+      "max_intents": 1,
+      "seed_amount_uzrn": "222000",
+      "max_fee_uzrn": "REPLACE_WITH_APPROVED_POSITIVE_FEE_CEILING",
+      "max_gas": "REPLACE_WITH_APPROVED_INDEPENDENT_GAS_CEILING",
+      "grant_spend_limit_uzrn": "REPLACE_WITH_APPROVED_FULL_FINITE_GRANT_EXPOSURE",
+      "grant_expires_at": "REPLACE_WITH_FINITE_MILLISECOND_UTC",
+      "setup_fee_budget_uzrn": "REPLACE_WITH_SEPARATELY_APPROVED_SETUP_CEILING",
+      "not_before": "REPLACE_WITH_MILLISECOND_UTC",
+      "expires_at": "REPLACE_WITH_FINITE_MILLISECOND_UTC",
+      "timeout_height": "REPLACE_WITH_APPROVED_POSITIVE_UINT64",
+      "max_observation_age_seconds": null,
+      "max_height_lag": null,
+      "policy_hash": "REPLACE_WITH_WALLET_CANONICAL_POLICY_CORE_SHA256_ID"
+    }
+  ],
+  "budgets": {
+    "issuance_commitment_uzrn": "REPLACE_WITH_222000_TIMES_EXACT_COHORT_SIZE",
+    "full_grant_exposure_uzrn": "REPLACE_WITH_SUM_OF_FULL_GRANT_LIMITS",
+    "setup_fee_budget_uzrn": "REPLACE_WITH_SUM_OF_SEPARATELY_APPROVED_SETUP_LIMITS",
+    "total_sponsor_exposure_uzrn": "REPLACE_WITH_FULL_LIFETIME_GRANTS_PLUS_FULL_SETUP_WITHOUT_SUBTRACTING_SPENT",
+    "lifetime_commitment_cap_uzrn": "REPLACE_WITH_APPROVED_TOTAL_PAST_PLUS_NEW_COMMITMENT_CEILING"
+  },
+  "not_before": "REPLACE_WITH_POST_BETA_MILLISECOND_UTC",
+  "expires_at": "REPLACE_WITH_FINITE_MILLISECOND_UTC_WITHIN_SEVEN_DAYS",
+  "admission_deadline": "REPLACE_WITH_FINITE_MILLISECOND_UTC",
+  "stop_conditions": [
+    "artifact_drift",
+    "authority_drift",
+    "budget_shortfall",
+    "custody_mismatch",
+    "expired",
+    "fork_or_stale",
+    "ledger_failure",
+    "signing_unknown",
+    "submission_unknown"
+  ],
+  "nonexpiring_pot_exposure_accepted": true,
+  "unrelated_policy_hash": "REPLACE_WITH_WALLET_CANONICAL_RELEASE_ACCEPTED_POLICY_SHA256_ID"
+}
