@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://zerone.network/schemas/fork-genesis-report-v1.json",
-  "title": "Zerone deterministic fork-genesis compiler report v1",
+  "$id": "https://zerone.network/schemas/fork-genesis-report-v2.json",
+  "title": "Zerone deterministic fork-genesis compiler report v2",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -39,7 +39,7 @@
   ],
   "properties": {
     "schema": {
-      "const": "zerone.fork-genesis.report/v1"
+      "const": "zerone.fork-genesis.report/v2"
     },
     "profile": {
       "const": "consensus-key-only"
@@ -135,13 +135,14 @@
       "items": {
         "enum": [
           "ibc-transfer-v8-empty-denom-traces-to-v10-empty-denoms",
-          "ibc-core-v8-empty-to-v10-empty-v2-state"
+          "ibc-core-v8-empty-to-v10-empty-v2-state",
+          "message-schedule-v1-absent-to-default-closed"
         ]
       }
     },
     "module_digests": {
       "type": "array",
-      "minItems": 17,
+      "minItems": 18,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -156,7 +157,8 @@
             "type": "string"
           },
           "before_sha256": {
-            "$ref": "#/$defs/sha256"
+            "$ref": "#/$defs/sha256",
+            "description": "Canonical source-module digest, or SHA-256(canonical JSON null) only for an explicitly declared absent-to-present module migration."
           },
           "after_sha256": {
             "$ref": "#/$defs/sha256"

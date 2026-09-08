@@ -12,7 +12,7 @@ const (
 	forkReleaseSchema            = "zerone.ops.validator-fork-release/v2"
 	forkChoiceSchema             = "zerone.ops.validator-fork-choice/v2"
 	gateReportSchema             = "zerone.ops.validator-recovery-gate-report/v2"
-	forkGenesisReportSchema      = "zerone.fork-genesis.report/v1"
+	forkGenesisReportSchema      = "zerone.fork-genesis.report/v2"
 	custodyApprovalDomain        = "zerone.ops.validator-custody-approval/v2\x00"
 	controlledApprovalDomain     = "zerone.ops.validator-controlled-approval/v2\x00"
 	genesisReproductionDomain    = "zerone.ops.validator-genesis-reproduction/v2\x00"

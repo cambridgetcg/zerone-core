@@ -2198,7 +2198,7 @@
           "type": "boolean"
         },
         "quarantineReleaseBlock": {
-          "description": "Block through which the one-block post-resume admission latch remains\nactive. Non-zero only after resume finalization and until H+1 BeginBlock.",
+          "description": "Block through which the one-block post-resume admission latch remains\nactive. The marker remains queryable through the scheduler's bounded\npost-resume cancellation grace window even though admission opens at H+1.",
           "format": "uint64",
           "type": "string"
         },
@@ -10107,6 +10107,233 @@
       },
       "type": "object"
     },
+    "zerone.schedule.v2.ExecutionOutcome": {
+      "default": "EXECUTION_OUTCOME_UNSPECIFIED",
+      "description": "ExecutionOutcome records the terminal result of one deterministic\noccurrence. An occurrence is never retried after a receipt is committed.",
+      "enum": [
+        "EXECUTION_OUTCOME_UNSPECIFIED",
+        "EXECUTION_OUTCOME_SUCCEEDED",
+        "EXECUTION_OUTCOME_FAILED_AND_REFUNDED"
+      ],
+      "type": "string"
+    },
+    "zerone.schedule.v2.ExecutionReceipt": {
+      "description": "ExecutionReceipt is immutable evidence that one occurrence was processed.\noccurrence_id and action_sha256 are lowercase hex SHA-256 digests over\ncanonical, domain-separated encodings defined by x/schedule.",
+      "properties": {
+        "actionSha256": {
+          "type": "string"
+        },
+        "amountUzrn": {
+          "type": "string"
+        },
+        "dueHeight": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "executedHeight": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "failureCode": {
+          "type": "string"
+        },
+        "feeUzrn": {
+          "type": "string"
+        },
+        "occurrenceId": {
+          "type": "string"
+        },
+        "outcome": {
+          "$ref": "#/definitions/zerone.schedule.v2.ExecutionOutcome"
+        },
+        "recipient": {
+          "type": "string"
+        },
+        "revision": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "scheduleId": {
+          "type": "string"
+        },
+        "sequence": {
+          "format": "int64",
+          "type": "integer"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.schedule.v2.Params": {
+      "description": "Params bounds per-creator active admission and per-block due processing below\nimmutable source ceilings. Terminal records and receipts remain append-only.\nNew schedule admission is closed by default so source deployment does not\nsilently activate a new economic surface.",
+      "properties": {
+        "acceptNewSchedules": {
+          "type": "boolean"
+        },
+        "executionFeeUzrn": {
+          "type": "string"
+        },
+        "maxActiveSchedulesPerCreator": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "maxDueRecordsPerBlock": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "maxExecutionsPerSchedule": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "maxQueryLimit": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "maxTransferPerExecutionUzrn": {
+          "type": "string"
+        },
+        "minIntervalBlocks": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "minScheduleDelayBlocks": {
+          "format": "uint64",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.schedule.v2.QueryParamsResponse": {
+      "properties": {
+        "params": {
+          "$ref": "#/definitions/zerone.schedule.v2.Params"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.schedule.v2.QueryReceiptResponse": {
+      "properties": {
+        "receipt": {
+          "$ref": "#/definitions/zerone.schedule.v2.ExecutionReceipt"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.schedule.v2.QueryReceiptsByScheduleResponse": {
+      "properties": {
+        "nextSequence": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "receipts": {
+          "items": {
+            "$ref": "#/definitions/zerone.schedule.v2.ExecutionReceipt",
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.schedule.v2.QueryScheduleResponse": {
+      "properties": {
+        "schedule": {
+          "$ref": "#/definitions/zerone.schedule.v2.Schedule"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.schedule.v2.QuerySchedulesByCreatorResponse": {
+      "properties": {
+        "nextKey": {
+          "type": "string"
+        },
+        "schedules": {
+          "items": {
+            "$ref": "#/definitions/zerone.schedule.v2.Schedule",
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.schedule.v2.Schedule": {
+      "description": "Schedule is a prefunded native-token transfer commitment. This initial\nbounded design is intentionally finite and height based: it cannot execute\narbitrary SDK or contract messages, read validator wall clocks, or depend on\nlocal mempools.",
+      "properties": {
+        "amountPerExecutionUzrn": {
+          "type": "string"
+        },
+        "createdHeight": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "creator": {
+          "type": "string"
+        },
+        "executionCount": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "executionFeeUzrn": {
+          "type": "string"
+        },
+        "feeRemainingUzrn": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "intervalBlocks": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "lastExecutionHeight": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "nextExecutionHeight": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "principalRemainingUzrn": {
+          "type": "string"
+        },
+        "recipient": {
+          "type": "string"
+        },
+        "remainingExecutions": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "revision": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/definitions/zerone.schedule.v2.ScheduleStatus"
+        },
+        "terminalReason": {
+          "type": "string"
+        },
+        "updatedHeight": {
+          "format": "uint64",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.schedule.v2.ScheduleStatus": {
+      "default": "SCHEDULE_STATUS_UNSPECIFIED",
+      "description": "ScheduleStatus is the durable lifecycle of a committed schedule. A schedule\nmessage only reaches ACTIVE after the surrounding transaction is committed;\nthe node-local mempool is never authoritative schedule state.",
+      "enum": [
+        "SCHEDULE_STATUS_UNSPECIFIED",
+        "SCHEDULE_STATUS_ACTIVE",
+        "SCHEDULE_STATUS_COMPLETED",
+        "SCHEDULE_STATUS_CANCELLED",
+        "SCHEDULE_STATUS_FAILED"
+      ],
+      "type": "string"
+    },
     "zerone.staking.v1.Delegation": {
       "description": "Delegation records a delegation from delegator to validator.",
       "properties": {
@@ -12311,7 +12538,7 @@
     },
     "/zerone/auth/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_auth_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -12446,7 +12673,7 @@
     },
     "/zerone/capture_challenge/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_capture_challenge_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -12542,7 +12769,7 @@
     },
     "/zerone/capture_defense/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_capture_defense_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -12841,7 +13068,7 @@
     },
     "/zerone/counterexamples/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_counterexamples_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -13028,7 +13255,7 @@
     },
     "/zerone/creed/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_creed_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -13203,7 +13430,7 @@
     },
     "/zerone/emergency/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_emergency_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -13469,7 +13696,7 @@
     },
     "/zerone/gov/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_gov_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -13833,7 +14060,7 @@
     },
     "/zerone/home/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_home_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -13973,7 +14200,7 @@
     },
     "/zerone/ibcratelimit/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_ibcratelimit_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -15883,7 +16110,7 @@
     },
     "/zerone/knowledge/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_knowledge_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -17559,7 +17786,7 @@
     },
     "/zerone/liquiditypool/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_liquiditypool_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -17790,7 +18017,7 @@
     },
     "/zerone/ontology/v1/domain/{name}": {
       "get": {
-        "operationId": "Domain",
+        "operationId": "Domain__get_zerone_ontology_v1_domain_name",
         "parameters": [
           {
             "in": "path",
@@ -17925,7 +18152,7 @@
     },
     "/zerone/ontology/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_ontology_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -18096,7 +18323,7 @@
     },
     "/zerone/qualification/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_qualification_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -18182,6 +18409,175 @@
         ]
       }
     },
+    "/zerone/schedule/v2/creators/{creator}/schedules": {
+      "get": {
+        "operationId": "SchedulesByCreator",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "creator",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "in": "query",
+            "name": "startAfter",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "format": "int64",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.schedule.v2.QuerySchedulesByCreatorResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/zerone/schedule/v2/params": {
+      "get": {
+        "operationId": "Params__get_zerone_schedule_v2_params",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.schedule.v2.QueryParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/zerone/schedule/v2/receipts/{occurrenceId}": {
+      "get": {
+        "operationId": "Receipt",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "occurrenceId",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.schedule.v2.QueryReceiptResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/zerone/schedule/v2/schedules/{id}": {
+      "get": {
+        "operationId": "Schedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.schedule.v2.QueryScheduleResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/zerone/schedule/v2/schedules/{scheduleId}/receipts": {
+      "get": {
+        "operationId": "ReceiptsBySchedule",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scheduleId",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "format": "int64",
+            "in": "query",
+            "name": "startSequence",
+            "required": false,
+            "type": "integer"
+          },
+          {
+            "format": "int64",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "type": "integer"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.schedule.v2.QueryReceiptsByScheduleResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/zerone/staking/v1/delegation/{delegator}/{validator}": {
       "get": {
         "operationId": "Delegation",
@@ -18250,7 +18646,7 @@
     },
     "/zerone/staking/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_staking_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -18602,7 +18998,7 @@
     },
     "/zerone/substrate_bridge/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_substrate_bridge_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -18724,7 +19120,7 @@
     },
     "/zerone/tokens/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_tokens_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -19259,7 +19655,7 @@
     },
     "/zerone/vesting_rewards/v1/params": {
       "get": {
-        "operationId": "Params",
+        "operationId": "Params__get_zerone_vesting_rewards_v1_params",
         "responses": {
           "200": {
             "description": "A successful response.",

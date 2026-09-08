@@ -118,6 +118,12 @@ var TransactionGasCosts = map[string]uint64{
 	"claim_from_pot": 30_000,
 	"close_pot":      40_000,
 
+	// Durable transfer scheduling
+	"create_schedule":        80_000,
+	"update_schedule":        60_000,
+	"cancel_schedule":        40_000,
+	"update_schedule_params": 40_000,
+
 	// Agent Home
 	"create_home":        150_000,
 	"update_home":        40_000,

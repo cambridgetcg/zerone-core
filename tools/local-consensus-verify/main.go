@@ -13,7 +13,9 @@ import (
 	"time"
 
 	cmthttp "github.com/cometbft/cometbft/rpc/client/http"
+	coretypes "github.com/cometbft/cometbft/rpc/core/types"
 	cmttypes "github.com/cometbft/cometbft/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type nodeReport struct {
@@ -35,15 +37,17 @@ type txReport struct {
 }
 
 type report struct {
-	ChainID         string       `json:"chain_id"`
-	Height          int64        `json:"height"`
-	BlockID         string       `json:"block_id"`
-	PreStateAppHash string       `json:"pre_state_app_hash"`
-	PostTxHeight    int64        `json:"post_tx_height,omitempty"`
-	PostTxBlockID   string       `json:"post_tx_block_id,omitempty"`
-	PostTxAppHash   string       `json:"post_tx_app_hash,omitempty"`
-	Nodes           []nodeReport `json:"nodes"`
-	Tx              *txReport    `json:"tx,omitempty"`
+	ChainID         string           `json:"chain_id"`
+	Height          int64            `json:"height"`
+	BlockID         string           `json:"block_id"`
+	PreStateAppHash string           `json:"pre_state_app_hash"`
+	PostTxHeight    int64            `json:"post_tx_height,omitempty"`
+	PostTxBlockID   string           `json:"post_tx_block_id,omitempty"`
+	PostTxAppHash   string           `json:"post_tx_app_hash,omitempty"`
+	Nodes           []nodeReport     `json:"nodes"`
+	Tx              *txReport        `json:"tx,omitempty"`
+	Scheduler       *schedulerReport `json:"scheduler,omitempty"`
+	Observer        *observerReport  `json:"observer,omitempty"`
 }
 
 func failf(format string, args ...any) {
@@ -137,12 +141,17 @@ func verifyBlockHashBinding(blockID cmttypes.BlockID, block *cmttypes.Block) err
 
 func main() {
 	var (
-		rpcList          string
-		height           int64
-		txHashRaw        string
-		expectChainID    string
-		expectValidators int
-		expectEqualPower bool
+		rpcList           string
+		height            int64
+		txHashRaw         string
+		expectChainID     string
+		expectValidators  int
+		expectEqualPower  bool
+		schedulerPath     string
+		fixtureRoot       string
+		observerPath      string
+		observerHome      string
+		observerPreflight bool
 	)
 	flag.StringVar(&rpcList, "rpcs", "", "comma-separated loopback RPC origins")
 	flag.Int64Var(&height, "height", 0, "height to verify; zero selects a common committed height")
@@ -150,7 +159,77 @@ func main() {
 	flag.StringVar(&expectChainID, "expect-chain-id", "", "required exact chain ID")
 	flag.IntVar(&expectValidators, "expect-validators", 0, "required validator-set size; zero disables the count check")
 	flag.BoolVar(&expectEqualPower, "expect-equal-power", false, "require identical voting power for every validator")
+	flag.StringVar(&schedulerPath, "scheduler-expect", "", "optional known-key scheduler expectation JSON; verifies post-D state at header D+1 after D+2")
+	flag.StringVar(&fixtureRoot, "scheduler-fixture-root", "", "write test-only closed scheduler genesis/expectations inside a fresh marked rehearsal scratch root (no RPC)")
+	flag.StringVar(&observerPath, "observer-expect", "", "public observer checkpoint expectation; verifies H+1 across four validators and one observer")
+	flag.StringVar(&observerHome, "observer-home", "", "explicit local observer home; reads public genesis/config and zero signing state, never private keys")
+	flag.BoolVar(&observerPreflight, "observer-preflight", false, "check fresh observer public genesis/config/zero state without RPC; no replay claim")
 	flag.Parse()
+	if observerPreflight && (observerPath == "" || rpcList != "" || height != 0) {
+		failf("observer preflight requires expectation and no RPC/height")
+	}
+
+	var observer *observerExpectation
+	var observerMembers map[string]bool
+	var observerInitialHeight int64
+	if observerPath != "" || observerHome != "" {
+		if observerPath == "" || observerHome == "" || schedulerPath != "" || fixtureRoot != "" || txHashRaw != "" || expectValidators != 4 || !expectEqualPower {
+			failf("observer mode requires both observer arguments, four equal-power validators and no scheduler/transaction mode")
+		}
+		var err error
+		observer, err = loadObserverExpectation(observerPath, expectChainID)
+		if err != nil {
+			failf("observer expectation: %v", err)
+		}
+		observerMembers, observerInitialHeight, err = verifyObserverHome(observerHome, observer)
+		if err != nil {
+			failf("observer home: %v", err)
+		}
+		if observerPreflight {
+			if err := verifyObserverFreshHome(observerHome); err != nil {
+				failf("observer fresh home: %v", err)
+			}
+			fmt.Println(`{"schema":"zerone.local-observer-preflight/v1","genesis_validators":4,"observer_excluded":true,"last_sign_height":0,"account_keyring_present":false,"state_sync_enabled":false,"scope":"local configuration only; replay not yet observed"}`)
+			return
+		}
+		if height != 0 && height != observer.StateHeight+1 {
+			failf("observer checkpoint requires height H+1")
+		}
+		height = observer.StateHeight + 1
+	}
+
+	if schedulerPath != "" || fixtureRoot != "" {
+		sdk.GetConfig().SetBech32PrefixForAccount("zrn", "zrnpub")
+		if err := validateExpectedChainID(expectChainID); err != nil {
+			failf("%v", err)
+		}
+		if txHashRaw != "" {
+			failf("scheduler occurrences are not transactions; -tx cannot be combined with scheduler modes")
+		}
+	}
+	if fixtureRoot != "" {
+		if schedulerPath != "" || rpcList != "" || height != 0 {
+			failf("fixture writing cannot be combined with RPC verification")
+		}
+		if err := writeSchedulerFixture(fixtureRoot, expectChainID); err != nil {
+			failf("scheduler fixture: %v", err)
+		}
+		return
+	}
+	var scheduler *schedulerExpectation
+	var schedulerKeysExpected []stateKeyExpectation
+	var schedulerDigest string
+	if schedulerPath != "" {
+		var err error
+		scheduler, schedulerDigest, err = loadSchedulerExpectation(schedulerPath, expectChainID)
+		if err != nil {
+			failf("scheduler expectations: %v", err)
+		}
+		schedulerKeysExpected, err = schedulerKeys(scheduler, expectChainID)
+		if err != nil {
+			failf("scheduler expected keys: %v", err)
+		}
+	}
 
 	if height < 0 {
 		failf("height cannot be negative")
@@ -170,6 +249,7 @@ func main() {
 	}
 
 	minimumHeight := int64(^uint64(0) >> 1)
+	statuses := make([]*coretypes.ResultStatus, 0, len(clients))
 	for i, client := range clients {
 		ctx, cancel := rpcContext()
 		status, err := client.Status(ctx)
@@ -184,8 +264,21 @@ func main() {
 		if err := verifyExpectedChainID(expectChainID, chainID); err != nil {
 			failf("%s: %v", rpcs[i], err)
 		}
+		statuses = append(statuses, status)
 		if status.SyncInfo.LatestBlockHeight < minimumHeight {
 			minimumHeight = status.SyncInfo.LatestBlockHeight
+		}
+	}
+
+	observerIndex := -1
+	if observer != nil {
+		var err error
+		observerIndex, err = verifyObserverStatuses(observer, rpcs, statuses, observerMembers)
+		if err != nil {
+			failf("observer statuses: %v", err)
+		}
+		if minimumHeight < observer.StateHeight+2 {
+			failf("observer checkpoint requires every endpoint past H+1")
 		}
 	}
 
@@ -204,6 +297,13 @@ func main() {
 		}
 		height = tx.Height
 	}
+	if scheduler != nil {
+		var err error
+		height, err = schedulerAnchorHeight(scheduler, height, minimumHeight)
+		if err != nil {
+			failf("%v", err)
+		}
+	}
 	if height == 0 {
 		// Using the preceding height avoids racing the newest block's canonical
 		// commit while independently queried nodes cross a height boundary.
@@ -214,6 +314,9 @@ func main() {
 	}
 
 	result := report{ChainID: expectChainID, Height: height}
+	if scheduler != nil {
+		result.Scheduler = &schedulerReport{StateHeight: scheduler.StateHeight, AnchorHeight: height, ExpectationSHA256: schedulerDigest, Scope: "known fixture keys only; no range/subspace completeness claim", EmptyOrdinaryBlock: scheduler.RequireEmptyBlock}
+	}
 	var (
 		expectedBlockID cmttypes.BlockID
 		expectedAppHash []byte
@@ -268,6 +371,14 @@ func main() {
 		}
 		if expectValidators != 0 && validators.Total != expectValidators {
 			failf("%s validator count %d, expected %d", rpcs[i], validators.Total, expectValidators)
+		}
+		if observer != nil {
+			if err := verifyObserverSet(observer, observerMembers, validators, height); err != nil {
+				failf("%s: %v", rpcs[i], err)
+			}
+			if err := verifyObserverAnchor(observer, block.Block); err != nil {
+				failf("%s: %v", rpcs[i], err)
+			}
 		}
 		validatorSet := cmttypes.NewValidatorSet(validators.Validators)
 		if !bytes.Equal(validatorSet.Hash(), block.Block.ValidatorsHash) {
@@ -354,6 +465,13 @@ func main() {
 			}
 		}
 
+		if scheduler != nil {
+			proofs, err := verifySchedulerNode(client, rpcs[i], scheduler, schedulerKeysExpected, block.Block)
+			if err != nil {
+				failf("scheduler state from %s: %v", rpcs[i], err)
+			}
+			result.Scheduler.Nodes = append(result.Scheduler.Nodes, proofs)
+		}
 		result.Nodes = append(result.Nodes, node)
 	}
 
@@ -442,6 +560,19 @@ func main() {
 					failf("cross-node post-state app-hash mismatch at height %d: %s differs", postHeight, rpcs[i])
 				}
 			}
+		}
+	}
+
+	if observer != nil {
+		var err error
+		result.Observer, err = verifyObserverCheckpoint(clients[observerIndex], observer, observerInitialHeight)
+		if err != nil {
+			failf("observer checkpoint: %v", err)
+		}
+		// Recheck the local boundary after RPC reads; no account keyring or vote
+		// may have appeared while verification was in flight.
+		if _, _, err := verifyObserverHome(observerHome, observer); err != nil {
+			failf("observer home after verification: %v", err)
 		}
 	}
 

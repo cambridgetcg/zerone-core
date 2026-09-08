@@ -9,11 +9,12 @@
   [`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core).
   The Go module path remains `github.com/zerone-chain/zerone`; changing that
   import path is a separate migration.
-- The application wires 23 custom modules. Its transaction SDK covers 169
-  request message types across 20 Zerone `Msg` services.
+- The application wires 24 custom modules. Its transaction SDK covers 173
+  request message types across 21 Zerone `Msg` services. The native-transfer
+  scheduler remains admission-closed; this inventory is not activation evidence.
 - The protobuf-generated Swagger document is the API inventory of record:
   [`docs/swagger-ui/swagger.json`](swagger-ui/swagger.json) currently contains
-  217 paths and 446 definitions.
+  222 paths and 456 definitions.
 - The truth-seeking creed contains 20 commitments, and the ToK substrate
   doctrine contains TC0–TC6. Their executable bindings remain the authority
   over prose summaries.

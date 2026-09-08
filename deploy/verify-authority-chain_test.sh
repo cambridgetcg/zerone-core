@@ -12,6 +12,168 @@ TMP=$(mktemp -d "${TMPDIR:-/tmp}/zerone-authority-chain-test.XXXXXX")
 trap 'rm -rf "${TMP}"' EXIT HUP INT TERM
 mkdir -p "${TMP}/bin"
 
+# Inventory runs before any signature/binary doubles. The guard forbids runtime
+# subprocesses, network, temporary writes and all non-allowlisted content opens.
+python3 -B - "${VERIFY}" "${TMP}" <<'PY'
+import contextlib
+import importlib.util
+import json
+import os
+import pathlib
+import socket
+import subprocess
+import sys
+import tempfile
+from unittest import mock
+
+sys.dont_write_bytecode = True
+spec = importlib.util.spec_from_file_location("authority_inventory_test", sys.argv[1])
+m = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(m)
+root = pathlib.Path(sys.argv[2]).resolve() / "inventory"
+root.mkdir()
+real_open = os.open
+opened_files = []
+allowed_files = set()
+
+def forbidden(*args, **kwargs):
+    raise AssertionError("inventory attempted a prohibited effect")
+
+def bounded_open(path, flags, *args, **kwargs):
+    assert not flags & (os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_TRUNC | os.O_APPEND)
+    assert flags & os.O_NOFOLLOW
+    if not flags & os.O_DIRECTORY:
+        assert path in allowed_files, path
+        assert kwargs.get("dir_fd") is not None
+        opened_files.append(path)
+    return real_open(path, flags, *args, **kwargs)
+
+def inventory(stage="dark-preinit", directory=None):
+    allowed_files.clear()
+    allowed_files.update(m.required_bundle_files(stage))
+    opened_files.clear()
+    with contextlib.ExitStack() as stack:
+        for target in (
+            "builtins.open", "subprocess.Popen", "os.system", "socket.socket",
+            "tempfile.TemporaryDirectory", "tempfile.mkstemp", "tempfile.mkdtemp",
+            "pathlib.Path.read_bytes", "pathlib.Path.write_bytes", "pathlib.Path.resolve",
+            "os.listdir", "os.scandir", "shutil.which",
+        ):
+            stack.enter_context(mock.patch(target, forbidden))
+        stack.enter_context(mock.patch("os.open", bounded_open))
+        report = m.inventory_bundle(stage, directory)
+    assert report["authority_status"] == "not_assessed" and report["non_authorizing"] is True
+    assert report["trusted_signer_status"] == "not_provided"
+    encoded = json.dumps(report)
+    assert "authority-chain: MATCH" not in encoded and '"verified"' not in encoded
+    assert "CONTENT-SENTINEL" not in encoded
+    assert len(opened_files) == len(set(opened_files)), "reopened a required file"
+    return report
+
+previous = set()
+# Pin the pre-inventory production sets' cardinalities as well as progression.
+expected_counts = (77, 79, 86, 93, 95, 155, 157)
+for stage, count in zip(m.STAGES, expected_counts, strict=True):
+    with mock.patch("os.open", forbidden), mock.patch("os.stat", forbidden):
+        report = m.inventory_bundle(stage)
+    names = set(report["files"])
+    assert names == m.required_bundle_files(stage) and previous <= names and len(names) == count
+    assert all(item["status"] == "not_provided" for item in report["files"].values())
+    previous = names
+assert len(m.MONITORING_EVIDENCE_FILENAMES) == 40
+try:
+    m.required_bundle_files("invented-stage")
+except ValueError:
+    pass
+else:
+    raise AssertionError("unknown stage accepted")
+
+empty = inventory(directory=str(root))
+assert all(item["status"] == "absent_in_supplied_directory" for item in empty["files"].values())
+for path in (str(root / "missing"), str(root / ".." / "inventory"), "https://example.invalid/bundle"):
+    assert inventory(directory=path)["directory_status"] == "invalid"
+link = root / "directory-link"
+link.symlink_to(root, target_is_directory=True)
+assert inventory(directory=str(link))["directory_status"] == "invalid"
+assert inventory(directory=str(link / "subdirectory"))["directory_status"] == "invalid"
+link.unlink()
+
+# Ignore unexpected/private names without opening targets or enumerating them.
+for name in ("priv_validator_key.json", "notes.txt"):
+    (root / name).symlink_to("absent-content-sentinel")
+assert inventory(directory=str(root)) == empty
+
+for raw in (b'{"x":1,"x":2}', b'{} {}', b'{"x":NaN}', b'{"CONTENT-SENTINEL":'):
+    (root / "genesis.json").write_bytes(raw)
+    assert inventory(directory=str(root))["files"]["genesis.json"]["status"] == "invalid"
+(root / "genesis.json").unlink()
+for kind in ("symlink", "fifo", "directory", "oversized", "hardlink"):
+    path = root / "genesis.json"
+    if kind == "symlink":
+        path.symlink_to("absent-content-sentinel")
+    elif kind == "fifo":
+        os.mkfifo(path)
+    elif kind == "directory":
+        path.mkdir()
+    elif kind == "oversized":
+        with path.open("wb") as stream:
+            stream.truncate(m.bundle_file_size_limit(path.name) + 1)
+    else:
+        target = root / "synthetic-public-bytes"
+        target.write_bytes(b"fixture")
+        os.link(target, path)
+    assert inventory(directory=str(root))["files"][path.name]["status"] == "invalid"
+    assert path.name not in opened_files, "opened rejected file"
+    path.rmdir() if kind == "directory" else path.unlink()
+
+# A malformed checksum is invalid even before the genesis counterpart exists.
+(root / "genesis.sha256").write_text("0" * 64 + "  ../genesis.json\n")
+assert inventory(directory=str(root))["files"]["genesis.sha256"]["status"] == "invalid"
+
+# Complete, unsigned structural fixture: executable-looking bytes are only hashed.
+for name in m.required_bundle_files("open-postinit"):
+    (root / name).write_bytes(b"{}\n" if name.endswith(".json") else b"CONTENT-SENTINEL\n")
+genesis = b'{"chain_id":"zerone-2"}\n'
+(root / "genesis.json").write_bytes(genesis)
+(root / "genesis.sha256").write_text(m.sha256(genesis) + "  genesis.json\n")
+manifest = {"chain_id": "zerone-2", "genesis_sha256": m.sha256(genesis)}
+(root / "network-manifest.json").write_text(json.dumps(manifest))
+release = {"chain_id": "zerone-2", "genesis": {"sha256": m.sha256(genesis)},
+           "signature_authority": {"detached_signature_filename": "../priv_validator_key.json"}}
+(root / "RELEASE-PACKET.json").write_text(json.dumps(release))
+(root / "OPERATOR-TOOL-MANIFEST.json").write_text(json.dumps({
+    "files": [{"filename": "../priv_validator_key.json", "url": "https://example.invalid/no-fetch"}]
+}))
+report = inventory("open-postinit", str(root))
+assert all(item["status"] == "present_unverified" for item in report["files"].values())
+assert any(check["status"] == "matches_bytes" for check in report["checks"])
+assert report["files"]["genesis.json"]["sha256"] == m.sha256(genesis)
+for owner, value in (
+    ("RELEASE-PACKET.json", {"genesis": {"sha256": "0" * 64}}),
+    ("network-manifest.json", {"release": {"binary_sha256": "0" * 64}}),
+    ("genesis.json", {"chain_id": "zerone-1"}),
+):
+    path = root / owner
+    original = path.read_bytes()
+    path.write_text(json.dumps(value))
+    assert inventory(directory=str(root))["files"][owner]["status"] == "invalid"
+    path.write_bytes(original)
+(root / "genesis.sha256").write_text("0" * 64 + "  ../genesis.json\n")
+assert inventory(directory=str(root))["files"]["genesis.sha256"]["status"] == "invalid"
+with mock.patch.object(m, "INVENTORY_MAX_BYTES", 1):
+    assert any(item["status"] == "invalid" for item in inventory(directory=str(root))["files"].values())
+assert not opened_files, "aggregate bound permitted an oversized open"
+
+# CLI dispatch must not even look up jq/gpg; absent input is a successful inventory,
+# not a successful release verification. Invalid supplied directories exit 1.
+env = dict(os.environ, PATH="", HOME=str(root), GNUPGHOME=str(root / "no-keyring"))
+for arguments, code in ((["dark-preinit"], 0), (["dark-preinit", "--bundle", str(root / "missing")], 1)):
+    process = subprocess.run([sys.executable, "-B", sys.argv[1], "inventory", *arguments], env=env, capture_output=True, text=True)
+    assert process.returncode == code, process.stderr
+    assert json.loads(process.stdout)["authority_status"] == "not_assessed"
+print("authority inventory tests: PASS")
+PY
+
 sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum "$1" | awk '{print $1}'
@@ -898,6 +1060,177 @@ expect_rejected "DARK pre-init missing Sigstore trusted root" \
   "could not open bundle file SIGSTORE-TRUSTED-ROOT.json" \
   run_dark_pre "${missing_dark_sigstore}"
 
+# Mutate actual genesis, not declarations, and rebind every hash consumed by
+# DARK pre-init. The fixture helper refuses non-fake signatures and does not
+# sign anything; run_dark_pre always uses the existing fake GPG executable.
+rebound_scheduler_case=0
+reject_scheduler_genesis() {
+  local mutation=$1 expected=$2 bundle
+  rebound_scheduler_case=$((rebound_scheduler_case + 1))
+  bundle=$(make_dark_pre_bundle "scheduler-genesis-${rebound_scheduler_case}")
+  canonical_mutate "${bundle}/genesis.json" "${mutation}"
+  "${FIXTURE}" rebind-dark-genesis "${bundle}"
+  expect_rejected "rebound scheduler genesis ${mutation}" "${expected}" \
+    run_dark_pre "${bundle}"
+}
+
+reject_scheduler_genesis \
+  '.app_state.message_schedule.params.accept_new_schedules = true' \
+  'bundled genesis app_state.message_schedule.params.accept_new_schedules must be false'
+reject_scheduler_genesis 'del(.app_state.message_schedule)' \
+  'bundled genesis app_state.message_schedule does not have the exact required fields'
+for retired in '{}' 'null'; do
+  reject_scheduler_genesis ".app_state.schedule = ${retired}" \
+    'bundled genesis app_state.schedule must be absent'
+done
+for module_value in 'null' '[]'; do
+  reject_scheduler_genesis ".app_state.message_schedule = ${module_value}" \
+    'bundled genesis app_state.message_schedule does not have the exact required fields'
+done
+for field in params schedules receipts next_schedule_id total_escrow_uzrn; do
+  reject_scheduler_genesis "del(.app_state.message_schedule.${field})" \
+    'bundled genesis app_state.message_schedule does not have the exact required fields'
+done
+reject_scheduler_genesis '.app_state.message_schedule.unexpected = 0' \
+  'bundled genesis app_state.message_schedule does not have the exact required fields'
+for collection in schedules receipts; do
+  for history in '[{}]' 'null' '{}'; do
+    reject_scheduler_genesis ".app_state.message_schedule.${collection} = ${history}" \
+      "bundled genesis app_state.message_schedule.${collection} must be an empty array"
+  done
+done
+for state in 'next_schedule_id = 2' 'next_schedule_id = 0' \
+  'next_schedule_id = true' 'next_schedule_id = "01"' \
+  'total_escrow_uzrn = 1' 'total_escrow_uzrn = false' \
+  'total_escrow_uzrn = "-0"'; do
+  reject_scheduler_genesis ".app_state.message_schedule.${state}" \
+    "bundled genesis app_state.message_schedule.${state%% =*}"
+done
+for params_value in 'null' '[]'; do
+  reject_scheduler_genesis ".app_state.message_schedule.params = ${params_value}" \
+    'bundled genesis app_state.message_schedule.params does not have the exact required fields'
+done
+reject_scheduler_genesis '.app_state.message_schedule.params.unexpected = 0' \
+  'bundled genesis app_state.message_schedule.params does not have the exact required fields'
+reject_scheduler_genesis 'del(.app_state.message_schedule.params.accept_new_schedules)' \
+  'bundled genesis app_state.message_schedule.params does not have the exact required fields'
+for flag in '0' 'null' '"false"'; do
+  reject_scheduler_genesis ".app_state.message_schedule.params.accept_new_schedules = ${flag}" \
+    'bundled genesis app_state.message_schedule.params.accept_new_schedules must be false'
+done
+for parameter in min_schedule_delay_blocks min_interval_blocks \
+  max_executions_per_schedule max_active_schedules_per_creator \
+  max_due_records_per_block max_query_limit execution_fee_uzrn \
+  max_transfer_per_execution_uzrn; do
+  reject_scheduler_genesis "del(.app_state.message_schedule.params.${parameter})" \
+    'bundled genesis app_state.message_schedule.params does not have the exact required fields'
+  for mutation in '(tonumber + 1)' 'true' 'null' '(tonumber + 0.5)' \
+    '("0" + tostring)' '(tostring + ".0")' '(tostring + "e0")'; do
+    reject_scheduler_genesis \
+      ".app_state.message_schedule.params.${parameter} |= ${mutation}" \
+      "bundled genesis app_state.message_schedule.params.${parameter}"
+  done
+done
+
+# Preserve numeric token spelling here: jq versions may normalize 1.0/1e0.
+# In particular Python normally erases the sign of integer -0; Go rejects it.
+for numeric_token in next_schedule_id:1.0 next_schedule_id:1e0 \
+  total_escrow_uzrn:-0 total_escrow_uzrn:0.0 total_escrow_uzrn:0e0; do
+  numeric_field=${numeric_token%%:*}
+  numeric_value=${numeric_token#*:}
+  numeric_scheduler=$(make_dark_pre_bundle "scheduler-token-${numeric_token}")
+  python3 -B - "${numeric_scheduler}/genesis.json" "${numeric_field}" "${numeric_value}" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+field, token = sys.argv[2:]
+raw = path.read_text()
+value = json.loads(raw)["app_state"]["message_schedule"][field]
+original = f'"{field}":' + json.dumps(value)
+assert raw.count(original) == 1, "fixture numeric token is not unique"
+path.write_text(raw.replace(original, f'"{field}":{token}'))
+PY
+  "${FIXTURE}" rebind-dark-genesis "${numeric_scheduler}"
+  expect_rejected "rebound scheduler noncanonical numeric token ${numeric_token}" \
+    "bundled genesis app_state.message_schedule.${numeric_field}" \
+    run_dark_pre "${numeric_scheduler}"
+  rebound_scheduler_case=$((rebound_scheduler_case + 1))
+done
+
+# All integer fields accept canonical decimal JSON strings or JSON integers,
+# as does the production Go auditor. Admission remains a literal boolean false.
+for representation in tostring tonumber; do
+  numeric_scheduler=$(make_dark_pre_bundle "scheduler-${representation}")
+  canonical_mutate "${numeric_scheduler}/genesis.json" \
+    ".app_state.message_schedule |= (
+      .params |= with_entries(if .key == \"accept_new_schedules\" then . else .value |= ${representation} end)
+      | .next_schedule_id |= ${representation}
+      | .total_escrow_uzrn |= ${representation})"
+  "${FIXTURE}" rebind-dark-genesis "${numeric_scheduler}"
+  run_dark_pre "${numeric_scheduler}" >/dev/null
+done
+rebind_guard=$(make_dark_pre_bundle scheduler-rebind-signature-guard)
+printf 'not a fixture signature\n' > "${rebind_guard}/RELEASE-PACKET.json.sig"
+expect_rejected 'genesis rebind outside fake-GPG fixture' \
+  'genesis rebinding requires fake-GPG fixture signatures' \
+  "${FIXTURE}" rebind-dark-genesis "${rebind_guard}"
+printf 'bundled scheduler genesis tests: PASS (%s semantic rejections)\n' \
+  "${rebound_scheduler_case}"
+
+open_scheduler_policy=$(clone_bundle open-scheduler-policy)
+canonical_mutate "${open_scheduler_policy}/RELEASE-PACKET.json" \
+  '.accepted_policy.message_schedule_admission_live_at_genesis = true'
+expect_rejected "release opens scheduler admission" \
+  "RELEASE accepted policy differs from the admission-closed launch policy" \
+  run_cutover_pre "${open_scheduler_policy}"
+
+missing_scheduler_policy=$(clone_bundle missing-scheduler-policy)
+canonical_mutate "${missing_scheduler_policy}/RELEASE-PACKET.json" \
+  'del(.accepted_policy.message_schedule_admission_live_at_genesis)'
+expect_rejected "release omits scheduler admission policy" \
+  "RELEASE accepted policy does not have the exact required fields" \
+  run_cutover_pre "${missing_scheduler_policy}"
+
+for scheduler_flag in '0' 'null' '"false"'; do
+  invalid_scheduler_policy=$(clone_bundle "invalid-scheduler-policy-${scheduler_flag}")
+  canonical_mutate "${invalid_scheduler_policy}/RELEASE-PACKET.json" \
+    ".accepted_policy.message_schedule_admission_live_at_genesis = ${scheduler_flag}"
+  expect_rejected "release scheduler flag is not a boolean ${scheduler_flag}" \
+    "RELEASE accepted policy differs from the admission-closed launch policy" \
+    run_cutover_pre "${invalid_scheduler_policy}"
+done
+
+open_scheduler_manifest=$(clone_bundle open-scheduler-manifest)
+canonical_mutate "${open_scheduler_manifest}/network-manifest.json" \
+  '.activations.message_schedule_admission = "enabled"'
+open_scheduler_manifest_sha=$(sha256_file \
+  "${open_scheduler_manifest}/network-manifest.json")
+# shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+canonical_mutate "${open_scheduler_manifest}/RELEASE-PACKET.json" \
+  '.ceremony_artifacts.network_manifest_sha256 = $sha' \
+  --arg sha "${open_scheduler_manifest_sha}"
+expect_rejected "network manifest opens scheduler admission" \
+  "ceremony network manifest differs from RELEASE or the production profile" \
+  run_cutover_pre "${open_scheduler_manifest}"
+
+missing_scheduler_human_line=$(clone_bundle missing-scheduler-human-line)
+sed '/^- Native message-schedule admission:/d' \
+  "${missing_scheduler_human_line}/GENESIS-MANIFEST.md" \
+  > "${missing_scheduler_human_line}/GENESIS-MANIFEST.md.new"
+mv "${missing_scheduler_human_line}/GENESIS-MANIFEST.md.new" \
+  "${missing_scheduler_human_line}/GENESIS-MANIFEST.md"
+missing_scheduler_human_sha=$(sha256_file \
+  "${missing_scheduler_human_line}/GENESIS-MANIFEST.md")
+# shellcheck disable=SC2016 # $sha is a jq variable, not a shell variable.
+canonical_mutate "${missing_scheduler_human_line}/RELEASE-PACKET.json" \
+  '.ceremony_artifacts.human_manifest_sha256 = $sha' \
+  --arg sha "${missing_scheduler_human_sha}"
+expect_rejected "human manifest omits scheduler admission" \
+  "ceremony human manifest does not repeat the exact signed release facts" \
+  run_cutover_pre "${missing_scheduler_human_line}"
+
 missing_monitoring=$(clone_bundle missing-monitoring)
 mv "${missing_monitoring}/MONITORING-ALERTS.json" \
   "${missing_monitoring}/MONITORING-ALERTS.json.missing"
@@ -1264,6 +1597,13 @@ canonical_mutate "${final}/FINAL-CHECKPOINT.json" \
   'del(.authority_chain.archive_adoption_authority)'
 expect_rejected "truncated FINAL checkpoint" "FINAL-CHECKPOINT" \
   run_open_pre "${final}"
+
+final_scheduler_policy=$(clone_bundle final-scheduler-policy)
+canonical_mutate "${final_scheduler_policy}/FINAL-CHECKPOINT.json" \
+  '.accepted_policy.message_schedule_admission_live_at_genesis = true'
+expect_rejected "FINAL checkpoint opens scheduler admission" \
+  "FINAL-CHECKPOINT.accepted_policy.message_schedule_admission_live_at_genesis boolean policy changed" \
+  run_open_pre "${final_scheduler_policy}"
 
 missing_census=$(clone_bundle missing-custom-staking-census)
 mv "${missing_census}/CUSTOM-STAKING-CENSUS.json" \

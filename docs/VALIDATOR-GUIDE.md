@@ -45,38 +45,109 @@ immutable image digest in its signed release packet.
 Never infer production provenance from `zeroned version` alone. Verify the
 embedded revision and the release-bound hashes.
 
-## Local node rehearsal
+## Roles are distinct
 
-Use a dedicated home and a non-production chain ID:
+- **Non-signing full node / observer:** independently replays and checks the
+  application and Comet consensus history. It has zero consensus voting power,
+  submits no consensus votes, and needs no funded account or account keyring.
+  Fresh local Comet P2P and unused consensus identity files are normal; never
+  copy a validator's identities or signing state into it.
+- **Custom verifier:** an application-level participant that submits the
+  release-specific verification messages. Its account registration, fees and
+  stake are separate from Comet validator membership. Running a full node does
+  not register that participant or authorize transactions.
+- **Genesis custodian:** prepares/reviews the genesis and ceremony evidence
+  under the selected release policy. Custody of release inputs does not grant
+  consensus membership or permission to run a second signer.
+- **Consensus validator:** holds an admitted consensus identity and voting power,
+  signs proposals/votes, and requires independently reviewed custody, fencing,
+  admission and upgrade operations. Do not conflate this role with a custom
+  verifier or with public query service.
+
+## Isolated local replay and restart rehearsal
+
+Use the existing disposable harness, not `scripts/localnet.sh` or an existing
+user-local chain home:
 
 ```bash
-export ZERONE_REHEARSAL_HOME=/tmp/zerone-rehearsal
+# Clean reviewed candidate; builds its own binaries and disposable chain.
+bash scripts/local-consensus-rehearsal.sh --keep
 
-./build/zeroned init rehearsal \
-  --chain-id zerone-rehearsal-1 \
-  --home "$ZERONE_REHEARSAL_HOME"
+# Edited development candidate only: explicitly NON-FINAL provenance.
+bash scripts/local-consensus-rehearsal.sh --keep --allow-dirty
 
-./build/zeroned genesis validate \
-  --home "$ZERONE_REHEARSAL_HOME"
+# Limited diagnostic, NOT a substitute for the default integrated suite.
+bash scripts/local-consensus-rehearsal.sh --observer-only --keep --allow-dirty
 ```
 
-Only start after installing a genesis file whose full bytes and SHA-256 match
-the reviewed network packet. Seed IDs, persistent peers, minimum gas prices,
-state-sync trust material, validator keys, and registration parameters are
-network-specific inputs; do not copy values from an old guide.
+The **default invocation** retains all four-validator quorum tests, scheduler TERM/KILL and
+known-key proof checks, the signed local MsgSend/replay check, and the offline
+census. After those live phases recover all four validators, a **fifth fresh
+observer** receives only validated public genesis and loopback peer identities.
+Its database is initially absent. It replays ordinary P2P history from the
+fixture's declared initial height (currently 10), not from a copied database or
+state-sync checkpoint. That fixture's imported scheduler history is synthetic,
+not evidence of earlier daemon execution.
 
-For a local start, align the node-local mempool threshold with the consensus
-fee floor:
+**`--observer-only` is an explicit targeted diagnostic.** It uses the same fresh
+four-validator genesis setup, generated local test keys, builds and node runner.
+It waits until all four validators have canonical history above initial height
+10, verifies initial quorum agreement, then runs only the observer replay,
+clean same-home restart, retained-checkpoint and catch-up phase. It prints
+**`PASS targeted observer replay/restart diagnostic`**, never the default suite's
+PASS. It also prints **NOT RUN** for scheduler timing/TERM/KILL/bank-zero proofs,
+75%-power progress/50%-power halt and validator recovery, MsgSend/replay and the
+offline census: **full integrated suite not established**. Imported schedules may
+execute in this same genesis, but this mode does not assess them. Selecting this
+mode is never an automatic fallback from a failing default test.
 
-```bash
-./build/zeroned start \
-  --home "$ZERONE_REHEARSAL_HOME" \
-  --minimum-gas-prices 1uzrn
-```
+The observed SDK bank-zero nonmembership limitation remains separate: deleting
+a zero balance can produce a valid tree witness whose neighbor is an empty-valued
+`0x03` bank index, rejected by ICS23 Go v0.11.0 with `leaf op needs value`. The
+observer diagnostic neither fixes this compatibility issue nor changes strict
+absence/value verification. An observer-only success must not be reported as
+scheduler or full-suite success. Both modes retain before-build, after-build and
+final candidate-source digest comparisons and abort on source drift;
+`--allow-dirty` remains explicitly **NON-FINAL**.
 
-The existing `zerone-1` process was configured with a lower node-local
-`0.025uzrn` threshold. That historical process setting does not override the
-application ante handler, which rejects declared fees below `1uzrn` per gas.
+RPC/P2P listeners are loopback-only; state sync, remote signing, unsafe RPC,
+profiling, public metrics, REST and gRPC services are disabled. Node-config
+environment overrides are refused. Each start binds the genesis and binary
+checksums. Account creation, keyring copying, gentxs and voting remain limited
+to the four validators/coordinator; no observer account is created.
+
+The verifier checks five distinct nodes but exactly four height-pinned genesis
+validators, canonical block IDs, validator-set hashes and cryptographic quorum.
+The observer's identity must be excluded, voting power and last-sign state must
+remain zero, and no account keyring may appear. A sampled ABCI applied checkpoint
+at **H** is bound to **header H+1's `pre_state_app_hash`**, not header H's root.
+After a graceful observer-only stop and same-home restart without reset/init,
+it catches up and proves the retained application version H with an SDK
+IAVL/multistore **membership proof for `cosmos.bank.v1beta1.Params` at store
+`bank`, key `05`**. SDK bank InitGenesis persists this parameter record; this
+fixture must explicitly have `default_send_enabled=true`, ensuring nonempty
+initial protobuf bytes. Missing or incompatible genesis parameters fail preflight.
+The verifier checks the returned exact canonical parameter bytes against the
+already quorum-authenticated H+1 root, with fixed chain/store/key/height bindings.
+A missing, empty, malformed or noncanonical retained record fails explicitly;
+there is no alternate-key or absence fallback. Reports name the anchored record
+and include its exact value bytes (base64 in JSON), SHA-256 and proof. This is not an accounting, whole-state
+completeness or arbitrary bank-zero proof claim, nor a measurement of the exact
+stop/Commit boundary.
+
+Public evidence is under the retained run's `reports/observer-preflight.json`,
+`observer-replay.json`, `observer-restart.json`,
+`five-up-observer-recovered.json` and the public `observer-expect-*.json`
+expectations. Diagnostic mode adds `observer-only-initial-quorum.json`; only the
+default suite produces the scheduler, fault, MsgSend and census verification
+reports (fixture expectations alone are not results). CI uploads
+an explicit public-report allowlist, not homes, private identities, databases or
+wildcard raw logs. A kept/failed local run still contains disposable test custody
+and logs: do not publish its whole directory.
+
+This is a same-machine loopback mechanics test. It does **not** establish
+clean-machine isolation, public peer reachability, authenticated release
+provenance, a successful production join or operational authorization.
 
 ## Before joining any shared network
 
@@ -85,14 +156,61 @@ Require all of the following from the network operator:
 1. exact chain ID and genesis bytes with independently verified SHA-256;
 2. exact release commit, binary/image digest, and signature/provenance policy;
 3. seed and persistent-peer identities from a trusted channel;
-4. current account and custom-validator registration commands;
-5. current staking, commission, gas, slashing, and validator-tier parameters;
+4. the selected role; account/custom-verifier registration or consensus
+   admission commands only when that role actually requires them;
+5. role-relevant staking, commission, gas, slashing, and validator-tier parameters;
 6. upgrade plan, halt behavior, rollback boundary, and incident contacts; and
 7. explicit authorization for the network phase being joined.
 
 Zerone has custom account and validator registration. Do not substitute the
 standard Cosmos `create-validator` flow or reuse commands whose parameters
 have not been checked against the selected release.
+
+### Preparing a release-bound non-signing public join (not yet acceptance)
+
+Select and independently authenticate one complete joining tuple before any
+shared-network execution: **chain ID and non-signing role; exact genesis bytes
+and digest; executable checksum, platform and pinned source; immutable image
+when relevant; independently trusted release/signature anchors; public P2P peer
+IDs/addresses; synchronization method; and checkpoint/rehearsal evidence**. An
+inventory of unsigned files is preparation, not release authority. No actual
+public release bundle location or independently trusted signer has been supplied
+for this readiness change: those inputs are **`not_provided`**, not a finding
+that a release does not exist.
+
+For the later, separately authorized clean-machine repetition:
+
+1. Verify that tuple on the release-bound workstation. Follow the existing
+   authority-chain phase checks; source publication or inventory output is not
+   permission to provision, deploy or publish an endpoint.
+2. Use an empty, separately owned home and independently generated local Comet
+   identities. Install only the validated public genesis and reviewed node
+   configuration/peer identities; never transfer a validator database, signing
+   identity, account keyring or custody archive.
+3. Select ordinary P2P replay with state sync disabled for this acceptance path.
+   Peers must actually serve the release's required history, including any
+   separately rehearsed upgrade boundaries. A historical chain cannot be
+   assumed replayable with one arbitrary current binary. State sync would need
+   its own authenticated trust material and provider acceptance; this drill
+   proves neither.
+4. Reuse the existing non-signing topology/runtime contracts in
+   [`deploy/fly-full-node-entrypoint.sh`](../deploy/fly-full-node-entrypoint.sh)
+   and [`deploy/Dockerfile.full-node`](../deploy/Dockerfile.full-node), with their
+   release-specific sentry/public-query role and identity-drift guards. These
+   are Fly-specific contracts, **not a generic VPS installer**; do not weaken
+   their genesis-validator or closed-release policies to fit this local drill.
+5. After an authorized start, independently verify chain/genesis/binary
+   bindings, observer exclusion, zero signing state, catch-up and quorum-bound
+   checkpoint H/H+1. Cleanly restart the same home and recheck identity,
+   persisted checkpoint and catch-up. Public reachability and isolation remain
+   separate acceptance observations; keep private custody and raw logs out of
+   published reports.
+
+The [`query gateway`](../deploy/query-gateway/README.md) is GET-only. It is not
+a standard Cosmos JSON-RPC POST/broadcast endpoint and is not advertised here
+as a state-sync provider. Keep legacy joining stubs paused. No full-node-only
+real-network runner, validator-admission shortcut, endpoint/DNS publication or
+live action is introduced by this preparation.
 
 ## Consensus upgrade requirement
 

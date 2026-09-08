@@ -6,6 +6,28 @@ import (
 	ibcante "github.com/cosmos/ibc-go/v10/modules/core/ante"
 )
 
+// checkTxCommittedHeightDecorator fills the empty CheckTx header height that
+// SDK 0.53.8 BaseApp.Init installs on LoadLatestVersion. LastBlockHeight reads
+// the loaded commit ID, not a proposal or volatile FinalizeBlock height. Match
+// SDK Commit's CheckTx convention: committed H, NOT H+1 (IsHalted already
+// accounts for CheckTx targeting the next proposal). Preserve the original
+// time/header metadata; it is not available from a committed height alone.
+// All subsequent Ante checks run normally, including fees, timeouts, signatures
+// and account policy. Genesis, simulation and consensus contexts are untouched.
+type checkTxCommittedHeightDecorator struct {
+	lastBlockHeight func() int64
+}
+
+func (d checkTxCommittedHeightDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
+	checkMode := ctx.ExecMode() == sdk.ExecModeCheck || ctx.ExecMode() == sdk.ExecModeReCheck
+	if !simulate && checkMode && (ctx.IsCheckTx() || ctx.IsReCheckTx()) && ctx.BlockHeight() == 0 {
+		if committedHeight := d.lastBlockHeight(); committedHeight > 0 {
+			ctx = ctx.WithBlockHeight(committedHeight)
+		}
+	}
+	return next(ctx, tx, simulate)
+}
+
 // NewAnteHandler returns an AnteHandler with:
 // 1. Standard Cosmos SDK decorators (explicit chain, not wrapped)
 // 2. ZRN-specific gas cost validation
@@ -21,6 +43,10 @@ import (
 //   - Funding-correlation telemetry (observational; never applied to vote weight)
 func NewAnteHandler(app *ZeroneApp) sdk.AnteHandler {
 	return sdk.ChainAnteDecorators(
+		// Restore only the missing restart CheckTx height, before any height-
+		// sensitive checks. No consensus execution mode uses this fallback.
+		checkTxCommittedHeightDecorator{lastBlockHeight: app.LastBlockHeight},
+
 		// --- IBC ---
 		ibcante.NewRedundantRelayDecorator(app.IBCKeeper),
 

@@ -213,7 +213,7 @@ bootstrap facts must be explicit in its reviewed genesis and audit.
 
 ## Modules
 
-23 custom modules organized by function (the 2026-07 slim cut moved agent-platform features — marketplaces, the contract VM, payment rails, coordination, and delegated-authority machinery — to the agenttool layer and off-chain indexers; the chain keeps what strangers' consensus-verification adds value to):
+24 custom modules organized by function (the 2026-07 slim cut moved agent-platform features — marketplaces, the contract VM, payment rails, coordination, and delegated-authority machinery — to the agenttool layer and off-chain indexers; the chain keeps what strangers' consensus-verification adds value to):
 
 ### Knowledge & Truth
 | Module | Purpose |
@@ -242,6 +242,7 @@ bootstrap facts must be explicit in its reviewed genesis and audit.
 | `liquiditypool` | On-chain AMM liquidity pools |
 | `claiming_pot` | Bootstrap claims (0.222 ZRN) + community claiming pools |
 | `sponsorship` | Sample sponsorship and patronage |
+| `message_schedule` | Finite prefunded native transfers; admission-closed by default (`x/schedule`) |
 
 ### Governance & Security
 | Module | Purpose |
@@ -320,9 +321,9 @@ make proto-gen
 ## SDK and API
 
 - The generated [Swagger document](docs/swagger-ui/swagger.json) is the REST
-  inventory of record: 217 paths and 446 definitions.
-- The repository [TypeScript SDK](sdk/typescript/) covers 169 request messages
-  across 20 Zerone `Msg` services. The package is not yet published to npm.
+  inventory of record: 222 paths and 456 definitions.
+- The repository [TypeScript SDK](sdk/typescript/) covers 173 request messages
+  across 21 Zerone `Msg` services. The package is not yet published to npm.
 - [Open crypto SDK and standards integration](docs/standards/OPEN_CRYPTO_SDK.md)
   documents the implemented CAIP, in-toto, and isolated Sigstore seams and the
   boundaries still deliberately kept off-chain.

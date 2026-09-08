@@ -25,6 +25,7 @@ identical events.
 - [liquiditypool](#liquiditypool)
 - [ontology](#ontology)
 - [qualification](#qualification)
+- [schedule](#schedule)
 - [staking](#staking)
 - [substrate_bridge](#substrate_bridge)
 - [tokens](#tokens)
@@ -1920,6 +1921,66 @@ Governance parameter update.
 - `domain` -- recovered domain
 - `accuracy_bps`, `threshold_bps` -- same semantics as decay_probation
 - `creed_commitment` -- "7"
+
+---
+
+## schedule
+
+`x/schedule` uses the fresh `message_schedule` store and event namespace. New
+schedule admission is closed by default. These events become committed evidence
+only when their enclosing block commits; their presence in source is not network
+activation. Due occurrences execute directly in BeginBlock, not through a new
+SDK transaction or a second mempool submission.
+
+### zerone.message_schedule.created
+A signed creation instruction escrowed all remaining principal and execution fees.
+- `schedule_id` -- durable schedule identifier, not the ingress transaction hash
+- `creator` -- account authorizing and funding the schedule
+- `recipient` -- account to receive each payment
+- `next_execution_height` -- first due block height
+- `remaining_executions` -- finite number of remaining occurrences
+- `escrowed_uzrn` -- total principal plus execution fees reserved
+
+### zerone.message_schedule.updated
+A creator amended remaining terms using revision and processed-occurrence
+compare-and-swap checks. Already processed occurrences are not rewritten.
+- `schedule_id` -- amended schedule
+- `creator` -- authorizing account
+- `revision` -- resulting schedule revision
+- `expected_execution_count` -- processed count supplied by the accepted amendment
+- `escrow_delta_uzrn` -- absolute amount added or refunded; zero means no change
+- `refunded` -- `"true"` for a refund, `"false"` for an addition or zero delta
+
+### zerone.message_schedule.cancelled
+A creator cancelled an active schedule and reclaimed its remaining escrow.
+Selected due work executes before same-block cancellation; unselected overdue
+work can still be cancelled using its unchanged compare-and-swap values.
+- `schedule_id` -- cancelled schedule
+- `creator` -- account receiving the refund
+- `revision` -- resulting schedule revision
+- `execution_count` -- number of occurrences already processed
+- `refunded_uzrn` -- remaining principal and execution fees returned
+
+### zerone.message_schedule.executed
+*BeginBlock.* One occurrence was processed. The event name and processed count
+alone do not prove a successful payment: consumers must inspect `outcome` and
+the immutable execution receipt. A failed action is discarded before the complete
+remaining escrow is refunded; a failed refund/invariant emits no successful result.
+- `schedule_id` -- originating schedule
+- `occurrence_id` -- chain-bound identifier for this revision, sequence, and due height
+- `revision` -- terms used for this occurrence
+- `sequence` -- monotonically increasing processed-occurrence number
+- `due_height` -- original indexed due height
+- `executed_height` -- block height that processed the occurrence
+- `outcome` -- `"succeeded"` or `"failed_and_refunded"`
+- `failure_code` -- present only for `"failed_and_refunded"`
+- `refunded_uzrn` -- complete remaining escrow returned; present only on failure
+
+### zerone.message_schedule.params_updated
+Governance updated scheduler parameters. Existing schedules retain their
+committed terms; closing new admission does not itself cancel existing escrow.
+- `authority` -- configured governance authority
+- `accept_new_schedules` -- resulting admission flag, `"true"` or `"false"`
 
 ---
 

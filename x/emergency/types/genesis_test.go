@@ -102,18 +102,20 @@ func TestNormalizeDisablesUnsignableLegacyCouncil(t *testing.T) {
 	}
 }
 
-func TestGenesisQuarantineReleaseBlockRequiresNormalFiniteState(t *testing.T) {
-	genesis := DefaultGenesis()
-	genesis.Status = string(StatusHalted)
-	genesis.QuarantineReleaseBlock = 100
-	if err := genesis.Validate(); err == nil {
-		t.Fatal("non-normal genesis accepted a quarantine release block")
+func TestGenesisQuarantineReleaseBlockRequiresUnquarantinedFiniteState(t *testing.T) {
+	for _, status := range []EmergencyStatus{StatusHalted, StatusResumeVoting, StatusRevertVoting, StatusReverting} {
+		genesis := DefaultGenesis()
+		genesis.Status = string(status)
+		genesis.QuarantineReleaseBlock = 100
+		if err := genesis.Validate(); err == nil {
+			t.Fatalf("quarantined genesis %s accepted a quarantine release block", status)
+		}
 	}
 
-	genesis = DefaultGenesis()
-	genesis.QuarantineReleaseBlock = ^uint64(0)
+	genesis := DefaultGenesis()
+	genesis.QuarantineReleaseBlock = MaxSDKBlockHeight - PostResumeCancellationGraceBlocks + 1
 	if err := genesis.Validate(); err == nil {
-		t.Fatal("release block without representable H+1 was accepted")
+		t.Fatal("release block without a representable grace window was accepted")
 	}
 
 	genesis.QuarantineReleaseBlock = 100

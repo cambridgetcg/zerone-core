@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package zerone.schedule.v2;
+
+option go_package = "github.com/zerone-chain/zerone/x/schedule/types";
+
+import "google/api/annotations.proto";
+import "zerone/schedule/v2/state.proto";
+
+service Query {
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/zerone/schedule/v2/params";
+  }
+  rpc Schedule(QueryScheduleRequest) returns (QueryScheduleResponse) {
+    option (google.api.http).get = "/zerone/schedule/v2/schedules/{id}";
+  }
+  rpc SchedulesByCreator(QuerySchedulesByCreatorRequest) returns (QuerySchedulesByCreatorResponse) {
+    option (google.api.http).get = "/zerone/schedule/v2/creators/{creator}/schedules";
+  }
+  rpc Receipt(QueryReceiptRequest) returns (QueryReceiptResponse) {
+    option (google.api.http).get = "/zerone/schedule/v2/receipts/{occurrence_id}";
+  }
+  rpc ReceiptsBySchedule(QueryReceiptsByScheduleRequest) returns (QueryReceiptsByScheduleResponse) {
+    option (google.api.http).get = "/zerone/schedule/v2/schedules/{schedule_id}/receipts";
+  }
+}
+
+message QueryParamsRequest {}
+message QueryParamsResponse { Params params = 1; }
+
+message QueryScheduleRequest { string id = 1; }
+message QueryScheduleResponse { Schedule schedule = 1; }
+
+message QuerySchedulesByCreatorRequest {
+  string creator = 1;
+  string start_after = 2;
+  uint32 limit = 3;
+}
+message QuerySchedulesByCreatorResponse {
+  repeated Schedule schedules = 1;
+  string next_key = 2;
+}
+
+message QueryReceiptRequest { string occurrence_id = 1; }
+message QueryReceiptResponse { ExecutionReceipt receipt = 1; }
+
+message QueryReceiptsByScheduleRequest {
+  string schedule_id = 1;
+  uint32 start_sequence = 2;
+  uint32 limit = 3;
+}
+message QueryReceiptsByScheduleResponse {
+  repeated ExecutionReceipt receipts = 1;
+  uint32 next_sequence = 2;
+}

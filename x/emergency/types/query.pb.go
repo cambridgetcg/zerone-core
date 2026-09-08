@@ -81,7 +81,8 @@ type QueryStatusResponse struct {
 	QuarantineDeadlineExceeded  bool   `protobuf:"varint,13,opt,name=quarantine_deadline_exceeded,json=quarantineDeadlineExceeded,proto3" json:"quarantine_deadline_exceeded,omitempty"`
 	QuarantineStartedAtBlock    uint64 `protobuf:"varint,14,opt,name=quarantine_started_at_block,json=quarantineStartedAtBlock,proto3" json:"quarantine_started_at_block,omitempty"`
 	// Block through which the one-block post-resume admission latch remains
-	// active. Non-zero only after resume finalization and until H+1 BeginBlock.
+	// active. The marker remains queryable through the scheduler's bounded
+	// post-resume cancellation grace window even though admission opens at H+1.
 	QuarantineReleaseBlock uint64 `protobuf:"varint,15,opt,name=quarantine_release_block,json=quarantineReleaseBlock,proto3" json:"quarantine_release_block,omitempty"`
 	// First block whose DeliverTx admission is normal again. CheckTx after the
 	// release-block commit also targets this height and is admitted.

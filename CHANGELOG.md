@@ -110,7 +110,7 @@ behavior.
 - A cursor-bounded knowledge probe heartbeat.
 - CAIP account-identifier projections, unsigned in-toto training provenance,
   and an isolated Sigstore-to-substrate evidence compiler.
-- A repository TypeScript SDK covering 169 request message types across 20
+- A repository TypeScript SDK covering 173 request message types across 21
   Zerone `Msg` services.
 - A fail-closed `zerone-2` ceremony, authority, runtime, query-gateway, and
   cutover kit.
@@ -137,7 +137,7 @@ behavior.
 - Falsification clawback requires an adjudicated verdict.
 - Genesis/state validation and protobuf ownership handling are hardened.
 - Manual API inventories now defer to the generated Swagger document, which
-  contains 217 paths and 446 definitions across the current application.
+  contains 222 paths and 456 definitions across the current application.
 
 ### Consensus activation
 
