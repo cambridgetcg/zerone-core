@@ -1,0 +1,42 @@
+{
+  "schema": "zerone-relaunch-snapshot-v3",
+  "source": {
+    "chain_id": "synthetic-legacy",
+    "checkpoint_state_height": 100,
+    "checkpoint_app_hash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "final_committed_block_height": 101,
+    "final_committed_block_hash": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "final_committed_block_time": "2026-01-01T00:00:01Z",
+    "final_committed_block_txs": 0,
+    "final_committed_block_canonical": true,
+    "final_committed_block_has_results": true,
+    "halt_trigger_height": 102,
+    "rpc_blockstore_height": 102,
+    "staged_halt_trigger_block_hash": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "staged_halt_trigger_block_time": "2026-01-01T00:00:02Z",
+    "staged_halt_trigger_block_txs": 0,
+    "staged_halt_trigger_previous_block_hash": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "staged_halt_trigger_header_app_hash": "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
+    "staged_halt_trigger_commit_canonical": false,
+    "staged_halt_trigger_has_block_results": false,
+    "abci_last_applied_height": 101,
+    "excluded_post_anchor_app_hash": "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
+    "rpc_genesis_canonical_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "declared_genesis_file_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "rest_trust_model": "trusted height-pinned REST responses; no Merkle proof binds inventory to checkpoint_app_hash",
+    "rpc": "https://synthetic-rpc.invalid",
+    "rest": "https://synthetic-rest.invalid"
+  },
+  "denom": "uzrn",
+  "supply_uzrn": "100",
+  "owners": [
+    {"address": "synthetic-module", "account_type": "/cosmos.auth.v1beta1.ModuleAccount", "module_name": "zerone_staking", "amount_uzrn": "60"},
+    {"address": "synthetic-base", "account_type": "/cosmos.auth.v1beta1.BaseAccount", "amount_uzrn": "30"},
+    {"address": "synthetic-vesting", "account_type": "/cosmos.vesting.v1beta1.PeriodicVestingAccount", "amount_uzrn": "5"},
+    {"address": "synthetic-bank-only", "account_type": "bank_only", "amount_uzrn": "3"},
+    {"address": "synthetic-unknown", "account_type": "/synthetic.future.Account", "amount_uzrn": "2"}
+  ],
+  "bonded_validators": [
+    {"operator_address": "synthetic-validator", "consensus_pubkey": {"@type": "/cosmos.crypto.ed25519.PubKey", "key": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}, "jailed": false, "status": "BOND_STATUS_BONDED", "tokens": "60"}
+  ]
+}

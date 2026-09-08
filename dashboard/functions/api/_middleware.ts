@@ -1,4 +1,5 @@
 import { knowledgeMainnet } from "./_knowledge";
+import { NETWORK_PROFILE, type NetworkProfile } from "../../network-profile";
 
 type ApiMiddlewareContext = Parameters<typeof knowledgeMainnet>[0] & {
   next(): Promise<Response>;
@@ -44,9 +45,15 @@ function isKnowledgeNamespace(pathname: string): boolean {
 // fallback, including bounded nested encodings, while leaving every unrelated
 // API route unchanged. Cloudflare can reject raw invalid percent escapes before
 // this middleware runs.
-export const onRequest = (context: ApiMiddlewareContext) => {
+export const apiMiddleware = (context: ApiMiddlewareContext, profile: NetworkProfile) => {
   const pathname = new URL(context.request.url).pathname;
+  // No alternate legacy knowledge relay, Pi writes, or other API bypass in beta.
+  if (profile.mode !== "legacy" && !/^\/api\/(?:rpc|rest)(?:\/|$)/.test(pathname)) {
+    return Response.json({ error: "Only observer query routes are enabled" }, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
   return isKnowledgeNamespace(pathname)
     ? knowledgeMainnet(context)
     : context.next();
 };
+
+export const onRequest = (context: ApiMiddlewareContext) => apiMiddleware(context, NETWORK_PROFILE);

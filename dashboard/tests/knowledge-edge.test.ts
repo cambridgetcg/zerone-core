@@ -12,7 +12,8 @@ import {
   type KnowledgePagesContext,
   type KnowledgeRuntime,
 } from "../functions/api/_knowledge";
-import { onRequest as knowledgeApiMiddleware } from "../functions/api/_middleware";
+import { apiMiddleware } from "../functions/api/_middleware";
+const knowledgeApiMiddleware = (context: Parameters<typeof apiMiddleware>[0]) => apiMiddleware(context, { mode: "legacy" });
 
 const ENDPOINT = "https://dashboard.invalid/api/knowledge";
 const UPSTREAMS = {

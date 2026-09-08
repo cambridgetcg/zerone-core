@@ -12,73 +12,7 @@ import {
   serializeEnumeration,
 } from "./enumerate.mjs";
 
-const DIRECTIONS = [
-  [1, 0],
-  [0, 1],
-  [-1, 0],
-  [0, -1],
-];
-
-function key(x, y) {
-  return `${x},${y}`;
-}
-
-// Deliberately slower reference kernel: score contacts only after a complete
-// walk has been generated. It shares neither the incremental contact counter
-// nor its bookkeeping. This is a local cross-check, not independent evidence.
-function referenceEnumeration(stepCount) {
-  const all = [];
-  const active = [];
-  const path = [
-    [0, 0],
-    [1, 0],
-  ];
-  const visited = new Set(path.map(([x, y]) => key(x, y)));
-
-  function add(polynomial, degree) {
-    while (polynomial.length <= degree) polynomial.push(0n);
-    polynomial[degree] += 1n;
-  }
-
-  function score() {
-    let contacts = 0;
-    for (let left = 0; left < path.length; left += 1) {
-      for (let right = left + 2; right < path.length; right += 1) {
-        const [leftX, leftY] = path[left];
-        const [rightX, rightY] = path[right];
-        if (Math.abs(leftX - rightX) + Math.abs(leftY - rightY) === 1) {
-          contacts += 1;
-        }
-      }
-    }
-    add(all, contacts);
-    const [endX, endY] = path.at(-1);
-    if (stepCount >= 3 && Math.abs(endX) + Math.abs(endY) === 1) {
-      add(active, contacts);
-    }
-  }
-
-  function walk() {
-    if (path.length === stepCount + 1) {
-      score();
-      return;
-    }
-    const [x, y] = path.at(-1);
-    for (const [dx, dy] of DIRECTIONS) {
-      const next = [x + dx, y + dy];
-      const nextKey = key(next[0], next[1]);
-      if (visited.has(nextKey)) continue;
-      visited.add(nextKey);
-      path.push(next);
-      walk();
-      path.pop();
-      visited.delete(nextKey);
-    }
-  }
-
-  walk();
-  return { all, active };
-}
+import { referenceEnumeration } from "./reference.mjs";
 
 describe("Fold-to-Fire exact enumerator", () => {
   it("reproduces the hand-solvable contact polynomials", () => {

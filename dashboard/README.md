@@ -5,7 +5,134 @@ The production frontend for `zerone.ai`: a live, explorer-first view of
 state, recent blocks, supply, the disclosed custodial trust model, and a
 source-only authority observatory.
 
-## First-run production path
+## Staged-beta observer profiles
+
+`network-profile.json` is the **single public build input** imported by the
+browser, Vite and Pages Functions. Its checked-in default is explicitly
+`{"mode":"legacy"}`; that preserves the existing zerone-1 dashboard and relay.
+A beta deployment must deliberately replace that profile and rebuild **both**
+static assets and Functions from the same reviewed bytes. Never deploy a beta
+browser bundle with a legacy worker or mix separately built profile versions.
+There is no URL parameter, browser storage, environment override, network
+selector, discovered endpoint or automatic legacy fallback.
+
+Supported modes:
+
+- `legacy`: the existing page, wallet behavior and mainnet coordinates, unchanged.
+- `beta-active`: read-only public custodial beta observer with fresh-block checks.
+- `beta-archive`: frozen predecessor, requiring a fixed terminal header checkpoint.
+- `preview`: explicitly synthetic/local, requiring a loopback HTTP gateway.
+- Invalid/incomplete input becomes **unconfigured**: a static disclosure page,
+  disabled lookup controls, and HTTP 503 from the query edge; no upstream fetch.
+
+The schema and strict field validation live in `network-profile.ts`. Every
+configured non-legacy profile supplies `chainId`, `gatewayOrigin`,
+`genesisSha256`, `releaseCommit` (40 hex characters),
+`releaseManifestSha256`, `releaseUrl`, and `operatorVerification` containing
+`openDecisionSha256` and `verifiedAt` (UTC timestamp). An archive additionally
+requires `checkpoint: {height, blockHash, appHash}`. Digests use lowercase hex.
+The archive checkpoint is the approved terminal header identity, **not** an
+inferred migration cutoff or beneficial entitlement. Preview may also include a
+checkpoint to exercise frozen-archive behavior.
+
+Production gateway coordinates must be one exact, approved public HTTPS origin
+without a path, credentials, port override, query or fragment. Both REST and RPC
+use that same query gateway; the beta edge never relays directly to the validator.
+`releaseUrl` must identify the operator's immutable public release bundle. The
+URL parser is not a DNS, signature, bundle or authority verifier. Operators must
+independently verify the release, genesis, trust anchors and OPEN-authorized
+coordinates, then supply that reviewed information. **A syntactically valid
+profile, supplied digest or verification timestamp does not establish authority.**
+No successor production coordinates or authentic production release are shipped.
+The production launch and previously outstanding release reviews remain separate
+hold points; this dashboard does not repair or bypass them.
+
+The observer uses the existing shell, typography, status tokens and block table,
+not a new visual framework. The build selects `observer.ts` instead of `main.ts`;
+legacy wallet, send, sponsorship, claim, Pi and reward controls are absent from
+beta HTML, including with JavaScript off. Source-only standards and knowledge are
+not relabelled as live successor state or rewards. No liquidity panel is queried.
+Pages middleware also blocks alternate `/api/knowledge` and `/api/pi` relays.
+Vite dev **and local preview** use the same beta query allowlist instead of the
+legacy unrestricted development proxy.
+
+All beta edge routes are a strict subset of
+[`deploy/query-gateway/default.conf.template`](../deploy/query-gateway/default.conf.template):
+GET/HEAD status, bounded point blocks, one validator page, known tx hashes, native
+supply/balance and bounded native account/config reads. JSON-RPC/REST POST,
+broadcast, arbitrary ABCI, blockchain bulk reads, net_info, search, fee grants,
+paginated pool lists and unknown paths are rejected before cache or fetch.
+Redirects are refused, responses are byte-bounded, and edge cache keys include
+the entire public profile. There is no alternate gateway fallback.
+
+The observer client serializes **all** queries with at least 550 ms between
+starts (below 2 requests/second), bounds the queue, caches 16 validated point
+blocks and shows at most four recent blocks. A completed refresh schedules the
+next in 20 seconds; hidden pages do not poll. These are per-page bounds, **not**
+a global rate guarantee: gateway rate/concurrency enforcement is still required
+across visitors and edge instances. Peer count is unavailable, not zero.
+
+Active checks compare the configured chain ID, status height/time/hash/app hash
+and the matching point header, then flag blocks older than **30 seconds**, more
+than **10 seconds in the future**, syncing and regressions. These inclusive age
+bounds match the active gateway; the legacy readiness window remains 75 seconds.
+Archive checks require `catching_up=true` and the fixed height, block hash and
+header app hash, with no freshness expectation. The terminal A header app hash
+commits F (the preceding state), not the post-A ABCI app hash checked separately
+by the gateway. This client does not query or verify that post-A state. Transaction
+counts require nonempty canonical base64 entries; validator counts require native
+address, public-key and integer voting-power wire shapes. These are structural
+checks, not signature or key/address derivation verification, and remain trusted
+gateway observations, **not light-client proofs**. Genesis and release authority remain
+operator-supplied references; the public gateway does not expose genesis for an
+independent client check. Supply and validator reads may reflect different later
+heights. Failures clear current metrics to Unknown; actual native zero remains
+zero. A tx miss can mean absent, unindexed, pruned or unavailable, not proof that
+no transaction existed. Native balances establish no migration entitlement.
+
+### Local observer browser verification (nonproduction only)
+
+The synthetic fixture is loopback-only, read-only and makes no outgoing requests.
+It is **not** the production query gateway or its readiness/authorization evidence.
+Do not deploy its invented hashes or release metadata. From this dashboard folder:
+
+```bash
+npm ci
+# Inspect the proposed local profile; replace network-profile.json with this
+# exact output only for a deliberately local preview. Preserve the legacy file
+# and restore it afterwards. This command itself does not write configuration.
+npm exec -- tsx scripts/observer-preview.ts --profile
+# Terminal 1 (Ctrl-C stops):
+npm exec -- tsx scripts/observer-preview.ts --scenario=healthy
+# Terminal 2, after selecting the displayed preview profile:
+npm run dev
+```
+
+Open `http://127.0.0.1:4173/`. Verify the explicit NOT PRODUCTION label, fresh
+identity, supply and validator observations, four blocks, block lookup `10`,
+address `zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf` (actual synthetic zero), and a
+known tx hash consisting of 64 lowercase `a` characters. Check narrow/mobile
+layout and disable JavaScript to inspect truthful static disclosures. DevTools
+should show no wallet prompts or `/net_info`, `/blockchain`, pool, knowledge or
+Pi calls; the public API must reject POST and forbidden routes before the fixture
+receives them.
+
+Restart Terminal 1 with `--scenario=stale`, `future`, `wrong-chain`,
+`unavailable`, `missing-tx` or `unknown-supply`, then refresh. Errors must not
+become zero or healthy labels. For archive, inspect and select the profile from
+`--scenario=archive --profile`, restart Vite after changing profile bytes, then
+run `--scenario=archive`: yesterday's block should be a matched frozen archive,
+not a stalled active chain. Changing its fixed checkpoint must fail closed.
+
+For the built journey, run `npm test && npm run build` with the selected local
+profile, then `npm run preview -- --host 127.0.0.1 --port 4173` instead of Vite dev.
+Restore `network-profile.json` to explicit legacy and rebuild before checking
+legacy preservation. No dependency/lockfile updates are needed. Full-node readers
+should use the configured release's immutable bundle and commit-pinned JOIN.md;
+never a moving-main install, fixture keys or generic validator-admission recipe.
+
+## First-run production path (legacy profile)
+
 
 The primary `#onboarding` route is an orientation surface, not an account
 issuance flow. Its default completion is deliberately small: a visitor can
@@ -31,7 +158,7 @@ normally producing chain stalled while still surfacing a genuinely old block.
 ## Run locally
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 

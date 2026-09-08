@@ -8,7 +8,9 @@ import {
   type ProxyCache,
   type ProxyRuntime,
   validRestRequest,
+  validObserverQuery,
 } from "../functions/api/_proxy";
+import { syntheticProfile, NATIVE_ADDRESS } from "./observer-fixtures";
 
 const TEST_UPSTREAMS = {
   rpc: "https://rpc.invalid",
@@ -50,6 +52,7 @@ function harness(
     cachePuts,
     runtime: {
       upstreams: TEST_UPSTREAMS,
+      profile: { mode: "legacy" },
       cache,
       async fetch(input, init) {
         calls.push({ input, init });
@@ -84,6 +87,63 @@ async function errorMessage(response: Response): Promise<string> {
   }
   return body.error;
 }
+
+describe("beta observer proxy", () => {
+  it("rejects all write and unapproved routes before cache or upstream fetch", async () => {
+    const cases: Array<["rpc" | "rest", string, RequestInit?]> = [
+      ["rpc", "", { method: "POST", body: JSON.stringify({ jsonrpc: "2.0", method: "broadcast_tx_sync" }) }],
+      ["rpc", "status", { method: "POST" }], ["rest", "cosmos/tx/v1beta1/txs", { method: "POST" }],
+      ["rpc", "net_info"], ["rpc", "blockchain?minHeight=1&maxHeight=4"],
+      ["rpc", "abci_query?path=x"], ["rpc", "broadcast_tx_sync?tx=AA"], ["rpc", "tx_search?query=x"],
+      ["rpc", "block?height=1&height=2"], ["rpc", "block?height=01"], ["rpc", "block?height=1000000001"],
+      ["rpc", "status?url=https://other.example.org"], ["rpc", "%73tatus"], ["rpc", "/status"],
+      ["rest", "zerone/liquiditypool/v1/pools?pagination.limit=100&pagination.count_total=true"],
+      ["rest", "cosmos/bank/v1beta1/supply/by_denom?denom=%75zrn"],
+      ["rest", "cosmos/bank/v1beta1/supply/by_denom?denom=uzrn&denom=uzrn"],
+      ["rest", `cosmos/feegrant/v1beta1/allowances/${NATIVE_ADDRESS}?pagination.limit=50`],
+      ["rest", "cosmos/base/tendermint/v1beta1/abci_query"], ["rest", "zerone/knowledge/v1/facts"],
+    ];
+    for (const mode of ["beta-active", "beta-archive", "preview"] as const) {
+      for (const [kind, route, init] of cases) {
+        const h = harness(); h.runtime.profile = syntheticProfile(mode);
+        const { context } = pagesContext(`https://dashboard.invalid/api/${kind}/${route}`, route.split("?")[0], init);
+        const result = await proxyRequest(context, kind, h.runtime);
+        assert.ok(result.status === 403 || result.status === 405, `${mode} ${route}: ${result.status}`);
+        assert.equal(h.calls.length, 0); assert.equal(h.cacheMatches.length, 0);
+      }
+    }
+  });
+  it("forwards approved point reads only to the profile gateway, never legacy runtime origins", async () => {
+    const routes: Array<["rpc" | "rest", string]> = [
+      ["rpc", "status"], ["rpc", "block?height=10"], ["rpc", "validators?page=1&per_page=100"],
+      ["rpc", `tx?hash=0x${"a".repeat(64)}&prove=false`], ["rest", "zerone/liquiditypool/v1/pools"],
+      ["rest", "cosmos/bank/v1beta1/supply/by_denom?denom=uzrn"],
+      ["rest", `cosmos/bank/v1beta1/balances/${NATIVE_ADDRESS}/by_denom?denom=uzrn`],
+    ];
+    for (const [kind, route] of routes) {
+      const h = harness(); h.runtime.profile = syntheticProfile("beta-active");
+      const { context, waits } = pagesContext(`https://dashboard.invalid/api/${kind}/${route}`, route.split("?")[0]);
+      const result = await proxyRequest(context, kind, h.runtime);
+      assert.equal(result.status, 200); await Promise.all(waits);
+      assert.equal(String(h.calls[0]?.input), `https://gateway.example.org/${route}`);
+      assert.equal(h.calls[0]?.init?.redirect, "manual");
+      assert.equal(result.headers.get("Access-Control-Allow-Methods"), "GET, HEAD, OPTIONS");
+      assert.match(h.cacheMatches[0]!.url, /__observer_profile=/);
+    }
+  });
+  it("refuses missing configuration, redirects, oversized and malformed successes", async () => {
+    const { context } = pagesContext("https://dashboard.invalid/api/rpc/status", "status");
+    const h = harness(); h.runtime.profile = { mode: "unconfigured", error: "No authority" };
+    assert.equal((await proxyRequest(context, "rpc", h.runtime)).status, 503);
+    assert.equal(h.calls.length, 0);
+    for (const response of [new Response(null, { status: 302, headers: { Location: "https://other.example.org" } }), new Response("not json"), new Response("{}", { headers: { "Content-Length": "2097153" } })]) {
+      const bad = harness(async () => response); bad.runtime.profile = syntheticProfile();
+      assert.equal((await proxyRequest(context, "rpc", bad.runtime)).status, 502);
+      assert.equal(bad.cachePuts.length, 0);
+    }
+    assert.equal(validObserverQuery("rest", `cosmos/bank/v1beta1/balances/${NATIVE_ADDRESS.slice(0, -1)}q/by_denom`, "?denom=uzrn"), false);
+  });
+});
 
 test("REST rejects a path outside the public allowlist without fetching upstream", async () => {
   const testHarness = harness();

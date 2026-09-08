@@ -659,6 +659,8 @@ jobs:
           cache: true
       - name: Test
         run: make test
+      - name: Offline relaunch accounting race checks
+        run: go test -race ./tools/relaunch-accounting -count=1 -timeout=120s
 
   consensus-rehearsal:
     name: "Consensus rehearsal"
