@@ -24,6 +24,7 @@ var (
 	UnbondingSeqKey                = []byte{0x07}
 	RedelegationCooldownPrefix     = []byte{0x08}
 	ValidatorDelegationIndexPrefix = []byte{0x09} // reverse index: validator → delegators
+	AccountingSafetyKey            = []byte{0x0a} // singleton: validated custody boundary v1
 )
 
 // ValidatorKey returns the store key for a validator by operator address.

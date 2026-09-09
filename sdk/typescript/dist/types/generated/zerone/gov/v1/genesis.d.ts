@@ -130,6 +130,11 @@ export interface GenesisState {
     nextSeatElectionNumber: bigint;
     creedAmendmentPins: GenesisCreedAmendmentPin[];
     emergencyTransitionHold?: EmergencyTransitionHold;
+    /**
+     * Explicit native/continuation profile flag. App genesis activates only after
+     * all module initialization completes; false retains historical semantics.
+     */
+    accountingSafetyEnabled: boolean;
 }
 /**
  * Params defines the governance module parameters.

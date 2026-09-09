@@ -109,6 +109,7 @@ type tierConfigReconciliation struct {
 // sorted by finalize, so encoding it is deterministic.
 type censusResult struct {
 	resourceLimitExceeded bool
+	accountingV2          bool
 	Passed                bool                       `json:"-"`
 	ModuleAddress         string                     `json:"module_address"`
 	ModuleAddressHex      string                     `json:"module_address_hex"`
@@ -134,7 +135,8 @@ type censusResult struct {
 }
 
 type census struct {
-	finalized bool
+	finalized    bool
+	accountingV2 bool
 
 	validators    map[string]*parsedValidator
 	delegations   []*parsedDelegation
@@ -148,7 +150,7 @@ type census struct {
 	sdkValidators map[string]*parsedSDKValidator
 	balances      map[string]*big.Int
 
-	classLeaves          [10][]leafCommitment
+	classLeaves          [11][]leafCommitment
 	findings             []censusFinding
 	findingSet           map[string]struct{}
 	findingLimitExceeded bool
@@ -218,6 +220,13 @@ func (c *census) ingestCustomStaking(key, value []byte) {
 	display := displayKey(customStakingStore, key)
 	if len(key) == 0 {
 		c.addFinding("custom_key_empty", display, "custom staking key is empty")
+		return
+	}
+	if c.accountingV2 && key[0] == accountingMarkerPrefix {
+		c.classLeaves[customModuleKeyspaceCount+1] = append(c.classLeaves[customModuleKeyspaceCount+1], newLeafCommitment(key, value))
+		if !bytes.Equal(key, []byte{accountingMarkerPrefix}) || !bytes.Equal(value, []byte{1}) {
+			c.addFinding("accounting_safety_marker_invalid", display, "accounting-v2 requires the exact 0x0a = 0x01 marker")
+		}
 		return
 	}
 	if bytes.Equal(key, []byte(appIAVLInitSentinelKey)) {
@@ -819,6 +828,9 @@ func (c *census) finalize() censusResult {
 	}
 
 	sortClaims(claims)
+	if c.accountingV2 && len(c.classLeaves[customModuleKeyspaceCount+1]) != 1 {
+		c.addFinding("accounting_safety_marker_missing", customStakingStore+"/0a", "accounting-v2 requires exactly one accounting safety marker")
+	}
 	claimantRoot := hashClaims(claims)
 	sort.Slice(unbondingRecords, func(i, j int) bool { return unbondingRecords[i].ID < unbondingRecords[j].ID })
 	sort.Slice(c.findings, func(i, j int) bool {
@@ -833,6 +845,7 @@ func (c *census) finalize() censusResult {
 
 	result := censusResult{
 		resourceLimitExceeded: c.findingLimitExceeded || c.decodeResourceErr != nil,
+		accountingV2:          c.accountingV2,
 		Passed:                len(c.findings) == 0 && !c.findingLimitExceeded && c.decodeResourceErr == nil,
 		ModuleAddress:         mustModuleAddress(),
 		ModuleAddressHex:      hex.EncodeToString(customModuleAddress),
@@ -975,7 +988,7 @@ func mustModuleAddress() string {
 }
 
 func (c *census) keyspaceResult() []keyspaceClass {
-	names := [...]string{
+	names := []string{
 		"validators",
 		"delegations",
 		"unbondings",
@@ -986,6 +999,9 @@ func (c *census) keyspaceResult() []keyspaceClass {
 		"redelegation_cooldowns",
 		"validator_delegation_indexes",
 		"app_iavl_init_sentinel",
+	}
+	if c.accountingV2 {
+		names = append(names, "accounting_safety_marker")
 	}
 	result := make([]keyspaceClass, 0, len(names))
 	for index, name := range names {
@@ -1002,6 +1018,9 @@ func (c *census) keyspaceResult() []keyspaceClass {
 		if index == customModuleKeyspaceCount {
 			prefix = "0x" + hex.EncodeToString([]byte(appIAVLInitSentinelKey))
 			writeHashField(h, []byte(appIAVLInitSentinelKey))
+		} else if index == customModuleKeyspaceCount+1 {
+			prefix = "0x0a"
+			_, _ = h.Write([]byte{accountingMarkerPrefix})
 		} else {
 			_, _ = h.Write([]byte{byte(index + 1)})
 		}

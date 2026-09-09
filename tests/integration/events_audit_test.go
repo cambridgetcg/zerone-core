@@ -422,7 +422,11 @@ func extractHandlers(t *testing.T, path string, handlerRe, emitRe, failClosedRe 
 
 	// Delegation pattern: handlers that delegate to keeper methods which
 	// emit events internally (e.g., return ms.Keeper.Foo(ctx, msg)).
-	delegateRe := regexp.MustCompile(`\.\w+\.\w+\(|\.Handle\w+\(|\.VoteProposal\(|\.graduateMentorship\(`)
+	// Staking's marker dispatch forwards to the same event-emitting legacy
+	// registration/parameter handlers inside a cache when accounting is enabled.
+	// The named legacy handlers are also scanned below; no extra event is emitted
+	// by the dispatch wrapper itself.
+	delegateRe := regexp.MustCompile(`\.\w+\.\w+\(|\.Handle\w+\(|\.VoteProposal\(|\.graduateMentorship\(|\.(?:safe|legacy)(?:RegisterValidator|UpdateParams)\(`)
 
 	var handlers []handlerInfo
 	braceDepth := 0

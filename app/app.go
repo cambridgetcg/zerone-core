@@ -1423,6 +1423,10 @@ func newZeroneApp(
 			)
 			os.Exit(1)
 		}
+		if err := app.ValidateAccountingAuthorityStartup(); err != nil {
+			logger.Error("refusing unsafe accounting authority startup", "err", err)
+			os.Exit(1)
+		}
 	}
 
 	return app
@@ -1469,6 +1473,9 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 		)
 	}
 
+	if err := validateAccountingGenesisSelection(genesisState); err != nil {
+		return nil, err
+	}
 	app.UpgradeKeeper.SetModuleVersionMap(ctx, app.ModuleManager.GetVersionMap())
 	resp, err := app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
 	if err != nil {
@@ -1504,6 +1511,9 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 			genesisSupply,
 			maxSupply,
 		)
+	}
+	if err := app.initializeAccountingAuthority(ctx, genesisState); err != nil {
+		return nil, err
 	}
 	if err := app.KnowledgeKeeper.WriteMigrationMarker(
 		ctx,

@@ -119,9 +119,14 @@ func (k Keeper) BeginBlocker(ctx sdk.Context) {
 	k.BeginBlockPhaseTransition(ctx)
 }
 
-// tallyAndResolve tallies votes and sets the LIP to passed or failed.
+// tallyAndResolve records passage only after the complete immediate action commits.
+// A text LIP is an advisory decision; a phase LIP approves a separately recorded
+// activation delay. Neither is a claim that a delayed target action executed.
 func (k Keeper) tallyAndResolve(ctx sdk.Context, lip *types.LIP, params *types.Params) {
-	// Phase transition categories use supermajority (66.7%), others use standard (50%).
+	if !k.AccountingSafetyEnabled(ctx) {
+		k.tallyAndResolveLegacy(ctx, lip, params)
+		return
+	}
 	var quorumMet, passed bool
 	if types.IsPhaseTransitionCategory(lip.Category) {
 		quorumMet, passed = k.checkQuorumAndSupermajority(ctx, lip, params)
@@ -129,123 +134,62 @@ func (k Keeper) tallyAndResolve(ctx sdk.Context, lip *types.LIP, params *types.P
 		quorumMet, passed = k.checkQuorumAndSupport(ctx, lip, params)
 	}
 
-	var scheduledPlan *types.UpgradePlan
-	var scheduleErr error
-	if quorumMet && passed && lip.Category == types.CategoryUpgrade {
-		scheduledPlan, scheduleErr = k.scheduleApprovedUpgrade(ctx, lip)
-	}
-
-	if quorumMet && passed && scheduleErr == nil {
-		lip.Stage = types.StatusPassed
-		k.SetLIP(ctx, lip)
-
-		// Category-specific post-pass handling.
-		switch lip.Category {
-		case types.CategoryParameter:
-			if len(lip.ParamChanges) > 0 {
-				k.executeParamChanges(ctx, lip)
-			}
-		case types.CategoryUpgrade:
-			ctx.EventManager().EmitEvent(
-				sdk.NewEvent("zerone.gov.upgrade_scheduled",
-					sdk.NewAttribute("lip_id", lip.Id),
-					sdk.NewAttribute("upgrade_name", scheduledPlan.Name),
-					sdk.NewAttribute("height", fmt.Sprintf("%d", scheduledPlan.Height)),
-				),
-			)
-			k.Logger(ctx).Info("software upgrade scheduled via LIP governance",
-				"lip_id", lip.Id,
-				"upgrade_name", scheduledPlan.Name,
-				"height", scheduledPlan.Height,
-			)
-		case types.CategoryPhaseTransition, types.CategoryPhaseRollback:
-			// Phase transitions don't execute immediately — enter activation delay.
-			k.HandlePhaseTransitionPass(ctx, lip.Id)
-		case types.CategoryCreedAmendment:
-			// Commitment 19 (the creed is governance-gated): on
-			// pass, ship the attached pin payload to x/creed via
-			// AnchorPinFromBytes. The LIP id is recorded as the
-			// source so the post-launch audit trail names the LIP
-			// that authorized every creed amendment.
-			if pin, found := k.GetCreedAmendmentPin(ctx, lip.Id); found {
-				if ck := k.GetCreedKeeper(); ck != nil {
-					if err := ck.AnchorPinFromBytes(ctx, lip.Id, pin.CanonicalHash, pin.CommitmentsJSON); err != nil {
-						k.Logger(ctx).Error("failed to anchor creed amendment from passed LIP",
-							"lip_id", lip.Id,
-							"error", err,
-						)
-					} else {
-						ctx.EventManager().EmitEvent(
-							sdk.NewEvent("zerone.gov.creed_amendment_anchored",
-								sdk.NewAttribute("lip_id", lip.Id),
-								sdk.NewAttribute("canonical_hash", fmt.Sprintf("%x", pin.CanonicalHash)),
-								sdk.NewAttribute("creed_commitment", "10,19"),
-							),
-						)
-						k.Logger(ctx).Info("creed amendment anchored via LIP governance",
-							"lip_id", lip.Id,
-						)
-					}
-				}
-			}
-		case types.CategoryAdapterRegistration:
-			// Commitment 20 (issuance follows participation): on pass,
-			// dispatch to x/substrate_bridge.WriteAdapterFromGov with
-			// the adapter spec that was attached to the LIP body.
-			//
-			// TODO(Phase-1): retrieve the adapter payload attached to
-			// this LIP (analogous to GetCreedAmendmentPin for
-			// CategoryCreedAmendment), then call:
-			//
-			//   sbk := k.GetSubstrateBridgeKeeper()
-			//   if sbk != nil {
-			//       adapterBytes := <retrieve from LIP attachment store>
-			//       if err := sbk.WriteAdapterFromGov(ctx, lip.Id, adapterBytes); err != nil {
-			//           k.Logger(ctx).Error(...)
-			//       }
-			//   }
-			//
-			// The attachment mechanism (MsgAttachAdapterRegistration +
-			// SetAdapterRegistrationPayload/GetAdapterRegistrationPayload)
-			// mirrors the creed-amendment pin pattern and will be wired
-			// in the follow-up plan task when the generic LIP-dispatch
-			// mechanism stabilises. Until then, the governance weight
-			// and vocabulary are established: a passed LIP of this class
-			// is recorded on-chain at the correct quorum bar.
-			k.Logger(ctx).Info("adapter_registration LIP passed; dispatch to substrate_bridge pending Phase-1 wiring",
-				"lip_id", lip.Id,
-			)
-			ctx.EventManager().EmitEvent(
-				sdk.NewEvent("zerone.gov.adapter_registration_lip_passed",
-					sdk.NewAttribute("lip_id", lip.Id),
-					sdk.NewAttribute("creed_commitment", "20"),
-					sdk.NewAttribute("dispatch_status", "pending_phase1_wiring"),
-				),
-			)
+	var executionErr error
+	if quorumMet && passed {
+		cacheCtx, write := ctx.CacheContext()
+		executionErr = k.executeApprovedLIP(cacheCtx, lip)
+		if executionErr == nil {
+			lip.Stage = types.StatusPassed
+			lip.ExecutionError = ""
+			k.SetLIP(cacheCtx, lip)
+			write()
 		}
-	} else {
+	}
+	if !quorumMet || !passed || executionErr != nil {
 		lip.Stage = types.StatusFailed
+		lip.ExecutionError = executionErrorCode(executionErr)
 		k.SetLIP(ctx, lip)
-
-		if scheduleErr != nil {
+		if executionErr != nil {
 			ctx.EventManager().EmitEvent(
-				sdk.NewEvent("zerone.gov.upgrade_schedule_failed",
+				sdk.NewEvent("zerone.gov.lip_execution_failed",
 					sdk.NewAttribute("lip_id", lip.Id),
-					sdk.NewAttribute("reason", scheduleErr.Error()),
+					sdk.NewAttribute("category", lip.Category),
+					sdk.NewAttribute("reason", lip.ExecutionError),
 				),
 			)
-			k.Logger(ctx).Error("approved upgrade LIP failed closed because scheduling failed",
-				"lip_id", lip.Id,
-				"error", scheduleErr,
-			)
+			// Keep the existing category failure events for consumers. Successful
+			// handler events live only in the discarded cache on this path.
+			if lip.Category == types.CategoryUpgrade {
+				ctx.EventManager().EmitEvent(sdk.NewEvent("zerone.gov.upgrade_schedule_failed",
+					sdk.NewAttribute("lip_id", lip.Id),
+					sdk.NewAttribute("reason", lip.ExecutionError)))
+			}
+			if lip.Category == types.CategoryParameter {
+				failureEvent := sdk.NewEvent("zerone.gov.param_change_failed",
+					sdk.NewAttribute("lip_id", lip.Id),
+					sdk.NewAttribute("reason", lip.ExecutionError),
+				)
+				if pe, ok := executionErr.(*paramExecutionError); ok {
+					failureEvent = failureEvent.AppendAttributes(sdk.NewAttribute("module", pe.module), sdk.NewAttribute("key", pe.key))
+				}
+				ctx.EventManager().EmitEvent(failureEvent)
+			}
+			k.Logger(ctx).Error("approved LIP execution failed; target state discarded",
+				"lip_id", lip.Id, "error", executionErr)
 		}
-
-		// Notify metadata of failure for phase transition categories.
 		if types.IsPhaseTransitionCategory(lip.Category) {
-			k.HandlePhaseTransitionFail(ctx, lip.Id)
+			// A corrupt active LIP must not overwrite an already approved or
+			// terminal target record. Only its still-unapproved metadata fails.
+			if meta, found := k.GetPhaseTransitionMeta(ctx, lip.Id); found &&
+				meta.LipID == lip.Id && meta.Stage == types.PhaseTransitionStagePending &&
+				meta.ActivationBlock == 0 && meta.IsRollback == (lip.Category == types.CategoryPhaseRollback) {
+				k.HandlePhaseTransitionFail(ctx, lip.Id)
+			}
 		}
 	}
 
+	// Legacy aggregate escrow stays unchanged: this store does not identify
+	// individual contributors, so resolving a LIP cannot infer a refund owner.
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.gov.lip_tallied",
 			sdk.NewAttribute("lip_id", lip.Id),
@@ -257,6 +201,60 @@ func (k Keeper) tallyAndResolve(ctx sdk.Context, lip *types.LIP, params *types.P
 			sdk.NewAttribute("quorum_met", fmt.Sprintf("%t", quorumMet)),
 		),
 	)
+}
+
+// executeApprovedLIP runs only inside the caller's cached context. It grants no
+// new dispatch authority and never replays an already-terminal historical LIP.
+func (k Keeper) executeApprovedLIP(ctx sdk.Context, lip *types.LIP) (err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			// Panic values may contain process addresses or other nondeterministic
+			// details. Keep the consensus-visible failure reason fixed.
+			err = lipExecutionFailure("execution_panicked", nil)
+		}
+	}()
+
+	switch lip.Category {
+	case types.CategoryText:
+		return nil // Advisory approval has no target mutation.
+	case types.CategoryParameter:
+		return k.executeParamChanges(ctx, lip)
+	case types.CategoryUpgrade:
+		// SDK governance remains the sole executable software-upgrade authority.
+		_, err := k.scheduleApprovedUpgrade(ctx, lip)
+		if err != nil {
+			return lipExecutionFailure("custom_upgrade_authority_retired", err)
+		}
+		return nil
+	case types.CategoryPhaseTransition, types.CategoryPhaseRollback:
+		if err := k.HandlePhaseTransitionPass(ctx, lip.Id); err != nil {
+			return lipExecutionFailure("phase_approval_failed", err)
+		}
+		return nil
+	case types.CategoryCreedAmendment:
+		pin, found := k.GetCreedAmendmentPin(ctx, lip.Id)
+		if !found {
+			return lipExecutionFailure("creed_payload_missing", nil)
+		}
+		ck := k.GetCreedKeeper()
+		if ck == nil {
+			return lipExecutionFailure("creed_keeper_missing", nil)
+		}
+		if err := ck.AnchorPinFromBytes(ctx, lip.Id, pin.CanonicalHash, pin.CommitmentsJSON); err != nil {
+			return lipExecutionFailure("creed_anchor_failed", err)
+		}
+		ctx.EventManager().EmitEvent(sdk.NewEvent("zerone.gov.creed_amendment_anchored",
+			sdk.NewAttribute("lip_id", lip.Id),
+			sdk.NewAttribute("canonical_hash", fmt.Sprintf("%x", pin.CanonicalHash)),
+			sdk.NewAttribute("creed_commitment", "10,19")))
+		return nil
+	case types.CategoryAdapterRegistration:
+		return lipExecutionFailure("adapter_dispatch_unimplemented", nil)
+	case types.CategoryResearchSpend, types.CategorySeatElection:
+		return lipExecutionFailure("category_dispatch_unimplemented", nil)
+	default:
+		return lipExecutionFailure("category_unsupported", nil)
+	}
 }
 
 // checkQuorumAndSupport checks quorum and support thresholds on 1,000,000 BPS scale.
@@ -354,51 +352,40 @@ func (k Keeper) checkQuorumAndSupermajority(ctx sdk.Context, lip *types.LIP, par
 	return quorumMet, passed
 }
 
-// executeParamChanges applies parameter changes from a passed LIP.
-func (k Keeper) executeParamChanges(ctx sdk.Context, lip *types.LIP) {
-	logger := k.Logger(ctx)
-	router := k.GetParamRouter()
+// paramExecutionError retains deterministic failure coordinates outside the
+// discarded execution cache without forwarding its misleading success events.
+type paramExecutionError struct {
+	module string
+	key    string
+	err    error
+}
 
-	for _, pc := range lip.ParamChanges {
-		if router == nil {
-			logger.Error("param router not set, skipping param change",
-				"lip_id", lip.Id, "module", pc.Module, "key", pc.Key,
-			)
-			ctx.EventManager().EmitEvent(
-				sdk.NewEvent("zerone.gov.param_change_failed",
-					sdk.NewAttribute("lip_id", lip.Id),
-					sdk.NewAttribute("module", pc.Module),
-					sdk.NewAttribute("key", pc.Key),
-					sdk.NewAttribute("reason", "param router not set"),
-				),
-			)
-			continue
-		}
+func (e *paramExecutionError) Error() string {
+	return fmt.Sprintf("parameter %s.%s: %v", e.module, e.key, e.err)
+}
 
-		if err := router.ApplyParamChange(ctx, pc.Module, pc.Key, pc.Value); err != nil {
-			logger.Error("param change failed",
-				"lip_id", lip.Id, "module", pc.Module, "key", pc.Key, "error", err,
-			)
-			ctx.EventManager().EmitEvent(
-				sdk.NewEvent("zerone.gov.param_change_failed",
-					sdk.NewAttribute("lip_id", lip.Id),
-					sdk.NewAttribute("module", pc.Module),
-					sdk.NewAttribute("key", pc.Key),
-					sdk.NewAttribute("reason", err.Error()),
-				),
-			)
-		} else {
-			logger.Info("param change applied",
-				"lip_id", lip.Id, "module", pc.Module, "key", pc.Key, "value", pc.Value,
-			)
-			ctx.EventManager().EmitEvent(
-				sdk.NewEvent("zerone.gov.param_change_applied",
-					sdk.NewAttribute("lip_id", lip.Id),
-					sdk.NewAttribute("module", pc.Module),
-					sdk.NewAttribute("key", pc.Key),
-					sdk.NewAttribute("value", pc.Value),
-				),
-			)
-		}
+// executeParamChanges stops at the first failure. The caller commits the entire
+// bundle and its events only when every handler succeeds.
+func (k Keeper) executeParamChanges(ctx sdk.Context, lip *types.LIP) error {
+	if len(lip.ParamChanges) == 0 {
+		return lipExecutionFailure("parameter_changes_missing", nil)
 	}
+	router := k.GetParamRouter()
+	for _, pc := range lip.ParamChanges {
+		if pc == nil || pc.Module == "" || pc.Key == "" {
+			return lipExecutionFailure("parameter_change_malformed", nil)
+		}
+		if router == nil {
+			return &paramExecutionError{module: pc.Module, key: pc.Key, err: fmt.Errorf("param router not set")}
+		}
+		if err := router.ApplyParamChange(ctx, pc.Module, pc.Key, pc.Value); err != nil {
+			return &paramExecutionError{module: pc.Module, key: pc.Key, err: err}
+		}
+		ctx.EventManager().EmitEvent(sdk.NewEvent("zerone.gov.param_change_applied",
+			sdk.NewAttribute("lip_id", lip.Id),
+			sdk.NewAttribute("module", pc.Module),
+			sdk.NewAttribute("key", pc.Key),
+			sdk.NewAttribute("value", pc.Value)))
+	}
+	return nil
 }

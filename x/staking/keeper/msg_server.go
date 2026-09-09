@@ -26,6 +26,13 @@ var _ types.MsgServer = &msgServer{}
 
 // RegisterValidator registers a new validator.
 func (ms *msgServer) RegisterValidator(goCtx context.Context, msg *types.MsgRegisterValidator) (*types.MsgRegisterValidatorResponse, error) {
+	if ms.AccountingSafetyEnabled(sdk.UnwrapSDKContext(goCtx)) {
+		return ms.safeRegisterValidator(goCtx, msg)
+	}
+	return ms.legacyRegisterValidator(goCtx, msg)
+}
+
+func (ms *msgServer) legacyRegisterValidator(goCtx context.Context, msg *types.MsgRegisterValidator) (*types.MsgRegisterValidatorResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	operatorAddr, err := sdk.AccAddressFromBech32(msg.Operator)
@@ -81,20 +88,20 @@ func (ms *msgServer) RegisterValidator(goCtx context.Context, msg *types.MsgRegi
 
 	// Create validator.
 	val := &types.Validator{
-		OperatorAddress:  msg.Operator,
-		ConsensusPubkey:  msg.ConsensusPubkey,
-		Did:              msg.Did,
-		Moniker:          msg.Moniker,
-		Tier:             initialTier,
-		SelfDelegation:   selfDel.String(),
-		DelegatedStake:   "0",
-		TotalStake:       selfDel.String(),
-		ReputationScore:  500_000, // start at 50%
-		JoinedAtBlock:    uint64(ctx.BlockHeight()),
-		IsActive:         true,
-		CommissionBps:    msg.CommissionBps,
-		Website:          msg.Website,
-		Details:          msg.Details,
+		OperatorAddress: msg.Operator,
+		ConsensusPubkey: msg.ConsensusPubkey,
+		Did:             msg.Did,
+		Moniker:         msg.Moniker,
+		Tier:            initialTier,
+		SelfDelegation:  selfDel.String(),
+		DelegatedStake:  "0",
+		TotalStake:      selfDel.String(),
+		ReputationScore: 500_000, // start at 50%
+		JoinedAtBlock:   uint64(ctx.BlockHeight()),
+		IsActive:        true,
+		CommissionBps:   msg.CommissionBps,
+		Website:         msg.Website,
+		Details:         msg.Details,
 	}
 
 	ms.SetValidator(ctx, val)
@@ -123,6 +130,9 @@ func (ms *msgServer) RegisterValidator(goCtx context.Context, msg *types.MsgRegi
 
 // Delegate delegates tokens to a validator.
 func (ms *msgServer) Delegate(goCtx context.Context, msg *types.MsgDelegate) (*types.MsgDelegateResponse, error) {
+	if ms.AccountingSafetyEnabled(sdk.UnwrapSDKContext(goCtx)) {
+		return ms.safeDelegate(goCtx, msg)
+	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	delegatorAddr, err := sdk.AccAddressFromBech32(msg.Delegator)
@@ -203,6 +213,9 @@ func (ms *msgServer) Delegate(goCtx context.Context, msg *types.MsgDelegate) (*t
 
 // Undelegate initiates unbonding.
 func (ms *msgServer) Undelegate(goCtx context.Context, msg *types.MsgUndelegate) (*types.MsgUndelegateResponse, error) {
+	if ms.AccountingSafetyEnabled(sdk.UnwrapSDKContext(goCtx)) {
+		return ms.safeUndelegate(goCtx, msg)
+	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	del, found := ms.GetDelegation(ctx, msg.Delegator, msg.Validator)
@@ -228,13 +241,13 @@ func (ms *msgServer) Undelegate(goCtx context.Context, msg *types.MsgUndelegate)
 	seq := ms.NextUnbondingSeq(ctx)
 	unbondingID := fmt.Sprintf("%s_%s_%d_%d", msg.Delegator, msg.Validator, currentHeight, seq)
 	entry := &types.UnbondingEntry{
-		Id:               unbondingID,
-		DelegatorAddress: msg.Delegator,
-		ValidatorAddress: msg.Validator,
-		Amount:           msg.Amount,
-		CreatedAtHeight:  currentHeight,
+		Id:                unbondingID,
+		DelegatorAddress:  msg.Delegator,
+		ValidatorAddress:  msg.Validator,
+		Amount:            msg.Amount,
+		CreatedAtHeight:   currentHeight,
 		CompletesAtHeight: completesAt,
-		Status:           "pending",
+		Status:            "pending",
 	}
 	ms.SetUnbonding(ctx, entry)
 
@@ -288,6 +301,9 @@ func (ms *msgServer) Undelegate(goCtx context.Context, msg *types.MsgUndelegate)
 
 // Redelegate moves a delegation between validators.
 func (ms *msgServer) Redelegate(goCtx context.Context, msg *types.MsgRedelegate) (*types.MsgRedelegateResponse, error) {
+	if ms.AccountingSafetyEnabled(sdk.UnwrapSDKContext(goCtx)) {
+		return ms.safeRedelegate(goCtx, msg)
+	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	currentHeight := uint64(ctx.BlockHeight())
 
@@ -406,6 +422,9 @@ func (ms *msgServer) Redelegate(goCtx context.Context, msg *types.MsgRedelegate)
 
 // UpdateValidatorStake increases or decreases a validator's self-delegation.
 func (ms *msgServer) UpdateValidatorStake(goCtx context.Context, msg *types.MsgUpdateValidatorStake) (*types.MsgUpdateValidatorStakeResponse, error) {
+	if ms.AccountingSafetyEnabled(sdk.UnwrapSDKContext(goCtx)) {
+		return ms.safeUpdateValidatorStake(goCtx, msg)
+	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	operatorAddr, err := sdk.AccAddressFromBech32(msg.Operator)
@@ -468,13 +487,13 @@ func (ms *msgServer) UpdateValidatorStake(goCtx context.Context, msg *types.MsgU
 		seq := ms.NextUnbondingSeq(ctx)
 		unbondingID := fmt.Sprintf("%s_%s_%d_%d", msg.Operator, msg.Operator, currentHeight, seq)
 		ms.SetUnbonding(ctx, &types.UnbondingEntry{
-			Id:               unbondingID,
-			DelegatorAddress: msg.Operator,
-			ValidatorAddress: msg.Operator,
-			Amount:           msg.Amount,
-			CreatedAtHeight:  currentHeight,
+			Id:                unbondingID,
+			DelegatorAddress:  msg.Operator,
+			ValidatorAddress:  msg.Operator,
+			Amount:            msg.Amount,
+			CreatedAtHeight:   currentHeight,
 			CompletesAtHeight: currentHeight + params.UnbondingPeriod,
-			Status:           "pending",
+			Status:            "pending",
 		})
 
 		// Update self-delegation record.
@@ -523,6 +542,13 @@ func (ms *msgServer) UpdateValidatorStake(goCtx context.Context, msg *types.MsgU
 
 // UpdateParams updates module parameters (governance-gated).
 func (ms *msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
+	if ms.AccountingSafetyEnabled(sdk.UnwrapSDKContext(goCtx)) {
+		return ms.safeUpdateParams(goCtx, msg)
+	}
+	return ms.legacyUpdateParams(goCtx, msg)
+}
+
+func (ms *msgServer) legacyUpdateParams(goCtx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	if ms.GetAuthority() != msg.Authority {

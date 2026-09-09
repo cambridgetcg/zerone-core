@@ -33,6 +33,7 @@ func TestScenario6_ClaimingPotTierEnforcement(t *testing.T) {
 		JoinedAtBlock:   uint64(h.Height()),
 		IsActive:        true,
 	}
+	h.BondTestValidator(addrA.String(), 1_000_000_000)
 	h.StakingKeeper.SetValidator(h.Ctx, valA)
 
 	// Agent B: Scholar tier (tier 2).
@@ -48,7 +49,9 @@ func TestScenario6_ClaimingPotTierEnforcement(t *testing.T) {
 		JoinedAtBlock:   uint64(h.Height()),
 		IsActive:        true,
 	}
+	h.BondTestValidator(addrB.String(), 10_000_000_000)
 	h.StakingKeeper.SetValidator(h.Ctx, valB)
+	require.NoError(t, h.StakingKeeper.ValidateAccountingSafety(h.Ctx))
 
 	// Verify tiers are stored correctly.
 	retrievedA, found := h.StakingKeeper.GetValidator(h.Ctx, addrA.String())

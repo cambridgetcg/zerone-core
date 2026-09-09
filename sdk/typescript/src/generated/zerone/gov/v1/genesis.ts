@@ -131,6 +131,11 @@ export interface GenesisState {
   nextSeatElectionNumber: bigint;
   creedAmendmentPins: GenesisCreedAmendmentPin[];
   emergencyTransitionHold?: EmergencyTransitionHold;
+  /**
+   * Explicit native/continuation profile flag. App genesis activates only after
+   * all module initialization completes; false retains historical semantics.
+   */
+  accountingSafetyEnabled: boolean;
 }
 function createBaseParams(): Params {
   return {
@@ -501,7 +506,8 @@ function createBaseGenesisState(): GenesisState {
     seatElectionVotes: [],
     nextSeatElectionNumber: BigInt(0),
     creedAmendmentPins: [],
-    emergencyTransitionHold: undefined
+    emergencyTransitionHold: undefined,
+    accountingSafetyEnabled: false
   };
 }
 /**
@@ -546,6 +552,9 @@ export const GenesisState = {
     if (message.emergencyTransitionHold !== undefined) {
       EmergencyTransitionHold.encode(message.emergencyTransitionHold, writer.uint32(90).fork()).ldelim();
     }
+    if (message.accountingSafetyEnabled === true) {
+      writer.uint32(96).bool(message.accountingSafetyEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -588,6 +597,9 @@ export const GenesisState = {
         case 11:
           message.emergencyTransitionHold = EmergencyTransitionHold.decode(reader, reader.uint32());
           break;
+        case 12:
+          message.accountingSafetyEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -608,6 +620,7 @@ export const GenesisState = {
     message.nextSeatElectionNumber = object.nextSeatElectionNumber !== undefined && object.nextSeatElectionNumber !== null ? BigInt(object.nextSeatElectionNumber.toString()) : BigInt(0);
     message.creedAmendmentPins = object.creedAmendmentPins?.map(e => GenesisCreedAmendmentPin.fromPartial(e)) || [];
     message.emergencyTransitionHold = object.emergencyTransitionHold !== undefined && object.emergencyTransitionHold !== null ? EmergencyTransitionHold.fromPartial(object.emergencyTransitionHold) : undefined;
+    message.accountingSafetyEnabled = object.accountingSafetyEnabled ?? false;
     return message;
   }
 };

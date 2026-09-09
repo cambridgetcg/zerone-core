@@ -22,6 +22,11 @@ they actually exist.
 
 The words **MUST**, **MUST NOT**, **SHOULD**, and **MAY** are normative.
 
+The 2026-09-09 [accounting and authority repair](specs/accounting-authority-v1.md)
+adds a separately owned, prospective correction for custom custody and truthful
+LIP execution. The defect inventory below records the reviewed predecessor;
+the repair does not complete the single-writer target or establish live adoption.
+
 ## 1. Decision
 
 Zerone adopts three single-writer authority boundaries:
@@ -1436,16 +1441,26 @@ stratum, lifecycle, and escrow models are not wire-equivalent.
 
 ### 7.6 Consensus versions and store retirement
 
+The prospective `accounting-authority-v1` source repair owns custom
+`zerone_staking` v2 and `zerone_gov` v3 for claim-preserving custody and atomic
+legacy-LIP execution. Those versions do not mean H4 or retirement. Existing
+networks still need independently reviewed reconciliation and an exact release
+handoff. Its registered handler refuses unmatched source state, custody,
+version maps, lineage, or activation height. Source implementation does not
+authorize a production release. See [the consolidation contract](specs/accounting-authority-v1.md).
+The final H4 release must consume its exact predecessor version map and use
+the later retirement versions below. H4-F, H4, and H5 retain every other gate.
+
 The implementation plan MUST include, at minimum:
 
-- custom `zerone_staking` v1→v2 as legacy evidence/history with all mutations
+- custom `zerone_staking` v2→v3 as legacy evidence/history with all mutations
   retired;
 - new `legacy_claims` v1;
 - new `controller` v1;
 - new `verifier_profile` v1;
 - `qualification` v1→v2 for non-economic, revision-pinned competence and
   immutable legacy pathway evidence;
-- custom `zerone_gov` v2→v3 as historical/read-only state;
+- custom `zerone_gov` v3→v4 as historical/read-only state;
 - new `electorate` v1;
 - SDK `gov` v5→v6 for classification, ballot revisions, durable drop/cancel/
   terminal receipts, transition modes, and the complete tally/terminalization

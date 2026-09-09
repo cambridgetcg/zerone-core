@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/core/header"
 	"cosmossdk.io/log"
 	sdkmath "cosmossdk.io/math"
@@ -255,8 +256,23 @@ const (
 	testH2PlanIdentitySHA256       = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 )
 
+// H3 archival tests retain the original custom module target versions. The
+// candidate's ordinary module manager never receives this test-only wrapper.
+type archivedH3AccountingModule struct {
+	appmodule.AppModule
+	version uint64
+}
+
+func (m archivedH3AccountingModule) ConsensusVersion() uint64 { return m.version }
+
 func seedPreSDKTransitionLineage(t *testing.T, h *TestHarness) {
 	t.Helper()
+	for name, version := range map[string]uint64{"zerone_staking": 1, "zerone_gov": 2} {
+		h.App.ModuleManager.Modules[name] = archivedH3AccountingModule{h.App.ModuleManager.Modules[name].(appmodule.AppModule), version}
+	}
+	h.Ctx.KVStore(h.App.GetStoreKeyForTests("zerone_staking")).Delete([]byte{0x0a})
+	h.Ctx.KVStore(h.App.GetStoreKeyForTests("zerone_gov")).Delete([]byte{0x17})
+	h.Ctx.KVStore(h.App.GetStoreKeyForTests("knowledge")).Delete(append([]byte{0x7f, 0x01}, []byte("chain_lineage_native_accounting-authority-v1")...))
 	h.Ctx.KVStore(
 		h.App.GetStoreKeyForTests(knowledgetypes.StoreKey),
 	).Delete(append(

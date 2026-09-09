@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"cosmossdk.io/core/appmodule"
 	corestore "cosmossdk.io/core/store"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
@@ -43,6 +44,21 @@ import (
 )
 
 var errInjectedIBCCleanup = errors.New("injected IBC cleanup failure")
+
+// Historical H3 tests pin H3's original targets explicitly. The actual candidate
+// manager remains at accounting 2/3 and must refuse carrying that later delta.
+type archivedH3AccountingModule struct {
+	appmodule.AppModule
+	version uint64
+}
+
+func (m archivedH3AccountingModule) ConsensusVersion() uint64 { return m.version }
+
+func pinArchivedH3AccountingTargets(application *ZeroneApp) {
+	for name, version := range map[string]uint64{"zerone_staking": 1, "zerone_gov": 2} {
+		application.ModuleManager.Modules[name] = archivedH3AccountingModule{application.ModuleManager.Modules[name].(appmodule.AppModule), version}
+	}
+}
 
 func TestSDK053IBC10ExactSourceVersionMapPinsEveryEntry(t *testing.T) {
 	require.Len(t, sdk053IBC10ExactSourceVersionMap, 40)
@@ -1199,6 +1215,9 @@ func newSDK053IBC10ScheduledPreflightFixture(
 	ctx.KVStore(application.keys["knowledge"]).Delete(
 		markerKey(sdk053IBC10NativeMarker),
 	)
+	ctx.KVStore(application.keys["knowledge"]).Delete(markerKey(accountingAuthorityNativeMarker))
+	ctx.KVStore(application.keys["zerone_staking"]).Delete([]byte{0x0a})
+	ctx.KVStore(application.keys["zerone_gov"]).Delete([]byte{0x17})
 	versionMap := make(map[string]uint64, len(sdk053IBC10ExactSourceVersionMap))
 	for _, expected := range sdk053IBC10ExactSourceVersionMap {
 		versionMap[expected.name] = expected.version
@@ -1258,6 +1277,7 @@ func newSDK053IBC10ScheduledPreflightFixture(
 		},
 	))
 	require.Equal(t, int64(2), application.CommitMultiStore().Commit().Version)
+	pinArchivedH3AccountingTargets(application)
 	return application
 }
 

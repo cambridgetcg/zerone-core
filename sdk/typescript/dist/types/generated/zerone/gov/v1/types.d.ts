@@ -62,6 +62,12 @@ export interface LIP {
     lastCallStartedBlock: bigint;
     votingEndBlock: bigint;
     paramChanges: ParamChange[];
+    /**
+     * Prospective accounting-authority-v1 execution failure code; empty for
+     * historical proposals, vote rejection, and successful immediate approval.
+     * Closed implementation codes only: never an arbitrary handler/panic string.
+     */
+    executionError: string;
 }
 /**
  * ParamChange describes a single parameter modification.

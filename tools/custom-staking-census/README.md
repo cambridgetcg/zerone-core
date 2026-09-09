@@ -1,5 +1,15 @@
 # Legacy custom-staking census
 
+The default `--source-profile legacy-v1` retains the historical nine custom
+keyspaces and v1 report schema. The explicit `--source-profile accounting-v2`
+additionally requires the exact `0x0a = 0x01` safety marker and emits the distinct
+`zerone/custom-staking-census/accounting-v2` schema. No profile is autodetected:
+the legacy reader refuses the new marker, and the v2 reader refuses its absence
+or corruption. All bank, claimant, index, root-proof and resource checks still
+apply. A v2 report cannot satisfy a legacy production-release gate. This profile
+supports the disposable native accounting candidate described in
+[the consolidation contract](../../docs/specs/accounting-authority-v1.md).
+
 `custom-staking-census` is a strictly offline, read-only evidence tool for
 Zerone's legacy `zerone_staking` ledger. It opens the application database from
 a disposable copy of a halted node, binds the relevant stores to an externally

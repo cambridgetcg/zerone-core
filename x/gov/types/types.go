@@ -48,8 +48,9 @@ const (
 	//
 	// The payload attachment and on-pass dispatch are not implemented. Current
 	// adapter writes instead come from genesis or the substrate_bridge
-	// gov-authority MsgRegisterAdapter handler. A passed LIP in this category
-	// records a decision but does not register an adapter.
+	// gov-authority MsgRegisterAdapter handler. Before accounting-authority-v1,
+	// a passed LIP could record an inert decision. The repaired tally fails this
+	// category instead; it neither replays historical decisions nor adds dispatch.
 	CategoryAdapterRegistration = "adapter_registration"
 )
 

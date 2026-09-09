@@ -66,7 +66,7 @@ not authority or live network state.
 | `knowledge-metabolism` | `x/knowledge/keeper/metabolism.go` | `7b252c5134a6c78b753820890dbcd1eac9d3b263c8bf798c44bc1b41f50aafc6` |
 | `knowledge-methodologies` | `x/knowledge/types/methodologies.go` | `fa16ac33e7f2c10a19ed76541af6c2378edb79683578f2cec6f1a0563ebec386` |
 | `knowledge-types` | `proto/zerone/knowledge/v1/types.proto` | `7b2b301c80711587a55ae03216728ec1f6f5bf981035106d26ac1fa4923d8ced` |
-| `relational-topology` | `dashboard/public/standards/relational-topology.v0.json` | `9786674730febfe47150f29adffa4e4f7bd98e2aff502c552fa5b9669d935711` |
+| `relational-topology` | `dashboard/public/standards/relational-topology.v0.json` | `28c7d9717a4d63678096eff7f09d27cbe6ece13b44a7ecaf0b6920001f7fadf6` |
 | `research-training-trace` | `docs/RESEARCH_TRAINING_TRACE.md` | `2bca7a4164e2a52e7e4f5830ba6de6ef67542af1fa06ee913b6b2fbdf2640919` |
 | `tok-substrate` | `docs/TOK_SUBSTRATE.md` | `4fec6e3a410d5736f61cd43f4d9c421380b93f649c2f0d026a5f4e68a6534328` |
 
@@ -229,7 +229,7 @@ claim and every possible error in its proposed transfer.
 The reviewed raw artifact digest is:
 
 ```text
-f8cfeebf7404ab7e2e86b80362471cdd64015a108c47e98147e80ba7bb9e9a90
+fd2b5c17da9e35f9cd97357e857b0e272f8f7315719a3a20e200703754c0ed7f
 ```
 
 The offline validator rejects oversized, excessively nested, duplicate-key,

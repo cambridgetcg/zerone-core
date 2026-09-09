@@ -15,16 +15,15 @@ import (
 	"github.com/zerone-chain/zerone/x/staking/types"
 )
 
-
 // Keeper manages the zerone_staking module state.
 type Keeper struct {
-	cdc               codec.Codec
-	storeKey          *storetypes.KVStoreKey
-	accountKeeper     types.AccountKeeper
-	bankKeeper        types.BankKeeper
-	authKeeper        types.ZeroneAuthKeeper
-	authority         string
-	logger            log.Logger
+	cdc           codec.Codec
+	storeKey      *storetypes.KVStoreKey
+	accountKeeper types.AccountKeeper
+	bankKeeper    types.BankKeeper
+	authKeeper    types.ZeroneAuthKeeper
+	authority     string
+	logger        log.Logger
 }
 
 // NewKeeper creates a new Keeper.
@@ -36,12 +35,12 @@ func NewKeeper(
 	authority string,
 ) Keeper {
 	return Keeper{
-		cdc:          cdc,
-		storeKey:     storeKey,
+		cdc:           cdc,
+		storeKey:      storeKey,
 		accountKeeper: ak,
-		bankKeeper:   bk,
-		authority:    authority,
-		logger:       log.NewNopLogger(),
+		bankKeeper:    bk,
+		authority:     authority,
+		logger:        log.NewNopLogger(),
 	}
 }
 
@@ -63,14 +62,36 @@ func (k Keeper) getStore(ctx sdk.Context) storetypes.KVStore {
 
 // SetValidator stores a validator by operator address and updates the DID index.
 func (k Keeper) SetValidator(ctx sdk.Context, val *types.Validator) {
-	store := k.getStore(ctx)
+	if k.AccountingSafetyEnabled(ctx) {
+		if val == nil {
+			panic(accountingError("nil validator"))
+		}
+		if err := validateAccountingValidator(val); err != nil {
+			panic(err)
+		}
+		store := k.getStore(ctx)
+		if val.Did != "" {
+			if owner := store.Get(types.ValidatorByDIDKey(val.Did)); owner != nil && string(owner) != val.OperatorAddress {
+				panic(accountingError("DID already owned"))
+			}
+		}
+		if oldBytes := store.Get(types.ValidatorKey(val.OperatorAddress)); oldBytes != nil {
+			var old types.Validator
+			if err := decodeAccountingJSON(oldBytes, &old); err != nil {
+				panic(err)
+			}
+			if old.Did != val.Did && old.Did != "" {
+				store.Delete(types.ValidatorByDIDKey(old.Did))
+			}
+		}
+	}
 	bz, err := json.Marshal(val)
 	if err != nil {
 		panic(fmt.Sprintf("failed to marshal validator: %v", err))
 	}
-	store.Set(types.ValidatorKey(val.OperatorAddress), bz)
+	k.accountingWrite(ctx, types.ValidatorKey(val.OperatorAddress), bz)
 	if val.Did != "" {
-		store.Set(types.ValidatorByDIDKey(val.Did), []byte(val.OperatorAddress))
+		k.accountingWrite(ctx, types.ValidatorByDIDKey(val.Did), []byte(val.OperatorAddress))
 	}
 }
 
@@ -115,7 +136,7 @@ func (k Keeper) DeleteValidator(ctx sdk.Context, operatorAddr string) {
 func (k Keeper) IterateValidators(ctx sdk.Context, cb func(val *types.Validator) bool) {
 	store := k.getStore(ctx)
 	iter := storetypes.KVStorePrefixIterator(store, types.ValidatorKeyPrefix)
-	defer iter.Close()
+	defer k.closeAccountingIterator(ctx, iter)
 	for ; iter.Valid(); iter.Next() {
 		var val types.Validator
 		if err := json.Unmarshal(iter.Value(), &val); err != nil {
@@ -170,14 +191,21 @@ func (k Keeper) CountBlockProducers(ctx sdk.Context) uint64 {
 
 // SetDelegation stores a delegation and maintains the reverse index.
 func (k Keeper) SetDelegation(ctx sdk.Context, del *types.Delegation) {
-	store := k.getStore(ctx)
+	if k.AccountingSafetyEnabled(ctx) {
+		if del == nil {
+			panic(accountingError("nil delegation"))
+		}
+		if _, err := validateAccountingDelegation(del); err != nil {
+			panic(err)
+		}
+	}
 	bz, err := json.Marshal(del)
 	if err != nil {
 		panic(fmt.Sprintf("failed to marshal delegation: %v", err))
 	}
-	store.Set(types.DelegationKey(del.DelegatorAddress, del.ValidatorAddress), bz)
+	k.accountingWrite(ctx, types.DelegationKey(del.DelegatorAddress, del.ValidatorAddress), bz)
 	// Reverse index: validator → delegator (P1-1 fix)
-	store.Set(types.ValidatorDelegationIndexKey(del.ValidatorAddress, del.DelegatorAddress), []byte{0x01})
+	k.accountingWrite(ctx, types.ValidatorDelegationIndexKey(del.ValidatorAddress, del.DelegatorAddress), []byte{0x01})
 }
 
 // GetDelegation retrieves a delegation.
@@ -199,7 +227,7 @@ func (k Keeper) GetDelegationsForValidator(ctx sdk.Context, validatorAddr string
 	store := k.getStore(ctx)
 	prefix := types.DelegationsByValidatorPrefix(validatorAddr)
 	iter := storetypes.KVStorePrefixIterator(store, prefix)
-	defer iter.Close()
+	defer k.closeAccountingIterator(ctx, iter)
 
 	var delegations []*types.Delegation
 	for ; iter.Valid(); iter.Next() {
@@ -225,7 +253,7 @@ func (k Keeper) DeleteDelegation(ctx sdk.Context, delegatorAddr, validatorAddr s
 func (k Keeper) IterateDelegations(ctx sdk.Context, cb func(del *types.Delegation) bool) {
 	store := k.getStore(ctx)
 	iter := storetypes.KVStorePrefixIterator(store, types.DelegationKeyPrefix)
-	defer iter.Close()
+	defer k.closeAccountingIterator(ctx, iter)
 	for ; iter.Valid(); iter.Next() {
 		var del types.Delegation
 		if err := json.Unmarshal(iter.Value(), &del); err != nil {
@@ -241,12 +269,19 @@ func (k Keeper) IterateDelegations(ctx sdk.Context, cb func(del *types.Delegatio
 
 // SetUnbonding stores an unbonding entry.
 func (k Keeper) SetUnbonding(ctx sdk.Context, entry *types.UnbondingEntry) {
-	store := k.getStore(ctx)
+	if k.AccountingSafetyEnabled(ctx) {
+		if entry == nil {
+			panic(accountingError("nil unbonding"))
+		}
+		if _, _, err := validateAccountingUnbonding(entry); err != nil {
+			panic(err)
+		}
+	}
 	bz, err := json.Marshal(entry)
 	if err != nil {
 		panic(fmt.Sprintf("failed to marshal unbonding: %v", err))
 	}
-	store.Set(types.UnbondingKey(entry.Id), bz)
+	k.accountingWrite(ctx, types.UnbondingKey(entry.Id), bz)
 }
 
 // GetUnbonding retrieves an unbonding entry by ID.
@@ -297,7 +332,7 @@ func (k Keeper) GetUnbondingsForDelegator(ctx sdk.Context, delegatorAddr string)
 func (k Keeper) IterateUnbondings(ctx sdk.Context, cb func(entry *types.UnbondingEntry) bool) {
 	store := k.getStore(ctx)
 	iter := storetypes.KVStorePrefixIterator(store, types.UnbondingKeyPrefix)
-	defer iter.Close()
+	defer k.closeAccountingIterator(ctx, iter)
 	for ; iter.Valid(); iter.Next() {
 		var entry types.UnbondingEntry
 		if err := json.Unmarshal(iter.Value(), &entry); err != nil {
@@ -330,20 +365,36 @@ func (k Keeper) GetUnbondingSeq(ctx sdk.Context) uint64 {
 
 // SetUnbondingSeq stores the unbonding sequence.
 func (k Keeper) SetUnbondingSeq(ctx sdk.Context, seq uint64) {
-	store := k.getStore(ctx)
-	store.Set(types.UnbondingSeqKey, types.Uint64ToBytes(seq))
+	k.accountingWrite(ctx, types.UnbondingSeqKey, types.Uint64ToBytes(seq))
 }
 
 // ---------- Tier Config ----------
 
 // SetTierConfig stores a tier configuration.
 func (k Keeper) SetTierConfig(ctx sdk.Context, tc *types.TierConfig) {
-	store := k.getStore(ctx)
+	if k.AccountingSafetyEnabled(ctx) {
+		if tc == nil {
+			panic(accountingError("nil tier configuration"))
+		}
+		p := k.GetParams(ctx)
+		matched := false
+		for _, canonical := range p.TierConfigs {
+			if canonical != nil && canonical.Tier == tc.Tier {
+				left, _ := json.Marshal(canonical)
+				right, _ := json.Marshal(tc)
+				matched = string(left) == string(right)
+				break
+			}
+		}
+		if !matched {
+			panic(accountingError("tier configuration must match canonical params"))
+		}
+	}
 	bz, err := json.Marshal(tc)
 	if err != nil {
 		panic(fmt.Sprintf("failed to marshal tier config: %v", err))
 	}
-	store.Set(types.TierConfigKey(tc.Tier), bz)
+	k.accountingWrite(ctx, types.TierConfigKey(tc.Tier), bz)
 }
 
 // GetTierConfig retrieves a tier configuration.
@@ -376,8 +427,15 @@ func (k Keeper) GetAllTierConfigs(ctx sdk.Context) []*types.TierConfig {
 
 // SetLastRedelegationHeight stores the last redelegation block height for a delegator.
 func (k Keeper) SetLastRedelegationHeight(ctx sdk.Context, delegatorAddr string, height uint64) {
-	store := k.getStore(ctx)
-	store.Set(types.RedelegationCooldownKey(delegatorAddr), types.Uint64ToBytes(height))
+	if k.AccountingSafetyEnabled(ctx) {
+		if err := canonicalAccountingAddress(delegatorAddr); err != nil {
+			panic(err)
+		}
+		if height == 0 || height > uint64(^uint64(0)>>1) {
+			panic(accountingError("invalid cooldown height"))
+		}
+	}
+	k.accountingWrite(ctx, types.RedelegationCooldownKey(delegatorAddr), types.Uint64ToBytes(height))
 }
 
 // GetLastRedelegationHeight returns the last redelegation block height for a delegator.
@@ -394,12 +452,19 @@ func (k Keeper) GetLastRedelegationHeight(ctx sdk.Context, delegatorAddr string)
 
 // SetParams stores module parameters and syncs tier configs to the KVStore.
 func (k Keeper) SetParams(ctx sdk.Context, params *types.Params) {
-	store := k.getStore(ctx)
+	if k.AccountingSafetyEnabled(ctx) {
+		if params == nil {
+			panic(accountingError("nil params"))
+		}
+		if err := validateAccountingParams(params); err != nil {
+			panic(err)
+		}
+	}
 	bz, err := json.Marshal(params)
 	if err != nil {
 		panic(fmt.Sprintf("failed to marshal params: %v", err))
 	}
-	store.Set(types.ParamsKey, bz)
+	k.accountingWrite(ctx, types.ParamsKey, bz)
 
 	// Sync tier configs to KVStore for per-tier lookups.
 	for _, tc := range params.TierConfigs {
@@ -487,6 +552,10 @@ func (k Keeper) RecordVerification(ctx sdk.Context, validatorAddr string, correc
 
 // SlashValidator slashes a validator with progressive escalation.
 func (k Keeper) SlashValidator(ctx sdk.Context, validatorAddr string, amount *big.Int, reason string) {
+	if k.AccountingSafetyEnabled(ctx) {
+		k.recordSealedMonetarySlash(ctx, validatorAddr, reason, "development_fund")
+		return
+	}
 	val, found := k.GetValidator(ctx, validatorAddr)
 	if !found {
 		return
@@ -597,6 +666,10 @@ func (k Keeper) SlashValidator(ctx sdk.Context, validatorAddr string, amount *bi
 // slashed tokens to a specified module account (instead of hardcoded development_fund).
 // Returns the actual slashed amount.
 func (k Keeper) SlashValidatorToModule(ctx sdk.Context, validatorAddr string, amount *big.Int, destModule string, reason string) *big.Int {
+	if k.AccountingSafetyEnabled(ctx) {
+		k.recordSealedMonetarySlash(ctx, validatorAddr, reason, destModule)
+		return new(big.Int)
+	}
 	val, found := k.GetValidator(ctx, validatorAddr)
 	if !found {
 		return new(big.Int)
@@ -705,6 +778,11 @@ func (k Keeper) SlashValidatorToModule(ctx sdk.Context, validatorAddr string, am
 
 // InitGenesis initializes the module state from genesis.
 func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
+	if gs.AccountingSafetyEnabled || len(gs.RedelegationCooldowns) > 0 {
+		if err := gs.Validate(); err != nil {
+			panic(accountingError("invalid genesis: %v", err))
+		}
+	}
 	k.SetParams(ctx, gs.Params)
 	for _, val := range gs.Validators {
 		k.SetValidator(ctx, val)
@@ -718,10 +796,20 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
 	if gs.UnbondingSeq > 0 {
 		k.SetUnbondingSeq(ctx, gs.UnbondingSeq)
 	}
+	for _, entry := range gs.RedelegationCooldowns {
+		k.SetLastRedelegationHeight(ctx, entry.DelegatorAddress, entry.Height)
+	}
+	// The application activates the declared accounting boundary only after bank
+	// genesis has initialized. Never manufacture a marker from a genesis flag.
 }
 
 // ExportGenesis exports the module state.
 func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
+	if k.AccountingSafetyEnabled(ctx) {
+		if err := k.ValidateAccountingSafety(ctx); err != nil {
+			panic(err)
+		}
+	}
 	params := k.GetParams(ctx)
 
 	var validators []*types.Validator
@@ -741,13 +829,25 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 		unbondings = append(unbondings, entry)
 		return false
 	})
+	var cooldowns []*types.RedelegationCooldownEntry
+	iter := storetypes.KVStorePrefixIterator(k.getStore(ctx), types.RedelegationCooldownPrefix)
+	for ; iter.Valid(); iter.Next() {
+		if len(iter.Value()) != 8 {
+			iter.Close()
+			panic(accountingError("cannot export malformed cooldown"))
+		}
+		cooldowns = append(cooldowns, &types.RedelegationCooldownEntry{DelegatorAddress: string(iter.Key()[1:]), Height: types.BytesToUint64(iter.Value())})
+	}
+	k.closeAccountingIterator(ctx, iter)
 
 	return &types.GenesisState{
-		Params:           params,
-		Validators:       validators,
-		Delegations:      delegations,
-		UnbondingEntries: unbondings,
-		UnbondingSeq:     k.GetUnbondingSeq(ctx),
+		Params:                  params,
+		Validators:              validators,
+		Delegations:             delegations,
+		UnbondingEntries:        unbondings,
+		UnbondingSeq:            k.GetUnbondingSeq(ctx),
+		AccountingSafetyEnabled: k.AccountingSafetyEnabled(ctx),
+		RedelegationCooldowns:   cooldowns,
 	}
 }
 
@@ -777,6 +877,14 @@ func (k Keeper) BeginBlocker(ctx sdk.Context) {
 			}
 			return false
 		})
+	}
+
+	// The enabled custody boundary reconciles once and commits one atomic payout batch.
+	if k.AccountingSafetyEnabled(ctx) {
+		if err := k.processAccountingUnbondings(ctx); err != nil {
+			k.logger.Error("custom staking payouts retained", "error", err)
+		}
+		return
 	}
 
 	// Process mature unbondings

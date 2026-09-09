@@ -168,12 +168,22 @@ func (k Keeper) ValidatePhaseTransitionLIP(ctx sdk.Context, lip *types.LIP) erro
 
 // HandlePhaseTransitionPass is called when a phase transition LIP passes
 // the supermajority vote. It sets the activation block with a delay.
-func (k Keeper) HandlePhaseTransitionPass(ctx sdk.Context, lipID string) {
+func (k Keeper) HandlePhaseTransitionPass(ctx sdk.Context, lipID string) error {
 	meta, found := k.GetPhaseTransitionMeta(ctx, lipID)
 	if !found {
-		return
+		return fmt.Errorf("phase transition metadata is missing")
 	}
-
+	if meta.LipID != lipID || meta.Stage != types.PhaseTransitionStagePending || meta.ActivationBlock != 0 {
+		return fmt.Errorf("phase transition is not awaiting approval")
+	}
+	lip, found := k.GetLIP(ctx, lipID)
+	if !found || !types.IsPhaseTransitionCategory(lip.Category) ||
+		meta.IsRollback != (lip.Category == types.CategoryPhaseRollback) {
+		return fmt.Errorf("phase transition metadata does not match its LIP")
+	}
+	if ctx.BlockHeight() < 0 || types.TransitionActivationDelay > ^uint64(0)-uint64(ctx.BlockHeight()) {
+		return fmt.Errorf("phase transition activation height overflows")
+	}
 	currentHeight := uint64(ctx.BlockHeight())
 	meta.ActivationBlock = currentHeight + types.TransitionActivationDelay
 	// Stage remains pending_activation; BeginBlocker will execute it.
@@ -188,6 +198,7 @@ func (k Keeper) HandlePhaseTransitionPass(ctx sdk.Context, lipID string) {
 			sdk.NewAttribute("is_rollback", fmt.Sprintf("%t", meta.IsRollback)),
 		),
 	)
+	return nil
 }
 
 // HandlePhaseTransitionFail is called when a phase transition LIP fails.

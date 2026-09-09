@@ -50,7 +50,7 @@ Builds the current checkout into fresh temporary state and proves:
   * one signed MsgSend commits, verifies with a Merkle proof on all nodes,
     increments the sender sequence exactly once, and is rejected on replay; and
   * two stopped, independently copied application databases produce the same
-    AppHash-bound, passing legacy custom-staking census.
+    AppHash-bound, passing accounting-v2 custom-staking census.
 
 --keep  Retain successful state and logs (failures are always retained).
 --allow-dirty
@@ -614,6 +614,7 @@ verify_offline_custom_staking_census() {
 
   "${CENSUS_BINARY}" \
     --home "${copy_0}" \
+    --source-profile accounting-v2 \
     --backend goleveldb \
     --chain-id "${chain_id}" \
     --expected-height "${app_height_0}" \
@@ -623,6 +624,7 @@ verify_offline_custom_staking_census() {
     --output "${report_0}" || die "node 0 custom-staking census did not pass"
   "${CENSUS_BINARY}" \
     --home "${copy_1}" \
+    --source-profile accounting-v2 \
     --backend goleveldb \
     --chain-id "${chain_id}" \
     --expected-height "${app_height_1}" \
@@ -636,7 +638,7 @@ verify_offline_custom_staking_census() {
     --arg height "${app_height_0}" \
     --arg app_hash "${app_hash_0}" \
     --arg source_commit "${SOURCE_FULL_HEAD}" '
-      .schema == "zerone/custom-staking-census/v1" and
+      .schema == "zerone/custom-staking-census/accounting-v2" and
       .result == "PASS" and
       .evidence == {
         chain_id: $chain_id,

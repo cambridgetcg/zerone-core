@@ -2282,6 +2282,10 @@
         "description": {
           "type": "string"
         },
+        "executionError": {
+          "description": "Prospective accounting-authority-v1 execution failure code; empty for\nhistorical proposals, vote rejection, and successful immediate approval.\nClosed implementation codes only: never an arbitrary handler/panic string.",
+          "type": "string"
+        },
         "id": {
           "description": "\"LIP-1\", \"LIP-2\", ...",
           "type": "string"

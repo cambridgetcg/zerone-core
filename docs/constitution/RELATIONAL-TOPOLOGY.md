@@ -28,7 +28,7 @@ that migration must retire:
 The graph is a projection of two existing sources:
 
 1. [`docs/AUTHORITATIVE-STATE.md`](../AUTHORITATIVE-STATE.md), SHA-256
-   `22d523ee25060957e2c93aba441542e35d767f28f0f0e5e86c800f5fd7ea82e9`;
+   `1ec84986d2e14b8f938e76d5187266c3e23a6881818d59bbba420ba663f5176a`;
 2. [`money-karma-v1.json`](money-karma-v1.json), SHA-256
    `f22e62f0706971c569bb2156400b6dbeaf72a005d822b1e40c4e2691e7a98c24`.
 

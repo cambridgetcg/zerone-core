@@ -106,6 +106,9 @@ func (app *ZeroneApp) runMigrationsForPlan(
 	if err := requireCompletedPreSDKTransitionVersions(plan.Name, fromVM); err != nil {
 		return nil, err
 	}
+	if err := requireAccountingTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
+		return nil, err
+	}
 	return app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
 }
 
@@ -136,6 +139,7 @@ func requireCompletedPreSDKTransitionVersions(
 //
 // Call this AFTER RegisterServices but BEFORE LoadLatestVersion.
 func (app *ZeroneApp) RegisterUpgradeHandlers() {
+	app.registerAccountingAuthorityUpgrade()
 	// v1.0.0-testnet — initial testnet launch.
 	// Runs all module migrations from ConsensusVersion 1 → 2.
 	app.UpgradeKeeper.SetUpgradeHandler(
@@ -506,6 +510,10 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 					"upgrade %q failed to verify obsolete IBC v8 channel state: %w",
 					plan.Name, err,
 				)
+			}
+
+			if err := requireAccountingTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
+				return nil, err
 			}
 
 			// This is the only plan a pre-SDK chain can execute at H. Reconcile

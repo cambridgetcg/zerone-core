@@ -3,7 +3,7 @@
 export const RELATIONAL_TOPOLOGY_ENDPOINT =
   "/standards/relational-topology.v0.json";
 export const RELATIONAL_TOPOLOGY_SHA256 =
-  "9786674730febfe47150f29adffa4e4f7bd98e2aff502c552fa5b9669d935711";
+  "28c7d9717a4d63678096eff7f09d27cbe6ece13b44a7ecaf0b6920001f7fadf6";
 export const RELATIONAL_TOPOLOGY_MAX_BYTES = 131_072;
 
 const TOPOLOGY_SCHEMA = "zerone.relational-topology/v0";
@@ -314,7 +314,7 @@ const EXPECTED_SOURCE_PINS: ReadonlyMap<
     "authoritative-state",
     {
       path: "docs/AUTHORITATIVE-STATE.md",
-      sha256: "22d523ee25060957e2c93aba441542e35d767f28f0f0e5e86c800f5fd7ea82e9",
+      sha256: "1ec84986d2e14b8f938e76d5187266c3e23a6881818d59bbba420ba663f5176a",
       role: "NORMATIVE_TARGET_AUTHORITY",
     },
   ],
@@ -632,7 +632,7 @@ export function parseRelationalTopology(value: unknown): RelationalTopology {
       "STATIC_CONSTITUTIONAL_PROJECTION",
       "$.status.artifact",
     ),
-    snapshotDate: literal(statusValue.snapshotDate, "2026-08-11", "$.status.snapshotDate"),
+    snapshotDate: literal(statusValue.snapshotDate, "2026-09-09", "$.status.snapshotDate"),
     describes: literal(
       statusValue.describes,
       "ACCEPTED_TARGET_RELATIONAL_ARCHITECTURE_AND_SOURCE_CONFLICTS",

@@ -31,4 +31,13 @@ message GenesisState {
   repeated Delegation   delegations      = 3;
   repeated UnbondingEntry unbonding_entries = 4;
   uint64                unbonding_seq    = 5;
+  // Source-profile declaration. Activation independently reconciles bank custody.
+  bool                  accounting_safety_enabled = 6;
+  repeated RedelegationCooldownEntry redelegation_cooldowns = 7;
+}
+
+// RedelegationCooldownEntry preserves the delegator's last redelegation height.
+message RedelegationCooldownEntry {
+  string delegator_address = 1;
+  uint64 height = 2;
 }

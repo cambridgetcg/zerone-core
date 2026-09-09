@@ -147,6 +147,7 @@ func initRootCmd(rootCmd *cobra.Command, encodingConfig app.EncodingConfig) {
 		pruning.Cmd(newApp, app.DefaultNodeHome),
 		snapshot.Cmd(newApp),
 		activationPreflightCmd(),
+		accountingPlanInfoCmd(),
 		recoveryActionDigestCmd(),
 	)
 
