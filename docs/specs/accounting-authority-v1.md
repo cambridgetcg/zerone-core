@@ -9,6 +9,11 @@ before the intended action succeeds. It is a preparation step toward the
 accepted [single-authority design](../AUTHORITATIVE-STATE.md), not H4, a new
 genesis selection, or economic-to-governance decoupling.
 
+The [2026-09-09 existing-ledger census](../reports/authenticated-ledger-census-2026-09-09.md)
+records a committed `zerone-1` checkpoint with an empty custom-staking claim
+ledger. Its observed legacy lineage does not establish this handler's required
+post-H3 predecessor; the census does not change the activation status above.
+
 ## Custody is backed by individual claims
 
 The native denomination obeys:
