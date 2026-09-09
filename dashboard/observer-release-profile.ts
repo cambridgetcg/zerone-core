@@ -63,6 +63,7 @@ export function buildObserverRelease(value: ObserverPublication) {
     completeHistoricalReplay: false,
     transactionAdmission: false,
     validatorAdmission: false,
+    maintenance: "Experimental legacy runtime: SDK 0.50 is end of life and Go 1.25 is outside upstream support. Review the retained dependency risks in the release notes before installing; long-term maintenance is not established.",
     prerequisites: "Linux amd64, Python 3.11+, gpgv, local Docker, 2 available CPUs, 6 GiB available memory and at least 20 GiB free disk for an initial trial.",
     verifyCommand: [
       `git clone ${REPOSITORY}.git zerone-observer-tools`,
