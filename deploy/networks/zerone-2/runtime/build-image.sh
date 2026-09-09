@@ -60,7 +60,8 @@ build_signed_artifact_auditor() {
     install_git_blob "${relative}" "${source_root}/${relative}" 0644
     count=$((count + 1))
   done < <(git -C "${ROOT}" ls-tree -r -z --name-only "${SOURCE_COMMIT}" -- \
-    go.mod go.sum app x docs/swagger-ui tools/zerone2-artifact-audit/main.go)
+    go.mod go.sum app x internal/accountingmigration docs/swagger-ui \
+    tools/zerone2-artifact-audit/main.go)
   [ "${count}" -gt 5 ] || die "signed auditor source allowlist was unexpectedly empty"
   [ -f "${source_root}/tools/zerone2-artifact-audit/main.go" ] || \
     die "signed source commit omits the artifact auditor"
