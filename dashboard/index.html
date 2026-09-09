@@ -52,7 +52,8 @@
             <span class="pulse-dot"></span>
             <span id="network-pill-label">Connecting</span>
           </div>
-          <a class="button button-primary compact" href="#onboarding">Start here</a>
+          <a class="button button-ghost compact" href="#onboarding">Start here</a>
+          <a class="button button-primary compact node-entry" href="/nodes/">Run a node</a>
         </div>
       </header>
 
@@ -68,6 +69,9 @@
             <div class="hero-actions">
               <a class="button button-primary" href="#onboarding">
                 Start here <span aria-hidden="true">↓</span>
+              </a>
+              <a class="button button-ghost node-entry" href="/nodes/">
+                Run a node <span aria-hidden="true">↗</span>
               </a>
               <a
                 class="button button-ghost"
@@ -200,6 +204,19 @@
               </a>
               <small>Completion: you reach the dashboard with zero credentials requested.</small>
             </li>
+            <li data-path="local-node">
+              <span class="onboarding-path-state">Available now · on your computer</span>
+              <h3>Run your own local node</h3>
+              <p>
+                Build the pinned source, start <code>zerone-local-1</code>, and test your tools
+                against its RPC. The guide also explains how to read the existing
+                network and what is available for participation.
+              </p>
+              <a class="button button-ghost node-entry" href="/nodes/">
+                Open the node guide <span aria-hidden="true">↗</span>
+              </a>
+              <small>Local setup creates disposable test keys and funds. It does not join zerone-1.</small>
+            </li>
             <li data-path="existing-wallet">
               <span class="onboarding-path-state">Optional · existing accounts only</span>
               <h3>Bring an existing account</h3>
@@ -239,10 +256,12 @@
           </ol>
 
           <p class="onboarding-boundary">
-            <strong>Release boundary.</strong> This start path never creates keys,
+            <strong>What this section does.</strong> This orientation section never creates keys,
             registers an identity, requests payment, distributes ZRN, claims rewards,
             or broadcasts a transaction. Wallet send tools remain a separate,
-            user-initiated surface for already funded accounts.
+            user-initiated surface for already funded accounts. Running the local
+            setup helper yourself creates disposable keys and test funds on your
+            computer, without changing the live network.
           </p>
         </section>
 

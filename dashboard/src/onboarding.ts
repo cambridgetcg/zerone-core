@@ -76,7 +76,7 @@ export function onboardingPresentation(
     state.network === "ready"
       ? {
           label: "Ready to explore",
-          detail: "zerone-1 is responding with a fresh witnessed block.",
+          detail: "A recent zerone-1 block was observed through the public gateway.",
           tone: "ready",
         }
       : state.network === "syncing"
@@ -106,7 +106,7 @@ export function onboardingPresentation(
   const wallet: OnboardingPresentation["wallet"] =
     state.wallet.state === "connected"
       ? {
-          label: "Existing account connected",
+          label: "Wallet connected",
           detail: `${shortAddress(state.wallet.address)} · balance: ${state.wallet.balanceZrn} ZRN.`,
           tone: "ready",
         }

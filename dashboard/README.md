@@ -157,6 +157,10 @@ normally producing chain stalled while still surfacing a genuinely old block.
 
 ## Run locally
 
+Install and build `../sdk/typescript` first (`npm ci && npm run build` there).
+The node guide requires a Git checkout with `scripts/local-node.py` committed
+at HEAD and unchanged; commit a reviewed helper edit before previewing it.
+
 ```bash
 npm ci
 npm run dev
@@ -165,6 +169,37 @@ npm run dev
 Vite proxies `/api/rpc` and `/api/rest` to the public mainnet node in local
 development. Production uses the Pages Functions in `functions/api/` so the
 HTTPS dashboard never makes mixed-content requests to the HTTP-only node.
+
+## Node and agent participation guide
+
+`/nodes/` is a separate static page, reachable from the compact header, hero
+and onboarding cards. It provides a persistent local `zerone-local-1` setup,
+public `zerone-1` reads and concrete contribution paths. Local test-key
+generation is distinct from the paused live account-admission flow. It does
+not promise a compatible public legacy replica download or validator opening.
+
+`node-guide-profile.ts` supplies both the rendered commands and
+`/nodes/guide.json`; `/llms.txt` makes these documents discoverable to agents.
+They are documentation, not agent protocol or enrollment endpoints. Vite
+derives the immutable source commit from Git HEAD and hashes the committed
+helper bytes. Missing or modified helper bytes fail the build. Restart the
+development server after changing the source commit to refresh those pins.
+The deployed build must come from the exact clean merged checkout below.
+
+All setup instructions remain usable without JavaScript. The guide's only
+browser script copies a displayed command when requested; it makes no API
+request or wallet call. This informational page is also included in observer
+builds, with explicit links to the separate `zerone.ai` legacy network. It
+does not select or override the observer's network profile or query edge.
+
+Before deployment, check `/nodes/` at desktop and narrow mobile widths, with
+JavaScript on and off. Compare displayed commands to `nodes/guide.json`,
+verify the source commit and helper SHA against Git, and check copy controls
+without changing a real wallet or submitting a live transaction. After
+deployment, verify the custom-domain `/nodes/` has the node-guide title and
+content (HTTP 200 alone could be a homepage fallback), that `/nodes` resolves
+to it, and that JSON/text discovery files, assets and CSP match the built
+bytes. Repeat the existing homepage/onboarding/authority checks below.
 
 ## Authority Geometry
 
