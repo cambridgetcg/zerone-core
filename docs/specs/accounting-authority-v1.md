@@ -14,6 +14,12 @@ records a committed `zerone-1` checkpoint with an empty custom-staking claim
 ledger. Its observed legacy lineage does not establish this handler's required
 post-H3 predecessor; the census does not change the activation status above.
 
+The [knowledge settlement follow-up](../reports/knowledge-settlement-history-2026-09-09.md)
+reconciles the recorded review fees, surviving reward schedules and pooled
+knowledge/vesting funding against that checkpoint. It distinguishes committed
+claims from historical transfer observations and does not assign pooled funds
+or authorize a historical payout repair.
+
 ## Custody is backed by individual claims
 
 The native denomination obeys:
