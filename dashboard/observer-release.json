@@ -1,0 +1,13 @@
+{
+  "schema": "zerone.observer-publication/v1",
+  "releaseId": "zerone-1-observer-20260909.2",
+  "toolingCommit": "ed364bc0afec062612b61a309002f23da85acf2c",
+  "executableBaseCommit": "2e37c4c86c31e67515d6aa07b6fd406083e012ea",
+  "executableSha256": "d6391ea7e500425c898b6b98cb422f76a4262361d45452955182d9b92b743443",
+  "manifestSha256": "1300f9381d2e290e1468075806734c586fd92e4df7d0ec55e2f7c7a858df7d92",
+  "archiveSha256": "5d874b4c38427117f1567ea0152fc4782e066e4926f3294f1eb776ff6ce22d08",
+  "receiptSha256": "c99a1bac24b9ccc71a2769ce10d72f0a947eec8cb4b4afe9df22df2886c0ed0b",
+  "expiresAt": "2026-09-16T19:19:13Z",
+  "checkpointHeight": 1262000,
+  "checkpointHash": "E9068E42337DC1D7A5BB932FBA3416614806FD572D026E4DBCBBC8A5F4921957"
+}

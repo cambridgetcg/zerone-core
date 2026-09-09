@@ -1,0 +1,97 @@
+{
+  "adjacent_header_links_verified": 3,
+  "allow_expired_used": false,
+  "canonical_header_hashes_verified": true,
+  "census_binding": {
+    "application_height": 1261575,
+    "binding_header_app_hash": "a381775589d84a74bbf365b9b2add26201465e20980cf50a53544f7a81256106",
+    "binding_header_block_hash": "B0A56EA52DA31E0694D147D49EA6539AC17449082E17066EF8C1A7F211FE2A14",
+    "binding_header_height": 1261576,
+    "post_commit_app_hash": "a381775589d84a74bbf365b9b2add26201465e20980cf50a53544f7a81256106"
+  },
+  "closure": "The captured snapshot and final census binding headers pass the patched signature/address rules. The Tachyon unsigned-address defect did not undermine these specific captured commitments. This recheck does not establish historical ancestry between snapshot and census, re-execute all history, reopen the census database, or repair signer custody.",
+  "commit_signatures_and_unsigned_addresses_verified": true,
+  "complete_validator_hashes_verified": true,
+  "database_opened": false,
+  "independent_trust_anchor": false,
+  "input_captures": [
+    {
+      "checkpoint_sha256": "4e8701741d17aaed85abd5a104a1026097b60cd1257fce747ed8cbaa29fb090d",
+      "commit_file": "snapshot-1260000-trust-w3wkn9l3/1260000-commit.json",
+      "commit_sha256": "c5f5451940be0471decef84dfe528adde2d7bfaf2ee1732e378fac9e848f882f",
+      "height": 1260000,
+      "validators_file": "snapshot-1260000-trust-w3wkn9l3/1260000-validators.json",
+      "validators_sha256": "aa89d81d1b7e2ebc3fe8bd0af234e10b263ecd48f2dbab6462aa30b3b47b8b00",
+      "verification_sha256": "ad43c78190128f44af5032fefc30bbca43e741579d4cfb03d6408b26048a93f8"
+    },
+    {
+      "checkpoint_sha256": "8c1dcc1a5b7393674bbde0dc1af520df1d1e04bede64905fdf985738b061a48b",
+      "commit_file": "snapshot-1260000-trust-w3wkn9l3/1260001-commit.json",
+      "commit_sha256": "e567aaee40031e2939e47ace8ae4a7271a5dd313c420b9530df16b2a7ce4c494",
+      "height": 1260001,
+      "validators_file": "snapshot-1260000-trust-w3wkn9l3/1260001-validators.json",
+      "validators_sha256": "241a9207175bd1fada56863c2bcbfe851bc3aff3970d614d2e7927292abbea61",
+      "verification_sha256": "d1a58d3a44efe5dc597651237b96d1d589de4b51807e27944e6ebb57184c2c2a"
+    },
+    {
+      "checkpoint_sha256": "882f47bbd86493ea90339ddb6dc38307580243f49ead97af9ae11f1e25a4b1be",
+      "commit_file": "snapshot-1260000-trust-w3wkn9l3/1260002-commit.json",
+      "commit_sha256": "0f22faf62350c15bd5286561395170d30ce1ce1e54b87772c3ff8a8e5be5d234",
+      "height": 1260002,
+      "validators_file": "snapshot-1260000-trust-w3wkn9l3/1260002-validators.json",
+      "validators_sha256": "0005901f498799151f457083008d3a7697ca82c7f164ed4c1226417f5e87d4d0",
+      "verification_sha256": "836c35d80a053000af39c96225a4c57892791cffc94d115c97f27311ee0cb74d"
+    },
+    {
+      "checkpoint_sha256": "85edebe938b37a27a07962ef4795d829282cade1bf8f1f9bd3780d37ca90c8f4",
+      "commit_file": "checkpoint-1261575/h-commit-canonical.json",
+      "commit_sha256": "e9ad378526700d8ec7f3a397d89d717ab1a94faca0b0e595923cfd25307cecc2",
+      "height": 1261575,
+      "validators_file": "checkpoint-1261575/direct-validators.json",
+      "validators_sha256": "c21dcd43a9532a0cda5bd08097a91a109b6b11bfb1c75529dcc2ed1edba6a817",
+      "verification_sha256": "d941dda6fd8e6199e33efe003e16d662a4ea94224efdd1ca49612455fca02319"
+    },
+    {
+      "checkpoint_sha256": "43e9213515aca5ccc6e585230034285dde311f8f096e7ae2ff5c6cf26b7d0db3",
+      "commit_file": "checkpoint-1261575/h-plus-one-commit.json",
+      "commit_sha256": "1d0f4c86f3fdbc82cd4d2baaf1fed781f68fbaa1bbe761430e51e029236e41a8",
+      "height": 1261576,
+      "validators_file": "checkpoint-1261575/h-plus-one-validators.json",
+      "validators_sha256": "720f8b6050c17611cbafa17a350f9c7df9b6d15c4653622c6c2d50c3a6d99c58",
+      "verification_sha256": "d9eb0b3fff813fb5d7a9017a19865c45460312f940fbb985ab442bd0092e0fee"
+    }
+  ],
+  "network_requests": 0,
+  "original_report_sha256": {
+    "checkpoint-1261575/verification.json": "fb8b009cb72aa17467ffca96147e46177175f9b7ab8499783082f15e75909a11",
+    "reports/official-census-execution.json": "1a93ad4a7444090c0856cdcbcd87d1f588256c7b28831e5a29c539feb828d62b",
+    "snapshot-1260000-trust-w3wkn9l3/verification.json": "926a4311fa2df418cb88f8d52a7d686bd8bbee0a358edb656135faa6a5b362fb"
+  },
+  "originals_unchanged": true,
+  "production_mutations": false,
+  "result": "PASS",
+  "schema": "zerone-observer-prior-census-patched-revalidation/v1",
+  "snapshot_binding": {
+    "application_height": 1260000,
+    "binding_header_app_hash": "36a6c066460b01b73c32d94c075c455e011065d28a8c4d24981184ee22c817fe",
+    "binding_header_height": 1260001,
+    "post_commit_app_hash": "36a6c066460b01b73c32d94c075c455e011065d28a8c4d24981184ee22c817fe"
+  },
+  "verified_at": "2026-09-09T22:45:54.814228+00:00",
+  "verified_heights": [
+    1260000,
+    1260001,
+    1260002,
+    1261575,
+    1261576
+  ],
+  "verifier": {
+    "binary_sha256": "07e60b7de32b776e94d9303025993a5b8135e179b4a4604c2761ce67e147c41c",
+    "dependency": "github.com/cometbft/cometbft@v0.38.25",
+    "ed25519_type_key_address_power_pin": true,
+    "explicit_commit_address_pin": true,
+    "platform": "darwin/arm64",
+    "source_archive_sha256": "6961085a7d5f5f5d57efcf7b65764f7e91f1510f612e2c0fcf9de09abe1698f0",
+    "toolchain": "go1.25.14"
+  }
+}
