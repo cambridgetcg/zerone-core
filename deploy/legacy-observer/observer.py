@@ -430,6 +430,22 @@ def rpc(port, method):
     return value["result"]
 
 
+def applied_app_hash(value, allow_empty=False):
+    """Validate the ABCI byte hash without equating it to a header's prior root."""
+    require(type(value) is str, "Invalid applied app hash")
+    if allow_empty and value == "":
+        return value
+    if re.fullmatch(r"[0-9a-fA-F]{64}", value):
+        return value
+    try:
+        decoded = base64.b64decode(value, validate=True)
+    except ValueError as error:
+        raise Refusal("Invalid applied app hash") from error
+    require(len(decoded) == 32 and base64.b64encode(decoded).decode("ascii") == value,
+            "Invalid applied app hash")
+    return value
+
+
 def _observed(marker):
     status = rpc(marker["port"], "status")
     require(status["node_info"]["network"] == "zerone-1" and
@@ -441,21 +457,32 @@ def _observed(marker):
     require(type(sync["latest_block_height"]) is str and
             re.fullmatch(r"(?:0|[1-9][0-9]{0,17})", sync["latest_block_height"]), "Invalid observed height")
     height = int(sync["latest_block_height"])
+    require(type(sync["latest_block_time"]) is str, "Invalid observed block time")
     timestamp = dt.datetime.fromisoformat(sync["latest_block_time"].replace("Z", "+00:00"))
     require(timestamp.tzinfo is not None, "Observed block time lacks timezone")
     age = (dt.datetime.now(dt.timezone.utc) - timestamp).total_seconds()
     require(type(sync["catching_up"]) is bool, "Invalid syncing status")
+    empty_status = height == 0 and sync["latest_block_hash"] == "" and sync["latest_app_hash"] == ""
+    require(height > 0 or empty_status, "Invalid zero-height status hashes")
     app = rpc(marker["port"], "abci_info")["response"]
-    require(type(app["last_block_height"]) is str and
-            re.fullmatch(r"(?:0|[1-9][0-9]{0,17})", app["last_block_height"]), "Invalid applied height")
-    applied_height = int(app["last_block_height"])
+    require(type(app) is dict, "Invalid ABCI response")
+    # Comet's ResponseInfo omits a zero last_block_height. The actual fresh
+    # SDK app also returns SHA256(empty) here, so preserve a valid optional
+    # hash without treating it as evidence that any block has been applied.
+    applied_value = app.get("last_block_height", "0" if empty_status else None)
+    require(type(applied_value) is str and
+            re.fullmatch(r"(?:0|[1-9][0-9]{0,17})", applied_value), "Invalid applied height")
+    applied_height = int(applied_value)
+    require(applied_height > 0 or empty_status, "Zero applied height requires an empty zero-height status")
+    app_hash = applied_app_hash(app.get("last_block_app_hash", "" if applied_height == 0 else None),
+                                allow_empty=applied_height == 0)
     ready = height > 0 and applied_height >= height and sync["catching_up"] is False and -30 <= age <= 180
     if ready:
         require(re.fullmatch(r"[0-9A-F]{64}", sync["latest_block_hash"]) and
                 re.fullmatch(r"[0-9A-F]{64}", sync["latest_app_hash"]), "Invalid observed block hashes")
     return {"height": height, "block_hash": sync["latest_block_hash"],
             "header_app_hash": sync["latest_app_hash"], "applied_height": applied_height,
-            "abci_last_block_app_hash": app["last_block_app_hash"], "block_time": sync["latest_block_time"],
+            "abci_last_block_app_hash": app_hash, "block_time": sync["latest_block_time"],
             "catching_up": sync["catching_up"], "ready": ready, "validator_power": 0}
 
 

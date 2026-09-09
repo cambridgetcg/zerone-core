@@ -146,6 +146,15 @@ Reproduction and a successful compatibility trial do not establish an absence
 of vulnerabilities. Read the release's vulnerability assessment and keep this
 experimental observer isolated from valuable keys and other workloads.
 
+This is an experimental legacy runtime with limited maintenance prospects.
+[Cosmos SDK 0.50 is end of life](https://github.com/cosmos/docs/blob/main/sdk/latest/release-family.mdx),
+and [Go 1.25 is outside upstream support](https://go.dev/doc/devel/release)
+after the release of Go 1.27 on August 19, 2026. The dated scan found no
+standard-library advisory affecting the supplied executable; that does not
+restore support or establish an absence of defects. The bootstrap deadline is
+not a security-support commitment. A successor package needs fresh dependency
+review, reproduction and compatibility evidence on a maintained Go baseline.
+
 The package grants no validator, account admission, reward, transaction,
 protocol upgrade, reset, halt, or successor-chain authority. Current `main`
 uses a different SDK/IBC generation and must not replace this live-compatible

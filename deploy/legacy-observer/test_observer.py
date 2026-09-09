@@ -5,6 +5,7 @@ Only the redirect test starts a loopback HTTP server. No node, account, live
 endpoint, Docker daemon, private key or release authority is accessed.
 """
 import argparse
+import base64
 import contextlib
 import copy
 import datetime as dt
@@ -29,6 +30,21 @@ HERE = Path(__file__).resolve().parent
 SPEC = importlib.util.spec_from_file_location("observer_helper", HERE / "observer.py")
 o = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(o)
+
+
+# Public RPC bodies from the actual signed v1 startup, September 9, 2026.
+# ABCI SHA256 b227fbc96011937c9a3fc115e3a96a2faac300c44949b9c737326a5266cf1b68
+# Status SHA256 1fa512f6cc46b16aee9eaced0823b9ed4e4610dac3c36386742b74b5f0c57ff6
+# Only the status fields read by the helper are retained; identities below
+# are public, disposable observer identities, not imported signing material.
+STARTUP_APP = {"response": {"data": "zeroned", "version": "dev",
+                           "last_block_app_hash": "47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU="}}
+STARTUP_STATUS = {
+    "node_info": {"network": "zerone-1", "id": "2c0ef29251168468696f178c062f44d6d2371a98"},
+    "validator_info": {"address": "09E45DB11B50BB22BDC0B9DFE9272C7589BBE7D2", "voting_power": "0"},
+    "sync_info": {"latest_block_height": "0", "latest_block_time": "1970-01-01T00:00:00Z",
+                  "latest_block_hash": "", "latest_app_hash": "", "catching_up": True},
+}
 
 
 class ObserverTests(unittest.TestCase):
@@ -189,7 +205,7 @@ class ObserverTests(unittest.TestCase):
                   "validator_info": {"address": marker["validator_address"], "voting_power": "0"},
                   "sync_info": {"latest_block_height": "10", "latest_block_time": now,
                                 "latest_block_hash": "A" * 64, "latest_app_hash": "B" * 64, "catching_up": False}}
-        app = {"response": {"last_block_height": "9", "last_block_app_hash": "test-wire-hash"}}
+        app = {"response": {"last_block_height": "9", "last_block_app_hash": base64.b64encode(bytes.fromhex("C" * 64)).decode("ascii")}}
         def read(_port, method):
             return copy.deepcopy(status if method == "status" else app)
         with patch.object(o, "rpc", side_effect=read):
@@ -202,6 +218,133 @@ class ObserverTests(unittest.TestCase):
             status["node_info"]["id"] = marker["node_id"]
             status["validator_info"]["voting_power"] = "1"
             with self.assertRaisesRegex(o.Refusal, "zero-power"):
+                o.observed(marker)
+
+    def startup_observation(self):
+        marker = self.make_home()
+        status, app = copy.deepcopy(STARTUP_STATUS), copy.deepcopy(STARTUP_APP)
+        marker.update(node_id=status["node_info"]["id"], validator_address=status["validator_info"]["address"])
+        return marker, status, app
+
+    def test_actual_zero_height_startup_preserves_hash_without_readiness(self):
+        marker, status, app = self.startup_observation()
+        def read(_port, method):
+            return copy.deepcopy(status if method == "status" else app)
+        with patch.object(o, "rpc", side_effect=read):
+            observed = o.observed(marker)
+            self.assertEqual((observed["height"], observed["applied_height"]), (0, 0))
+            self.assertFalse(observed["ready"])
+            self.assertEqual(observed["abci_last_block_app_hash"], STARTUP_APP["response"]["last_block_app_hash"])
+            for explicit in (False, True):
+                for hash_present in (False, True):
+                    with self.subTest(explicit_zero_height=explicit, empty_hash_present=hash_present):
+                        app["response"] = {}
+                        if explicit:
+                            app["response"]["last_block_height"] = "0"
+                        if hash_present:
+                            app["response"]["last_block_app_hash"] = ""
+                        result = o.observed(marker)
+                        self.assertFalse(result["ready"])
+                        self.assertEqual(result["abci_last_block_app_hash"], "")
+
+    def test_restore_can_apply_snapshot_before_status_catches_up(self):
+        marker, status, app = self.startup_observation()
+        app["response"].update(last_block_height="1262000", last_block_app_hash="C" * 64)
+        def read(_port, method):
+            return copy.deepcopy(status if method == "status" else app)
+        with patch.object(o, "rpc", side_effect=read):
+            self.assertFalse(o.observed(marker)["ready"])
+            status["sync_info"].update(latest_block_height="1262000", latest_block_hash="A" * 64,
+                                       latest_app_hash="B" * 64,
+                                       latest_block_time=dt.datetime.now(dt.timezone.utc).isoformat())
+            self.assertFalse(o.observed(marker)["ready"])
+            status["sync_info"]["catching_up"] = False
+            result = o.observed(marker)
+            self.assertTrue(result["ready"])
+            # A header commits the previous application's root; same-height
+            # header and post-commit ABCI hashes must not be equated here.
+            self.assertNotEqual(result["header_app_hash"], result["abci_last_block_app_hash"])
+
+    def test_zero_height_allowance_never_relaxes_identity_or_power(self):
+        marker, original, app = self.startup_observation()
+        for section, field, value in [("node_info", "network", "other-chain"),
+                                      ("node_info", "id", "a" * 40),
+                                      ("validator_info", "address", "B" * 40),
+                                      ("validator_info", "voting_power", "1"),
+                                      ("validator_info", "voting_power", 0)]:
+            with self.subTest(section=section, field=field, value=value):
+                status = copy.deepcopy(original)
+                status[section][field] = value
+                with patch.object(o, "rpc", return_value=status) as rpc:
+                    with self.assertRaises(o.Refusal):
+                        o.observed(marker)
+                    self.assertEqual(rpc.call_count, 1, "identity refusal must precede ABCI query")
+
+    def test_missing_or_zero_applied_height_requires_empty_zero_status(self):
+        marker, original, app = self.startup_observation()
+        for update in [{"latest_block_height": "1", "latest_block_hash": "A" * 64, "latest_app_hash": "B" * 64},
+                       {"latest_block_hash": "A" * 64}, {"latest_app_hash": "B" * 64}]:
+            for explicit in (False, True):
+                with self.subTest(update=update, explicit=explicit):
+                    status = copy.deepcopy(original)
+                    status["sync_info"].update(update)
+                    response = copy.deepcopy(app)
+                    if explicit:
+                        response["response"]["last_block_height"] = "0"
+                    with patch.object(o, "rpc", side_effect=[status, response]):
+                        with self.assertRaises(o.Refusal):
+                            o.observed(marker)
+
+    def test_applied_hash_requires_exact_hex_or_canonical_base64(self):
+        marker, status, app = self.startup_observation()
+        status["sync_info"].update(latest_block_height="10", latest_block_hash="A" * 64,
+                                   latest_app_hash="B" * 64, catching_up=False,
+                                   latest_block_time=dt.datetime.now(dt.timezone.utc).isoformat())
+        app["response"]["last_block_height"] = "10"
+        encoded = base64.b64encode(bytes.fromhex("C" * 64)).decode("ascii")
+        invalid = [None, False, 32, "", "test-wire-hash", "A" * 63, "A" * 65,
+                   base64.b64encode(b"x" * 31).decode("ascii"),
+                   base64.b64encode(b"x" * 33).decode("ascii"), encoded + "=", encoded + "\n",
+                   base64.urlsafe_b64encode(b"\xff" * 32).decode("ascii"),
+                   encoded[:-2] + "x="]  # Nonzero unused pad bits are not canonical.
+        def read(_port, method):
+            return copy.deepcopy(status if method == "status" else app)
+        with patch.object(o, "rpc", side_effect=read):
+            for value in ["C" * 64, "c" * 64, encoded]:
+                app["response"]["last_block_app_hash"] = value
+                self.assertTrue(o.observed(marker)["ready"])
+            for catching_up in (False, True):
+                status["sync_info"]["catching_up"] = catching_up
+                for value in invalid:
+                    with self.subTest(value=value, catching_up=catching_up):
+                        app["response"]["last_block_app_hash"] = value
+                        with self.assertRaisesRegex(o.Refusal, "app hash"):
+                            o.observed(marker)
+                del app["response"]["last_block_app_hash"]
+                with self.assertRaisesRegex(o.Refusal, "app hash"):
+                    o.observed(marker)
+
+    def test_zero_height_rejects_malformed_optional_hash_and_height(self):
+        marker, status, app = self.startup_observation()
+        def read(_port, method):
+            return copy.deepcopy(status if method == "status" else app)
+        with patch.object(o, "rpc", side_effect=read):
+            for height in (None, False, 0, "", "00", "-1"):
+                with self.subTest(height=height):
+                    app["response"]["last_block_height"] = height
+                    with self.assertRaisesRegex(o.Refusal, "applied height"):
+                        o.observed(marker)
+            del app["response"]["last_block_height"]
+            for value in (None, False, "invalid", "AA=="):
+                with self.subTest(hash=value):
+                    app["response"]["last_block_app_hash"] = value
+                    with self.assertRaisesRegex(o.Refusal, "app hash"):
+                        o.observed(marker)
+            app["response"] = None
+            with self.assertRaisesRegex(o.Refusal, "ABCI response"):
+                o.observed(marker)
+            status["sync_info"]["latest_block_time"] = None
+            with self.assertRaisesRegex(o.Refusal, "block time"):
                 o.observed(marker)
 
     def test_bootstrap_marker_requires_two_advancing_fresh_observations(self):
@@ -221,18 +364,27 @@ class ObserverTests(unittest.TestCase):
             return ""
         def sleep(_seconds):
             state["sleeps"] += 1
-            if state["sleeps"] == 1:
+            if state["sleeps"] in (1, 2):
                 self.assertIsNone(o.read_json(self.home / o.MARKER)["synced"])
-            if state["sleeps"] == 2:
+            if state["sleeps"] == 3:
                 signal.getsignal(signal.SIGINT)(signal.SIGINT, None)
-        observations = [{"ready": True, "height": 10, "block_hash": "A" * 64},
-                        {"ready": True, "height": 11, "block_hash": "B" * 64}]
+        def read_rpc(_port, method):
+            status, app = copy.deepcopy(STARTUP_STATUS), copy.deepcopy(STARTUP_APP)
+            status["node_info"]["id"] = marker["node_id"]
+            status["validator_info"]["address"] = marker["validator_address"]
+            if state["sleeps"]:
+                height = 9 + state["sleeps"]
+                status["sync_info"].update(latest_block_height=str(height), latest_block_hash="A" * 64,
+                                           latest_app_hash="B" * 64, catching_up=False,
+                                           latest_block_time=dt.datetime.now(dt.timezone.utc).isoformat())
+                app["response"].update(last_block_height=str(height), last_block_app_hash="C" * 64)
+            return status if method == "status" else app
         receipt = {"manifest_sha256": marker["manifest_sha256"], "bootstrap_ready": True}
         with patch.object(o, "docker", return_value=["/test/docker"]), \
              patch.object(o, "verify_bundle", return_value=({"release_id": marker["release_id"]}, {}, receipt)) as verify, \
              patch.object(o, "command", side_effect=command), \
              patch.object(o, "owned_state", side_effect=lambda *_args, **_kw: {"running": state["running"], "exit_code": 0, "oom_killed": False}), \
-             patch.object(o, "observed", side_effect=observations), patch.object(o.time, "sleep", side_effect=sleep), \
+             patch.object(o, "rpc", side_effect=read_rpc), patch.object(o.time, "sleep", side_effect=sleep), \
              contextlib.redirect_stdout(io.StringIO()) as output:
             o.start(self.args, self.bundle)
         self.assertEqual(verify.call_args.args[2], "bootstrap")
