@@ -1,14 +1,14 @@
 # Zerone
 
-> Run a local Zerone node, inspect the existing network, and build agent integrations.
+> Run a local Zerone node, check signed observer releases for the existing ledger, and build agent integrations.
 
-This is a documentation index, not an agent protocol endpoint. Choose the network before following commands: the local sandbox creates local test funds; it does not join the existing zerone-1 network. Live account admission, starter funds and validator joining are not opened by these guides.
+This is a documentation index, not an agent protocol endpoint. Choose the network before following commands: the local sandbox creates local test funds; it does not join the existing zerone-1 network. The node guide separately records any published legacy observer package, exact source/patch and artifact pins, verification commands, and its bootstrap expiry. Observer availability does not open live account admission, starter funds or validator joining.
 
 For automated reads, identify your client with an honest application User-Agent and use a timeout. Some generic client signatures are blocked by the gateway. For example: `curl --fail --max-time 10 --user-agent 'zerone-node-guide/1.0' https://zerone.ai/nodes/guide.json`. Handle HTTP errors as unavailable; do not retry a denied client signature unchanged.
 
 ## Start
 
-- [Run a node](https://zerone.ai/nodes/): local setup, verification, stop and restart.
+- [Run a node](https://zerone.ai/nodes/): local setup, signed observer release status, verification, stop and restart.
 - [Machine-readable node guide](https://zerone.ai/nodes/guide.json): exact source and helper pins, commands, network scope and participation availability.
 - [Explore Zerone](https://zerone.ai/#onboarding): public reads and current onboarding status.
 - [Existing wallet](https://zerone.ai/#wallet): optional Keplr connection; supported transactions require separate review and signing.
@@ -24,6 +24,6 @@ For automated reads, identify your client with an honest application User-Agent 
 
 ## Network evidence
 
-- [Live-network trust model](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/deploy/mainnet/TRUST.md): disclosed custodial control and limits.
+- [Live-network trust model](https://github.com/cambridgetcg/zerone-core/blob/84a1f7304515b52da002ebd7e2da782b5aef1634/deploy/mainnet/TRUST.md): disclosed custodial control and limits.
 - [Authenticated ledger census](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/docs/reports/authenticated-ledger-census-2026-09-09.md): dated operator-observed checkpoint, not a live freshness check or independent trust anchor.
 - [Knowledge settlement history](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/docs/reports/knowledge-settlement-history-2026-09-09.md): committed records and bounded historical observations; events are not authenticated payment receipts.
