@@ -40,6 +40,14 @@ func (app *ZeroneApp) ExportAppStateAndValidators(
 	if err != nil {
 		return servertypes.ExportedApp{}, err
 	}
+	lineage, err := app.accountingAuthorityGenesisMetadata(ctx, app.LastBlockHeight())
+	if err != nil {
+		return servertypes.ExportedApp{}, err
+	}
+	genState[accountingAuthorityGenesisKey], err = json.Marshal(lineage)
+	if err != nil {
+		return servertypes.ExportedApp{}, err
+	}
 	appState, err := json.Marshal(genState)
 	if err != nil {
 		return servertypes.ExportedApp{}, err

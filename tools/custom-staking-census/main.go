@@ -22,10 +22,11 @@ const (
 type dbOpener func(home, backend string) (openedPhysicalDB, error)
 
 type censusOptions struct {
-	ChainID      string
-	SourceCommit string
-	Height       int64
-	AppHash      []byte
+	ChainID       string
+	SourceCommit  string
+	Height        int64
+	AppHash       []byte
+	SourceProfile string
 }
 
 type censusRunner func(db physicalDB, options censusOptions) ([]byte, bool, error)
@@ -57,6 +58,7 @@ func run(
 		heightText       string
 		appHashText      string
 		sourceCommit     string
+		sourceProfile    string
 		outputPath       string
 		copiedDBAttested bool
 	)
@@ -66,6 +68,7 @@ func run(
 	flags.StringVar(&heightText, "expected-height", "", "trusted positive root application height")
 	flags.StringVar(&appHashText, "expected-app-hash", "", "trusted lowercase 32-byte post-commit root hash for H, in hexadecimal")
 	flags.StringVar(&sourceCommit, "source-commit", "", "lowercase 40-hex source commit used to build this tool")
+	flags.StringVar(&sourceProfile, "source-profile", legacySourceProfile, "explicit state profile: legacy-v1 or accounting-v2; v2 reports do not satisfy legacy launch gates")
 	flags.StringVar(&outputPath, "output", "", "absolute new report path; published atomically and never overwritten")
 	flags.BoolVar(&copiedDBAttested, "copied-db", false, "attest that --home is a disposable copy made after the node was halted")
 	if err := flags.Parse(args); err != nil {
@@ -85,6 +88,11 @@ func run(
 		_, _ = fmt.Fprintf(stderr, "custom-staking-census: %v\n", err)
 		return exitOperational
 	}
+	if sourceProfile == "" || !validSourceProfile(sourceProfile) {
+		_, _ = fmt.Fprintln(stderr, "custom-staking-census: unsupported source profile")
+		return exitOperational
+	}
+	options.SourceProfile = sourceProfile
 
 	db, err := open(home, backend)
 	if err != nil {

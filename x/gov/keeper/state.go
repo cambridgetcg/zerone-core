@@ -637,6 +637,9 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
 	}
 
 	for _, lip := range gs.Lips {
+		if err := types.ValidateLIPExecutionError(lip); err != nil {
+			panic(err)
+		}
 		lipToStore := lip
 		if lip != nil &&
 			lip.Category == types.CategoryUpgrade &&
@@ -708,15 +711,16 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	})
 
 	return &types.GenesisState{
-		Params:                 params,
-		Lips:                   allLIPs,
-		Votes:                  k.GetAllVotes(ctx),
-		NextLipNumber:          k.GetNextLIPNumber(ctx),
-		UpgradePlans:           upgradePlans,
-		ResearchFundGovernance: k.GetResearchFundGovernanceState(ctx),
-		SeatElections:          k.GetAllSeatElections(ctx),
-		SeatElectionVotes:      k.GetAllSeatElectionVotes(ctx),
-		NextSeatElectionNumber: k.GetNextSeatElectionID(ctx),
+		AccountingSafetyEnabled: k.AccountingSafetyEnabled(ctx),
+		Params:                  params,
+		Lips:                    allLIPs,
+		Votes:                   k.GetAllVotes(ctx),
+		NextLipNumber:           k.GetNextLIPNumber(ctx),
+		UpgradePlans:            upgradePlans,
+		ResearchFundGovernance:  k.GetResearchFundGovernanceState(ctx),
+		SeatElections:           k.GetAllSeatElections(ctx),
+		SeatElectionVotes:       k.GetAllSeatElectionVotes(ctx),
+		NextSeatElectionNumber:  k.GetNextSeatElectionID(ctx),
 		EmergencyTransitionHold: func() *types.EmergencyTransitionHold {
 			hold, found, err := k.GetEmergencyTransitionHold(ctx)
 			if err != nil {

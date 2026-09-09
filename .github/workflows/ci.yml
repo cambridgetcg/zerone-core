@@ -695,6 +695,85 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  accounting-authority-rehearsal:
+    name: "Accounting authority two-binary rehearsal"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - name: Check out candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: candidate
+          persist-credentials: false
+      - name: Check out frozen predecessor
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: 5671476545b5bc16367ba3cdd09bca3a32b23cf0
+          path: predecessor
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.25.14"
+          cache: true
+          cache-dependency-path: |
+            candidate/go.sum
+            predecessor/go.sum
+      - name: Build independent binaries and publish source provenance
+        env:
+          ACCOUNTING_REHEARSAL_PARENT: ${{ runner.temp }}/zerone-accounting-authority-evidence
+          ACCOUNTING_REHEARSAL_BINARIES: ${{ runner.temp }}/zerone-accounting-authority-binaries
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(go env GOVERSION)" = go1.25.14
+          test "$(git -C predecessor rev-parse HEAD)" = 5671476545b5bc16367ba3cdd09bca3a32b23cf0
+          mkdir -p "$ACCOUNTING_REHEARSAL_BINARIES" "$ACCOUNTING_REHEARSAL_PARENT/build/reports"
+          for source in predecessor candidate; do
+            source_commit=$(git -C "$source" rev-parse HEAD)
+            (
+              cd "$source"
+              go mod download
+              go mod verify
+              go build -mod=readonly -trimpath -buildvcs=true \
+                -ldflags "-X github.com/cosmos/cosmos-sdk/version.Name=zerone -X github.com/cosmos/cosmos-sdk/version.AppName=zeroned -X github.com/cosmos/cosmos-sdk/version.Version=accounting-$source -X github.com/cosmos/cosmos-sdk/version.Commit=$source_commit" \
+                -o "$ACCOUNTING_REHEARSAL_BINARIES/$source" ./cmd/zeroned
+              git diff --exit-code HEAD
+            )
+          done
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, subprocess
+          binaries = pathlib.Path(os.environ["ACCOUNTING_REHEARSAL_BINARIES"])
+          report = {"schema": "zerone.accounting-authority/ci-build-v1",
+                    "release_evidence": False,
+                    "go_version": subprocess.check_output(["go", "version"], text=True).strip()}
+          for source in ("predecessor", "candidate"):
+              report[source] = {
+                  "source_commit": subprocess.check_output(
+                      ["git", "-C", source, "rev-parse", "HEAD"], text=True).strip(),
+                  "binary_sha256": hashlib.file_digest((binaries / source).open("rb"), "sha256").hexdigest()}
+          target = pathlib.Path(os.environ["ACCOUNTING_REHEARSAL_PARENT"]) / "build/reports/build-provenance.json"
+          target.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+          PY
+      - name: Rehearse loopback handoff and refusal boundaries
+        env:
+          ACCOUNTING_REHEARSAL_PARENT: ${{ runner.temp }}/zerone-accounting-authority-evidence
+          ACCOUNTING_REHEARSAL_BINARIES: ${{ runner.temp }}/zerone-accounting-authority-binaries
+        run: |
+          python3 candidate/scripts/accounting-authority-rehearsal.py \
+            --before "$ACCOUNTING_REHEARSAL_BINARIES/predecessor" \
+            --after "$ACCOUNTING_REHEARSAL_BINARIES/candidate" \
+            --evidence-parent "$ACCOUNTING_REHEARSAL_PARENT"
+      - name: Retain public accounting reports only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: accounting-authority-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/zerone-accounting-authority-evidence/*/reports/**
+          if-no-files-found: error
+          retention-days: 30
+
   typescript-sdk:
     name: "TypeScript SDK and dashboard"
     runs-on: ubuntu-24.04

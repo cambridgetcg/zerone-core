@@ -70,4 +70,7 @@ message GenesisState {
   uint64 next_seat_election_number = 9;
   repeated GenesisCreedAmendmentPin creed_amendment_pins = 10;
   EmergencyTransitionHold emergency_transition_hold = 11;
+  // Explicit native/continuation profile flag. App genesis activates only after
+  // all module initialization completes; false retains historical semantics.
+  bool accounting_safety_enabled = 12;
 }

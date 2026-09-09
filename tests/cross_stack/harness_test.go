@@ -426,21 +426,23 @@ func (h *TestHarness) SetDomainQualification(addr, domain string, weight uint32)
 // selection weight (apprentice tiers use a virtual-stake constant), so
 // this addr has exactly `selfDel` weight on the stake-weighted tally.
 func (h *TestHarness) BondTestValidator(addr string, selfDel uint64) {
+	h.T.Helper()
+	account, err := sdk.AccAddressFromBech32(addr)
+	require.NoError(h.T, err)
 	selfDelStr := fmt.Sprintf("%d", selfDel)
-	val := &zeronestakingtypes.Validator{
-		OperatorAddress: addr,
-		ConsensusPubkey: "pk_" + addr[:min(8, len(addr))],
-		Did:             "did:zrn:test:" + addr[:min(8, len(addr))],
-		Moniker:         "val_" + addr[:min(8, len(addr))],
-		Tier:            zeronestakingtypes.TierScholar,
-		SelfDelegation:  selfDelStr,
-		DelegatedStake:  "0",
-		TotalStake:      selfDelStr,
-		ReputationScore: 500_000,
-		IsActive:        true,
-	}
+	require.NoError(h.T, h.FundAccount(account, sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromUint64(selfDel)))))
+	_, err = zeronestakingkeeper.NewMsgServerImpl(h.StakingKeeper).RegisterValidator(h.Ctx, &zeronestakingtypes.MsgRegisterValidator{
+		Operator: addr, ConsensusPubkey: "pk_" + addr, Did: "did:zrn:test:" + addr, Moniker: "val_" + addr, SelfDelegation: selfDelStr,
+	})
+	require.NoError(h.T, err)
+	val, found := h.StakingKeeper.GetValidator(h.Ctx, addr)
+	require.True(h.T, found)
+	// Fixture-only eligibility projection: the monetary claim is real and fully
+	// backed, while this test controls the panel tier independently.
+	val.Tier = zeronestakingtypes.TierScholar
 	sdkCtx := sdk.UnwrapSDKContext(h.Ctx)
 	h.StakingKeeper.SetValidator(sdkCtx, val)
+	require.NoError(h.T, h.StakingKeeper.ValidateAccountingSafety(sdkCtx))
 }
 
 func min(a, b int) int {

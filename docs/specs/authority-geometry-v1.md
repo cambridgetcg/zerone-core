@@ -2,14 +2,14 @@
 
 Status: **static source observatory; target gate intentionally closed**
 
-Date: 2026-08-11
+Date: 2026-08-11; source pins revised 2026-09-09 (manifest 1.0.1)
 
 Canonical machine artifact:
 `dashboard/public/standards/authority-geometry.v1.json`
 
 Normative source design:
 `docs/AUTHORITATIVE-STATE.md`, SHA-256
-`22d523ee25060957e2c93aba441542e35d767f28f0f0e5e86c800f5fd7ea82e9`
+`1ec84986d2e14b8f938e76d5187266c3e23a6881818d59bbba420ba663f5176a`
 
 ## 1. Purpose
 
@@ -308,3 +308,8 @@ Authority Geometry v1 does not:
 The exact honest conclusion is: the accepted target has a legible shape, the
 current source does not yet inhabit it, and the graph makes that distance
 harder to hide.
+
+The 2026-09-09 source refresh recognizes claim-backed custom accounting and
+atomic LIP execution. It keeps all seven authority findings open: the repair
+does not retire the duplicate ledgers, select an electorate, or implement H4/H5.
+The observatory artifact itself remains read-only.

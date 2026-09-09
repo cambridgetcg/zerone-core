@@ -28,6 +28,11 @@ TX_FEE=200000
 SEND_AMOUNT=12345
 TOTAL_SUPPLY="13555000000"
 CUSTOM_ESCROW="111000000"
+# Current native accounting validation needs more gas than the historical
+# 200000 registration allowance. This local fixture pays its own exact fee;
+# it does not update or authorize an existing signed bootstrap artifact.
+REGISTER_GAS=500000
+REGISTER_FEE=500000
 CUSTOM_STAKING_MODULE="zrn1ehtmkw3djuxxprsr8ueknnamwk3jvkpmlzfepn"
 DRILL_MNEMONIC="now aware tomorrow wire robust regular unveil swallow trigger about immune wool humor allow inch runway sock acoustic scare weather outdoor shield attract direct"
 
@@ -539,7 +544,12 @@ REGISTER_HASH="$(broadcast tx zerone_staking register-validator \
   "${CONSENSUS_PUBKEY_HEX}" "${CUSTOM_ESCROW}" \
   --from validator --moniker zerone-2-custodian --identity "${DID}" \
   --commission 500 --details 'One publicly disclosed custodial validator' \
-  --home "${HOME_A}" --gas 200000 --fees 200000uzrn)"
+  --home "${HOME_A}" --gas "${REGISTER_GAS}" --fees "${REGISTER_FEE}uzrn")"
+wait_for_tx "${REGISTER_HASH}" | jq --arg fee "${REGISTER_FEE}" '
+  {fixture_only:true, txhash:.result.hash, fee_uzrn:$fee,
+   gas_wanted:.result.tx_result.gas_wanted, gas_used:.result.tx_result.gas_used,
+   code:.result.tx_result.code}
+' > "${RECEIPTS}/native-registration-gas.json"
 
 CUSTOM_QUERY="$(${BINARY} query zerone_staking validator "${VALIDATOR_ADDRESS}" \
   --node "${RPC}" -o json)"

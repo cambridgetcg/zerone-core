@@ -179,8 +179,11 @@ type GenesisState struct {
 	Delegations      []*Delegation          `protobuf:"bytes,3,rep,name=delegations,proto3" json:"delegations,omitempty"`
 	UnbondingEntries []*UnbondingEntry      `protobuf:"bytes,4,rep,name=unbonding_entries,json=unbondingEntries,proto3" json:"unbonding_entries,omitempty"`
 	UnbondingSeq     uint64                 `protobuf:"varint,5,opt,name=unbonding_seq,json=unbondingSeq,proto3" json:"unbonding_seq,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Source-profile declaration. Activation independently reconciles bank custody.
+	AccountingSafetyEnabled bool                         `protobuf:"varint,6,opt,name=accounting_safety_enabled,json=accountingSafetyEnabled,proto3" json:"accounting_safety_enabled,omitempty"`
+	RedelegationCooldowns   []*RedelegationCooldownEntry `protobuf:"bytes,7,rep,name=redelegation_cooldowns,json=redelegationCooldowns,proto3" json:"redelegation_cooldowns,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -248,6 +251,73 @@ func (x *GenesisState) GetUnbondingSeq() uint64 {
 	return 0
 }
 
+func (x *GenesisState) GetAccountingSafetyEnabled() bool {
+	if x != nil {
+		return x.AccountingSafetyEnabled
+	}
+	return false
+}
+
+func (x *GenesisState) GetRedelegationCooldowns() []*RedelegationCooldownEntry {
+	if x != nil {
+		return x.RedelegationCooldowns
+	}
+	return nil
+}
+
+// RedelegationCooldownEntry preserves the delegator's last redelegation height.
+type RedelegationCooldownEntry struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	DelegatorAddress string                 `protobuf:"bytes,1,opt,name=delegator_address,json=delegatorAddress,proto3" json:"delegator_address,omitempty"`
+	Height           uint64                 `protobuf:"varint,2,opt,name=height,proto3" json:"height,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *RedelegationCooldownEntry) Reset() {
+	*x = RedelegationCooldownEntry{}
+	mi := &file_zerone_staking_v1_genesis_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RedelegationCooldownEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RedelegationCooldownEntry) ProtoMessage() {}
+
+func (x *RedelegationCooldownEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_staking_v1_genesis_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RedelegationCooldownEntry.ProtoReflect.Descriptor instead.
+func (*RedelegationCooldownEntry) Descriptor() ([]byte, []int) {
+	return file_zerone_staking_v1_genesis_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *RedelegationCooldownEntry) GetDelegatorAddress() string {
+	if x != nil {
+		return x.DelegatorAddress
+	}
+	return ""
+}
+
+func (x *RedelegationCooldownEntry) GetHeight() uint64 {
+	if x != nil {
+		return x.Height
+	}
+	return 0
+}
+
 var File_zerone_staking_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_staking_v1_genesis_proto_rawDesc = "" +
@@ -268,7 +338,7 @@ const file_zerone_staking_v1_genesis_proto_rawDesc = "" +
 	"\x1areputation_incorrect_delta\x18\v \x01(\x04R\x18reputationIncorrectDelta\x124\n" +
 	"\x16reputation_slash_delta\x18\f \x01(\x04R\x14reputationSlashDelta\x12@\n" +
 	"\x1credelegation_cooldown_blocks\x18\r \x01(\x04R\x1aredelegationCooldownBlocks\x12@\n" +
-	"\ftier_configs\x18\x0e \x03(\v2\x1d.zerone.staking.v1.TierConfigR\vtierConfigs\"\xb5\x02\n" +
+	"\ftier_configs\x18\x0e \x03(\v2\x1d.zerone.staking.v1.TierConfigR\vtierConfigs\"\xd6\x03\n" +
 	"\fGenesisState\x121\n" +
 	"\x06params\x18\x01 \x01(\v2\x19.zerone.staking.v1.ParamsR\x06params\x12<\n" +
 	"\n" +
@@ -276,7 +346,12 @@ const file_zerone_staking_v1_genesis_proto_rawDesc = "" +
 	"validators\x12?\n" +
 	"\vdelegations\x18\x03 \x03(\v2\x1d.zerone.staking.v1.DelegationR\vdelegations\x12N\n" +
 	"\x11unbonding_entries\x18\x04 \x03(\v2!.zerone.staking.v1.UnbondingEntryR\x10unbondingEntries\x12#\n" +
-	"\runbonding_seq\x18\x05 \x01(\x04R\funbondingSeqB0Z.github.com/zerone-chain/zerone/x/staking/typesb\x06proto3"
+	"\runbonding_seq\x18\x05 \x01(\x04R\funbondingSeq\x12:\n" +
+	"\x19accounting_safety_enabled\x18\x06 \x01(\bR\x17accountingSafetyEnabled\x12c\n" +
+	"\x16redelegation_cooldowns\x18\a \x03(\v2,.zerone.staking.v1.RedelegationCooldownEntryR\x15redelegationCooldowns\"`\n" +
+	"\x19RedelegationCooldownEntry\x12+\n" +
+	"\x11delegator_address\x18\x01 \x01(\tR\x10delegatorAddress\x12\x16\n" +
+	"\x06height\x18\x02 \x01(\x04R\x06heightB0Z.github.com/zerone-chain/zerone/x/staking/typesb\x06proto3"
 
 var (
 	file_zerone_staking_v1_genesis_proto_rawDescOnce sync.Once
@@ -290,26 +365,28 @@ func file_zerone_staking_v1_genesis_proto_rawDescGZIP() []byte {
 	return file_zerone_staking_v1_genesis_proto_rawDescData
 }
 
-var file_zerone_staking_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_zerone_staking_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_zerone_staking_v1_genesis_proto_goTypes = []any{
-	(*Params)(nil),         // 0: zerone.staking.v1.Params
-	(*GenesisState)(nil),   // 1: zerone.staking.v1.GenesisState
-	(*TierConfig)(nil),     // 2: zerone.staking.v1.TierConfig
-	(*Validator)(nil),      // 3: zerone.staking.v1.Validator
-	(*Delegation)(nil),     // 4: zerone.staking.v1.Delegation
-	(*UnbondingEntry)(nil), // 5: zerone.staking.v1.UnbondingEntry
+	(*Params)(nil),                    // 0: zerone.staking.v1.Params
+	(*GenesisState)(nil),              // 1: zerone.staking.v1.GenesisState
+	(*RedelegationCooldownEntry)(nil), // 2: zerone.staking.v1.RedelegationCooldownEntry
+	(*TierConfig)(nil),                // 3: zerone.staking.v1.TierConfig
+	(*Validator)(nil),                 // 4: zerone.staking.v1.Validator
+	(*Delegation)(nil),                // 5: zerone.staking.v1.Delegation
+	(*UnbondingEntry)(nil),            // 6: zerone.staking.v1.UnbondingEntry
 }
 var file_zerone_staking_v1_genesis_proto_depIdxs = []int32{
-	2, // 0: zerone.staking.v1.Params.tier_configs:type_name -> zerone.staking.v1.TierConfig
+	3, // 0: zerone.staking.v1.Params.tier_configs:type_name -> zerone.staking.v1.TierConfig
 	0, // 1: zerone.staking.v1.GenesisState.params:type_name -> zerone.staking.v1.Params
-	3, // 2: zerone.staking.v1.GenesisState.validators:type_name -> zerone.staking.v1.Validator
-	4, // 3: zerone.staking.v1.GenesisState.delegations:type_name -> zerone.staking.v1.Delegation
-	5, // 4: zerone.staking.v1.GenesisState.unbonding_entries:type_name -> zerone.staking.v1.UnbondingEntry
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	4, // 2: zerone.staking.v1.GenesisState.validators:type_name -> zerone.staking.v1.Validator
+	5, // 3: zerone.staking.v1.GenesisState.delegations:type_name -> zerone.staking.v1.Delegation
+	6, // 4: zerone.staking.v1.GenesisState.unbonding_entries:type_name -> zerone.staking.v1.UnbondingEntry
+	2, // 5: zerone.staking.v1.GenesisState.redelegation_cooldowns:type_name -> zerone.staking.v1.RedelegationCooldownEntry
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_zerone_staking_v1_genesis_proto_init() }
@@ -324,7 +401,7 @@ func file_zerone_staking_v1_genesis_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_staking_v1_genesis_proto_rawDesc), len(file_zerone_staking_v1_genesis_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

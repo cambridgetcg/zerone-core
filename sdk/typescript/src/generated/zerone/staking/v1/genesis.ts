@@ -67,6 +67,21 @@ export interface GenesisState {
   delegations: Delegation[];
   unbondingEntries: UnbondingEntry[];
   unbondingSeq: bigint;
+  /**
+   * Source-profile declaration. Activation independently reconciles bank custody.
+   */
+  accountingSafetyEnabled: boolean;
+  redelegationCooldowns: RedelegationCooldownEntry[];
+}
+/**
+ * RedelegationCooldownEntry preserves the delegator's last redelegation height.
+ * @name RedelegationCooldownEntry
+ * @package zerone.staking.v1
+ * @see proto type: zerone.staking.v1.RedelegationCooldownEntry
+ */
+export interface RedelegationCooldownEntry {
+  delegatorAddress: string;
+  height: bigint;
 }
 function createBaseParams(): Params {
   return {
@@ -221,7 +236,9 @@ function createBaseGenesisState(): GenesisState {
     validators: [],
     delegations: [],
     unbondingEntries: [],
-    unbondingSeq: BigInt(0)
+    unbondingSeq: BigInt(0),
+    accountingSafetyEnabled: false,
+    redelegationCooldowns: []
   };
 }
 /**
@@ -248,6 +265,12 @@ export const GenesisState = {
     if (message.unbondingSeq !== BigInt(0)) {
       writer.uint32(40).uint64(message.unbondingSeq);
     }
+    if (message.accountingSafetyEnabled === true) {
+      writer.uint32(48).bool(message.accountingSafetyEnabled);
+    }
+    for (const v of message.redelegationCooldowns) {
+      RedelegationCooldownEntry.encode(v!, writer.uint32(58).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -272,6 +295,12 @@ export const GenesisState = {
         case 5:
           message.unbondingSeq = reader.uint64();
           break;
+        case 6:
+          message.accountingSafetyEnabled = reader.bool();
+          break;
+        case 7:
+          message.redelegationCooldowns.push(RedelegationCooldownEntry.decode(reader, reader.uint32()));
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -286,6 +315,58 @@ export const GenesisState = {
     message.delegations = object.delegations?.map(e => Delegation.fromPartial(e)) || [];
     message.unbondingEntries = object.unbondingEntries?.map(e => UnbondingEntry.fromPartial(e)) || [];
     message.unbondingSeq = object.unbondingSeq !== undefined && object.unbondingSeq !== null ? BigInt(object.unbondingSeq.toString()) : BigInt(0);
+    message.accountingSafetyEnabled = object.accountingSafetyEnabled ?? false;
+    message.redelegationCooldowns = object.redelegationCooldowns?.map(e => RedelegationCooldownEntry.fromPartial(e)) || [];
+    return message;
+  }
+};
+function createBaseRedelegationCooldownEntry(): RedelegationCooldownEntry {
+  return {
+    delegatorAddress: "",
+    height: BigInt(0)
+  };
+}
+/**
+ * RedelegationCooldownEntry preserves the delegator's last redelegation height.
+ * @name RedelegationCooldownEntry
+ * @package zerone.staking.v1
+ * @see proto type: zerone.staking.v1.RedelegationCooldownEntry
+ */
+export const RedelegationCooldownEntry = {
+  typeUrl: "/zerone.staking.v1.RedelegationCooldownEntry",
+  encode(message: RedelegationCooldownEntry, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.delegatorAddress !== "") {
+      writer.uint32(10).string(message.delegatorAddress);
+    }
+    if (message.height !== BigInt(0)) {
+      writer.uint32(16).uint64(message.height);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): RedelegationCooldownEntry {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseRedelegationCooldownEntry();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.delegatorAddress = reader.string();
+          break;
+        case 2:
+          message.height = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<RedelegationCooldownEntry>): RedelegationCooldownEntry {
+    const message = createBaseRedelegationCooldownEntry();
+    message.delegatorAddress = object.delegatorAddress ?? "";
+    message.height = object.height !== undefined && object.height !== null ? BigInt(object.height.toString()) : BigInt(0);
     return message;
   }
 };

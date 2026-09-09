@@ -66,6 +66,21 @@ export interface GenesisState {
     delegations: Delegation[];
     unbondingEntries: UnbondingEntry[];
     unbondingSeq: bigint;
+    /**
+     * Source-profile declaration. Activation independently reconciles bank custody.
+     */
+    accountingSafetyEnabled: boolean;
+    redelegationCooldowns: RedelegationCooldownEntry[];
+}
+/**
+ * RedelegationCooldownEntry preserves the delegator's last redelegation height.
+ * @name RedelegationCooldownEntry
+ * @package zerone.staking.v1
+ * @see proto type: zerone.staking.v1.RedelegationCooldownEntry
+ */
+export interface RedelegationCooldownEntry {
+    delegatorAddress: string;
+    height: bigint;
 }
 /**
  * Params defines the staking module parameters.
@@ -91,4 +106,16 @@ export declare const GenesisState: {
     encode(message: GenesisState, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): GenesisState;
     fromPartial(object: DeepPartial<GenesisState>): GenesisState;
+};
+/**
+ * RedelegationCooldownEntry preserves the delegator's last redelegation height.
+ * @name RedelegationCooldownEntry
+ * @package zerone.staking.v1
+ * @see proto type: zerone.staking.v1.RedelegationCooldownEntry
+ */
+export declare const RedelegationCooldownEntry: {
+    typeUrl: string;
+    encode(message: RedelegationCooldownEntry, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): RedelegationCooldownEntry;
+    fromPartial(object: DeepPartial<RedelegationCooldownEntry>): RedelegationCooldownEntry;
 };

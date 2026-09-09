@@ -19,9 +19,24 @@ import (
 )
 
 const (
-	reportSchema   = "zerone/custom-staking-census/v1"
-	maxReportBytes = 64 << 20
+	reportSchema            = "zerone/custom-staking-census/v1"
+	accountingReportSchema  = "zerone/custom-staking-census/accounting-v2"
+	legacySourceProfile     = "legacy-v1"
+	accountingSourceProfile = "accounting-v2"
+	accountingMarkerPrefix  = byte(0x0a)
+	maxReportBytes          = 64 << 20
 )
+
+func validSourceProfile(profile string) bool {
+	return profile == "" || profile == legacySourceProfile || profile == accountingSourceProfile
+}
+
+func censusReportSchema(profile string) string {
+	if profile == accountingSourceProfile {
+		return accountingReportSchema
+	}
+	return reportSchema
+}
 
 type reportEvidence struct {
 	ChainID      string `json:"chain_id"`
@@ -61,7 +76,11 @@ func executeCensus(
 	if db == nil {
 		return nil, false, errors.New("application database is nil")
 	}
+	if !validSourceProfile(options.SourceProfile) {
+		return nil, false, errors.New("unsupported census source profile")
+	}
 	collector := newCensus()
+	collector.accountingV2 = options.SourceProfile == accountingSourceProfile
 	visitors := make(map[string]func(logicalLeaf) error, len(requiredStoreNames))
 	for _, storeName := range requiredStoreNames {
 		name := storeName
@@ -87,6 +106,9 @@ func buildCensusReport(
 	stores []storeEvidence,
 	result censusResult,
 ) ([]byte, bool, error) {
+	if !validSourceProfile(options.SourceProfile) || result.accountingV2 != (options.SourceProfile == accountingSourceProfile) {
+		return nil, false, errors.New("report source profile does not match the scanned state profile")
+	}
 	if !validChainID(options.ChainID) {
 		return nil, false, errors.New("report chain ID is invalid")
 	}
@@ -179,7 +201,7 @@ func buildCensusReport(
 		status = "PASS"
 	}
 	report := sealedCensusReport{
-		Schema: reportSchema,
+		Schema: censusReportSchema(options.SourceProfile),
 		Result: status,
 		Evidence: reportEvidence{
 			ChainID:      options.ChainID,
@@ -357,10 +379,7 @@ func validateCensusResultForReport(result censusResult, stores []storeEvidence) 
 		return errors.New("census findings are not in deterministic order")
 	}
 
-	if len(result.Keyspace) != customModuleKeyspaceCount+1 {
-		return errors.New("census must contain exactly nine custom-module keyspaces and the app IAVL sentinel class")
-	}
-	wantNames := [...]string{
+	wantNames := []string{
 		"validators",
 		"delegations",
 		"unbondings",
@@ -372,6 +391,12 @@ func validateCensusResultForReport(result censusResult, stores []storeEvidence) 
 		"validator_delegation_indexes",
 		"app_iavl_init_sentinel",
 	}
+	if result.accountingV2 {
+		wantNames = append(wantNames, "accounting_safety_marker")
+	}
+	if len(result.Keyspace) != len(wantNames) {
+		return errors.New("census keyspace count does not match its explicit source profile")
+	}
 	var keyspaceLeaves, keyspaceBytes uint64
 	for index, row := range result.Keyspace {
 		wantPrefix := fmt.Sprintf("0x%02x", index+1)
@@ -379,6 +404,26 @@ func validateCensusResultForReport(result censusResult, stores []storeEvidence) 
 			wantPrefix = "0x" + hex.EncodeToString([]byte(appIAVLInitSentinelKey))
 			if row.LeafCount > 1 {
 				return errors.New("census app IAVL sentinel class contains more than one leaf")
+			}
+		}
+		if index == customModuleKeyspaceCount+1 {
+			wantPrefix = "0x0a"
+			if result.Passed && row.LeafCount != 1 {
+				return errors.New("passing accounting-v2 census must contain exactly one safety marker")
+			}
+			if result.Passed {
+				// The singleton's bytes are fixed, so a valid-looking digest is
+				// insufficient. Re-derive the exact class commitment independently
+				// of the scanned result before emitting a passing receipt.
+				h := sha256.New()
+				writeHashField(h, []byte("zerone/custom-staking-census/key-class/v1"))
+				_, _ = h.Write([]byte{accountingMarkerPrefix})
+				_, _ = h.Write([]byte{0, 0, 0, 0, 0, 0, 0, 1})
+				leaf := newLeafCommitment([]byte{accountingMarkerPrefix}, []byte{1})
+				_, _ = h.Write(leaf.digest[:])
+				if row.InputBytes != 2 || row.Digest != hex.EncodeToString(h.Sum(nil)) {
+					return errors.New("passing accounting-v2 safety marker commitment is not the exact singleton")
+				}
 			}
 		}
 		if row.Prefix != wantPrefix || row.Name != wantNames[index] {
@@ -748,7 +793,7 @@ func estimateReportJSONUpperBound(
 	}
 	add(result.ModuleAddress, result.ModuleAddressHex, result.BalanceUzrn, result.DelegationsUzrn,
 		result.PendingUnbondingsUzrn, result.LiabilitiesUzrn, result.DeltaUzrn, result.ClaimantRoot)
-	add(reportSchema, options.ChainID, strconv.FormatInt(options.Height, 10), hex.EncodeToString(options.AppHash), options.SourceCommit)
+	add(censusReportSchema(options.SourceProfile), options.ChainID, strconv.FormatInt(options.Height, 10), hex.EncodeToString(options.AppHash), options.SourceCommit)
 	for _, row := range multistore {
 		add(row.Name, row.RootSHA256)
 	}

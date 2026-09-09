@@ -54,12 +54,13 @@ func DefaultResearchFundGovernanceState() *ResearchFundGovernanceState {
 // DefaultGenesisState returns the default genesis state for the governance module.
 func DefaultGenesisState() *GenesisState {
 	return &GenesisState{
-		Params:                 DefaultParams(),
-		Lips:                   nil,
-		Votes:                  nil,
-		NextLipNumber:          1,
-		NextSeatElectionNumber: 1,
-		ResearchFundGovernance: DefaultResearchFundGovernanceState(),
+		Params:                  DefaultParams(),
+		Lips:                    nil,
+		Votes:                   nil,
+		NextLipNumber:           1,
+		NextSeatElectionNumber:  1,
+		ResearchFundGovernance:  DefaultResearchFundGovernanceState(),
+		AccountingSafetyEnabled: true,
 	}
 }
 
@@ -80,6 +81,9 @@ func (gs *GenesisState) Validate() error {
 	// Check for duplicate LIP IDs.
 	seen := make(map[string]bool)
 	for _, lip := range gs.Lips {
+		if err := ValidateLIPExecutionError(lip); err != nil {
+			return err
+		}
 		if seen[lip.Id] {
 			return fmt.Errorf("duplicate LIP id: %s", lip.Id)
 		}

@@ -285,13 +285,14 @@ build_signed_artifact_auditor() {
   mkdir -m 0700 "${source_root}"
 
   # The auditor imports app.MakeEncodingConfig, so its complete local compile
-  # closure is the signed go.mod/go.sum plus app, x, and the embedded Swagger
-  # package. Deployment artifacts and caller worktree bytes are excluded.
+  # closure is the signed go.mod/go.sum plus app, x, the internal migration
+  # package, and embedded Swagger. Deployment artifacts and caller worktree
+  # bytes are excluded.
   while IFS= read -r -d '' relative; do
     materialize_release_file "${relative}" "${source_root}/${relative}"
     count=$((count + 1))
   done < <(git -C "${PROJECT_ROOT}" ls-tree -r -z --name-only \
-    "${RELEASE_COMMIT}" -- go.mod go.sum app x docs/swagger-ui \
+    "${RELEASE_COMMIT}" -- go.mod go.sum app x internal/accountingmigration docs/swagger-ui \
     tools/zerone2-artifact-audit/main.go)
   [ "${count}" -gt 5 ] || die "signed auditor source allowlist was unexpectedly empty"
   [ -f "${source_root}/tools/zerone2-artifact-audit/main.go" ] || \

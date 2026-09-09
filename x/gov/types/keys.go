@@ -28,6 +28,7 @@ var (
 	SeatElectionVoteDedupePrefix = []byte{0x13}
 	PhaseTransitionKeyPrefix     = []byte{0x14} // lip_id -> PhaseTransitionProposal
 	CreedAmendmentPinPrefix      = []byte{0x15} // lip_id -> attached creed-amendment payload
+	AccountingSafetyKey          = []byte{0x17}
 	EmergencyTransitionHoldKey   = []byte{0x16}
 )
 

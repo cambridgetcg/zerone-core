@@ -34,6 +34,7 @@ MAINNET_BUILD_PROFILE=development \
 
 for required in \
   '/.sanitized-mainnet-context-v1' '/Dockerfile' '/go.mod' '/go.sum' \
+  '/internal/accountingmigration/context.go' \
   '/runtime/entrypoint.sh' '/public/genesis.json'; do
   grep -q "${required}$" "${TMP}/context-files" || fail "context omitted ${required}"
 done
@@ -61,6 +62,9 @@ grep -q '^release_tag=development$' "${TMP}/context-marker" || \
 if grep -Eq '^COPY[[:space:]]+\.[[:space:]]+\.' "${ROOT}/deploy/mainnet/Dockerfile"; then
   fail "mainnet Dockerfile still uses broad COPY . ."
 fi
+grep -q '^COPY internal/accountingmigration ./internal/accountingmigration$' \
+  "${ROOT}/deploy/mainnet/Dockerfile" || \
+  fail "Dockerfile omits the accounting migration dependency from its builder"
 # shellcheck disable=SC2016
 grep -q 'test "${TARGETOS}/${TARGETARCH}" = "linux/amd64"' \
   "${ROOT}/deploy/mainnet/Dockerfile" || fail "Dockerfile does not enforce linux/amd64"

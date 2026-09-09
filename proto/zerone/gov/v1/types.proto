@@ -21,6 +21,10 @@ message LIP {
   uint64 last_call_started_block = 14;
   uint64 voting_end_block     = 15;
   repeated ParamChange param_changes = 16;
+  // Prospective accounting-authority-v1 execution failure code; empty for
+  // historical proposals, vote rejection, and successful immediate approval.
+  // Closed implementation codes only: never an arbitrary handler/panic string.
+  string execution_error = 17;
 }
 
 // ParamChange describes a single parameter modification.

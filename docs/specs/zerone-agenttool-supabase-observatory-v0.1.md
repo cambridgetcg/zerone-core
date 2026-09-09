@@ -3,15 +3,16 @@
 - Protocol: `zerone-agenttool-supabase-observatory/0.1`
 - Status: `SOURCE_ONLY_OFFLINE_NO_EFFECT`
 - Decision: `COHERENT_SOURCE_ONLY`
-- Observation cutoff: `2026-08-21T09:42:59Z`
-- Zerone source revision: `264f3c383f408729f4d0c27d332cd454c9eb4400`
+- Observation cutoff: `2026-09-09T14:23:35Z`
+- Zerone unchanged-source baseline: `264f3c383f408729f4d0c27d332cd454c9eb4400`
 - AgentTool baseline revision: `796a753ab8624ad11af621ef4572544ea3b8f463`
 - Runtime integration: none
+- Zerone Research Commons source refresh: `5bfd1a0e010c9a0113987c7e4bf6ade56d07d5e4`
 
 The machine-readable contract is
 [`tools/zerone-supabase-observatory/protocol/manifest.v0.1.json`](../../tools/zerone-supabase-observatory/protocol/manifest.v0.1.json).
 Its raw SHA-256 at this revision is
-`e314476971a702453709710c0ea376216b704a696bc70041dde450600cc06578`.
+`90b0fda7f66ae669322a07e656ca05d662fa7b34f5c94f134edc77e0c6e15581`.
 
 ## 1. Purpose
 
@@ -225,3 +226,8 @@ That evidence would still not authorize a production database migration,
 network read, chain witness, research economy, payout, knowledge admission, or
 scientific adjudication. Each is a later gate with its own owner and fresh
 authority.
+
+The 2026-09-09 refresh updates only the two Zerone Research Commons source
+pins after the accounting repair and transitive design-pin refresh. Unchanged
+Zerone sources and the AgentTool baseline retain their original exact revisions;
+this does not establish reciprocal runtime integration.

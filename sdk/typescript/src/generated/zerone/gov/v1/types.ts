@@ -101,6 +101,12 @@ export interface LIP {
   lastCallStartedBlock: bigint;
   votingEndBlock: bigint;
   paramChanges: ParamChange[];
+  /**
+   * Prospective accounting-authority-v1 execution failure code; empty for
+   * historical proposals, vote rejection, and successful immediate approval.
+   * Closed implementation codes only: never an arbitrary handler/panic string.
+   */
+  executionError: string;
 }
 /**
  * ParamChange describes a single parameter modification.
@@ -326,7 +332,8 @@ function createBaseLIP(): LIP {
     reviewStartedBlock: BigInt(0),
     lastCallStartedBlock: BigInt(0),
     votingEndBlock: BigInt(0),
-    paramChanges: []
+    paramChanges: [],
+    executionError: ""
   };
 }
 /**
@@ -386,6 +393,9 @@ export const LIP = {
     for (const v of message.paramChanges) {
       ParamChange.encode(v!, writer.uint32(130).fork()).ldelim();
     }
+    if (message.executionError !== "") {
+      writer.uint32(138).string(message.executionError);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): LIP {
@@ -443,6 +453,9 @@ export const LIP = {
         case 16:
           message.paramChanges.push(ParamChange.decode(reader, reader.uint32()));
           break;
+        case 17:
+          message.executionError = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -468,6 +481,7 @@ export const LIP = {
     message.lastCallStartedBlock = object.lastCallStartedBlock !== undefined && object.lastCallStartedBlock !== null ? BigInt(object.lastCallStartedBlock.toString()) : BigInt(0);
     message.votingEndBlock = object.votingEndBlock !== undefined && object.votingEndBlock !== null ? BigInt(object.votingEndBlock.toString()) : BigInt(0);
     message.paramChanges = object.paramChanges?.map(e => ParamChange.fromPartial(e)) || [];
+    message.executionError = object.executionError ?? "";
     return message;
   }
 };

@@ -16,8 +16,8 @@ const (
 	manifestPath            = "dashboard/public/standards/authority-geometry.v1.json"
 	manifestSchema          = "zerone.authority-geometry/v1"
 	checkerSchema           = "zerone.authority-graph-check/v1"
-	canonicalManifestSHA256 = "f2ff3c64274a19dc850583e614a7fae4f2a9b0b4f22f12b81b64e3a2f2a160ef"
-	canonicalDesignSHA256   = "22d523ee25060957e2c93aba441542e35d767f28f0f0e5e86c800f5fd7ea82e9"
+	canonicalManifestSHA256 = "38300605bc9ea1ec631b4f42cc8b83c9f3406f1921c7f0fc819153d9c90ba502"
+	canonicalDesignSHA256   = "1ec84986d2e14b8f938e76d5187266c3e23a6881818d59bbba420ba663f5176a"
 )
 
 type manifest struct {
@@ -252,8 +252,8 @@ var expectedAnchors = []expectedAnchor{
 		Required: []string{
 			"lip.Stage = types.StatusPassed",
 			"func (k Keeper) executeParamChanges(ctx sdk.Context, lip *types.LIP)",
-			"param router not set, skipping param change",
-			"param change failed",
+			"cacheCtx, write := ctx.CacheContext()",
+			"lip.ExecutionError = executionErrorCode(executionErr)",
 		},
 		Forbidden: []string{},
 	},
@@ -621,11 +621,11 @@ func validateManifest(m manifest, issues *issueSet) {
 	if m.Schema != manifestSchema {
 		issues.add("MANIFEST_SCHEMA_INVALID", "schema must be zerone.authority-geometry/v1")
 	}
-	if m.Revision != "1.0.0" {
-		issues.add("MANIFEST_REVISION_INVALID", "revision must be 1.0.0")
+	if m.Revision != "1.0.1" {
+		issues.add("MANIFEST_REVISION_INVALID", "revision must be 1.0.1")
 	}
-	if m.SnapshotDate != "2026-08-11" {
-		issues.add("MANIFEST_SNAPSHOT_INVALID", "snapshotDate must remain the reviewed v1 date")
+	if m.SnapshotDate != "2026-09-09" {
+		issues.add("MANIFEST_SNAPSHOT_INVALID", "snapshotDate must match the reviewed accounting-repair source date")
 	}
 	if m.Status != "SOURCE_OBSERVATORY_ONLY" {
 		issues.add("MANIFEST_STATUS_INVALID", "status must remain SOURCE_OBSERVATORY_ONLY")

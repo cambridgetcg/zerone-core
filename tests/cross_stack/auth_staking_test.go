@@ -13,6 +13,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	zeroneauthtypes "github.com/zerone-chain/zerone/x/auth/types"
+	zeronestakingkeeper "github.com/zerone-chain/zerone/x/staking/keeper"
 	zeronestakingtypes "github.com/zerone-chain/zerone/x/staking/types"
 )
 
@@ -100,29 +101,12 @@ func TestAuthStaking_RegisterAndStake(t *testing.T) {
 
 	// 4. Register as validator via x/staking.
 	stakeAmount := "1000000000" // 1,000 ZRN in uzrn
-	val := &zeronestakingtypes.Validator{
-		OperatorAddress: addr.String(),
-		ConsensusPubkey: pubKeyHex,
-		Did:             did,
-		Moniker:         "test-validator",
-		Tier:            zeronestakingtypes.TierApprentice,
-		SelfDelegation:  stakeAmount,
-		DelegatedStake:  "0",
-		TotalStake:      stakeAmount,
-		ReputationScore: 500_000,
-		JoinedAtBlock:   uint64(h.Height()),
-		IsActive:        true,
-		CommissionBps:   500, // 5%
-	}
-	h.StakingKeeper.SetValidator(h.Ctx, val)
-
-	// Create self-delegation record.
-	h.StakingKeeper.SetDelegation(h.Ctx, &zeronestakingtypes.Delegation{
-		DelegatorAddress: addr.String(),
-		ValidatorAddress: addr.String(),
-		Amount:           stakeAmount,
-		CreatedAtBlock:   uint64(h.Height()),
+	_, err := zeronestakingkeeper.NewMsgServerImpl(h.StakingKeeper).RegisterValidator(h.Ctx, &zeronestakingtypes.MsgRegisterValidator{
+		Operator: addr.String(), ConsensusPubkey: pubKeyHex, Did: did,
+		Moniker: "test-validator", SelfDelegation: stakeAmount, CommissionBps: 500,
 	})
+	require.NoError(t, err)
+	require.NoError(t, h.StakingKeeper.ValidateAccountingSafety(h.Ctx))
 
 	// 5. Verify validator at Apprentice tier.
 	valRetrieved, found := h.StakingKeeper.GetValidator(h.Ctx, addr.String())
@@ -132,21 +116,18 @@ func TestAuthStaking_RegisterAndStake(t *testing.T) {
 
 	// 6. Delegate more stake.
 	extraStake := "500000000" // 500 ZRN
-	del, found := h.StakingKeeper.GetDelegation(h.Ctx, addr.String(), addr.String())
+	_, err = zeronestakingkeeper.NewMsgServerImpl(h.StakingKeeper).Delegate(h.Ctx, &zeronestakingtypes.MsgDelegate{
+		Delegator: addr.String(), Validator: addr.String(), Amount: extraStake,
+	})
+	require.NoError(t, err)
+	require.NoError(t, h.StakingKeeper.ValidateAccountingSafety(h.Ctx))
+	valRetrieved, found = h.StakingKeeper.GetValidator(h.Ctx, addr.String())
 	require.True(t, found)
-	del.Amount = "1500000000" // 1000 + 500
-	h.StakingKeeper.SetDelegation(h.Ctx, del)
-
-	valRetrieved.SelfDelegation = "1500000000"
-	valRetrieved.TotalStake = "1500000000"
-	h.StakingKeeper.SetValidator(h.Ctx, valRetrieved)
 
 	// 7. Verify total delegation increased.
 	delRetrieved, found := h.StakingKeeper.GetDelegation(h.Ctx, addr.String(), addr.String())
 	require.True(t, found)
 	require.Equal(t, "1500000000", delRetrieved.Amount)
-
-	_ = extraStake // used conceptually above
 
 	// 8. Check tier advancement prerequisites (need more stake for Scholar).
 	newTier, changed := h.StakingKeeper.CheckTierTransition(h.Ctx, valRetrieved)
@@ -218,20 +199,12 @@ func TestAuthStaking_FrozenAccountCannotStake(t *testing.T) {
 	require.False(t, unfrozen.Flags.Frozen, "account must be unfrozen")
 
 	// 5. Register as validator — should succeed now.
-	val := &zeronestakingtypes.Validator{
-		OperatorAddress: addr.String(),
-		ConsensusPubkey: pubKeyHex,
-		Did:             did,
-		Moniker:         "unfrozen-validator",
-		Tier:            zeronestakingtypes.TierApprentice,
-		SelfDelegation:  "1000000000",
-		DelegatedStake:  "0",
-		TotalStake:      "1000000000",
-		ReputationScore: 500_000,
-		JoinedAtBlock:   uint64(h.Height()),
-		IsActive:        true,
-	}
-	h.StakingKeeper.SetValidator(h.Ctx, val)
+	_, err := zeronestakingkeeper.NewMsgServerImpl(h.StakingKeeper).RegisterValidator(h.Ctx, &zeronestakingtypes.MsgRegisterValidator{
+		Operator: addr.String(), ConsensusPubkey: pubKeyHex, Did: did,
+		Moniker: "unfrozen-validator", SelfDelegation: "1000000000",
+	})
+	require.NoError(t, err)
+	require.NoError(t, h.StakingKeeper.ValidateAccountingSafety(h.Ctx))
 
 	valRetrieved, found := h.StakingKeeper.GetValidator(h.Ctx, addr.String())
 	require.True(t, found)

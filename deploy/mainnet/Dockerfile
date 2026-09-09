@@ -13,6 +13,7 @@ RUN go mod download
 COPY app ./app
 COPY cmd ./cmd
 COPY x ./x
+COPY internal/accountingmigration ./internal/accountingmigration
 COPY docs/swagger-ui ./docs/swagger-ui
 
 ARG VERSION

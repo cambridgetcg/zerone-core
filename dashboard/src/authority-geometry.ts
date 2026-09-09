@@ -3,7 +3,7 @@
 export const AUTHORITY_GEOMETRY_ENDPOINT =
   "/standards/authority-geometry.v1.json";
 export const AUTHORITY_GEOMETRY_SHA256 =
-  "f2ff3c64274a19dc850583e614a7fae4f2a9b0b4f22f12b81b64e3a2f2a160ef";
+  "38300605bc9ea1ec631b4f42cc8b83c9f3406f1921c7f0fc819153d9c90ba502";
 export const AUTHORITY_GEOMETRY_MAX_BYTES = 65_536;
 export const AUTHORITY_GEOMETRY_TIMEOUT_MS = 8_000;
 
@@ -420,7 +420,7 @@ export interface AuthorityGeometryReleaseAssessmentRecord {
 
 export interface AuthorityGeometry {
   schema: "zerone.authority-geometry/v1";
-  revision: "1.0.0";
+  revision: "1.0.1";
   snapshotDate: string;
   status: "SOURCE_OBSERVATORY_ONLY";
   title: string;
@@ -1265,7 +1265,7 @@ export function parseAuthorityGeometry(value: unknown): AuthorityGeometry {
   const root = asObject(value, "$");
   exactKeys(root, TOP_LEVEL_KEYS, "$");
   requireLiteral(root.schema, "zerone.authority-geometry/v1", "$.schema");
-  requireLiteral(root.revision, "1.0.0", "$.revision");
+  requireLiteral(root.revision, "1.0.1", "$.revision");
   requireLiteral(root.status, "SOURCE_OBSERVATORY_ONLY", "$.status");
 
   const sourceDesignSource = asObject(root.sourceDesign, "$.sourceDesign");
@@ -1282,7 +1282,7 @@ export function parseAuthorityGeometry(value: unknown): AuthorityGeometry {
     ),
     sha256: requireLiteral(
       asSha256(sourceDesignSource.sha256, "$.sourceDesign.sha256"),
-      "22d523ee25060957e2c93aba441542e35d767f28f0f0e5e86c800f5fd7ea82e9",
+      "1ec84986d2e14b8f938e76d5187266c3e23a6881818d59bbba420ba663f5176a",
       "$.sourceDesign.sha256",
     ),
     decisionDate: asIsoDate(sourceDesignSource.decisionDate, "$.sourceDesign.decisionDate"),
@@ -1511,7 +1511,7 @@ export function parseAuthorityGeometry(value: unknown): AuthorityGeometry {
 
   const geometry: AuthorityGeometry = {
     schema: "zerone.authority-geometry/v1",
-    revision: "1.0.0",
+    revision: "1.0.1",
     snapshotDate: asIsoDate(root.snapshotDate, "$.snapshotDate"),
     status: "SOURCE_OBSERVATORY_ONLY",
     title: asString(root.title, "$.title", 128),

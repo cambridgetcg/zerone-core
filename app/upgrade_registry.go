@@ -68,6 +68,7 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 	// coherence; the test in Wave 10.2 asserts parity between this list
 	// and the registered handlers so drift gets caught immediately.
 	known := []UpgradeLineageEntry{
+		{UpgradeName: UpgradeNameAccountingAuthorityV1, Description: "accounting-authority-v1 — exact committed post-H3 state and custody commitments, quiescent custom governance, validated custom staking 1->2 and governance 2->3; preserves claimants and historical escrow."},
 		{
 			UpgradeName: UpgradeNameTestnet,
 			Description: "v1.0.0-testnet — initial testnet launch; runs all module migrations from v1→v2.",
@@ -159,7 +160,11 @@ func (app *ZeroneApp) RunUpgradeHandlerWithInfoForTests(
 	// additive write can silently repopulate an omitted entry. The SDK/IBC
 	// transition legitimately contains retired capability and feeibc entries,
 	// so it uses its own exact source guards rather than the H1 target-map guard.
-	if plan.Name == UpgradeNameSDK053IBC10 {
+	if plan.Name == UpgradeNameAccountingAuthorityV1 {
+		if err := app.validateAccountingAuthoritySource(sdk.UnwrapSDKContext(ctx), plan, fromVM); err != nil {
+			return nil, err
+		}
+	} else if plan.Name == UpgradeNameSDK053IBC10 {
 		if _, err := parseSDK053IBC10PlanInfo(plan.Info); err != nil {
 			return nil, fmt.Errorf("upgrade %q has invalid plan info: %w", plan.Name, err)
 		}
@@ -182,6 +187,9 @@ func (app *ZeroneApp) RunUpgradeHandlerWithInfoForTests(
 		if err := requireCompletedPreSDKTransitionVersions(plan.Name, fromVM); err != nil {
 			return nil, fmt.Errorf("validate upgrade boundary: %w", err)
 		}
+	}
+	if err := requireAccountingTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
+		return nil, err
 	}
 	// Seed the on-chain module-version map to the pre-upgrade state so
 	// RunMigrations detects the correct delta per module.

@@ -96,8 +96,12 @@ type LIP struct {
 	LastCallStartedBlock uint64                 `protobuf:"varint,14,opt,name=last_call_started_block,json=lastCallStartedBlock,proto3" json:"last_call_started_block,omitempty"`
 	VotingEndBlock       uint64                 `protobuf:"varint,15,opt,name=voting_end_block,json=votingEndBlock,proto3" json:"voting_end_block,omitempty"`
 	ParamChanges         []*ParamChange         `protobuf:"bytes,16,rep,name=param_changes,json=paramChanges,proto3" json:"param_changes,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// Prospective accounting-authority-v1 execution failure code; empty for
+	// historical proposals, vote rejection, and successful immediate approval.
+	// Closed implementation codes only: never an arbitrary handler/panic string.
+	ExecutionError string `protobuf:"bytes,17,opt,name=execution_error,json=executionError,proto3" json:"execution_error,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *LIP) Reset() {
@@ -240,6 +244,13 @@ func (x *LIP) GetParamChanges() []*ParamChange {
 		return x.ParamChanges
 	}
 	return nil
+}
+
+func (x *LIP) GetExecutionError() string {
+	if x != nil {
+		return x.ExecutionError
+	}
+	return ""
 }
 
 // ParamChange describes a single parameter modification.
@@ -1107,7 +1118,7 @@ var File_zerone_gov_v1_types_proto protoreflect.FileDescriptor
 
 const file_zerone_gov_v1_types_proto_rawDesc = "" +
 	"\n" +
-	"\x19zerone/gov/v1/types.proto\x12\rzerone.gov.v1\"\xc0\x04\n" +
+	"\x19zerone/gov/v1/types.proto\x12\rzerone.gov.v1\"\xe9\x04\n" +
 	"\x03LIP\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12 \n" +
@@ -1125,7 +1136,8 @@ const file_zerone_gov_v1_types_proto_rawDesc = "" +
 	"\x14review_started_block\x18\r \x01(\x04R\x12reviewStartedBlock\x125\n" +
 	"\x17last_call_started_block\x18\x0e \x01(\x04R\x14lastCallStartedBlock\x12(\n" +
 	"\x10voting_end_block\x18\x0f \x01(\x04R\x0evotingEndBlock\x12?\n" +
-	"\rparam_changes\x18\x10 \x03(\v2\x1a.zerone.gov.v1.ParamChangeR\fparamChanges\"M\n" +
+	"\rparam_changes\x18\x10 \x03(\v2\x1a.zerone.gov.v1.ParamChangeR\fparamChanges\x12'\n" +
+	"\x0fexecution_error\x18\x11 \x01(\tR\x0eexecutionError\"M\n" +
 	"\vParamChange\x12\x16\n" +
 	"\x06module\x18\x01 \x01(\tR\x06module\x12\x10\n" +
 	"\x03key\x18\x02 \x01(\tR\x03key\x12\x14\n" +

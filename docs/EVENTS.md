@@ -615,6 +615,13 @@ Governance parameter update.
 - `unique_voters` -- number of unique voters
 - `quorum_met` -- `"true"` or `"false"`
 
+### zerone.gov.lip_execution_failed
+*BeginBlock, accounting profile.* An approved LIP's immediate action failed;
+its cached target writes/events were discarded and the LIP is `failed`.
+- `lip_id` -- LIP identifier
+- `category` -- proposal category
+- `reason` -- closed, deterministic `execution_error` code
+
 ### zerone.gov.research_spend_submitted
 Research spend proposal submitted.
 - `proposal_id` -- proposal ID
@@ -2010,6 +2017,16 @@ Governance parameter update.
 *BeginBlock.* Unbonding matured and tokens returned.
 - `delegator` -- delegator address
 - `amount` -- returned amount
+- `unbonding_id` -- claimant record identifier (accounting profile)
+
+### zerone.staking.monetary_slash_not_applied
+*Accounting profile.* A legacy pooled monetary slash was refused; claims and
+custody are unchanged. SDK consensus slashing has its own policy and events.
+- `validator` -- requested validator address
+- `reason` -- caller's reason
+- `requested_destination` -- requested destination module
+- `actual_amount` -- `"0"`
+- `policy` -- `"explicit_task_escrow_required"`
 
 ### zerone.staking.validator_slashed
 Validator slashed.

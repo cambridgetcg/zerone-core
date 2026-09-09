@@ -59,6 +59,20 @@ func newFixture(t *testing.T) fixture {
 		t.Fatal(err)
 	}
 	appState["genutil"] = json.RawMessage(`{"gen_txs":[]}`)
+	// This synthetic fixture explicitly adopts current native accounting. The
+	// narrow fork compiler itself must never upgrade legacy accounting flags.
+	for _, name := range []string{"zerone_staking", "zerone_gov"} {
+		var moduleState map[string]json.RawMessage
+		if err := json.Unmarshal(appState[name], &moduleState); err != nil {
+			t.Fatal(err)
+		}
+		moduleState["accounting_safety_enabled"] = json.RawMessage(`true`)
+		appState[name], err = json.Marshal(moduleState)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	appState["accounting_authority"] = json.RawMessage(`{"schema":"zerone.accounting-authority/genesis-v1","origin":"native"}`)
 
 	oldPrivate := cmted25519.GenPrivKeyFromSecret([]byte("fork-genesis-old"))
 	newPrivate := cmted25519.GenPrivKeyFromSecret([]byte("fork-genesis-new"))

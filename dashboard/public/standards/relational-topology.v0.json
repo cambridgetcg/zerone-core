@@ -5,7 +5,7 @@
   "summary": "A non-authorizing projection of the accepted target topology and the legacy source conflicts it must retire: connection without capture, and understanding without collapse.",
   "status": {
     "artifact": "STATIC_CONSTITUTIONAL_PROJECTION",
-    "snapshotDate": "2026-08-11",
+    "snapshotDate": "2026-09-09",
     "describes": "ACCEPTED_TARGET_RELATIONAL_ARCHITECTURE_AND_SOURCE_CONFLICTS",
     "authoritative": false,
     "currentNetworkStateClaimed": false,
@@ -16,7 +16,7 @@
     {
       "id": "authoritative-state",
       "path": "docs/AUTHORITATIVE-STATE.md",
-      "sha256": "22d523ee25060957e2c93aba441542e35d767f28f0f0e5e86c800f5fd7ea82e9",
+      "sha256": "1ec84986d2e14b8f938e76d5187266c3e23a6881818d59bbba420ba663f5176a",
       "role": "NORMATIVE_TARGET_AUTHORITY"
     },
     {

@@ -413,6 +413,9 @@ type GenesisState struct {
 	NextSeatElectionNumber  uint64                       `protobuf:"varint,9,opt,name=next_seat_election_number,json=nextSeatElectionNumber,proto3" json:"next_seat_election_number,omitempty"`
 	CreedAmendmentPins      []*GenesisCreedAmendmentPin  `protobuf:"bytes,10,rep,name=creed_amendment_pins,json=creedAmendmentPins,proto3" json:"creed_amendment_pins,omitempty"`
 	EmergencyTransitionHold *EmergencyTransitionHold     `protobuf:"bytes,11,opt,name=emergency_transition_hold,json=emergencyTransitionHold,proto3" json:"emergency_transition_hold,omitempty"`
+	// Explicit native/continuation profile flag. App genesis activates only after
+	// all module initialization completes; false retains historical semantics.
+	AccountingSafetyEnabled bool `protobuf:"varint,12,opt,name=accounting_safety_enabled,json=accountingSafetyEnabled,proto3" json:"accounting_safety_enabled,omitempty"`
 	unknownFields           protoimpl.UnknownFields
 	sizeCache               protoimpl.SizeCache
 }
@@ -524,6 +527,13 @@ func (x *GenesisState) GetEmergencyTransitionHold() *EmergencyTransitionHold {
 	return nil
 }
 
+func (x *GenesisState) GetAccountingSafetyEnabled() bool {
+	if x != nil {
+		return x.AccountingSafetyEnabled
+	}
+	return false
+}
+
 var File_zerone_gov_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_gov_v1_genesis_proto_rawDesc = "" +
@@ -558,7 +568,7 @@ const file_zerone_gov_v1_genesis_proto_rawDesc = "" +
 	"\x12activated_at_block\x18\x02 \x01(\x04R\x10activatedAtBlock\x12,\n" +
 	"\x12latest_incident_id\x18\x03 \x01(\tR\x10latestIncidentId\x12%\n" +
 	"\x0eincident_count\x18\x04 \x01(\x04R\rincidentCount\x126\n" +
-	"\x17incident_lineage_sha256\x18\x05 \x01(\fR\x15incidentLineageSha256\"\xfd\x05\n" +
+	"\x17incident_lineage_sha256\x18\x05 \x01(\fR\x15incidentLineageSha256\"\xb9\x06\n" +
 	"\fGenesisState\x12-\n" +
 	"\x06params\x18\x01 \x01(\v2\x15.zerone.gov.v1.ParamsR\x06params\x12&\n" +
 	"\x04lips\x18\x02 \x03(\v2\x12.zerone.gov.v1.LIPR\x04lips\x12)\n" +
@@ -571,7 +581,8 @@ const file_zerone_gov_v1_genesis_proto_rawDesc = "" +
 	"\x19next_seat_election_number\x18\t \x01(\x04R\x16nextSeatElectionNumber\x12Y\n" +
 	"\x14creed_amendment_pins\x18\n" +
 	" \x03(\v2'.zerone.gov.v1.GenesisCreedAmendmentPinR\x12creedAmendmentPins\x12b\n" +
-	"\x19emergency_transition_hold\x18\v \x01(\v2&.zerone.gov.v1.EmergencyTransitionHoldR\x17emergencyTransitionHoldB,Z*github.com/zerone-chain/zerone/x/gov/typesb\x06proto3"
+	"\x19emergency_transition_hold\x18\v \x01(\v2&.zerone.gov.v1.EmergencyTransitionHoldR\x17emergencyTransitionHold\x12:\n" +
+	"\x19accounting_safety_enabled\x18\f \x01(\bR\x17accountingSafetyEnabledB,Z*github.com/zerone-chain/zerone/x/gov/typesb\x06proto3"
 
 var (
 	file_zerone_gov_v1_genesis_proto_rawDescOnce sync.Once

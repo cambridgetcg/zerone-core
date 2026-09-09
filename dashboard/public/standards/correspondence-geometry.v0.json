@@ -34,7 +34,7 @@
     {
       "id": "relational-topology",
       "path": "dashboard/public/standards/relational-topology.v0.json",
-      "sha256": "9786674730febfe47150f29adffa4e4f7bd98e2aff502c552fa5b9669d935711",
+      "sha256": "28c7d9717a4d63678096eff7f09d27cbe6ece13b44a7ecaf0b6920001f7fadf6",
       "role": "TYPED_RELATION_REFERENCE"
     },
     {
