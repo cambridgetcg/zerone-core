@@ -7,6 +7,25 @@ import { join } from "node:path";
 import { it } from "node:test";
 import { loadNodeGuideProfile } from "../node-guide-build";
 import { nodeGuidePage } from "../node-guide-page";
+import { buildNodeGuideProfile } from "../node-guide-profile";
+
+it("keeps public-network links on zerone.ai when the guide is hosted by an observer", () => {
+  const profile = buildNodeGuideProfile({ sourceCommit: "a1".repeat(20), helperSha256: "b2".repeat(32) });
+  const html = nodeGuidePage(profile);
+  const observerLocation = "https://observer.example.org/nodes/";
+  const hrefs = [...html.matchAll(/href="([^"]+)"/gu)].map((match) => match[1]!);
+  for (const fragment of ["wallet", "participate", "activity"]) {
+    const matches = hrefs.filter((href) => new URL(href, observerLocation).hash === `#${fragment}`);
+    assert.equal(matches.length, 1, `missing or duplicate public ${fragment} link`);
+    assert.equal(new URL(matches[0]!, observerLocation).href, `https://zerone.ai/#${fragment}`);
+  }
+  assert.ok(hrefs.includes("#local"), "local setup remains on the current guide");
+  assert.ok(hrefs.includes("/"), "site navigation remains on the current host");
+  for (const read of profile.live.reads) {
+    assert.ok(hrefs.includes(read.url));
+    assert.equal(new URL(read.url, observerLocation).origin, "https://zerone.ai");
+  }
+});
 
 it("publishes committed helper bytes and refuses missing or modified install instructions", () => {
   const root = mkdtempSync(join(tmpdir(), "zerone-node-guide-test-"));

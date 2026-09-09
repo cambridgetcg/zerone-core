@@ -186,6 +186,7 @@ export function buildNodeGuideProfile({
         },
       ],
       trust: "A custodial network with a disclosed sole-validator trust model. Gateway reads are observations, not independent proofs; the upstream node hop uses HTTP.",
+      clientGuidance: "For automated reads, send an honest application User-Agent, such as zerone-node-guide/1.0, and set a timeout. Some generic client signatures are blocked by the gateway. Treat non-200 responses as unavailable.",
       trustGuide: source("deploy/mainnet/TRUST.md"),
       replicaInstallation: {
         availability: "not-published",

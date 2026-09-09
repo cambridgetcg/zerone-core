@@ -66,6 +66,19 @@ compatible public replica package has not been published. Public records
 remain available through the website's selected
 [RPC status](https://zerone.ai/api/rpc/status) and dashboard reads.
 
+For automated public reads, send an honest application User-Agent and use a
+timeout. Some generic HTTP client signatures are blocked by the website
+gateway. A compatible example is:
+
+```sh
+curl --fail --max-time 10 --user-agent 'zerone-node-guide/1.0' https://zerone.ai/api/rpc/status
+```
+
+Handle HTTP errors as unavailable; do not retry a denied client signature
+unchanged. A successful response still requires checking the chain identity,
+block age and syncing state. It is a gateway observation, not an independent
+proof.
+
 The [current joining status](../deploy/mainnet/JOIN.md),
 [trust model](../deploy/mainnet/TRUST.md), [ledger census](reports/authenticated-ledger-census-2026-09-09.md)
 and [settlement history](reports/knowledge-settlement-history-2026-09-09.md)

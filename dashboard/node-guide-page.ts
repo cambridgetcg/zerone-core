@@ -4,8 +4,6 @@ const escape = (value: string): string => value.replace(/[&<>"']/gu, (character)
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 })[character]!);
 
-const siteHref = (url: string): string => escape(url.startsWith("https://zerone.ai/") ? url.slice("https://zerone.ai".length) : url);
-
 function commandBlock(id: string, command: string, label: string): string {
   return `<div class="command-block">
     <div class="command-bar"><span>Terminal</span><button type="button" class="copy-command" data-copy-target="${escape(id)}" aria-label="Copy ${escape(label)} command" hidden>Copy</button></div>
@@ -30,7 +28,7 @@ export function nodeGuidePage(profile: NodeGuideProfile): string {
   </li>`).join("");
   const participation = profile.participation.map((item) => `<article class="participation-card" id="participation-${escape(item.id)}">
     <h3>${escape(item.title)}</h3><p>${escape(item.action)}</p>
-    <a href="${siteHref(item.url)}">${item.id === "local-development" ? "Open the local setup" : item.id === "existing-account" ? "Open wallet tools" : item.id === "evidence-and-source" ? "Open source issues" : "Read the compact"}<span aria-hidden="true"> ↗</span></a>
+    <a href="${item.id === "local-development" ? "#local" : escape(item.url)}">${item.id === "local-development" ? "Open the local setup" : item.id === "existing-account" ? "Open wallet tools" : item.id === "evidence-and-source" ? "Open source issues" : "Read the compact"}<span aria-hidden="true"> ↗</span></a>
   </article>`).join("");
 
   return `<!doctype html>
@@ -87,7 +85,7 @@ export function nodeGuidePage(profile: NodeGuideProfile): string {
 
     <section class="guide-section" id="live" aria-labelledby="live-title">
       <div class="section-intro"><div><p class="eyebrow">02 · Public observations</p><h2 id="live-title">Read<br /><em>zerone-1.</em></h2></div><p>${escape(live.trust)}</p></div>
-      <div class="live-grid"><article class="live-reads"><p class="card-label">Available · no account</p><h3>Inspect public records</h3><p>Open a selected read endpoint, or use the dashboard. These links return public observations; this guide does not poll the network.</p><ul>${live.reads.map((read) => `<li><span class="http-method">${escape(read.method)}</span><a href="${escape(read.url)}"><code>${escape(read.url)}</code></a><p>${escape(read.check)}</p></li>`).join("")}</ul><a class="button button-outline" href="/#activity">Open the dashboard <span aria-hidden="true">↗</span></a></article>
+      <div class="live-grid"><article class="live-reads"><p class="card-label">Available · no account</p><h3>Inspect public records</h3><p>Open a selected read endpoint, or use the dashboard. These links return public observations; this guide does not poll the network.</p><ul>${live.reads.map((read) => `<li><span class="http-method">${escape(read.method)}</span><a href="${escape(read.url)}"><code>${escape(read.url)}</code></a><p>${escape(read.check)}</p></li>`).join("")}</ul><p>${escape(live.clientGuidance)}</p><a class="button button-outline" href="https://zerone.ai/#activity">Open the zerone.ai dashboard <span aria-hidden="true">↗</span></a></article>
       <article class="live-availability"><p class="card-label">Not currently available</p><h3>Install a live replica<br />or become a validator</h3><p>${escape(live.replicaInstallation.reason)}</p><p>New-account admission, starter funds, sponsored onboarding, and reward-claim onboarding remain paused.</p><div class="related-links"><a href="${escape(live.validatorJoining.guide)}">Current joining status ↗</a><a href="${escape(live.trustGuide)}">Trust model ↗</a></div></article></div>
       <p class="census-note">A dated ledger census records application height <strong>${escape(live.checkpoint.applicationHeight)}</strong> on ${escape(live.checkpoint.date)}. It is a historical checkpoint, not a claim of current freshness. <a href="${escape(live.checkpoint.report)}">Read the census ↗</a> · <a href="${escape(live.checkpoint.settlementHistory)}">Settlement history ↗</a></p>
     </section>

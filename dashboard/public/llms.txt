@@ -4,6 +4,8 @@
 
 This is a documentation index, not an agent protocol endpoint. Choose the network before following commands: the local sandbox creates local test funds; it does not join the existing zerone-1 network. Live account admission, starter funds and validator joining are not opened by these guides.
 
+For automated reads, identify your client with an honest application User-Agent and use a timeout. Some generic client signatures are blocked by the gateway. For example: `curl --fail --max-time 10 --user-agent 'zerone-node-guide/1.0' https://zerone.ai/nodes/guide.json`. Handle HTTP errors as unavailable; do not retry a denied client signature unchanged.
+
 ## Start
 
 - [Run a node](https://zerone.ai/nodes/): local setup, verification, stop and restart.
