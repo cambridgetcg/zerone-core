@@ -737,7 +737,7 @@ jobs:
               go mod download
               go mod verify
               go build -mod=readonly -trimpath -buildvcs=true \
-                -ldflags "-X github.com/cosmos/cosmos-sdk/version.Commit=$source_commit" \
+                -ldflags "-X github.com/cosmos/cosmos-sdk/version.Name=zerone -X github.com/cosmos/cosmos-sdk/version.AppName=zeroned -X github.com/cosmos/cosmos-sdk/version.Version=accounting-$source -X github.com/cosmos/cosmos-sdk/version.Commit=$source_commit" \
                 -o "$ACCOUNTING_REHEARSAL_BINARIES/$source" ./cmd/zeroned
               git diff --exit-code HEAD
             )
