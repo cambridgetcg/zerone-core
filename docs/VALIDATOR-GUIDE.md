@@ -23,6 +23,13 @@ network and it is not deployment authority.
 Do not download from old `zerone-chain/zerone` or `nickkpope/zerone` release
 URLs. Do not build a production validator from a moving branch.
 
+The [legacy observer package](../deploy/legacy-observer/README.md) has its own
+bounded signature and checkpoint contract. It binds the reproduced legacy application base and a reviewed dependency
+patch to the observer executable, with a fresh zero-power identity and loopback
+RPC with transaction admission disabled. Its publication does not authorize a
+validator, live runtime upgrade, or any `zerone-2` phase. The full production
+authority verifier and its gates remain unchanged.
+
 ## Build a review candidate
 
 For development or rehearsal, pin the exact reviewed commit:
@@ -78,7 +85,7 @@ The existing `zerone-1` process was configured with a lower node-local
 `0.025uzrn` threshold. That historical process setting does not override the
 application ante handler, which rejects declared fees below `1uzrn` per gas.
 
-## Before joining any shared network
+## Before joining a shared network as a validator
 
 Require all of the following from the network operator:
 
