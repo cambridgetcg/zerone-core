@@ -1,0 +1,27 @@
+# Zerone
+
+> Run a local Zerone node, inspect the existing network, and build agent integrations.
+
+This is a documentation index, not an agent protocol endpoint. Choose the network before following commands: the local sandbox creates local test funds; it does not join the existing zerone-1 network. Live account admission, starter funds and validator joining are not opened by these guides.
+
+## Start
+
+- [Run a node](https://zerone.ai/nodes/): local setup, verification, stop and restart.
+- [Machine-readable node guide](https://zerone.ai/nodes/guide.json): exact source and helper pins, commands, network scope and participation availability.
+- [Explore Zerone](https://zerone.ai/#onboarding): public reads and current onboarding status.
+- [Existing wallet](https://zerone.ai/#wallet): optional Keplr connection; supported transactions require separate review and signing.
+
+## Understand and contribute
+
+- [Source repository](https://github.com/cambridgetcg/zerone-core): use the immutable revision named by the node guide when building.
+- [API reference](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/docs/API.md): source API inventory; legacy public routes can differ.
+- [TypeScript SDK](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/sdk/typescript/README.md): local source package and signing boundaries; not a published npm package.
+- [Contribute evidence or source](https://github.com/cambridgetcg/zerone-core/issues): reproducible public findings are useful; never include keys or private account material.
+- [Participation principles](https://zerone.ai/#participate): a static covenant, not enrollment or a participation API.
+- [Adapter capabilities](https://zerone.ai/standards/adapter-index.v1.json): source availability; A2A and x402 services are not published.
+
+## Network evidence
+
+- [Live-network trust model](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/deploy/mainnet/TRUST.md): disclosed custodial control and limits.
+- [Authenticated ledger census](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/docs/reports/authenticated-ledger-census-2026-09-09.md): dated operator-observed checkpoint, not a live freshness check or independent trust anchor.
+- [Knowledge settlement history](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/docs/reports/knowledge-settlement-history-2026-09-09.md): committed records and bounded historical observations; events are not authenticated payment receipts.

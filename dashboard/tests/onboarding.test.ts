@@ -77,9 +77,12 @@ describe("production onboarding surface", () => {
     );
   });
 
-  it("offers one zero-account route, one existing-account route, and an honest pause", () => {
+  it("offers public reads, local node setup, an optional wallet, and an honest admission pause", () => {
     const text = visibleText(onboarding);
     assert.match(text, /Explore without joining/u);
+    assert.match(onboarding, /href="\/nodes\/"/u);
+    assert.match(text, /Run your own local node/u);
+    assert.match(text, /zerone-local-1/u);
     assert.match(text, /Completion: you reach the dashboard with zero credentials requested/u);
     assert.match(text, /Bring an existing account/u);
     assert.match(
@@ -155,10 +158,10 @@ describe("production onboarding surface", () => {
     );
   });
 
-  it("uses a three-to-one responsive layout with visible status tones", () => {
+  it("uses a two-to-one responsive layout with visible status tones", () => {
     assert.match(
       css,
-      /\.onboarding-choices\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\)/su,
+      /\.onboarding-choices\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/su,
     );
     assert.match(
       css,
@@ -266,7 +269,7 @@ describe("onboarding state model", () => {
         },
       }).wallet,
       {
-        label: "Existing account connected",
+        label: "Wallet connected",
         detail: "zrn1abcdef…qrstuv · balance: 12.5 ZRN.",
         tone: "ready",
       },

@@ -281,14 +281,26 @@ genesis, binary/image digests, peer identities, parameters, and phase
 authorization from the network operator. Source publication is not validator
 deployment authority.
 
-### Rehearse a local node
+### Run a local node
+
+The [node guide](https://zerone.ai/nodes/) publishes an exact source commit
+and helper checksum. Use its pinned checkout for the complete setup. With the
+source-built binary above, this starts a persistent, single-validator sandbox:
 
 ```bash
-export ZERONE_REHEARSAL_HOME=/tmp/zerone-rehearsal
-./build/zeroned init rehearsal \
-  --chain-id zerone-rehearsal-1 \
-  --home "$ZERONE_REHEARSAL_HOME"
+python3 scripts/local-node.py init --home "$HOME/zerone-local" --binary "$PWD/build/zeroned"
+python3 scripts/local-node.py start --home "$HOME/zerone-local"
+# In another terminal, from the same source checkout:
+python3 scripts/local-node.py status --home "$HOME/zerone-local"
 ```
+
+Requires Python 3.11+ on Linux or macOS. Initialization creates fresh test
+keys and funds for `zerone-local-1`, retains the binary in the chosen home,
+and refuses an existing home. RPC and P2P bind only to loopback on ports
+47657 and 47656; REST and gRPC are disabled. Ctrl-C stops the foreground node
+and preserves state. Run `start` again to resume. This sandbox does not join
+the existing `zerone-1` network. See [local node details](docs/LOCAL-NODE.md)
+for lifecycle, agent reads and troubleshooting.
 
 See the [Validator Guide](docs/VALIDATOR-GUIDE.md) for safe preparation and the
 [`zerone-2` GO/NO-GO checklist](deploy/networks/zerone-2/GO-NO-GO.md) for the

@@ -684,6 +684,15 @@ jobs:
         run: |
           mkdir -p "$TMPDIR"
           bash scripts/local-consensus-rehearsal.sh --keep
+      - name: Verify persistent local node setup and restart
+        env:
+          ZERONE_CONSENSUS_EVIDENCE: ${{ runner.temp }}/zerone-consensus-rehearsal-evidence
+        run: |
+          binaries=("$ZERONE_CONSENSUS_EVIDENCE"/zerone-consensus-rehearsal.*/bin/zeroned)
+          test "${#binaries[@]}" -eq 1
+          test -x "${binaries[0]}"
+          ZERONE_LOCAL_NODE_TEST_BINARY="${binaries[0]}" \
+            python3 -m unittest discover -s scripts -p 'test_local_node.py' -v
       - name: Retain consensus reports and logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

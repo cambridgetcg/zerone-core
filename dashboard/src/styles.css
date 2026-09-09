@@ -223,6 +223,15 @@
     gap: 0.75rem;
   }
 
+  .node-entry {
+    white-space: nowrap;
+  }
+
+  .button.button-primary.node-entry {
+    background: var(--acid);
+    color: var(--bg);
+  }
+
   .network-pill,
   .connected-badge {
     display: inline-flex;
@@ -787,7 +796,7 @@
 
   .onboarding-choices {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1px;
     margin: 1px 0 0;
     border: 1px solid var(--line);
@@ -809,6 +818,10 @@
   }
 
   .onboarding-choices > li[data-path="explore"] {
+    --onboarding-accent: var(--acid);
+  }
+
+  .onboarding-choices > li[data-path="local-node"] {
     --onboarding-accent: var(--acid);
   }
 
@@ -11559,7 +11572,7 @@
     }
 
     .onboarding-choices {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .reading-path-link {
@@ -11816,6 +11829,17 @@
 
     .topbar {
       min-height: 66px;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: 0.5rem;
+    }
+
+    .topbar-actions {
+      gap: 0.4rem;
+    }
+
+    .topbar-actions .button.compact {
+      padding-inline: 0.7rem;
+      letter-spacing: 0;
     }
 
     .brand {
@@ -12391,6 +12415,12 @@
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+    }
+  }
+
+  @media (max-width: 380px) {
+    .topbar .brand > span:last-child {
+      display: none;
     }
   }
 }
