@@ -27,4 +27,4 @@ authority-geometry-v1 dabbc613b779d19937f7485a88b8c14847e435da94495ccd39b19371c0
 authority-geometry-v1-manifest 38300605bc9ea1ec631b4f42cc8b83c9f3406f1921c7f0fc819153d9c90ba502  dashboard/public/standards/authority-geometry.v1.json
 legacy-asset-migration-policy 326a6e3adaa6b94f86a782892a7f49ef5a74dcaef7dea71d53acfe67acb157c3  docs/tokenomics/LEGACY-ASSET-MIGRATION.md
 legacy-snapshot-accounting-v0 b42ff33235f96b3633e66c07ad88ad6ba3ac9d8425edb02bbb6dfc457b58c035  docs/specs/legacy-snapshot-accounting-v0.md
-accounting-authority-v1 710b3eaeb39d07ee4eea8cb446fa43742a77e2b42f72fc6ff67867a00940e2ce  docs/specs/accounting-authority-v1.md
+accounting-authority-v1 4e226892862d6bafabb25af1cbb4fa268cbc7aa176f7988872b9cd9b705e269b  docs/specs/accounting-authority-v1.md
