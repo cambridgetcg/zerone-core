@@ -130,6 +130,14 @@ this explicit profile; it does not rewrite a copied database to resemble v1.
 - Source-matched release artifacts, custody and monitoring evidence, and the
   existing bounded operational gates.
 
+The repaired registration path also needs a newly reviewed transaction budget.
+The native dress rehearsal measured 235,561 gas for its one registration, above
+the frozen production bootstrap profile's 200,000 allowance. The local regression
+fixture uses 500,000 gas and fee; that sample is not a production upper bound.
+A target release must simulate its actual state and publish the reviewed budget
+in its signed transaction profile. The existing production bootstrap policy
+remains bound to its original release; this repair does not silently reprice it.
+
 Source tests and a new native localnet establish neither the old network's
 solvency nor permission to restart it with different consensus rules.
 
