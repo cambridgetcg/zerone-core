@@ -29,17 +29,17 @@ const bps uint64 = 1_000_000
 // TrainingValueWeightBreakdown exposes the component factors of TVW so
 // callers (query handlers, auditors, tests) can inspect the computation.
 type TrainingValueWeightBreakdown struct {
-	BaseWeight              uint64 // survived falsification + 1
-	MethodologyMultiplier   uint64 // BPS
-	VindicationMultiplier   uint64 // BPS (>= bps when vindicated, else bps)
-	SubmitterCalibration    uint64 // BPS snapshot at submission
-	AxiomProximity          uint64 // BPS (closer to axiom → higher)
-	HardeningMultiplier     uint64 // BPS — accelerating return on survived attacks
+	BaseWeight               uint64 // survived falsification + 1
+	MethodologyMultiplier    uint64 // BPS
+	VindicationMultiplier    uint64 // BPS (>= bps when vindicated, else bps)
+	SubmitterCalibration     uint64 // BPS snapshot at submission
+	AxiomProximity           uint64 // BPS (closer to axiom → higher)
+	HardeningMultiplier      uint64 // BPS — accelerating return on survived attacks
 	CounterexampleMultiplier uint64 // BPS — alignment-by-structure boost (commitment 15)
-	Disproven               bool
-	BlockedByIsOught        bool
-	StatusIneligible        bool   // true if fact status bars training-value accrual
-	Final                   uint64 // composed TVW
+	Disproven                bool
+	BlockedByIsOught         bool
+	StatusIneligible         bool   // true if fact status bars training-value accrual
+	Final                    uint64 // composed TVW
 }
 
 // Hardening parameters: each rate-limited corroboration bumps the
@@ -60,9 +60,10 @@ const (
 	hardeningMaxBps           uint64 = 3_000_000 // 3× cap
 )
 
-// ComputeTrainingValueWeight returns the composed Popper-weighted TVW for a
-// fact. Disproven facts and ids resolving to NormativeCommitments return
-// TVW=0 (is-ought wall). All factors are BPS-scaled; final is also BPS.
+// ComputeTrainingValueWeight retains the historical heuristic for inspection,
+// not measured credibility or payment eligibility. Policy-1 contribution
+// records do not materialize this value. Disproven facts and normative IDs
+// return zero; factors and final value use the historical BPS scale.
 func (k Keeper) ComputeTrainingValueWeight(ctx context.Context, factID string) TrainingValueWeightBreakdown {
 	var out TrainingValueWeightBreakdown
 
@@ -555,6 +556,9 @@ func (k Keeper) IterateTrainingFundDisbursements(ctx context.Context, cb func(*t
 // A minimum total-stake quorum ensures a lone stake-bearing voter can't
 // finalize alone.
 func (k Keeper) RecordAugmentationVote(ctx context.Context, augID, verifier string, vote types.AugmentationVerdict) (bool, types.AugmentationVerdict, error) {
+	if _, err := k.ReviewNeutralityEnabled(ctx); err != nil {
+		return false, types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING, err
+	}
 	aug, ok := k.GetAugmentation(ctx, augID)
 	if !ok {
 		return false, types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING, fmt.Errorf("augmentation %s not found", augID)
@@ -710,6 +714,10 @@ func (k Keeper) RecordAugmentationVote(ctx context.Context, augID, verifier stri
 // state, and — for passing verdicts — releases the escrow payout. Drift and
 // inferior verdicts archive but do not pay.
 func (k Keeper) ApplyFinalizedAugmentationVerdict(ctx context.Context, augID string, verdict types.AugmentationVerdict) error {
+	neutral, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil {
+		return err
+	}
 	aug, ok := k.GetAugmentation(ctx, augID)
 	if !ok {
 		return fmt.Errorf("augmentation %s not found", augID)
@@ -788,18 +796,18 @@ func (k Keeper) ApplyFinalizedAugmentationVerdict(ctx context.Context, augID str
 	// Without this hook the per-domain panel has no training signal —
 	// qualifications would be set-and-forget rather than earned by
 	// track record.
-	if k.domainQualificationKeeper != nil && aug.OriginalFactId != "" {
+	if !neutral && k.domainQualificationKeeper != nil && aug.OriginalFactId != "" {
 		if origFact, ok := k.GetFact(ctx, aug.OriginalFactId); ok && origFact != nil && origFact.Domain != "" {
 			for i, v := range aug.VerdictVoters {
 				if i >= len(aug.VerdictVotes) {
 					break
 				}
 				// `correct` = the voter agreed with the finalized verdict. The
-			// panel's own verdict is the standard — the chain grades against
-			// its own consensus, not an external truth (see
-			// RecordVerificationOutcome's honest-limit note). A coherence
-			// signal, not a truth signal.
-			correct := aug.VerdictVotes[i] == verdict
+				// panel's own verdict is the standard — the chain grades against
+				// its own consensus, not an external truth (see
+				// RecordVerificationOutcome's honest-limit note). A coherence
+				// signal, not a truth signal.
+				correct := aug.VerdictVotes[i] == verdict
 				if err := k.domainQualificationKeeper.RecordVerificationOutcome(ctx, v, origFact.Domain, correct); err != nil {
 					k.Logger(ctx).Debug("qualification outcome record failed",
 						"voter", v, "domain", origFact.Domain, "correct", correct, "err", err)

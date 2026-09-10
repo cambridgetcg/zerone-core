@@ -2280,6 +2280,10 @@ export interface ContributionRecord {
    * trail shows exactly what weights were assigned.
    */
   perFactCalibrationBps: bigint[];
+  /**
+   * 0 is the historical score projection; 1 records an owner declaration without valuation.
+   */
+  attributionPolicyVersion: number;
 }
 /**
  * AugmentationBounty is an open offer to produce variant formulations of a
@@ -2678,6 +2682,10 @@ export interface Claim {
    * Exact optional original-claim ID asserted by a provisional challenge.
    */
   challengedClaimId: string;
+  /**
+   * Immutable admission terms: 0 preserves predecessor economics; 1 records neutral review work.
+   */
+  reviewPolicyVersion: number;
 }
 /**
  * VerificationRound tracks one commit-reveal verification cycle.
@@ -2707,6 +2715,10 @@ export interface VerificationRound {
    */
   commitmentChainId: string;
   verifierRewardSettlement?: VerifierRewardSettlement;
+  /**
+   * Copied from the claim; independent of commitment framing and block height.
+   */
+  reviewPolicyVersion: number;
 }
 /**
  * ReviewAttestation records what the signer says they checked. It is not proof
@@ -5461,7 +5473,8 @@ function createBaseContributionRecord(): ContributionRecord {
     totalWeight: BigInt(0),
     computedTvw: BigInt(0),
     rejectedCommitmentCount: 0,
-    perFactCalibrationBps: []
+    perFactCalibrationBps: [],
+    attributionPolicyVersion: 0
   };
 }
 /**
@@ -5501,6 +5514,9 @@ export const ContributionRecord = {
       writer.uint64(v);
     }
     writer.ldelim();
+    if (message.attributionPolicyVersion !== 0) {
+      writer.uint32(72).uint32(message.attributionPolicyVersion);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): ContributionRecord {
@@ -5541,6 +5557,9 @@ export const ContributionRecord = {
             message.perFactCalibrationBps.push(reader.uint64());
           }
           break;
+        case 9:
+          message.attributionPolicyVersion = reader.uint32();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -5558,6 +5577,7 @@ export const ContributionRecord = {
     message.computedTvw = object.computedTvw !== undefined && object.computedTvw !== null ? BigInt(object.computedTvw.toString()) : BigInt(0);
     message.rejectedCommitmentCount = object.rejectedCommitmentCount ?? 0;
     message.perFactCalibrationBps = object.perFactCalibrationBps?.map(e => BigInt(e.toString())) || [];
+    message.attributionPolicyVersion = object.attributionPolicyVersion ?? 0;
     return message;
   }
 };
@@ -6609,7 +6629,8 @@ function createBaseClaim(): Claim {
     falsificationPredicate: "",
     evidenceIds: [],
     counterClaim: "",
-    challengedClaimId: ""
+    challengedClaimId: "",
+    reviewPolicyVersion: 0
   };
 }
 /**
@@ -6702,6 +6723,9 @@ export const Claim = {
     if (message.challengedClaimId !== "") {
       writer.uint32(218).string(message.challengedClaimId);
     }
+    if (message.reviewPolicyVersion !== 0) {
+      writer.uint32(224).uint32(message.reviewPolicyVersion);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): Claim {
@@ -6792,6 +6816,9 @@ export const Claim = {
         case 27:
           message.challengedClaimId = reader.string();
           break;
+        case 28:
+          message.reviewPolicyVersion = reader.uint32();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -6828,6 +6855,7 @@ export const Claim = {
     message.evidenceIds = object.evidenceIds?.map(e => e) || [];
     message.counterClaim = object.counterClaim ?? "";
     message.challengedClaimId = object.challengedClaimId ?? "";
+    message.reviewPolicyVersion = object.reviewPolicyVersion ?? 0;
     return message;
   }
 };
@@ -6847,7 +6875,8 @@ function createBaseVerificationRound(): VerificationRound {
     aggregationDeadline: BigInt(0),
     commitmentScheme: 0,
     commitmentChainId: "",
-    verifierRewardSettlement: undefined
+    verifierRewardSettlement: undefined,
+    reviewPolicyVersion: 0
   };
 }
 /**
@@ -6904,6 +6933,9 @@ export const VerificationRound = {
     if (message.verifierRewardSettlement !== undefined) {
       VerifierRewardSettlement.encode(message.verifierRewardSettlement, writer.uint32(122).fork()).ldelim();
     }
+    if (message.reviewPolicyVersion !== 0) {
+      writer.uint32(128).uint32(message.reviewPolicyVersion);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): VerificationRound {
@@ -6958,6 +6990,9 @@ export const VerificationRound = {
         case 15:
           message.verifierRewardSettlement = VerifierRewardSettlement.decode(reader, reader.uint32());
           break;
+        case 16:
+          message.reviewPolicyVersion = reader.uint32();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -6982,6 +7017,7 @@ export const VerificationRound = {
     message.commitmentScheme = object.commitmentScheme ?? 0;
     message.commitmentChainId = object.commitmentChainId ?? "";
     message.verifierRewardSettlement = object.verifierRewardSettlement !== undefined && object.verifierRewardSettlement !== null ? VerifierRewardSettlement.fromPartial(object.verifierRewardSettlement) : undefined;
+    message.reviewPolicyVersion = object.reviewPolicyVersion ?? 0;
     return message;
   }
 };

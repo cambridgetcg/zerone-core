@@ -133,6 +133,9 @@ func decodeFact(value []byte) (*types.Fact, error) {
 }
 
 func decodeClaim(value []byte) (*types.Claim, error) {
+	if err := types.ValidateRawPolicyField(value, types.ClaimReviewPolicyField); err != nil {
+		return nil, status.Errorf(codes.Internal, "stored claim policy is malformed: %v", err)
+	}
 	var claim types.Claim
 	if err := proto.Unmarshal(value, &claim); err != nil {
 		return nil, status.Errorf(codes.Internal, "stored claim is malformed: %v", err)
@@ -2202,7 +2205,10 @@ func (q *queryServer) ModelContributions(ctx context.Context, req *types.QueryMo
 	if req == nil || req.ModelId == "" {
 		return nil, status.Error(codes.InvalidArgument, "model_id is required")
 	}
-	r, found := q.keeper.GetContributionRecord(ctx, req.ModelId)
+	r, found, err := q.keeper.GetContributionRecordChecked(ctx, req.ModelId)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "read contribution record: %v", err)
+	}
 	return &types.QueryModelContributionsResponse{Record: r, Found: found}, nil
 }
 

@@ -195,13 +195,16 @@ func (k Keeper) PruneExpiredVindications(ctx context.Context, currentHeight, win
 // when a challenge claim is accepted. Triggers vindication for the original
 // fact's minority voters who were slashed during its verification round.
 func (k Keeper) handleChallengeDisproven(ctx context.Context, challengeClaim *types.Claim, newFactId string) error {
+	policy, err := k.ClaimReviewPolicyVersion(ctx, challengeClaim)
+	if err != nil {
+		return err
+	}
 	enabled, err := k.RecordIntegrityEnabled(ctx)
 	if err != nil {
 		return err
 	}
 	if !enabled {
-		k.legacyHandleChallengeDisproven(ctx, challengeClaim, newFactId)
-		return nil
+		return k.legacyHandleChallengeDisproven(ctx, challengeClaim, newFactId)
 	}
 	cached, write := sdk.UnwrapSDKContext(ctx).CacheContext()
 	ctx = cached
@@ -267,10 +270,16 @@ func (k Keeper) handleChallengeDisproven(ctx context.Context, challengeClaim *ty
 	// here lands on a denominator the proposer never contributed to. That is
 	// COMPASSION C2 (error is not deceit) exactly inverted. The challenger is
 	// credited either way: they did the work.
-	if !IsConjecture(originalFact) {
-		k.RecordDisprovalForSubmitter(ctx, originalFact.Submitter, originalFact.MethodId)
+	if policy == 0 {
+		if !IsConjecture(originalFact) {
+			if err := k.RecordDisprovalForSubmitter(ctx, originalFact.Submitter, originalFact.MethodId); err != nil {
+				return err
+			}
+		}
+		if err := k.RecordChallengeOutcome(ctx, challengeClaim.Submitter, true); err != nil {
+			return err
+		}
 	}
-	k.RecordChallengeOutcome(ctx, challengeClaim.Submitter, true)
 
 	// Falsification cascade (ToK Wave 5): mark direct descendants as CONTESTED
 	// so they'll be re-examined rather than continuing to pose as validated.
@@ -282,24 +291,26 @@ func (k Keeper) handleChallengeDisproven(ctx context.Context, challengeClaim *ty
 	}
 
 	// Trigger vindication for the ORIGINAL fact's minority voters
-	k.ExecuteVindication(ctx, originalFact.Id, newFactId)
+	if err := k.ExecuteVindication(ctx, originalFact.Id, newFactId); err != nil {
+		return err
+	}
 	write()
 	return nil
 }
 
-func (k Keeper) legacyHandleChallengeDisproven(ctx context.Context, challengeClaim *types.Claim, newFactId string) {
+func (k Keeper) legacyHandleChallengeDisproven(ctx context.Context, challengeClaim *types.Claim, newFactId string) error {
 	if challengeClaim.ProvisionalFactId == "" {
-		return
+		return nil
 	}
 
 	originalFact, found := k.GetFact(ctx, challengeClaim.ProvisionalFactId)
 	if !found {
-		return
+		return nil
 	}
 
 	// Contradiction check: same domain + explicit challenge link
 	if originalFact.Domain != challengeClaim.Domain {
-		return
+		return nil
 	}
 
 	// Transition to DISPROVEN
@@ -336,9 +347,13 @@ func (k Keeper) legacyHandleChallengeDisproven(ctx context.Context, challengeCla
 	// COMPASSION C2 (error is not deceit) exactly inverted. The challenger is
 	// credited either way: they did the work.
 	if !IsConjecture(originalFact) {
-		k.RecordDisprovalForSubmitter(ctx, originalFact.Submitter, originalFact.MethodId)
+		if err := k.RecordDisprovalForSubmitter(ctx, originalFact.Submitter, originalFact.MethodId); err != nil {
+			return err
+		}
 	}
-	k.RecordChallengeOutcome(ctx, challengeClaim.Submitter, true)
+	if err := k.RecordChallengeOutcome(ctx, challengeClaim.Submitter, true); err != nil {
+		return err
+	}
 
 	// Falsification cascade (ToK Wave 5): mark direct descendants as CONTESTED
 	// so they'll be re-examined rather than continuing to pose as validated.
@@ -348,7 +363,10 @@ func (k Keeper) legacyHandleChallengeDisproven(ctx context.Context, challengeCla
 	k.cascadeFalsification(ctx, originalFact.Id, challengeClaim.Id)
 
 	// Trigger vindication for the ORIGINAL fact's minority voters
-	k.ExecuteVindication(ctx, originalFact.Id, newFactId)
+	if err := k.ExecuteVindication(ctx, originalFact.Id, newFactId); err != nil {
+		return err
+	}
+	return nil
 }
 
 // cascadeFalsification marks every fact that directly supports its reasoning
@@ -449,10 +467,10 @@ func (k Keeper) cascadeFalsification(ctx context.Context, disprovenFactId, chall
 // ExecuteVindication refunds minority voters from escrow, slashes the majority,
 // distributes a bonus from the majority slash pool, and records immutable
 // vindication records. Called when a fact is disproven via challenge.
-func (k Keeper) ExecuteVindication(ctx context.Context, factId, disprovenBy string) {
+func (k Keeper) ExecuteVindication(ctx context.Context, factId, disprovenBy string) error {
 	pending := k.GetVindicationPending(ctx, factId)
 	if len(pending) == 0 {
-		return
+		return nil
 	}
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
@@ -463,7 +481,7 @@ func (k Keeper) ExecuteVindication(ctx context.Context, factId, disprovenBy stri
 	roundId := pending[0].RoundId
 	round, found := k.GetVerificationRound(ctx, roundId)
 	if !found {
-		return
+		return nil
 	}
 
 	// Build minority set
@@ -568,7 +586,9 @@ func (k Keeper) ExecuteVindication(ctx context.Context, factId, disprovenBy stri
 	k.DeleteVindicationPending(ctx, factId)
 
 	// Record role impact — the majority was wrong (R29-3)
-	k.RecordVindicationRoleImpact(ctx, round, k.getDomainForFact(ctx, factId))
+	if err := k.RecordVindicationRoleImpact(ctx, round, k.getDomainForFact(ctx, factId)); err != nil {
+		return err
+	}
 
 	// Emit summary event
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
@@ -579,6 +599,7 @@ func (k Keeper) ExecuteVindication(ctx context.Context, factId, disprovenBy stri
 		sdk.NewAttribute("majority_slashed", totalMajoritySlash.String()),
 		sdk.NewAttribute("bonus_pool", bonusPool.String()),
 	))
+	return nil
 }
 
 func (k Keeper) cascadeFalsificationChecked(ctx context.Context, disprovenFactId, challengeClaimId string) error {

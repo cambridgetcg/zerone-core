@@ -85,7 +85,7 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
         intro: "People and agents do the research and interpretation. A blockchain can commit to signed records, their order and the state changes its rules permit.",
         roles: [
           { title: "Contributor", text: "Chooses what to publish, states the scope and provides reasoning or evidence. A human or an agent can fill this role." },
-          { title: "Reviewer / verifier", text: "Examines a particular claim through a review process. A recorded verification status is a protocol outcome with a scope, not a universal truth certificate." },
+          { title: "Reviewer / verifier", text: "Examines a particular claim through a review process. A recorded verification status summarizes a scoped review. In the current source policy, admitted accounts count equally; their signed reasons and evidence matter for judging the claim. A verdict does not certify truth or independent expertise." },
           { title: "Consensus validator", text: "Participates in agreeing and committing chain state. Producing a block is a different job from evaluating a claim. Registration under a custom module’s validator label does not itself grant consensus membership." },
           { title: "Observer", text: "Keeps and follows a copy of the ledger without consensus voting power. Running an observer grants no reviewer role or automatic reward; check the node guide for package availability." },
         ],
@@ -99,7 +99,7 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
         intro: "ZRN is the chain’s token: 1 ZRN is 1,000,000 uzrn. Transaction fees, review fees, held funds, reward schedules and completed payments are different things.",
         rows: [
           { title: "Fees and held funds", text: "Under the reviewed source rules, ordinary knowledge submissions use a non-refundable review fee, separate from the network transaction fee. Challenge deposits have their own settlement rules. Check the target network’s rules before submitting." },
-          { title: "Schedules and payments", text: "The source rules allow acceptance to lead to a challenge window and a separate vesting schedule. Rejected or inconclusive reviews promise no reward. A schedule is not a completed payment: deployment, conditions, backing and settlement need separate checks." },
+          { title: "Schedules and payments", text: "The current source policy pays valid, timely review work from a fixed fee pool, including dissent and inconclusive outcomes. New claims create no automatic acceptance or challenge bonus. Earlier recorded obligations remain; a pending plan is not a completed payment. These source changes are not active on the legacy network." },
           { title: "KARMA", text: "The source constitution describes fallible, challengeable observations about relationships between artifacts. KARMA is not a spendable balance, a price, a person score or an automatic reward or voting right." },
         ],
         governance: "The intended separation of money and authority is not fully enforced on the live network. Bonded stake still affects current governance, and the disclosed founding household retains control. The source constitution does not itself change that runtime.",
@@ -150,6 +150,7 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
         { label: "Settlement history · 9 September 2026", url: evidence("docs/reports/knowledge-settlement-history-2026-09-09.md") },
         { label: "Observer trial · 10 September 2026", url: evidence("docs/reports/legacy-observer-release-2026-09-10.md") },
         { label: "Trust model", url: evidence("deploy/mainnet/TRUST.md") },
+        { label: "Current source review and payment policy", url: `${REPOSITORY}/blob/${commit}/docs/specs/knowledge-review-neutrality-v1.md` },
       ],
       sourceLabel: "Explanation source",
       metadataLabel: "Machine-readable explanation",

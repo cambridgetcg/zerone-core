@@ -171,6 +171,27 @@ func ValidateVerificationRoundRecord(round *VerificationRound, recordIntegrityEn
 	if round.Phase < VerificationPhase_VERIFICATION_PHASE_COMMIT || round.Phase > VerificationPhase_VERIFICATION_PHASE_EXPIRED {
 		return fmt.Errorf("invalid verification round phase")
 	}
+	if err := ValidateReviewPolicyVersion(round.ReviewPolicyVersion, true); err != nil {
+		return err
+	}
+	if round.ReviewPolicyVersion == ReviewPolicyNeutral && (!recordIntegrityEnabled || round.CommitmentScheme != CommitmentSchemeReviewV2) {
+		return fmt.Errorf("neutral review requires authenticated record-integrity round")
+	}
+	if round.ReviewPolicyVersion == ReviewPolicyNeutral {
+		if round.CommitDeadline <= round.StartedAtBlock || round.RevealDeadline <= round.CommitDeadline || round.AggregationDeadline <= round.RevealDeadline {
+			return fmt.Errorf("neutral round requires ordered review deadlines")
+		}
+		for _, commit := range round.Commits {
+			if commit == nil || commit.CommittedAtBlock < round.StartedAtBlock || commit.CommittedAtBlock >= round.CommitDeadline {
+				return fmt.Errorf("neutral round commitment outside commit window")
+			}
+		}
+		for _, reveal := range round.Reveals {
+			if reveal == nil || reveal.RevealedAtBlock < round.CommitDeadline || reveal.RevealedAtBlock >= round.RevealDeadline {
+				return fmt.Errorf("neutral round reveal outside reveal window")
+			}
+		}
+	}
 	switch round.CommitmentScheme {
 	case CommitmentSchemeLegacy:
 		if round.CommitmentChainId != "" {

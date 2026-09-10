@@ -3,7 +3,7 @@
 export const AUTHORITY_GEOMETRY_ENDPOINT =
   "/standards/authority-geometry.v1.json";
 export const AUTHORITY_GEOMETRY_SHA256 =
-  "4e4c7359ce07c80bd2c6cd1adc854e3b463b820db57f3d5be6db3e6f6c0c662b";
+  "927f2436ff598928874514245bd612450a403efd49f30358b8f3f49ef265ff03";
 export const AUTHORITY_GEOMETRY_MAX_BYTES = 65_536;
 export const AUTHORITY_GEOMETRY_TIMEOUT_MS = 8_000;
 
@@ -420,7 +420,7 @@ export interface AuthorityGeometryReleaseAssessmentRecord {
 
 export interface AuthorityGeometry {
   schema: "zerone.authority-geometry/v1";
-  revision: "1.0.3";
+  revision: "1.0.4";
   snapshotDate: string;
   status: "SOURCE_OBSERVATORY_ONLY";
   title: string;
@@ -1265,7 +1265,7 @@ export function parseAuthorityGeometry(value: unknown): AuthorityGeometry {
   const root = asObject(value, "$");
   exactKeys(root, TOP_LEVEL_KEYS, "$");
   requireLiteral(root.schema, "zerone.authority-geometry/v1", "$.schema");
-  requireLiteral(root.revision, "1.0.3", "$.revision");
+  requireLiteral(root.revision, "1.0.4", "$.revision");
   requireLiteral(root.status, "SOURCE_OBSERVATORY_ONLY", "$.status");
 
   const sourceDesignSource = asObject(root.sourceDesign, "$.sourceDesign");
@@ -1511,7 +1511,7 @@ export function parseAuthorityGeometry(value: unknown): AuthorityGeometry {
 
   const geometry: AuthorityGeometry = {
     schema: "zerone.authority-geometry/v1",
-    revision: "1.0.3",
+    revision: "1.0.4",
     snapshotDate: asIsoDate(root.snapshotDate, "$.snapshotDate"),
     status: "SOURCE_OBSERVATORY_ONLY",
     title: asString(root.title, "$.title", 128),

@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -16,7 +17,7 @@ type DomainStats struct {
 	ActiveCount           uint64 `json:"active_count"`
 	AtRiskCount           uint64 `json:"at_risk_count"`
 	TotalEnergy           uint64 `json:"total_energy"`
-	LastUpdated           uint64 `json:"last_updated"`            // block height
+	LastUpdated           uint64 `json:"last_updated"`           // block height
 	MentorshipGraduations uint64 `json:"mentorship_graduations"` // R31-5: Water → Wood
 }
 
@@ -279,6 +280,39 @@ func (k Keeper) ApplyBirthPressure(ctx context.Context, domain string, baseEnerg
 		BPSCapacity,
 	)
 	return baseEnergy + bonus
+}
+
+// applyNeutralReviewBirthPressure preserves the ordinary population, citation,
+// capacity and stratum rules while excluding agreement-derived capture scores
+// from the birth energy of a new-policy fact. This scoped keeper value shares
+// the same stores; it does not change the application's dependency wiring.
+func (k Keeper) applyNeutralReviewBirthPressure(ctx context.Context, domain string, baseEnergy uint64) (uint64, error) {
+	store := k.storeService.OpenKVStore(ctx)
+	paramsBytes, err := store.Get(types.ParamsKey)
+	if err != nil {
+		return 0, err
+	}
+	if paramsBytes != nil {
+		var params types.Params
+		if err := proto.Unmarshal(paramsBytes, &params); err != nil {
+			return 0, fmt.Errorf("decode birth-pressure parameters: %w", err)
+		}
+	}
+	statsBytes, err := store.Get(types.DomainStatsKey(domain))
+	if err != nil {
+		return 0, err
+	}
+	if statsBytes != nil {
+		var stats DomainStats
+		if err := json.Unmarshal(statsBytes, &stats); err != nil {
+			return 0, fmt.Errorf("decode domain population: %w", err)
+		}
+		if stats.Domain != domain {
+			return 0, fmt.Errorf("domain population identity mismatch")
+		}
+	}
+	k.captureDefenseKeeper = nil
+	return k.ApplyBirthPressure(ctx, domain, baseEnergy), nil
 }
 
 // PressureCategory returns a human-readable category for the pressure level.

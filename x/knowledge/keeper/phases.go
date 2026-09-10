@@ -82,7 +82,9 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		})
 		// 10. Decay domain role elasticity records (R29-3)
 		if params.RoleElasticityDecayEpochs > 0 && epoch%params.RoleElasticityDecayEpochs == 0 {
-			k.DecayRoleRecords(ctx)
+			if err := k.DecayRoleRecords(ctx); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -99,14 +101,18 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 	// (facts read), resuming from a persisted cursor. The batch size alone
 	// did NOT bound this — see InviteIdleFactsForProbing.
 	if params.ProbeInvitationIdleThresholdBlocks > 0 {
-		k.InviteIdleFactsForProbing(ctx, height, params)
+		if err := k.InviteIdleFactsForProbing(ctx, height, params); err != nil {
+			return err
+		}
 	}
 
 	// Wave 15: probe bounty pool mint. Per-block issuance into the pool
 	// that funds successful-probe bonuses, capped at ProbeBountyMaxPoolSize
 	// so minting throttles naturally.
 	if params.ProbeBountyMintPerBlock != "" && params.ProbeBountyMintPerBlock != "0" {
-		k.MintToProbeBountyPool(ctx, params)
+		if err := k.MintToProbeBountyPool(ctx, params); err != nil {
+			return err
+		}
 	}
 
 	// Wave 16: materialize pending fact injections whose guardian-veto
@@ -136,9 +142,20 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 	})
 
 	for _, round := range roundsToProcess {
+		policy, err := k.reviewPolicyForRound(ctx, round)
+		if err != nil {
+			return err
+		}
 		expectedPhase := GetExpectedPhase(round, height, params)
 
 		if expectedPhase == round.Phase {
+			if policy == types.ReviewPolicyNeutral && round.Phase == types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION {
+				// A failed atomic completion remains in AGGREGATION. Retrying
+				// cannot wait for a phase transition that already happened.
+				if err := k.performAggregation(ctx, round); err != nil {
+					k.Logger(ctx).Error("review aggregation remains pending", "round_id", round.Id, "error", err)
+				}
+			}
 			continue // no transition needed
 		}
 
@@ -188,6 +205,15 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 			}
 
 		case types.VerificationPhase_VERIFICATION_PHASE_EXPIRED:
+			if policy == types.ReviewPolicyNeutral {
+				// Missing quorum is an inconclusive scientific outcome, not
+				// grounds to erase valid reviews. The ordinary atomic completion
+				// freezes their fee-pool payments; zero reveals accrue nothing.
+				if err := k.performAggregation(ctx, round); err != nil {
+					k.Logger(ctx).Error("review deadline settlement remains pending", "round_id", round.Id, "error", err)
+				}
+				continue
+			}
 			// Round has expired — check if we can still aggregate
 			if uint64(len(round.Reveals)) >= params.MinVerifiers {
 				// Enough reveals — aggregate
@@ -225,7 +251,9 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 					//     create or change truth-calibration standing merely because
 					//     the chain failed to seat a panel.
 					if claim.ClaimType != types.ClaimType_CLAIM_TYPE_CONJECTURE {
-						k.RecordSubmissionOutcome(ctx, claim.Submitter, ResolveMethodId(claim.MethodId), types.Verdict_VERDICT_INCONCLUSIVE)
+						if err := k.RecordSubmissionOutcome(ctx, claim.Submitter, ResolveMethodId(claim.MethodId), types.Verdict_VERDICT_INCONCLUSIVE); err != nil {
+							return err
+						}
 					}
 					// (2) Attack fix: a starved CONTRADICTS claim must not leave
 					//     its target fact locked CONTESTED forever (0.1-ZRN grief).
@@ -233,7 +261,9 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 					// (3) Attack fix: a starved CHALLENGE must not leave its
 					//     target fact locked CHALLENGED forever — restore it with
 					//     no survival credit, since no panel actually judged it.
-					k.restoreChallengedFactOnInconclusive(ctx, claim)
+					if err := k.restoreChallengedFactOnInconclusive(ctx, claim, round.Id); err != nil {
+						return err
+					}
 					// K-alpha: this is the one terminal close outside
 					// CompleteRound — and the default fate of any claim that
 					// cannot attract MinVerifiers reveals, i.e. the most
@@ -266,6 +296,9 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 // aggregation quorum on the same block, so a panel cannot pick which
 // threshold snapshot applies by timing its reveals.
 func (k Keeper) effectiveMinVerifiersForRound(ctx context.Context, round *types.VerificationRound, params *types.Params) uint64 {
+	if round.ReviewPolicyVersion == types.ReviewPolicyNeutral {
+		return params.MinVerifiers
+	}
 	if claim, found := k.GetClaim(ctx, round.ClaimId); found && claim.Domain != "" {
 		return uint64(k.GetEffectiveMinVerifiers(ctx, claim.Domain))
 	}

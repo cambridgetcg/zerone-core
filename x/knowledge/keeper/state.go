@@ -176,7 +176,30 @@ func (k Keeper) IterateFactsBySubmitter(ctx context.Context, submitter string, c
 // ─── Claim CRUD ──────────────────────────────────────────────────────────────
 
 func (k Keeper) SetClaim(ctx context.Context, claim *types.Claim) error {
+	if _, err := k.ClaimReviewPolicyVersion(ctx, claim); err != nil {
+		return err
+	}
+	if hasUnknownRecordFields(claim.ProtoReflect()) {
+		return fmt.Errorf("unsupported claim fields")
+	}
 	store := k.storeService.OpenKVStore(ctx)
+	previousBytes, err := store.Get(types.ClaimKey(claim.Id))
+	if err != nil {
+		return fmt.Errorf("read prior claim: %w", err)
+	}
+	if previousBytes != nil {
+		if err := types.ValidateRawPolicyField(previousBytes, types.ClaimReviewPolicyField); err != nil {
+			return err
+		}
+		var previous types.Claim
+		if err := proto.Unmarshal(previousBytes, &previous); err != nil {
+			return fmt.Errorf("decode prior claim: %w", err)
+		}
+		if previous.Id != claim.Id || previous.ReviewPolicyVersion != claim.ReviewPolicyVersion {
+			return fmt.Errorf("claim identity and review policy are immutable")
+		}
+	}
+
 	bz, err := marshalOpts.Marshal(claim)
 	if err != nil {
 		return fmt.Errorf("failed to marshal claim: %w", err)
@@ -201,6 +224,9 @@ func (k Keeper) GetClaim(ctx context.Context, id string) (*types.Claim, bool) {
 	if err != nil || bz == nil {
 		return nil, false
 	}
+	if err := types.ValidateRawPolicyField(bz, types.ClaimReviewPolicyField); err != nil {
+		return nil, false
+	}
 	var claim types.Claim
 	if err := proto.Unmarshal(bz, &claim); err != nil {
 		return nil, false
@@ -221,6 +247,9 @@ func (k Keeper) IterateClaims(ctx context.Context, cb func(claim *types.Claim) b
 	}
 	defer iter.Close()
 	for ; iter.Valid(); iter.Next() {
+		if err := types.ValidateRawPolicyField(iter.Value(), types.ClaimReviewPolicyField); err != nil {
+			continue
+		}
 		var claim types.Claim
 		if err := proto.Unmarshal(iter.Value(), &claim); err != nil {
 			continue
@@ -244,6 +273,34 @@ func (k Keeper) GetClaimByContentHash(ctx context.Context, hash string) (string,
 // ─── VerificationRound CRUD ─────────────────────────────────────────────────
 
 func (k Keeper) SetVerificationRound(ctx context.Context, round *types.VerificationRound) error {
+	if round == nil {
+		return fmt.Errorf("missing verification round")
+	}
+	neutral, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if err := types.ValidateReviewPolicyVersion(round.ReviewPolicyVersion, neutral); err != nil {
+		return err
+	}
+	claimBytes, err := k.storeService.OpenKVStore(ctx).Get(types.ClaimKey(round.ClaimId))
+	if err != nil {
+		return err
+	}
+	if claimBytes != nil {
+		if err := types.ValidateRawPolicyField(claimBytes, types.ClaimReviewPolicyField); err != nil {
+			return err
+		}
+		var claim types.Claim
+		if err := proto.Unmarshal(claimBytes, &claim); err != nil {
+			return err
+		}
+		if claim.Id != round.ClaimId || claim.ReviewPolicyVersion != round.ReviewPolicyVersion {
+			return fmt.Errorf("round claim review policy mismatch")
+		}
+	} else if round.ReviewPolicyVersion == types.ReviewPolicyNeutral {
+		return fmt.Errorf("neutral round requires recorded claim")
+	}
 	enabled, err := k.RecordIntegrityEnabled(ctx)
 	if err != nil {
 		return err
@@ -269,6 +326,9 @@ func (k Keeper) SetVerificationRound(ctx context.Context, round *types.Verificat
 	}
 	var previous *types.VerificationRound
 	if previousBytes != nil {
+		if err := types.ValidateRawPolicyField(previousBytes, types.RoundReviewPolicyField); err != nil {
+			return err
+		}
 		previous = new(types.VerificationRound)
 		if err := proto.Unmarshal(previousBytes, previous); err != nil {
 			return fmt.Errorf("decode prior round: %w", err)
@@ -276,8 +336,11 @@ func (k Keeper) SetVerificationRound(ctx context.Context, round *types.Verificat
 		if err := types.ValidateVerificationRoundRecord(previous, true); err != nil {
 			return err
 		}
-		if previous.Id != round.Id || previous.ClaimId != round.ClaimId || previous.CommitmentScheme != round.CommitmentScheme || previous.CommitmentChainId != round.CommitmentChainId {
+		if previous.Id != round.Id || previous.ClaimId != round.ClaimId || previous.CommitmentScheme != round.CommitmentScheme || previous.CommitmentChainId != round.CommitmentChainId || previous.ReviewPolicyVersion != round.ReviewPolicyVersion {
 			return fmt.Errorf("round identity, claim and commitment scheme are immutable")
+		}
+		if round.ReviewPolicyVersion == types.ReviewPolicyNeutral && (previous.StartedAtBlock != round.StartedAtBlock || previous.CommitDeadline != round.CommitDeadline || previous.RevealDeadline != round.RevealDeadline || previous.AggregationDeadline != round.AggregationDeadline) {
+			return fmt.Errorf("neutral review timing is immutable")
 		}
 		if round.CommitmentScheme == types.CommitmentSchemeReviewV2 {
 			if len(round.Commits) < len(previous.Commits) || len(round.Reveals) < len(previous.Reveals) || len(round.SelectedVerifiers) < len(previous.SelectedVerifiers) {
@@ -369,6 +432,9 @@ func (k Keeper) GetVerificationRound(ctx context.Context, id string) (*types.Ver
 	store := k.storeService.OpenKVStore(ctx)
 	bz, err := store.Get(types.RoundKey(id))
 	if err != nil || bz == nil {
+		return nil, false
+	}
+	if err := types.ValidateRawPolicyField(bz, types.RoundReviewPolicyField); err != nil {
 		return nil, false
 	}
 	var round types.VerificationRound

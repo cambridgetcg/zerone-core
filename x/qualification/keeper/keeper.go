@@ -21,10 +21,11 @@ type Keeper struct {
 	cdc          codec.BinaryCodec
 	authority    string
 
-	bankKeeper           types.BankKeeper
-	stakingKeeper        types.StakingKeeper
-	captureDefenseKeeper types.CaptureDefenseKeeper // nil-safe, set post-init
-	ontologyKeeper       types.OntologyKeeper       // nil-safe, set post-init
+	bankKeeper             types.BankKeeper
+	stakingKeeper          types.StakingKeeper
+	captureDefenseKeeper   types.CaptureDefenseKeeper // nil-safe, set post-init
+	ontologyKeeper         types.OntologyKeeper       // nil-safe, set post-init
+	reviewNeutralityPolicy func(context.Context) (bool, error)
 }
 
 // NewKeeper creates a new qualification module Keeper.
@@ -63,6 +64,20 @@ func (k *Keeper) SetCaptureDefenseKeeper(cdk types.CaptureDefenseKeeper) {
 // SetOntologyKeeper sets the ontology keeper post-initialization.
 func (k *Keeper) SetOntologyKeeper(ok types.OntologyKeeper) {
 	k.ontologyKeeper = ok
+}
+
+// SetReviewNeutralityPolicy connects the owning knowledge policy before the
+// keeper is copied into adapters. An absent callback preserves standalone
+// legacy fixtures; an installed callback's errors must never select legacy rules.
+func (k *Keeper) SetReviewNeutralityPolicy(policy func(context.Context) (bool, error)) {
+	k.reviewNeutralityPolicy = policy
+}
+
+func (k Keeper) reviewNeutralityEnabled(ctx context.Context) (bool, error) {
+	if k.reviewNeutralityPolicy == nil {
+		return false, nil
+	}
+	return k.reviewNeutralityPolicy(ctx)
 }
 
 // ---------- Params ----------
@@ -224,6 +239,10 @@ func (k Keeper) GetQualifiedValidators(ctx context.Context, domain string) []str
 // of agreement. The circularity is by design — there is no outside oracle to
 // break it, and naming it is the honesty.
 func (k Keeper) RecordVerificationOutcome(ctx context.Context, validator string, domain string, correct bool) error {
+	neutral, err := k.reviewNeutralityEnabled(ctx)
+	if err != nil || neutral {
+		return err
+	}
 	q, found := k.GetQualification(ctx, validator, domain)
 	if !found {
 		return fmt.Errorf("%w: %s/%s", types.ErrQualificationNotFound, validator, domain)

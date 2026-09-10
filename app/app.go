@@ -928,6 +928,7 @@ func newZeroneApp(
 	// TODO: wire CaptureDefenseKeeper when x/capture_defense is available:
 	// app.QualificationKeeper.SetCaptureDefenseKeeper(captureDefenseAdapter)
 	app.QualificationKeeper.SetOntologyKeeper(&app.ZeroneOntologyKeeper)
+	app.QualificationKeeper.SetReviewNeutralityPolicy(app.KnowledgeKeeper.ReviewNeutralityEnabled)
 
 	// Wire domain qualification into knowledge verification flow (R26-3).
 	app.KnowledgeKeeper.SetDomainQualificationKeeper(
@@ -1476,8 +1477,13 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 	if err := validateAccountingGenesisSelection(genesisState); err != nil {
 		return nil, err
 	}
-	if app.ModuleManager.GetVersionMap()["knowledge"] == 8 {
+	if app.ModuleManager.GetVersionMap()["knowledge"] >= 8 {
 		if err := validateRecordIntegrityGenesisSelection(genesisState); err != nil {
+			return nil, err
+		}
+	}
+	if app.ModuleManager.GetVersionMap()["knowledge"] == 9 {
+		if err := validateReviewNeutralityGenesisSelection(genesisState); err != nil {
 			return nil, err
 		}
 	}

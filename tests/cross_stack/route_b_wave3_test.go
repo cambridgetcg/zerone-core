@@ -84,6 +84,7 @@ func TestRouteB_Wave3a_TokenizerAmendment(t *testing.T) {
 // "which models used me?" query.
 func TestRouteB_Wave3b_ContributionAttribution(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultMethodologies(h.Ctx))
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultTokenizerSpec(h.Ctx))
 

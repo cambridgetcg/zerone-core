@@ -16,7 +16,7 @@ const (
 	manifestPath            = "dashboard/public/standards/authority-geometry.v1.json"
 	manifestSchema          = "zerone.authority-geometry/v1"
 	checkerSchema           = "zerone.authority-graph-check/v1"
-	canonicalManifestSHA256 = "4e4c7359ce07c80bd2c6cd1adc854e3b463b820db57f3d5be6db3e6f6c0c662b"
+	canonicalManifestSHA256 = "927f2436ff598928874514245bd612450a403efd49f30358b8f3f49ef265ff03"
 	canonicalDesignSHA256   = "1ec84986d2e14b8f938e76d5187266c3e23a6881818d59bbba420ba663f5176a"
 )
 
@@ -621,8 +621,8 @@ func validateManifest(m manifest, issues *issueSet) {
 	if m.Schema != manifestSchema {
 		issues.add("MANIFEST_SCHEMA_INVALID", "schema must be zerone.authority-geometry/v1")
 	}
-	if m.Revision != "1.0.3" {
-		issues.add("MANIFEST_REVISION_INVALID", "revision must be 1.0.3")
+	if m.Revision != "1.0.4" {
+		issues.add("MANIFEST_REVISION_INVALID", "revision must be 1.0.4")
 	}
 	if m.SnapshotDate != "2026-09-10" {
 		issues.add("MANIFEST_SNAPSHOT_INVALID", "snapshotDate must match the reviewed current-source binding date")

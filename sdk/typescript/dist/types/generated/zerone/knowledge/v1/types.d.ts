@@ -1163,6 +1163,10 @@ export interface ContributionRecord {
      * trail shows exactly what weights were assigned.
      */
     perFactCalibrationBps: bigint[];
+    /**
+     * 0 is the historical score projection; 1 records an owner declaration without valuation.
+     */
+    attributionPolicyVersion: number;
 }
 /**
  * AugmentationBounty is an open offer to produce variant formulations of a
@@ -1561,6 +1565,10 @@ export interface Claim {
      * Exact optional original-claim ID asserted by a provisional challenge.
      */
     challengedClaimId: string;
+    /**
+     * Immutable admission terms: 0 preserves predecessor economics; 1 records neutral review work.
+     */
+    reviewPolicyVersion: number;
 }
 /**
  * VerificationRound tracks one commit-reveal verification cycle.
@@ -1590,6 +1598,10 @@ export interface VerificationRound {
      */
     commitmentChainId: string;
     verifierRewardSettlement?: VerifierRewardSettlement;
+    /**
+     * Copied from the claim; independent of commitment framing and block height.
+     */
+    reviewPolicyVersion: number;
 }
 /**
  * ReviewAttestation records what the signer says they checked. It is not proof

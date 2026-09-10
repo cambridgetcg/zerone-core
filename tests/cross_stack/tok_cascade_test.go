@@ -103,6 +103,7 @@ func TestToK_FalsificationCascade(t *testing.T) {
 			},
 		},
 	}
+	fundDirectChallengeFixture(t, h, challengeClaim)
 	require.NoError(t, h.KnowledgeKeeper.SetClaim(h.Ctx, challengeClaim))
 
 	challengeRound := &knowledgetypes.VerificationRound{
@@ -185,6 +186,7 @@ func TestCascadeFalsification_WritesCascadeEventRecords(t *testing.T) {
 			Relation:     knowledgetypes.RelationType_RELATION_TYPE_CONTRADICTS,
 		}},
 	}
+	fundDirectChallengeFixture(t, h, challengeClaim)
 	require.NoError(t, h.KnowledgeKeeper.SetClaim(h.Ctx, challengeClaim))
 	round := &knowledgetypes.VerificationRound{
 		Id: "round-rec", ClaimId: challengeClaim.Id,

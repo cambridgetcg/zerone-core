@@ -52,6 +52,7 @@ func TestToKSubstrate_TC4_GraphCarriesDisprovals(t *testing.T) {
 			Relation:     knowledgetypes.RelationType_RELATION_TYPE_CONTRADICTS,
 		}},
 	}
+	fundDirectChallengeFixture(t, h, challengeClaim)
 	require.NoError(t, h.KnowledgeKeeper.SetClaim(h.Ctx, challengeClaim))
 	round := &knowledgetypes.VerificationRound{
 		Id: "tc4-round", ClaimId: challengeClaim.Id,

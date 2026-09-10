@@ -46,15 +46,15 @@ func (m *msgServer) AmendTokenizerSpec(ctx context.Context, msg *types.MsgAmendT
 	return &types.MsgAmendTokenizerSpecResponse{NewVersion: newSpec.Version}, nil
 }
 
-// AttributeContributions (Route B Wave 3b; Wave 4 realignment) — the model's
-// owner posts the fact_ids consumed by training. Wave 4 adds:
-//   - Is-ought wall: ids resolving to NormativeCommitments are REJECTED and
-//     reported in rejected_commitment_count. Normative commitments must not
-//     generate training revenue; they are exported via NormativeCorpus.
-//   - Popper-weighted TVW: computed_tvw is the canonical revenue signal.
-//     total_weight is retained for audit but no longer drives payouts.
-//   - Per-fact calibration snapshot for audit trail.
+// AttributeContributions records the model owner's declaration of consumed
+// facts. Policy 1 retains attribution without protocol valuation. Policy 0's
+// heuristic weights remain a historical representation; neither proves use or
+// authorizes a training-fund payment. Normative commitments remain excluded.
 func (m *msgServer) AttributeContributions(ctx context.Context, msg *types.MsgAttributeContributions) (*types.MsgAttributeContributionsResponse, error) {
+	neutral, err := m.keeper.ReviewNeutralityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if msg == nil || msg.ModelId == "" {
 		return nil, fmt.Errorf("model_id required")
 	}
@@ -74,20 +74,29 @@ func (m *msgServer) AttributeContributions(ctx context.Context, msg *types.MsgAt
 	// Wave 3 total_weight (raw, for audit); Wave 4 computed TVW (Popper-weighted).
 	var totalWeight uint64
 	var computedTVW uint64
-	perFactCal := make([]uint64, 0, len(facts))
-	for _, f := range facts {
-		if fact, ok := m.keeper.GetFact(ctx, f); ok {
-			totalWeight += fact.CorroborationCount + 1
-			perFactCal = append(perFactCal, fact.SubmitterCalibrationSnapshotBps)
-		} else {
-			totalWeight += 1
-			perFactCal = append(perFactCal, 0)
+	var perFactCal []uint64
+	var attributionPolicy uint32
+	if neutral {
+		// This is the owner's declaration of use, not a protocol valuation.
+		// Zero computed weight and absent calibration snapshots are intentional.
+		totalWeight = msg.TotalWeight
+		attributionPolicy = 1
+	} else {
+		perFactCal = make([]uint64, 0, len(facts))
+		for _, f := range facts {
+			if fact, ok := m.keeper.GetFact(ctx, f); ok {
+				totalWeight += fact.CorroborationCount + 1
+				perFactCal = append(perFactCal, fact.SubmitterCalibrationSnapshotBps)
+			} else {
+				totalWeight += 1
+				perFactCal = append(perFactCal, 0)
+			}
+			tvw := m.keeper.ComputeTrainingValueWeight(ctx, f)
+			computedTVW += tvw.Final
 		}
-		tvw := m.keeper.ComputeTrainingValueWeight(ctx, f)
-		computedTVW += tvw.Final
-	}
-	if msg.TotalWeight != 0 {
-		totalWeight = msg.TotalWeight // raw override; computed_tvw is NOT overridable
+		if msg.TotalWeight != 0 {
+			totalWeight = msg.TotalWeight // legacy raw override
+		}
 	}
 
 	record := &types.ContributionRecord{
@@ -99,11 +108,12 @@ func (m *msgServer) AttributeContributions(ctx context.Context, msg *types.MsgAt
 		ComputedTvw:              computedTVW,
 		RejectedCommitmentCount:  uint32(len(rejected)),
 		PerFactCalibrationBps:    perFactCal,
+		AttributionPolicyVersion: attributionPolicy,
 	}
 	if err := m.keeper.SetContributionRecord(ctx, record); err != nil {
 		return nil, err
 	}
-	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+	event := sdk.NewEvent(
 		"zerone.knowledge.contributions_attributed",
 		sdk.NewAttribute("model_id", msg.ModelId),
 		sdk.NewAttribute("attributed_by", msg.Owner),
@@ -111,7 +121,11 @@ func (m *msgServer) AttributeContributions(ctx context.Context, msg *types.MsgAt
 		sdk.NewAttribute("total_weight", fmt.Sprintf("%d", totalWeight)),
 		sdk.NewAttribute("computed_tvw", fmt.Sprintf("%d", computedTVW)),
 		sdk.NewAttribute("rejected_commitments", fmt.Sprintf("%d", len(rejected))),
-	))
+	)
+	if neutral {
+		event = event.AppendAttributes(sdk.NewAttribute("attribution_policy_version", "1"))
+	}
+	sdkCtx.EventManager().EmitEvent(event)
 	return &types.MsgAttributeContributionsResponse{Recorded: uint32(len(facts))}, nil
 }
 
@@ -154,6 +168,13 @@ func (m *msgServer) AttestTraining(ctx context.Context, msg *types.MsgAttestTrai
 // KnowledgeTrainingFund at creation. Payouts are released only by verifier
 // panel verdicts, never by the sponsor directly.
 func (m *msgServer) CreateAugmentationBounty(ctx context.Context, msg *types.MsgCreateAugmentationBounty) (*types.MsgCreateAugmentationBountyResponse, error) {
+	neutral, err := m.keeper.ReviewNeutralityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if neutral {
+		return nil, fmt.Errorf("new augmentation bounties are retired")
+	}
 	if msg == nil || msg.Id == "" {
 		return nil, fmt.Errorf("bounty id required")
 	}
@@ -196,18 +217,18 @@ func (m *msgServer) CreateAugmentationBounty(ctx context.Context, msg *types.Msg
 	}
 
 	bounty := &types.AugmentationBounty{
-		Id:                msg.Id,
-		SponsorAddress:    msg.Sponsor,
-		TargetFactId:      msg.TargetFactId,
-		RewardPerVariant:  msg.RewardPerVariant,
-		MaxVariants:       msg.MaxVariants,
-		AcceptedVariants:  0,
-		CreatedAtBlock:    height,
-		ExpiresAtBlock:    msg.ExpiresAtBlock,
-		Active:            true,
-		Description:       msg.Description,
-		EscrowLocked:      escrowTotal.String(),
-		MethodologyId:     targetFact.MethodId,
+		Id:               msg.Id,
+		SponsorAddress:   msg.Sponsor,
+		TargetFactId:     msg.TargetFactId,
+		RewardPerVariant: msg.RewardPerVariant,
+		MaxVariants:      msg.MaxVariants,
+		AcceptedVariants: 0,
+		CreatedAtBlock:   height,
+		ExpiresAtBlock:   msg.ExpiresAtBlock,
+		Active:           true,
+		Description:      msg.Description,
+		EscrowLocked:     escrowTotal.String(),
+		MethodologyId:    targetFact.MethodId,
 	}
 	if err := m.keeper.SetAugmentationBounty(ctx, bounty); err != nil {
 		return nil, err
@@ -229,6 +250,13 @@ func (m *msgServer) CreateAugmentationBounty(ctx context.Context, msg *types.Msg
 // the bounty must be active and not yet saturated; if empty the variant
 // is volunteer (no payment, but still queryable as training augmentation).
 func (m *msgServer) SubmitAugmentation(ctx context.Context, msg *types.MsgSubmitAugmentation) (*types.MsgSubmitAugmentationResponse, error) {
+	neutral, err := m.keeper.ReviewNeutralityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if neutral {
+		return nil, fmt.Errorf("new augmentation admission is retired; existing ballots remain settleable")
+	}
 	if msg == nil || msg.Id == "" {
 		return nil, fmt.Errorf("augmentation id required")
 	}

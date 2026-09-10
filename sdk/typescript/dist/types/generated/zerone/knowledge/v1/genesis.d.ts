@@ -745,6 +745,10 @@ export interface GenesisState {
     statusTransitions: StatusTransition[];
     cascadeEvents: CascadeEvent[];
     statusTransitionCounters: StatusTransitionCounter[];
+    /**
+     * Execution policy selection; imports preserve records without inventing upgrade receipts.
+     */
+    reviewNeutralityEnabled: boolean;
 }
 /**
  * Preserves the allocated status-history sequence even when retained history has gaps.

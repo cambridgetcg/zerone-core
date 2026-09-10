@@ -30,19 +30,23 @@ import (
 //
 // Cost: O(n) on qualifications. Caller (BeginBlocker) gates the scan
 // to once per DecayCheckIntervalBlocks so per-block work stays low.
-func (k Keeper) RunAccuracyDecay(ctx context.Context, currentBlock uint64, params *types.Params) {
+func (k Keeper) RunAccuracyDecay(ctx context.Context, currentBlock uint64, params *types.Params) error {
+	neutral, err := k.reviewNeutralityEnabled(ctx)
+	if err != nil || neutral {
+		return err
+	}
 	if params == nil {
-		return
+		return nil
 	}
 	minSamples := params.DecayMinSamples
 	if minSamples == 0 {
-		return
+		return nil
 	}
 	probationBps := params.DecayProbationBps
 	suspensionBps := params.DecaySuspensionBps
 	recoveryBps := params.DecayRecoveryBps
 	if probationBps == 0 && suspensionBps == 0 && recoveryBps == 0 {
-		return // decay disabled
+		return nil // decay disabled
 	}
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
@@ -114,4 +118,5 @@ func (k Keeper) RunAccuracyDecay(ctx context.Context, currentBlock uint64, param
 		}
 		return false
 	})
+	return nil
 }

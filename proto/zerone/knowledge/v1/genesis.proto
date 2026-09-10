@@ -366,6 +366,8 @@ message GenesisState {
   repeated StatusTransition status_transitions = 64;
   repeated CascadeEvent cascade_events = 65;
   repeated StatusTransitionCounter status_transition_counters = 66;
+  // Execution policy selection; imports preserve records without inventing upgrade receipts.
+  bool review_neutrality_enabled = 67;
 }
 
 // Preserves the allocated status-history sequence even when retained history has gaps.

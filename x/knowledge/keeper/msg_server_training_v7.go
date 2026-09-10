@@ -20,6 +20,13 @@ import (
 // all five included-ID sets, and stamps every version pin. Merkle root
 // is NOT yet locked — only Finalize commits the root.
 func (m *msgServer) CreateTrainingManifest(ctx context.Context, msg *types.MsgCreateTrainingManifest) (*types.MsgCreateTrainingManifestResponse, error) {
+	neutral, err := m.keeper.ReviewNeutralityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if neutral && msg != nil && msg.CorpusSelector != nil && msg.CorpusSelector.MinSubmitterCalibrationBps > 0 {
+		return nil, fmt.Errorf("new training manifests cannot select by retired submitter calibration")
+	}
 	// Wave 12: circuit breaker. When knowledge is paused, write-path
 	// handlers reject immediately. Read-path queries remain available.
 	if err := m.keeper.RequireNotPaused(ctx, types.ModuleName); err != nil {
@@ -123,9 +130,9 @@ func (m *msgServer) CreateTrainingManifest(ctx context.Context, msg *types.MsgCr
 		Status: types.ManifestStatus_MANIFEST_STATUS_DRAFT,
 
 		// Wave 8: composition metadata.
-		ParentManifestId:  msg.ParentManifestId,
-		ParentMerkleRoot:  parentMerkleRoot,
-		CompositionDepth:  compositionDepth,
+		ParentManifestId: msg.ParentManifestId,
+		ParentMerkleRoot: parentMerkleRoot,
+		CompositionDepth: compositionDepth,
 	}
 	if err := m.keeper.SetTrainingManifest(ctx, manifest); err != nil {
 		return nil, err

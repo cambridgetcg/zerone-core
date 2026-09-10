@@ -224,6 +224,7 @@ func TestTruthSeeking_HighConfidenceClaimsInviteProbing(t *testing.T) {
 
 func TestTruthSeeking_ChainPaysForOwnAudit(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 	params, err := h.KnowledgeKeeper.GetParams(h.Ctx)
@@ -293,6 +294,7 @@ func TestTruthSeeking_AuthorityInjectionIsCancellable(t *testing.T) {
 
 func TestTruthSeeking_QualificationStatusFollowsAccuracy(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -328,6 +330,7 @@ func TestTruthSeeking_QualificationStatusFollowsAccuracy(t *testing.T) {
 
 func TestTruthSeeking_StakeAloneCannotCarryThePanel(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -436,6 +439,7 @@ func TestTruthSeeking_TrustIsSynthesisedNotStitched(t *testing.T) {
 
 func TestTruthSeeking_AuditBudgetIsAutonomous(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 	params, err := h.KnowledgeKeeper.GetParams(h.Ctx)

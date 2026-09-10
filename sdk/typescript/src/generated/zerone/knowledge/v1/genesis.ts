@@ -746,6 +746,10 @@ export interface GenesisState {
   statusTransitions: StatusTransition[];
   cascadeEvents: CascadeEvent[];
   statusTransitionCounters: StatusTransitionCounter[];
+  /**
+   * Execution policy selection; imports preserve records without inventing upgrade receipts.
+   */
+  reviewNeutralityEnabled: boolean;
 }
 /**
  * Preserves the allocated status-history sequence even when retained history has gaps.
@@ -2092,7 +2096,8 @@ function createBaseGenesisState(): GenesisState {
     completedRounds: [],
     statusTransitions: [],
     cascadeEvents: [],
-    statusTransitionCounters: []
+    statusTransitionCounters: [],
+    reviewNeutralityEnabled: false
   };
 }
 /**
@@ -2194,6 +2199,9 @@ export const GenesisState = {
     for (const v of message.statusTransitionCounters) {
       StatusTransitionCounter.encode(v!, writer.uint32(530).fork()).ldelim();
     }
+    if (message.reviewNeutralityEnabled === true) {
+      writer.uint32(536).bool(message.reviewNeutralityEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -2293,6 +2301,9 @@ export const GenesisState = {
         case 66:
           message.statusTransitionCounters.push(StatusTransitionCounter.decode(reader, reader.uint32()));
           break;
+        case 67:
+          message.reviewNeutralityEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -2332,6 +2343,7 @@ export const GenesisState = {
     message.statusTransitions = object.statusTransitions?.map(e => StatusTransition.fromPartial(e)) || [];
     message.cascadeEvents = object.cascadeEvents?.map(e => CascadeEvent.fromPartial(e)) || [];
     message.statusTransitionCounters = object.statusTransitionCounters?.map(e => StatusTransitionCounter.fromPartial(e)) || [];
+    message.reviewNeutralityEnabled = object.reviewNeutralityEnabled ?? false;
     return message;
   }
 };

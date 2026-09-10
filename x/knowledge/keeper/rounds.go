@@ -87,6 +87,11 @@ func (k Keeper) CreateVerificationRound(ctx context.Context, claim *types.Claim)
 		round.CommitmentScheme = types.CommitmentSchemeReviewV2
 		round.CommitmentChainId = sdkCtx.ChainID()
 	}
+	policy, err := k.ClaimReviewPolicyVersion(ctx, claim)
+	if err != nil {
+		return nil, err
+	}
+	round.ReviewPolicyVersion = policy
 
 	if err := k.SetVerificationRound(ctx, round); err != nil {
 		return nil, err
@@ -125,6 +130,10 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	if err != nil {
 		return err
 	}
+	policy, err := k.reviewPolicyForRound(ctx, stored)
+	if err != nil {
+		return err
+	}
 	if stored.Phase == types.VerificationPhase_VERIFICATION_PHASE_COMPLETE {
 		if stored.Verdict != result.Verdict {
 			return fmt.Errorf("cannot change a finalized review verdict")
@@ -138,6 +147,22 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	}
 	if stored.Phase == types.VerificationPhase_VERIFICATION_PHASE_EXPIRED {
 		return fmt.Errorf("cannot complete an expired review round")
+	}
+	if policy == types.ReviewPolicyNeutral {
+		height := uint64(sdk.UnwrapSDKContext(ctx).BlockHeight())
+		params, err := k.GetParams(ctx)
+		if err != nil {
+			return err
+		}
+		if height < stored.RevealDeadline && (height < stored.CommitDeadline || len(stored.Reveals) != len(stored.Commits) || uint64(len(stored.Reveals)) < params.MinVerifiers) {
+			return fmt.Errorf("review panel is not closed for aggregation")
+		}
+		// Derive both verdict and eligibility from retained reviews. A caller
+		// cannot inject a slash or a payment recipient through the local result.
+		result, err = k.AggregateVerificationResult(ctx, stored)
+		if err != nil {
+			return err
+		}
 	}
 	cache, write := sdk.UnwrapSDKContext(ctx).CacheContext()
 	working := proto.Clone(stored).(*types.VerificationRound)
@@ -160,6 +185,11 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRound, result *VerificationResult, recordIntegrity bool) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
+	neutral := round.ReviewPolicyVersion == types.ReviewPolicyNeutral
+	scoringRetired, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil {
+		return err
+	}
 
 	claim, found := k.GetClaim(ctx, round.ClaimId)
 	if !found {
@@ -175,9 +205,11 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 	// bump LastCorroboratedBlock on REJECT, which makes the invitation
 	// look stale retroactively. Check here, while the state still
 	// reflects what the challenger saw when they submitted.
-	if claim.ProvisionalFactId != "" {
+	if !neutral && claim.ProvisionalFactId != "" {
 		paramsEarly, _ := k.GetParams(ctx)
-		k.payInvitationBonus(ctx, claim, paramsEarly)
+		if err := k.payInvitationBonus(ctx, claim, paramsEarly); err != nil {
+			return err
+		}
 	}
 
 	// Record submitter calibration (Phase 5 — feedback loop). Every round
@@ -191,8 +223,10 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 	// error is not deceit — has to hold hardest exactly where the chain is
 	// least able to tell the difference. Being wrong in a well-posed way
 	// must not cost you anything but the fee.
-	if claim.ClaimType != types.ClaimType_CLAIM_TYPE_CONJECTURE {
-		k.RecordSubmissionOutcome(ctx, claim.Submitter, ResolveMethodId(claim.MethodId), result.Verdict)
+	if !neutral && claim.ClaimType != types.ClaimType_CLAIM_TYPE_CONJECTURE {
+		if err := k.RecordSubmissionOutcome(ctx, claim.Submitter, ResolveMethodId(claim.MethodId), result.Verdict); err != nil {
+			return err
+		}
 	}
 
 	var factId string
@@ -213,10 +247,14 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 		// Review fee already distributed at submission time — the fee IS the cost of rejection.
 		claim.Status = types.ClaimStatus_CLAIM_STATUS_REJECTED
 		// If this was a challenge claim, the original fact survived — energy boost
-		k.handleChallengeSurvival(ctx, claim)
+		if err := k.handleChallengeSurvival(ctx, claim); err != nil {
+			return err
+		}
 		// Challenge lost: record on the challenger's side of the ledger (Phase 5).
-		if claim.ProvisionalFactId != "" {
-			k.RecordChallengeOutcome(ctx, claim.Submitter, false)
+		if !neutral && claim.ProvisionalFactId != "" {
+			if err := k.RecordChallengeOutcome(ctx, claim.Submitter, false); err != nil {
+				return err
+			}
 		}
 		// Contradicting claim was rejected — undo its CONTESTED side-effect on target facts (T-i4).
 		k.reverseContradictionsFromClaim(ctx, claim)
@@ -225,11 +263,21 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 		// Review fee already distributed at submission time — no additional slashing needed.
 		claim.Status = types.ClaimStatus_CLAIM_STATUS_MALFORMED
 		k.reverseContradictionsFromClaim(ctx, claim)
+		if scoringRetired {
+			if err := k.restoreChallengedFactOnInconclusive(ctx, claim, round.Id); err != nil {
+				return err
+			}
+		}
 
 	case types.Verdict_VERDICT_INCONCLUSIVE:
 		// Review fee is non-refundable — verifiers still did work even if inconclusive.
 		claim.Status = types.ClaimStatus_CLAIM_STATUS_INSUFFICIENT
 		k.reverseContradictionsFromClaim(ctx, claim)
+		if scoringRetired {
+			if err := k.restoreChallengedFactOnInconclusive(ctx, claim, round.Id); err != nil {
+				return err
+			}
+		}
 	}
 
 	// K-alpha: every aggregated terminal verdict — INCONCLUSIVE included —
@@ -279,8 +327,13 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 		k.distributeVerifierRewardsFromPool(ctx, claim, round.Id, result)
 	} else {
 		for _, reward := range result.Rewards {
-			emitKarmaEdge(sdkCtx, "verify", reward.Verifier, claim.Submitter, round.Id, claim.Domain,
-				sdk.NewAttribute("assessment_basis", "panel_agreement"))
+			if neutral {
+				emitKarmaEdge(sdkCtx, "verify", reward.Verifier, claim.Submitter, round.Id, claim.Domain,
+					sdk.NewAttribute("assessment_basis", "valid_review"))
+			} else {
+				emitKarmaEdge(sdkCtx, "verify", reward.Verifier, claim.Submitter, round.Id, claim.Domain,
+					sdk.NewAttribute("assessment_basis", "panel_agreement"))
+			}
 		}
 	}
 
@@ -297,7 +350,7 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 	canVindicate := params.VindicationRefundEnabled && result.Verdict == types.Verdict_VERDICT_ACCEPT && factId != "" && !isConjectureRound
 
 	for _, slash := range result.Slashes {
-		if k.stakingKeeper == nil {
+		if neutral || k.stakingKeeper == nil {
 			continue
 		}
 		if slash.VindicationEligible && canVindicate {
@@ -347,12 +400,14 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 	// accepted-challenge bonus. FailedChallengeSlashBps is retained
 	// compatibility metadata; rejected-challenge routing below is fixed.
 	if claim.ProvisionalFactId != "" {
-		k.settleChallengeStake(ctx, claim, result.Verdict, params)
+		if err := k.settleChallengeStake(ctx, claim, result.Verdict, params); err != nil {
+			return err
+		}
 	}
 
 	// Record verification outcomes for domain qualification tracking (R26-3).
 	// Rewarded verifiers voted correctly; slashed verifiers voted incorrectly.
-	if k.domainQualificationKeeper != nil && claim.Domain != "" &&
+	if !scoringRetired && k.domainQualificationKeeper != nil && claim.Domain != "" &&
 		result.Verdict != types.Verdict_VERDICT_INCONCLUSIVE {
 		for _, reward := range result.Rewards {
 			if err := k.domainQualificationKeeper.RecordVerificationOutcome(ctx, reward.Verifier, claim.Domain, true); err != nil {
@@ -367,7 +422,7 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 	}
 
 	// Feed verification history to capture defense (R28-8).
-	if k.captureDefenseKeeper != nil {
+	if !scoringRetired && k.captureDefenseKeeper != nil {
 		verdictVote := verdictToVoteString(result.Verdict)
 		roundValidators := make([]string, 0, len(round.Reveals))
 		roundVerdicts := make([]bool, 0, len(round.Reveals))
@@ -389,13 +444,15 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 	}
 
 	// Record round diversity metrics (R28-2)
-	if err := k.RecordRoundDiversity(ctx, round.Id, claim.Domain, result.AcceptCount, result.RejectCount); err != nil {
-		k.Logger(ctx).Error("failed to record round diversity", "round_id", round.Id, "error", err)
+	if !scoringRetired {
+		if err := k.RecordRoundDiversity(ctx, round.Id, claim.Domain, result.AcceptCount, result.RejectCount); err != nil {
+			k.Logger(ctx).Error("failed to record round diversity", "round_id", round.Id, "error", err)
+		}
 	}
 
 	// Update validator independence for each revealed voter
 	majorityVote := verdictToVoteString(result.Verdict)
-	if majorityVote != "" {
+	if !scoringRetired && majorityVote != "" {
 		for _, reveal := range round.Reveals {
 			if err := k.UpdateValidatorIndependence(ctx, reveal.Verifier, reveal.Vote, majorityVote); err != nil {
 				k.Logger(ctx).Debug("failed to update validator independence", "verifier", reveal.Verifier, "error", err)
@@ -545,6 +602,7 @@ func (k Keeper) forwardWithheldToDevelopmentFund(ctx context.Context, amount uin
 func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, round *types.VerificationRound, confidence uint64) (string, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
+	neutral := round.ReviewPolicyVersion == types.ReviewPolicyNeutral
 
 	factID := GenerateFactID(claim.Id, height)
 
@@ -567,11 +625,13 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	// after the fact lands and retroactively harvest more training value
 	// — the gate has to bite at creation, not at payout.
 	var calibrationSnapshot uint64
-	if cal, ok := k.GetAgentCalibration(ctx, claim.Submitter); ok && cal != nil {
-		calibrationSnapshot = cal.CalibrationScoreBps
-	}
-	if calibrationSnapshot == 0 {
-		calibrationSnapshot = 500_000 // neutral — no reward, no penalty
+	if !neutral {
+		if cal, ok := k.GetAgentCalibration(ctx, claim.Submitter); ok && cal != nil {
+			calibrationSnapshot = cal.CalibrationScoreBps
+		}
+		if calibrationSnapshot == 0 {
+			calibrationSnapshot = 500_000 // legacy default
+		}
 	}
 
 	fact := &types.Fact{
@@ -621,20 +681,28 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	}
 
 	// Apply domain carrying capacity birth pressure (R29-1)
-	fact.Energy = k.ApplyBirthPressure(ctx, claim.Domain, fact.Energy)
+	if neutral {
+		energy, err := k.applyNeutralReviewBirthPressure(ctx, claim.Domain, fact.Energy)
+		if err != nil {
+			return "", err
+		}
+		fact.Energy = energy
+	} else {
+		fact.Energy = k.ApplyBirthPressure(ctx, claim.Domain, fact.Energy)
+	}
 
 	// Apply role bonus — claim type × account type (R28-5)
 	// Skipped for conjectures: every confidence adjustment below is
 	// multiplicative and would be a no-op on zero, but running them anyway
 	// would mean a future additive term silently gives a question standing.
-	if !isConjecture {
+	if !neutral && !isConjecture {
 		accountType := k.getAccountType(ctx, claim.Submitter)
 		fact.Confidence = ApplyRoleBonusToConfidence(fact.Confidence, claim.ClaimType, accountType, params)
 	}
 
 	// Apply dual validation bonus for partnership claims (R28-5)
 	// Scale by weaker role's accuracy in the domain (R29-3)
-	if claim.PartnershipId != "" {
+	if !neutral && claim.PartnershipId != "" {
 		agentAcc, humanAcc := k.GetRoleAccuracies(ctx, claim.Domain)
 		weakerAccuracy := agentAcc
 		if humanAcc < weakerAccuracy || weakerAccuracy == 0 {
@@ -841,7 +909,11 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	// knowledge bounty — a sponsor who paid for an answer must not be settled
 	// with a question.
 	if !isConjecture {
-		k.EscrowSubmitterReward(ctx, fact, claim)
+		if !neutral {
+			if err := k.EscrowSubmitterReward(ctx, fact, claim); err != nil {
+				return "", err
+			}
+		}
 		k.ClaimBountyForFact(ctx, fact, claim)
 	}
 
@@ -1034,64 +1106,90 @@ func computeProvenance(claim *types.Claim, targets map[string]*types.Fact) (uint
 
 // handleChallengeSurvival restores a challenged fact and grants survival energy
 // when a challenge claim is rejected (the original fact survived).
-func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *types.Claim) {
-	if challengeClaim.ProvisionalFactId == "" {
-		return
+func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *types.Claim) error {
+	policy, err := k.ClaimReviewPolicyVersion(ctx, challengeClaim)
+	if err != nil {
+		return err
 	}
-	originalFact, found := k.GetFact(ctx, challengeClaim.ProvisionalFactId)
-	if !found {
-		return
+	neutral, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if challengeClaim.ProvisionalFactId == "" {
+		return nil
+	}
+	var originalFact *types.Fact
+	var found bool
+	if policy == 1 {
+		originalFact, found, err = k.getFactChecked(ctx, challengeClaim.ProvisionalFactId)
+		if err != nil {
+			return err
+		}
+		if !found {
+			return fmt.Errorf("challenge target %s is missing", challengeClaim.ProvisionalFactId)
+		}
+	} else {
+		originalFact, found = k.GetFact(ctx, challengeClaim.ProvisionalFactId)
+		if !found {
+			return nil
+		}
 	}
 	params, _ := k.GetParams(ctx)
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
-	// Energy boost for surviving a challenge — always credit, even if the
-	// corroboration counter is rate-limited below. Energy reflects demand-
-	// side engagement; the counter reflects epistemic hardening.
-	originalFact.Energy += params.MetabolismEnergyChallengeSurvival
-	if originalFact.Energy > params.MetabolismEnergyCap {
-		originalFact.Energy = params.MetabolismEnergyCap
-	}
-	// Popperian corroboration with rate limit. Inverted challenge
-	// economics make high-confidence facts cheap to probe, which is the
-	// point — we want them stress-tested. But cheap probes also make
-	// collusive corroboration-farming cheap: an attacker controlling N
-	// addresses could fire N rapid challenges on their own fact to pump
-	// BaseWeight. The cooldown caps the counter to one survival per
-	// CorroborationCooldownBlocks per fact. Attackers can still probe
-	// cheaply; they just can't farm credit for it. Organic probing from
-	// independent challengers spread over time remains fully credited.
-	const corroborationCooldownBlocks uint64 = 1_000
-	eligible := originalFact.LastCorroboratedBlock == 0 ||
-		height >= originalFact.LastCorroboratedBlock+corroborationCooldownBlocks
-	if eligible {
-		originalFact.CorroborationCount++
-		originalFact.LastCorroboratedBlock = height
-		// Phase 5: credit submitter only when the counter moves — and never
-		// for a conjecture. Calibration is a track record about TRUTH, and a
-		// question surviving a probe says nothing about whether its proposer
-		// is calibrated. Crediting it made conjectures a numerator-only
-		// instrument for inflating the training-fund gate.
-		if !IsConjecture(originalFact) {
-			k.RecordCorroborationForSubmitter(ctx, originalFact.Submitter, originalFact.MethodId)
-
-			// K-alpha (K-7): both sides of a survived challenge are recognized —
-			// the defender's fact hardened, and the failed honest challenger
-			// performed the audit that hardened it. A conjecture is excluded:
-			// surviving one attempted refutation does not grant a question
-			// truth-standing or recognition standing.
-			//
-			// K-beta handoff, stated where the edges are born: this pair is
-			// two-address farmable — an author filing a losing challenge against
-			// their own fact from a second address collects both edges, and the
-			// self= flag structurally cannot see it ("reward = the fee you paid
-			// yourself", on the recognition layer). Harmless while edges are
-			// unpriced; K-beta MUST run the design §2.5 counterparty-independence
-			// probe and pair cap before this pair carries any magnitude.
-			emitKarmaEdge(sdkCtx, "corroborated", originalFact.Submitter, challengeClaim.Submitter, originalFact.Id, originalFact.Domain)
-			emitKarmaEdge(sdkCtx, "corroborate", challengeClaim.Submitter, originalFact.Submitter, originalFact.Id, originalFact.Domain)
+	eligible := false
+	if !neutral {
+		// Energy boost for surviving a challenge — always credit, even if the
+		// corroboration counter is rate-limited below. Energy reflects demand-
+		// side engagement; the counter reflects epistemic hardening.
+		originalFact.Energy += params.MetabolismEnergyChallengeSurvival
+		if originalFact.Energy > params.MetabolismEnergyCap {
+			originalFact.Energy = params.MetabolismEnergyCap
 		}
+		// Popperian corroboration with rate limit. Inverted challenge
+		// economics make high-confidence facts cheap to probe, which is the
+		// point — we want them stress-tested. But cheap probes also make
+		// collusive corroboration-farming cheap: an attacker controlling N
+		// addresses could fire N rapid challenges on their own fact to pump
+		// BaseWeight. The cooldown caps the counter to one survival per
+		// CorroborationCooldownBlocks per fact. Attackers can still probe
+		// cheaply; they just can't farm credit for it. Organic probing from
+		// independent challengers spread over time remains fully credited.
+		const corroborationCooldownBlocks uint64 = 1_000
+		eligible = originalFact.LastCorroboratedBlock == 0 ||
+			height >= originalFact.LastCorroboratedBlock+corroborationCooldownBlocks
+		if eligible {
+			originalFact.CorroborationCount++
+			originalFact.LastCorroboratedBlock = height
+			// Phase 5: credit submitter only when the counter moves — and never
+			// for a conjecture. Calibration is a track record about TRUTH, and a
+			// question surviving a probe says nothing about whether its proposer
+			// is calibrated. Crediting it made conjectures a numerator-only
+			// instrument for inflating the training-fund gate.
+			if !IsConjecture(originalFact) {
+				if err := k.RecordCorroborationForSubmitter(ctx, originalFact.Submitter, originalFact.MethodId); err != nil {
+					return err
+				}
+
+				// K-alpha (K-7): both sides of a survived challenge are recognized —
+				// the defender's fact hardened, and the failed honest challenger
+				// performed the audit that hardened it. A conjecture is excluded:
+				// surviving one attempted refutation does not grant a question
+				// truth-standing or recognition standing.
+				//
+				// K-beta handoff, stated where the edges are born: this pair is
+				// two-address farmable — an author filing a losing challenge against
+				// their own fact from a second address collects both edges, and the
+				// self= flag structurally cannot see it ("reward = the fee you paid
+				// yourself", on the recognition layer). Harmless while edges are
+				// unpriced; K-beta MUST run the design §2.5 counterparty-independence
+				// probe and pair cap before this pair carries any magnitude.
+				emitKarmaEdge(sdkCtx, "corroborated", originalFact.Submitter, challengeClaim.Submitter, originalFact.Id, originalFact.Domain)
+				emitKarmaEdge(sdkCtx, "corroborate", challengeClaim.Submitter, originalFact.Submitter, originalFact.Id, originalFact.Domain)
+			}
+		}
+
 	}
 
 	// Restore from challenged status regardless of cooldown — the fact
@@ -1108,7 +1206,9 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 	// standing it never earned.
 	originalFact.Status = RestoredStatusFor(originalFact)
 	originalFact.AtRiskSinceEpoch = 0
-	_ = k.SetFact(ctx, originalFact)
+	if err = k.SetFact(ctx, originalFact); err != nil && policy == 1 {
+		return err
+	}
 
 	// The fact survived. A failed handoff preserves the pending reward and its
 	// deadline index so the sweep can retry without repeating this verdict.
@@ -1116,19 +1216,22 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 		k.Logger(ctx).Error("handoff survival reward after challenge", "fact_id", originalFact.Id, "error", err)
 	}
 
-	// Popper, not popularity: a fact's standing comes from how many
-	// serious challenges it has survived. This event records one more
-	// survival — the counter that BaseWeight reads to decide TVW.
-	// See TRUTH_SEEKING.md commitment 3.
-	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
-		"zerone.knowledge.corroboration_incremented",
-		sdk.NewAttribute("fact_id", originalFact.Id),
-		sdk.NewAttribute("challenge_claim_id", challengeClaim.Id),
-		sdk.NewAttribute("new_count", fmt.Sprintf("%d", originalFact.CorroborationCount)),
-		sdk.NewAttribute("block_height", fmt.Sprintf("%d", height)),
-		sdk.NewAttribute("counter_incremented", fmt.Sprintf("%t", eligible)),
-		sdk.NewAttribute("creed_commitment", "3"),
-	))
+	if !neutral {
+		// Popper, not popularity: a fact's standing comes from how many
+		// serious challenges it has survived. This event records one more
+		// survival — the counter that BaseWeight reads to decide TVW.
+		// See TRUTH_SEEKING.md commitment 3.
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+			"zerone.knowledge.corroboration_incremented",
+			sdk.NewAttribute("fact_id", originalFact.Id),
+			sdk.NewAttribute("challenge_claim_id", challengeClaim.Id),
+			sdk.NewAttribute("new_count", fmt.Sprintf("%d", originalFact.CorroborationCount)),
+			sdk.NewAttribute("block_height", fmt.Sprintf("%d", height)),
+			sdk.NewAttribute("counter_incremented", fmt.Sprintf("%t", eligible)),
+			sdk.NewAttribute("creed_commitment", "3"),
+		))
+	}
+	return nil
 }
 
 // restoreChallengedFactOnInconclusive undoes the CHALLENGED flip that
@@ -1141,7 +1244,52 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 // permanently un-rechallengeable and its survival escrow blocked — for the
 // price of one starved round. RestoredStatusFor keeps conjectures PROVISIONAL;
 // starvation must never promote a question into ACTIVE truth-standing.
-func (k Keeper) restoreChallengedFactOnInconclusive(ctx context.Context, challengeClaim *types.Claim) {
+func (k Keeper) restoreChallengedFactOnInconclusive(ctx context.Context, challengeClaim *types.Claim, completingRoundID string) error {
+	if _, err := k.ClaimReviewPolicyVersion(ctx, challengeClaim); err != nil {
+		return err
+	}
+	neutral, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if !neutral {
+		k.legacyRestoreChallengedFactOnInconclusive(ctx, challengeClaim)
+		return nil
+	}
+	if challengeClaim.ProvisionalFactId == "" {
+		return nil
+	}
+	fact, found, err := k.getFactChecked(ctx, challengeClaim.ProvisionalFactId)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("challenge target %s is missing", challengeClaim.ProvisionalFactId)
+	}
+	if fact.Status != types.FactStatus_FACT_STATUS_CHALLENGED {
+		return nil
+	}
+	other, err := k.hasOtherActiveChallenge(ctx, completingRoundID, fact.Id)
+	if err != nil {
+		return err
+	}
+	if other {
+		return nil
+	}
+	fact.Status = RestoredStatusFor(fact)
+	fact.AtRiskSinceEpoch = 0
+	if err := k.SetFact(ctx, fact); err != nil {
+		return err
+	}
+	sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent(
+		"zerone.knowledge.challenge_inconclusive_restored",
+		sdk.NewAttribute("fact_id", fact.Id),
+		sdk.NewAttribute("challenge_claim_id", challengeClaim.Id),
+	))
+	return nil
+}
+
+func (k Keeper) legacyRestoreChallengedFactOnInconclusive(ctx context.Context, challengeClaim *types.Claim) {
 	if challengeClaim.ProvisionalFactId == "" {
 		return
 	}
@@ -1173,20 +1321,37 @@ func (k Keeper) restoreChallengedFactOnInconclusive(ctx context.Context, challen
 //	  - route the fixed 45% remainder to protocol treasury instead of leaving
 //	    it stranded; FailedChallengeSlashBps is not consulted
 //	other verdicts: funds stay in the knowledge module account as a no-op.
-func (k Keeper) settleChallengeStake(ctx context.Context, claim *types.Claim, verdict types.Verdict, params *types.Params) {
+func (k Keeper) settleChallengeStake(ctx context.Context, claim *types.Claim, verdict types.Verdict, params *types.Params) error {
+	policy, err := k.ClaimReviewPolicyVersion(ctx, claim)
+	if err != nil {
+		return err
+	}
+	neutral, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil {
+		return err
+	}
 	if k.bankKeeper == nil || claim == nil || claim.Stake == "" {
-		return
+		return nil
 	}
 	stakeAmt, ok := new(big.Int).SetString(claim.Stake, 10)
 	if !ok || stakeAmt.Sign() <= 0 {
-		return
+		if policy == 1 {
+			return fmt.Errorf("invalid neutral challenge collateral")
+		}
+		return nil
+	}
+	if policy == 1 && !stakeAmt.IsUint64() {
+		return fmt.Errorf("neutral challenge collateral exceeds uint64 accounting range")
+	}
+	if params == nil {
+		return fmt.Errorf("missing challenge settlement parameters")
 	}
 	// Verifier pool consumed reviewFeeContributorBps of the stake. Remainder
 	// is what the module still holds for this challenge.
 	verifierPool := safeMulDiv(stakeAmt.Uint64(), reviewFeeContributorBps, 1_000_000)
 	remainder := new(big.Int).Sub(stakeAmt, new(big.Int).SetUint64(verifierPool))
 	if remainder.Sign() <= 0 {
-		return
+		return nil
 	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
@@ -1194,12 +1359,18 @@ func (k Keeper) settleChallengeStake(ctx context.Context, claim *types.Claim, ve
 	case types.Verdict_VERDICT_ACCEPT:
 		challengerAddr, err := sdk.AccAddressFromBech32(claim.Submitter)
 		if err != nil {
-			return
+			if neutral {
+				return err
+			}
+			return nil
 		}
 		refund := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(remainder)))
 		if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, challengerAddr, refund); err != nil {
+			if neutral {
+				return fmt.Errorf("challenge collateral refund failed: %w", err)
+			}
 			k.Logger(ctx).Error("challenge refund failed", "claim", claim.Id, "err", err)
-			return
+			return nil
 		}
 		// Popperian amplification: the more confident the community was
 		// in the disproven fact, the larger the paradigm shift and the
@@ -1222,7 +1393,7 @@ func (k Keeper) settleChallengeStake(ctx context.Context, claim *types.Claim, ve
 		const bonusAmplificationBps uint64 = 2_000_000
 		const bps uint64 = 1_000_000
 		rewardBps := params.SuccessfulChallengeRewardBps
-		if rewardBps > 0 {
+		if policy == 0 && rewardBps > 0 {
 			effectiveBonusBps := rewardBps
 			if claim.ProvisionalFactId != "" {
 				if disproven, found := k.GetFact(ctx, claim.ProvisionalFactId); found && disproven != nil {
@@ -1307,11 +1478,17 @@ func (k Keeper) settleChallengeStake(ctx context.Context, claim *types.Claim, ve
 			if err == nil {
 				coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(participation)))
 				if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, challengerAddr, coins); err != nil {
+					if neutral {
+						return fmt.Errorf("challenge collateral participation refund failed: %w", err)
+					}
 					k.Logger(ctx).Error("probe participation refund failed", "claim", claim.Id, "err", err)
 					// Fall through to treasury-route the full remainder if refund fails.
 					toTreasury = remainder
 				}
 			} else {
+				if neutral {
+					return err
+				}
 				toTreasury = remainder
 			}
 		}
@@ -1319,8 +1496,11 @@ func (k Keeper) settleChallengeStake(ctx context.Context, claim *types.Claim, ve
 		if toTreasury.Sign() > 0 {
 			coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(toTreasury)))
 			if err := k.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, protocolTreasuryModule, coins); err != nil {
+				if neutral {
+					return fmt.Errorf("challenge collateral treasury transfer failed: %w", err)
+				}
 				k.Logger(ctx).Error("failed-challenge stake → treasury failed", "claim", claim.Id, "err", err)
-				return
+				return nil
 			}
 		}
 
@@ -1334,6 +1514,7 @@ func (k Keeper) settleChallengeStake(ctx context.Context, claim *types.Claim, ve
 			sdk.NewAttribute("creed_commitment", "4"),
 		))
 	}
+	return nil
 }
 
 // distributeVerifierReward sends a verification reward to a verifier.
@@ -1374,33 +1555,40 @@ func roundHasDissent(round *types.VerificationRound) bool {
 // audit calls, not just for winning.
 //
 // Emits zerone.knowledge.invitation_bonus_paid on success.
-func (k Keeper) payInvitationBonus(ctx context.Context, claim *types.Claim, params *types.Params) {
+func (k Keeper) payInvitationBonus(ctx context.Context, claim *types.Claim, params *types.Params) error {
+	policy, err := k.ClaimReviewPolicyVersion(ctx, claim)
+	if err != nil {
+		return err
+	}
+	if policy == 1 {
+		return nil
+	}
 	if params == nil || claim == nil || claim.ProvisionalFactId == "" {
-		return
+		return nil
 	}
 	amountStr := params.InvitationBonusAmount
 	if amountStr == "" || amountStr == "0" {
-		return
+		return nil
 	}
 	amount, ok := new(big.Int).SetString(amountStr, 10)
 	if !ok || amount.Sign() <= 0 {
-		return
+		return nil
 	}
 	fact, found := k.GetFact(ctx, claim.ProvisionalFactId)
 	if !found || fact == nil {
-		return
+		return nil
 	}
 	// Invitation must be current: stamped and not already superseded
 	// by a corroboration (which resets the audit clock).
 	if fact.ProbeInvitedAtBlock == 0 {
-		return
+		return nil
 	}
 	if fact.LastCorroboratedBlock > fact.ProbeInvitedAtBlock {
-		return
+		return nil
 	}
 	challengerAddr, err := sdk.AccAddressFromBech32(claim.Submitter)
 	if err != nil {
-		return
+		return nil
 	}
 	paid := k.PayProbeBountyFromPool(ctx, challengerAddr, amount)
 	if paid.Sign() <= 0 {
@@ -1413,7 +1601,7 @@ func (k Keeper) payInvitationBonus(ctx context.Context, claim *types.Claim, para
 			sdk.NewAttribute("fact_id", claim.ProvisionalFactId),
 			sdk.NewAttribute("amount_uzrn", amount.String()),
 		))
-		return
+		return nil
 	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	// The chain manufactures probe demand (commitment 5) and pays for
@@ -1428,4 +1616,5 @@ func (k Keeper) payInvitationBonus(ctx context.Context, claim *types.Claim, para
 		sdk.NewAttribute("amount", paid.String()),
 		sdk.NewAttribute("creed_commitment", "5,12"),
 	))
+	return nil
 }

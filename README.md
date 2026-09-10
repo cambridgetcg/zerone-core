@@ -124,10 +124,13 @@ The current source/default configuration exposes two bounded issuance families:
    query state was not reverified; that artifact is not evidence of live
    minting.
 
-Two additional cap-gated source controls are disabled in the published/default
-configuration: the knowledge probe-bounty rate is zero, and `x/tokens`
-emission periods are latched off. Governance can activate them. Training-fund
-disbursement and contribution-challenge bonus minting are release-sealed.
+The [review neutrality source release](docs/specs/knowledge-review-neutrality-v1.md)
+retires automatic knowledge probe issuance and new agreement-driven review
+bonuses. Valid recorded reviews share a fixed fee pool, including dissent and
+inconclusive work; new claims create no nominal submitter survival reward.
+Earlier accrued obligations remain. `x/tokens` emission periods remain latched
+off under their separate controls. Training-fund disbursement and
+contribution-challenge bonus minting remain release-sealed.
 Every post-genesis native issuance call routes through `MintWithCap`, and
 `InitChain` also rejects a genesis whose bank supply exceeds 222,222,222 ZRN.
 Consensus v2 of `x/vesting_rewards` permanently fixes its block/floor reward

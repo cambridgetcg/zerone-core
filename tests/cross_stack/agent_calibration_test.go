@@ -161,6 +161,7 @@ func TestAgentCalibration_CompassionErrorIsNotDeceit(t *testing.T) {
 // the leaderboard reflects the resulting calibration scores.
 func TestAgentCalibration_FeedbackLoop(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultMethodologies(h.Ctx))
 
 	domain := "calibration_loop_domain"
@@ -268,6 +269,7 @@ func TestAgentCalibration_FeedbackLoop(t *testing.T) {
 // for the feedback loop: surviving scrutiny is different from initial acceptance.
 func TestAgentCalibration_DisprovalPenalty(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultMethodologies(h.Ctx))
 
 	domain := "disproval_penalty_domain"

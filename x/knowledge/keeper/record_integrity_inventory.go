@@ -58,6 +58,23 @@ func (k Keeper) scanRecordPrimary(ctx context.Context, prefix []byte, makeRecord
 			return fmt.Errorf("record inventory exceeds bounds or has empty primary identity")
 		}
 		record := makeRecord()
+		switch record.(type) {
+		case *types.Claim:
+			if err := types.ValidateRawPolicyField(value, types.ClaimReviewPolicyField); err != nil {
+				_ = iterator.Close()
+				return err
+			}
+		case *types.VerificationRound:
+			if err := types.ValidateRawPolicyField(value, types.RoundReviewPolicyField); err != nil {
+				_ = iterator.Close()
+				return err
+			}
+		case *types.ContributionRecord:
+			if err := types.ValidateRawPolicyField(value, 9); err != nil {
+				_ = iterator.Close()
+				return err
+			}
+		}
 		if err := proto.Unmarshal(value, record); err != nil {
 			_ = iterator.Close()
 			return fmt.Errorf("decode record primary %x: %w", key, err)

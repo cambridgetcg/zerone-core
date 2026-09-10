@@ -36,6 +36,10 @@ import (
 
 // PostConjecture places an unsettled proposition into the graph.
 func (m *msgServer) PostConjecture(ctx context.Context, msg *types.MsgPostConjecture) (*types.MsgPostConjectureResponse, error) {
+	reviewPolicy, err := m.keeper.reviewPolicyAtAdmission(ctx)
+	if err != nil {
+		return nil, err
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
@@ -134,6 +138,7 @@ func (m *msgServer) PostConjecture(ctx context.Context, msg *types.MsgPostConjec
 	// dependency_confidence_floor derived from something nobody verified.
 	// A question is not a derivation; it enters the graph unattached.
 	claim := &types.Claim{
+		ReviewPolicyVersion:    reviewPolicy,
 		Id:                     claimID,
 		FactContent:            msg.Statement,
 		Domain:                 msg.Domain,

@@ -73,15 +73,6 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 		}
 	}
 
-	for _, claim := range gs.PendingClaims {
-		if claim == nil {
-			continue
-		}
-		if err := k.SetClaim(ctx, claim); err != nil {
-			return err
-		}
-	}
-
 	// Seed common knowledge registry
 	ckEntries := gs.CommonKnowledge
 	if len(ckEntries) == 0 {
@@ -260,6 +251,19 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 			return err
 		}
 	}
+	if gs.ReviewNeutralityEnabled {
+		if err := k.EnableReviewNeutrality(ctx); err != nil {
+			return err
+		}
+	}
+	for _, claim := range gs.PendingClaims {
+		if claim == nil {
+			continue
+		}
+		if err := k.SetClaim(ctx, claim); err != nil {
+			return err
+		}
+	}
 	if err := k.importVerificationRounds(ctx, gs); err != nil {
 		return err
 	}
@@ -341,6 +345,10 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	if err != nil {
 		panic(err)
 	}
+	neutral, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 	transitions, cascades, historyCounters, err := k.ExportKnowledgeHistory(ctx)
 	if err != nil {
 		panic(fmt.Errorf("export knowledge history: %w", err))
@@ -357,7 +365,7 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 			rounds = append(rounds, round)
 		}
 	}
-	if err := types.ValidateGenesisRounds(&types.GenesisState{PendingClaims: claims, ActiveRounds: rounds, CompletedRounds: completedRounds, RecordIntegrityEnabled: enabled}); err != nil {
+	if err := types.ValidateGenesisRounds(&types.GenesisState{PendingClaims: claims, ActiveRounds: rounds, CompletedRounds: completedRounds, RecordIntegrityEnabled: enabled, ReviewNeutralityEnabled: neutral}); err != nil {
 		panic(fmt.Errorf("export knowledge round references: %w", err))
 	}
 
@@ -412,11 +420,10 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		attestations = append(attestations, a)
 		return false
 	})
-	var contribRecords []*types.ContributionRecord
-	k.IterateContributionRecords(ctx, func(r *types.ContributionRecord) bool {
-		contribRecords = append(contribRecords, r)
-		return false
-	})
+	contribRecords, contributionErr := k.GetAllContributionRecordsChecked(ctx)
+	if contributionErr != nil {
+		panic(fmt.Errorf("export contribution records: %w", contributionErr))
+	}
 	var bounties []*types.AugmentationBounty
 	k.IterateAugmentationBounties(ctx, func(b *types.AugmentationBounty) bool {
 		bounties = append(bounties, b)
@@ -483,6 +490,7 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		TrainingFundAllocation:    trainingFundAllocation,
 		SurvivalPendingRewards:    survivalRewards,
 		RecordIntegrityEnabled:    enabled,
+		ReviewNeutralityEnabled:   neutral,
 		CompletedRounds:           completedRounds,
 		StatusTransitions:         transitions,
 		CascadeEvents:             cascades,
