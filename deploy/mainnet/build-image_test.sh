@@ -35,6 +35,7 @@ MAINNET_BUILD_PROFILE=development \
 for required in \
   '/.sanitized-mainnet-context-v1' '/Dockerfile' '/go.mod' '/go.sum' \
   '/internal/accountingmigration/context.go' \
+  '/internal/survivalmigration/context.go' \
   '/runtime/entrypoint.sh' '/public/genesis.json'; do
   grep -q "${required}$" "${TMP}/context-files" || fail "context omitted ${required}"
 done
@@ -65,6 +66,9 @@ fi
 grep -q '^COPY internal/accountingmigration ./internal/accountingmigration$' \
   "${ROOT}/deploy/mainnet/Dockerfile" || \
   fail "Dockerfile omits the accounting migration dependency from its builder"
+grep -q '^COPY internal/survivalmigration ./internal/survivalmigration$' \
+  "${ROOT}/deploy/mainnet/Dockerfile" || \
+  fail "Dockerfile omits the survival migration dependency from its builder"
 # shellcheck disable=SC2016
 grep -q 'test "${TARGETOS}/${TARGETARCH}" = "linux/amd64"' \
   "${ROOT}/deploy/mainnet/Dockerfile" || fail "Dockerfile does not enforce linux/amd64"
