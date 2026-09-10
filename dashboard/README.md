@@ -5,6 +5,25 @@ The production frontend for `zerone.ai`: a live, explorer-first view of
 state, recent blocks, supply, the disclosed custodial trust model, and a
 source-only authority observatory.
 
+## Understanding Zerone
+
+`/understand/` introduces the purpose, an explicitly fictional contribution,
+participant roles, money and authority, publication choices, and current
+participation paths. Native disclosures keep the example usable without
+JavaScript; the page has no application script, wallet, input form or API call.
+The existing research surfaces remain linked from its optional research index.
+
+The Vite build renders the page and `/understand/guide.json` from the same
+`understand-guide.ts` model. Its source commit and participation declarations
+come from the existing node-guide profile. They describe the build's reviewed
+documentation, not a fresh network check or admission authority. Observer
+publication remains separate from bootstrap eligibility at the signed expiry.
+
+After publication, compare both generated files with the clean release build
+and check desktop/mobile layouts with JavaScript enabled and disabled. Confirm
+the native disclosures, source links and homepage/node-guide discovery paths;
+the introduction should request only static resources from its own origin.
+
 ## Staged-beta observer profiles
 
 `network-profile.json` is the **single public build input** imported by the

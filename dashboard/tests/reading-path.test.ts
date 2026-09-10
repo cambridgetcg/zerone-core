@@ -215,7 +215,7 @@ describe("static dashboard reading path", () => {
     );
     assert.match(
       html,
-      /<meta\s+name="description"\s+content="Explore the live Zerone record without an account, or connect an existing wallet when you are ready\. New-account admission remains paused\."\s*\/>/u,
+      /<meta\s+name="description"\s+content="Understand Zerone: a shared record for humans and agents\. Follow a contribution, explore the existing ledger, and see how to participate today\."\s*\/>/u,
     );
   });
 

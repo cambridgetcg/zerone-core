@@ -49,7 +49,7 @@ describe("observer readiness text", () => {
 });
 
 describe("production onboarding surface", () => {
-  it("is the first primary action and follows the honest-state disclosure", () => {
+  it("remains reachable after the purpose introduction and follows the honest-state disclosure", () => {
     const truthTitle = html.indexOf('id="truth-banner-title"');
     const truthEnd = html.indexOf("</aside>", truthTitle) + "</aside>".length;
     const readingPathStart = html.lastIndexOf(
@@ -69,8 +69,9 @@ describe("production onboarding surface", () => {
     assert.equal(html.match(/href="#onboarding"/gu)?.length, 3);
     assert.match(
       html,
-      /<a class="button button-primary" href="#onboarding">\s*Start here/u,
+      /<a class="button button-primary" href="\/understand\/">\s*Understand Zerone/u,
     );
+    assert.match(html, /<a class="button button-ghost" href="#onboarding">\s*Explore the live record/u);
     assert.doesNotMatch(
       html.slice(0, onboardingStart),
       /class="[^"]*wallet-connect/u,

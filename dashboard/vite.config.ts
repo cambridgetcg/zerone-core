@@ -6,6 +6,7 @@ import { NETWORK_PROFILE } from "./network-profile";
 import { observerPage } from "./observer-page";
 import { loadNodeGuideProfile } from "./node-guide-build";
 import { nodeGuidePage } from "./node-guide-page";
+import { buildUnderstandGuide, understandPage } from "./understand-guide";
 import { proxyRequest } from "./functions/api/_proxy";
 
 const MAINNET_RPC = "http://169.155.55.44:26657";
@@ -19,24 +20,31 @@ function nodeGuidePlugin(): Plugin {
   let profile: ReturnType<typeof loadNodeGuideProfile> | undefined;
   const guide = () => profile ??= loadNodeGuideProfile(resolve(DASHBOARD_ROOT, ".."));
   const json = () => `${JSON.stringify(guide(), null, 2)}\n`;
+  const understanding = () => buildUnderstandGuide(guide());
+  const understandJson = () => `${JSON.stringify(understanding(), null, 2)}\n`;
   return {
     name: "source-pinned-node-guide",
     transformIndexHtml: {
       order: "pre",
-      handler: (html, context) => context.filename === resolve(DASHBOARD_ROOT, "nodes/index.html")
-        ? nodeGuidePage(guide()) : html,
+      handler: (html, context) => {
+        if (context.filename === resolve(DASHBOARD_ROOT, "nodes/index.html")) return nodeGuidePage(guide());
+        if (context.filename === resolve(DASHBOARD_ROOT, "understand/index.html")) return understandPage(understanding());
+        return html;
+      },
     },
     generateBundle() {
       this.emitFile({ type: "asset", fileName: "nodes/guide.json", source: json() });
+      this.emitFile({ type: "asset", fileName: "understand/guide.json", source: understandJson() });
     },
     configureServer(server) {
       server.middlewares.use((request, response, next) => {
-        if (request.url?.split("?")[0] !== "/nodes/guide.json") { next(); return; }
+        const path = request.url?.split("?")[0];
+        if (path !== "/nodes/guide.json" && path !== "/understand/guide.json") { next(); return; }
         if (request.method !== "GET" && request.method !== "HEAD") {
           response.writeHead(405, { Allow: "GET, HEAD" }); response.end(); return;
         }
         try {
-          const body = json();
+          const body = path === "/nodes/guide.json" ? json() : understandJson();
           response.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
           response.end(request.method === "HEAD" ? undefined : body);
         } catch (error) {
@@ -97,6 +105,8 @@ export default defineConfig({
     rollupOptions: { input: legacy ? {
       dashboard: resolve(DASHBOARD_ROOT, "index.html"), piCallback: resolve(DASHBOARD_ROOT, "pi/callback/index.html"),
       nodes: resolve(DASHBOARD_ROOT, "nodes/index.html"),
-    } : { dashboard: resolve(DASHBOARD_ROOT, "index.html"), nodes: resolve(DASHBOARD_ROOT, "nodes/index.html") } },
+      understand: resolve(DASHBOARD_ROOT, "understand/index.html"),
+    } : { dashboard: resolve(DASHBOARD_ROOT, "index.html"), nodes: resolve(DASHBOARD_ROOT, "nodes/index.html"),
+      understand: resolve(DASHBOARD_ROOT, "understand/index.html") } },
   },
 });

@@ -16,6 +16,12 @@
 /nodes/guide.json
   Content-Type: application/json; charset=utf-8
 
+/understand/*
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/understand/guide.json
+  Content-Type: application/json; charset=utf-8
+
 /llms.txt
   Cache-Control: public, max-age=0, must-revalidate, no-transform
   Content-Type: text/plain; charset=utf-8
