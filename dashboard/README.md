@@ -1,9 +1,10 @@
 # Zerone mainnet dashboard
 
-The production frontend for `zerone.ai`: a live, explorer-first view of
-`zerone-1` with Keplr wallet support, standard ZRN sends, native liquidity-pool
-state, recent blocks, supply, the disclosed custodial trust model, and a
-source-only authority observatory.
+The production frontend for `zerone.ai`: an introduction to Zerone's purpose
+and participation paths alongside the live `zerone-1` explorer. It includes
+Keplr wallet support, standard ZRN sends, native liquidity-pool state, recent
+blocks, supply, the disclosed custodial trust model, and a source-only
+authority observatory.
 
 ## Understanding Zerone
 

@@ -1,5 +1,6 @@
 @import "./node-guide.css";
 
+.understand #main-content { scroll-margin-top: 100px; }
 .understand .eyebrow, .understand .card-label { font-size: 0.72rem; }
 .understand h1 { max-width: 10ch; }
 .understand h2 { max-width: 15ch; }
