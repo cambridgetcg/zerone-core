@@ -111,6 +111,9 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	if err := cfg.RegisterMigration(types.ModuleName, 1, migrator.Migrate1to2); err != nil {
 		panic(fmt.Sprintf("failed to register %s migration: %v", types.ModuleName, err))
 	}
+	if err := cfg.RegisterMigration(types.ModuleName, 2, migrator.Migrate2to3); err != nil {
+		panic(fmt.Sprintf("failed to register %s migration v2→v3: %v", types.ModuleName, err))
+	}
 }
 
 // InitGenesis initializes the module from genesis.
@@ -135,10 +138,10 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 	return bz
 }
 
-// ConsensusVersion 2 permanently retires the founder auto-split and the
-// proposer-controlled arbitrary-transaction block mint while keeping their
-// protobuf fields as inert compatibility values.
-func (AppModule) ConsensusVersion() uint64 { return 2 }
+// ConsensusVersion 3 adds atomic schedule construction and an idempotent
+// knowledge handoff. Version 2's retirement of founder splits and arbitrary
+// transaction-presence block minting remains unchanged.
+func (AppModule) ConsensusVersion() uint64 { return 3 }
 
 // BeginBlock routes real transaction fees. Consensus v2 deliberately performs
 // no transaction-presence block mint: proposal inclusion is not successful,

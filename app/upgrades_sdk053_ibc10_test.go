@@ -55,7 +55,7 @@ type archivedH3AccountingModule struct {
 func (m archivedH3AccountingModule) ConsensusVersion() uint64 { return m.version }
 
 func pinArchivedH3AccountingTargets(application *ZeroneApp) {
-	for name, version := range map[string]uint64{"zerone_staking": 1, "zerone_gov": 2} {
+	for name, version := range map[string]uint64{"zerone_staking": 1, "zerone_gov": 2, "knowledge": 6, "vesting_rewards": 2} {
 		application.ModuleManager.Modules[name] = archivedH3AccountingModule{application.ModuleManager.Modules[name].(appmodule.AppModule), version}
 	}
 }

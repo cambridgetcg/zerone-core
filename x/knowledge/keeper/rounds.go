@@ -1028,8 +1028,11 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 	originalFact.AtRiskSinceEpoch = 0
 	_ = k.SetFact(ctx, originalFact)
 
-	// Survival-gate: the fact won its challenge — issue its escrowed submitter reward.
-	k.releaseSurvivalReward(ctx, originalFact.Id)
+	// The fact survived. A failed handoff preserves the pending reward and its
+	// deadline index so the sweep can retry without repeating this verdict.
+	if err := k.releaseSurvivalReward(ctx, originalFact.Id); err != nil {
+		k.Logger(ctx).Error("handoff survival reward after challenge", "fact_id", originalFact.Id, "error", err)
+	}
 
 	// Popper, not popularity: a fact's standing comes from how many
 	// serious challenges it has survived. This event records one more

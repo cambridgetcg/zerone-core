@@ -374,6 +374,9 @@ func (app *ZeroneApp) validateAccountingAuthoritySource(ctx sdk.Context, plan up
 	if err := requireAccountingTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
 		return err
 	}
+	if err := requireSurvivalHandoffTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
+		return err
+	}
 	info, err := parseAccountingAuthorityPlanInfo(plan.Info)
 	if err != nil {
 		return err
@@ -623,7 +626,7 @@ func (app *ZeroneApp) ValidateAccountingAuthorityStartup() (err error) {
 		}
 		return app.validateAccountingAuthoritySource(ctx, plan, vm)
 	}
-	if err := requireAccountingExactVersionMap(vm, accountingAuthorityTargetVersionMap()); err != nil {
+	if err := app.validateSurvivalHandoffStartupVersions(ctx, vm, latest); err != nil {
 		return err
 	}
 	if !app.ZeroneStakingKeeper.AccountingSafetyEnabled(ctx) || !app.ZeroneGovKeeper.AccountingSafetyEnabled(ctx) {

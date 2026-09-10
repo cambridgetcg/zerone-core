@@ -5,6 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/zerone-chain/zerone/internal/survivalmigration"
 	"github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
@@ -39,4 +40,13 @@ func (m Migrator) Migrate1to2(ctx sdk.Context) error {
 		return fmt.Errorf("persist vesting_rewards v2 params: %w", err)
 	}
 	return nil
+}
+
+// Migrate2to3 validates preserved schedules and their indexes before enabling
+// the atomic, idempotent knowledge handoff. It does not rewrite entitlements.
+func (m Migrator) Migrate2to3(ctx sdk.Context) error {
+	if err := survivalmigration.Require(ctx); err != nil {
+		return err
+	}
+	return m.keeper.ValidateKnowledgeVestingState(ctx)
 }

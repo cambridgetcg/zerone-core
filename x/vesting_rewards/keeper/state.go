@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"fmt"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"google.golang.org/protobuf/proto"
 
@@ -9,41 +10,50 @@ import (
 
 // SetVestingSchedule stores a vesting schedule with all indexes.
 func (k Keeper) SetVestingSchedule(ctx sdk.Context, schedule *types.VestingSchedule) {
+	if err := k.setVestingScheduleChecked(ctx, schedule); err != nil {
+		panic(err)
+	}
+}
+
+// setVestingScheduleChecked retains the existing index layout. Callers that
+// need atomic creation must use a cache context and commit only on success.
+func (k Keeper) setVestingScheduleChecked(ctx sdk.Context, schedule *types.VestingSchedule) error {
 	store := k.storeService.OpenKVStore(ctx)
 
 	bz, err := proto.Marshal(schedule)
 	if err != nil {
-		panic("failed to marshal vesting schedule: " + err.Error())
+		return fmt.Errorf("failed to marshal vesting schedule: %w", err)
 	}
 
 	key := append(types.VestingScheduleKeyPrefix, []byte(schedule.Id)...)
 	if err := store.Set(key, bz); err != nil {
-		panic("failed to set vesting schedule: " + err.Error())
+		return fmt.Errorf("failed to set vesting schedule: %w", err)
 	}
 
 	if schedule.ClaimId != "" {
 		claimKey := append(types.ClaimRecordKeyPrefix, []byte(schedule.ClaimId)...)
 		if err := store.Set(claimKey, []byte(schedule.Id)); err != nil {
-			panic("failed to set claim index: " + err.Error())
+			return fmt.Errorf("failed to set claim index: %w", err)
 		}
 	}
 
 	recipientKey := append(types.VestingByRecipientPrefix, []byte(schedule.Recipient+"/"+schedule.Id)...)
 	if err := store.Set(recipientKey, []byte{1}); err != nil {
-		panic("failed to set recipient index: " + err.Error())
+		return fmt.Errorf("failed to set recipient index: %w", err)
 	}
 
 	if schedule.Status == string(types.VestingStatusActive) || schedule.Status == string(types.VestingStatusPaused) {
 		activeKey := append(types.ActiveVestingPrefix, []byte(schedule.Id)...)
 		if err := store.Set(activeKey, []byte{1}); err != nil {
-			panic("failed to set active index: " + err.Error())
+			return fmt.Errorf("failed to set active index: %w", err)
 		}
 	} else {
 		activeKey := append(types.ActiveVestingPrefix, []byte(schedule.Id)...)
 		if err := store.Delete(activeKey); err != nil {
-			panic("failed to delete active index: " + err.Error())
+			return fmt.Errorf("failed to delete active index: %w", err)
 		}
 	}
+	return nil
 }
 
 // GetVestingSchedule retrieves a vesting schedule by ID.

@@ -728,6 +728,28 @@ export interface GenesisState {
    * account).
    */
   trainingFundAllocation: string;
+  /**
+   * Pending nominal submitter rewards, not bank balances or completed payments.
+   * Import reconstructs the derived deadline index from these primary records.
+   * An absent historical record is not recreated from claims or events.
+   */
+  survivalPendingRewards: SurvivalPendingReward[];
+}
+/**
+ * SurvivalPendingReward preserves the knowledge module's pending handoff to
+ * vesting. Fields map explicitly to its existing JSON store representation.
+ * @name SurvivalPendingReward
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.SurvivalPendingReward
+ */
+export interface SurvivalPendingReward {
+  claimId: string;
+  factId: string;
+  recipient: string;
+  amount: string;
+  category: string;
+  partnershipId: string;
+  deadline: bigint;
 }
 function createBaseParams_MethodologyNormalizationBpsEntry(): Params_MethodologyNormalizationBpsEntry {
   return {
@@ -2042,7 +2064,8 @@ function createBaseGenesisState(): GenesisState {
     trainingFundDisbursements: [],
     trainingManifests: [],
     agentCalibrations: [],
-    trainingFundAllocation: ""
+    trainingFundAllocation: "",
+    survivalPendingRewards: []
   };
 }
 /**
@@ -2126,6 +2149,9 @@ export const GenesisState = {
     if (message.trainingFundAllocation !== "") {
       writer.uint32(482).string(message.trainingFundAllocation);
     }
+    for (const v of message.survivalPendingRewards) {
+      SurvivalPendingReward.encode(v!, writer.uint32(490).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -2207,6 +2233,9 @@ export const GenesisState = {
         case 60:
           message.trainingFundAllocation = reader.string();
           break;
+        case 61:
+          message.survivalPendingRewards.push(SurvivalPendingReward.decode(reader, reader.uint32()));
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -2240,6 +2269,98 @@ export const GenesisState = {
     message.trainingManifests = object.trainingManifests?.map(e => TrainingManifest.fromPartial(e)) || [];
     message.agentCalibrations = object.agentCalibrations?.map(e => AgentCalibration.fromPartial(e)) || [];
     message.trainingFundAllocation = object.trainingFundAllocation ?? "";
+    message.survivalPendingRewards = object.survivalPendingRewards?.map(e => SurvivalPendingReward.fromPartial(e)) || [];
+    return message;
+  }
+};
+function createBaseSurvivalPendingReward(): SurvivalPendingReward {
+  return {
+    claimId: "",
+    factId: "",
+    recipient: "",
+    amount: "",
+    category: "",
+    partnershipId: "",
+    deadline: BigInt(0)
+  };
+}
+/**
+ * SurvivalPendingReward preserves the knowledge module's pending handoff to
+ * vesting. Fields map explicitly to its existing JSON store representation.
+ * @name SurvivalPendingReward
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.SurvivalPendingReward
+ */
+export const SurvivalPendingReward = {
+  typeUrl: "/zerone.knowledge.v1.SurvivalPendingReward",
+  encode(message: SurvivalPendingReward, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.claimId !== "") {
+      writer.uint32(10).string(message.claimId);
+    }
+    if (message.factId !== "") {
+      writer.uint32(18).string(message.factId);
+    }
+    if (message.recipient !== "") {
+      writer.uint32(26).string(message.recipient);
+    }
+    if (message.amount !== "") {
+      writer.uint32(34).string(message.amount);
+    }
+    if (message.category !== "") {
+      writer.uint32(42).string(message.category);
+    }
+    if (message.partnershipId !== "") {
+      writer.uint32(50).string(message.partnershipId);
+    }
+    if (message.deadline !== BigInt(0)) {
+      writer.uint32(56).uint64(message.deadline);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): SurvivalPendingReward {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseSurvivalPendingReward();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.claimId = reader.string();
+          break;
+        case 2:
+          message.factId = reader.string();
+          break;
+        case 3:
+          message.recipient = reader.string();
+          break;
+        case 4:
+          message.amount = reader.string();
+          break;
+        case 5:
+          message.category = reader.string();
+          break;
+        case 6:
+          message.partnershipId = reader.string();
+          break;
+        case 7:
+          message.deadline = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<SurvivalPendingReward>): SurvivalPendingReward {
+    const message = createBaseSurvivalPendingReward();
+    message.claimId = object.claimId ?? "";
+    message.factId = object.factId ?? "";
+    message.recipient = object.recipient ?? "";
+    message.amount = object.amount ?? "";
+    message.category = object.category ?? "";
+    message.partnershipId = object.partnershipId ?? "";
+    message.deadline = object.deadline !== undefined && object.deadline !== null ? BigInt(object.deadline.toString()) : BigInt(0);
     return message;
   }
 };
