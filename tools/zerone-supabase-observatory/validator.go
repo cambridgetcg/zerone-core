@@ -34,8 +34,8 @@ var (
 	chainIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 
 	expectedSourcePins = []sourcePin{
-		{"zerone.research-commons-spec", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "3f91dddf41c70595da8cc611306fb1ae912ea0c4", "docs/specs/research-commons-rc-0.1.md", "sha256:cb17662b1df383d43d181895478864b4c9a754f36f862e365e119e6be0a3983e", "CURRENT", "LOCAL_BYTES"},
-		{"zerone.research-commons-manifest", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "3f91dddf41c70595da8cc611306fb1ae912ea0c4", "dashboard/public/standards/research-commons.v0.1.json", "sha256:07f4f569a5daf4a644ced1cadb908d0720d59635ffdc557381d387865343ca4d", "CURRENT", "LOCAL_BYTES"},
+		{"zerone.research-commons-spec", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "a01e53b2ec487fe9cb96f8eea1256e34bce08e90", "docs/specs/research-commons-rc-0.1.md", "sha256:3ae89e898b609b57de6f0f2ef3d921c23cfdcc805bc81e293a71d9c2514e84fb", "CURRENT", "LOCAL_BYTES"},
+		{"zerone.research-commons-manifest", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "a01e53b2ec487fe9cb96f8eea1256e34bce08e90", "dashboard/public/standards/research-commons.v0.1.json", "sha256:4594178bd5607bfd464441012ba47b0748d16d2441b5c556d412328fb63b5b52", "CURRENT", "LOCAL_BYTES"},
 		{"zerone.tok-substrate-doctrine", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "3f91dddf41c70595da8cc611306fb1ae912ea0c4", "docs/TOK_SUBSTRATE.md", "sha256:b4dae8b8dbc2345121c034c67f620bda0bd1a7ba57c8eb23c2671ab909c0e5c7", "CURRENT", "LOCAL_BYTES"},
 		{"zerone.tok-bundle-implementation", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "3f91dddf41c70595da8cc611306fb1ae912ea0c4", "x/knowledge/keeper/tok_bundle.go", "sha256:5e0d21f05335f9722863833b6f3b961f472df9651406a328cc7e5723053d6e45", "CURRENT", "LOCAL_BYTES"},
 		{"zerone.static-tree", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "264f3c383f408729f4d0c27d332cd454c9eb4400", "dashboard/public/standards/constructive-intelligence-tree.v1.json", "sha256:8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf", "CURRENT", "LOCAL_BYTES"},
@@ -142,7 +142,7 @@ func validateManifestSeal(data []byte) error {
 }
 
 func validateManifest(contract manifest) error {
-	if contract.Format != manifestFormat || contract.Protocol != protocolID || contract.Status != "SOURCE_ONLY_OFFLINE_NO_EFFECT" || contract.AsOf != "2026-09-10T20:33:45Z" {
+	if contract.Format != manifestFormat || contract.Protocol != protocolID || contract.Status != "SOURCE_ONLY_OFFLINE_NO_EFFECT" || contract.AsOf != "2026-09-10T22:13:46Z" {
 		return errors.New("manifest identity or observation cutoff drifted")
 	}
 	if len(contract.SourcePins) != len(expectedSourcePins) {
