@@ -50,7 +50,7 @@ func (k Keeper) GetParams(ctx context.Context) (*types.Params, error) {
 
 // ─── Fact CRUD ───────────────────────────────────────────────────────────────
 
-func (k Keeper) SetFact(ctx context.Context, fact *types.Fact) error {
+func (k Keeper) legacySetFact(ctx context.Context, fact *types.Fact) error {
 	if fact == nil || fact.Id == "" {
 		return fmt.Errorf("fact requires id")
 	}
@@ -63,7 +63,7 @@ func (k Keeper) SetFact(ctx context.Context, fact *types.Fact) error {
 	if priorStatus != fact.Status {
 		sdkCtx := sdk.UnwrapSDKContext(ctx)
 		cause, causeID := inferStatusTransitionCause(sdkCtx, fact)
-		_ = k.RecordStatusTransition(ctx, &types.StatusTransition{
+		_ = k.legacyRecordStatusTransition(ctx, &types.StatusTransition{
 			FactId:         fact.Id,
 			PriorStatus:    priorStatus,
 			NewStatus:      fact.Status,
@@ -244,6 +244,104 @@ func (k Keeper) GetClaimByContentHash(ctx context.Context, hash string) (string,
 // ─── VerificationRound CRUD ─────────────────────────────────────────────────
 
 func (k Keeper) SetVerificationRound(ctx context.Context, round *types.VerificationRound) error {
+	enabled, err := k.RecordIntegrityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if !enabled {
+		if round == nil || round.CommitmentScheme != types.CommitmentSchemeLegacy || round.CommitmentChainId != "" || round.VerifierRewardSettlement != nil {
+			return fmt.Errorf("new round fields require record-integrity activation")
+		}
+		for _, reveal := range round.Reveals {
+			if reveal != nil && (reveal.Attestation != nil || reveal.Confidence != 0) {
+				return fmt.Errorf("legacy round cannot contain unbound review fields")
+			}
+		}
+		return k.setVerificationRoundLegacy(ctx, round)
+	}
+	if err := types.ValidateVerificationRoundRecord(round, true); err != nil {
+		return err
+	}
+	store := k.storeService.OpenKVStore(ctx)
+	previousBytes, err := store.Get(types.RoundKey(round.Id))
+	if err != nil {
+		return fmt.Errorf("read prior round: %w", err)
+	}
+	var previous *types.VerificationRound
+	if previousBytes != nil {
+		previous = new(types.VerificationRound)
+		if err := proto.Unmarshal(previousBytes, previous); err != nil {
+			return fmt.Errorf("decode prior round: %w", err)
+		}
+		if err := types.ValidateVerificationRoundRecord(previous, true); err != nil {
+			return err
+		}
+		if previous.Id != round.Id || previous.ClaimId != round.ClaimId || previous.CommitmentScheme != round.CommitmentScheme || previous.CommitmentChainId != round.CommitmentChainId {
+			return fmt.Errorf("round identity, claim and commitment scheme are immutable")
+		}
+		if round.CommitmentScheme == types.CommitmentSchemeReviewV2 {
+			if len(round.Commits) < len(previous.Commits) || len(round.Reveals) < len(previous.Reveals) || len(round.SelectedVerifiers) < len(previous.SelectedVerifiers) {
+				return fmt.Errorf("recorded reviews cannot be removed")
+			}
+			for i, entry := range previous.Commits {
+				if !proto.Equal(entry, round.Commits[i]) {
+					return fmt.Errorf("recorded commitments are immutable")
+				}
+			}
+			for i, entry := range previous.Reveals {
+				if !proto.Equal(entry, round.Reveals[i]) {
+					return fmt.Errorf("recorded reveals are immutable")
+				}
+			}
+			for i, verifier := range previous.SelectedVerifiers {
+				if round.SelectedVerifiers[i] != verifier {
+					return fmt.Errorf("recorded verifier order is immutable")
+				}
+			}
+		}
+	}
+	if err := types.ValidateVerifierRewardSettlementUpdate(previous, round); err != nil {
+		return err
+	}
+	indexed, err := store.Get(types.ClaimRoundIndexKey(round.ClaimId))
+	if err != nil {
+		return fmt.Errorf("read claim-round index: %w", err)
+	}
+	if previous == nil && indexed != nil && string(indexed) != round.Id {
+		return fmt.Errorf("claim already references another round")
+	}
+	bz, err := marshalOpts.Marshal(round)
+	if err != nil {
+		return fmt.Errorf("failed to marshal round: %w", err)
+	}
+	cache, commit := sdk.UnwrapSDKContext(ctx).CacheContext()
+	cacheStore := k.storeService.OpenKVStore(cache)
+	if err := cacheStore.Set(types.RoundKey(round.Id), bz); err != nil {
+		return err
+	}
+	// Historical claims may have several retained rounds. Updating an older
+	// one must not change the claim's existing selected-round index.
+	if indexed == nil || string(indexed) == round.Id {
+		if err := cacheStore.Set(types.ClaimRoundIndexKey(round.ClaimId), []byte(round.Id)); err != nil {
+			return err
+		}
+	}
+	activeKey := activeRoundKey(round.Id)
+	if round.Phase != types.VerificationPhase_VERIFICATION_PHASE_COMPLETE && round.Phase != types.VerificationPhase_VERIFICATION_PHASE_EXPIRED {
+		if err := cacheStore.Set(activeKey, []byte{0x01}); err != nil {
+			return err
+		}
+	} else if err := cacheStore.Delete(activeKey); err != nil {
+		return err
+	}
+	if err := k.SyncPendingVerifierRewardIndex(cache, round); err != nil {
+		return err
+	}
+	commit()
+	return nil
+}
+
+func (k Keeper) setVerificationRoundLegacy(ctx context.Context, round *types.VerificationRound) error {
 	store := k.storeService.OpenKVStore(ctx)
 	bz, err := marshalOpts.Marshal(round)
 	if err != nil {
@@ -430,6 +528,34 @@ func (k Keeper) StoreCommitmentInRound(ctx context.Context, roundID string, comm
 	if round.Phase != types.VerificationPhase_VERIFICATION_PHASE_COMMIT {
 		return types.ErrRoundNotInCommitPhase
 	}
+	if commit == nil {
+		return fmt.Errorf("commitment is required")
+	}
+	switch round.CommitmentScheme {
+	case types.CommitmentSchemeLegacy:
+		if round.CommitmentChainId != "" {
+			return fmt.Errorf("legacy round has unsupported chain context")
+		}
+	case types.CommitmentSchemeReviewV2:
+		enabled, err := k.RecordIntegrityEnabled(ctx)
+		if err != nil {
+			return err
+		}
+		if !enabled {
+			return fmt.Errorf("scheme-2 commitment requires record-integrity activation")
+		}
+		if _, err := types.CanonicalReviewAddress(commit.Verifier); err != nil {
+			return err
+		}
+		if len(commit.CommitHash) != sha256.Size {
+			return fmt.Errorf("scheme-2 commitment must be a SHA-256 digest")
+		}
+		if len(commit.ProtoReflect().GetUnknown()) != 0 {
+			return fmt.Errorf("unsupported commitment fields")
+		}
+	default:
+		return fmt.Errorf("unsupported commitment scheme %d", round.CommitmentScheme)
+	}
 
 	existing := findCommitByVerifier(round.Commits, commit.Verifier)
 	if existing != nil {
@@ -458,8 +584,8 @@ func (k Keeper) StoreCommitmentInRound(ctx context.Context, roundID string, comm
 
 // StoreRevealInRound stores a reveal entry in a verification round.
 // Verifies the reveal matches the prior commitment hash using the provided confidence.
-// The confidence parameter is needed because RevealEntry (proto) does not carry it,
-// but it is part of the commitment hash preimage.
+// Scheme 0 retains historical absence of confidence; scheme 2 stores the
+// verified confidence and attestation without changing the legacy preimage.
 func (k Keeper) StoreRevealInRound(ctx context.Context, roundID string, reveal *types.RevealEntry, confidence uint64) error {
 	round, found := k.GetVerificationRound(ctx, roundID)
 	if !found {
@@ -467,6 +593,9 @@ func (k Keeper) StoreRevealInRound(ctx context.Context, roundID string, reveal *
 	}
 	if round.Phase != types.VerificationPhase_VERIFICATION_PHASE_REVEAL {
 		return types.ErrRoundNotInRevealPhase
+	}
+	if reveal == nil {
+		return fmt.Errorf("reveal is required")
 	}
 
 	// Find matching commit
@@ -476,8 +605,37 @@ func (k Keeper) StoreRevealInRound(ctx context.Context, roundID string, reveal *
 	}
 
 	// Verify reveal matches commitment hash
-	if !types.VerifyCommitmentHash(commit.CommitHash, roundID, reveal.Vote, confidence, reveal.Salt) {
-		return types.ErrRevealMismatch
+	switch round.CommitmentScheme {
+	case types.CommitmentSchemeLegacy:
+		if round.CommitmentChainId != "" || reveal.Attestation != nil || reveal.Confidence != 0 {
+			return fmt.Errorf("legacy round cannot bind scheme-2 review fields")
+		}
+		if !types.VerifyCommitmentHash(commit.CommitHash, roundID, reveal.Vote, confidence, reveal.Salt) {
+			return types.ErrRevealMismatch
+		}
+	case types.CommitmentSchemeReviewV2:
+		enabled, err := k.RecordIntegrityEnabled(ctx)
+		if err != nil {
+			return err
+		}
+		if !enabled {
+			return fmt.Errorf("scheme-2 reveal requires record-integrity activation")
+		}
+		if len(reveal.ProtoReflect().GetUnknown()) != 0 {
+			return fmt.Errorf("unsupported reveal fields")
+		}
+		hash, err := types.ComputeReviewCommitmentV2(round.CommitmentChainId, roundID, reveal.Verifier, reveal.Vote, confidence, reveal.Salt, reveal.Attestation)
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(commit.CommitHash, hash) {
+			return types.ErrRevealMismatch
+		}
+		// Set only after a successful match. Legacy records intentionally retain absence.
+		reveal = proto.Clone(reveal).(*types.RevealEntry)
+		reveal.Confidence = confidence
+	default:
+		return fmt.Errorf("unsupported commitment scheme %d", round.CommitmentScheme)
 	}
 
 	// Check for existing reveal

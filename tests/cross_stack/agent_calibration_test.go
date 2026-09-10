@@ -14,11 +14,11 @@ import (
 // cases — no round-simulation, just direct calibration struct evaluation.
 func TestAgentCalibration_ScoreFormula(t *testing.T) {
 	cases := []struct {
-		name         string
-		c            *knowledgetypes.AgentCalibration
-		wantAtLeast  uint64
-		wantAtMost   uint64
-		description  string
+		name        string
+		c           *knowledgetypes.AgentCalibration
+		wantAtLeast uint64
+		wantAtMost  uint64
+		description string
 	}{
 		{
 			name:        "zero-submissions → zero",
@@ -202,6 +202,7 @@ func TestAgentCalibration_FeedbackLoop(t *testing.T) {
 				Verdict: verdict, Confidence: 700_000, RejectCount: 3,
 			}
 		}
+		storeUnfinalizedFixtureRound(t, h, round)
 		require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, result))
 	}
 
@@ -293,6 +294,7 @@ func TestAgentCalibration_DisprovalPenalty(t *testing.T) {
 		Id: "round-disproval-baseline", ClaimId: claim.Id,
 		Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE, StartedAtBlock: 1,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
 		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
 	}))
@@ -337,6 +339,7 @@ func TestAgentCalibration_DisprovalPenalty(t *testing.T) {
 		Id: "round-disproval-challenge", ClaimId: challengeClaim.Id,
 		Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE, StartedAtBlock: 2,
 	}
+	storeUnfinalizedFixtureRound(t, h, cRound)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, cRound, &knowledgekeeper.VerificationResult{
 		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
 	}))

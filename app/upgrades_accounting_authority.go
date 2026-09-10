@@ -377,6 +377,9 @@ func (app *ZeroneApp) validateAccountingAuthoritySource(ctx sdk.Context, plan up
 	if err := requireSurvivalHandoffTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
 		return err
 	}
+	if err := requireRecordIntegrityTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
+		return err
+	}
 	info, err := parseAccountingAuthorityPlanInfo(plan.Info)
 	if err != nil {
 		return err

@@ -29,7 +29,7 @@ import { validateExplicitInvariantDisciplineRaw } from "../scripts/validate-expl
 type MutableDocument = Record<string, any>;
 
 const REVIEWED_SHA256 =
-  "655c9759a7c7566ca77ded3ab4479e460216df651880d199ac284a00772b3cbe";
+  "5586d66a3baeef21b03c93e7528cc71bfd2140300edfb36fba2f338c6ec563aa";
 const canonicalRaw = readFileSync(
   new URL(
     "../public/standards/explicit-invariant-discipline.v1.json",
@@ -488,7 +488,7 @@ describe("explicit invariant discipline v1 seal and parser", () => {
       [
         "correspondence-geometry",
         "dashboard/public/standards/correspondence-geometry.v0.json",
-        "fd2b5c17da9e35f9cd97357e857b0e272f8f7315719a3a20e200703754c0ed7f",
+        "bf49e62dd2e59033e6f3bbfa0506ca5585bb3e9186268e9c3641fe3581a8db57",
       ],
       [
         "knowledge-methodologies",
@@ -498,7 +498,7 @@ describe("explicit invariant discipline v1 seal and parser", () => {
       [
         "knowledge-types",
         "proto/zerone/knowledge/v1/types.proto",
-        "7b2b301c80711587a55ae03216728ec1f6f5bf981035106d26ac1fa4923d8ced",
+        "336f599cb9042869885fbcfa261b3c7afbb0325ccc1deda86a74ed074a8588b4",
       ],
     ];
     assert.deepEqual(

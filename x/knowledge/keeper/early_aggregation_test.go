@@ -24,7 +24,7 @@ import (
 func earlyAggRound(id, claimID string, phase types.VerificationPhase, commits, reveals int) *types.VerificationRound {
 	round := testRound(id, claimID, phase)
 	for i := 0; i < commits; i++ {
-		verifier := fmt.Sprintf("zrn1earlyaggval%dxxxxxxxxxxxxxxxxxxxx", i)
+		verifier := phaseTestVerifier(byte(i + 40))
 		salt := []byte(fmt.Sprintf("early-agg-salt-%d-%d", i, len(id)))
 		round.SelectedVerifiers = append(round.SelectedVerifiers, verifier)
 		round.Commits = append(round.Commits, &types.CommitEntry{
@@ -88,6 +88,8 @@ func TestEarlyAggregation_AllRevealsInCompletesBeforeDeadline(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_COMPLETE, updated.Phase)
 	require.Equal(t, types.Verdict_VERDICT_ACCEPT, updated.Verdict)
+	require.NotNil(t, updated.VerifierRewardSettlement)
+	require.Equal(t, uint64(ctx.BlockHeight()), updated.VerifierRewardSettlement.PaidAtBlock)
 	require.Less(t, updated.VerdictBlock, round.RevealDeadline,
 		"verdict must land before the reveal deadline")
 	require.Equal(t, 1, earlyAggCountEvents(ctx, "zerone.knowledge.round_phase_changed"))

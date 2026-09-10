@@ -26,6 +26,9 @@ func SerialiseToK_JSONL(b *types.ToKBundle) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		if len(line)+1 > ToKMaxOutputBytes-buf.Len() {
+			return nil, ErrToKResourceLimit
+		}
 		buf.Write(line)
 		buf.WriteByte('\n')
 	}
@@ -40,6 +43,9 @@ func SerialiseToK_JSONL(b *types.ToKBundle) ([]byte, error) {
 		line, err := json.Marshal(row)
 		if err != nil {
 			return nil, err
+		}
+		if len(line)+1 > ToKMaxOutputBytes-buf.Len() {
+			return nil, ErrToKResourceLimit
 		}
 		buf.Write(line)
 		buf.WriteByte('\n')
@@ -61,6 +67,9 @@ func SerialiseToK_JSONL(b *types.ToKBundle) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		if len(line)+1 > ToKMaxOutputBytes-buf.Len() {
+			return nil, ErrToKResourceLimit
+		}
 		buf.Write(line)
 		buf.WriteByte('\n')
 	}
@@ -79,6 +88,9 @@ func SerialiseToK_JSONL(b *types.ToKBundle) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+		if len(line)+1 > ToKMaxOutputBytes-buf.Len() {
+			return nil, ErrToKResourceLimit
+		}
 		buf.Write(line)
 		buf.WriteByte('\n')
 	}
@@ -96,6 +108,9 @@ func SerialiseToK_JSONL(b *types.ToKBundle) ([]byte, error) {
 		line, err := json.Marshal(row)
 		if err != nil {
 			return nil, err
+		}
+		if len(line)+1 > ToKMaxOutputBytes-buf.Len() {
+			return nil, ErrToKResourceLimit
 		}
 		buf.Write(line)
 		buf.WriteByte('\n')

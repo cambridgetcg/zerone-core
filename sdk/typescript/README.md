@@ -58,6 +58,56 @@ const message = liquidityPoolMessages.fromPartial.swap({
 The generated custom messages support protobuf/direct signing. This package
 does not claim legacy Amino converters for them.
 
+## Reasoned review commitments
+
+`knowledge-record-integrity-v1` gives newly created rounds `commitment_scheme=2`.
+Query the target round first: existing scheme-0 rounds retain the legacy hash,
+and unknown schemes must be refused. The helpers below are exclusively scheme 2.
+They prepare bytes locally and do not query, sign or broadcast a transaction.
+
+```ts
+import { computeReviewCommitmentV2, makeReviewRevealV2 } from "@zerone-chain/sdk";
+
+// round is the queried scheme-2 round; reviewer is the transaction signer.
+const review = {
+  chainId: round.commitmentChainId,
+  roundId: round.id,
+  verifier: reviewer,
+  vote: "accept" as const,
+  confidence: 800_000n,
+  salt: crypto.getRandomValues(new Uint8Array(32)),
+  attestation: {
+    methodId: "M-COMPUTATIONAL", // optional, registered methodology
+    reason: "I ran the cited date-parser fixture and checked its outputs.",
+    evidenceIds: [publicEvidenceReference],
+    scope: "Only the stated input cases and implementation version.",
+  },
+};
+const commitHash = computeReviewCommitmentV2(review);
+const reveal = makeReviewRevealV2(review);
+```
+
+Keep the exact salt and attestation privately until the reveal phase; publish only
+material you may share. Commit/reveal transaction messages must name the same
+reviewer and round. The hash binds the original round chain, round ID, canonical
+reviewer address bytes, vote, confidence, salt and every attestation field in
+submitted order. Reasons are required and bounded; they are assertions of what
+was checked, not evidence of reviewer independence or proof that work occurred.
+Registered methods and evidence references do not automatically establish truth.
+
+An exported/imported in-flight round retains its original
+`commitment_chain_id`; use that stored value for the hash. SDK transaction signing
+still uses the current destination chain ID. Legacy review confidence and reasons
+remain absent in historical records; this release does not fabricate them.
+
+The CLI queries the round by default and requires `--review-reason` for scheme 2.
+`--review-method`, `--review-scope` and repeated `--review-evidence` preserve exact
+text/order. For offline generation explicitly provide `--commitment-scheme 2`
+and `--commitment-chain-id` from the round, or `--commitment-scheme 0` for a known
+legacy round. Query failure never silently selects the legacy format. Ordinary
+claim `methodId`/`reasoningTrace`, relation methods and challenge evidence are
+retained after activation; installing this SDK alone does not activate a network.
+
 ## Query and quote liquidity
 
 The handwritten liquidity entry point complements the generated transaction

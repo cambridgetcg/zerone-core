@@ -31,9 +31,9 @@ func TestRouteB_Wave6_StepLevelReasoning(t *testing.T) {
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
 		Id: "F-STEPS", Content: "monotone of x^2 on positives", Domain: "math",
 		Confidence: 900_000, Status: knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
-		Submitter: testAddr("wave6_steps").String(),
-		MethodId:  knowledgetypes.MethodologyFormal,
-		ReasoningTrace: reasoning,
+		Submitter:          testAddr("wave6_steps").String(),
+		MethodId:           knowledgetypes.MethodologyFormal,
+		ReasoningTrace:     reasoning,
 		CorroborationCount: 2,
 	}))
 
@@ -75,8 +75,8 @@ func TestRouteB_Wave6_StepLevelReasoningPlainTextFallback(t *testing.T) {
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
 		Id: "F-PLAIN", Content: "temperature rose 3°C, real not instrumental", Domain: "sciences",
 		Confidence: 800_000, Status: knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
-		Submitter: testAddr("wave6_plain").String(),
-		MethodId:  knowledgetypes.MethodologyEmpirical,
+		Submitter:      testAddr("wave6_plain").String(),
+		MethodId:       knowledgetypes.MethodologyEmpirical,
 		ReasoningTrace: trace,
 	}))
 
@@ -115,8 +115,8 @@ func TestRouteB_Wave6_DriftDiagnosisAttachment(t *testing.T) {
 		Id: "aug-modal-drift", OriginalFactId: "F-DRIFT-PARENT",
 		VariantContent:        "swans must be white",
 		VariantReasoningTrace: `[{"step":1,"content":"all observed swans are white"},{"step":2,"inference":"induction","content":"therefore swans are white","depends_on":[1]}]`,
-		Submitter: testAddr("wave6_drifter").String(),
-		Verdict:   knowledgetypes.AugmentationVerdict_AUGMENTATION_VERDICT_DRIFT,
+		Submitter:             testAddr("wave6_drifter").String(),
+		Verdict:               knowledgetypes.AugmentationVerdict_AUGMENTATION_VERDICT_DRIFT,
 	}))
 
 	resp, err := qs.MethodologyApplicationTrace(h.Ctx, &knowledgetypes.QueryMethodologyApplicationTraceRequest{
@@ -148,8 +148,8 @@ func TestRouteB_Wave6_MethodologyChoice(t *testing.T) {
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
 		Id: "F-CHOICE", Content: "voltage drop across resistor is 3.2V", Domain: "sciences",
 		Confidence: 900_000, Status: knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
-		Submitter: testAddr("wave6_choice").String(),
-		MethodId:  knowledgetypes.MethodologyEmpirical,
+		Submitter:      testAddr("wave6_choice").String(),
+		MethodId:       knowledgetypes.MethodologyEmpirical,
 		ReasoningTrace: trace,
 	}))
 
@@ -179,7 +179,7 @@ func TestRouteB_Wave6_MethodologyChoiceFallback(t *testing.T) {
 
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
 		Id: "F-CHOICE-MIN", Content: "plain fact", Domain: "sciences",
-		Status: knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
+		Status:    knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
 		Submitter: testAddr("wave6_min").String(),
 		MethodId:  knowledgetypes.MethodologyEmpirical,
 	}))
@@ -195,8 +195,7 @@ func TestRouteB_Wave6_MethodologyChoiceFallback(t *testing.T) {
 }
 
 // TestRouteB_Wave6_BeliefRevisionChain — a fact with corroborations and an
-// incoming contradiction yields a monotone-trending belief-revision chain
-// ending at current confidence.
+// incoming contradiction retain current fields without inventing a confidence history.
 func TestRouteB_Wave6_BeliefRevisionChain(t *testing.T) {
 	h := NewTestHarness(t)
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultMethodologies(h.Ctx))
@@ -209,9 +208,9 @@ func TestRouteB_Wave6_BeliefRevisionChain(t *testing.T) {
 	f := &knowledgetypes.Fact{
 		Id: "F-REVISIONS", Content: "water boils at 100°C at 1 atm", Domain: "sciences",
 		Confidence: 950_000, Status: knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
-		Submitter: testAddr("wave6_rev").String(),
-		MethodId:  knowledgetypes.MethodologyEmpirical,
-		CorroborationCount: 4,
+		Submitter:             testAddr("wave6_rev").String(),
+		MethodId:              knowledgetypes.MethodologyEmpirical,
+		CorroborationCount:    4,
 		SubmittedAtBlock:      10,
 		LastCorroboratedBlock: 200,
 		LastVerifiedBlock:     210,
@@ -221,14 +220,14 @@ func TestRouteB_Wave6_BeliefRevisionChain(t *testing.T) {
 	// An incoming CONTRADICTS edge from a (failed) counter-claim.
 	failedCounter := &knowledgetypes.Fact{
 		Id: "F-FAILED-COUNTER", Content: "water boils at 99°C at 1 atm", Domain: "sciences",
-		Status: knowledgetypes.FactStatus_FACT_STATUS_DISPROVEN, // the challenger lost
+		Status:    knowledgetypes.FactStatus_FACT_STATUS_DISPROVEN, // the challenger lost
 		Submitter: testAddr("wave6_contender").String(),
 		MethodId:  knowledgetypes.MethodologyEmpirical,
 	}
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, failedCounter))
 	require.NoError(t, h.KnowledgeKeeper.SetFactRelation(h.Ctx, &knowledgetypes.FactRelation{
 		SourceFactId: failedCounter.Id, TargetFactId: f.Id,
-		Relation: knowledgetypes.RelationType_RELATION_TYPE_CONTRADICTS,
+		Relation:       knowledgetypes.RelationType_RELATION_TYPE_CONTRADICTS,
 		CreatedAtBlock: 150,
 	}))
 
@@ -236,33 +235,9 @@ func TestRouteB_Wave6_BeliefRevisionChain(t *testing.T) {
 		FactId: f.Id,
 	})
 	require.NoError(t, err)
-	revs := resp.Trace.BeliefRevisions
-	require.GreaterOrEqual(t, len(revs), 6,
-		"at least: 1 initial + 4 corroborations + 1 contradiction + 1 reconcile")
-
-	// First row is always the initial prior.
-	require.Equal(t, knowledgetypes.RevisionReason_REVISION_REASON_RESUBMISSION, revs[0].Reason)
-	require.Equal(t, uint64(0), revs[0].PriorConfidenceBps)
-
-	// Corroboration rows appear.
-	var sawCorro, sawContra bool
-	for _, r := range revs {
-		switch r.Reason {
-		case knowledgetypes.RevisionReason_REVISION_REASON_CORROBORATION:
-			sawCorro = true
-		case knowledgetypes.RevisionReason_REVISION_REASON_CONTRADICTION:
-			sawContra = true
-			require.Contains(t, r.EvidenceFactIds, failedCounter.Id,
-				"contradiction revision cites the challenger fact as evidence")
-		}
-	}
-	require.True(t, sawCorro, "CORROBORATION reason appears in the chain")
-	require.True(t, sawContra, "CONTRADICTION reason appears in the chain")
-
-	// Final row equals the fact's current confidence.
-	last := revs[len(revs)-1]
-	require.Equal(t, f.Confidence, last.PosteriorConfidenceBps,
-		"chain closes by reconciling to current chain state")
+	require.Empty(t, resp.Trace.BeliefRevisions, "current confidence and corroboration counts do not establish an event history")
+	require.Equal(t, f.Confidence, resp.Trace.OwnConfidenceBps)
+	require.Equal(t, f.CorroborationCount, resp.Trace.CorroborationCount)
 }
 
 // TestRouteB_Wave6_DialecticTreeFromChallenges — flat challenges become a
@@ -292,8 +267,8 @@ func TestRouteB_Wave6_DialecticTreeFromChallenges(t *testing.T) {
 
 	// Challenge claim with a verdict and a rebuttal text.
 	round := &knowledgetypes.VerificationRound{
-		Id: "r-debate", Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE,
-		Verdict: knowledgetypes.Verdict_VERDICT_REJECT, // challenge rejected → fact survived
+		Id: "r-debate", ClaimId: "c-debate-1", Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE,
+		Verdict:      knowledgetypes.Verdict_VERDICT_REJECT, // challenge rejected → fact survived
 		VerdictBlock: 500,
 	}
 	require.NoError(t, h.KnowledgeKeeper.SetVerificationRound(h.Ctx, round))
@@ -301,11 +276,11 @@ func TestRouteB_Wave6_DialecticTreeFromChallenges(t *testing.T) {
 	ch := &knowledgetypes.Claim{
 		Id: "c-debate-1", Submitter: challengerAddr,
 		FactContent: "not P", Domain: "sciences", Category: "empirical",
-		MethodId: knowledgetypes.MethodologyEmpirical,
-		ProvisionalFactId: f.Id,
+		MethodId:            knowledgetypes.MethodologyEmpirical,
+		ProvisionalFactId:   f.Id,
 		VerificationRoundId: round.Id,
-		ArgumentText: "I challenge P because of evidence E.",
-		RebuttalText: "E is spurious because of counter-evidence F.",
+		ArgumentText:        "I challenge P because of evidence E.",
+		RebuttalText:        "E is spurious because of counter-evidence F.",
 	}
 	require.NoError(t, h.KnowledgeKeeper.SetClaim(h.Ctx, ch))
 
@@ -331,8 +306,8 @@ func TestRouteB_Wave6_DialecticTreeFromChallenges(t *testing.T) {
 			require.Equal(t, defenderAddr, ch.Speaker)
 		case knowledgetypes.DialecticRole_DIALECTIC_ROLE_VERDICT:
 			sawVerdict = true
-			require.Equal(t, knowledgetypes.StepVerdict_STEP_VERDICT_SOUND, ch.NodeVerdict,
-				"challenge rejected → fact survived → SOUND verdict at the leaf")
+			require.Equal(t, knowledgetypes.StepVerdict_STEP_VERDICT_UNSOUND, ch.NodeVerdict,
+				"the rejected challenge is unsound; the original fact survived")
 		}
 	}
 	require.True(t, sawRebuttal)

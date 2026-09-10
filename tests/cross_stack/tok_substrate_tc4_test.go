@@ -25,27 +25,27 @@ func TestToKSubstrate_TC4_GraphCarriesDisprovals(t *testing.T) {
 	// Build: axiom (will be disproven) + descendant.
 	axiom := &knowledgetypes.Fact{
 		Id: "tc4-axiom", Domain: domain,
-		Status:        knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+		Status:          knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
 		VerifiedAtBlock: 100, Confidence: 900_000,
 	}
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, axiom))
 
 	descendant := submitAndAcceptChainedClaim(t, h, domain, "depends on tc4-axiom",
 		[]*knowledgetypes.ClaimRelation{{
-			TargetFactId:          axiom.Id,
-			Relation:               knowledgetypes.RelationType_RELATION_TYPE_REQUIRES,
-			Inference:              knowledgetypes.InferenceType_INFERENCE_TYPE_DEDUCTIVE,
-			InferenceStrengthBps:   1_000_000,
+			TargetFactId:         axiom.Id,
+			Relation:             knowledgetypes.RelationType_RELATION_TYPE_REQUIRES,
+			Inference:            knowledgetypes.InferenceType_INFERENCE_TYPE_DEDUCTIVE,
+			InferenceStrengthBps: 1_000_000,
 		}}, "tc4-descendant")
 
 	// Disprove the axiom via challenge.
 	challengeClaim := &knowledgetypes.Claim{
 		Id: "tc4-challenge", Submitter: "challenger",
-		FactContent: "axiom is wrong",
-		Domain:      domain,
-		Category:    "empirical",
-		Status:      knowledgetypes.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION,
-		Stake:       "11000000",
+		FactContent:       "axiom is wrong",
+		Domain:            domain,
+		Category:          "empirical",
+		Status:            knowledgetypes.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION,
+		Stake:             "11000000",
 		ProvisionalFactId: axiom.Id,
 		Relations: []*knowledgetypes.ClaimRelation{{
 			TargetFactId: axiom.Id,
@@ -57,6 +57,7 @@ func TestToKSubstrate_TC4_GraphCarriesDisprovals(t *testing.T) {
 		Id: "tc4-round", ClaimId: challengeClaim.Id,
 		Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
 		Verdict:    knowledgetypes.Verdict_VERDICT_ACCEPT,
 		Confidence: 900_000, AcceptCount: 3,

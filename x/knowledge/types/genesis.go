@@ -446,6 +446,7 @@ func DefaultGenesis() *GenesisState {
 		// pre-fund the legacy sponsorship pool must declare the target balance
 		// in their reviewed genesis artifact.
 		BootstrapFundAllocation: "0",
+		RecordIntegrityEnabled:  true,
 	}
 }
 
@@ -498,6 +499,12 @@ func (gs *GenesisState) Validate() error {
 		return err
 	}
 	if err := ValidateSurvivalPendingRewards(gs.SurvivalPendingRewards); err != nil {
+		return err
+	}
+	if err := ValidateGenesisRounds(gs); err != nil {
+		return err
+	}
+	if err := ValidateKnowledgeHistoryGenesis(gs); err != nil {
 		return err
 	}
 

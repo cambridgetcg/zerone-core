@@ -1312,16 +1312,31 @@ Claim review fee split across protocol components.
 - `research` -- research fund share
 - `verifier_pool` -- verifier pool share
 
+### zerone.knowledge.verifier_rewards_accrued
+After `knowledge-record-integrity-v1` activation, a terminal review stores its
+frozen verifier payment plan. This event records the obligation; payment may
+remain pending when the module lacks funds. The primary round carries the exact
+amounts and later paid height.
+
+- `round_id` -- verification round
+- `payment_status` -- `pending`
+
 ### zerone.knowledge.verifier_rewarded
-Per-verifier payout from the 55% verifier pool at round completion. Previously
-the independence modulation (T3) withheld reward silently — the verifier saw a
-smaller payout with no on-chain record of why. `withheld_uzrn` is the exact
-amount the modulation subtracted; `amount_uzrn + withheld_uzrn` equals the
-verifier's unmodulated pool share.
+After record-integrity activation, each event belongs to a successfully settled
+atomic verifier batch from the 55% review-fee pool. Every verifier transfer and
+the development-fund withholding transfer succeed together. A failed batch emits
+no paid event and remains pending for retry. `amount_uzrn + withheld_uzrn` equals
+the verifier's unmodulated pool share.
+
+Legacy events have no `payment_status` or `paid_at_block`. Their amount represents
+the calculated obligation, and the event alone does not prove transfer success.
+
 - `verifier` -- rewarded verifier address
 - `round_id` -- verification round
-- `amount_uzrn` -- uzrn actually paid after independence modulation
+- `amount_uzrn` -- uzrn paid after independence modulation when `payment_status=paid`; calculated amount in legacy events
 - `withheld_uzrn` -- uzrn withheld by the modulation (`0` if none; withheld value flows to the development fund)
+- `payment_status` -- `paid` after record-integrity activation; absent in legacy events
+- `paid_at_block` -- successful batch settlement height; absent in legacy events
 
 ### zerone.knowledge.role_elasticity_updated
 Human/agent role elasticity recalculated for a domain.

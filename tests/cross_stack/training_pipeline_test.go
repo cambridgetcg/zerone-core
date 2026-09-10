@@ -180,6 +180,7 @@ func TestTrainingPipeline_ReasoningTracePropagates(t *testing.T) {
 		Confidence:  900_000,
 		AcceptCount: 3,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, result))
 
 	var fact *knowledgetypes.Fact

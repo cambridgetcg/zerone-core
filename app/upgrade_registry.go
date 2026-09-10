@@ -68,6 +68,7 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 	// coherence; the test in Wave 10.2 asserts parity between this list
 	// and the registered handlers so drift gets caught immediately.
 	known := []UpgradeLineageEntry{
+		{UpgradeName: UpgradeNameKnowledgeRecordIntegrityV1, Description: "knowledge-record-integrity-v1 — exact survival handoff predecessor; knowledge 7->8 actor-bound new reviews, preserved legacy rounds, attributable history and explicit payment outcomes; no live legacy activation."},
 		{UpgradeName: UpgradeNameSurvivalRewardHandoffV1, Description: "survival-reward-handoff-v1 — exact completed accounting predecessor; knowledge 6->7 derived deadline index repair and vesting_rewards 2->3 schedule/index validation; atomic idempotent handoff without repricing, minting, or payout."},
 		{UpgradeName: UpgradeNameAccountingAuthorityV1, Description: "accounting-authority-v1 — exact committed post-H3 state and custody commitments, quiescent custom governance, validated custom staking 1->2 and governance 2->3; preserves claimants and historical escrow."},
 		{
@@ -161,7 +162,11 @@ func (app *ZeroneApp) RunUpgradeHandlerWithInfoForTests(
 	// additive write can silently repopulate an omitted entry. The SDK/IBC
 	// transition legitimately contains retired capability and feeibc entries,
 	// so it uses its own exact source guards rather than the H1 target-map guard.
-	if plan.Name == UpgradeNameSurvivalRewardHandoffV1 {
+	if plan.Name == UpgradeNameKnowledgeRecordIntegrityV1 {
+		if err := app.validateRecordIntegritySource(sdk.UnwrapSDKContext(ctx), plan, fromVM); err != nil {
+			return nil, err
+		}
+	} else if plan.Name == UpgradeNameSurvivalRewardHandoffV1 {
 		if err := app.validateSurvivalHandoffSource(sdk.UnwrapSDKContext(ctx), plan, fromVM); err != nil {
 			return nil, err
 		}
@@ -197,6 +202,9 @@ func (app *ZeroneApp) RunUpgradeHandlerWithInfoForTests(
 		return nil, err
 	}
 	if err := requireSurvivalHandoffTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
+		return nil, err
+	}
+	if err := requireRecordIntegrityTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
 		return nil, err
 	}
 	// Seed the on-chain module-version map to the pre-upgrade state so

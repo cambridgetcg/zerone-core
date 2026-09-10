@@ -15,7 +15,7 @@ import (
 // TC4: cascade events are bundled with the substrate. The chain emits a
 // `falsification_cascade` voice event when this fires; the record is what
 // makes TC4 bundle-able. Commitment 10: forward-only.
-func (k Keeper) RecordCascadeEvent(ctx context.Context, ev *types.CascadeEvent) error {
+func (k Keeper) legacyRecordCascadeEvent(ctx context.Context, ev *types.CascadeEvent) error {
 	if ev == nil || ev.DisprovenFactId == "" || ev.DescendantFactId == "" {
 		return fmt.Errorf("cascade event requires disproven_fact_id and descendant_fact_id")
 	}

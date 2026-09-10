@@ -1,5 +1,6 @@
 //@ts-nocheck
 import { Fact, Claim, VerificationRound, Domain, CommonKnowledgeEntry, Methodology, NormativeCommitment, TokenizerSpec, TraceSchema, TrainingPipeline, ModelCard, TrainingAttestation, ContributionRecord, AugmentationBounty, Augmentation, ContributionChallenge, TrainingFundDisbursement, TrainingManifest, AgentCalibration } from "./types";
+import { StatusTransition, CascadeEvent } from "./tok_cascade";
 import { BinaryReader, BinaryWriter } from "../../../binary";
 import { DeepPartial } from "../../../helpers";
 /**
@@ -734,6 +735,27 @@ export interface GenesisState {
    * An absent historical record is not recreated from claims or events.
    */
   survivalPendingRewards: SurvivalPendingReward[];
+  /**
+   * Native genesis enables current record semantics; historical absence preserves legacy behavior.
+   */
+  recordIntegrityEnabled: boolean;
+  /**
+   * Complete/expired review records, including any unpaid or paid reward plan.
+   */
+  completedRounds: VerificationRound[];
+  statusTransitions: StatusTransition[];
+  cascadeEvents: CascadeEvent[];
+  statusTransitionCounters: StatusTransitionCounter[];
+}
+/**
+ * Preserves the allocated status-history sequence even when retained history has gaps.
+ * @name StatusTransitionCounter
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.StatusTransitionCounter
+ */
+export interface StatusTransitionCounter {
+  factId: string;
+  sequence: bigint;
 }
 /**
  * SurvivalPendingReward preserves the knowledge module's pending handoff to
@@ -2065,7 +2087,12 @@ function createBaseGenesisState(): GenesisState {
     trainingManifests: [],
     agentCalibrations: [],
     trainingFundAllocation: "",
-    survivalPendingRewards: []
+    survivalPendingRewards: [],
+    recordIntegrityEnabled: false,
+    completedRounds: [],
+    statusTransitions: [],
+    cascadeEvents: [],
+    statusTransitionCounters: []
   };
 }
 /**
@@ -2152,6 +2179,21 @@ export const GenesisState = {
     for (const v of message.survivalPendingRewards) {
       SurvivalPendingReward.encode(v!, writer.uint32(490).fork()).ldelim();
     }
+    if (message.recordIntegrityEnabled === true) {
+      writer.uint32(496).bool(message.recordIntegrityEnabled);
+    }
+    for (const v of message.completedRounds) {
+      VerificationRound.encode(v!, writer.uint32(506).fork()).ldelim();
+    }
+    for (const v of message.statusTransitions) {
+      StatusTransition.encode(v!, writer.uint32(514).fork()).ldelim();
+    }
+    for (const v of message.cascadeEvents) {
+      CascadeEvent.encode(v!, writer.uint32(522).fork()).ldelim();
+    }
+    for (const v of message.statusTransitionCounters) {
+      StatusTransitionCounter.encode(v!, writer.uint32(530).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -2236,6 +2278,21 @@ export const GenesisState = {
         case 61:
           message.survivalPendingRewards.push(SurvivalPendingReward.decode(reader, reader.uint32()));
           break;
+        case 62:
+          message.recordIntegrityEnabled = reader.bool();
+          break;
+        case 63:
+          message.completedRounds.push(VerificationRound.decode(reader, reader.uint32()));
+          break;
+        case 64:
+          message.statusTransitions.push(StatusTransition.decode(reader, reader.uint32()));
+          break;
+        case 65:
+          message.cascadeEvents.push(CascadeEvent.decode(reader, reader.uint32()));
+          break;
+        case 66:
+          message.statusTransitionCounters.push(StatusTransitionCounter.decode(reader, reader.uint32()));
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -2270,6 +2327,61 @@ export const GenesisState = {
     message.agentCalibrations = object.agentCalibrations?.map(e => AgentCalibration.fromPartial(e)) || [];
     message.trainingFundAllocation = object.trainingFundAllocation ?? "";
     message.survivalPendingRewards = object.survivalPendingRewards?.map(e => SurvivalPendingReward.fromPartial(e)) || [];
+    message.recordIntegrityEnabled = object.recordIntegrityEnabled ?? false;
+    message.completedRounds = object.completedRounds?.map(e => VerificationRound.fromPartial(e)) || [];
+    message.statusTransitions = object.statusTransitions?.map(e => StatusTransition.fromPartial(e)) || [];
+    message.cascadeEvents = object.cascadeEvents?.map(e => CascadeEvent.fromPartial(e)) || [];
+    message.statusTransitionCounters = object.statusTransitionCounters?.map(e => StatusTransitionCounter.fromPartial(e)) || [];
+    return message;
+  }
+};
+function createBaseStatusTransitionCounter(): StatusTransitionCounter {
+  return {
+    factId: "",
+    sequence: BigInt(0)
+  };
+}
+/**
+ * Preserves the allocated status-history sequence even when retained history has gaps.
+ * @name StatusTransitionCounter
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.StatusTransitionCounter
+ */
+export const StatusTransitionCounter = {
+  typeUrl: "/zerone.knowledge.v1.StatusTransitionCounter",
+  encode(message: StatusTransitionCounter, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.factId !== "") {
+      writer.uint32(10).string(message.factId);
+    }
+    if (message.sequence !== BigInt(0)) {
+      writer.uint32(16).uint64(message.sequence);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): StatusTransitionCounter {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseStatusTransitionCounter();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.factId = reader.string();
+          break;
+        case 2:
+          message.sequence = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<StatusTransitionCounter>): StatusTransitionCounter {
+    const message = createBaseStatusTransitionCounter();
+    message.factId = object.factId ?? "";
+    message.sequence = object.sequence !== undefined && object.sequence !== null ? BigInt(object.sequence.toString()) : BigInt(0);
     return message;
   }
 };

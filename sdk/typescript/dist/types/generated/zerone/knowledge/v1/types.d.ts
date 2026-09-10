@@ -1549,6 +1549,18 @@ export interface Claim {
      * MALFORMED. Empty for every other claim type.
      */
     falsificationPredicate: string;
+    /**
+     * Exact submitted challenge evidence references; absence is not reconstructed.
+     */
+    evidenceIds: string[];
+    /**
+     * Exact submitted provisional counter-claim, distinct from its reason.
+     */
+    counterClaim: string;
+    /**
+     * Exact optional original-claim ID asserted by a provisional challenge.
+     */
+    challengedClaimId: string;
 }
 /**
  * VerificationRound tracks one commit-reveal verification cycle.
@@ -1569,6 +1581,51 @@ export interface VerificationRound {
     commitDeadline: bigint;
     revealDeadline: bigint;
     aggregationDeadline: bigint;
+    /**
+     * Immutable per round: 0 is the historical v1 scheme; 2 binds reviewer and review payload.
+     */
+    commitmentScheme: number;
+    /**
+     * Original creation chain for scheme 2; preserved on export/import.
+     */
+    commitmentChainId: string;
+    verifierRewardSettlement?: VerifierRewardSettlement;
+}
+/**
+ * ReviewAttestation records what the signer says they checked. It is not proof
+ * of independent expertise, reproduction, or the truth of the claim.
+ * @name ReviewAttestation
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ReviewAttestation
+ */
+export interface ReviewAttestation {
+    methodId: string;
+    reason: string;
+    evidenceIds: string[];
+    scope: string;
+}
+/**
+ * VerifierRewardSettlement preserves a finalized round's exact payment plan.
+ * Amounts are canonical uzrn decimal strings; paid_at_block 0 means unpaid.
+ * @name VerifierRewardSettlement
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.VerifierRewardSettlement
+ */
+export interface VerifierRewardSettlement {
+    createdAtBlock: bigint;
+    payments: VerifierRewardPayment[];
+    withheldTotal: string;
+    paidAtBlock: bigint;
+}
+/**
+ * @name VerifierRewardPayment
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.VerifierRewardPayment
+ */
+export interface VerifierRewardPayment {
+    verifier: string;
+    amount: string;
+    withheld: string;
 }
 /**
  * CommitEntry records a validator's blinded commitment (SHA-256(vote || salt)).
@@ -1598,6 +1655,11 @@ export interface RevealEntry {
     vote: string;
     salt: Uint8Array;
     revealedAtBlock: bigint;
+    /**
+     * Retained for scheme 2 only. Legacy absence must not be read as a recorded zero.
+     */
+    confidence: bigint;
+    attestation?: ReviewAttestation;
 }
 /**
  * VRFProof captures a Verifiable Random Function output for validator selection.
@@ -2899,6 +2961,43 @@ export declare const VerificationRound: {
     encode(message: VerificationRound, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): VerificationRound;
     fromPartial(object: DeepPartial<VerificationRound>): VerificationRound;
+};
+/**
+ * ReviewAttestation records what the signer says they checked. It is not proof
+ * of independent expertise, reproduction, or the truth of the claim.
+ * @name ReviewAttestation
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ReviewAttestation
+ */
+export declare const ReviewAttestation: {
+    typeUrl: string;
+    encode(message: ReviewAttestation, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): ReviewAttestation;
+    fromPartial(object: DeepPartial<ReviewAttestation>): ReviewAttestation;
+};
+/**
+ * VerifierRewardSettlement preserves a finalized round's exact payment plan.
+ * Amounts are canonical uzrn decimal strings; paid_at_block 0 means unpaid.
+ * @name VerifierRewardSettlement
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.VerifierRewardSettlement
+ */
+export declare const VerifierRewardSettlement: {
+    typeUrl: string;
+    encode(message: VerifierRewardSettlement, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): VerifierRewardSettlement;
+    fromPartial(object: DeepPartial<VerifierRewardSettlement>): VerifierRewardSettlement;
+};
+/**
+ * @name VerifierRewardPayment
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.VerifierRewardPayment
+ */
+export declare const VerifierRewardPayment: {
+    typeUrl: string;
+    encode(message: VerifierRewardPayment, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): VerifierRewardPayment;
+    fromPartial(object: DeepPartial<VerifierRewardPayment>): VerifierRewardPayment;
 };
 /**
  * CommitEntry records a validator's blinded commitment (SHA-256(vote || salt)).

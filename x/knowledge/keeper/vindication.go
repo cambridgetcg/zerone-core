@@ -194,7 +194,100 @@ func (k Keeper) PruneExpiredVindications(ctx context.Context, currentHeight, win
 // handleChallengeDisproven transitions the challenged fact to DISPROVEN
 // when a challenge claim is accepted. Triggers vindication for the original
 // fact's minority voters who were slashed during its verification round.
-func (k Keeper) handleChallengeDisproven(ctx context.Context, challengeClaim *types.Claim, newFactId string) {
+func (k Keeper) handleChallengeDisproven(ctx context.Context, challengeClaim *types.Claim, newFactId string) error {
+	enabled, err := k.RecordIntegrityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if !enabled {
+		k.legacyHandleChallengeDisproven(ctx, challengeClaim, newFactId)
+		return nil
+	}
+	cached, write := sdk.UnwrapSDKContext(ctx).CacheContext()
+	ctx = cached
+	if challengeClaim.ProvisionalFactId == "" {
+		return nil
+	}
+
+	originalFact, found, err := k.getFactChecked(ctx, challengeClaim.ProvisionalFactId)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return nil
+	}
+
+	// Contradiction check: same domain + explicit challenge link
+	if originalFact.Domain != challengeClaim.Domain {
+		return nil
+	}
+
+	// Transition to DISPROVEN
+	originalFact.Status = types.FactStatus_FACT_STATUS_DISPROVEN
+	if err = k.SetFact(ctx, originalFact); err != nil {
+		return err
+	}
+
+	// Survival-gate: the fact fell — cancel its escrowed submitter reward (no mint).
+	pr, pending, err := k.getSurvivalPendingReward(ctx, originalFact.Id)
+	if err != nil {
+		return err
+	}
+	if pending {
+		if err = k.deleteSurvivalPending(ctx, pr); err != nil {
+			return err
+		}
+	}
+
+	// Hook: claim (via fact) has been disproven. disproverArtifactID is the
+	// newly created counter-fact that replaced it. Errors are swallowed.
+	if err = k.Hooks().AfterClaimDisproven(ctx, originalFact.ClaimId, newFactId); err != nil {
+		return err
+	}
+
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	// Popper, not popularity: a fact stops being a fact when a serious
+	// attempt to disprove it succeeds. The chain announces the verdict
+	// publicly so future training and citation runs can route around it.
+	// See TRUTH_SEEKING.md commitment 3.
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		"zerone.knowledge.fact_disproven",
+		sdk.NewAttribute("fact_id", originalFact.Id),
+		sdk.NewAttribute("disproven_by", newFactId),
+		sdk.NewAttribute("challenge_claim_id", challengeClaim.Id),
+		sdk.NewAttribute("creed_commitment", "3"),
+	))
+
+	// Phase 5 feedback loop:
+	//  · the disproven fact's submitter accrues a disproven_count
+	//  · the challenger is credited with a successful challenge
+	// A refuted CONJECTURE must not mark its proposer down. Refutation is the
+	// mechanism working, not the proposer erring — and the conjecture path
+	// deliberately never incremented their Accepted count, so a disproval
+	// here lands on a denominator the proposer never contributed to. That is
+	// COMPASSION C2 (error is not deceit) exactly inverted. The challenger is
+	// credited either way: they did the work.
+	if !IsConjecture(originalFact) {
+		k.RecordDisprovalForSubmitter(ctx, originalFact.Submitter, originalFact.MethodId)
+	}
+	k.RecordChallengeOutcome(ctx, challengeClaim.Submitter, true)
+
+	// Falsification cascade (ToK Wave 5): mark direct descendants as CONTESTED
+	// so they'll be re-examined rather than continuing to pose as validated.
+	// Only first-hop descendants — transitive cascading is not done automatically
+	// to avoid runaway invalidation. Governance can trigger deeper cascade via
+	// a later message if needed.
+	if err = k.cascadeFalsificationChecked(ctx, originalFact.Id, challengeClaim.Id); err != nil {
+		return err
+	}
+
+	// Trigger vindication for the ORIGINAL fact's minority voters
+	k.ExecuteVindication(ctx, originalFact.Id, newFactId)
+	write()
+	return nil
+}
+
+func (k Keeper) legacyHandleChallengeDisproven(ctx context.Context, challengeClaim *types.Claim, newFactId string) {
 	if challengeClaim.ProvisionalFactId == "" {
 		return
 	}
@@ -486,4 +579,104 @@ func (k Keeper) ExecuteVindication(ctx context.Context, factId, disprovenBy stri
 		sdk.NewAttribute("majority_slashed", totalMajoritySlash.String()),
 		sdk.NewAttribute("bonus_pool", bonusPool.String()),
 	))
+}
+
+func (k Keeper) cascadeFalsificationChecked(ctx context.Context, disprovenFactId, challengeClaimId string) error {
+	cached, write := sdk.UnwrapSDKContext(ctx).CacheContext()
+	ctx = cached
+	incoming, err := k.getRelationsChecked(ctx, types.FactRelationsByTargetPrefix(disprovenFactId))
+	if err != nil {
+		return err
+	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	affectedCount := 0
+	for _, rel := range incoming {
+		switch rel.Relation {
+		case types.RelationType_RELATION_TYPE_SUPPORTS,
+			types.RelationType_RELATION_TYPE_REQUIRES,
+			types.RelationType_RELATION_TYPE_REFINES,
+			types.RelationType_RELATION_TYPE_GENERALIZES,
+			types.RelationType_RELATION_TYPE_CITES:
+		default:
+			continue
+		}
+		descendant, ok, err := k.getFactChecked(ctx, rel.SourceFactId)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			continue
+		}
+		// Only flip VERIFIED/ACTIVE/AT_RISK facts. Don't re-contest already
+		// CONTESTED/DISPROVEN/CHALLENGED facts — their status is informative.
+		switch descendant.Status {
+		case types.FactStatus_FACT_STATUS_VERIFIED,
+			types.FactStatus_FACT_STATUS_ACTIVE,
+			types.FactStatus_FACT_STATUS_AT_RISK:
+		default:
+			continue
+		}
+		priorStatus := descendant.Status
+		descendant.Status = types.FactStatus_FACT_STATUS_CONTESTED
+
+		// Write the precise StatusTransition with full cause attribution
+		// before SetFact (which would otherwise auto-record with imprecise cause).
+		if err = k.RecordStatusTransition(ctx, &types.StatusTransition{
+			FactId:         descendant.Id,
+			PriorStatus:    priorStatus,
+			NewStatus:      types.FactStatus_FACT_STATUS_CONTESTED,
+			BlockHeight:    uint64(sdkCtx.BlockHeight()),
+			CauseEventType: "cascade",
+			CauseId:        disprovenFactId,
+		}); err != nil {
+			return err
+		}
+		if err = k.SetFactSkipTransition(ctx, descendant); err != nil {
+			return err
+		}
+
+		// Persist the cascade event for TC4 bundling.
+		if err = k.RecordCascadeEvent(ctx, &types.CascadeEvent{
+			DisprovenFactId:  disprovenFactId,
+			DescendantFactId: descendant.Id,
+			ChallengeClaimId: challengeClaimId,
+			EdgeRelation:     rel.Relation.String(),
+			PriorStatus:      priorStatus,
+			NewStatus:        types.FactStatus_FACT_STATUS_CONTESTED,
+			BlockHeight:      uint64(sdkCtx.BlockHeight()),
+		}); err != nil {
+			return err
+		}
+
+		affectedCount++
+		// Popper, not popularity: when a fact falls, the chain
+		// announces which facts inherited its provisional truth and
+		// must be re-examined. The cascade is the substrate
+		// admitting that what depended on a wrong fact also might
+		// be wrong. See TRUTH_SEEKING.md commitment 3.
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+			"zerone.knowledge.falsification_cascade",
+			sdk.NewAttribute("descendant_fact_id", descendant.Id),
+			sdk.NewAttribute("disproven_fact_id", disprovenFactId),
+			sdk.NewAttribute("challenge_claim_id", challengeClaimId),
+			sdk.NewAttribute("edge_relation", rel.Relation.String()),
+			sdk.NewAttribute("creed_commitment", "3"),
+			sdk.NewAttribute("tok_commitment", "TC4"),
+		))
+	}
+	if affectedCount > 0 {
+		// Aggregate cascade announcement for off-chain observers
+		// that want one summary record per disproof. Same commitment
+		// as per-descendant events above.
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+			EventTypeCascadeCompleted,
+			sdk.NewAttribute("disproven_fact_id", disprovenFactId),
+			sdk.NewAttribute("challenge_claim_id", challengeClaimId),
+			sdk.NewAttribute("descendant_count", fmt.Sprintf("%d", affectedCount)),
+			sdk.NewAttribute("tok_commitment", "TC4"),
+			sdk.NewAttribute("creed_commitment", "3"),
+		))
+	}
+	write()
+	return nil
 }

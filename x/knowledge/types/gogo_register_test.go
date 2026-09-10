@@ -20,6 +20,7 @@ func TestNestedMsgTypesGogoResolvable(t *testing.T) {
 		"zerone.knowledge.v1.TokenizerSpec",
 		"zerone.knowledge.v1.TraceSchema",
 		"zerone.knowledge.v1.CorpusSelector",
+		"zerone.knowledge.v1.ReviewAttestation",
 	} {
 		if gogoproto.MessageType(name) == nil {
 			t.Fatalf("%s not in the gogo registry — knowledge MsgUpdateParams txs will fail to decode", name)

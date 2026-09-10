@@ -519,22 +519,22 @@ func TestAdvanceRoundPhases_RevealToAggregation(t *testing.T) {
 
 	round := testRound("round-agg-1", "claim-agg-1", types.VerificationPhase_VERIFICATION_PHASE_REVEAL)
 	round.Commits = []*types.CommitEntry{
-		{Verifier: "zrn1val1xxxxxxxxxxxxxxxxxxxxxxxxxxxx", CommitHash: types.ComputeCommitmentHash("round-agg-1", "accept", 800000, salt1), CommittedAtBlock: 60},
-		{Verifier: "zrn1val2xxxxxxxxxxxxxxxxxxxxxxxxxxxx", CommitHash: types.ComputeCommitmentHash("round-agg-1", "accept", 800000, salt2), CommittedAtBlock: 61},
-		{Verifier: "zrn1val3xxxxxxxxxxxxxxxxxxxxxxxxxxxx", CommitHash: types.ComputeCommitmentHash("round-agg-1", "accept", 800000, salt3), CommittedAtBlock: 62},
-		{Verifier: "zrn1val4xxxxxxxxxxxxxxxxxxxxxxxxxxxx", CommitHash: types.ComputeCommitmentHash("round-agg-1", "accept", 800000, salt4), CommittedAtBlock: 63},
+		{Verifier: phaseTestVerifier(1), CommitHash: types.ComputeCommitmentHash("round-agg-1", "accept", 800000, salt1), CommittedAtBlock: 60},
+		{Verifier: phaseTestVerifier(2), CommitHash: types.ComputeCommitmentHash("round-agg-1", "accept", 800000, salt2), CommittedAtBlock: 61},
+		{Verifier: phaseTestVerifier(3), CommitHash: types.ComputeCommitmentHash("round-agg-1", "accept", 800000, salt3), CommittedAtBlock: 62},
+		{Verifier: phaseTestVerifier(4), CommitHash: types.ComputeCommitmentHash("round-agg-1", "accept", 800000, salt4), CommittedAtBlock: 63},
 	}
 	round.Reveals = []*types.RevealEntry{
-		{Verifier: "zrn1val1xxxxxxxxxxxxxxxxxxxxxxxxxxxx", Vote: "accept", Salt: salt1, RevealedAtBlock: 155},
-		{Verifier: "zrn1val2xxxxxxxxxxxxxxxxxxxxxxxxxxxx", Vote: "accept", Salt: salt2, RevealedAtBlock: 156},
-		{Verifier: "zrn1val3xxxxxxxxxxxxxxxxxxxxxxxxxxxx", Vote: "accept", Salt: salt3, RevealedAtBlock: 157},
-		{Verifier: "zrn1val4xxxxxxxxxxxxxxxxxxxxxxxxxxxx", Vote: "accept", Salt: salt4, RevealedAtBlock: 158},
+		{Verifier: phaseTestVerifier(1), Vote: "accept", Salt: salt1, RevealedAtBlock: 155},
+		{Verifier: phaseTestVerifier(2), Vote: "accept", Salt: salt2, RevealedAtBlock: 156},
+		{Verifier: phaseTestVerifier(3), Vote: "accept", Salt: salt3, RevealedAtBlock: 157},
+		{Verifier: phaseTestVerifier(4), Vote: "accept", Salt: salt4, RevealedAtBlock: 158},
 	}
 	round.SelectedVerifiers = []string{
-		"zrn1val1xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		"zrn1val2xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		"zrn1val3xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		"zrn1val4xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		phaseTestVerifier(1),
+		phaseTestVerifier(2),
+		phaseTestVerifier(3),
+		phaseTestVerifier(4),
 	}
 	require.NoError(t, k.SetVerificationRound(ctx, round))
 
@@ -546,6 +546,8 @@ func TestAdvanceRoundPhases_RevealToAggregation(t *testing.T) {
 	require.True(t, found)
 	// Should have transitioned to COMPLETE (aggregation triggers CompleteRound)
 	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_COMPLETE, updated.Phase)
+	require.NotNil(t, updated.VerifierRewardSettlement)
+	require.Equal(t, uint64(ctx.BlockHeight()), updated.VerifierRewardSettlement.PaidAtBlock)
 	require.Equal(t, types.Verdict_VERDICT_ACCEPT, updated.Verdict)
 }
 
@@ -588,22 +590,22 @@ func TestAdvanceRoundPhases_ExpiredWithSufficientReveals(t *testing.T) {
 
 	round := testRound("round-exp-suf", "claim-exp-suf", types.VerificationPhase_VERIFICATION_PHASE_COMMIT)
 	round.Commits = []*types.CommitEntry{
-		{Verifier: "zrn1val1xxxxxxxxxxxxxxxxxxxxxxxxxxxx", CommitHash: types.ComputeCommitmentHash("round-exp-suf", "accept", 800000, salt1), CommittedAtBlock: 60},
-		{Verifier: "zrn1val2xxxxxxxxxxxxxxxxxxxxxxxxxxxx", CommitHash: types.ComputeCommitmentHash("round-exp-suf", "accept", 800000, salt2), CommittedAtBlock: 61},
-		{Verifier: "zrn1val3xxxxxxxxxxxxxxxxxxxxxxxxxxxx", CommitHash: types.ComputeCommitmentHash("round-exp-suf", "accept", 800000, salt3), CommittedAtBlock: 62},
-		{Verifier: "zrn1val4xxxxxxxxxxxxxxxxxxxxxxxxxxxx", CommitHash: types.ComputeCommitmentHash("round-exp-suf", "accept", 800000, salt4), CommittedAtBlock: 63},
+		{Verifier: phaseTestVerifier(1), CommitHash: types.ComputeCommitmentHash("round-exp-suf", "accept", 800000, salt1), CommittedAtBlock: 60},
+		{Verifier: phaseTestVerifier(2), CommitHash: types.ComputeCommitmentHash("round-exp-suf", "accept", 800000, salt2), CommittedAtBlock: 61},
+		{Verifier: phaseTestVerifier(3), CommitHash: types.ComputeCommitmentHash("round-exp-suf", "accept", 800000, salt3), CommittedAtBlock: 62},
+		{Verifier: phaseTestVerifier(4), CommitHash: types.ComputeCommitmentHash("round-exp-suf", "accept", 800000, salt4), CommittedAtBlock: 63},
 	}
 	round.Reveals = []*types.RevealEntry{
-		{Verifier: "zrn1val1xxxxxxxxxxxxxxxxxxxxxxxxxxxx", Vote: "accept", Salt: salt1, RevealedAtBlock: 155},
-		{Verifier: "zrn1val2xxxxxxxxxxxxxxxxxxxxxxxxxxxx", Vote: "accept", Salt: salt2, RevealedAtBlock: 156},
-		{Verifier: "zrn1val3xxxxxxxxxxxxxxxxxxxxxxxxxxxx", Vote: "accept", Salt: salt3, RevealedAtBlock: 157},
-		{Verifier: "zrn1val4xxxxxxxxxxxxxxxxxxxxxxxxxxxx", Vote: "accept", Salt: salt4, RevealedAtBlock: 158},
+		{Verifier: phaseTestVerifier(1), Vote: "accept", Salt: salt1, RevealedAtBlock: 155},
+		{Verifier: phaseTestVerifier(2), Vote: "accept", Salt: salt2, RevealedAtBlock: 156},
+		{Verifier: phaseTestVerifier(3), Vote: "accept", Salt: salt3, RevealedAtBlock: 157},
+		{Verifier: phaseTestVerifier(4), Vote: "accept", Salt: salt4, RevealedAtBlock: 158},
 	}
 	round.SelectedVerifiers = []string{
-		"zrn1val1xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		"zrn1val2xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		"zrn1val3xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		"zrn1val4xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		phaseTestVerifier(1),
+		phaseTestVerifier(2),
+		phaseTestVerifier(3),
+		phaseTestVerifier(4),
 	}
 	require.NoError(t, k.SetVerificationRound(ctx, round))
 
@@ -615,6 +617,8 @@ func TestAdvanceRoundPhases_ExpiredWithSufficientReveals(t *testing.T) {
 	require.True(t, found)
 	// Should have aggregated and completed despite being past deadline
 	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_COMPLETE, updated.Phase)
+	require.NotNil(t, updated.VerifierRewardSettlement)
+	require.Equal(t, uint64(ctx.BlockHeight()), updated.VerifierRewardSettlement.PaidAtBlock)
 	require.Equal(t, types.Verdict_VERDICT_ACCEPT, updated.Verdict)
 }
 
@@ -935,22 +939,22 @@ func TestAdvanceRoundPhases_RevealToAggregation_Reject(t *testing.T) {
 
 	round := testRound("round-rej", "claim-rej", types.VerificationPhase_VERIFICATION_PHASE_REVEAL)
 	round.Commits = []*types.CommitEntry{
-		{Verifier: "zrn1val1xxxxxxxxxxxxxxxxxxxxxxxxxxxx", CommitHash: types.ComputeCommitmentHash("round-rej", "reject", 800000, salt1), CommittedAtBlock: 60},
-		{Verifier: "zrn1val2xxxxxxxxxxxxxxxxxxxxxxxxxxxx", CommitHash: types.ComputeCommitmentHash("round-rej", "reject", 800000, salt2), CommittedAtBlock: 61},
-		{Verifier: "zrn1val3xxxxxxxxxxxxxxxxxxxxxxxxxxxx", CommitHash: types.ComputeCommitmentHash("round-rej", "reject", 800000, salt3), CommittedAtBlock: 62},
-		{Verifier: "zrn1val4xxxxxxxxxxxxxxxxxxxxxxxxxxxx", CommitHash: types.ComputeCommitmentHash("round-rej", "reject", 800000, salt4), CommittedAtBlock: 63},
+		{Verifier: phaseTestVerifier(1), CommitHash: types.ComputeCommitmentHash("round-rej", "reject", 800000, salt1), CommittedAtBlock: 60},
+		{Verifier: phaseTestVerifier(2), CommitHash: types.ComputeCommitmentHash("round-rej", "reject", 800000, salt2), CommittedAtBlock: 61},
+		{Verifier: phaseTestVerifier(3), CommitHash: types.ComputeCommitmentHash("round-rej", "reject", 800000, salt3), CommittedAtBlock: 62},
+		{Verifier: phaseTestVerifier(4), CommitHash: types.ComputeCommitmentHash("round-rej", "reject", 800000, salt4), CommittedAtBlock: 63},
 	}
 	round.Reveals = []*types.RevealEntry{
-		{Verifier: "zrn1val1xxxxxxxxxxxxxxxxxxxxxxxxxxxx", Vote: "reject", Salt: salt1, RevealedAtBlock: 155},
-		{Verifier: "zrn1val2xxxxxxxxxxxxxxxxxxxxxxxxxxxx", Vote: "reject", Salt: salt2, RevealedAtBlock: 156},
-		{Verifier: "zrn1val3xxxxxxxxxxxxxxxxxxxxxxxxxxxx", Vote: "reject", Salt: salt3, RevealedAtBlock: 157},
-		{Verifier: "zrn1val4xxxxxxxxxxxxxxxxxxxxxxxxxxxx", Vote: "reject", Salt: salt4, RevealedAtBlock: 158},
+		{Verifier: phaseTestVerifier(1), Vote: "reject", Salt: salt1, RevealedAtBlock: 155},
+		{Verifier: phaseTestVerifier(2), Vote: "reject", Salt: salt2, RevealedAtBlock: 156},
+		{Verifier: phaseTestVerifier(3), Vote: "reject", Salt: salt3, RevealedAtBlock: 157},
+		{Verifier: phaseTestVerifier(4), Vote: "reject", Salt: salt4, RevealedAtBlock: 158},
 	}
 	round.SelectedVerifiers = []string{
-		"zrn1val1xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		"zrn1val2xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		"zrn1val3xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		"zrn1val4xxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		phaseTestVerifier(1),
+		phaseTestVerifier(2),
+		phaseTestVerifier(3),
+		phaseTestVerifier(4),
 	}
 	require.NoError(t, k.SetVerificationRound(ctx, round))
 
@@ -961,10 +965,20 @@ func TestAdvanceRoundPhases_RevealToAggregation_Reject(t *testing.T) {
 	updated, found := k.GetVerificationRound(ctx, "round-rej")
 	require.True(t, found)
 	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_COMPLETE, updated.Phase)
+	require.NotNil(t, updated.VerifierRewardSettlement)
+	require.Equal(t, uint64(ctx.BlockHeight()), updated.VerifierRewardSettlement.PaidAtBlock)
 	require.Equal(t, types.Verdict_VERDICT_REJECT, updated.Verdict)
 
 	// Claim should be REJECTED
 	updatedClaim, found := k.GetClaim(ctx, "claim-rej")
 	require.True(t, found)
 	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_REJECTED, updatedClaim.Status)
+}
+
+// Native settlement requires canonical recipients, including for an old-format
+// round that completes after activation. These identities hold no real keys.
+func phaseTestVerifier(n byte) string {
+	var address [20]byte
+	address[19] = n
+	return sdk.AccAddress(address[:]).String()
 }

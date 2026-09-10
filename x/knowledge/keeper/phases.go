@@ -12,6 +12,11 @@ import (
 // BeginBlocker runs knowledge module begin-block logic.
 // Advances verification round phases by deadline and triggers fitness epoch updates.
 func (k Keeper) BeginBlocker(ctx context.Context) error {
+	// Retry a fixed number of frozen verifier obligations independently of
+	// scientific round processing. Failed bank sends retain the whole plan.
+	if err := k.ProcessPendingVerifierRewards(ctx); err != nil {
+		return err
+	}
 	// Route B Wave 8: the heartbeat. Self-maintenance of the training
 	// infrastructure — bounty expiry / vesting release / manifest
 	// supersession. Runs first so a round-advance error cannot silently

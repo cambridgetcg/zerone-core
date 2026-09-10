@@ -28,7 +28,7 @@
     {
       "id": "knowledge-types",
       "path": "proto/zerone/knowledge/v1/types.proto",
-      "sha256": "7b2b301c80711587a55ae03216728ec1f6f5bf981035106d26ac1fa4923d8ced",
+      "sha256": "336f599cb9042869885fbcfa261b3c7afbb0325ccc1deda86a74ed074a8588b4",
       "role": "TYPED_KNOWLEDGE_SEMANTICS"
     },
     {
@@ -46,7 +46,7 @@
     {
       "id": "tok-substrate",
       "path": "docs/TOK_SUBSTRATE.md",
-      "sha256": "4fec6e3a410d5736f61cd43f4d9c421380b93f649c2f0d026a5f4e68a6534328",
+      "sha256": "b4dae8b8dbc2345121c034c67f620bda0bd1a7ba57c8eb23c2671ab909c0e5c7",
       "role": "COMMITMENT_AVAILABILITY_BOUNDARY"
     }
   ],

@@ -80,13 +80,16 @@
 //     keeper/grpc_query.go BundleToK handler.
 //   - TC2 (every view is graph-pinned) — every bundle carries a 32-byte
 //     snapshot_root computed via ComputeToKSnapshotRoot from sorted node
-//     IDs + sorted edge IDs, domain-tagged TOK_NODES / TOK_EDGES.
+//     IDs + sorted edge IDs, domain-tagged TOK_NODES / TOK_EDGES. This is a
+//     structural digest, excluding full payloads and chain/height context;
+//     query-local events do not persist or authenticate a snapshot pin.
 //   - TC3 (topology is signal) — bundles ship edges, depth, and (when
 //     available) confidence-floor as first-class fields, not metadata.
 //     See keeper/tok_serialise.go for the JSONL adjacency-list format.
 //   - TC5 (extraction is open) — ValidateAndCapToKSelector accepts any
-//     well-formed selector and applies uniform caps. Refusals are limited
-//     to syntax errors and snapshot-out-of-range; no curation gate exists.
+//     well-formed selector and applies uniform caps. Syntax, missing state,
+//     actual historical context, corrupt records and resource ceilings can
+//     refuse a query; no module-level domain curation gate exists.
 //   - TC4 (the graph carries its disprovals) — CascadeReplaySelector returns
 //     the disproval-graph from a DISPROVEN root: cascade events, vindication
 //     records, supersession chains, and per-node status-transition timelines.

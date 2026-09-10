@@ -1,5 +1,5 @@
 //@ts-nocheck
-import { ClaimType, ClaimRelation, ClaimStructure, TokenizerSpec, AugmentationVerdict, TraceSchema, CorpusSelector, IncidentSeverity, RemediationType } from "./types";
+import { ClaimType, ClaimRelation, ClaimStructure, ReviewAttestation, TokenizerSpec, AugmentationVerdict, TraceSchema, CorpusSelector, IncidentSeverity, RemediationType } from "./types";
 import { Params } from "./genesis";
 import { BinaryReader, BinaryWriter } from "../../../binary";
 import { DeepPartial } from "../../../helpers";
@@ -43,6 +43,11 @@ export interface MsgSubmitClaim {
    * Request bootstrap fund sponsorship for review fee
    */
   sponsored: boolean;
+  /**
+   * Optional declared method and reasoning; accepted only after record-integrity activation.
+   */
+  methodId: string;
+  reasoningTrace: string;
 }
 /**
  * @name MsgSubmitClaimResponse
@@ -88,6 +93,10 @@ export interface MsgSubmitReveal {
    * BPS; bound to commitment via ComputeCommitmentHash
    */
   confidence: bigint;
+  /**
+   * Required for scheme-2 rounds; legacy rounds cannot bind this payload.
+   */
+  attestation?: ReviewAttestation;
 }
 /**
  * @name MsgSubmitRevealResponse
@@ -109,6 +118,7 @@ export interface MsgChallengeFact {
   stake: string;
   reason: string;
   evidenceIds: string[];
+  methodId: string;
 }
 /**
  * @name MsgChallengeFactResponse
@@ -326,6 +336,7 @@ export interface MsgChallengeProvisionalFact {
   reason: string;
   evidenceIds: string[];
   counterClaim: string;
+  methodId: string;
 }
 /**
  * @name MsgChallengeProvisionalFactResponse
@@ -1194,7 +1205,9 @@ function createBaseMsgSubmitClaim(): MsgSubmitClaim {
     relations: [],
     structure: undefined,
     canonicalForm: "",
-    sponsored: false
+    sponsored: false,
+    methodId: "",
+    reasoningTrace: ""
   };
 }
 /**
@@ -1241,6 +1254,12 @@ export const MsgSubmitClaim = {
     if (message.sponsored === true) {
       writer.uint32(96).bool(message.sponsored);
     }
+    if (message.methodId !== "") {
+      writer.uint32(106).string(message.methodId);
+    }
+    if (message.reasoningTrace !== "") {
+      writer.uint32(114).string(message.reasoningTrace);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): MsgSubmitClaim {
@@ -1286,6 +1305,12 @@ export const MsgSubmitClaim = {
         case 12:
           message.sponsored = reader.bool();
           break;
+        case 13:
+          message.methodId = reader.string();
+          break;
+        case 14:
+          message.reasoningTrace = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -1307,6 +1332,8 @@ export const MsgSubmitClaim = {
     message.structure = object.structure !== undefined && object.structure !== null ? ClaimStructure.fromPartial(object.structure) : undefined;
     message.canonicalForm = object.canonicalForm ?? "";
     message.sponsored = object.sponsored ?? false;
+    message.methodId = object.methodId ?? "";
+    message.reasoningTrace = object.reasoningTrace ?? "";
     return message;
   }
 };
@@ -1446,7 +1473,8 @@ function createBaseMsgSubmitReveal(): MsgSubmitReveal {
     roundId: "",
     vote: "",
     salt: new Uint8Array(),
-    confidence: BigInt(0)
+    confidence: BigInt(0),
+    attestation: undefined
   };
 }
 /**
@@ -1472,6 +1500,9 @@ export const MsgSubmitReveal = {
     if (message.confidence !== BigInt(0)) {
       writer.uint32(40).uint64(message.confidence);
     }
+    if (message.attestation !== undefined) {
+      ReviewAttestation.encode(message.attestation, writer.uint32(50).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): MsgSubmitReveal {
@@ -1496,6 +1527,9 @@ export const MsgSubmitReveal = {
         case 5:
           message.confidence = reader.uint64();
           break;
+        case 6:
+          message.attestation = ReviewAttestation.decode(reader, reader.uint32());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -1510,6 +1544,7 @@ export const MsgSubmitReveal = {
     message.vote = object.vote ?? "";
     message.salt = object.salt ?? new Uint8Array();
     message.confidence = object.confidence !== undefined && object.confidence !== null ? BigInt(object.confidence.toString()) : BigInt(0);
+    message.attestation = object.attestation !== undefined && object.attestation !== null ? ReviewAttestation.fromPartial(object.attestation) : undefined;
     return message;
   }
 };
@@ -1551,7 +1586,8 @@ function createBaseMsgChallengeFact(): MsgChallengeFact {
     factId: "",
     stake: "",
     reason: "",
-    evidenceIds: []
+    evidenceIds: [],
+    methodId: ""
   };
 }
 /**
@@ -1577,6 +1613,9 @@ export const MsgChallengeFact = {
     for (const v of message.evidenceIds) {
       writer.uint32(42).string(v!);
     }
+    if (message.methodId !== "") {
+      writer.uint32(50).string(message.methodId);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): MsgChallengeFact {
@@ -1601,6 +1640,9 @@ export const MsgChallengeFact = {
         case 5:
           message.evidenceIds.push(reader.string());
           break;
+        case 6:
+          message.methodId = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -1615,6 +1657,7 @@ export const MsgChallengeFact = {
     message.stake = object.stake ?? "";
     message.reason = object.reason ?? "";
     message.evidenceIds = object.evidenceIds?.map(e => e) || [];
+    message.methodId = object.methodId ?? "";
     return message;
   }
 };
@@ -2560,7 +2603,8 @@ function createBaseMsgChallengeProvisionalFact(): MsgChallengeProvisionalFact {
     stake: "",
     reason: "",
     evidenceIds: [],
-    counterClaim: ""
+    counterClaim: "",
+    methodId: ""
   };
 }
 /**
@@ -2592,6 +2636,9 @@ export const MsgChallengeProvisionalFact = {
     if (message.counterClaim !== "") {
       writer.uint32(58).string(message.counterClaim);
     }
+    if (message.methodId !== "") {
+      writer.uint32(66).string(message.methodId);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): MsgChallengeProvisionalFact {
@@ -2622,6 +2669,9 @@ export const MsgChallengeProvisionalFact = {
         case 7:
           message.counterClaim = reader.string();
           break;
+        case 8:
+          message.methodId = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -2638,6 +2688,7 @@ export const MsgChallengeProvisionalFact = {
     message.reason = object.reason ?? "";
     message.evidenceIds = object.evidenceIds?.map(e => e) || [];
     message.counterClaim = object.counterClaim ?? "";
+    message.methodId = object.methodId ?? "";
     return message;
   }
 };

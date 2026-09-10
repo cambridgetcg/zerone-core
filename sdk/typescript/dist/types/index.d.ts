@@ -6,3 +6,4 @@ export * from "./feegrant.js";
 export * from "./key-rotation.js";
 export * from "./provenance.js";
 export * from "./registry.js";
+export * from "./review-commitment.js";

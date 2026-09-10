@@ -24,8 +24,36 @@ func NewMsgServerImpl(keeper Keeper) types.MsgServer {
 // ─── Core PoT handlers ──────────────────────────────────────────────────────
 
 func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) (*types.MsgSubmitClaimResponse, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("claim is required")
+	}
+	enabled, err := m.keeper.RecordIntegrityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !enabled {
+		if msg.MethodId != "" || msg.ReasoningTrace != "" {
+			return nil, fmt.Errorf("claim method and reasoning require record-integrity activation")
+		}
+		return m.submitClaim(ctx, msg, false)
+	}
+	cache, commit := sdk.UnwrapSDKContext(ctx).CacheContext()
+	response, err := m.submitClaim(cache, msg, true)
+	if err != nil {
+		return nil, err
+	}
+	commit()
+	return response, nil
+}
+
+func (m *msgServer) submitClaim(ctx context.Context, msg *types.MsgSubmitClaim, recordIntegrityEnabled bool) (*types.MsgSubmitClaimResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
+	if recordIntegrityEnabled {
+		if err := m.keeper.validateClaimRecordInput(ctx, msg); err != nil {
+			return nil, err
+		}
+	}
 
 	params, err := m.keeper.GetParams(ctx)
 	if err != nil {
@@ -59,6 +87,9 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 	stakeAmt, ok := new(big.Int).SetString(msg.Stake, 10)
 	if !ok || stakeAmt.Sign() <= 0 {
 		return nil, fmt.Errorf("invalid review fee amount: %s", msg.Stake)
+	}
+	if recordIntegrityEnabled && !stakeAmt.IsUint64() {
+		return nil, fmt.Errorf("review fee exceeds supported uint64 accounting range")
 	}
 	effectiveMinFee := m.keeper.GetEffectiveMinReviewFee(ctx)
 	minFee, _ := new(big.Int).SetString(effectiveMinFee, 10)
@@ -190,6 +221,9 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 
 		// Distribute fee via revenue split (same path regardless of who paid)
 		if err := m.keeper.distributeReviewFee(ctx, feeAmount); err != nil {
+			if recordIntegrityEnabled {
+				return nil, fmt.Errorf("failed to distribute review fee: %w", err)
+			}
 			m.keeper.Logger(ctx).Error("failed to distribute review fee", "error", err)
 		}
 	}
@@ -220,6 +254,10 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 		Structure:        msg.Structure,
 		CanonicalForm:    canonicalForm,
 		CanonicalHash:    canonicalHash,
+	}
+	if recordIntegrityEnabled {
+		claim.MethodId = msg.MethodId
+		claim.ReasoningTrace = msg.ReasoningTrace
 	}
 
 	if err := m.keeper.SetClaim(ctx, claim); err != nil {
@@ -304,12 +342,18 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 }
 
 func (m *msgServer) SubmitCommitment(ctx context.Context, msg *types.MsgSubmitCommitment) (*types.MsgSubmitCommitmentResponse, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("commitment is required")
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
 	round, found := m.keeper.GetVerificationRound(ctx, msg.RoundId)
 	if !found {
 		return nil, fmt.Errorf("verification round %s not found", msg.RoundId)
+	}
+	if round.CommitmentScheme == types.CommitmentSchemeReviewV2 && len(msg.ProtoReflect().GetUnknown()) != 0 {
+		return nil, fmt.Errorf("unsupported commitment message fields")
 	}
 
 	// Validate phase
@@ -402,12 +446,25 @@ func (m *msgServer) SubmitCommitment(ctx context.Context, msg *types.MsgSubmitCo
 }
 
 func (m *msgServer) SubmitReveal(ctx context.Context, msg *types.MsgSubmitReveal) (*types.MsgSubmitRevealResponse, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("reveal is required")
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
 	round, found := m.keeper.GetVerificationRound(ctx, msg.RoundId)
 	if !found {
 		return nil, fmt.Errorf("verification round %s not found", msg.RoundId)
+	}
+	if round.CommitmentScheme == types.CommitmentSchemeReviewV2 {
+		if len(msg.ProtoReflect().GetUnknown()) != 0 {
+			return nil, fmt.Errorf("unsupported reveal message fields")
+		}
+		if msg.Attestation != nil {
+			if err := m.keeper.validateDeclaredMethod(ctx, msg.Attestation.MethodId); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	// Validate phase
@@ -432,6 +489,7 @@ func (m *msgServer) SubmitReveal(ctx context.Context, msg *types.MsgSubmitReveal
 		Vote:            msg.Vote,
 		Salt:            msg.Salt,
 		RevealedAtBlock: height,
+		Attestation:     msg.Attestation,
 	}, msg.Confidence); err != nil {
 		return nil, err
 	}
@@ -658,8 +716,39 @@ func (m *msgServer) UpdateExtendedParams(ctx context.Context, msg *types.MsgUpda
 // ─── Challenge/contradiction handlers ────────────────────────────────────────
 
 func (m *msgServer) ChallengeFact(ctx context.Context, msg *types.MsgChallengeFact) (*types.MsgChallengeFactResponse, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("challenge is required")
+	}
+	enabled, err := m.keeper.RecordIntegrityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !enabled {
+		if msg.MethodId != "" {
+			return nil, fmt.Errorf("challenge method requires record-integrity activation")
+		}
+		return m.challengeFact(ctx, msg, false)
+	}
+	cache, commit := sdk.UnwrapSDKContext(ctx).CacheContext()
+	response, err := m.challengeFact(cache, msg, true)
+	if err != nil {
+		return nil, err
+	}
+	commit()
+	return response, nil
+}
+
+func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFact, enabled bool) (*types.MsgChallengeFactResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
+	if enabled {
+		if len(msg.ProtoReflect().GetUnknown()) != 0 {
+			return nil, fmt.Errorf("unsupported challenge fields")
+		}
+		if err := m.keeper.validateChallengeRecordInput(ctx, msg.Reason, msg.EvidenceIds, msg.MethodId); err != nil {
+			return nil, err
+		}
+	}
 
 	fact, found := m.keeper.GetFact(ctx, msg.FactId)
 	if !found {
@@ -719,6 +808,11 @@ func (m *msgServer) ChallengeFact(ctx context.Context, msg *types.MsgChallengeFa
 		Stake:             msg.Stake,
 		ProvisionalFactId: msg.FactId, // Track challenged fact for resolution
 	}
+	if enabled {
+		challengeClaim.ArgumentText = msg.Reason
+		challengeClaim.MethodId = msg.MethodId
+		challengeClaim.EvidenceIds = append([]string(nil), msg.EvidenceIds...)
+	}
 	if err := m.keeper.SetClaim(ctx, challengeClaim); err != nil {
 		return nil, err
 	}
@@ -748,12 +842,49 @@ func (m *msgServer) ChallengeFact(ctx context.Context, msg *types.MsgChallengeFa
 }
 
 func (m *msgServer) ChallengeProvisionalFact(ctx context.Context, msg *types.MsgChallengeProvisionalFact) (*types.MsgChallengeProvisionalFactResponse, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("provisional challenge is required")
+	}
+	enabled, err := m.keeper.RecordIntegrityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !enabled {
+		if msg.MethodId != "" {
+			return nil, fmt.Errorf("challenge method requires record-integrity activation")
+		}
+		return m.challengeProvisionalFact(ctx, msg, false)
+	}
+	cache, commit := sdk.UnwrapSDKContext(ctx).CacheContext()
+	response, err := m.challengeProvisionalFact(cache, msg, true)
+	if err != nil {
+		return nil, err
+	}
+	commit()
+	return response, nil
+}
+
+func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.MsgChallengeProvisionalFact, enabled bool) (*types.MsgChallengeProvisionalFactResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
+	if enabled {
+		if len(msg.ProtoReflect().GetUnknown()) != 0 {
+			return nil, fmt.Errorf("unsupported provisional challenge fields")
+		}
+		if err := m.keeper.validateChallengeRecordInput(ctx, msg.Reason, msg.EvidenceIds, msg.MethodId); err != nil {
+			return nil, err
+		}
+		if err := types.ValidateRecordText("counter claim", msg.CounterClaim, types.MaxClaimReasoningBytes, false); err != nil {
+			return nil, err
+		}
+	}
 
 	fact, found := m.keeper.GetFact(ctx, msg.FactId)
 	if !found {
 		return nil, fmt.Errorf("fact %s not found", msg.FactId)
+	}
+	if enabled && msg.ClaimId != "" && msg.ClaimId != fact.ClaimId {
+		return nil, fmt.Errorf("provisional challenge claim_id does not match target fact")
 	}
 
 	// Key the refutation door on WHAT THE FACT IS, not on the status it
@@ -799,7 +930,9 @@ func (m *msgServer) ChallengeProvisionalFact(ctx context.Context, msg *types.Msg
 	}
 
 	fact.Status = types.FactStatus_FACT_STATUS_CHALLENGED
-	_ = m.keeper.SetFact(ctx, fact)
+	if err := m.keeper.SetFact(ctx, fact); err != nil && enabled {
+		return nil, err
+	}
 
 	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
 	challengeClaim := &types.Claim{
@@ -813,7 +946,16 @@ func (m *msgServer) ChallengeProvisionalFact(ctx context.Context, msg *types.Msg
 		Stake:             msg.Stake,
 		ProvisionalFactId: msg.FactId, // Track challenged fact for resolution
 	}
-	_ = m.keeper.SetClaim(ctx, challengeClaim)
+	if enabled {
+		challengeClaim.ArgumentText = msg.Reason
+		challengeClaim.MethodId = msg.MethodId
+		challengeClaim.EvidenceIds = append([]string(nil), msg.EvidenceIds...)
+		challengeClaim.CounterClaim = msg.CounterClaim
+		challengeClaim.ChallengedClaimId = msg.ClaimId
+	}
+	if err := m.keeper.SetClaim(ctx, challengeClaim); err != nil && enabled {
+		return nil, err
+	}
 	round, err := m.keeper.CreateVerificationRound(ctx, challengeClaim)
 	if err != nil {
 		return nil, err

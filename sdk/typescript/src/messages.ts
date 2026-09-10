@@ -40,3 +40,4 @@ export * as vestingRewards from "./generated/zerone/vesting_rewards/v1/tx";
 export { MessageComposer as vestingRewardsMessages } from "./generated/zerone/vesting_rewards/v1/tx.registry";
 export * from "./account-registration";
 export * from "./key-rotation";
+export * from "./review-commitment";

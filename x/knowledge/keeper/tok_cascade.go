@@ -16,7 +16,7 @@ var ErrToKCascadeNotDisproven = fmt.Errorf("cascade-replay root is not DISPROVEN
 //   - edges:   CONTRADICTS + first-hop support edges to descendants (sorted)
 //   - cascadeEvents: every recorded CascadeEvent for this disproof
 //   - vindications:  every ToKVindicationRecord for this disproof's facts
-//                    (only populated if sel.IncludeVindications)
+//     (only populated if sel.IncludeVindications)
 //   - supersessionChain: SUPERSEDES walk (only if sel.IncludeSupersessions)
 //
 // TC4: the graph carries its disprovals. The disproval-graph is the parallel
@@ -33,6 +33,15 @@ func (k Keeper) GatherCascade(
 	supersessionChain []string,
 	err error,
 ) {
+	k, guard := k.guardedToK()
+	defer func() {
+		if guard.err != nil {
+			nodeIDs, edges, cascadeEvents, vindications, supersessionChain, err = nil, nil, nil, nil, nil, guard.err
+		}
+		if err == nil && (len(nodeIDs) > ToKMaxNodes || len(edges) > ToKMaxEdges) {
+			nodeIDs, edges, cascadeEvents, vindications, supersessionChain, err = nil, nil, nil, nil, nil, ErrToKResourceLimit
+		}
+	}()
 	root, found := k.GetFact(ctx, sel.DisprovenFactId)
 	if !found {
 		return nil, nil, nil, nil, nil, fmt.Errorf("%w: %s", ErrToKRootFactNotFound, sel.DisprovenFactId)
@@ -43,11 +52,17 @@ func (k Keeper) GatherCascade(
 	}
 
 	// Collect cascade events for this disproof.
-	cascadeEvents = k.GetCascadeEventsForDisproof(ctx, sel.DisprovenFactId)
+	cascadeEvents, err = k.GetCascadeEventsForDisproofChecked(ctx, sel.DisprovenFactId)
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
 
 	// Build node set: root + every descendant in cascade events.
 	visited := map[string]bool{root.Id: true}
 	for _, ev := range cascadeEvents {
+		if !visited[ev.DescendantFactId] && len(visited) >= ToKMaxNodes {
+			return nil, nil, nil, nil, nil, ErrToKResourceLimit
+		}
 		visited[ev.DescendantFactId] = true
 	}
 
@@ -172,6 +187,9 @@ func (k Keeper) gatherCascadeRecursive(
 			continue
 		}
 		if !visited[rel.SourceFactId] {
+			if len(visited) >= ToKMaxNodes {
+				return ErrToKResourceLimit
+			}
 			visited[rel.SourceFactId] = true
 			if err := k.gatherCascadeRecursive(ctx, rel.SourceFactId, depth+1, maxDepth, visited); err != nil {
 				return err

@@ -1079,13 +1079,14 @@ func requireExactKarmaProducerSurface(t *testing.T, sources []productionGoSource
 	}
 	sort.Strings(callsites)
 	expectedCallsites := []string{
-		"x/knowledge/keeper/msg_server.go:ChallengeFact->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
-		"x/knowledge/keeper/msg_server.go:ChallengeProvisionalFact->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
-		"x/knowledge/keeper/msg_server.go:SubmitClaim->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
+		"x/knowledge/keeper/msg_server.go:challengeFact->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
+		"x/knowledge/keeper/msg_server.go:challengeProvisionalFact->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
+		"x/knowledge/keeper/msg_server.go:submitClaim->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
 		"x/knowledge/keeper/msg_server.go:SubmitContradiction->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
 		"x/knowledge/keeper/msg_server_conjecture.go:PostConjecture->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
 		"x/knowledge/keeper/phases.go:AdvanceRoundPhases->emitKarmaEdgeState|kind=pending_settle|state=ORDINAL|attrs=verdict=types.Verdict_VERDICT_INCONCLUSIVE.String()",
-		"x/knowledge/keeper/rounds.go:CompleteRound->emitKarmaEdgeState|kind=pending_settle|state=ORDINAL|attrs=verdict=result.Verdict.String()",
+		"x/knowledge/keeper/rounds.go:completeRound->emitKarmaEdgeState|kind=pending_settle|state=ORDINAL|attrs=verdict=result.Verdict.String()",
+		"x/knowledge/keeper/rounds.go:completeRound->emitKarmaEdge|kind=verify|state=RECOGNIZED|attrs=assessment_basis=panel_agreement",
 		"x/knowledge/keeper/rounds.go:createFactFromClaim->emitKarmaEdge|kind=cited|state=RECOGNIZED|attrs=none",
 		"x/knowledge/keeper/rounds.go:distributeVerifierRewardsFromPool->emitKarmaEdge|kind=verify|state=RECOGNIZED|attrs=local:extra[correct=true]",
 		"x/knowledge/keeper/rounds.go:emitKarmaEdge->emitKarmaEdgeState|kind=$param:kind|state=RECOGNIZED|attrs=forward-param:extra",
@@ -1281,7 +1282,10 @@ func validateKnownKarmaCallsiteShape(callsite karmaHelperCallsite, globals, func
 		}
 		switch shape.kind {
 		case "verify":
-			if shape.attrs != "local:extra[correct=true]" {
+			// The legacy branch retains its historical label. The activated
+			// branch records panel agreement without asserting scientific
+			// correctness or a bank transfer; both exact callsites are pinned.
+			if shape.attrs != "local:extra[correct=true]" && shape.attrs != "assessment_basis=panel_agreement" {
 				return fmt.Errorf("verify attributes %q are not permitted", shape.attrs)
 			}
 		case "cited", "corroborate", "corroborated":

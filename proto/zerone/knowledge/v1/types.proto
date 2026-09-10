@@ -726,6 +726,12 @@ message Claim {
   // conjecture with no stated killer is not well-posed and must be returned
   // MALFORMED. Empty for every other claim type.
   string falsification_predicate = 24;
+  // Exact submitted challenge evidence references; absence is not reconstructed.
+  repeated string evidence_ids = 25;
+  // Exact submitted provisional counter-claim, distinct from its reason.
+  string counter_claim = 26;
+  // Exact optional original-claim ID asserted by a provisional challenge.
+  string challenged_claim_id = 27;
 }
 
 // VerificationRound tracks one commit-reveal verification cycle.
@@ -742,6 +748,35 @@ message VerificationRound {
   uint64 commit_deadline          = 10;
   uint64 reveal_deadline          = 11;
   uint64 aggregation_deadline     = 12;
+  // Immutable per round: 0 is the historical v1 scheme; 2 binds reviewer and review payload.
+  uint32 commitment_scheme        = 13;
+  // Original creation chain for scheme 2; preserved on export/import.
+  string commitment_chain_id      = 14;
+  VerifierRewardSettlement verifier_reward_settlement = 15;
+}
+
+// ReviewAttestation records what the signer says they checked. It is not proof
+// of independent expertise, reproduction, or the truth of the claim.
+message ReviewAttestation {
+  string method_id = 1;
+  string reason = 2;
+  repeated string evidence_ids = 3;
+  string scope = 4;
+}
+
+// VerifierRewardSettlement preserves a finalized round's exact payment plan.
+// Amounts are canonical uzrn decimal strings; paid_at_block 0 means unpaid.
+message VerifierRewardSettlement {
+  uint64 created_at_block = 1;
+  repeated VerifierRewardPayment payments = 2;
+  string withheld_total = 3;
+  uint64 paid_at_block = 4;
+}
+
+message VerifierRewardPayment {
+  string verifier = 1;
+  string amount = 2;
+  string withheld = 3;
 }
 
 // CommitEntry records a validator's blinded commitment (SHA-256(vote || salt)).
@@ -757,6 +792,9 @@ message RevealEntry {
   string vote             = 2; // "accept", "reject", or "malformed"
   bytes  salt             = 3;
   uint64 revealed_at_block = 4;
+  // Retained for scheme 2 only. Legacy absence must not be read as a recorded zero.
+  uint64 confidence = 5;
+  ReviewAttestation attestation = 6;
 }
 
 // VRFProof captures a Verifiable Random Function output for validator selection.

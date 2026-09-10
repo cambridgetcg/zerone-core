@@ -23,10 +23,9 @@ func jsonUnmarshal(b []byte, v any) error { return json.Unmarshal(b, v) }
 // This file implements the canonical MethodologyApplicationTrace assembly,
 // the ContrastivePair emitter, and the governance-ratified TraceSchema.
 //
-// Alignment invariant: every trace encodes truth-seeking *process*, not
-// just the statement. A model trained on these records learns to declare
-// methodology, show work, accept falsification, and cite provenance — the
-// behaviors of a truth-seeker.
+// Rows combine retained records with explicitly derived analysis fields. They
+// are query outputs, not authenticated complete execution histories; absent
+// historical values must remain absent rather than be reconstructed as facts.
 
 // ─── TraceSchema CRUD ────────────────────────────────────────────────────
 
@@ -144,9 +143,9 @@ func defaultTraceSchemaV1() *types.TraceSchema {
 }`
 	sum := sha256.Sum256([]byte(jsonSchema))
 	return &types.TraceSchema{
-		Version:         1,
-		JsonSchemaHash:  hex.EncodeToString(sum[:]),
-		JsonSchema:      jsonSchema,
+		Version:        1,
+		JsonSchemaHash: hex.EncodeToString(sum[:]),
+		JsonSchema:     jsonSchema,
 		RequiredFields: []string{
 			"trace_id", "fact_id", "snapshot_block_height", "tokenizer_version",
 			"canonical_serialisation_version", "trace_schema_version",
@@ -158,10 +157,29 @@ func defaultTraceSchemaV1() *types.TraceSchema {
 
 // ─── MethodologyApplicationTrace assembly ────────────────────────────────
 
-// BuildMethodologyApplicationTrace assembles the full unified training row
-// for a fact by walking the knowledge graph, calibration, adjudication, and
-// contrastive companions. O(fact's neighborhood), not O(chain).
+// BuildMethodologyApplicationTrace retains the historical bool API for callers
+// that cannot return an error. Authoritative query endpoints use Checked.
 func (k Keeper) BuildMethodologyApplicationTrace(ctx context.Context, factID string) (*types.MethodologyApplicationTrace, bool) {
+	trace, found, err := k.BuildMethodologyApplicationTraceChecked(ctx, factID)
+	return trace, found && err == nil
+}
+
+// BuildMethodologyApplicationTraceChecked bounds knowledge-store reads and
+// output, including the legacy all-claim and augmentation scans. It refuses
+// unreadable records rather than presenting a partial row as complete.
+func (k Keeper) BuildMethodologyApplicationTraceChecked(ctx context.Context, factID string) (trace *types.MethodologyApplicationTrace, found bool, err error) {
+	k, guard := k.guardedToK()
+	trace, found = k.buildMethodologyApplicationTrace(ctx, factID)
+	if guard.err != nil {
+		return nil, false, guard.err
+	}
+	if trace != nil && proto.Size(trace) > ToKMaxOutputBytes {
+		return nil, false, ErrToKResourceLimit
+	}
+	return trace, found, nil
+}
+
+func (k Keeper) buildMethodologyApplicationTrace(ctx context.Context, factID string) (*types.MethodologyApplicationTrace, bool) {
 	fact, ok := k.GetFact(ctx, factID)
 	if !ok || fact == nil {
 		return nil, false
@@ -194,21 +212,21 @@ func (k Keeper) BuildMethodologyApplicationTrace(ctx context.Context, factID str
 		Domain:        fact.Domain,
 		CanonicalForm: fact.CanonicalForm,
 
-		MethodologyId:                 fact.MethodId,
-		ReasoningTrace:                fact.ReasoningTrace,
-		AxiomDistance:                 fact.AxiomDistance,
-		DependencyConfidenceFloorBps:  fact.DependencyConfidenceFloor,
+		MethodologyId:                fact.MethodId,
+		ReasoningTrace:               fact.ReasoningTrace,
+		AxiomDistance:                fact.AxiomDistance,
+		DependencyConfidenceFloorBps: fact.DependencyConfidenceFloor,
 
-		OwnConfidenceBps:   fact.Confidence,
-		VerifiedAtBlock:    fact.VerifiedAtBlock,
-		CorroborationCount: fact.CorroborationCount,
+		OwnConfidenceBps:      fact.Confidence,
+		VerifiedAtBlock:       fact.VerifiedAtBlock,
+		CorroborationCount:    fact.CorroborationCount,
 		LastCorroboratedBlock: fact.LastCorroboratedBlock,
 
 		Status: fact.Status,
 
-		Submitter:                            fact.Submitter,
-		SubmitterCalibrationAtSubmissionBps:  fact.SubmitterCalibrationSnapshotBps,
-		SubmittedAtBlock:                     fact.SubmittedAtBlock,
+		Submitter:                           fact.Submitter,
+		SubmitterCalibrationAtSubmissionBps: fact.SubmitterCalibrationSnapshotBps,
+		SubmittedAtBlock:                    fact.SubmittedAtBlock,
 
 		IsNormative: false,
 	}
@@ -265,8 +283,7 @@ func (k Keeper) BuildMethodologyApplicationTrace(ctx context.Context, factID str
 	// signal even for legacy facts).
 	trace.MethodologyChoice = k.buildMethodologyChoice(fact)
 
-	// 6.4 belief-revision chain — reconstructed from challenge-round history
-	// + vindication records + metabolism decay markers.
+	// 6.4 No confidence-event log exists; do not manufacture a trajectory.
 	trace.BeliefRevisions = k.buildBeliefRevisions(ctx, fact)
 
 	// 6.5 nested dialectic tree — wraps the flat Challenges list in a
@@ -337,16 +354,20 @@ func (k Keeper) collectTraceChallenges(ctx context.Context, factID string) []*ty
 					outcome = "disproven"
 				case types.Verdict_VERDICT_REJECT:
 					outcome = "survived"
+				case types.Verdict_VERDICT_INCONCLUSIVE:
+					outcome = "inconclusive"
+				case types.Verdict_VERDICT_MALFORMED:
+					outcome = "malformed"
 				}
 			}
 		}
 		out = append(out, &types.TraceChallenge{
-			Challenger:         c.Submitter,
-			ArgumentText:       c.ArgumentText,
-			ChallengeMethodId:  c.MethodId,
-			RebuttalText:       c.RebuttalText,
-			Outcome:            outcome,
-			ResolvedBlock:      resolvedBlock,
+			Challenger:        c.Submitter,
+			ArgumentText:      c.ArgumentText,
+			ChallengeMethodId: c.MethodId,
+			RebuttalText:      c.RebuttalText,
+			Outcome:           outcome,
+			ResolvedBlock:     resolvedBlock,
 		})
 		return false
 	})
@@ -364,13 +385,13 @@ func (k Keeper) collectVindication(ctx context.Context, factID string) *types.Tr
 	var verifiers []string
 	var earliest uint64
 	for ; iter.Valid(); iter.Next() {
-		key := iter.Key()
-		verifier := string(key[len(prefix):])
-		verifiers = append(verifiers, verifier)
-		// Block height is stored in the record value as JSON — cheap to skip
-		// parsing; we surface the earliest observed block instead.
-		if earliest == 0 {
-			earliest = 1 // marker — callers can cross-reference the chain
+		var record types.VindicationRecord
+		if err := json.Unmarshal(iter.Value(), &record); err != nil {
+			return nil
+		}
+		verifiers = append(verifiers, record.Verifier)
+		if len(verifiers) == 1 || record.VindicatedAt < earliest {
+			earliest = record.VindicatedAt
 		}
 	}
 	if len(verifiers) == 0 {
@@ -386,20 +407,22 @@ func (k Keeper) collectDisproval(ctx context.Context, fact *types.Fact) *types.T
 	if fact == nil || fact.Status != types.FactStatus_FACT_STATUS_DISPROVEN {
 		return nil
 	}
-	// Find the successful challenge: incoming CONTRADICTS edge.
-	rels := k.safeGetIncomingRelations(ctx, fact.Id)
-	for _, r := range rels {
-		if r.Relation == types.RelationType_RELATION_TYPE_CONTRADICTS {
-			return &types.TraceDisproval{
-				DisprovenByFactId: r.SourceFactId,
-				MethodId:          r.MethodId,
-				DisprovenAtBlock:  r.CreatedAtBlock,
-			}
+	// A CONTRADICTS edge alone does not establish which challenge caused a
+	// disproof. Use only a stored transition height, and leave unknown causal
+	// fact/method fields absent instead of assigning the first graph edge.
+	history, err := k.GetStatusHistoryChecked(ctx, fact.Id)
+	if err != nil {
+		if service, ok := k.storeService.(tokGuardService); ok {
+			service.guard.fail(err)
+		}
+		return nil
+	}
+	for i := len(history) - 1; i >= 0; i-- {
+		if history[i].NewStatus == types.FactStatus_FACT_STATUS_DISPROVEN {
+			return &types.TraceDisproval{DisprovenAtBlock: history[i].BlockHeight}
 		}
 	}
-	return &types.TraceDisproval{
-		DisprovenAtBlock: fact.RevenueClawbackBlock,
-	}
+	return nil
 }
 
 func (k Keeper) collectSupersessionChain(ctx context.Context, factID string) []string {
@@ -461,8 +484,8 @@ func (k Keeper) collectReformulationCompanions(ctx context.Context, factID strin
 				// Wave 6.2 — diagnose the drift from variant reasoning trace
 				// (best-effort; panels that record structured diagnosis will
 				// override this via a future MsgRecordDriftDiagnosis).
-				Diagnosis:     diagnoseDrift(factID, a),
-				DrifterSteps:  parseReasoningSteps(a.VariantReasoningTrace),
+				Diagnosis:    diagnoseDrift(factID, a),
+				DrifterSteps: parseReasoningSteps(a.VariantReasoningTrace),
 			})
 		}
 		return false
@@ -757,14 +780,14 @@ func parseReasoningSteps(raw string) []*types.ReasoningStep {
 	// Try JSON first.
 	if strings.HasPrefix(raw, "[") {
 		var parsed []struct {
-			Step            uint32   `json:"step"`
-			Content         string   `json:"content"`
-			Observation     string   `json:"observation"`
-			Reasoning       string   `json:"reasoning"`
-			Inference       string   `json:"inference"`
-			Supports        []string `json:"supports"`
-			DependsOn       []uint32 `json:"depends_on"`
-			ConfidenceBps   uint64   `json:"confidence_bps"`
+			Step          uint32   `json:"step"`
+			Content       string   `json:"content"`
+			Observation   string   `json:"observation"`
+			Reasoning     string   `json:"reasoning"`
+			Inference     string   `json:"inference"`
+			Supports      []string `json:"supports"`
+			DependsOn     []uint32 `json:"depends_on"`
+			ConfidenceBps uint64   `json:"confidence_bps"`
 		}
 		if err := jsonUnmarshal([]byte(raw), &parsed); err == nil {
 			out := make([]*types.ReasoningStep, 0, len(parsed))
@@ -886,10 +909,10 @@ func (k Keeper) buildMethodologyChoice(f *types.Fact) *types.MethodologyChoice {
 	// {"considered":["M-FORMAL","M-EMPIRICAL"],"rationale":"...","abandoned":["M-LEGACY"],"abandon_reason":"..."}
 	if strings.HasPrefix(strings.TrimSpace(f.ReasoningTrace), "{\"considered") {
 		var parsed struct {
-			Considered     []string `json:"considered"`
-			Rationale      string   `json:"rationale"`
-			Abandoned      []string `json:"abandoned"`
-			AbandonReason  string   `json:"abandon_reason"`
+			Considered    []string `json:"considered"`
+			Rationale     string   `json:"rationale"`
+			Abandoned     []string `json:"abandoned"`
+			AbandonReason string   `json:"abandon_reason"`
 		}
 		if err := jsonUnmarshal([]byte(strings.SplitN(f.ReasoningTrace, "\n", 2)[0]), &parsed); err == nil {
 			out.ConsideredMethods = parsed.Considered
@@ -903,91 +926,10 @@ func (k Keeper) buildMethodologyChoice(f *types.Fact) *types.MethodologyChoice {
 
 // ─── Wave 6.4: belief-revision chain ─────────────────────────────────────
 
-// buildBeliefRevisions walks observable confidence-change signals and
-// reconstructs an oldest-first Bayesian-style update chain.
-//
-// Literature: Tenenbaum 2011, Griffiths 2008 — Bayesian cognitive modelling;
-// models learn to update better when the update trajectory is visible.
-//
-// Sources of revisions:
-//   - corroboration_count increments (Popperian survival)
-//   - incoming CONTRADICTS edges (weakening)
-//   - REFINES / SUPERSEDES edges (resubmission)
-//   - vindication records (indirect)
-// The exact per-event prior/posterior is unavailable historically; we use
-// a monotone synthesis: each corroboration nudges posterior up by a
-// configured step, each contradiction nudges it down. Faithful to trend,
-// not to exact historical values.
-func (k Keeper) buildBeliefRevisions(ctx context.Context, f *types.Fact) []*types.BeliefRevision {
-	if f == nil {
-		return nil
-	}
-	var out []*types.BeliefRevision
-	current := uint64(500_000) // neutral prior
-
-	// Initial submission row — establishes the prior.
-	out = append(out, &types.BeliefRevision{
-		AtBlock:               f.SubmittedAtBlock,
-		PriorConfidenceBps:    0,
-		PosteriorConfidenceBps: current,
-		Reason:                types.RevisionReason_REVISION_REASON_RESUBMISSION,
-		Note:                  "initial submission; no prior",
-	})
-
-	// Each corroboration as a survival event — step up by a bounded amount.
-	for i := uint64(0); i < f.CorroborationCount; i++ {
-		prior := current
-		// ~+5% per corroboration, capped at max_confidence.
-		current = prior + 50_000
-		if current > f.Confidence {
-			current = f.Confidence
-		}
-		out = append(out, &types.BeliefRevision{
-			AtBlock:                f.LastCorroboratedBlock,
-			PriorConfidenceBps:     prior,
-			PosteriorConfidenceBps: current,
-			Reason:                 types.RevisionReason_REVISION_REASON_CORROBORATION,
-			Note:                   "survived falsification attempt",
-		})
-	}
-
-	// Incoming contradictions (even if they failed) as challenge events.
-	for _, r := range k.safeGetIncomingRelations(ctx, f.Id) {
-		if r.Relation != types.RelationType_RELATION_TYPE_CONTRADICTS {
-			continue
-		}
-		prior := current
-		if f.Status == types.FactStatus_FACT_STATUS_DISPROVEN {
-			current = 0
-		} else {
-			// Survived a contradiction — bump up, not down.
-			current = prior + 25_000
-			if current > f.Confidence {
-				current = f.Confidence
-			}
-		}
-		out = append(out, &types.BeliefRevision{
-			AtBlock:                r.CreatedAtBlock,
-			PriorConfidenceBps:     prior,
-			PosteriorConfidenceBps: current,
-			Reason:                 types.RevisionReason_REVISION_REASON_CONTRADICTION,
-			EvidenceFactIds:        []string{r.SourceFactId},
-			Note:                   "incoming contradiction",
-		})
-	}
-
-	// Snap the final row to the fact's real confidence so the posterior
-	// aligns with current chain state.
-	if n := len(out); n > 0 && out[n-1].PosteriorConfidenceBps != f.Confidence {
-		out = append(out, &types.BeliefRevision{
-			AtBlock:                f.LastVerifiedBlock,
-			PriorConfidenceBps:     out[n-1].PosteriorConfidenceBps,
-			PosteriorConfidenceBps: f.Confidence,
-			Reason:                 types.RevisionReason_REVISION_REASON_RESUBMISSION,
-			Note:                   "reconciled with current chain state",
-		})
-	}
-	return out
+// No prior/posterior confidence history is stored. Current confidence and
+// corroboration counts cannot reconstruct that history, so expose its absence.
+func (k Keeper) buildBeliefRevisions(_ context.Context, _ *types.Fact) []*types.BeliefRevision {
+	return nil
 }
 
 // ─── Wave 6.5: nested dialectic tree ─────────────────────────────────────
@@ -1007,13 +949,13 @@ func (k Keeper) buildDialecticTree(ctx context.Context, f *types.Fact, challenge
 	var nodes []*types.DialecticNode
 	for _, ch := range challenges {
 		root := &types.DialecticNode{
-			Speaker:       ch.Challenger,
-			Role:          types.DialecticRole_DIALECTIC_ROLE_CHALLENGE,
-			ArgumentText:  ch.ArgumentText,
-			MethodId:      ch.ChallengeMethodId,
-			AtBlock:       ch.ResolvedBlock,
-			CitedFactIds:  nil,
-			NodeVerdict:   mapChallengeOutcomeToStepVerdict(ch.Outcome),
+			Speaker:      ch.Challenger,
+			Role:         types.DialecticRole_DIALECTIC_ROLE_CHALLENGE,
+			ArgumentText: ch.ArgumentText,
+			MethodId:     ch.ChallengeMethodId,
+			AtBlock:      0, // occurrence height is not retained in TraceChallenge
+			CitedFactIds: nil,
+			NodeVerdict:  mapChallengeOutcomeToStepVerdict(ch.Outcome),
 		}
 		if ch.RebuttalText != "" {
 			root.Children = append(root.Children, &types.DialecticNode{
@@ -1021,16 +963,18 @@ func (k Keeper) buildDialecticTree(ctx context.Context, f *types.Fact, challenge
 				Role:         types.DialecticRole_DIALECTIC_ROLE_REBUTTAL,
 				ArgumentText: ch.RebuttalText,
 				MethodId:     f.MethodId,
-				AtBlock:      ch.ResolvedBlock,
+				AtBlock:      0, // rebuttal occurrence height is not retained
 			})
 		}
-		// Attach a verdict leaf reflecting the panel's call.
-		root.Children = append(root.Children, &types.DialecticNode{
-			Role:         types.DialecticRole_DIALECTIC_ROLE_VERDICT,
-			ArgumentText: ch.Outcome,
-			AtBlock:      ch.ResolvedBlock,
-			NodeVerdict:  mapChallengeOutcomeToStepVerdict(ch.Outcome),
-		})
+		// Only a resolved record supplies a panel verdict and its height.
+		if ch.ResolvedBlock != 0 && ch.Outcome != "pending" {
+			root.Children = append(root.Children, &types.DialecticNode{
+				Role:         types.DialecticRole_DIALECTIC_ROLE_VERDICT,
+				ArgumentText: ch.Outcome,
+				AtBlock:      ch.ResolvedBlock,
+				NodeVerdict:  mapChallengeOutcomeToStepVerdict(ch.Outcome),
+			})
+		}
 		nodes = append(nodes, root)
 	}
 	return nodes
@@ -1038,10 +982,10 @@ func (k Keeper) buildDialecticTree(ctx context.Context, f *types.Fact, challenge
 
 func mapChallengeOutcomeToStepVerdict(outcome string) types.StepVerdict {
 	switch strings.ToLower(outcome) {
-	case "survived":
-		return types.StepVerdict_STEP_VERDICT_SOUND
-	case "disproven":
+	case "survived": // original survived: the challenge was rejected
 		return types.StepVerdict_STEP_VERDICT_UNSOUND
+	case "disproven": // original disproven: the challenge was accepted
+		return types.StepVerdict_STEP_VERDICT_SOUND
 	case "pending":
 		return types.StepVerdict_STEP_VERDICT_UNEXAMINED
 	}

@@ -19,7 +19,7 @@ import {
   registry7,
   registry8,
   registry9
-} from "./chunk-HO2DCVPK.js";
+} from "./chunk-ZZBSAIKZ.js";
 
 // src/registry.ts
 import { Registry } from "@cosmjs/proto-signing";

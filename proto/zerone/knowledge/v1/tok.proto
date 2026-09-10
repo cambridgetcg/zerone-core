@@ -42,13 +42,13 @@ message FrontierSelector {
   uint32 limit       = 3;  // 0 = chain default (1024); cap 8192.
 }
 
-// ToKBundle is the response of BundleToK. The Merkle root commits to
-// the included node and edge IDs domain-tagged separately. A trainer
-// who has the IDs can re-derive the root locally without trusting the
-// RPC to faithfully serialise payloads.
+// ToKBundle is the response of BundleToK. Its structural digest can be
+// recomputed from the versioned selected fields. It does not authenticate
+// full Fact payloads, chain identity, snapshot height or RPC completeness,
+// and is not an AppHash state proof.
 message ToKBundle {
   uint64 snapshot_block            = 1;
-  bytes  snapshot_root             = 2;  // 32-byte Merkle root.
+  bytes  snapshot_root             = 2;  // 32-byte versioned structural digest.
   repeated string included_node_ids = 3; // sorted, deterministic.
   repeated ToKEdge included_edges  = 4;  // sorted by (from,to,relation).
   repeated Fact   nodes            = 5;  // full payloads, in node-id order.
@@ -66,9 +66,10 @@ message ToKBundle {
   repeated string            supersession_chain = 11;  // factIDs, root → leaf
   repeated StatusTransition  status_history     = 12;  // sorted by (fact_id, seq)
 
-  // V2 root: when cascade fields are non-empty, snapshot_root commits
-  // to all of (nodes, edges, cascade_events, vindications, transitions).
-  // V1 root semantics (Plan 1) preserved when cascade fields are empty.
+  // V2 extends the v1 node-ID/edge projection with selected cascade,
+  // vindication and transition fields. Neither version hashes full node
+  // payloads, provenance, chain/height or supersession_chain.
+  // V1 semantics remain unchanged when cascade fields are empty.
   // Provenance.tok_root_version distinguishes "v1" / "v2".
 }
 

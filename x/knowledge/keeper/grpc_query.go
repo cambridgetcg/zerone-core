@@ -2474,13 +2474,28 @@ func sdkmath_new_int_from_string(s string) (sdkmath.Int, bool) {
 
 // ─── Route B Wave 5 queries ──────────────────────────────────────────────
 
+// knowledgeRecordQueryError refuses an incomplete authoritative read model.
+func knowledgeRecordQueryError(err error) error {
+	if errors.Is(err, ErrToKResourceLimit) {
+		return status.Errorf(codes.ResourceExhausted, "%v", err)
+	}
+	return status.Errorf(codes.Internal, "%v", err)
+}
+
 // MethodologyApplicationTrace returns the unified training row for a fact.
 func (q *queryServer) MethodologyApplicationTrace(ctx context.Context, req *types.QueryMethodologyApplicationTraceRequest) (*types.QueryMethodologyApplicationTraceResponse, error) {
 	if req == nil || req.FactId == "" {
 		return nil, status.Error(codes.InvalidArgument, "fact_id is required")
 	}
-	trace, found := q.keeper.BuildMethodologyApplicationTrace(ctx, req.FactId)
-	return &types.QueryMethodologyApplicationTraceResponse{Trace: trace, Found: found}, nil
+	trace, found, err := q.keeper.BuildMethodologyApplicationTraceChecked(ctx, req.FactId)
+	if err != nil {
+		return nil, knowledgeRecordQueryError(err)
+	}
+	response := &types.QueryMethodologyApplicationTraceResponse{Trace: trace, Found: found}
+	if proto.Size(response) > ToKMaxOutputBytes {
+		return nil, knowledgeRecordQueryError(ErrToKResourceLimit)
+	}
+	return response, nil
 }
 
 // MethodologyApplicationTraces streams traces filtered by method / tier /
@@ -2489,6 +2504,7 @@ func (q *queryServer) MethodologyApplicationTraces(ctx context.Context, req *typ
 	if req == nil {
 		req = &types.QueryMethodologyApplicationTracesRequest{}
 	}
+	keeper, guard := q.keeper.guardedToK()
 	limit := req.Limit
 	if limit == 0 || limit > 1000 {
 		limit = 100
@@ -2497,14 +2513,16 @@ func (q *queryServer) MethodologyApplicationTraces(ctx context.Context, req *typ
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	snapshotHeight := uint64(sdkCtx.BlockHeight())
 	var schemaVersion uint64
-	if s, ok := q.keeper.GetTraceSchema(ctx); ok && s != nil {
+	if s, ok := keeper.GetTraceSchema(ctx); ok && s != nil {
 		schemaVersion = s.Version
 	}
 
 	var out []*types.MethodologyApplicationTrace
 	var total uint32
 	var seen uint32
-	q.keeper.IterateFacts(ctx, func(f *types.Fact) bool {
+	var traceErr error
+	var traceBytes int
+	keeper.IterateFacts(ctx, func(f *types.Fact) bool {
 		if f == nil {
 			return false
 		}
@@ -2518,7 +2536,7 @@ func (q *queryServer) MethodologyApplicationTraces(ctx context.Context, req *typ
 			return false
 		}
 		// Tier filter.
-		quality := q.keeper.classifyQualityTier(ctx, f)
+		quality := keeper.classifyQualityTier(ctx, f)
 		if req.MinTier != types.TrainingQualityTier_TRAINING_QUALITY_TIER_UNSPECIFIED &&
 			qualityRank(quality) < qualityRank(req.MinTier) {
 			return false
@@ -2531,20 +2549,39 @@ func (q *queryServer) MethodologyApplicationTraces(ctx context.Context, req *typ
 		if uint32(len(out)) >= limit {
 			return false
 		}
-		trace, found := q.keeper.BuildMethodologyApplicationTrace(ctx, f.Id)
+		trace, found, err := keeper.BuildMethodologyApplicationTraceChecked(ctx, f.Id)
+		if err != nil {
+			traceErr = err
+			return true
+		}
 		if !found {
 			return false
+		}
+		traceBytes += proto.Size(trace)
+		if traceBytes > ToKMaxOutputBytes {
+			traceErr = ErrToKResourceLimit
+			return true
 		}
 		out = append(out, trace)
 		seen++
 		return false
 	})
-	return &types.QueryMethodologyApplicationTracesResponse{
+	if traceErr != nil {
+		return nil, knowledgeRecordQueryError(traceErr)
+	}
+	if guard.err != nil {
+		return nil, knowledgeRecordQueryError(guard.err)
+	}
+	response := &types.QueryMethodologyApplicationTracesResponse{
 		Traces:              out,
 		Total:               total,
 		SnapshotBlockHeight: snapshotHeight,
 		TraceSchemaVersion:  schemaVersion,
-	}, nil
+	}
+	if proto.Size(response) > ToKMaxOutputBytes {
+		return nil, knowledgeRecordQueryError(ErrToKResourceLimit)
+	}
+	return response, nil
 }
 
 // ContrastivePairs enumerates the four kinds of (positive, negative) tuples.
@@ -2680,8 +2717,9 @@ func (q *queryServer) TrainingManifestBundle(ctx context.Context, req *types.Que
 
 // BundleToK is the headline trainer-facing endpoint. TC1: the graph is
 // the substrate; this is where trainers ask for it. TC5 (extraction is
-// open) is bound here: refusals are limited to syntax errors (InvalidArgument),
-// missing target facts (NotFound), and chain-state inconsistencies (Internal).
+// open) is bound here: queries remain subject to syntax, available state,
+// integrity checks and explicit resource ceilings. No partial result is returned
+// when a resource ceiling or stored-record integrity check fails.
 func (q *queryServer) BundleToK(ctx context.Context, req *types.QueryBundleToKRequest) (*types.QueryBundleToKResponse, error) {
 	if req == nil || req.Selector == nil {
 		return nil, status.Error(codes.InvalidArgument, "selector required")
@@ -2693,6 +2731,8 @@ func (q *queryServer) BundleToK(ctx context.Context, req *types.QueryBundleToKRe
 			return nil, status.Errorf(codes.NotFound, "%v", err)
 		case errors.Is(err, ErrToKCascadeNotDisproven):
 			return nil, status.Errorf(codes.FailedPrecondition, "%v", err)
+		case errors.Is(err, ErrToKResourceLimit):
+			return nil, status.Errorf(codes.ResourceExhausted, "%v", err)
 		case errors.Is(err, ErrToKInconsistentState):
 			return nil, status.Errorf(codes.Internal, "%v", err)
 		default:

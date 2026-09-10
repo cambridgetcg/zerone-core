@@ -33,8 +33,10 @@ func parseClaimType(s string) (types.ClaimType, error) {
 		return types.ClaimType_CLAIM_TYPE_NEGATION, nil
 	case "observation":
 		return types.ClaimType_CLAIM_TYPE_OBSERVATION, nil
+	case "computational":
+		return types.ClaimType_CLAIM_TYPE_COMPUTATIONAL, nil
 	default:
-		return 0, fmt.Errorf("unknown claim type %q: must be assertion, relation, definition, constraint, negation, or observation", s)
+		return 0, fmt.Errorf("unknown claim type %q: must be assertion, relation, definition, constraint, negation, observation, or computational", s)
 	}
 }
 
@@ -165,20 +167,24 @@ func NewSubmitClaimCmd() *cobra.Command {
 
 			canonicalForm, _ := cmd.Flags().GetString("canonical")
 			sponsored, _ := cmd.Flags().GetBool("sponsored")
+			methodID, _ := cmd.Flags().GetString("method-id")
+			reasoning, _ := cmd.Flags().GetString("reasoning-trace")
 
 			msg := &types.MsgSubmitClaim{
-				Submitter:     clientCtx.GetFromAddress().String(),
-				FactContent:   args[0],
-				Domain:        args[1],
-				Category:      args[2],
-				Stake:         args[3],
-				References:    references,
-				PartnershipId: partnershipId,
-				ClaimType:     claimType,
-				Relations:     relations,
-				Structure:     structure,
-				CanonicalForm: canonicalForm,
-				Sponsored:     sponsored,
+				Submitter:      clientCtx.GetFromAddress().String(),
+				FactContent:    args[0],
+				Domain:         args[1],
+				Category:       args[2],
+				Stake:          args[3],
+				References:     references,
+				PartnershipId:  partnershipId,
+				ClaimType:      claimType,
+				Relations:      relations,
+				Structure:      structure,
+				CanonicalForm:  canonicalForm,
+				Sponsored:      sponsored,
+				MethodId:       methodID,
+				ReasoningTrace: reasoning,
 			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
@@ -187,7 +193,7 @@ func NewSubmitClaimCmd() *cobra.Command {
 
 	cmd.Flags().String("references", "", "Comma-separated fact IDs to reference")
 	cmd.Flags().String("partnership-id", "", "Partnership ID for collaborative claims")
-	cmd.Flags().String("claim-type", "assertion", "Claim type: assertion (default), relation, definition, constraint, negation, observation")
+	cmd.Flags().String("claim-type", "assertion", "Claim type: assertion (default), relation, definition, constraint, negation, observation, computational")
 	cmd.Flags().String("relations", "", "Typed relations: supports:FACT_ID,contradicts:FACT_ID,requires:FACT_ID")
 	cmd.Flags().String("subject", "", "Claim subject (structured)")
 	cmd.Flags().String("predicate", "", "Claim predicate (structured)")
@@ -198,6 +204,8 @@ func NewSubmitClaimCmd() *cobra.Command {
 	cmd.Flags().String("tags", "", "Comma-separated tags")
 	cmd.Flags().String("canonical", "", "Explicit canonical form (auto-derived from structure if omitted)")
 	cmd.Flags().Bool("sponsored", false, "Request bootstrap fund sponsorship (fund pays review fee)")
+	cmd.Flags().String("method-id", "", "Registered methodology ID (requires record-integrity activation)")
+	cmd.Flags().String("reasoning-trace", "", "Exact reasoning or method description to retain with the claim")
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }
@@ -208,19 +216,19 @@ func NewSubmitClaimCmd() *cobra.Command {
 //   - expert:  submit-commitment <round-id> <commit-hash-hex>   (you computed the hash)
 //   - hospitable: submit-commitment <round-id> --vote accept    (we compute it correctly)
 //
-// The hospitable mode exists because the commit preimage is domain-tagged
-// ("ZRN.commit.v1:<round>:<vote>:<confidence>:<salt-hex>") and the CLI reveal
-// always sends confidence=0 — a hand-rolled hash with any other shape fails the
-// reveal with ErrRevealMismatch. The CLI computes it via the same
-// types.ComputeCommitmentHash the chain verifies with, so it cannot drift.
+// The computed mode reads the immutable scheme and creation chain from the
+// round. Offline callers must supply those values explicitly. The same review
+// fields must be retained and supplied on reveal.
 func NewSubmitCommitmentCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "submit-commitment [round-id] [commit-hash-hex]",
 		Short: "Submit a verification commitment (commit-reveal phase 1)",
 		Long: `Commit to a vote on a verification round.
 
-Easiest path (salt is generated and the hash computed for you):
-  zeroned tx knowledge submit-commitment <round-id> --vote accept --from me
+Scheme-2 review (salt is generated and the hash computed for you):
+  zeroned tx knowledge submit-commitment <round-id> --vote accept --review-reason "What I checked" --from me
+Legacy rounds omit --review-reason. The command queries the round's scheme;
+offline generation requires --commitment-scheme and scheme-2 --commitment-chain-id.
 The command prints the salt and the exact reveal command to run after the
 commit phase ends. Optionally persist it with --salt-out <file>.
 
@@ -239,10 +247,19 @@ Expert path (you already computed the domain-tagged hash):
 			saltOut, _ := cmd.Flags().GetString("salt-out")
 
 			var commitHash []byte
+			var commitmentScheme uint32
+			var commitmentChain string
+			var attestation *types.ReviewAttestation
+			var confidence uint64
 			switch {
 			case len(args) == 2 && vote != "":
 				return fmt.Errorf("give either a commit-hash argument or --vote, not both")
 			case len(args) == 2:
+				for _, name := range []string{"confidence", "review-reason", "review-method", "review-scope", "review-evidence", "commitment-scheme", "commitment-chain-id"} {
+					if cmd.Flags().Changed(name) {
+						return fmt.Errorf("--%s only applies when computing a commitment with --vote", name)
+					}
+				}
 				if saltHex != "" || saltOut != "" {
 					return fmt.Errorf("--salt/--salt-out only apply with --vote (with a precomputed hash you already own the salt)")
 				}
@@ -269,9 +286,22 @@ Expert path (you already computed the domain-tagged hash):
 					}
 					saltHex = hex.EncodeToString(salt)
 				}
-				// Confidence is 0 because the CLI reveal path cannot set it —
-				// committing with any other value makes the reveal unmatchable.
-				commitHash = types.ComputeCommitmentHash(roundID, vote, 0, salt)
+				commitmentScheme, commitmentChain, err = resolveReviewRound(cmd, clientCtx, roundID)
+				if err != nil {
+					return err
+				}
+				attestation, confidence, err = reviewFromFlags(cmd, commitmentScheme)
+				if err != nil {
+					return err
+				}
+				if commitmentScheme == types.CommitmentSchemeLegacy {
+					commitHash = types.ComputeCommitmentHash(roundID, vote, confidence, salt)
+				} else {
+					commitHash, err = types.ComputeReviewCommitmentV2(commitmentChain, roundID, clientCtx.GetFromAddress().String(), vote, confidence, salt, attestation)
+					if err != nil {
+						return err
+					}
+				}
 				if saltOut != "" {
 					if err := os.WriteFile(saltOut, []byte(saltHex+"\n"), 0o600); err != nil {
 						return fmt.Errorf("could not persist salt before broadcasting (refusing to commit a vote we could not reveal): %w", err)
@@ -311,7 +341,7 @@ Expert path (you already computed the domain-tagged hash):
 					fmt.Fprintln(out, "  (also saved to "+saltOut+")")
 				}
 				fmt.Fprintln(out, "After the commit phase ends, reveal with exactly:")
-				fmt.Fprintln(out, "  zeroned tx knowledge submit-reveal "+roundID+" "+vote+" "+saltHex+" --from <same-key>")
+				fmt.Fprintln(out, "  "+reviewRevealCommand(roundID, vote, saltHex, commitmentScheme, commitmentChain, confidence, attestation))
 				fmt.Fprintln(out, "Find the claim this round belongs to: zeroned q knowledge verification-round "+roundID)
 				fmt.Fprintln(out, "Then follow it live: zeroned q knowledge claim-watch <claim-id>")
 			}
@@ -322,6 +352,7 @@ Expert path (you already computed the domain-tagged hash):
 	cmd.Flags().String("vote", "", "compute the commitment for this vote (accept|reject|malformed) instead of passing a hash")
 	cmd.Flags().String("salt", "", "hex salt to use with --vote (default: 16 random bytes, printed after broadcast)")
 	cmd.Flags().String("salt-out", "", "also write the salt to this file (0600) before broadcasting")
+	addReviewFlags(cmd)
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }
@@ -343,18 +374,34 @@ func NewSubmitRevealCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			scheme, chain, err := resolveReviewRound(cmd, clientCtx, args[0])
+			if err != nil {
+				return err
+			}
+			attestation, confidence, err := reviewFromFlags(cmd, scheme)
+			if err != nil {
+				return err
+			}
+			if scheme == types.CommitmentSchemeReviewV2 {
+				if _, err := types.ComputeReviewCommitmentV2(chain, args[0], clientCtx.GetFromAddress().String(), args[1], confidence, salt, attestation); err != nil {
+					return err
+				}
+			}
 
 			msg := &types.MsgSubmitReveal{
-				Verifier: clientCtx.GetFromAddress().String(),
-				RoundId:  args[0],
-				Vote:     args[1],
-				Salt:     salt,
+				Verifier:    clientCtx.GetFromAddress().String(),
+				RoundId:     args[0],
+				Vote:        args[1],
+				Salt:        salt,
+				Confidence:  confidence,
+				Attestation: attestation,
 			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
 		},
 	}
 
+	addReviewFlags(cmd)
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }
@@ -384,12 +431,14 @@ func NewChallengeFactCmd() *cobra.Command {
 				Reason:      args[2],
 				EvidenceIds: evidenceIds,
 			}
+			msg.MethodId, _ = cmd.Flags().GetString("method-id")
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
 		},
 	}
 
 	cmd.Flags().String("evidence-ids", "", "Comma-separated evidence IDs")
+	cmd.Flags().String("method-id", "", "Registered methodology used in this challenge")
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }
@@ -456,14 +505,14 @@ func NewSubmitContradictionCmd() *cobra.Command {
 			}
 
 			msg := &types.MsgSubmitContradiction{
-				Submitter:   clientCtx.GetFromAddress().String(),
-				FactId:      args[0],
+				Submitter:    clientCtx.GetFromAddress().String(),
+				FactId:       args[0],
 				CounterClaim: args[1],
-				Stake:       args[2],
-				Reason:      args[3],
-				Domain:      domain,
-				Category:    category,
-				EvidenceIds: evidenceIds,
+				Stake:        args[2],
+				Reason:       args[3],
+				Domain:       domain,
+				Category:     category,
+				EvidenceIds:  evidenceIds,
 			}
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
@@ -708,6 +757,7 @@ func NewChallengeProvisionalFactCmd() *cobra.Command {
 				EvidenceIds:  evidenceIds,
 				CounterClaim: counterClaim,
 			}
+			msg.MethodId, _ = cmd.Flags().GetString("method-id")
 
 			return tx.GenerateOrBroadcastTxCLI(clientCtx, cmd.Flags(), msg)
 		},
@@ -715,6 +765,7 @@ func NewChallengeProvisionalFactCmd() *cobra.Command {
 
 	cmd.Flags().String("counter-claim", "", "Counter-claim text")
 	cmd.Flags().String("evidence-ids", "", "Comma-separated evidence IDs")
+	cmd.Flags().String("method-id", "", "Registered methodology used in this challenge")
 	flags.AddTxFlagsToCmd(cmd)
 	return cmd
 }

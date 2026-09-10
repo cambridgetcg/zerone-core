@@ -72,6 +72,17 @@ func newFixture(t *testing.T) fixture {
 			t.Fatal(err)
 		}
 	}
+	// Explicit synthetic current-native selection; the consensus-key-only
+	// compiler must preserve, never silently add, this execution-semantic flag.
+	var knowledgeState map[string]json.RawMessage
+	if err := json.Unmarshal(appState["knowledge"], &knowledgeState); err != nil {
+		t.Fatal(err)
+	}
+	knowledgeState["record_integrity_enabled"] = json.RawMessage(`true`)
+	appState["knowledge"], err = json.Marshal(knowledgeState)
+	if err != nil {
+		t.Fatal(err)
+	}
 	appState["accounting_authority"] = json.RawMessage(`{"schema":"zerone.accounting-authority/genesis-v1","origin":"native"}`)
 
 	oldPrivate := cmted25519.GenPrivKeyFromSecret([]byte("fork-genesis-old"))

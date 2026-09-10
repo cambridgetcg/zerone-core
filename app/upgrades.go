@@ -112,6 +112,9 @@ func (app *ZeroneApp) runMigrationsForPlan(
 	if err := requireSurvivalHandoffTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
 		return nil, err
 	}
+	if err := requireRecordIntegrityTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
+		return nil, err
+	}
 	return app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
 }
 
@@ -144,6 +147,7 @@ func requireCompletedPreSDKTransitionVersions(
 func (app *ZeroneApp) RegisterUpgradeHandlers() {
 	app.registerAccountingAuthorityUpgrade()
 	app.registerSurvivalHandoffUpgrade()
+	app.registerRecordIntegrityUpgrade()
 	// v1.0.0-testnet — initial testnet launch.
 	// Runs all module migrations from ConsensusVersion 1 → 2.
 	app.UpgradeKeeper.SetUpgradeHandler(

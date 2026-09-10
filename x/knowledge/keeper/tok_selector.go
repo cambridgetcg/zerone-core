@@ -110,6 +110,15 @@ func (k Keeper) GatherRootedSubtree(
 	ctx context.Context,
 	sel *types.RootedSubtreeSelector,
 ) (nodeIDs []string, edges []*types.ToKEdge, err error) {
+	k, guard := k.guardedToK()
+	defer func() {
+		if guard.err != nil {
+			nodeIDs, edges, err = nil, nil, guard.err
+		}
+		if err == nil && (len(nodeIDs) > ToKMaxNodes || len(edges) > ToKMaxEdges) {
+			nodeIDs, edges, err = nil, nil, ErrToKResourceLimit
+		}
+	}()
 	root, found := k.GetFact(ctx, sel.RootFactId)
 	if !found {
 		return nil, nil, fmt.Errorf("%w: %s", ErrToKRootFactNotFound, sel.RootFactId)
@@ -170,6 +179,9 @@ func (k Keeper) gatherDescendantsRecursive(
 			}
 		}
 		if !visited[rel.SourceFactId] {
+			if len(visited) >= ToKMaxNodes {
+				return ErrToKResourceLimit
+			}
 			visited[rel.SourceFactId] = true
 			if err := k.gatherDescendantsRecursive(ctx, rel.SourceFactId, depth+1, maxDepth, visited, edges); err != nil {
 				return err
@@ -186,6 +198,15 @@ func (k Keeper) GatherAncestorCone(
 	ctx context.Context,
 	sel *types.AncestorConeSelector,
 ) (nodeIDs []string, edges []*types.ToKEdge, err error) {
+	k, guard := k.guardedToK()
+	defer func() {
+		if guard.err != nil {
+			nodeIDs, edges, err = nil, nil, guard.err
+		}
+		if err == nil && (len(nodeIDs) > ToKMaxNodes || len(edges) > ToKMaxEdges) {
+			nodeIDs, edges, err = nil, nil, ErrToKResourceLimit
+		}
+	}()
 	leaf, found := k.GetFact(ctx, sel.LeafFactId)
 	if !found {
 		return nil, nil, fmt.Errorf("%w: %s", ErrToKLeafFactNotFound, sel.LeafFactId)
@@ -224,6 +245,9 @@ func (k Keeper) gatherAncestorsRecursive(
 		return err
 	}
 	for _, rel := range outgoing {
+		if *pathCount >= maxPaths {
+			break
+		}
 		// FILTER: only support-bearing relations — mirror of gatherDescendantsRecursive.
 		// CONTRADICTS, SUPERSEDES, UNSPECIFIED, REFORMULATES must not appear in an ancestor bundle.
 		switch rel.Relation {
@@ -250,6 +274,9 @@ func (k Keeper) gatherAncestorsRecursive(
 			}
 		}
 		if !visited[rel.TargetFactId] {
+			if len(visited) >= ToKMaxNodes {
+				return ErrToKResourceLimit
+			}
 			visited[rel.TargetFactId] = true
 			if err := k.gatherAncestorsRecursive(ctx, rel.TargetFactId, depth+1, maxDepth, maxPaths, pathCount, visited, edges); err != nil {
 				return err
@@ -271,6 +298,15 @@ func (k Keeper) GatherFrontier(
 	ctx context.Context,
 	sel *types.FrontierSelector,
 ) (nodeIDs []string, edges []*types.ToKEdge, err error) {
+	k, guard := k.guardedToK()
+	defer func() {
+		if guard.err != nil {
+			nodeIDs, edges, err = nil, nil, guard.err
+		}
+		if err == nil && (len(nodeIDs) > ToKMaxNodes || len(edges) > ToKMaxEdges) {
+			nodeIDs, edges, err = nil, nil, ErrToKResourceLimit
+		}
+	}()
 	if sel == nil || sel.Domain == "" {
 		return nil, nil, fmt.Errorf("frontier selector requires a non-empty domain")
 	}
@@ -284,13 +320,16 @@ func (k Keeper) GatherFrontier(
 
 	// Collect qualifying facts by iterating the domain index.
 	included := map[string]*types.Fact{}
+	var candidates []*types.Fact
 	k.IterateFactsByDomain(ctx, sel.Domain, func(factID string) bool {
-		if len(included) >= limit {
-			return true // stop iteration
-		}
 		fact, ok := k.GetFact(ctx, factID)
 		if !ok {
-			return false // ghost — skip
+			guard.fail(fmt.Errorf("%w: domain index references missing fact %s", ErrToKInconsistentState, factID))
+			return true
+		}
+		if fact.Domain != sel.Domain {
+			guard.fail(fmt.Errorf("%w: domain index/payload mismatch", ErrToKInconsistentState))
+			return true
 		}
 		// Filter: exclude unverified facts (VerifiedAtBlock == 0) unconditionally.
 		if fact.VerifiedAtBlock == 0 {
@@ -300,9 +339,21 @@ func (k Keeper) GatherFrontier(
 		if fact.VerifiedAtBlock < sel.SinceBlock {
 			return false
 		}
-		included[factID] = fact
+		candidates = append(candidates, fact)
 		return false
 	})
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].VerifiedAtBlock != candidates[j].VerifiedAtBlock {
+			return candidates[i].VerifiedAtBlock > candidates[j].VerifiedAtBlock
+		}
+		return candidates[i].Id < candidates[j].Id
+	})
+	for i, fact := range candidates {
+		if i >= limit {
+			break
+		}
+		included[fact.Id] = fact
+	}
 
 	// Build sorted node list.
 	for id := range included {

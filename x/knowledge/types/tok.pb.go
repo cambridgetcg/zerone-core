@@ -316,14 +316,14 @@ func (x *FrontierSelector) GetLimit() uint32 {
 	return 0
 }
 
-// ToKBundle is the response of BundleToK. The Merkle root commits to
-// the included node and edge IDs domain-tagged separately. A trainer
-// who has the IDs can re-derive the root locally without trusting the
-// RPC to faithfully serialise payloads.
+// ToKBundle is the response of BundleToK. Its structural digest can be
+// recomputed from the versioned selected fields. It does not authenticate
+// full Fact payloads, chain identity, snapshot height or RPC completeness,
+// and is not an AppHash state proof.
 type ToKBundle struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	SnapshotBlock       uint64                 `protobuf:"varint,1,opt,name=snapshot_block,json=snapshotBlock,proto3" json:"snapshot_block,omitempty"`
-	SnapshotRoot        []byte                 `protobuf:"bytes,2,opt,name=snapshot_root,json=snapshotRoot,proto3" json:"snapshot_root,omitempty"`                      // 32-byte Merkle root.
+	SnapshotRoot        []byte                 `protobuf:"bytes,2,opt,name=snapshot_root,json=snapshotRoot,proto3" json:"snapshot_root,omitempty"`                      // 32-byte versioned structural digest.
 	IncludedNodeIds     []string               `protobuf:"bytes,3,rep,name=included_node_ids,json=includedNodeIds,proto3" json:"included_node_ids,omitempty"`           // sorted, deterministic.
 	IncludedEdges       []*ToKEdge             `protobuf:"bytes,4,rep,name=included_edges,json=includedEdges,proto3" json:"included_edges,omitempty"`                   // sorted by (from,to,relation).
 	Nodes               []*Fact                `protobuf:"bytes,5,rep,name=nodes,proto3" json:"nodes,omitempty"`                                                        // full payloads, in node-id order.

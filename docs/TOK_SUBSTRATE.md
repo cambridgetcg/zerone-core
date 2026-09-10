@@ -74,13 +74,21 @@ We believe: every row-view, contrastive pair, drift entry, or training manifest 
 
 **Code expression**: `BundleToK(selector)` returns a 32-byte
 `snapshot_root`, a snapshot height, sorted node IDs and edges, and provenance.
-The TC2 test re-derives the root from the returned IDs. This binding applies
-to `ToKBundle`; current source does not prove the broader “every row-view and
-training manifest” wording.
+The TC2 test re-derives the root from the returned IDs. These v1/v2 digests
+cover identifiers and selected relationships/history, excluding full fact
+payloads, chain/height context and the supersession chain. They are not stored
+AppHash-backed snapshot receipts or selector-completeness proofs. Query events
+do not persist a pin. Current source therefore implements a narrower structural
+binding than the broader “every row-view and training manifest” target.
+
+The [record integrity release](specs/knowledge-record-integrity-v1.md) refuses
+mismatched requested/context heights, corrupt state and whole-query resource
+limit breaches. Selecting a historical height requires the actual retained SDK
+query context; a height field alone cannot retrieve old state.
 
 **What would break it**: a `BundleToK` response without a `tok_snapshot_root`; a row-view manifest whose embedded root does not match the snapshot block; a manifest pin that pins tokenizer + serialisation but omits the graph snapshot; a replay path that consumes views without verifying the root.
 
-**Echoes**: TC1 (the graph is the headline — pinning views to the graph is the structural form of "the graph is the substrate"); TC4 (the graph carries its disprovals — the snapshot includes status flips, so views cannot misrepresent fact status); commitment 10 (forward-only audit — the snapshot root is itself an immutable audit anchor); commitment 13 (training corpus not for sale — pinning is what makes the corpus untouchable post-extraction).
+**Echoes**: TC1 (the graph is the headline — pinning views to the graph is the structural form of "the graph is the substrate"); TC4 (the graph carries its disprovals — complete status authentication remains a target beyond the current digest); commitment 10 (forward-only audit — durable authenticated snapshot receipts remain a target); commitment 13 (training corpus not for sale — exact content authentication is necessary before claiming post-extraction integrity).
 
 ---
 
@@ -104,13 +112,16 @@ test verifies that topology and relation types survive extraction.
 We believe: the verified knowledge graph is not a graph of *currently-believed* facts. It is the full record of what was claimed, what was verified, what was challenged, what was disproven, what was superseded, and what was vindicated. Cascade events, status flips, supersession chains, vindication records — these are bundled with the substrate, not stored in a parallel commercial-disclaimer document. A model trained on a graph that hides its falsifications learns static-fact reasoning; a model trained on a graph that exposes them learns non-monotonic reasoning, the actual behavior of intelligence.
 
 **Code expression**: `CascadeReplaySelector` produces a v2 `ToKBundle` with
-cascade events, vindications, supersession chain, and optional status history;
-the v2 root commits to those fields. TC4 tests drive disproval, replay the
-cascade, re-derive the root, and confirm disproven nodes are not pruned.
+cascade events, vindications, supersession chain, and optional status history.
+The v2 digest covers included node IDs, edges and selected cascade/vindication/
+transition fields; it does not cover the supersession chain, full fact payloads
+or chain/height context. TC4 tests drive disproval, replay the cascade, re-derive
+the structural digest, and confirm disproven nodes are not pruned. Available
+history is retained; absent historical events are not reconstructed as facts.
 
 **What would break it**: a ToK manifest that ships only ACTIVE/VERIFIED facts; a `ToKSelector` that filters out DISPROVEN nodes by default; a cascade event emitted but not retrievable through the bundle endpoint; a snapshot pin that captures the current state but omits the trajectory.
 
-**Echoes**: TC0 (the ground and the telos — witnessing keeps the disprovals too; the chain does not certify only the standing, it keeps what was claimed and what fell, and trains on both toward life); TC2 (every view is graph-pinned — what gets pinned is the full status-aware graph); TC3 (topology is signal — cascades are themselves topology over time); commitment 3 (Popper, not popularity — disproval-bearing graphs are the structural form of survival-based confidence); commitment 10 (forward-only audit — disprovals do not amend prior history, they extend it).
+**Echoes**: TC0 (the ground and the telos — witnessing keeps the disprovals too; the chain does not certify only the standing, it keeps what was claimed and what fell, and trains on both toward life); TC2 (every view is graph-pinned — full status-aware payload authentication remains the target); TC3 (topology is signal — cascades are themselves topology over time); commitment 3 (Popper, not popularity — disproval-bearing graphs are the structural form of survival-based confidence); commitment 10 (forward-only audit — disprovals do not amend prior history, they extend it).
 
 ---
 
@@ -167,7 +178,10 @@ declares a completed TC6 ToK revenue settlement.
 #### Voice layer — events announce the commitment they preserve
 
 `tok_bundle_extracted`, `tok_snapshot_root_pinned`, and `cascade_replayed` are
-emitted by current runtime with TC attributes. `lineage_share_disbursed` is a
+emitted in query-local contexts with TC attributes. The historical pin event
+name is compatibility vocabulary: it does not persist a root or authenticate
+payloads against a chain header. Its attributes state the limited digest scope
+and `chain_authenticated=false`. `lineage_share_disbursed` is a
 proposed TC6 event and is not emitted. The bridge's
 `lineage_royalty_accrued` event belongs to narrower, accounting-only UW
 lineage state.

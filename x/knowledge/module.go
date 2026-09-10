@@ -126,6 +126,9 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	if err := cfg.RegisterMigration(types.ModuleName, 6, migrator.Migrate6to7); err != nil {
 		panic(fmt.Sprintf("failed to register %s migration v6→v7: %v", types.ModuleName, err))
 	}
+	if err := cfg.RegisterMigration(types.ModuleName, 7, migrator.Migrate7to8); err != nil {
+		panic(fmt.Sprintf("failed to register %s migration v7→v8: %v", types.ModuleName, err))
+	}
 }
 
 // RegisterInvariants is a no-op for now; invariants are added in R2-2.
@@ -155,5 +158,6 @@ func (am AppModule) BeginBlock(ctx context.Context) error {
 // Lineage: v1 (initial) → v2 (marker) → v3 (R29 param backfill) → v4 (Wave 10:
 // TraceSchema backfill + marker) → v5 (drop 11 dead anti-slop/FARM/citation-
 // gaming params) → v6 (consolidation safety activation marker) → v7 (atomic
-// survival reward handoff and derived deadline index reconstruction).
-func (AppModule) ConsensusVersion() uint64 { return 7 }
+// survival reward handoff and derived deadline index reconstruction) → v8
+// (actor-bound reviews, attributable records and explicit payment outcomes).
+func (AppModule) ConsensusVersion() uint64 { return 8 }
