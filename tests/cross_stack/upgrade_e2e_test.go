@@ -265,9 +265,18 @@ type archivedH3AccountingModule struct {
 
 func (m archivedH3AccountingModule) ConsensusVersion() uint64 { return m.version }
 
+// Historical named-plan fixtures retain the preceding accounting release's
+// targets; production startup and migration guards continue to reject using the
+// current candidate to append survival semantics to those old plans.
+func pinArchivedAccountingTargets(application *zeroneapp.ZeroneApp) {
+	for name, version := range map[string]uint64{"knowledge": 6, "vesting_rewards": 2} {
+		application.ModuleManager.Modules[name] = archivedH3AccountingModule{application.ModuleManager.Modules[name].(appmodule.AppModule), version}
+	}
+}
+
 func seedPreSDKTransitionLineage(t *testing.T, h *TestHarness) {
 	t.Helper()
-	for name, version := range map[string]uint64{"zerone_staking": 1, "zerone_gov": 2} {
+	for name, version := range map[string]uint64{"zerone_staking": 1, "zerone_gov": 2, "knowledge": 6, "vesting_rewards": 2} {
 		h.App.ModuleManager.Modules[name] = archivedH3AccountingModule{h.App.ModuleManager.Modules[name].(appmodule.AppModule), version}
 	}
 	h.Ctx.KVStore(h.App.GetStoreKeyForTests("zerone_staking")).Delete([]byte{0x0a})
@@ -327,6 +336,7 @@ func TestStandardSDKGovernanceSchedulesAndExecutesUpgradeAcrossRestart(
 	t *testing.T,
 ) {
 	h := NewTestHarness(t)
+	pinArchivedAccountingTargets(h.App)
 	startTime := time.Unix(1_900_000_000, 0).UTC()
 	h.Ctx = h.Ctx.
 		WithBlockTime(startTime).
@@ -423,8 +433,10 @@ func TestStandardSDKGovernanceSchedulesAndExecutesUpgradeAcrossRestart(
 		simtestutil.NewAppOptionsWithFlagHome(h.Home),
 		baseapp.SetChainID(testChainID),
 	)
+	pinArchivedAccountingTargets(restarted)
 	require.NoError(t, restarted.LoadLatestVersion())
 	require.NoError(t, restarted.ValidateSDK053IBC10StartupCoordination())
+	require.NoError(t, restarted.ValidateAccountingAuthorityStartup())
 	restartTime := upgradeTime.Add(time.Second)
 	restartCtx := restarted.NewContext(true).
 		WithBlockHeight(upgradeHeight + 1).
@@ -606,7 +618,7 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 		switch m.ModuleName {
 		case "knowledge":
 			sawKnowledge = true
-			require.Equal(t, uint64(6), m.ConsensusVersion,
+			require.Equal(t, uint64(7), m.ConsensusVersion,
 				"knowledge module advertises its current ConsensusVersion")
 		case liquiditypooltypes.ModuleName:
 			sawLiquidityPool = true
@@ -614,8 +626,8 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 				"liquiditypool module advertises the LP-only fee ConsensusVersion")
 		case vestingrewardstypes.ModuleName:
 			sawVestingRewards = true
-			require.Equal(t, uint64(2), m.ConsensusVersion,
-				"vesting_rewards advertises the retired automatic-tap ConsensusVersion")
+			require.Equal(t, uint64(3), m.ConsensusVersion,
+				"vesting_rewards advertises the atomic knowledge handoff ConsensusVersion")
 		}
 	}
 	require.True(t, sawKnowledge, "knowledge module appears in report")
@@ -688,6 +700,7 @@ func TestUpgrade_UnknownHandlerRejected(t *testing.T) {
 // migration marker is written.
 func TestUpgrade_CompassionCalibrationV1RefreshesScores(t *testing.T) {
 	h := NewTestHarness(t)
+	pinArchivedAccountingTargets(h.App)
 
 	addr := "zerone1compassionupgrade00000000000000aa"
 	// 3 accepted + 7 inconclusive. Under the OLD formula the stored score was
@@ -2134,6 +2147,7 @@ func TestUpgrade_SDK053IBC10RefusesLegacyFeeBalance(t *testing.T) {
 // wiring under the exact plan name a governance proposal would carry.
 func TestUpgrade_SubstrateDedupeV1SeedsAndArms(t *testing.T) {
 	h := NewTestHarness(t)
+	pinArchivedAccountingTargets(h.App)
 	require.False(t, h.SubstrateBridgeKeeper.IsDedupeArmed(h.Ctx),
 		"pre-upgrade fixture must begin with dedupe enforcement disarmed")
 
@@ -2175,6 +2189,7 @@ func TestUpgrade_SubstrateDedupeV1SeedsAndArms(t *testing.T) {
 // by the same code path a real submission takes.
 func TestUpgrade_AgenttoolSeamV1DeclaresAxisBounds(t *testing.T) {
 	h := NewTestHarness(t)
+	pinArchivedAccountingTargets(h.App)
 
 	require.NoError(t, h.SubstrateBridgeKeeper.WriteAdapter(h.Ctx, &substratebridgetypes.AdapterRegistration{
 		AdapterId: "agenttool-invocation-v1",
@@ -2394,6 +2409,7 @@ func TestUpgrade_ActiveGuidanceDoesNotCollapseH2IntoH1(t *testing.T) {
 
 func TestUpgrade_CurrentSDKHandlersCannotCarryFounderRenunciation(t *testing.T) {
 	h := NewTestHarness(t)
+	pinArchivedAccountingTargets(h.App)
 	fromVM := h.App.CurrentModuleVersionMap()
 	fromVM[vestingrewardstypes.ModuleName] = 1
 	before := h.App.VestingRewardsKeeper.GetParams(h.Ctx)

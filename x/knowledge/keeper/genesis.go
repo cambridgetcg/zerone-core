@@ -12,6 +12,12 @@ import (
 
 // InitGenesis initializes the module state from a genesis state.
 func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
+	// Check the whole pending slice before any genesis writes. The ordinary
+	// module validator also checks it, but direct keeper imports must not drop
+	// or partially replay an ambiguous obligation list.
+	if err := types.ValidateSurvivalPendingRewards(gs.SurvivalPendingRewards); err != nil {
+		return err
+	}
 	if gs.Params != nil {
 		if err := k.SetParams(ctx, gs.Params); err != nil {
 			return err
@@ -235,6 +241,16 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	if err := k.LoadDoctrineFacts(ctx); err != nil {
 		return fmt.Errorf("load doctrine facts: %w", err)
 	}
+	for _, reward := range gs.SurvivalPendingRewards {
+		if err := k.SetSurvivalPendingReward(ctx, SurvivalPendingReward{
+			ClaimId: reward.ClaimId, FactId: reward.FactId,
+			Recipient: reward.Recipient, Amount: reward.Amount,
+			Category: reward.Category, PartnershipId: reward.PartnershipId,
+			Deadline: reward.Deadline,
+		}); err != nil {
+			return fmt.Errorf("import survival pending reward %s: %w", reward.FactId, err)
+		}
+	}
 
 	return nil
 }
@@ -268,6 +284,21 @@ func (k Keeper) ensureGenesisFundBalance(ctx context.Context, moduleName, alloca
 
 // ExportGenesis exports the current module state as a genesis state.
 func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
+	pending, pendingErr := k.GetAllSurvivalPendingRewards(ctx)
+	if pendingErr != nil {
+		// The module export interface has no error result. Refuse the export
+		// rather than producing an apparently complete file that loses claims.
+		panic(fmt.Errorf("export survival pending rewards: %w", pendingErr))
+	}
+	survivalRewards := make([]*types.SurvivalPendingReward, 0, len(pending))
+	for _, reward := range pending {
+		survivalRewards = append(survivalRewards, &types.SurvivalPendingReward{
+			ClaimId: reward.ClaimId, FactId: reward.FactId,
+			Recipient: reward.Recipient, Amount: reward.Amount,
+			Category: reward.Category, PartnershipId: reward.PartnershipId,
+			Deadline: reward.Deadline,
+		})
+	}
 	params, err := k.GetParams(ctx)
 	if err != nil {
 		p := types.DefaultParams()
@@ -418,6 +449,7 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		TrainingManifests:         manifests,
 		AgentCalibrations:         calibrations,
 		TrainingFundAllocation:    trainingFundAllocation,
+		SurvivalPendingRewards:    survivalRewards,
 	}
 }
 

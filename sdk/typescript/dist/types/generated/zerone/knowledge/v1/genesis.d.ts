@@ -727,6 +727,28 @@ export interface GenesisState {
      * account).
      */
     trainingFundAllocation: string;
+    /**
+     * Pending nominal submitter rewards, not bank balances or completed payments.
+     * Import reconstructs the derived deadline index from these primary records.
+     * An absent historical record is not recreated from claims or events.
+     */
+    survivalPendingRewards: SurvivalPendingReward[];
+}
+/**
+ * SurvivalPendingReward preserves the knowledge module's pending handoff to
+ * vesting. Fields map explicitly to its existing JSON store representation.
+ * @name SurvivalPendingReward
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.SurvivalPendingReward
+ */
+export interface SurvivalPendingReward {
+    claimId: string;
+    factId: string;
+    recipient: string;
+    amount: string;
+    category: string;
+    partnershipId: string;
+    deadline: bigint;
 }
 /**
  * @name Params_MethodologyNormalizationBpsEntry
@@ -762,4 +784,17 @@ export declare const GenesisState: {
     encode(message: GenesisState, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): GenesisState;
     fromPartial(object: DeepPartial<GenesisState>): GenesisState;
+};
+/**
+ * SurvivalPendingReward preserves the knowledge module's pending handoff to
+ * vesting. Fields map explicitly to its existing JSON store representation.
+ * @name SurvivalPendingReward
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.SurvivalPendingReward
+ */
+export declare const SurvivalPendingReward: {
+    typeUrl: string;
+    encode(message: SurvivalPendingReward, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): SurvivalPendingReward;
+    fromPartial(object: DeepPartial<SurvivalPendingReward>): SurvivalPendingReward;
 };

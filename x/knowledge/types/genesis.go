@@ -497,6 +497,9 @@ func (gs *GenesisState) Validate() error {
 	if err := validateGenesisFundAllocation("training_fund_allocation", gs.TrainingFundAllocation); err != nil {
 		return err
 	}
+	if err := ValidateSurvivalPendingRewards(gs.SurvivalPendingRewards); err != nil {
+		return err
+	}
 
 	// Verify unique fact IDs.
 	seenFacts := make(map[string]bool)

@@ -31,6 +31,7 @@ import (
 // Asserts full status progression, SLA tracking, event-log audit trail.
 func TestIncident_P0_ChainHaltWithNamedUpgrade(t *testing.T) {
 	h := NewTestHarness(t)
+	pinArchivedAccountingTargets(h.App)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 

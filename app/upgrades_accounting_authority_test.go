@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/core/header"
 	"cosmossdk.io/log"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
@@ -38,11 +39,15 @@ func newAccountingAuthorityFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.D
 
 func accountingLegacyFixture(t *testing.T, app *ZeroneApp, ctx sdk.Context) module.VersionMap {
 	t.Helper()
+	// Exercise the original accounting binary target, without appending the
+	// later survival handoff delta to its frozen named release.
+	for name, version := range map[string]uint64{"knowledge": 6, "vesting_rewards": 2} {
+		app.ModuleManager.Modules[name] = archivedH3AccountingModule{app.ModuleManager.Modules[name].(appmodule.AppModule), version}
+	}
 	ctx.KVStore(app.keys[stakingtypes.StoreKey]).Delete(stakingtypes.AccountingSafetyKey)
 	ctx.KVStore(app.keys[govtypes.StoreKey]).Delete(govtypes.AccountingSafetyKey)
 	ctx.KVStore(app.keys["knowledge"]).Delete(append([]byte{0x7f, 0x01}, []byte(accountingAuthorityNativeMarker)...))
-	vm := app.ModuleManager.GetVersionMap()
-	vm[stakingtypes.ModuleName], vm[govtypes.ModuleName] = 1, 2
+	vm := accountingAuthoritySourceVersionMap()
 	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, vm))
 	return vm
 }
@@ -286,6 +291,11 @@ func TestAccountingAuthorityCommittedHandlerPreservesClaimsAndReceipt(t *testing
 
 			// Exported provenance is retained on import without manufacturing a
 			// migration done record for the new chain.
+			// Remove test-only version wrappers before module interface discovery
+			// for export; the persisted historical version map remains untouched.
+			for _, name := range []string{"knowledge", "vesting_rewards"} {
+				app.ModuleManager.Modules[name] = app.ModuleManager.Modules[name].(archivedH3AccountingModule).AppModule
+			}
 			genesis, err := app.ModuleManager.ExportGenesis(ctx, app.appCodec)
 			require.NoError(t, err)
 			genesis[accountingAuthorityGenesisKey], err = json.Marshal(metadata)

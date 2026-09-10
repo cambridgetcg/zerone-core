@@ -34,6 +34,7 @@ import (
 //  13. Dashboard queries confirm zero open incidents, zero paused modules.
 func TestResilience_FullDrillP0(t *testing.T) {
 	h := NewTestHarness(t)
+	pinArchivedAccountingTargets(h.App)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 

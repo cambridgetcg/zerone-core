@@ -1,6 +1,7 @@
 # Lean core consolidation
 
-Status: **2026-09-10 removal plan; no protocol retirement or network activation.**
+Status: **2026-09-10 removal plan, with the survival handoff follow-up implemented
+in source; no protocol retirement or network activation.**
 Reviewed application source: `632f372fe7243c4619c0c0a5a82535f5b02c4107`.
 
 Zerone's core should make scientific contributions inspectable and correctable,
@@ -24,11 +25,16 @@ The small [path classifier](../scripts/ci-scope.py) keeps shared standards,
 Functions and outside-dashboard documents on full checks; uncertain diffs also
 keep full checks. SDK/dashboard validation and chain-registry checks always run.
 
-The module dispositions below are **future work**, not changes shipped by this
-pass. No keeper, transaction, consensus rule, balance, module permission,
-upgrade sequence, signer, or running network is changed here. The dated
+The module dispositions below are **future work**. The original presentation
+release changed no keeper, transaction, consensus rule, balance, module
+permission, upgrade sequence, signer, or running network. The dated
 [roadmap](ROADMAP.md) remains historical context rather than a second active
 implementation queue.
+
+The subsequent [survival reward handoff patch](specs/survival-reward-handoff-v1.md)
+implements the first settlement repair below. Its source changes keeper failure
+behavior and pending-record export/import under a separate named upgrade. It
+does not retire modules or authorize deployment to the existing legacy chain.
 
 ## The core to preserve
 
@@ -161,28 +167,26 @@ operations require distinct effective controllers and custody, demonstrable
 stop/recovery/exit, and independent observations; adding replica count alone
 does not meet that aim.
 
-## First protocol implementation target: survival reward handoff
+## First protocol implementation: survival reward handoff
 
-**Proposed next patch, not implemented here.** In
+**Implemented in source; a separately activated upgrade is still required.** In
 [`survival_escrow.go`](../x/knowledge/keeper/survival_escrow.go),
-`releaseSurvivalReward` calls `routeSubmitterReward`, deletes the pending record
-and emits release; routing currently ignores `CreateVestingScheduleFromKnowledge`
-failure. This can lose unpaid work. The vesting constructor lives in
+the previous `releaseSurvivalReward` deleted pending work and emitted release
+even when `CreateVestingScheduleFromKnowledge` failed. The vesting constructor lives in
 [`vesting.go`](../x/vesting_rewards/keeper/vesting.go); schedule creation itself
 is not minting or a recipient payment.
 
-Keep this patch limited to the pending-reward → schedule handoff and its adapter:
-propagate failures, verify the intended schedule, and commit schedule/index
-writes and pending/deadline deletion atomically. Missing dependencies, write
-failure and conflicting existing schedules retain the original pending claim.
-A retry must not reset an existing schedule's release progress or create a
-second entitlement. Preserve amounts, recipients and existing economic rules.
+The patch propagates failure and commits schedule/index writes and
+pending/deadline deletion atomically. Missing dependencies, write failure and
+conflicting schedules retain the original pending claim. Matching retries keep
+existing schedule bytes, including release progress. Challenge handling retains
+the retry index; the migration reconstructs older missing indexes from pending
+records. Pending claims now have an explicit genesis export/import field.
+Amounts, recipients and existing schedules remain preserved.
 
-Acceptance checks: injected constructor/store failure leaves both modules'
-state and events unchanged; successful retry creates exactly one schedule and
-removes its pending work; repeated execution cannot overwrite release progress;
-conflicting state is refused; export/import and restart retain the distinction;
-bank balances and supply do not change merely from schedule creation. Reuse
-existing tests and cache contexts rather than introducing a general settlement
-framework. A consensus-visible fix needs its own reviewed source/version and
-the applicable existing upgrade boundary before any network use.
+Fault-injection, real keeper roundtrip, committed upgrade and restart tests
+cover this behavior. Schedule creation makes no bank call. The separate
+`survival-reward-handoff-v1` boundary advances knowledge 6→7 and
+vesting_rewards 2→3 only from the completed accounting predecessor. See its
+[scope and activation constraints](specs/survival-reward-handoff-v1.md); the
+observed legacy chain cannot skip earlier transitions to use this source.

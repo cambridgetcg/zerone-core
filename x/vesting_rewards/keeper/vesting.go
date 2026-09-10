@@ -35,7 +35,13 @@ func (k Keeper) CreateVestingSchedule(
 	if !found {
 		return nil, types.ErrInvalidCategory
 	}
+	return k.createVestingScheduleWithConfig(ctx, claimId, factId, recipient, totalAmount, category, source, cfg)
+}
 
+func (k Keeper) createVestingScheduleWithConfig(
+	ctx sdk.Context, claimId, factId, recipient, totalAmount string,
+	category types.VestingCategoryStr, source types.RewardSource, cfg *types.CategoryConfig,
+) (*types.VestingSchedule, error) {
 	height := uint64(ctx.BlockHeight())
 
 	totalBig := new(big.Int)
@@ -77,13 +83,32 @@ func (k Keeper) CreateVestingSchedule(
 		UpdatedAt:         height,
 	}
 
-	k.SetVestingSchedule(ctx, schedule)
+	// Do not overwrite a primary or orphan index on a same-height retry. The
+	// knowledge adapter additionally resolves cross-height retries by claim ID.
+	cacheCtx, write := ctx.CacheContext()
+	store := k.storeService.OpenKVStore(cacheCtx)
+	for _, key := range [][]byte{
+		vestingStateKey(types.VestingScheduleKeyPrefix, vestingId),
+		vestingStateKey(types.VestingByRecipientPrefix, recipient+"/"+vestingId),
+		vestingStateKey(types.ActiveVestingPrefix, vestingId),
+	} {
+		value, err := store.Get(key)
+		if err != nil {
+			return nil, fmt.Errorf("read vesting creation key: %w", err)
+		}
+		if value != nil {
+			return nil, fmt.Errorf("vesting creation key already exists: %x", key)
+		}
+	}
+	if err := k.setVestingScheduleChecked(cacheCtx, schedule); err != nil {
+		return nil, err
+	}
 
 	// Emitted here in the core constructor so every creation path — knowledge
 	// adapter, falsification reward, authority msg — is audible from one site.
 	// Named under the module's zerone.vesting_rewards.* prefix so consumers
 	// subscribed by module prefix see it (review fix).
-	ctx.EventManager().EmitEvent(
+	cacheCtx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.vesting_rewards.schedule_created",
 			sdk.NewAttribute("beneficiary", recipient),
 			sdk.NewAttribute("schedule_id", vestingId),
@@ -92,18 +117,18 @@ func (k Keeper) CreateVestingSchedule(
 			sdk.NewAttribute("source", string(source)),
 		),
 	)
+	write()
 
 	return schedule, nil
 }
 
-// CreateVestingScheduleFromKnowledge is an adapter called by x/knowledge when a claim is accepted.
+// CreateVestingScheduleFromKnowledge hands a surviving knowledge reward to
+// vesting, preserving an equivalent existing schedule on retry.
 func (k Keeper) CreateVestingScheduleFromKnowledge(
 	ctx sdk.Context,
 	claimId, factId, recipient, totalAmount, epistemicCategory string,
 ) error {
-	category := mapEpistemicToVestingCategory(epistemicCategory)
-	_, err := k.CreateVestingSchedule(ctx, claimId, factId, recipient, totalAmount, category, types.SourceVerification)
-	return err
+	return k.createKnowledgeVestingSchedule(ctx, claimId, factId, recipient, totalAmount, epistemicCategory)
 }
 
 // DistributeFalsificationReward creates a vesting schedule for a falsification reward.

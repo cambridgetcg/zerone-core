@@ -3,6 +3,7 @@ package keeper
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/zerone-chain/zerone/internal/survivalmigration"
 	v3 "github.com/zerone-chain/zerone/x/knowledge/migrations/v3"
 	v4 "github.com/zerone-chain/zerone/x/knowledge/migrations/v4"
 	v5 "github.com/zerone-chain/zerone/x/knowledge/migrations/v5"
@@ -49,4 +50,21 @@ func (m Migrator) Migrate4to5(ctx sdk.Context) error {
 // does not require an in-place rewrite of existing knowledge records.
 func (m Migrator) Migrate5to6(ctx sdk.Context) error {
 	return m.keeper.WriteMigrationMarker(ctx, "migration_v6_complete", "true")
+}
+
+// Migrate6to7 repairs only the derived survival deadline index. Pending reward
+// bytes, economic parameters, balances, and existing schedules remain intact.
+func (m Migrator) Migrate6to7(ctx sdk.Context) error {
+	if err := survivalmigration.Require(ctx); err != nil {
+		return err
+	}
+	cache, write := ctx.CacheContext()
+	if err := m.keeper.RebuildSurvivalDeadlineIndex(cache); err != nil {
+		return err
+	}
+	if err := m.keeper.WriteMigrationMarker(cache, "migration_v7_complete", "true"); err != nil {
+		return err
+	}
+	write()
+	return nil
 }

@@ -109,6 +109,9 @@ func (app *ZeroneApp) runMigrationsForPlan(
 	if err := requireAccountingTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
 		return nil, err
 	}
+	if err := requireSurvivalHandoffTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
+		return nil, err
+	}
 	return app.ModuleManager.RunMigrations(ctx, app.configurator, fromVM)
 }
 
@@ -140,6 +143,7 @@ func requireCompletedPreSDKTransitionVersions(
 // Call this AFTER RegisterServices but BEFORE LoadLatestVersion.
 func (app *ZeroneApp) RegisterUpgradeHandlers() {
 	app.registerAccountingAuthorityUpgrade()
+	app.registerSurvivalHandoffUpgrade()
 	// v1.0.0-testnet — initial testnet launch.
 	// Runs all module migrations from ConsensusVersion 1 → 2.
 	app.UpgradeKeeper.SetUpgradeHandler(
@@ -513,6 +517,9 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 			}
 
 			if err := requireAccountingTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
+				return nil, err
+			}
+			if err := requireSurvivalHandoffTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
 				return nil, err
 			}
 

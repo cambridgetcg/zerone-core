@@ -353,4 +353,21 @@ message GenesisState {
   // to bootstrap_fund_allocation but for the KnowledgeTrainingFund module
   // account).
   string training_fund_allocation                      = 60;
+
+  // Pending nominal submitter rewards, not bank balances or completed payments.
+  // Import reconstructs the derived deadline index from these primary records.
+  // An absent historical record is not recreated from claims or events.
+  repeated SurvivalPendingReward survival_pending_rewards = 61;
+}
+
+// SurvivalPendingReward preserves the knowledge module's pending handoff to
+// vesting. Fields map explicitly to its existing JSON store representation.
+message SurvivalPendingReward {
+  string claim_id       = 1;
+  string fact_id        = 2;
+  string recipient      = 3;
+  string amount         = 4;
+  string category       = 5;
+  string partnership_id = 6;
+  uint64 deadline       = 7;
 }

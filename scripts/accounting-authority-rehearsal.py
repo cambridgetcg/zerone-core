@@ -296,8 +296,8 @@ class Rehearsal:
         proposal = {"messages": [{"@type": "/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade",
                                   "authority": authority,
                                   "plan": {"name": PLAN, "height": str(target), "info": self.plan_info}}],
-                    "metadata": "local accounting handoff rehearsal", "deposit": "1000000uzrn",
-                    "title": "Local accounting handoff", "summary": "Private two binary test", "expedited": False}
+                    "metadata": "local " + PLAN + " rehearsal", "deposit": "1000000uzrn",
+                    "title": "Local " + PLAN, "summary": "Private two binary test", "expedited": False}
         path = self.reports / (prefix + "-proposal.json")
         write_json(path, proposal)
         receipt = self.tx("gov", "submit-proposal", path, label=prefix + "-submit")
