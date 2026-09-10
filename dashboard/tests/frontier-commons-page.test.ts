@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
-const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const html = readFileSync(new URL("../research/index.html", import.meta.url), "utf8");
 const standardRaw = readFileSync(
   new URL(
     "../public/standards/frontier-commons-participation.v0.json",
@@ -30,10 +30,7 @@ const SECTION_SHA256 =
   "b34d41befe087161c05a18786ddbe94cff5bd810d8b3833fa8aa4e2678099b4b";
 const start = html.indexOf('id="frontier-commons"');
 const sectionStart = html.lastIndexOf("<section", start);
-const sectionEnd = html.indexOf(
-  '<section\n          class="section frontier-participation-section"',
-  start,
-);
+const sectionEnd = html.indexOf("</main>", start);
 assert.ok(start >= 0, "missing #frontier-commons");
 assert.ok(sectionStart >= 0, "missing FC-0 section start");
 assert.ok(sectionEnd > start, "missing FC-0 section end");
@@ -42,15 +39,14 @@ const section = html.slice(sectionStart, sectionEnd);
 describe("Frontier Commons FC-0 page", () => {
   it("keeps the read-only milestone discoverable through the research library", () => {
     assert.equal(html.match(/id="frontier-commons"/g)?.length, 1);
-    assert.match(html, /<a href="\/understand\/#research">Research<\/a>/);
+    assert.match(html, /<a href="\/understand\/#research">Research index<\/a>/);
     assert.match(section, /The Reversible Hello/);
     assert.match(section, /A public, passive, non-targeted invitation—not enrollment/);
     assert.match(section, /FC-0 is set—and honestly not yet met/);
     assert.equal(standard.milestone.id, "FC-0");
     assert.equal(standard.milestone.state, "SET_NOT_MET");
     assert.ok(html.indexOf('id="life"') < start);
-    assert.ok(start < html.indexOf('id="participate"'));
-    assert.ok(html.indexOf('id="participate"') < html.indexOf('id="contribute"'));
+    assert.doesNotMatch(html, /id="(?:participate|contribute)"/u);
   });
 
   it("renders the exact zero-effect boundary and no enrollment action", () => {

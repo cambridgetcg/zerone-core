@@ -42,8 +42,8 @@ const canonicalRaw = readFileSync(
   "utf8",
 );
 const canonical = JSON.parse(canonicalRaw) as MutableDocument;
-const indexSource = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-const mainSource = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+const indexSource = readFileSync(new URL("../research/index.html", import.meta.url), "utf8");
+const mainSource = readFileSync(new URL("../src/research.ts", import.meta.url), "utf8");
 const runtimeSource = readFileSync(
   new URL("../src/research-commons.ts", import.meta.url),
   "utf8",
@@ -742,19 +742,9 @@ describe("Research Commons static fallback, a11y, and hash wiring", () => {
 
   it("calls one initializer and aligns an initial cold research-commons hash", () => {
     assert.equal((mainSource.match(/initialiseResearchCommons\(/gu) ?? []).length, 1);
-    assert.match(
-      mainSource,
-      /const researchCommonsReady = initialiseResearchCommons\(researchCommonsRoot\);/u,
-    );
-    assert.match(mainSource, /window\.location\.hash !== "#research-commons"/u);
-    assert.match(
-      mainSource,
-      /window\.location\.hash === "#research-commons"[\s\S]*researchCommonsRoot\.closest<HTMLElement>\(\s*"#research-commons",?\s*\)/u,
-    );
-    assert.match(
-      mainSource,
-      /Promise\.allSettled\(\[[\s\S]*researchCommonsReady,[\s\S]*initialNetworkReady,[\s\S]*\]\)\.then\(\(\) => \{\s*initialHashInputsSettled = true;\s*alignInitialHash\(\);/u,
-    );
+    assert.match(mainSource, /initialiseResearchCommons\(researchCommonsRoot\)/u);
+    assert.match(mainSource, /void initialViews\.then\(alignResearchHash\)/u);
+    assert.doesNotMatch(mainSource, /initialNetworkReady|refreshNetwork/u);
     assert.equal((indexSource.match(/id="research-commons-root"/gu) ?? []).length, 1);
     assert.match(
       indexSource,

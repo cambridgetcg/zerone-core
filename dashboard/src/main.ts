@@ -1,4 +1,5 @@
 import "./styles.css";
+import { routeLegacyResearchAnchor } from "./research-links";
 import {
   getNetworkSnapshot,
   getRecentBlocks,
@@ -15,21 +16,10 @@ import {
   FEEGRANT_SPONSORSHIP_ENABLED,
   HARD_CAP_ZRN,
 } from "./config";
-import { initialiseBranchFlow } from "./branch-flow";
 import { initialiseAuthorityGeometry } from "./authority-geometry";
-import { initialiseConstructiveTree } from "./constructive-tree";
 import { initialiseFrontierParticipation } from "./frontier-participation";
-import { initialiseLifeGarden } from "./life-garden";
-import { initialiseLifeSciencesTree } from "./life-sciences-tree";
 import { initialiseKnowledgeGeometry } from "./knowledge-geometry";
-import { initialiseQuantumSeason } from "./quantum-season";
-import { initialiseRelationalTopology } from "./relational-topology";
-import { initialiseCorrespondenceGeometry } from "./correspondence-geometry";
-import { initialiseExplicitInvariantDiscipline } from "./explicit-invariant-discipline";
 import type { FeeGrantAllowance } from "./feegrant";
-import { initialiseMathFrontier } from "./math-frontier";
-import { initialiseFoldToFire } from "./fold-to-fire";
-import { initialiseResearchCommons } from "./research-commons";
 import {
   assessNetworkReadiness,
   initialiseOnboarding,
@@ -39,6 +29,9 @@ import type { WalletState } from "./wallet";
 // Beta builds select observer.ts before bundling; a stale legacy entry must
 // never attach wallet or transaction handlers to a non-legacy profile.
 if (NETWORK_PROFILE.mode !== "legacy") throw new Error("Legacy controls disabled for this profile");
+
+routeLegacyResearchAnchor();
+window.addEventListener("hashchange", routeLegacyResearchAnchor);
 
 const byId = <T extends HTMLElement>(id: string): T => {
   const element = document.getElementById(id);
@@ -89,22 +82,7 @@ const feeGrantRevokeSubmit = byId<HTMLButtonElement>(
 );
 const feeGrantActivation = byId<HTMLParagraphElement>("feegrant-activation");
 const authorityGeometryRoot = byId<HTMLElement>("authority-geometry-root");
-const constructiveTreeRoot = byId<HTMLElement>("constructive-tree-root");
-const branchFlowRoot = byId<HTMLElement>("branch-flow-root");
-const researchCommonsRoot = byId<HTMLElement>("research-commons-root");
-const lifeSciencesTreeRoot = byId<HTMLElement>("life-sciences-tree-root");
-const quantumSeasonRoot = byId<HTMLElement>("quantum-season-root");
-const mathFrontierRoot = byId<HTMLElement>("math-frontier-root");
-const foldToFireRoot = byId<HTMLElement>("fold-to-fire-root");
-const lifeGardenRoot = byId<HTMLElement>("life-garden-root");
 const knowledgeGeometryRoot = byId<HTMLElement>("knowledge-geometry-root");
-const relationalTopologyRoot = byId<HTMLElement>("relational-topology-root");
-const correspondenceGeometryRoot = byId<HTMLElement>(
-  "correspondence-geometry-root",
-);
-const explicitInvariantDisciplineRoot = byId<HTMLElement>(
-  "explicit-invariant-discipline-root",
-);
 const frontierParticipationRoot = byId<HTMLElement>(
   "frontier-participation-root",
 );
@@ -1102,6 +1080,18 @@ function initialiseReveal(): void {
 async function initialisePiPilotIfEnabled(): Promise<void> {
   if (!PI_PILOT_ENABLED) return;
   try {
+    // Public exploration stays optional and its selection stays in this page.
+    // Neither the tree code nor its data loads on the default homepage.
+    const constructiveTreeReady = PI_CONSTRUCTIVE_COMPASS_ENABLED
+      ? import("./constructive-tree").then(({ initialiseConstructiveTree }) => {
+          const constructiveTreeRoot = document.createElement("div");
+          constructiveTreeRoot.id = "pi-constructive-tree-root";
+          constructiveTreeRoot.className = "ci-tree-root";
+          constructiveTreeRoot.setAttribute("aria-label", "Optional public skill explorer");
+          piPilotSection.append(constructiveTreeRoot);
+          return initialiseConstructiveTree(constructiveTreeRoot);
+        })
+      : Promise.resolve(null);
     const { initialisePiPilot } = await import("./pi-ui");
     await initialisePiPilot({
       walletProofEnabled: PI_WALLET_PROOF_ENABLED,
@@ -1190,94 +1180,19 @@ window.addEventListener("keplr_keystorechange", () => {
 });
 
 initialiseReveal();
-const authorityGeometryReady = initialiseAuthorityGeometry(
-  authorityGeometryRoot,
-);
-const constructiveTreeReady = initialiseConstructiveTree(constructiveTreeRoot);
-void initialiseBranchFlow(branchFlowRoot);
-const researchCommonsReady = initialiseResearchCommons(researchCommonsRoot);
-const lifeSciencesTreeReady = initialiseLifeSciencesTree(lifeSciencesTreeRoot);
-const quantumSeasonReady = initialiseQuantumSeason(quantumSeasonRoot);
-const mathFrontierReady = initialiseMathFrontier(mathFrontierRoot);
-const foldToFireReady = initialiseFoldToFire(foldToFireRoot);
-const lifeGardenReady = initialiseLifeGarden(lifeGardenRoot);
+const authorityGeometryReady = initialiseAuthorityGeometry(authorityGeometryRoot);
 const knowledgeGeometryReady = initialiseKnowledgeGeometry(knowledgeGeometryRoot);
-const relationalTopologyReady = initialiseRelationalTopology(
-  relationalTopologyRoot,
-);
-const correspondenceGeometryReady = initialiseCorrespondenceGeometry(
-  correspondenceGeometryRoot,
-);
-const explicitInvariantDisciplineReady = initialiseExplicitInvariantDiscipline(
-  explicitInvariantDisciplineRoot,
-);
-void initialiseFrontierParticipation(
-  frontierParticipationRoot,
-);
+void initialiseFrontierParticipation(frontierParticipationRoot);
 const piPilotReady = initialisePiPilotIfEnabled();
 const initialNetworkReady = refreshNetwork(false);
-const alignReadingPathHash = (): void => {
-  if (window.location.hash !== "#reading-path") return;
-  document
-    .getElementById("reading-path")
-    ?.scrollIntoView({ block: "start", behavior: "instant" });
-};
-alignReadingPathHash();
 let initialHashInputsSettled = false;
 let initialHashAligned = false;
 const alignInitialHash = (): void => {
   if (!initialHashInputsSettled || initialHashAligned) return;
-  if (
-    window.location.hash !== "#authority" &&
-    window.location.hash !== "#understanding" &&
-    window.location.hash !== "#relations" &&
-    window.location.hash !== "#correspondence" &&
-    window.location.hash !== "#explicit-invariants" &&
-    window.location.hash !== "#skills" &&
-    window.location.hash !== "#branch-flow" &&
-    window.location.hash !== "#research-commons" &&
-    window.location.hash !== "#math-frontier" &&
-    window.location.hash !== "#fold-to-fire" &&
-    window.location.hash !== "#life" &&
-    window.location.hash !== "#participate"
-  ) {
-    return;
-  }
+  if (!["#authority", "#understanding", "#participate"].includes(window.location.hash)) return;
   initialHashAligned = true;
   window.requestAnimationFrame(() => {
-    const target =
-      window.location.hash === "#authority"
-        ? authorityGeometryRoot.closest<HTMLElement>("#authority")
-        : window.location.hash === "#understanding"
-          ? knowledgeGeometryRoot.closest<HTMLElement>("#understanding")
-          : window.location.hash === "#relations"
-            ? relationalTopologyRoot.closest<HTMLElement>("#relations")
-            : window.location.hash === "#correspondence"
-              ? correspondenceGeometryRoot.closest<HTMLElement>(
-                  "#correspondence",
-                )
-              : window.location.hash === "#explicit-invariants"
-                ? explicitInvariantDisciplineRoot.closest<HTMLElement>(
-                    "#explicit-invariants",
-                  )
-                : window.location.hash === "#branch-flow"
-                  ? branchFlowRoot.closest<HTMLElement>("#branch-flow")
-                  : window.location.hash === "#research-commons"
-                    ? researchCommonsRoot.closest<HTMLElement>(
-                        "#research-commons",
-                      )
-                    : window.location.hash === "#math-frontier"
-                      ? mathFrontierRoot.closest<HTMLElement>("#math-frontier")
-                      : window.location.hash === "#fold-to-fire"
-                        ? foldToFireRoot.closest<HTMLElement>("#fold-to-fire")
-                        : window.location.hash === "#life"
-                          ? lifeGardenRoot.closest<HTMLElement>("#life")
-                          : window.location.hash === "#participate"
-                            ? frontierParticipationRoot.closest<HTMLElement>(
-                                "#participate",
-                              )
-                            : constructiveTreeRoot.closest<HTMLElement>("#skills");
-    target?.scrollIntoView({ block: "start", behavior: "instant" });
+    document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: "start", behavior: "instant" });
   });
 };
 const alignPiHash = (): void => {
@@ -1286,43 +1201,9 @@ const alignPiHash = (): void => {
     piPilotSection.scrollIntoView({ block: "start", behavior: "instant" });
   });
 };
-void knowledgeGeometryReady.then(alignInitialHash);
-void Promise.allSettled([
-  constructiveTreeReady,
-  researchCommonsReady,
-  lifeSciencesTreeReady,
-  quantumSeasonReady,
-  mathFrontierReady,
-  foldToFireReady,
-  lifeGardenReady,
-]).then(alignInitialHash);
-void Promise.allSettled([
-  constructiveTreeReady,
-  researchCommonsReady,
-  lifeSciencesTreeReady,
-  quantumSeasonReady,
-  mathFrontierReady,
-  foldToFireReady,
-  lifeGardenReady,
-  initialNetworkReady,
-]).then(alignInitialHash);
-void authorityGeometryReady.then(alignInitialHash);
-void Promise.allSettled([relationalTopologyReady]).then(alignInitialHash);
-void Promise.allSettled([correspondenceGeometryReady]).then(alignInitialHash);
-void Promise.allSettled([explicitInvariantDisciplineReady]).then(alignInitialHash);
 void Promise.allSettled([
   knowledgeGeometryReady,
   authorityGeometryReady,
-  relationalTopologyReady,
-  correspondenceGeometryReady,
-  explicitInvariantDisciplineReady,
-  constructiveTreeReady,
-  researchCommonsReady,
-  lifeSciencesTreeReady,
-  quantumSeasonReady,
-  mathFrontierReady,
-  foldToFireReady,
-  lifeGardenReady,
   initialNetworkReady,
 ]).then(() => {
   initialHashInputsSettled = true;

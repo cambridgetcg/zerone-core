@@ -39,7 +39,32 @@ concurrency:
   cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.sign_release_components) }}
 
 jobs:
+  scope:
+    name: "CI scope"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      full_checks: ${{ steps.classify.outputs.full_checks }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Test conservative change classification
+        run: python3 scripts/ci-scope_test.py
+      - name: Select checks from the exact PR diff
+        id: classify
+        env:
+          CI_EVENT: ${{ github.event_name }}
+          CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: >-
+          python3 scripts/ci-scope.py --event "$CI_EVENT"
+          --base "$CI_BASE" --head "$CI_HEAD" >> "$GITHUB_OUTPUT"
+
   build:
+    needs: scope
+    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Build"
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -623,6 +648,8 @@ jobs:
             deploy/networks/zerone-2/OPEN-BETA-DECISION.example.json)"
 
   lint:
+    needs: scope
+    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Lint"
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -646,6 +673,8 @@ jobs:
         run: LC_ALL=C make creed-check
 
   test:
+    needs: scope
+    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Test"
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -663,6 +692,8 @@ jobs:
         run: go test -race ./tools/relaunch-accounting -count=1 -timeout=120s
 
   consensus-rehearsal:
+    needs: scope
+    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Consensus rehearsal"
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -705,6 +736,8 @@ jobs:
           retention-days: 30
 
   accounting-authority-rehearsal:
+    needs: scope
+    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Accounting authority two-binary rehearsal"
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -837,6 +870,8 @@ jobs:
         run: npm run build
 
   frontier-intake:
+    needs: scope
+    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Frontier intake (math breakthrough register)"
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -858,6 +893,8 @@ jobs:
           bun test ./tests
 
   frontier-intake-macos:
+    needs: scope
+    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Frontier intake macOS ACL boundary"
     runs-on: macos-15
     timeout-minutes: 20
@@ -949,6 +986,8 @@ jobs:
           compression-level: 0
 
   sigstore-compiler:
+    needs: scope
+    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Sigstore substrate compiler"
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -996,6 +1035,8 @@ jobs:
           sha256sum "$RUNNER_TEMP/component-verifier-a"
 
   operations-safety-tools:
+    needs: scope
+    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Operations safety tools"
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -1066,6 +1107,8 @@ jobs:
           done
 
   containment-runtime:
+    needs: scope
+    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Containment clean runtime (${{ matrix.network }})"
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -1112,6 +1155,8 @@ jobs:
           test -z "$found"
 
   public-rpc-edge:
+    needs: scope
+    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Public RPC edge image"
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -1168,6 +1213,8 @@ jobs:
         run: scripts/validate-chain-registry.sh
 
   deployment-images:
+    needs: scope
+    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Deployment image (${{ matrix.profile }})"
     runs-on: ubuntu-24.04
     timeout-minutes: 25

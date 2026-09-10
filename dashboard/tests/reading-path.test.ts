@@ -7,9 +7,9 @@ import { CONSTRUCTIVE_TREE_SHA256 } from "../src/constructive-tree";
 import { CORRESPONDENCE_GEOMETRY_SHA256 } from "../src/correspondence-geometry";
 import { EXPLICIT_INVARIANT_DISCIPLINE_SHA256 } from "../src/explicit-invariant-discipline";
 
-const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const html = readFileSync(new URL("../research/index.html", import.meta.url), "utf8");
 const css = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
-const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+const main = readFileSync(new URL("../src/research.ts", import.meta.url), "utf8");
 
 const REVIEWED_ARTIFACTS = [
   {
@@ -159,7 +159,7 @@ function assertPassiveStaticRegion(fragment: string): void {
     (match) => match[1] ?? match[2] ?? "",
   );
   assert.equal(hrefs.length, 4);
-  assert.ok(hrefs.every((href) => /^#[a-z][a-z0-9-]*$/u.test(href)));
+  assert.ok(hrefs.every((href) => /^#[a-z][a-z0-9-]*$/u.test(href) || href === "https://zerone.ai/#understanding"));
 }
 
 const readingPath = elementById(html, "nav", "reading-path");
@@ -188,35 +188,14 @@ const steps: ReadingStep[] = linkFragments.map((fragment, index) => {
 });
 
 describe("static dashboard reading path", () => {
-  it("sits after Honest state and onboarding, before Wallet", () => {
-    const truthTitle = html.indexOf('id="truth-banner-title"');
-    const truthStart = html.lastIndexOf("<aside", truthTitle);
-    const truthEnd = html.indexOf("</aside>", truthTitle) + "</aside>".length;
-    const onboardingId = html.indexOf('id="onboarding"');
-    const onboardingStart = html.lastIndexOf("<section", onboardingId);
-    const onboardingEnd = html.indexOf("</section>", onboardingId) + "</section>".length;
-    const walletId = html.indexOf('id="wallet"');
-    const walletStart = html.lastIndexOf("<section", walletId);
-
-    assert.ok(truthStart >= 0 && truthEnd > truthTitle);
-    assert.ok(truthEnd < onboardingStart);
-    assert.ok(onboardingEnd < readingPathStart);
-    assert.ok(readingPathEnd < walletStart);
-    assert.match(html.slice(truthEnd, onboardingStart), /^\s*$/u);
-    assert.match(html.slice(onboardingEnd, readingPathStart), /^\s*$/u);
-    assert.match(html.slice(readingPathEnd, walletStart), /^\s*$/u);
-    assert.equal(countId(html, "honest-state"), 1);
+  it("is discoverable from the core homepage and leads the research library", () => {
+    const home = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+    assert.match(home, /href="\/research\/#reading-path"/u);
     assert.equal(countId(html, "reading-path"), 1);
-    assert.equal(countId(html, "onboarding"), 1);
-    assert.equal(html.match(/href="#reading-path"/gu)?.length ?? 0, 1);
-    assert.match(
-      html,
-      /<a class="button button-ghost" href="#honest-state">\s*Begin with honest state\s*<span aria-hidden="true">↓<\/span>\s*<\/a>/u,
-    );
-    assert.match(
-      html,
-      /<meta\s+name="description"\s+content="Understand Zerone: a shared record for humans and agents\. Follow a contribution, explore the existing ledger, and see how to participate today\."\s*\/>/u,
-    );
+    assert.ok(readingPathEnd < html.indexOf('id="relations"'));
+    assert.doesNotMatch(html, /id="(?:onboarding|wallet|send-form)"/u);
+    assert.match(home, /id="honest-state"/u);
+    assert.match(home, /id="onboarding"/u);
   });
 
   it("locks the ordered stages, destinations, profiles, source modes, and card copy", () => {
@@ -224,7 +203,7 @@ describe("static dashboard reading path", () => {
       {
         step: "knowledge",
         stage: "observe",
-        href: "#understanding",
+        href: "https://zerone.ai/#understanding",
         profile: "KG-0",
         sourceKind: "live-bounded-read",
         text:
@@ -279,7 +258,6 @@ describe("static dashboard reading path", () => {
       "reading-path-title",
       "reading-path-intro",
       "reading-path-boundary",
-      "understanding",
       "correspondence",
       "explicit-invariants",
       "skills",
@@ -287,15 +265,20 @@ describe("static dashboard reading path", () => {
       assert.equal(countId(html, id), 1, `expected one #${id}`);
     }
     for (const { href } of steps) {
-      const target = href.slice(1);
-      assert.ok(html.indexOf(`id="${target}"`) > readingPathEnd, `${href} must resolve`);
+      if (href === "https://zerone.ai/#understanding") {
+        const home = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+        assert.equal(countId(home, "understanding"), 1);
+      } else {
+        const target = href.slice(1);
+        assert.ok(html.indexOf(`id="${target}"`) > readingPathEnd, `${href} must resolve`);
+      }
     }
   });
 
   it("remains fully available without JavaScript and exposes no active surface", () => {
     const prefix = html.slice(0, readingPathStart);
     assert.equal(prefix.match(/<noscript\b/gu)?.length ?? 0, prefix.match(/<\/noscript>/gu)?.length ?? 0);
-    assert.ok(readingPathEnd < html.indexOf('<script type="module" src="/src/main.ts"></script>'));
+    assert.ok(readingPathEnd < html.indexOf('<script type="module" src="/src/research.ts"></script>'));
     assert.doesNotMatch(readingPath, /<noscript\b/iu);
     assert.doesNotMatch(readingPath, /\brole\s*=\s*["'](?:status|alert|progressbar)["']/iu);
     assert.doesNotThrow(() => assertPassiveStaticRegion(readingPath));
@@ -317,12 +300,9 @@ describe("static dashboard reading path", () => {
       main,
       /(?:initialise|initialize|fetch|load|render)[A-Za-z0-9_]*ReadingPath|readingPathReady/iu,
     );
-    assert.equal(main.match(/"#reading-path"/gu)?.length, 1);
-    assert.match(
-      main,
-      /const alignReadingPathHash = \(\): void => \{[\s\S]*window\.location\.hash !== "#reading-path"[\s\S]*getElementById\("reading-path"\)[\s\S]*scrollIntoView\(\{ block: "start", behavior: "instant" \}\);[\s\S]*\};\s*alignReadingPathHash\(\);\s*let initialHashInputsSettled/u,
-    );
-    assert.doesNotMatch(main, /#reading-path[\s\S]{0,160}(?:allSettled|\.then\()/iu);
+    assert.match(main, /void initialViews\.then\(alignResearchHash\)/u);
+    assert.match(main, /getElementById\(id\)\?\.scrollIntoView/u);
+
   });
 
   it("pins the three sealed source-byte sets and leaves Knowledge live and unsealed", () => {

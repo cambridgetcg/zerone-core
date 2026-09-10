@@ -24,8 +24,8 @@ const runtimeSource = readFileSync(
   new URL("../src/fold-to-fire.ts", import.meta.url),
   "utf8",
 );
-const mainSource = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
-const htmlSource = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const mainSource = readFileSync(new URL("../src/research.ts", import.meta.url), "utf8");
+const htmlSource = readFileSync(new URL("../research/index.html", import.meta.url), "utf8");
 
 function copy(): Record<string, any> {
   return structuredClone(canonical) as Record<string, any>;
@@ -208,8 +208,8 @@ describe("Fold-to-Fire public presentation", () => {
   it("uses text-node rendering, direct-anchor settling, and a complete no-JS account", () => {
     assert.doesNotMatch(runtimeSource, /innerHTML/);
     assert.match(runtimeSource, /#fold-to-fire[\s\S]*scrollIntoView/);
-    assert.match(mainSource, /foldToFireReady/);
-    assert.match(mainSource, /window\.location\.hash !== "#fold-to-fire"/);
+    assert.match(mainSource, /initialiseFoldToFire\(foldToFireRoot\)/);
+    assert.match(mainSource, /void initialViews\.then\(alignResearchHash\)/);
     assert.match(htmlSource, /<noscript>[\s\S]*59\/32[\s\S]*23,504[\s\S]*Zero effects/);
     assert.match(htmlSource, /rapid-equilibrium, unit-occupancy toy assumption/);
   });
