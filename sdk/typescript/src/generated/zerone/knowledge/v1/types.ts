@@ -2666,6 +2666,18 @@ export interface Claim {
    * MALFORMED. Empty for every other claim type.
    */
   falsificationPredicate: string;
+  /**
+   * Exact submitted challenge evidence references; absence is not reconstructed.
+   */
+  evidenceIds: string[];
+  /**
+   * Exact submitted provisional counter-claim, distinct from its reason.
+   */
+  counterClaim: string;
+  /**
+   * Exact optional original-claim ID asserted by a provisional challenge.
+   */
+  challengedClaimId: string;
 }
 /**
  * VerificationRound tracks one commit-reveal verification cycle.
@@ -2686,6 +2698,51 @@ export interface VerificationRound {
   commitDeadline: bigint;
   revealDeadline: bigint;
   aggregationDeadline: bigint;
+  /**
+   * Immutable per round: 0 is the historical v1 scheme; 2 binds reviewer and review payload.
+   */
+  commitmentScheme: number;
+  /**
+   * Original creation chain for scheme 2; preserved on export/import.
+   */
+  commitmentChainId: string;
+  verifierRewardSettlement?: VerifierRewardSettlement;
+}
+/**
+ * ReviewAttestation records what the signer says they checked. It is not proof
+ * of independent expertise, reproduction, or the truth of the claim.
+ * @name ReviewAttestation
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ReviewAttestation
+ */
+export interface ReviewAttestation {
+  methodId: string;
+  reason: string;
+  evidenceIds: string[];
+  scope: string;
+}
+/**
+ * VerifierRewardSettlement preserves a finalized round's exact payment plan.
+ * Amounts are canonical uzrn decimal strings; paid_at_block 0 means unpaid.
+ * @name VerifierRewardSettlement
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.VerifierRewardSettlement
+ */
+export interface VerifierRewardSettlement {
+  createdAtBlock: bigint;
+  payments: VerifierRewardPayment[];
+  withheldTotal: string;
+  paidAtBlock: bigint;
+}
+/**
+ * @name VerifierRewardPayment
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.VerifierRewardPayment
+ */
+export interface VerifierRewardPayment {
+  verifier: string;
+  amount: string;
+  withheld: string;
 }
 /**
  * CommitEntry records a validator's blinded commitment (SHA-256(vote || salt)).
@@ -2715,6 +2772,11 @@ export interface RevealEntry {
   vote: string;
   salt: Uint8Array;
   revealedAtBlock: bigint;
+  /**
+   * Retained for scheme 2 only. Legacy absence must not be read as a recorded zero.
+   */
+  confidence: bigint;
+  attestation?: ReviewAttestation;
 }
 /**
  * VRFProof captures a Verifiable Random Function output for validator selection.
@@ -6544,7 +6606,10 @@ function createBaseClaim(): Claim {
     reasoningTrace: "",
     argumentText: "",
     rebuttalText: "",
-    falsificationPredicate: ""
+    falsificationPredicate: "",
+    evidenceIds: [],
+    counterClaim: "",
+    challengedClaimId: ""
   };
 }
 /**
@@ -6628,6 +6693,15 @@ export const Claim = {
     if (message.falsificationPredicate !== "") {
       writer.uint32(194).string(message.falsificationPredicate);
     }
+    for (const v of message.evidenceIds) {
+      writer.uint32(202).string(v!);
+    }
+    if (message.counterClaim !== "") {
+      writer.uint32(210).string(message.counterClaim);
+    }
+    if (message.challengedClaimId !== "") {
+      writer.uint32(218).string(message.challengedClaimId);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): Claim {
@@ -6709,6 +6783,15 @@ export const Claim = {
         case 24:
           message.falsificationPredicate = reader.string();
           break;
+        case 25:
+          message.evidenceIds.push(reader.string());
+          break;
+        case 26:
+          message.counterClaim = reader.string();
+          break;
+        case 27:
+          message.challengedClaimId = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -6742,6 +6825,9 @@ export const Claim = {
     message.argumentText = object.argumentText ?? "";
     message.rebuttalText = object.rebuttalText ?? "";
     message.falsificationPredicate = object.falsificationPredicate ?? "";
+    message.evidenceIds = object.evidenceIds?.map(e => e) || [];
+    message.counterClaim = object.counterClaim ?? "";
+    message.challengedClaimId = object.challengedClaimId ?? "";
     return message;
   }
 };
@@ -6758,7 +6844,10 @@ function createBaseVerificationRound(): VerificationRound {
     verdictBlock: BigInt(0),
     commitDeadline: BigInt(0),
     revealDeadline: BigInt(0),
-    aggregationDeadline: BigInt(0)
+    aggregationDeadline: BigInt(0),
+    commitmentScheme: 0,
+    commitmentChainId: "",
+    verifierRewardSettlement: undefined
   };
 }
 /**
@@ -6806,6 +6895,15 @@ export const VerificationRound = {
     if (message.aggregationDeadline !== BigInt(0)) {
       writer.uint32(96).uint64(message.aggregationDeadline);
     }
+    if (message.commitmentScheme !== 0) {
+      writer.uint32(104).uint32(message.commitmentScheme);
+    }
+    if (message.commitmentChainId !== "") {
+      writer.uint32(114).string(message.commitmentChainId);
+    }
+    if (message.verifierRewardSettlement !== undefined) {
+      VerifierRewardSettlement.encode(message.verifierRewardSettlement, writer.uint32(122).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): VerificationRound {
@@ -6851,6 +6949,15 @@ export const VerificationRound = {
         case 12:
           message.aggregationDeadline = reader.uint64();
           break;
+        case 13:
+          message.commitmentScheme = reader.uint32();
+          break;
+        case 14:
+          message.commitmentChainId = reader.string();
+          break;
+        case 15:
+          message.verifierRewardSettlement = VerifierRewardSettlement.decode(reader, reader.uint32());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -6872,6 +6979,200 @@ export const VerificationRound = {
     message.commitDeadline = object.commitDeadline !== undefined && object.commitDeadline !== null ? BigInt(object.commitDeadline.toString()) : BigInt(0);
     message.revealDeadline = object.revealDeadline !== undefined && object.revealDeadline !== null ? BigInt(object.revealDeadline.toString()) : BigInt(0);
     message.aggregationDeadline = object.aggregationDeadline !== undefined && object.aggregationDeadline !== null ? BigInt(object.aggregationDeadline.toString()) : BigInt(0);
+    message.commitmentScheme = object.commitmentScheme ?? 0;
+    message.commitmentChainId = object.commitmentChainId ?? "";
+    message.verifierRewardSettlement = object.verifierRewardSettlement !== undefined && object.verifierRewardSettlement !== null ? VerifierRewardSettlement.fromPartial(object.verifierRewardSettlement) : undefined;
+    return message;
+  }
+};
+function createBaseReviewAttestation(): ReviewAttestation {
+  return {
+    methodId: "",
+    reason: "",
+    evidenceIds: [],
+    scope: ""
+  };
+}
+/**
+ * ReviewAttestation records what the signer says they checked. It is not proof
+ * of independent expertise, reproduction, or the truth of the claim.
+ * @name ReviewAttestation
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ReviewAttestation
+ */
+export const ReviewAttestation = {
+  typeUrl: "/zerone.knowledge.v1.ReviewAttestation",
+  encode(message: ReviewAttestation, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.methodId !== "") {
+      writer.uint32(10).string(message.methodId);
+    }
+    if (message.reason !== "") {
+      writer.uint32(18).string(message.reason);
+    }
+    for (const v of message.evidenceIds) {
+      writer.uint32(26).string(v!);
+    }
+    if (message.scope !== "") {
+      writer.uint32(34).string(message.scope);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): ReviewAttestation {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseReviewAttestation();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.methodId = reader.string();
+          break;
+        case 2:
+          message.reason = reader.string();
+          break;
+        case 3:
+          message.evidenceIds.push(reader.string());
+          break;
+        case 4:
+          message.scope = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<ReviewAttestation>): ReviewAttestation {
+    const message = createBaseReviewAttestation();
+    message.methodId = object.methodId ?? "";
+    message.reason = object.reason ?? "";
+    message.evidenceIds = object.evidenceIds?.map(e => e) || [];
+    message.scope = object.scope ?? "";
+    return message;
+  }
+};
+function createBaseVerifierRewardSettlement(): VerifierRewardSettlement {
+  return {
+    createdAtBlock: BigInt(0),
+    payments: [],
+    withheldTotal: "",
+    paidAtBlock: BigInt(0)
+  };
+}
+/**
+ * VerifierRewardSettlement preserves a finalized round's exact payment plan.
+ * Amounts are canonical uzrn decimal strings; paid_at_block 0 means unpaid.
+ * @name VerifierRewardSettlement
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.VerifierRewardSettlement
+ */
+export const VerifierRewardSettlement = {
+  typeUrl: "/zerone.knowledge.v1.VerifierRewardSettlement",
+  encode(message: VerifierRewardSettlement, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.createdAtBlock !== BigInt(0)) {
+      writer.uint32(8).uint64(message.createdAtBlock);
+    }
+    for (const v of message.payments) {
+      VerifierRewardPayment.encode(v!, writer.uint32(18).fork()).ldelim();
+    }
+    if (message.withheldTotal !== "") {
+      writer.uint32(26).string(message.withheldTotal);
+    }
+    if (message.paidAtBlock !== BigInt(0)) {
+      writer.uint32(32).uint64(message.paidAtBlock);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): VerifierRewardSettlement {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseVerifierRewardSettlement();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.createdAtBlock = reader.uint64();
+          break;
+        case 2:
+          message.payments.push(VerifierRewardPayment.decode(reader, reader.uint32()));
+          break;
+        case 3:
+          message.withheldTotal = reader.string();
+          break;
+        case 4:
+          message.paidAtBlock = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<VerifierRewardSettlement>): VerifierRewardSettlement {
+    const message = createBaseVerifierRewardSettlement();
+    message.createdAtBlock = object.createdAtBlock !== undefined && object.createdAtBlock !== null ? BigInt(object.createdAtBlock.toString()) : BigInt(0);
+    message.payments = object.payments?.map(e => VerifierRewardPayment.fromPartial(e)) || [];
+    message.withheldTotal = object.withheldTotal ?? "";
+    message.paidAtBlock = object.paidAtBlock !== undefined && object.paidAtBlock !== null ? BigInt(object.paidAtBlock.toString()) : BigInt(0);
+    return message;
+  }
+};
+function createBaseVerifierRewardPayment(): VerifierRewardPayment {
+  return {
+    verifier: "",
+    amount: "",
+    withheld: ""
+  };
+}
+/**
+ * @name VerifierRewardPayment
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.VerifierRewardPayment
+ */
+export const VerifierRewardPayment = {
+  typeUrl: "/zerone.knowledge.v1.VerifierRewardPayment",
+  encode(message: VerifierRewardPayment, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.verifier !== "") {
+      writer.uint32(10).string(message.verifier);
+    }
+    if (message.amount !== "") {
+      writer.uint32(18).string(message.amount);
+    }
+    if (message.withheld !== "") {
+      writer.uint32(26).string(message.withheld);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): VerifierRewardPayment {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseVerifierRewardPayment();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.verifier = reader.string();
+          break;
+        case 2:
+          message.amount = reader.string();
+          break;
+        case 3:
+          message.withheld = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<VerifierRewardPayment>): VerifierRewardPayment {
+    const message = createBaseVerifierRewardPayment();
+    message.verifier = object.verifier ?? "";
+    message.amount = object.amount ?? "";
+    message.withheld = object.withheld ?? "";
     return message;
   }
 };
@@ -6938,7 +7239,9 @@ function createBaseRevealEntry(): RevealEntry {
     verifier: "",
     vote: "",
     salt: new Uint8Array(),
-    revealedAtBlock: BigInt(0)
+    revealedAtBlock: BigInt(0),
+    confidence: BigInt(0),
+    attestation: undefined
   };
 }
 /**
@@ -6962,6 +7265,12 @@ export const RevealEntry = {
     if (message.revealedAtBlock !== BigInt(0)) {
       writer.uint32(32).uint64(message.revealedAtBlock);
     }
+    if (message.confidence !== BigInt(0)) {
+      writer.uint32(40).uint64(message.confidence);
+    }
+    if (message.attestation !== undefined) {
+      ReviewAttestation.encode(message.attestation, writer.uint32(50).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): RevealEntry {
@@ -6983,6 +7292,12 @@ export const RevealEntry = {
         case 4:
           message.revealedAtBlock = reader.uint64();
           break;
+        case 5:
+          message.confidence = reader.uint64();
+          break;
+        case 6:
+          message.attestation = ReviewAttestation.decode(reader, reader.uint32());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -6996,6 +7311,8 @@ export const RevealEntry = {
     message.vote = object.vote ?? "";
     message.salt = object.salt ?? new Uint8Array();
     message.revealedAtBlock = object.revealedAtBlock !== undefined && object.revealedAtBlock !== null ? BigInt(object.revealedAtBlock.toString()) : BigInt(0);
+    message.confidence = object.confidence !== undefined && object.confidence !== null ? BigInt(object.confidence.toString()) : BigInt(0);
+    message.attestation = object.attestation !== undefined && object.attestation !== null ? ReviewAttestation.fromPartial(object.attestation) : undefined;
     return message;
   }
 };

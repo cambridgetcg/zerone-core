@@ -180,6 +180,7 @@ func TestMoat_CalibrationSnapshotFrozenAtAcceptance(t *testing.T) {
 	result := &knowledgekeeper.VerificationResult{
 		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, result))
 
 	var fact *knowledgetypes.Fact
@@ -263,6 +264,7 @@ func TestMoat_ChallengeStakeSettled(t *testing.T) {
 	result := &knowledgekeeper.VerificationResult{
 		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, result))
 
 	// After settlement the challenger should have at least the 45% remainder
@@ -360,6 +362,7 @@ func TestMoat_SuccessfulChallengeRewardScalesWithTargetConfidence(t *testing.T) 
 
 		round, ok := h.KnowledgeKeeper.GetVerificationRound(h.Ctx, resp.RoundId)
 		require.True(t, ok)
+		storeUnfinalizedFixtureRound(t, h, round)
 		require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
 			Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
 		}))
@@ -476,6 +479,7 @@ func TestMoat_FailedProbesEarnParticipationReward(t *testing.T) {
 	require.True(t, ok)
 
 	// Force the challenge to FAIL (fact survives).
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
 		Verdict: knowledgetypes.Verdict_VERDICT_REJECT, Confidence: 900_000, RejectCount: 3,
 	}))
@@ -890,6 +894,7 @@ func TestMoat_InvitationBonusPaidToAnswerer(t *testing.T) {
 
 	// Force the challenge to FAIL — the fact survives. The invitation
 	// bonus should fire anyway because the challenger showed up.
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
 		Verdict: knowledgetypes.Verdict_VERDICT_REJECT, Confidence: 900_000, RejectCount: 3,
 	}))

@@ -18,6 +18,12 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	if err := types.ValidateSurvivalPendingRewards(gs.SurvivalPendingRewards); err != nil {
 		return err
 	}
+	if err := types.ValidateGenesisRounds(gs); err != nil {
+		return err
+	}
+	if err := types.ValidateKnowledgeHistoryGenesis(gs); err != nil {
+		return err
+	}
 	if gs.Params != nil {
 		if err := k.SetParams(ctx, gs.Params); err != nil {
 			return err
@@ -72,15 +78,6 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 			continue
 		}
 		if err := k.SetClaim(ctx, claim); err != nil {
-			return err
-		}
-	}
-
-	for _, round := range gs.ActiveRounds {
-		if round == nil {
-			continue
-		}
-		if err := k.SetVerificationRound(ctx, round); err != nil {
 			return err
 		}
 	}
@@ -252,6 +249,24 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 		}
 	}
 
+	// Loading facts may have emitted transient initial history. Replace it with
+	// exactly the supplied history, including explicit absence, before enabling
+	// new execution semantics. This does not manufacture past review evidence.
+	if err := k.ImportKnowledgeHistory(ctx, gs.StatusTransitions, gs.CascadeEvents, gs.StatusTransitionCounters); err != nil {
+		return err
+	}
+	if gs.RecordIntegrityEnabled {
+		if err := k.EnableRecordIntegrity(ctx); err != nil {
+			return err
+		}
+	}
+	if err := k.importVerificationRounds(ctx, gs); err != nil {
+		return err
+	}
+	if err := k.RebuildPendingVerifierRewardIndex(ctx); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -311,11 +326,10 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		return false
 	})
 
-	var claims []*types.Claim
-	k.IterateClaims(ctx, func(claim *types.Claim) bool {
-		claims = append(claims, claim)
-		return false
-	})
+	claims, err := k.GetAllClaimsChecked(ctx)
+	if err != nil {
+		panic(fmt.Errorf("export knowledge claims: %w", err))
+	}
 
 	var domains []*types.Domain
 	k.IterateDomains(ctx, func(domain *types.Domain) bool {
@@ -323,11 +337,29 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		return false
 	})
 
-	var rounds []*types.VerificationRound
-	k.IterateActiveRounds(ctx, func(round *types.VerificationRound) bool {
-		rounds = append(rounds, round)
-		return false
-	})
+	enabled, err := k.RecordIntegrityEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
+	transitions, cascades, historyCounters, err := k.ExportKnowledgeHistory(ctx)
+	if err != nil {
+		panic(fmt.Errorf("export knowledge history: %w", err))
+	}
+	allRounds, err := k.GetAllVerificationRoundsChecked(ctx)
+	if err != nil {
+		panic(fmt.Errorf("export verification rounds: %w", err))
+	}
+	var rounds, completedRounds []*types.VerificationRound
+	for _, round := range allRounds {
+		if round.Phase == types.VerificationPhase_VERIFICATION_PHASE_COMPLETE || round.Phase == types.VerificationPhase_VERIFICATION_PHASE_EXPIRED {
+			completedRounds = append(completedRounds, round)
+		} else {
+			rounds = append(rounds, round)
+		}
+	}
+	if err := types.ValidateGenesisRounds(&types.GenesisState{PendingClaims: claims, ActiveRounds: rounds, CompletedRounds: completedRounds, RecordIntegrityEnabled: enabled}); err != nil {
+		panic(fmt.Errorf("export knowledge round references: %w", err))
+	}
 
 	// Export bootstrap fund balance as allocation (for restart)
 	fundBalance := k.GetBootstrapFundBalance(ctx)
@@ -450,6 +482,11 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		AgentCalibrations:         calibrations,
 		TrainingFundAllocation:    trainingFundAllocation,
 		SurvivalPendingRewards:    survivalRewards,
+		RecordIntegrityEnabled:    enabled,
+		CompletedRounds:           completedRounds,
+		StatusTransitions:         transitions,
+		CascadeEvents:             cascades,
+		StatusTransitionCounters:  historyCounters,
 	}
 }
 

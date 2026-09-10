@@ -10,12 +10,15 @@ import (
 )
 
 // TestToK_FalsificationCascade drives:
-//   axiom  ──SUPPORTS──  factB  ──SUPPORTS──  factC
+//
+//	axiom  ──SUPPORTS──  factB  ──SUPPORTS──  factC
+//
 // then disproves axiom via challenge. Expects:
-//   · axiom flipped to DISPROVEN
-//   · factB flipped to CONTESTED (direct descendant)
-//   · factC NOT touched (transitive — not cascaded automatically)
-//   · DescendantTree(axiom) finds both B and C
+//
+//	· axiom flipped to DISPROVEN
+//	· factB flipped to CONTESTED (direct descendant)
+//	· factC NOT touched (transitive — not cascaded automatically)
+//	· DescendantTree(axiom) finds both B and C
 func TestToK_FalsificationCascade(t *testing.T) {
 	h := NewTestHarness(t)
 
@@ -115,6 +118,7 @@ func TestToK_FalsificationCascade(t *testing.T) {
 	}
 	// CompleteRound on an ACCEPT verdict of a challenge claim triggers
 	// handleChallengeDisproven → falsification cascade.
+	storeUnfinalizedFixtureRound(t, h, challengeRound)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, challengeRound, acceptResult))
 
 	// ─── Verify cascade ──────────────────────────────────────────────────
@@ -186,6 +190,7 @@ func TestCascadeFalsification_WritesCascadeEventRecords(t *testing.T) {
 		Id: "round-rec", ClaimId: challengeClaim.Id,
 		Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
 		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
 	}))

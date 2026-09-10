@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"sort"
 
+	"google.golang.org/protobuf/proto"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
@@ -21,9 +23,8 @@ var (
 	ErrToKInconsistentState = errors.New("inconsistent state")
 )
 
-// Version constants for provenance fields that have no keeper getter yet.
-// GetTraceSchemaVersion and GetTokenizerVersion do not exist on the keeper;
-// these constants represent the current deployed versions.
+// Version constants for this extraction format. They do not attest which
+// schema/tokenizer a live chain or an external trainer used.
 const (
 	tokTraceSchemaVersion = "v1"
 	tokTokenizerVersion   = "v0"
@@ -58,9 +59,9 @@ const (
 //	        sha256( "TOK_NODES" || node_0 || node_1 || … ) ||
 //	        sha256( "TOK_EDGES" || edge_0_canon || edge_1_canon || … ) )
 //
-// The root is computed from IDs alone, never from payloads. A trainer
-// who has the IDs can re-derive the root without trusting the RPC's
-// serialisation. TC2: every view is graph-pinned.
+// The root binds node IDs and the projected edge fields above, not fact
+// payloads. Recomputing it checks that projection only; it does not authenticate
+// RPC data, a chain height or the full serialized bundle.
 //
 // Helpers writeLenString and putUint64 are defined in training_manifest.go
 // (same package); sortToKEdges is defined in tok_selector.go (same package).
@@ -113,13 +114,14 @@ func tokDomainHash(domain string, write func(interface{ Write([]byte) (int, erro
 }
 
 // ComputeToKSnapshotRootV2 returns a 32-byte Merkle commitment over the full
-// (nodes, edges, cascade_events, vindications, transitions) bundle. Each
+// (node IDs, projected edges, cascade_events, vindications, transitions).
+// Fact payloads, supersession_chain, height and provenance are NOT covered. Each
 // component is independently domain-tagged; the V2 root tag distinguishes
 // V2 bundles from V1 bundles even when cascade fields are empty.
 //
-// TC4: the disproval-graph is bundled with the support-graph under one root.
-// A trainer who has the IDs + cascade event canon can re-derive the root
-// without trusting the RPC.
+// Recomputing this digest checks the included projections and history rows.
+// It does not establish that an RPC returned the authenticated or complete
+// state of a chain at the claimed height.
 func ComputeToKSnapshotRootV2(
 	nodeIDs []string,
 	edges []*types.ToKEdge,
@@ -240,16 +242,32 @@ func sortStatusTransitions(transitions []*types.StatusTransition) []*types.Statu
 // trainer-facing default.
 //
 // atBlockHeight: pass 0 to use the current block. Non-zero values are
-// reserved for historical replay (planned for a future wave). Until the
-// keeper supports historical state queries, callers MUST pass 0 — passing
-// any other value will record a SnapshotBlock metadata that does NOT
-// match the actual state the bundle was built from, breaking TC2's
-// re-derivability guarantee.
+// required to equal the actual SDK query context height. Historical state must be
+// loaded by the SDK query transport; this field never relabels current state.
 func (k Keeper) AssembleToKBundle(
 	ctx context.Context,
 	sel *types.ToKSelector,
 	atBlockHeight uint64,
-) (*types.ToKBundle, error) {
+) (bundle *types.ToKBundle, err error) {
+	k, guard := k.guardedToK()
+	parentEvents := sdk.UnwrapSDKContext(ctx).EventManager()
+	queryEvents := sdk.NewEventManager()
+	ctx = sdk.UnwrapSDKContext(ctx).WithEventManager(queryEvents)
+	defer func() {
+		if guard.err != nil {
+			bundle, err = nil, guard.err
+		}
+		if err == nil && bundle != nil && (len(bundle.IncludedNodeIds) > ToKMaxNodes || len(bundle.IncludedEdges) > ToKMaxEdges || proto.Size(&types.QueryBundleToKResponse{Bundle: bundle}) > ToKMaxOutputBytes) {
+			bundle, err = nil, ErrToKResourceLimit
+		}
+		if err == nil {
+			parentEvents.EmitEvents(queryEvents.Events())
+		}
+	}()
+	actualHeight := sdk.UnwrapSDKContext(ctx).BlockHeight()
+	if actualHeight < 0 || (atBlockHeight != 0 && atBlockHeight != uint64(actualHeight)) {
+		return nil, fmt.Errorf("requested snapshot height %d does not match query context height %d; use a retained SDK historical query context", atBlockHeight, actualHeight)
+	}
 	capped, err := ValidateAndCapToKSelector(sel)
 	if err != nil {
 		return nil, err
@@ -320,6 +338,8 @@ func (k Keeper) assembleToKBundleV1(ctx context.Context, capped *types.ToKSelect
 		EventTypeToKSnapshotRootPinned,
 		sdk.NewAttribute(AttrToKCommitment, "TC0,TC2"),
 		sdk.NewAttribute(AttrToKSnapshotRoot, hex.EncodeToString(root)),
+		sdk.NewAttribute("root_scope", "selected_ids_and_projected_edges"),
+		sdk.NewAttribute("chain_authenticated", "false"),
 	))
 	return bundle, nil
 }
@@ -337,7 +357,11 @@ func (k Keeper) assembleToKBundleV2(ctx context.Context, capped *types.ToKSelect
 	var statusHistory []*types.StatusTransition
 	if cascadeSel.IncludeStatusHistory {
 		for _, id := range nodeIDs {
-			statusHistory = append(statusHistory, k.GetStatusHistory(ctx, id)...)
+			history, historyErr := k.GetStatusHistoryChecked(ctx, id)
+			if historyErr != nil {
+				return nil, historyErr
+			}
+			statusHistory = append(statusHistory, history...)
 		}
 	}
 
@@ -406,6 +430,8 @@ func (k Keeper) emitToKBundleEvents(ctx context.Context, bundle *types.ToKBundle
 		EventTypeToKSnapshotRootPinned,
 		sdk.NewAttribute(AttrToKCommitment, "TC0,TC2"),
 		sdk.NewAttribute(AttrToKSnapshotRoot, hex.EncodeToString(bundle.SnapshotRoot)),
+		sdk.NewAttribute("root_scope", "selected_ids_projected_edges_and_included_history"),
+		sdk.NewAttribute("chain_authenticated", "false"),
 	))
 }
 

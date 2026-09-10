@@ -1,4 +1,5 @@
 import { Fact, Claim, VerificationRound, Domain, CommonKnowledgeEntry, Methodology, NormativeCommitment, TokenizerSpec, TraceSchema, TrainingPipeline, ModelCard, TrainingAttestation, ContributionRecord, AugmentationBounty, Augmentation, ContributionChallenge, TrainingFundDisbursement, TrainingManifest, AgentCalibration } from "./types.js";
+import { StatusTransition, CascadeEvent } from "./tok_cascade.js";
 import { BinaryReader, BinaryWriter } from "../../../binary.js";
 import { DeepPartial } from "../../../helpers.js";
 /**
@@ -733,6 +734,27 @@ export interface GenesisState {
      * An absent historical record is not recreated from claims or events.
      */
     survivalPendingRewards: SurvivalPendingReward[];
+    /**
+     * Native genesis enables current record semantics; historical absence preserves legacy behavior.
+     */
+    recordIntegrityEnabled: boolean;
+    /**
+     * Complete/expired review records, including any unpaid or paid reward plan.
+     */
+    completedRounds: VerificationRound[];
+    statusTransitions: StatusTransition[];
+    cascadeEvents: CascadeEvent[];
+    statusTransitionCounters: StatusTransitionCounter[];
+}
+/**
+ * Preserves the allocated status-history sequence even when retained history has gaps.
+ * @name StatusTransitionCounter
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.StatusTransitionCounter
+ */
+export interface StatusTransitionCounter {
+    factId: string;
+    sequence: bigint;
 }
 /**
  * SurvivalPendingReward preserves the knowledge module's pending handoff to
@@ -784,6 +806,18 @@ export declare const GenesisState: {
     encode(message: GenesisState, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): GenesisState;
     fromPartial(object: DeepPartial<GenesisState>): GenesisState;
+};
+/**
+ * Preserves the allocated status-history sequence even when retained history has gaps.
+ * @name StatusTransitionCounter
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.StatusTransitionCounter
+ */
+export declare const StatusTransitionCounter: {
+    typeUrl: string;
+    encode(message: StatusTransitionCounter, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): StatusTransitionCounter;
+    fromPartial(object: DeepPartial<StatusTransitionCounter>): StatusTransitionCounter;
 };
 /**
  * SurvivalPendingReward preserves the knowledge module's pending handoff to

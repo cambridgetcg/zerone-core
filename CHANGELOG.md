@@ -137,7 +137,7 @@ behavior.
 - Falsification clawback requires an adjudicated verdict.
 - Genesis/state validation and protobuf ownership handling are hardened.
 - Manual API inventories now defer to the generated Swagger document, which
-  contains 217 paths and 446 definitions across the current application.
+  contains 217 paths and 449 definitions across the current application.
 
 ### Consensus activation
 

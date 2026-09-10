@@ -108,7 +108,7 @@
     {
       "id": "correspondence-geometry",
       "path": "dashboard/public/standards/correspondence-geometry.v0.json",
-      "rawSha256": "fd2b5c17da9e35f9cd97357e857b0e272f8f7315719a3a20e200703754c0ed7f",
+      "rawSha256": "bf49e62dd2e59033e6f3bbfa0506ca5585bb3e9186268e9c3641fe3581a8db57",
       "role": "Pins CG-0 as the current precedent for scoped mappings, explicit loss, counterexamples, and non-transfer walls.",
       "boundary": "CG-0 is a static precedent, not evidence that any EID-1 analogy is equivalent, deployed, or true."
     },
@@ -122,7 +122,7 @@
     {
       "id": "knowledge-types",
       "path": "proto/zerone/knowledge/v1/types.proto",
-      "rawSha256": "7b2b301c80711587a55ae03216728ec1f6f5bf981035106d26ac1fa4923d8ced",
+      "rawSha256": "336f599cb9042869885fbcfa261b3c7afbb0325ccc1deda86a74ed074a8588b4",
       "role": "Pins the current Claim, Fact, MethodologyApplicationTrace, ReasoningStep, and TraceSchema boundary.",
       "boundary": "The pinned protobuf has no typed, canonical per-Fact EID-1 field, reference, or digest; this artifact writes none of those types."
     }

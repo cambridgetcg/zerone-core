@@ -35,7 +35,7 @@ func requireSurvivalHandoffTransitionOwner(name string, fromVM, targetVM module.
 		knowledge, kOK := vm["knowledge"]
 		vesting, vOK := vm["vesting_rewards"]
 		pair := [2]uint64{knowledge, vesting}
-		if !kOK || !vOK || (pair != [2]uint64{6, 2} && pair != [2]uint64{7, 3}) {
+		if !kOK || !vOK || (pair != [2]uint64{6, 2} && pair != [2]uint64{7, 3} && pair != [2]uint64{8, 3}) {
 			return pair, fmt.Errorf("survival handoff requires complete known knowledge/vesting_rewards version pair, got %v", pair)
 		}
 		return pair, nil
@@ -50,6 +50,9 @@ func requireSurvivalHandoffTransitionOwner(name string, fromVM, targetVM module.
 	}
 	if from == target {
 		return nil
+	}
+	if from == [2]uint64{7, 3} && target == [2]uint64{8, 3} {
+		return requireRecordIntegrityTransitionOwner(name, fromVM, targetVM)
 	}
 	if name != UpgradeNameSurvivalRewardHandoffV1 || from != [2]uint64{6, 2} || target != [2]uint64{7, 3} {
 		return fmt.Errorf("upgrade %q cannot carry survival handoff knowledge 6->7 and vesting_rewards 2->3; sole owner is %q", name, UpgradeNameSurvivalRewardHandoffV1)
@@ -133,6 +136,9 @@ func (app *ZeroneApp) registerSurvivalHandoffUpgrade() {
 // surrounding accounting startup check still validates all lineage markers.
 func (app *ZeroneApp) validateSurvivalHandoffStartupVersions(ctx sdk.Context, vm module.VersionMap, latest int64) error {
 	compiled := app.ModuleManager.GetVersionMap()
+	if reflect.DeepEqual(compiled, recordIntegrityTargetVersionMap()) {
+		return app.validateRecordIntegrityStartupVersions(ctx, vm, latest)
+	}
 	if reflect.DeepEqual(compiled, accountingAuthorityTargetVersionMap()) {
 		return requireAccountingExactVersionMap(vm, accountingAuthorityTargetVersionMap())
 	}
@@ -140,21 +146,7 @@ func (app *ZeroneApp) validateSurvivalHandoffStartupVersions(ctx sdk.Context, vm
 		return fmt.Errorf("unknown compiled survival handoff target version map")
 	}
 	if reflect.DeepEqual(vm, survivalHandoffTargetVersionMap()) {
-		done, err := app.UpgradeKeeper.GetDoneHeight(ctx, UpgradeNameSurvivalRewardHandoffV1)
-		if err != nil {
-			return err
-		}
-		marker, marked, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(ctx, "migration_v7_complete")
-		if err != nil {
-			return err
-		}
-		if done == 0 && !marked {
-			return nil // Native or explicitly imported genesis is not an applied upgrade.
-		}
-		if done <= 0 || done > latest || !marked || marker != "true" {
-			return fmt.Errorf("survival handoff target has inconsistent migration marker and done height")
-		}
-		return nil
+		return app.validateSurvivalHandoffCompleted(ctx, latest)
 	}
 	if !reflect.DeepEqual(vm, survivalHandoffSourceVersionMap()) {
 		return fmt.Errorf("survival handoff startup requires an exact complete source or target version map")
@@ -171,4 +163,24 @@ func (app *ZeroneApp) validateSurvivalHandoffStartupVersions(ctx sdk.Context, vm
 		return fmt.Errorf("survival handoff source startup requires the exact on-chain and local H-1 plan")
 	}
 	return app.validateSurvivalHandoffSource(ctx, plan, vm)
+}
+
+// Native and explicitly imported genesis have no fabricated applied-upgrade
+// record. Applied state must retain both the original marker and done height.
+func (app *ZeroneApp) validateSurvivalHandoffCompleted(ctx sdk.Context, latest int64) error {
+	done, err := app.UpgradeKeeper.GetDoneHeight(ctx, UpgradeNameSurvivalRewardHandoffV1)
+	if err != nil {
+		return err
+	}
+	marker, marked, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(ctx, "migration_v7_complete")
+	if err != nil {
+		return err
+	}
+	if done == 0 && !marked {
+		return nil
+	}
+	if done <= 0 || done > latest || !marked || marker != "true" {
+		return fmt.Errorf("survival handoff target has inconsistent migration marker and done height")
+	}
+	return nil
 }

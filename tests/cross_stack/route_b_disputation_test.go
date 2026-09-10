@@ -91,6 +91,7 @@ func TestRouteB_DisputationCorpus(t *testing.T) {
 				Verdict: verdict, Confidence: 700_000, RejectCount: 3,
 			}
 		}
+		storeUnfinalizedFixtureRound(t, h, round)
 		require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, result))
 	}
 
@@ -189,6 +190,7 @@ func TestRouteB_DisputationRebuttalText(t *testing.T) {
 		Id: "round-rebuttal", ClaimId: challenge.Id,
 		Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE, StartedAtBlock: 1,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
 		Verdict: knowledgetypes.Verdict_VERDICT_REJECT, Confidence: 700_000, RejectCount: 3,
 	}))

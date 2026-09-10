@@ -49,10 +49,11 @@ func TestMethodologyPhase2_ThirteenMethodologiesSeeded(t *testing.T) {
 
 // TestMethodologyPhase2_PhilosophicalDiscountShape pins specific cross-method
 // discounts that reflect the philosophical design:
-//   · phenomenology cannot ground formal proof (very weak cross-discount)
-//   · ecological knowledge cannot ground computational claims
-//   · pragmatism citing empirical is strong (both about consequences)
-//   · coherentism citing historical is strong (both about fit within a corpus)
+//
+//	· phenomenology cannot ground formal proof (very weak cross-discount)
+//	· ecological knowledge cannot ground computational claims
+//	· pragmatism citing empirical is strong (both about consequences)
+//	· coherentism citing historical is strong (both about fit within a corpus)
 func TestMethodologyPhase2_PhilosophicalDiscountShape(t *testing.T) {
 	h := NewTestHarness(t)
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultMethodologies(h.Ctx))
@@ -141,6 +142,7 @@ func TestMethodologyPhase2_PopperianCorroboration(t *testing.T) {
 			Confidence:  850_000,
 			RejectCount: 3,
 		}
+		storeUnfinalizedFixtureRound(t, h, round)
 		require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, rejectResult))
 	}
 

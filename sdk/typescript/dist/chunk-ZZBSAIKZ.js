@@ -9165,6 +9165,66 @@ var TokenizerSpec = {
     return message;
   }
 };
+function createBaseReviewAttestation() {
+  return {
+    methodId: "",
+    reason: "",
+    evidenceIds: [],
+    scope: ""
+  };
+}
+var ReviewAttestation = {
+  typeUrl: "/zerone.knowledge.v1.ReviewAttestation",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.methodId !== "") {
+      writer.uint32(10).string(message.methodId);
+    }
+    if (message.reason !== "") {
+      writer.uint32(18).string(message.reason);
+    }
+    for (const v of message.evidenceIds) {
+      writer.uint32(26).string(v);
+    }
+    if (message.scope !== "") {
+      writer.uint32(34).string(message.scope);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseReviewAttestation();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.methodId = reader.string();
+          break;
+        case 2:
+          message.reason = reader.string();
+          break;
+        case 3:
+          message.evidenceIds.push(reader.string());
+          break;
+        case 4:
+          message.scope = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseReviewAttestation();
+    message.methodId = object.methodId ?? "";
+    message.reason = object.reason ?? "";
+    message.evidenceIds = object.evidenceIds?.map((e) => e) || [];
+    message.scope = object.scope ?? "";
+    return message;
+  }
+};
 function createBaseTraceSchema() {
   return {
     version: BigInt(0),
@@ -10664,7 +10724,9 @@ function createBaseMsgSubmitClaim() {
     relations: [],
     structure: void 0,
     canonicalForm: "",
-    sponsored: false
+    sponsored: false,
+    methodId: "",
+    reasoningTrace: ""
   };
 }
 var MsgSubmitClaim = {
@@ -10705,6 +10767,12 @@ var MsgSubmitClaim = {
     }
     if (message.sponsored === true) {
       writer.uint32(96).bool(message.sponsored);
+    }
+    if (message.methodId !== "") {
+      writer.uint32(106).string(message.methodId);
+    }
+    if (message.reasoningTrace !== "") {
+      writer.uint32(114).string(message.reasoningTrace);
     }
     return writer;
   },
@@ -10751,6 +10819,12 @@ var MsgSubmitClaim = {
         case 12:
           message.sponsored = reader.bool();
           break;
+        case 13:
+          message.methodId = reader.string();
+          break;
+        case 14:
+          message.reasoningTrace = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -10772,6 +10846,8 @@ var MsgSubmitClaim = {
     message.structure = object.structure !== void 0 && object.structure !== null ? ClaimStructure.fromPartial(object.structure) : void 0;
     message.canonicalForm = object.canonicalForm ?? "";
     message.sponsored = object.sponsored ?? false;
+    message.methodId = object.methodId ?? "";
+    message.reasoningTrace = object.reasoningTrace ?? "";
     return message;
   }
 };
@@ -10896,7 +10972,8 @@ function createBaseMsgSubmitReveal() {
     roundId: "",
     vote: "",
     salt: new Uint8Array(),
-    confidence: BigInt(0)
+    confidence: BigInt(0),
+    attestation: void 0
   };
 }
 var MsgSubmitReveal = {
@@ -10916,6 +10993,9 @@ var MsgSubmitReveal = {
     }
     if (message.confidence !== BigInt(0)) {
       writer.uint32(40).uint64(message.confidence);
+    }
+    if (message.attestation !== void 0) {
+      ReviewAttestation.encode(message.attestation, writer.uint32(50).fork()).ldelim();
     }
     return writer;
   },
@@ -10941,6 +11021,9 @@ var MsgSubmitReveal = {
         case 5:
           message.confidence = reader.uint64();
           break;
+        case 6:
+          message.attestation = ReviewAttestation.decode(reader, reader.uint32());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -10955,6 +11038,7 @@ var MsgSubmitReveal = {
     message.vote = object.vote ?? "";
     message.salt = object.salt ?? new Uint8Array();
     message.confidence = object.confidence !== void 0 && object.confidence !== null ? BigInt(object.confidence.toString()) : BigInt(0);
+    message.attestation = object.attestation !== void 0 && object.attestation !== null ? ReviewAttestation.fromPartial(object.attestation) : void 0;
     return message;
   }
 };
@@ -10991,7 +11075,8 @@ function createBaseMsgChallengeFact() {
     factId: "",
     stake: "",
     reason: "",
-    evidenceIds: []
+    evidenceIds: [],
+    methodId: ""
   };
 }
 var MsgChallengeFact = {
@@ -11011,6 +11096,9 @@ var MsgChallengeFact = {
     }
     for (const v of message.evidenceIds) {
       writer.uint32(42).string(v);
+    }
+    if (message.methodId !== "") {
+      writer.uint32(50).string(message.methodId);
     }
     return writer;
   },
@@ -11036,6 +11124,9 @@ var MsgChallengeFact = {
         case 5:
           message.evidenceIds.push(reader.string());
           break;
+        case 6:
+          message.methodId = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -11050,6 +11141,7 @@ var MsgChallengeFact = {
     message.stake = object.stake ?? "";
     message.reason = object.reason ?? "";
     message.evidenceIds = object.evidenceIds?.map((e) => e) || [];
+    message.methodId = object.methodId ?? "";
     return message;
   }
 };
@@ -11901,7 +11993,8 @@ function createBaseMsgChallengeProvisionalFact() {
     stake: "",
     reason: "",
     evidenceIds: [],
-    counterClaim: ""
+    counterClaim: "",
+    methodId: ""
   };
 }
 var MsgChallengeProvisionalFact = {
@@ -11927,6 +12020,9 @@ var MsgChallengeProvisionalFact = {
     }
     if (message.counterClaim !== "") {
       writer.uint32(58).string(message.counterClaim);
+    }
+    if (message.methodId !== "") {
+      writer.uint32(66).string(message.methodId);
     }
     return writer;
   },
@@ -11958,6 +12054,9 @@ var MsgChallengeProvisionalFact = {
         case 7:
           message.counterClaim = reader.string();
           break;
+        case 8:
+          message.methodId = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -11974,6 +12073,7 @@ var MsgChallengeProvisionalFact = {
     message.reason = object.reason ?? "";
     message.evidenceIds = object.evidenceIds?.map((e) => e) || [];
     message.counterClaim = object.counterClaim ?? "";
+    message.methodId = object.methodId ?? "";
     return message;
   }
 };
@@ -23871,6 +23971,7 @@ export {
   tx_exports11,
   registry11,
   MessageComposer11,
+  MsgSubmitReveal,
   tx_exports12,
   registry12,
   MessageComposer12,

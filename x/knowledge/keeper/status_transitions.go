@@ -18,7 +18,7 @@ import (
 // TC4: "Fact.status is preserved in graph manifests with full transition
 // history." This is the function that makes "full transition history" real.
 // Commitment 10: forward-only audit; transitions never modify in place.
-func (k Keeper) RecordStatusTransition(ctx context.Context, t *types.StatusTransition) error {
+func (k Keeper) legacyRecordStatusTransition(ctx context.Context, t *types.StatusTransition) error {
 	if t == nil || t.FactId == "" {
 		return fmt.Errorf("status transition requires fact_id")
 	}
@@ -101,7 +101,7 @@ func (k Keeper) IterateStatusTransitions(ctx context.Context, f func(*types.Stat
 // status-transition record. Use when the caller has already written a
 // precise StatusTransition with full cause attribution (e.g.
 // cascadeFalsification, handleChallengeDisproven).
-func (k Keeper) SetFactSkipTransition(ctx context.Context, fact *types.Fact) error {
+func (k Keeper) legacySetFactSkipTransition(ctx context.Context, fact *types.Fact) error {
 	store := k.storeService.OpenKVStore(ctx)
 	bz, err := marshalOpts.Marshal(fact)
 	if err != nil {

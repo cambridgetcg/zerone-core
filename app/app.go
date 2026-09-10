@@ -1476,6 +1476,11 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 	if err := validateAccountingGenesisSelection(genesisState); err != nil {
 		return nil, err
 	}
+	if app.ModuleManager.GetVersionMap()["knowledge"] == 8 {
+		if err := validateRecordIntegrityGenesisSelection(genesisState); err != nil {
+			return nil, err
+		}
+	}
 	app.UpgradeKeeper.SetModuleVersionMap(ctx, app.ModuleManager.GetVersionMap())
 	resp, err := app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
 	if err != nil {

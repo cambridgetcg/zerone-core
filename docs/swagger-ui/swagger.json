@@ -3740,6 +3740,10 @@
           "format": "uint64",
           "type": "string"
         },
+        "challengedClaimId": {
+          "description": "Exact optional original-claim ID asserted by a provisional challenge.",
+          "type": "string"
+        },
         "claimType": {
           "$ref": "#/definitions/zerone.knowledge.v1.ClaimType"
         },
@@ -3747,8 +3751,19 @@
           "title": "SHA-256 of fact_content for duplicate detection",
           "type": "string"
         },
+        "counterClaim": {
+          "description": "Exact submitted provisional counter-claim, distinct from its reason.",
+          "type": "string"
+        },
         "domain": {
           "type": "string"
+        },
+        "evidenceIds": {
+          "description": "Exact submitted challenge evidence references; absence is not reconstructed.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         },
         "factContent": {
           "type": "string"
@@ -8141,6 +8156,14 @@
     "zerone.knowledge.v1.RevealEntry": {
       "description": "RevealEntry records a validator's revealed vote and salt.",
       "properties": {
+        "attestation": {
+          "$ref": "#/definitions/zerone.knowledge.v1.ReviewAttestation"
+        },
+        "confidence": {
+          "description": "Retained for scheme 2 only. Legacy absence must not be read as a recorded zero.",
+          "format": "uint64",
+          "type": "string"
+        },
         "revealedAtBlock": {
           "format": "uint64",
           "type": "string"
@@ -8154,6 +8177,27 @@
         },
         "vote": {
           "title": "\"accept\", \"reject\", or \"malformed\"",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.knowledge.v1.ReviewAttestation": {
+      "description": "ReviewAttestation records what the signer says they checked. It is not proof\nof independent expertise, reproduction, or the truth of the claim.",
+      "properties": {
+        "evidenceIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "methodId": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "scope": {
           "type": "string"
         }
       },
@@ -8417,7 +8461,7 @@
       "type": "object"
     },
     "zerone.knowledge.v1.ToKBundle": {
-      "description": "ToKBundle is the response of BundleToK. The Merkle root commits to\nthe included node and edge IDs domain-tagged separately. A trainer\nwho has the IDs can re-derive the root locally without trusting the\nRPC to faithfully serialise payloads.",
+      "description": "ToKBundle is the response of BundleToK. Its structural digest can be\nrecomputed from the versioned selected fields. It does not authenticate\nfull Fact payloads, chain identity, snapshot height or RPC completeness,\nand is not an AppHash state proof.",
       "properties": {
         "cascadeEvents": {
           "description": "─── TC4: the graph carries its disprovals ──────────────────────────\nPopulated only when selector is CascadeReplay or when other selectors\ntouch DISPROVEN nodes whose history was requested via\nCascadeReplaySelector.include_status_history. Empty for pure Plan 1\nbundles.",
@@ -8467,7 +8511,7 @@
           "type": "string"
         },
         "snapshotRoot": {
-          "description": "32-byte Merkle root.",
+          "description": "32-byte versioned structural digest.",
           "format": "byte",
           "type": "string"
         },
@@ -9230,6 +9274,15 @@
           "format": "uint64",
           "type": "string"
         },
+        "commitmentChainId": {
+          "description": "Original creation chain for scheme 2; preserved on export/import.",
+          "type": "string"
+        },
+        "commitmentScheme": {
+          "description": "Immutable per round: 0 is the historical v1 scheme; 2 binds reviewer and review payload.",
+          "format": "int64",
+          "type": "integer"
+        },
         "commits": {
           "items": {
             "$ref": "#/definitions/zerone.knowledge.v1.CommitEntry",
@@ -9269,6 +9322,47 @@
         },
         "verdictBlock": {
           "format": "uint64",
+          "type": "string"
+        },
+        "verifierRewardSettlement": {
+          "$ref": "#/definitions/zerone.knowledge.v1.VerifierRewardSettlement"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.knowledge.v1.VerifierRewardPayment": {
+      "properties": {
+        "amount": {
+          "type": "string"
+        },
+        "verifier": {
+          "type": "string"
+        },
+        "withheld": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.knowledge.v1.VerifierRewardSettlement": {
+      "description": "VerifierRewardSettlement preserves a finalized round's exact payment plan.\nAmounts are canonical uzrn decimal strings; paid_at_block 0 means unpaid.",
+      "properties": {
+        "createdAtBlock": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "paidAtBlock": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "payments": {
+          "items": {
+            "$ref": "#/definitions/zerone.knowledge.v1.VerifierRewardPayment",
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "withheldTotal": {
           "type": "string"
         }
       },

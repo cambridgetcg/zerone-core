@@ -4,9 +4,11 @@ import {
   KEY_ROTATION_AUTHORIZATION_DOMAIN,
   KEY_ROTATION_AUTHORIZATION_MAX_TTL_SECONDS,
   accountRegistrationProofSignBytes,
+  computeReviewCommitmentV2,
   keyRotationAcceptanceSignBytes,
-  keyRotationAuthorizationSignBytes
-} from "./chunk-75TLLSKH.js";
+  keyRotationAuthorizationSignBytes,
+  makeReviewRevealV2
+} from "./chunk-7MIH3AAB.js";
 import {
   MessageComposer,
   MessageComposer10,
@@ -47,7 +49,7 @@ import {
   tx_exports7 as tx_exports8,
   tx_exports8 as tx_exports9,
   tx_exports9 as tx_exports10
-} from "./chunk-HO2DCVPK.js";
+} from "./chunk-ZZBSAIKZ.js";
 import {
   tx_exports
 } from "./chunk-CXBAXZI7.js";
@@ -68,6 +70,7 @@ export {
   MessageComposer4 as captureDefenseMessages,
   tx_exports6 as claimingPot,
   MessageComposer5 as claimingPotMessages,
+  computeReviewCommitmentV2,
   tx_exports7 as counterexamples,
   MessageComposer6 as counterexamplesMessages,
   tx_exports8 as creed,
@@ -86,6 +89,7 @@ export {
   MessageComposer12 as knowledgeMessages,
   tx_exports as liquidityPool,
   MessageComposer13 as liquidityPoolMessages,
+  makeReviewRevealV2,
   tx_exports14 as ontology,
   MessageComposer14 as ontologyMessages,
   tx_exports15 as qualification,

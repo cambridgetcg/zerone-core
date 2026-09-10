@@ -19,14 +19,34 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/zerone-chain/zerone/internal/survivalmigration"
+	knowledgemodule "github.com/zerone-chain/zerone/x/knowledge"
 	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	vestingtypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
+// Keep this earlier release's target frozen at knowledge7. Current production
+// startup correctly refuses this state except under the next exact H-1 plan.
+type archivedSurvivalKnowledgeModule struct{ knowledgemodule.AppModule }
+
+func (archivedSurvivalKnowledgeModule) ConsensusVersion() uint64 { return 7 }
+
+func freezeSurvivalCompiledTarget(app *ZeroneApp) {
+	app.ModuleManager.Modules["knowledge"] = archivedSurvivalKnowledgeModule{app.ModuleManager.Modules["knowledge"].(knowledgemodule.AppModule)}
+}
+
+func newFrozenSurvivalFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {
+	t.Helper()
+	app, ctx, db := newAccountingAuthorityFixture(t)
+	freezeSurvivalCompiledTarget(app)
+	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.RecordIntegrityEnabledStoreKey))
+	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, survivalHandoffTargetVersionMap()))
+	return app, ctx, db
+}
+
 func survivalHandoffSourceFixture(t *testing.T) (*ZeroneApp, sdk.Context) {
 	t.Helper()
-	app, ctx, _ := newAccountingAuthorityFixture(t)
+	app, ctx, _ := newFrozenSurvivalFixture(t)
 	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, survivalHandoffSourceVersionMap()))
 	return app, ctx
 }
@@ -49,7 +69,7 @@ func survivalHandoffPendingFixture(t *testing.T, app *ZeroneApp, ctx sdk.Context
 }
 
 func TestSurvivalHandoffOwnsOnlyItsExactVersionPair(t *testing.T) {
-	app, _, _ := newAccountingAuthorityFixture(t)
+	app, _, _ := newFrozenSurvivalFixture(t)
 	source, target := survivalHandoffSourceVersionMap(), survivalHandoffTargetVersionMap()
 	require.Equal(t, target, app.CurrentModuleVersionMap())
 	require.Equal(t, uint64(6), accountingAuthorityTargetVersionMap()["knowledge"])
@@ -83,7 +103,7 @@ func TestSurvivalHandoffModulesRefuseUnownedBroadMigration(t *testing.T) {
 }
 
 func TestSurvivalHandoffCommittedBoundaryRepairsOnlyDerivedIndex(t *testing.T) {
-	app, ctx, db := newAccountingAuthorityFixture(t)
+	app, ctx, db := newFrozenSurvivalFixture(t)
 	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, survivalHandoffSourceVersionMap()))
 	key, pending, deadline := survivalHandoffPendingFixture(t, app, ctx)
 	// Existing handoffs and progress are history; the upgrade must not reset or
@@ -136,7 +156,10 @@ func TestSurvivalHandoffCommittedBoundaryRepairsOnlyDerivedIndex(t *testing.T) {
 	// The real loadLatest constructor admits the committed target without a
 	// local upgrade-info file. Export/import retains both sides of the handoff
 	// and explicitly retains accounting origin without inventing done heights.
-	restarted := NewZeroneApp(log.NewNopLogger(), db, nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(ctx.ChainID()))
+	restarted := NewZeroneApp(log.NewNopLogger(), db, nil, false, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(ctx.ChainID()))
+	freezeSurvivalCompiledTarget(restarted)
+	require.NoError(t, restarted.LoadLatestVersion())
+	require.NoError(t, restarted.ValidateAccountingAuthorityStartup())
 	restartCtx := restarted.NewUncachedContext(true, cmtproto.Header{Height: plan.Height, ChainID: ctx.ChainID()})
 	require.Equal(t, pending, restartCtx.KVStore(restarted.keys["knowledge"]).Get(key))
 	require.Equal(t, scheduleBefore, restartCtx.KVStore(restarted.keys[vestingtypes.StoreKey]).Get(scheduleKey))
@@ -146,7 +169,9 @@ func TestSurvivalHandoffCommittedBoundaryRepairsOnlyDerivedIndex(t *testing.T) {
 	require.NoError(t, err)
 	raw, err := json.Marshal(genesis)
 	require.NoError(t, err)
-	imported := NewZeroneApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID("imported-handoff"))
+	imported := NewZeroneApp(log.NewNopLogger(), dbm.NewMemDB(), nil, false, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID("imported-handoff"))
+	freezeSurvivalCompiledTarget(imported)
+	require.NoError(t, imported.LoadLatestVersion())
 	importCtx := imported.NewUncachedContext(false, cmtproto.Header{ChainID: "imported-handoff"})
 	_, err = imported.InitChainer(importCtx, &abci.RequestInitChain{ChainId: "imported-handoff", AppStateBytes: raw})
 	require.NoError(t, err)
@@ -260,7 +285,7 @@ func TestSurvivalHandoffTargetRequiresConsistentAppliedMarker(t *testing.T) {
 		{"future done", "true", 2},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
-			app, ctx, _ := newAccountingAuthorityFixture(t)
+			app, ctx, _ := newFrozenSurvivalFixture(t)
 			if scenario.marker != "" {
 				require.NoError(t, app.KnowledgeKeeper.WriteMigrationMarker(ctx, "migration_v7_complete", scenario.marker))
 			}

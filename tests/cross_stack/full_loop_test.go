@@ -89,8 +89,12 @@ func TestFullLoop_HappyPath(t *testing.T) {
 	vote := "accept"
 	salt := []byte("fullloop-salt-001")
 	salt2 := []byte("fullloop-salt-002")
-	commitHash := knowledgetypes.ComputeCommitmentHash(roundID, vote, 0, salt)
-	commitHash2 := knowledgetypes.ComputeCommitmentHash(roundID, vote, 0, salt2)
+	require.Equal(t, knowledgetypes.CommitmentSchemeReviewV2, round.CommitmentScheme)
+	attestation := &knowledgetypes.ReviewAttestation{Reason: "Checked the stated value and vacuum scope in this synthetic fixture."}
+	commitHash, err := knowledgetypes.ComputeReviewCommitmentV2(round.CommitmentChainId, roundID, verifierAddr, vote, 0, salt, attestation)
+	require.NoError(t, err)
+	commitHash2, err := knowledgetypes.ComputeReviewCommitmentV2(round.CommitmentChainId, roundID, verifierAddr2, vote, 0, salt2, attestation)
+	require.NoError(t, err)
 
 	_, err = ms.SubmitCommitment(h.Ctx, &knowledgetypes.MsgSubmitCommitment{
 		Verifier:   verifierAddr,
@@ -123,20 +127,22 @@ func TestFullLoop_HappyPath(t *testing.T) {
 
 	// ─── Phase 4: Reveal ────────────────────────────────────────────────
 	_, err = ms.SubmitReveal(h.Ctx, &knowledgetypes.MsgSubmitReveal{
-		Verifier:   verifierAddr,
-		RoundId:    roundID,
-		Vote:       vote,
-		Salt:       salt,
-		Confidence: 0,
+		Verifier:    verifierAddr,
+		RoundId:     roundID,
+		Vote:        vote,
+		Salt:        salt,
+		Confidence:  0,
+		Attestation: attestation,
 	})
-	require.NoError(t, err, "canonical ComputeCommitmentHash must validate on tx path (T-i2)")
+	require.NoError(t, err, "scheme-2 reviewer-bound commitment validates on the transaction path")
 
 	_, err = ms.SubmitReveal(h.Ctx, &knowledgetypes.MsgSubmitReveal{
-		Verifier:   verifierAddr2,
-		RoundId:    roundID,
-		Vote:       vote,
-		Salt:       salt2,
-		Confidence: 0,
+		Verifier:    verifierAddr2,
+		RoundId:     roundID,
+		Vote:        vote,
+		Salt:        salt2,
+		Confidence:  0,
+		Attestation: attestation,
 	})
 	require.NoError(t, err)
 
@@ -237,6 +243,7 @@ func TestFullLoop_ContradictionRejected(t *testing.T) {
 		AcceptCount: 0,
 		RejectCount: 1,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, result))
 
 	// Target fact must be restored to VERIFIED (T-i4 fix).

@@ -4,6 +4,7 @@ package zerone.knowledge.v1;
 option go_package = "github.com/zerone-chain/zerone/x/knowledge/types";
 
 import "zerone/knowledge/v1/types.proto";
+import "zerone/knowledge/v1/tok_cascade.proto";
 
 // Params are the governance parameters for the knowledge module.
 // All BPS values use a 1,000,000 scale (1,000,000 = 100%).
@@ -358,6 +359,19 @@ message GenesisState {
   // Import reconstructs the derived deadline index from these primary records.
   // An absent historical record is not recreated from claims or events.
   repeated SurvivalPendingReward survival_pending_rewards = 61;
+  // Native genesis enables current record semantics; historical absence preserves legacy behavior.
+  bool record_integrity_enabled = 62;
+  // Complete/expired review records, including any unpaid or paid reward plan.
+  repeated VerificationRound completed_rounds = 63;
+  repeated StatusTransition status_transitions = 64;
+  repeated CascadeEvent cascade_events = 65;
+  repeated StatusTransitionCounter status_transition_counters = 66;
+}
+
+// Preserves the allocated status-history sequence even when retained history has gaps.
+message StatusTransitionCounter {
+  string fact_id = 1;
+  uint64 sequence = 2;
 }
 
 // SurvivalPendingReward preserves the knowledge module's pending handoff to

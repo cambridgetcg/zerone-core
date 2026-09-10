@@ -1,4 +1,4 @@
-import { ClaimType, ClaimRelation, ClaimStructure, TokenizerSpec, AugmentationVerdict, TraceSchema, CorpusSelector, IncidentSeverity, RemediationType } from "./types.js";
+import { ClaimType, ClaimRelation, ClaimStructure, ReviewAttestation, TokenizerSpec, AugmentationVerdict, TraceSchema, CorpusSelector, IncidentSeverity, RemediationType } from "./types.js";
 import { Params } from "./genesis.js";
 import { BinaryReader, BinaryWriter } from "../../../binary.js";
 import { DeepPartial } from "../../../helpers.js";
@@ -42,6 +42,11 @@ export interface MsgSubmitClaim {
      * Request bootstrap fund sponsorship for review fee
      */
     sponsored: boolean;
+    /**
+     * Optional declared method and reasoning; accepted only after record-integrity activation.
+     */
+    methodId: string;
+    reasoningTrace: string;
 }
 /**
  * @name MsgSubmitClaimResponse
@@ -88,6 +93,10 @@ export interface MsgSubmitReveal {
      * BPS; bound to commitment via ComputeCommitmentHash
      */
     confidence: bigint;
+    /**
+     * Required for scheme-2 rounds; legacy rounds cannot bind this payload.
+     */
+    attestation?: ReviewAttestation;
 }
 /**
  * @name MsgSubmitRevealResponse
@@ -110,6 +119,7 @@ export interface MsgChallengeFact {
     stake: string;
     reason: string;
     evidenceIds: string[];
+    methodId: string;
 }
 /**
  * @name MsgChallengeFactResponse
@@ -331,6 +341,7 @@ export interface MsgChallengeProvisionalFact {
     reason: string;
     evidenceIds: string[];
     counterClaim: string;
+    methodId: string;
 }
 /**
  * @name MsgChallengeProvisionalFactResponse

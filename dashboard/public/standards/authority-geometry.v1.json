@@ -1,6 +1,6 @@
 {
   "schema": "zerone.authority-geometry/v1",
-  "revision": "1.0.2",
+  "revision": "1.0.3",
   "snapshotDate": "2026-09-10",
   "status": "SOURCE_OBSERVATORY_ONLY",
   "title": "Authority Geometry",
@@ -739,7 +739,7 @@
     {
       "id": "app-wiring",
       "path": "app/app.go",
-      "sha256": "5bd6df16a667350b2bddff7b4158d2d3428672f270928ca36c53bab804803203",
+      "sha256": "cf99dd4ad4fe50267b59cd1ab88b2c9097bbc35e3bdc831be226a072cce3761e",
       "requiredSnippets": [
         "app.StakingKeeper = stakingkeeper.NewKeeper(",
         "app.GovKeeper = govkeeper.NewKeeper(",
@@ -783,7 +783,7 @@
     {
       "id": "knowledge-writers",
       "path": "x/knowledge/keeper/msg_server.go",
-      "sha256": "20c580e2a54cb8038803029ec88a1dc6e403a2f226e8d239ea21152e5b20ab3a",
+      "sha256": "13dadd01a2a22e1dd497f736d0db9b28d8dda4283a1587568463000a08582cfb",
       "requiredSnippets": [
         "func (m *msgServer) AddFact(ctx context.Context, msg *types.MsgAddFact)",
         "func (m *msgServer) ProposeDomain(ctx context.Context, msg *types.MsgProposeDomain)",
@@ -848,7 +848,7 @@
     {
       "id": "knowledge-slash-callsites",
       "path": "x/knowledge/keeper/rounds.go",
-      "sha256": "be778ed72700f96db5ad50d39e1795999c427fb7993f1ca32de473e0d7fc7aaa",
+      "sha256": "94cc726dd2e5c037f4a82104fceaf7f29e6214419e3232c29c5cc4244b1a3025",
       "requiredSnippets": [
         "for _, slash := range result.Slashes {",
         "slashedAmt, err := k.stakingKeeper.SlashValidatorToModule(ctx, slash.Verifier, slash.SlashBps, types.VindicationEscrowModuleName)",

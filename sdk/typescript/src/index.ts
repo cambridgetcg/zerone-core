@@ -6,3 +6,4 @@ export * from "./feegrant";
 export * from "./key-rotation";
 export * from "./provenance";
 export * from "./registry";
+export * from "./review-commitment";

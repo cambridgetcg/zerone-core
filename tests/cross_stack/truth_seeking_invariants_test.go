@@ -97,6 +97,7 @@ func TestTruthSeeking_FactsCarryMethodology(t *testing.T) {
 		Id: "round-ts-method", ClaimId: claim.Id,
 		Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE, StartedAtBlock: 1,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
 		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
 	}))
@@ -1167,6 +1168,7 @@ func TestTruthSeeking_ReasoningTracePropagatesThroughVerification(t *testing.T) 
 		Id: "round-ts-trace", ClaimId: claim.Id,
 		Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE, StartedAtBlock: 1,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
 		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
 	}))
@@ -1214,6 +1216,7 @@ func TestTruthSeeking_CounterexamplesRaiseTVW(t *testing.T) {
 		Id: "round-ts-counterex", ClaimId: claim.Id,
 		Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE, StartedAtBlock: 1,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
 		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
 	}))
@@ -1381,6 +1384,7 @@ func TestTruthSeeking_DisagreementShapeSurvivesConsensus(t *testing.T) {
 			{Verifier: testAddr("dlc_v3").String(), Vote: "reject"},
 		},
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
 		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 800_000, AcceptCount: 2,
 	}))

@@ -1,7 +1,7 @@
 # Lean core consolidation
 
-Status: **2026-09-10 removal plan, with the survival handoff follow-up implemented
-in source; no protocol retirement or network activation.**
+Status: **2026-09-10 removal plan, with survival handoff and knowledge record
+integrity implemented in source; no module retirement or network activation.**
 Reviewed application source: `632f372fe7243c4619c0c0a5a82535f5b02c4107`.
 
 Zerone's core should make scientific contributions inspectable and correctable,
@@ -35,6 +35,14 @@ The subsequent [survival reward handoff patch](specs/survival-reward-handoff-v1.
 implements the first settlement repair below. Its source changes keeper failure
 behavior and pending-record export/import under a separate named upgrade. It
 does not retire modules or authorize deployment to the existing legacy chain.
+
+The [knowledge record integrity follow-up](specs/knowledge-record-integrity-v1.md)
+binds reviews to their signers and reasons, preserves completed reviews and
+correction history through genesis, and separates verifier payment obligations
+from successful transfers. It also bounds ToK exports and corrects their stated
+authentication scope. Its separate knowledge 7→8 boundary preserves existing
+round commitments. Agreement-based credibility, reviewer liability, related-party
+rewards and global scoring remain the explicit subsequent retirement work.
 
 ## The core to preserve
 

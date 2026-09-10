@@ -382,7 +382,7 @@ attainment, qualification, or reward is recorded.
 
 The EID-1 initializer performs exactly one bounded same-origin static read per
 page load, fetches no paper, verifies the reviewed raw SHA-256
-`655c9759a7c7566ca77ded3ab4479e460216df651880d199ac284a00772b3cbe`,
+`5586d66a3baeef21b03c93e7528cc71bfd2140300edfb36fba2f338c6ec563aa`,
 and renders only local text nodes. The offline validator authenticates the
 profile before resolving its four repository-relative source bindings, rejects
 symlinks and path escape, and checks their exact bytes without network access.

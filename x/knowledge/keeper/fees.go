@@ -121,9 +121,24 @@ func (k Keeper) validateAndPayFromBootstrapFund(ctx context.Context, submitter s
 		return fmt.Errorf("failed to draw from bootstrap fund: %w", err)
 	}
 
-	// Track usage
-	_ = k.IncrementBootstrapClaimCount(ctx, submitter)
-	_ = k.IncrementBootstrapEpochCount(ctx, epoch)
+	// Activated submissions run in an outer cache. A counter failure must
+	// roll back sponsorship and fee transfers together instead of allowing
+	// an unrecorded funded claim to bypass the lifetime/epoch limits.
+	enabled, err := k.RecordIntegrityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if enabled {
+		if err := k.IncrementBootstrapClaimCount(ctx, submitter); err != nil {
+			return err
+		}
+		if err := k.IncrementBootstrapEpochCount(ctx, epoch); err != nil {
+			return err
+		}
+	} else {
+		_ = k.IncrementBootstrapClaimCount(ctx, submitter)
+		_ = k.IncrementBootstrapEpochCount(ctx, epoch)
+	}
 
 	return nil
 }

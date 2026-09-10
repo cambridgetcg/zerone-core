@@ -117,6 +117,7 @@ func TestMethodologyPhase1_MethodIdPropagates(t *testing.T) {
 		Confidence:  900_000,
 		AcceptCount: 3,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, result))
 
 	// Locate the created fact and assert method_id was carried.
@@ -173,6 +174,7 @@ func TestMethodologyPhase1_LegacyDefaultForUnspecified(t *testing.T) {
 		Confidence:  800_000,
 		AcceptCount: 3,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, result))
 
 	var createdFact *knowledgetypes.Fact

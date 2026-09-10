@@ -30,16 +30,16 @@ func TestToK_ChainedDerivation_AxiomDistanceAndConfidenceFloor(t *testing.T) {
 
 	// ─── Layer 0: Axiom — foundational, distance 0, 100% confidence ──────
 	axiom := &knowledgetypes.Fact{
-		Id:                "AXIOM-TEST-001",
-		Content:           "An isolated system's entropy cannot decrease.",
-		Domain:            domain,
-		Category:          "formal",
-		Confidence:        1_000_000,
-		Status:            knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
-		Submitter:         "genesis",
-		Stratum:           "fundamental",
-		Maturity:          "canonical",
-		AxiomDistance:     0,
+		Id:            "AXIOM-TEST-001",
+		Content:       "An isolated system's entropy cannot decrease.",
+		Domain:        domain,
+		Category:      "formal",
+		Confidence:    1_000_000,
+		Status:        knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+		Submitter:     "genesis",
+		Stratum:       "fundamental",
+		Maturity:      "canonical",
+		AxiomDistance: 0,
 	}
 	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, axiom))
 
@@ -319,11 +319,12 @@ func submitAndAcceptChainedClaim(
 	}
 
 	result := &knowledgekeeper.VerificationResult{
-		Verdict:    knowledgetypes.Verdict_VERDICT_ACCEPT,
-		Confidence: 900_000, // 90% — higher than axiom floor, lower than uncapped
+		Verdict:     knowledgetypes.Verdict_VERDICT_ACCEPT,
+		Confidence:  900_000, // 90% — higher than axiom floor, lower than uncapped
 		AcceptCount: 3,
 		RejectCount: 0,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, result))
 
 	// Re-read the claim to find the generated fact.

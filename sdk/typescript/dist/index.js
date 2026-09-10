@@ -53,9 +53,11 @@ import {
   KEY_ROTATION_AUTHORIZATION_DOMAIN,
   KEY_ROTATION_AUTHORIZATION_MAX_TTL_SECONDS,
   accountRegistrationProofSignBytes,
+  computeReviewCommitmentV2,
   keyRotationAcceptanceSignBytes,
-  keyRotationAuthorizationSignBytes
-} from "./chunk-75TLLSKH.js";
+  keyRotationAuthorizationSignBytes,
+  makeReviewRevealV2
+} from "./chunk-7MIH3AAB.js";
 import {
   IN_TOTO_STATEMENT_V1_TYPE,
   ProvenanceParseError,
@@ -67,8 +69,8 @@ import {
   createZeroneRegistry,
   registerZeroneMessages,
   zeroneRegistryTypes
-} from "./chunk-AIS675TF.js";
-import "./chunk-HO2DCVPK.js";
+} from "./chunk-4OSK7GUD.js";
+import "./chunk-ZZBSAIKZ.js";
 import "./chunk-CXBAXZI7.js";
 import "./chunk-MLKGABMK.js";
 export {
@@ -100,6 +102,7 @@ export {
   accountRegistrationProofSignBytes,
   asExistingZeroneDid,
   asZeroneMemoryCid,
+  computeReviewCommitmentV2,
   cosmosChainId,
   createExactInSwapPlan,
   createLiquidityAdmissionProposal,
@@ -113,6 +116,7 @@ export {
   keyRotationAcceptanceSignBytes,
   keyRotationAuthorizationSignBytes,
   makeBoundedFeeGrant,
+  makeReviewRevealV2,
   makeRevokeFeeGrant,
   makeSponsoredFee,
   minimumOutputForSlippage,

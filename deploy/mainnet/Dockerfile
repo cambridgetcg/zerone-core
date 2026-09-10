@@ -15,6 +15,7 @@ COPY cmd ./cmd
 COPY x ./x
 COPY internal/accountingmigration ./internal/accountingmigration
 COPY internal/survivalmigration ./internal/survivalmigration
+COPY internal/recordmigration ./internal/recordmigration
 COPY docs/swagger-ui ./docs/swagger-ui
 
 ARG VERSION

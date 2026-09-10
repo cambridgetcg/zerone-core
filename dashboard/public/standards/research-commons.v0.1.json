@@ -447,7 +447,7 @@
       "status": "PINNED_METHOD_INPUT_NOT_SCIENTIFIC_RESULT_IMPORT",
       "eid_schema": "zerone.explicit-invariant-discipline/v1",
       "eid_path": "dashboard/public/standards/explicit-invariant-discipline.v1.json",
-      "eid_sha256": "655c9759a7c7566ca77ded3ab4479e460216df651880d199ac284a00772b3cbe",
+      "eid_sha256": "5586d66a3baeef21b03c93e7528cc71bfd2140300edfb36fba2f338c6ec563aa",
       "record_id": "bootstrap-conditional-solution-space",
       "local_test_id": "eid1-conditional-solution-space",
       "assessment": "PROPOSED",
@@ -590,14 +590,14 @@
       "id": "correspondence-geometry-v0",
       "schema": "zerone.correspondence-geometry/v0",
       "path": "dashboard/public/standards/correspondence-geometry.v0.json",
-      "sha256": "fd2b5c17da9e35f9cd97357e857b0e272f8f7315719a3a20e200703754c0ed7f",
+      "sha256": "bf49e62dd2e59033e6f3bbfa0506ca5585bb3e9186268e9c3641fe3581a8db57",
       "relationship": "RELATED_READING_DISCIPLINE_NOT_IMPORTED"
     },
     {
       "id": "explicit-invariant-discipline-v1",
       "schema": "zerone.explicit-invariant-discipline/v1",
       "path": "dashboard/public/standards/explicit-invariant-discipline.v1.json",
-      "sha256": "655c9759a7c7566ca77ded3ab4479e460216df651880d199ac284a00772b3cbe",
+      "sha256": "5586d66a3baeef21b03c93e7528cc71bfd2140300edfb36fba2f338c6ec563aa",
       "relationship": "PINNED_METHOD_INPUT_WITHOUT_SCIENTIFIC_RESULT_IMPORT"
     }
   ],
@@ -620,7 +620,7 @@
     {
       "id": "tok-substrate-doctrine",
       "path": "docs/TOK_SUBSTRATE.md",
-      "sha256": "4fec6e3a410d5736f61cd43f4d9c421380b93f649c2f0d026a5f4e68a6534328"
+      "sha256": "b4dae8b8dbc2345121c034c67f620bda0bd1a7ba57c8eb23c2671ab909c0e5c7"
     },
     {
       "id": "agenttool-reciprocal-profile",

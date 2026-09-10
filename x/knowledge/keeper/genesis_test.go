@@ -111,15 +111,13 @@ func TestInitGenesis_WithPreexistingClaims(t *testing.T) {
 	require.Equal(t, "Test genesis claim content here", got.FactContent)
 }
 
-func TestInitGenesis_SkipsNilEntries(t *testing.T) {
+func TestInitGenesis_SkipsNilUnrelatedEntries(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 
 	gs := &types.GenesisState{
-		Params:        func() *types.Params { p := types.DefaultParams(); return &p }(),
-		Domains:       []*types.Domain{nil, {Name: "valid_domain", Status: types.DomainStatus_DOMAIN_STATUS_ACTIVE}, nil},
-		Facts:         []*types.Fact{nil},
-		PendingClaims: []*types.Claim{nil},
-		ActiveRounds:  []*types.VerificationRound{nil},
+		Params:  func() *types.Params { p := types.DefaultParams(); return &p }(),
+		Domains: []*types.Domain{nil, {Name: "valid_domain", Status: types.DomainStatus_DOMAIN_STATUS_ACTIVE}, nil},
+		Facts:   []*types.Fact{nil},
 	}
 	require.NoError(t, k.InitGenesis(ctx, gs))
 
@@ -251,6 +249,7 @@ func TestExportGenesis_PreservesParams(t *testing.T) {
 func TestExportGenesis_IncludesActiveRounds(t *testing.T) {
 	k, ctx := setupKnowledgeTest(t)
 
+	require.NoError(t, k.SetClaim(ctx, &types.Claim{Id: "c1", VerificationRoundId: "export-round"}))
 	round := makeRoundInPhase("export-round", "c1", types.VerificationPhase_VERIFICATION_PHASE_COMMIT, 100)
 	require.NoError(t, k.SetVerificationRound(ctx, round))
 

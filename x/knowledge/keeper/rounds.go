@@ -7,6 +7,7 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -78,6 +79,14 @@ func (k Keeper) CreateVerificationRound(ctx context.Context, claim *types.Claim)
 		RevealDeadline:      height + params.CommitPhaseBlocks + params.RevealPhaseBlocks,
 		AggregationDeadline: height + params.CommitPhaseBlocks + params.RevealPhaseBlocks + params.AggregationPhaseBlocks,
 	}
+	enabled, err := k.RecordIntegrityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if enabled {
+		round.CommitmentScheme = types.CommitmentSchemeReviewV2
+		round.CommitmentChainId = sdkCtx.ChainID()
+	}
 
 	if err := k.SetVerificationRound(ctx, round); err != nil {
 		return nil, err
@@ -102,6 +111,53 @@ func (k Keeper) CreateVerificationRound(ctx context.Context, claim *types.Claim)
 
 // CompleteRound finalizes a verification round based on the aggregated result.
 func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRound, result *VerificationResult) error {
+	enabled, err := k.RecordIntegrityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if !enabled {
+		return k.completeRound(ctx, round, result, false)
+	}
+	if round == nil || result == nil {
+		return fmt.Errorf("round and verification result are required")
+	}
+	stored, err := k.getVerificationRoundChecked(ctx, round.Id)
+	if err != nil {
+		return err
+	}
+	if stored.Phase == types.VerificationPhase_VERIFICATION_PHASE_COMPLETE {
+		if stored.Verdict != result.Verdict {
+			return fmt.Errorf("cannot change a finalized review verdict")
+		}
+		// A retry may settle an existing obligation, but never reconstructs
+		// the verdict, reward plan, scientific credit or other side effects.
+		if err := k.TrySettleVerifierRewards(ctx, stored.Id); err != nil {
+			k.Logger(ctx).Error("verifier reward remains pending", "round_id", stored.Id, "error", err)
+		}
+		return nil
+	}
+	if stored.Phase == types.VerificationPhase_VERIFICATION_PHASE_EXPIRED {
+		return fmt.Errorf("cannot complete an expired review round")
+	}
+	cache, write := sdk.UnwrapSDKContext(ctx).CacheContext()
+	working := proto.Clone(stored).(*types.VerificationRound)
+	if err := k.completeRound(cache, working, result, true); err != nil {
+		return err
+	}
+	write()
+	proto.Reset(round)
+	proto.Merge(round, working)
+	// Funding failure keeps the scientific result and its exact unpaid
+	// obligation. Each retry transfers the complete frozen batch atomically.
+	if working.VerifierRewardSettlement != nil {
+		if err := k.TrySettleVerifierRewards(ctx, working.Id); err != nil {
+			k.Logger(ctx).Error("verifier reward remains pending", "round_id", working.Id, "error", err)
+		}
+	}
+	return nil
+}
+
+func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRound, result *VerificationResult, recordIntegrity bool) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
@@ -191,8 +247,19 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	if err := k.SetClaim(ctx, claim); err != nil {
 		return err
 	}
+	if recordIntegrity {
+		if err := k.buildVerifierRewardSettlement(ctx, claim, round, result); err != nil {
+			return err
+		}
+	}
 	if err := k.SetVerificationRound(ctx, round); err != nil {
 		return err
+	}
+	if recordIntegrity && round.VerifierRewardSettlement != nil {
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent("zerone.knowledge.verifier_rewards_accrued",
+			sdk.NewAttribute("round_id", round.Id),
+			sdk.NewAttribute("payment_status", "pending"),
+		))
 	}
 
 	// Hook: verification finalized — fire regardless of verdict so consumers
@@ -206,8 +273,16 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	}
 	_ = k.Hooks().AfterClaimVerificationFinalized(ctx, claim.Id, scoreBps)
 
-	// Distribute verifier rewards from the 55% fee pool
-	k.distributeVerifierRewardsFromPool(ctx, claim, round.Id, result)
+	// Legacy rounds paid optimistically during completion. Activated records
+	// freeze an obligation above and transfer it separately after finalization.
+	if !recordIntegrity {
+		k.distributeVerifierRewardsFromPool(ctx, claim, round.Id, result)
+	} else {
+		for _, reward := range result.Rewards {
+			emitKarmaEdge(sdkCtx, "verify", reward.Verifier, claim.Submitter, round.Id, claim.Domain,
+				sdk.NewAttribute("assessment_basis", "panel_agreement"))
+		}
+	}
 
 	// Slash loop: route vindication-eligible slashes to escrow only when a fact was
 	// created (ACCEPT verdict) — non-ACCEPT verdicts have no fact that can later be
@@ -260,7 +335,9 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	// If this was a challenge claim that was ACCEPTED, the original fact is disproven.
 	// This triggers vindication for the original fact's minority voters.
 	if result.Verdict == types.Verdict_VERDICT_ACCEPT && claim.ProvisionalFactId != "" {
-		k.handleChallengeDisproven(ctx, claim, factId)
+		if err := k.handleChallengeDisproven(ctx, claim, factId); err != nil {
+			return err
+		}
 	}
 
 	// Settle the challenger's staked escrow. Legitimate falsification is the
@@ -663,6 +740,11 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 			Creator:              claim.Submitter,
 			Inference:            claimRel.Inference,
 			InferenceStrengthBps: claimRel.InferenceStrengthBps,
+		}
+		if enabled, err := k.RecordIntegrityEnabled(ctx); err != nil {
+			return "", err
+		} else if enabled {
+			factRel.MethodId = claimRel.MethodId
 		}
 		if err := k.SetFactRelation(ctx, factRel); err != nil {
 			return "", fmt.Errorf("failed to store fact relation: %w", err)

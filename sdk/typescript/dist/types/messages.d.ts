@@ -40,3 +40,4 @@ export * as vestingRewards from "./generated/zerone/vesting_rewards/v1/tx.js";
 export { MessageComposer as vestingRewardsMessages } from "./generated/zerone/vesting_rewards/v1/tx.registry.js";
 export * from "./account-registration.js";
 export * from "./key-rotation.js";
+export * from "./review-commitment.js";

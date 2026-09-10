@@ -61,19 +61,19 @@ func TestRouteB_PipelineAndModelCardLineage(t *testing.T) {
 	//    is the agent account the model runs as — calibration accrues there.
 	deploymentAddr := "zerone1deployedmodelagent0000000000aa"
 	card := &knowledgetypes.ModelCard{
-		Id:                        "model-alpha-v1",
-		Name:                      "Alpha-SFT-v1",
-		PipelineId:                pipeline.Id,
-		DeploymentAddress:         deploymentAddr,
-		CreatedAtBlock:            1,
-		ParameterCount:            7,
-		Route:                     "openweight_fine_tune",
-		BaseModel:                 "llama-3-8b-base",
-		OwnerAddress:              "zerone1modelowner00000000000000000000",
-		EvalAcceptanceRateBps:     780_000,
-		EvalCorroborationRateBps:  450_000,
-		EvalSampleSize:            1000,
-		Active:                    true,
+		Id:                       "model-alpha-v1",
+		Name:                     "Alpha-SFT-v1",
+		PipelineId:               pipeline.Id,
+		DeploymentAddress:        deploymentAddr,
+		CreatedAtBlock:           1,
+		ParameterCount:           7,
+		Route:                    "openweight_fine_tune",
+		BaseModel:                "llama-3-8b-base",
+		OwnerAddress:             "zerone1modelowner00000000000000000000",
+		EvalAcceptanceRateBps:    780_000,
+		EvalCorroborationRateBps: 450_000,
+		EvalSampleSize:           1000,
+		Active:                   true,
 	}
 	require.NoError(t, h.KnowledgeKeeper.SetModelCard(h.Ctx, card))
 
@@ -133,6 +133,7 @@ func TestRouteB_PipelineAndModelCardLineage(t *testing.T) {
 		Phase:          knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE,
 		StartedAtBlock: 1,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
 		Verdict:     knowledgetypes.Verdict_VERDICT_ACCEPT,
 		Confidence:  900_000,
@@ -191,6 +192,7 @@ func TestRouteB_StructuredCorpusExport(t *testing.T) {
 		Id: "round-corpus-seed", ClaimId: claim.Id,
 		Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE, StartedAtBlock: 1,
 	}
+	storeUnfinalizedFixtureRound(t, h, round)
 	require.NoError(t, h.KnowledgeKeeper.CompleteRound(h.Ctx, round, &knowledgekeeper.VerificationResult{
 		Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT, Confidence: 900_000, AcceptCount: 3,
 	}))
