@@ -13,11 +13,15 @@ machinery. Historical analogies do not reduce that present trust assumption.
 
 Decentralization is a **trajectory we are committed to walking**, not a
 birthmark we are claiming. Independent operators are necessary, but the live
-network predates the consolidated source head, so node joining is paused until
-a signed, governance-scheduled upgrade packet exists. See the
-[validator safety guide](../../docs/VALIDATOR-GUIDE.md). Every future operator
-must verify an exact release, not install a moving branch. That — not our
-13,555 ZRN of genesis scaffolding — is what will make this chain real.
+network predates the consolidated source head. A separately signed
+[legacy observer release](../legacy-observer/README.md) binds the
+reproduced legacy application base plus its reviewed dependency patch and can
+follow the ledger with zero voting power. Validator
+joining and runtime upgrades still require their signed, governance-scheduled
+packet; see the [validator safety guide](../../docs/VALIDATOR-GUIDE.md).
+Every operator must verify an exact release. A new observer, valid commit
+signature or reproducible executable does not add independent consensus
+authority or close the legacy validator custody finding.
 
 ## Genesis — every address, nothing hidden
 

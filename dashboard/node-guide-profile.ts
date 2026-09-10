@@ -1,9 +1,12 @@
+import { buildObserverRelease, type ObserverPublication } from "./observer-release-profile";
+
 const REPOSITORY = "https://github.com/cambridgetcg/zerone-core";
 const HELPER_PATH = "scripts/local-node.py";
 
 export interface NodeGuideBuildInputs {
   sourceCommit: string;
   helperSha256: string;
+  observerPublication?: ObserverPublication;
 }
 
 function requirePin(value: string, length: number, name: string): void {
@@ -20,12 +23,14 @@ function requirePin(value: string, length: number, name: string): void {
 export function buildNodeGuideProfile({
   sourceCommit,
   helperSha256,
+  observerPublication,
 }: NodeGuideBuildInputs) {
   requirePin(sourceCommit, 40, "sourceCommit");
   requirePin(helperSha256, 64, "helperSha256");
   const source = (path: string) => `${REPOSITORY}/blob/${sourceCommit}/${path}`;
   const helperCommand = "python3 scripts/local-node.py";
   const localHome = '"$HOME/zerone-local"';
+  const observerRelease = observerPublication === undefined ? null : buildObserverRelease(observerPublication);
 
   return {
     schema: "zerone.node-participation/v1",
@@ -189,8 +194,11 @@ export function buildNodeGuideProfile({
       clientGuidance: "For automated reads, send an honest application User-Agent, such as zerone-node-guide/1.0, and set a timeout. Some generic client signatures are blocked by the gateway. Treat non-200 responses as unavailable.",
       trustGuide: source("deploy/mainnet/TRUST.md"),
       replicaInstallation: {
-        availability: "not-published",
-        reason: "A compatible public legacy observer binary and verified setup bundle are not published. Current source is not a drop-in live-node binary.",
+        availability: observerRelease ? "signed-legacy-observer" : "not-published",
+        reason: observerRelease
+          ? "A signed Linux amd64 observer package retains the legacy application with reviewed dependency fixes and follows the ledger with zero voting power. Check the bootstrap expiry before installing."
+          : "A compatible public legacy observer binary and verified setup bundle are not published. Current source is not a drop-in live-node binary.",
+        release: observerRelease,
       },
       validatorJoining: { availability: "not-open", guide: source("deploy/mainnet/JOIN.md") },
       newAccountAdmission: { availability: "paused", websiteSignup: false },

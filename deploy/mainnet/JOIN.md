@@ -6,8 +6,9 @@ self-bond, 222 ZRN validator gas balance, and 2,222 ZRN transferable
 operations float. Read [TRUST.md](./TRUST.md) before treating its record as
 independent.
 
-This page is an observation surface, not an onboarding, broadcast, validator,
-upgrade, or reset authorization.
+This page describes observation and the separately scoped legacy observer
+release. Account onboarding, broadcasts, validator admission, upgrades and
+resets remain paused.
 
 ## Read-only network surfaces
 
@@ -59,7 +60,21 @@ Permissionless funding correlations may still be recorded for analysis, but
 this source line does **not** reduce governance vote weight from those records:
 an untrusted sender must not be able to poison another wallet's vote.
 
-## Node and validator operation is paused
+## Compatible legacy observers
+
+A separately signed [legacy observer package](../legacy-observer/README.md)
+can follow this existing chain using the identified SDK 0.50 application, a reviewed dependency patch, and
+a fresh zero-power identity. Use only an immutable published release whose
+manifest, checkpoint and rehearsal receipt verify. Building the observer
+tooling from source does not itself create a released package.
+
+This role restores a recent snapshot and follows new blocks. It neither
+replays the complete history nor repairs the sole validator's open custody
+finding. Its loopback-only RPC uses a `nop` mempool, and the release grants
+no transaction, account, validator, reset or upgrade authority. The checkpoint
+has a bounded bootstrap expiry; its two RPC URLs share one upstream.
+
+## Validator operation and upgrades remain paused
 
 Do not build moving `main` and install it on `zerone-1`. A legacy network must
 first cross release-matched H1 `consolidation-safety-v1`, which preserves
@@ -68,9 +83,10 @@ to V2, before the H3 `sdk-0.53-ibc-10` transition represented by current
 source. Source publication is not chain activation; see
 [UPGRADES.md](../../docs/UPGRADES.md).
 
-Joining or upgrading a node requires a signed packet binding the exact commit,
-binary digest, live genesis representation, peer identities, upgrade height,
-rollback boundary, and post-upgrade verification. See the
+Joining as a validator or upgrading the live runtime requires a signed packet
+binding the exact commit, binary digest, live genesis representation, peer
+identities, upgrade height, rollback boundary, and post-upgrade verification.
+The unchanged legacy observer package does not satisfy or waive that gate. See the
 [validator safety guide](../../docs/VALIDATOR-GUIDE.md).
 
 ## Supply claim

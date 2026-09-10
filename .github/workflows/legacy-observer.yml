@@ -1,0 +1,37 @@
+name: Legacy observer package
+
+on:
+  pull_request:
+    paths: ['deploy/legacy-observer/**', '.github/workflows/legacy-observer.yml']
+  push:
+    branches: [main]
+    paths: ['deploy/legacy-observer/**', '.github/workflows/legacy-observer.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.25.14'
+          cache-dependency-path: deploy/legacy-observer/checkpoint/go.sum
+      - name: Offline signature, archive and launcher boundaries
+        run: |
+          git fetch --no-tags --depth=1 https://github.com/cambridgetcg/zerone-core.git 2e37c4c86c31e67515d6aa07b6fd406083e012ea
+          git cat-file -e 2e37c4c86c31e67515d6aa07b6fd406083e012ea^{commit}
+          python3 -m venv /tmp/zerone-observer-tests
+          /tmp/zerone-observer-tests/bin/python -m pip install cryptography==48.0.1
+          /tmp/zerone-observer-tests/bin/python -B -m unittest discover -s deploy/legacy-observer -p 'test_*.py' -v
+      - name: Canonical legacy checkpoint proofs and tamper refusal
+        working-directory: deploy/legacy-observer/checkpoint
+        run: go test -mod=readonly ./...
+      - name: Verify checkpoint module downloads
+        working-directory: deploy/legacy-observer/checkpoint
+        run: go mod verify

@@ -18,6 +18,10 @@ export function nodeGuidePage(profile: NodeGuideProfile): string {
   const local = profile.local;
   const live = profile.live;
   const source = profile.source;
+  const observer = live.replicaInstallation.release;
+  const observerCard = observer ? `<article class="live-availability" id="observer"><p class="card-label">Experimental signed release · Linux amd64</p><h3>Follow the ledger<br />with your own observer</h3><p>${escape(live.replicaInstallation.reason)}</p><p>${escape(observer.maintenance)}</p><p>${escape(observer.prerequisites)}</p><p><strong>New bootstrap closes ${escape(observer.expiresAt)}.</strong> ${escape(observer.expiry)}</p><div class="related-links"><a href="${escape(observer.releaseUrl)}">Release and verification evidence ↗</a><a href="${escape(observer.guideUrl)}">Read the setup and trust guide ↗</a></div></article>`
+    : `<article class="live-availability"><p class="card-label">Not currently available</p><h3>Install a live replica<br />or become a validator</h3><p>${escape(live.replicaInstallation.reason)}</p><div class="related-links"><a href="${escape(live.validatorJoining.guide)}">Current joining status ↗</a><a href="${escape(live.trustGuide)}">Trust model ↗</a></div></article>`;
+  const observerSteps = observer ? `<div class="agent-read"><h3>Verify and start the observer</h3><p>Use new directories for the tools, package and home. First confirm the release authority fingerprint from a trusted Zerone source: <code>${escape(observer.signatureFingerprint)}</code>. The source-pinned unpacker verifies the signature and every file before package code runs.</p>${commandBlock("command-observer-verify", observer.verifyCommand, "Download and verify the observer")}<h3>Create fresh state</h3>${commandBlock("command-observer-init", observer.initCommand, "Initialize the observer")}<h3>Follow new blocks</h3>${commandBlock("command-observer-start", observer.startCommand, "Start the observer")}<p>${escape(observer.completion)}</p><p>In another terminal:</p>${commandBlock("command-observer-status", observer.statusCommand, "Check observer status")}<p>${escape(observer.stop)}</p><p>${escape(observer.checkpointTrust)} State sync starts from a recent snapshot; it does not replay the complete history or repair legacy signer custody. Keep the RPC on loopback. <a href="${escape(observer.buildGuideUrl)}">Source reproduction details ↗</a></p></div>` : "";
   const steps = local.steps.map((step, index) => `<li class="setup-step" id="step-${escape(step.id)}">
     <div class="step-number" aria-hidden="true">${String(index + 1).padStart(2, "0")}</div>
     <div class="step-content"><h3>${escape(step.title)}</h3>
@@ -59,14 +63,14 @@ export function nodeGuidePage(profile: NodeGuideProfile): string {
   <main id="main-content" class="page-width">
     <section class="guide-hero" aria-labelledby="guide-title">
       <div class="hero-copy">
-        <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> Available now · local setup</p>
-        <h1 id="guide-title">Run your own<br /><em>local node.</em></h1>
-        <p class="lede">Build the pinned source, start a node on your computer, and watch it produce blocks. Then test your tools against its local RPC.</p>
-        <div class="hero-actions"><a class="button button-acid" href="#local">Set up a local node <span aria-hidden="true">↓</span></a><a class="text-link" href="#live">Read the existing network <span aria-hidden="true">↓</span></a></div>
+        <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> ${observer ? "Local sandbox · legacy observer" : "Available now · local setup"}</p>
+        <h1 id="guide-title">Run your own<br /><em>${observer ? "node." : "local node."}</em></h1>
+        <p class="lede">${observer ? "Build a local chain for experiments, or follow zerone-1 with the experimental signed observer. Choose your network and verify the package before starting." : "Build the pinned source, start a node on your computer, and watch it produce blocks. Then test your tools against its local RPC."}</p>
+        <div class="hero-actions"><a class="button button-acid" href="#local">Set up a local node <span aria-hidden="true">↓</span></a><a class="text-link" href="${observer ? "#observer" : "#live"}">${observer ? "Set up an observer" : "Read the existing network"} <span aria-hidden="true">↓</span></a></div>
       </div>
       <aside class="scope-card" aria-label="Choose your network">
         <div class="scope-row"><span class="scope-label">On your computer</span><strong>${escape(local.chainId)}</strong><p>A fresh local chain with disposable keys and test funds. You control the process and its files.</p></div>
-        <div class="scope-row"><span class="scope-label">Existing public network</span><strong>${escape(live.chainId)}</strong><p>Public records are available to read. A supported live replica installation and validator joining are not open.</p></div>
+        <div class="scope-row"><span class="scope-label">Existing public network</span><strong>${escape(live.chainId)}</strong><p>${observer ? "Read public records or run the signed observer package with zero voting power. Validator joining remains closed." : "Public records are available to read. A supported live replica installation and validator joining are not open."}</p></div>
         <p class="scope-footnote">The local sandbox does not connect to zerone-1.</p>
       </aside>
     </section>
@@ -86,7 +90,9 @@ export function nodeGuidePage(profile: NodeGuideProfile): string {
     <section class="guide-section" id="live" aria-labelledby="live-title">
       <div class="section-intro"><div><p class="eyebrow">02 · Public observations</p><h2 id="live-title">Read<br /><em>zerone-1.</em></h2></div><p>${escape(live.trust)}</p></div>
       <div class="live-grid"><article class="live-reads"><p class="card-label">Available · no account</p><h3>Inspect public records</h3><p>Open a selected read endpoint, or use the dashboard. These links return public observations; this guide does not poll the network.</p><ul>${live.reads.map((read) => `<li><span class="http-method">${escape(read.method)}</span><a href="${escape(read.url)}"><code>${escape(read.url)}</code></a><p>${escape(read.check)}</p></li>`).join("")}</ul><p>${escape(live.clientGuidance)}</p><a class="button button-outline" href="https://zerone.ai/#activity">Open the zerone.ai dashboard <span aria-hidden="true">↗</span></a></article>
-      <article class="live-availability"><p class="card-label">Not currently available</p><h3>Install a live replica<br />or become a validator</h3><p>${escape(live.replicaInstallation.reason)}</p><p>New-account admission, starter funds, sponsored onboarding, and reward-claim onboarding remain paused.</p><div class="related-links"><a href="${escape(live.validatorJoining.guide)}">Current joining status ↗</a><a href="${escape(live.trustGuide)}">Trust model ↗</a></div></article></div>
+      ${observerCard}</div>
+      ${observerSteps}
+      <p class="census-note">Validator joining, new-account admission, starter funds, sponsored onboarding, and reward-claim onboarding remain paused. <a href="${escape(live.validatorJoining.guide)}">Joining status ↗</a> · <a href="${escape(live.trustGuide)}">Trust model ↗</a></p>
       <p class="census-note">A dated ledger census records application height <strong>${escape(live.checkpoint.applicationHeight)}</strong> on ${escape(live.checkpoint.date)}. It is a historical checkpoint, not a claim of current freshness. <a href="${escape(live.checkpoint.report)}">Read the census ↗</a> · <a href="${escape(live.checkpoint.settlementHistory)}">Settlement history ↗</a></p>
     </section>
 

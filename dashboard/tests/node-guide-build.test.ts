@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
@@ -53,6 +53,53 @@ it("publishes committed helper bytes and refuses missing or modified install ins
     assert.doesNotMatch(html, /wallet-connect|<form\b|\/src\/main\.ts|\sonclick=/u);
     writeFileSync(join(root, "scripts/local-node.py"), `${helper}# Uncommitted drift.\n`);
     assert.throws(() => loadNodeGuideProfile(root), /differs from HEAD/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+it("requires an exact committed and bounded observer publication without duplicate or missing fields", () => {
+  const root = mkdtempSync(join(tmpdir(), "zerone-observer-publication-test-"));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: root, stdio: ["ignore", "pipe", "pipe"] }).toString().trim();
+  const commit = () => {
+    git("add", ".");
+    git("-c", "user.name=Guide test", "-c", "user.email=guide@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "Public fixture");
+  };
+  const publication = {
+    schema: "zerone.observer-publication/v1", releaseId: "zerone-1-observer-test",
+    toolingCommit: "a1".repeat(20), executableBaseCommit: "b2".repeat(20), executableSha256: "c3".repeat(32),
+    manifestSha256: "d4".repeat(32), archiveSha256: "e5".repeat(32), receiptSha256: "f6".repeat(32),
+    expiresAt: "2026-09-16T19:19:13Z", checkpointHeight: 1262000, checkpointHash: "A7".repeat(32),
+  };
+  const path = join(root, "dashboard/observer-release.json");
+  const raw = JSON.stringify(publication, null, 2) + "\n";
+  try {
+    git("init", "--quiet");
+    mkdirSync(join(root, "scripts"));
+    mkdirSync(join(root, "dashboard"));
+    writeFileSync(join(root, "scripts/local-node.py"), "# Fixture; never executed\n");
+    commit();
+    assert.equal(loadNodeGuideProfile(root).live.replicaInstallation.availability, "not-published");
+    writeFileSync(path, raw);
+    assert.throws(() => loadNodeGuideProfile(root), /presence at HEAD/u);
+    commit();
+    assert.equal(loadNodeGuideProfile(root).live.replicaInstallation.release?.receiptSha256, publication.receiptSha256);
+    writeFileSync(path, raw + " ");
+    assert.throws(() => loadNodeGuideProfile(root), /differs from HEAD/u);
+    unlinkSync(path);
+    assert.throws(() => loadNodeGuideProfile(root), /presence at HEAD/u);
+    // Both literal and decoded duplicate keys must fail despite valid final values.
+    for (const extra of ['"releaseId":"older",', '"release\\u0049d":"older",']) {
+      writeFileSync(path, raw.replace("{", `{${extra}`));
+      commit();
+      assert.throws(() => loadNodeGuideProfile(root), /duplicate JSON keys/u);
+    }
+    writeFileSync(path, "null\n");
+    commit();
+    assert.throws(() => loadNodeGuideProfile(root), /Invalid observer publication/u);
+    writeFileSync(path, " ".repeat(16 * 1024) + raw);
+    commit();
+    assert.throws(() => loadNodeGuideProfile(root), /exceeds 16 KiB/u);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
