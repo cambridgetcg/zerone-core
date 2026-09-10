@@ -164,13 +164,18 @@ func (k Keeper) CountVotesByAccountType(ctx context.Context, round *types.Verifi
 
 // ─── Track Record Updates ────────────────────────────────────────────────────
 
-func (k Keeper) RecordVindicationRoleImpact(ctx context.Context, round *types.VerificationRound, domain string) {
+func (k Keeper) RecordVindicationRoleImpact(ctx context.Context, round *types.VerificationRound, domain string) error {
+	neutral, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil || neutral {
+		return err
+	}
+
 	if domain == "" {
-		return
+		return nil
 	}
 	agentVotes, humanVotes := k.CountVotesByAccountType(ctx, round)
 	if agentVotes == humanVotes {
-		return
+		return nil
 	}
 
 	record, found := k.GetDomainRoleRecord(ctx, domain)
@@ -189,9 +194,15 @@ func (k Keeper) RecordVindicationRoleImpact(ctx context.Context, round *types.Ve
 	_ = k.SetDomainRoleRecord(ctx, record)
 
 	k.emitRoleElasticityEvent(ctx, domain)
+	return nil
 }
 
 func (k Keeper) RecordChallengeRoleImpact(ctx context.Context, factId, domain string, upheld bool) error {
+	neutral, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil || neutral {
+		return err
+	}
+
 	round := k.GetVerificationRoundForFact(ctx, factId)
 	if round == nil {
 		return nil
@@ -268,7 +279,12 @@ func (k Keeper) getDomainForRound(ctx context.Context, round *types.Verification
 
 // ─── Decay ───────────────────────────────────────────────────────────────────
 
-func (k Keeper) DecayRoleRecords(ctx context.Context) {
+func (k Keeper) DecayRoleRecords(ctx context.Context) error {
+	neutral, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil || neutral {
+		return err
+	}
+
 	var records []*types.DomainRoleRecord
 	k.IterateDomainRoleRecords(ctx, func(record *types.DomainRoleRecord) bool {
 		records = append(records, record)
@@ -282,6 +298,7 @@ func (k Keeper) DecayRoleRecords(ctx context.Context) {
 		record.HumanIncorrectCalls = safeMulDiv(record.HumanIncorrectCalls, 950_000, BPS)
 		_ = k.SetDomainRoleRecord(ctx, record)
 	}
+	return nil
 }
 
 // ─── Events ──────────────────────────────────────────────────────────────────

@@ -71,6 +71,13 @@ func (k Keeper) QualifyByStake(ctx context.Context, validator string, domain str
 
 // QualifyByTrackRecord creates a qualification via the track record pathway.
 func (k Keeper) QualifyByTrackRecord(ctx context.Context, validator string, domain string) error {
+	neutral, err := k.reviewNeutralityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if neutral {
+		return fmt.Errorf("agreement-based track-record qualification is retired")
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	params := k.GetParams(ctx)
 

@@ -961,7 +961,8 @@ K-alpha; the ledger that prices edges is K-beta. Recognition precedes pricing.
 - `domain` -- knowledge domain (may be empty)
 - `register` -- always `"priced-coherence"`: karma records priced coherence and priced reliance, not truth — the circularity confession rides every edge
 - `self` -- `"true"` when beneficiary == counterparty (self-dealt recognition; attribute absent otherwise)
-- `correct` -- on `verify` edges only, `"true"` when the verifier's vote matched the verdict; omitted when the bit is not cheaply known at the payout site
+- `assessment_basis` -- `valid_review` for policy-1 authenticated review work, including dissent and inconclusive outcomes; `panel_agreement` for policy-0 record-integrity rounds. Neither asserts scientific truth or a completed bank transfer.
+- `correct` -- historical pre-record-integrity `verify` edges only, `"true"` when the verifier's vote matched the verdict; omitted when the bit is not cheaply known at the payout site
 - `verdict` -- on `pending_settle` edges only, the terminal verdict class (e.g. `VERDICT_ACCEPT`, `VERDICT_INCONCLUSIVE`)
 
 Emission sites and printed gaps:
@@ -1316,7 +1317,9 @@ Claim review fee split across protocol components.
 After `knowledge-record-integrity-v1` activation, a terminal review stores its
 frozen verifier payment plan. This event records the obligation; payment may
 remain pending when the module lacks funds. The primary round carries the exact
-amounts and later paid height.
+amounts and later paid height. Policy-1 rounds include every valid timely reveal,
+without agreement-based eligibility or withholding. Missing quorum can still
+produce an inconclusive terminal round with a payable review plan.
 
 - `round_id` -- verification round
 - `payment_status` -- `pending`
@@ -1412,9 +1415,9 @@ Popperian survival counter incremented: a fact withstood a falsification attempt
 - `creed_commitment` -- "3"
 
 ### zerone.knowledge.challenge_inconclusive_restored
-A challenge round starved (fewer than `min_verifiers` reveals) and expired without a verdict. The target fact — flipped to CHALLENGED at submission — is restored to its prior standing with no survival credit (ACTIVE for an established fact, PROVISIONAL for a conjecture), so starvation cannot lock it forever or promote a question into truth-standing.
+A challenge closed without a decisive scientific result. Historical starvation used the EXPIRED path; after review-neutrality activation, INCONCLUSIVE and MALFORMED completions use the same restoration event. The target leaves CHALLENGED without survival, energy or calibration credit, while another active challenge keeps it locked. Established facts regain their type-appropriate status and conjectures remain PROVISIONAL. Checked failures roll back completion; the active-review scan uses the existing 100,000-record / 64 MiB inventory bounds.
 - `fact_id` -- fact restored from CHALLENGED to its type-appropriate standing
-- `challenge_claim_id` -- the starved challenge claim
+- `challenge_claim_id` -- the nondecisive challenge claim
 
 ### zerone.knowledge.conjecture_posted
 An unsettled proposition entered verification. A conjecture asserts nothing: if the round returns ACCEPT it becomes a fact at `FACT_STATUS_PROVISIONAL` with confidence 0, cites nothing, cannot be cited, is excluded from the training corpus, and pays its proposer nothing on any path. The panel is asked whether the conjecture is **well-posed and falsifiable**, never whether it is true — `panel_question` carries that distinction to verifiers, who would otherwise adjudicate the wrong question. The only paid act against a live conjecture is `MsgChallengeProvisionalFact`.
@@ -1467,6 +1470,7 @@ as its truthful negative.
 - `amount_uzrn` -- the bonus that was due but not paid
 
 ### zerone.knowledge.probe_bounty_minted
+Historical event: automatic probe issuance stops at review-neutrality activation.
 Emitted each block that the Wave 15 BeginBlocker mints uzrn into the dedicated probe bounty pool (`knowledge_probe_bounty_pool` module account). The pool funds successful-probe bonuses via `PayProbeBountyFromPool` — decoupling epistemic-auditing budget from general governance. Minting throttles when the pool reaches `ProbeBountyMaxPoolSize`; the event carries the actual minted amount (may be less than `ProbeBountyMintPerBlock` when the cap clamps issuance).
 - `amount` -- uzrn minted this block
 - `block` -- block height
@@ -1547,11 +1551,14 @@ Governance amended the on-chain tokenizer contract (Route B Wave 3a). The caller
 - `authority` -- governance authority address that submitted the amendment
 
 ### zerone.knowledge.contributions_attributed
-Model owner posted the fact_ids consumed by training, creating the reverse fact→model index (Route B Wave 3b). `total_weight` sums per-fact (corroboration_count + 1) with an optional override.
+Model owner declared the fact IDs consumed by training, creating the reverse fact→model index. New policy-1 records are declarations without computed valuation: `computed_tvw` is zero, calibration snapshots are absent, and any `total_weight` is owner-declared. Historical policy-0 records used corroboration/calibration heuristics.
 - `model_id` -- ModelCard being attributed
 - `attributed_by` -- owner (must equal ModelCard.owner_address)
 - `fact_count` -- deduplicated fact count actually recorded
-- `total_weight` -- sum of per-fact weights
+- `total_weight` -- owner-declared under policy 1; historical sum or override under policy 0
+- `computed_tvw` -- zero under policy 1; historical heuristic under policy 0
+- `attribution_policy_version` -- `1` for declaration-only records; absent on historical events
+- `rejected_commitments` -- normative commitment IDs excluded from this attribution
 
 ### zerone.knowledge.training_attestation_posted
 Pipeline operator attested training completion with off-chain telemetry (Route B Wave 3c).
@@ -1562,6 +1569,7 @@ Pipeline operator attested training completion with off-chain telemetry (Route B
 - `eval_hash` -- sha256 of the evaluation bundle
 
 ### zerone.knowledge.augmentation_bounty_created
+Historical admission event: new bounties stop at review-neutrality activation; existing escrow remains settleable.
 Sponsor opened a bounty for variant reformulations of a target fact (Route B Wave 3e). Up to `max_variants` accepted variants can be paid out.
 - `bounty_id` -- stable id
 - `sponsor` -- sponsor address

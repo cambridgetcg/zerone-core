@@ -39,6 +39,7 @@ func TestRouteB_TokenizerSpecSeeded(t *testing.T) {
 // calibration record after submitting claims.
 func TestRouteB_PipelineAndModelCardLineage(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultMethodologies(h.Ctx))
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultTokenizerSpec(h.Ctx))
 
@@ -164,6 +165,7 @@ func TestRouteB_PipelineAndModelCardLineage(t *testing.T) {
 // calibration score, and — if requested — disproven negative examples.
 func TestRouteB_StructuredCorpusExport(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultMethodologies(h.Ctx))
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultTokenizerSpec(h.Ctx))
 

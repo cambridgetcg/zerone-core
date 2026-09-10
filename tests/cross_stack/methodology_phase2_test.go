@@ -85,6 +85,7 @@ func TestMethodologyPhase2_PhilosophicalDiscountShape(t *testing.T) {
 // verification" but "tests survived."
 func TestMethodologyPhase2_PopperianCorroboration(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultMethodologies(h.Ctx))
 
 	domain := "corroboration_domain"

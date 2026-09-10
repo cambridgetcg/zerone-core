@@ -14,6 +14,10 @@ import (
 // BeginBlocker processes qualification expiry, probation promotion, endorsement expiry,
 // stake unlocking, and (Wave 16) accuracy-based decay.
 func (k Keeper) BeginBlocker(ctx context.Context) error {
+	neutral, err := k.reviewNeutralityEnabled(ctx)
+	if err != nil {
+		return err
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	currentBlock := uint64(sdkCtx.BlockHeight())
 	params := k.GetParams(ctx)
@@ -23,9 +27,11 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 	// Iterates qualifications and transitions state when accuracy
 	// crosses thresholds — closing the feedback loop the per-domain
 	// panel writes into via RecordVerificationOutcome.
-	if params.DecayCheckIntervalBlocks > 0 && currentBlock > 0 &&
+	if !neutral && params.DecayCheckIntervalBlocks > 0 && currentBlock > 0 &&
 		currentBlock%params.DecayCheckIntervalBlocks == 0 {
-		k.RunAccuracyDecay(ctx, currentBlock, params)
+		if err := k.RunAccuracyDecay(ctx, currentBlock, params); err != nil {
+			return err
+		}
 	}
 
 	k.IterateQualifications(ctx, func(q *types.DomainQualification) bool {
@@ -38,7 +44,7 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 
 		case types.QualificationStatus_QUALIFICATION_STATUS_PROBATIONARY:
 			// Check if probation period ended → promote to active or expire.
-			if q.ProbationUntil > 0 && currentBlock >= q.ProbationUntil {
+			if !neutral && q.ProbationUntil > 0 && currentBlock >= q.ProbationUntil {
 				k.promoteProbationary(ctx, q, currentBlock, params)
 			}
 			// Also check overall expiry.

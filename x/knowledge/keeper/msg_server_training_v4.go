@@ -132,7 +132,9 @@ func (m *msgServer) ChallengeContribution(ctx context.Context, msg *types.MsgCha
 	if _, exists := m.keeper.GetContributionChallenge(ctx, msg.Id); exists {
 		return nil, fmt.Errorf("challenge %s already exists", msg.Id)
 	}
-	if _, ok := m.keeper.GetContributionRecord(ctx, msg.ModelId); !ok {
+	if _, ok, err := m.keeper.GetContributionRecordChecked(ctx, msg.ModelId); err != nil {
+		return nil, err
+	} else if !ok {
 		return nil, fmt.Errorf("no contribution record for model %s", msg.ModelId)
 	}
 

@@ -39,17 +39,24 @@ func (k Keeper) mintCappedUzrn(ctx context.Context, module string, amount *big.I
 // BeginBlocker. Failure is logged and non-fatal — pool can refill next
 // block; fallback paths (protocol treasury) still cover bonuses even if
 // the pool is temporarily empty.
-func (k Keeper) MintToProbeBountyPool(ctx context.Context, params *types.Params) {
+func (k Keeper) MintToProbeBountyPool(ctx context.Context, params *types.Params) error {
+	enabled, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if enabled {
+		return nil
+	}
 	if k.bankKeeper == nil || params == nil {
-		return
+		return nil
 	}
 	mintStr := params.ProbeBountyMintPerBlock
 	if mintStr == "" || mintStr == "0" {
-		return
+		return nil
 	}
 	mintAmt, ok := new(big.Int).SetString(mintStr, 10)
 	if !ok || mintAmt.Sign() <= 0 {
-		return
+		return nil
 	}
 
 	// Enforce the cap: don't mint if the pool would exceed ProbeBountyMaxPoolSize.
@@ -63,7 +70,7 @@ func (k Keeper) MintToProbeBountyPool(ctx context.Context, params *types.Params)
 				// Mint only up to the cap.
 				room := new(big.Int).Sub(maxAmt, current)
 				if room.Sign() <= 0 {
-					return // already at cap
+					return nil // already at cap
 				}
 				mintAmt = room
 			}
@@ -73,10 +80,10 @@ func (k Keeper) MintToProbeBountyPool(ctx context.Context, params *types.Params)
 	minted, err := k.mintCappedUzrn(ctx, types.ProbeBountyPoolModuleName, mintAmt)
 	if err != nil {
 		k.Logger(ctx).Error("probe bounty pool mint failed", "amount", mintAmt.String(), "err", err)
-		return
+		return nil
 	}
 	if minted.Sign() <= 0 {
-		return // supply cap reached — nothing minted this block
+		return nil // supply cap reached — nothing minted this block
 	}
 	mintAmt = minted // event + accounting reflect the actually-minted amount
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
@@ -85,6 +92,7 @@ func (k Keeper) MintToProbeBountyPool(ctx context.Context, params *types.Params)
 		sdk.NewAttribute("amount", mintAmt.String()),
 		sdk.NewAttribute("block", fmt.Sprintf("%d", sdkCtx.BlockHeight())),
 	))
+	return nil
 }
 
 // ProbeBountyPoolBalance returns the current uzrn balance of the pool.
@@ -124,4 +132,3 @@ func (k Keeper) PayProbeBountyFromPool(ctx context.Context, challenger sdk.AccAd
 	}
 	return paying
 }
-

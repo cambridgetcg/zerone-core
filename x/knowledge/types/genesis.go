@@ -447,6 +447,7 @@ func DefaultGenesis() *GenesisState {
 		// in their reviewed genesis artifact.
 		BootstrapFundAllocation: "0",
 		RecordIntegrityEnabled:  true,
+		ReviewNeutralityEnabled: true,
 	}
 }
 
@@ -500,6 +501,11 @@ func (gs *GenesisState) Validate() error {
 	}
 	if err := ValidateSurvivalPendingRewards(gs.SurvivalPendingRewards); err != nil {
 		return err
+	}
+	for _, record := range gs.ContributionRecords {
+		if err := ValidateContributionRecord(record); err != nil {
+			return err
+		}
 	}
 	if err := ValidateGenesisRounds(gs); err != nil {
 		return err

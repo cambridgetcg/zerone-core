@@ -33,16 +33,18 @@
 //     keyed by monotonic seq and emitted on every authority-gated
 //     handler.
 //   - Commitment 12 (chain pays for its own audit):
-//     MintToProbeBountyPool can provide cap-gated funding when governance
-//     sets a positive rate; the protocol default is zero.
-//     PayProbeBountyFromPool spends only available pool funds.
+//     MintToProbeBountyPool is retained for predecessor execution only;
+//     review-neutrality activation retires new automatic probe issuance.
+//     PayProbeBountyFromPool remains available for earlier recorded terms;
+//     it spends only available pool funds.
 //   - Commitment 13 (training corpus is not for sale):
 //     ClawbackOnDisproval fires deterministically; RevenueClawbackBlock
 //     is sticky across status flips.
 //   - Commitment 14 (reasoning traces are first-class):
 //     Claim.ReasoningTrace propagates to Fact.ReasoningTrace;
 //     MethodologyApplicationTrace bundles trace + methodology +
-//     calibration into a single training-data shape.
+//     historical calibration into a single training-data shape. New owner
+//     contribution declarations do not compute scientific-value scores.
 //   - Commitment 16 (chain pays for exploration of the unknown):
 //     the on-chain half after the 2026-07 slim cut — answers to
 //     off-chain exploration listings enter as ordinary claims through
@@ -102,4 +104,11 @@
 // sections in docs/TOK_SUBSTRATE.md.
 //
 // We speak through intentions.
+// Current review policy is specified in knowledge-review-neutrality-v1.md:
+// new panels retain signed reasons and count accounts equally, with fixed-pool
+// payment for valid timely review work, including dissent. Agreement-derived
+// score producers and new automatic bonus promises are retired. Existing
+// records, escrow and frozen payment obligations retain their history and terms.
+// Account counts and the spendable-balance gate do not prove independence.
+// Remaining ecological scores are compatibility machinery, not scientific truth.
 package knowledge

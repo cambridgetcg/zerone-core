@@ -43,7 +43,7 @@ The exact authority statement is:
 The reviewed raw-byte SHA-256 digest of the manifest is:
 
 ```text
-5586d66a3baeef21b03c93e7528cc71bfd2140300edfb36fba2f338c6ec563aa
+bc77f18632326301634833cd70c79197caa3d81e4b6f02012d2ff347f1c4248b
 ```
 
 This is non-circular: the specification is not a local source binding inside
@@ -305,9 +305,9 @@ nor the manifest binds itself.
 | ID | Repository path | Raw SHA-256 |
 |---|---|---|
 | `constructive-intelligence-tree` | `dashboard/public/standards/constructive-intelligence-tree.v1.json` | `8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf` |
-| `correspondence-geometry` | `dashboard/public/standards/correspondence-geometry.v0.json` | `bf49e62dd2e59033e6f3bbfa0506ca5585bb3e9186268e9c3641fe3581a8db57` |
+| `correspondence-geometry` | `dashboard/public/standards/correspondence-geometry.v0.json` | `2bba3c6d6d55f79c2820ae57c8fd0cb4611883ef7d6a7ff1c43b57a900d2f402` |
 | `knowledge-methodologies` | `x/knowledge/types/methodologies.go` | `fa16ac33e7f2c10a19ed76541af6c2378edb79683578f2cec6f1a0563ebec386` |
-| `knowledge-types` | `proto/zerone/knowledge/v1/types.proto` | `336f599cb9042869885fbcfa261b3c7afbb0325ccc1deda86a74ed074a8588b4` |
+| `knowledge-types` | `proto/zerone/knowledge/v1/types.proto` | `e5f38e3d1768d8b5a9cbf2a587ffa31b30dd12bf2028aa092cd745819c8633fb` |
 
 A conforming offline validator resolves each path beneath the repository root,
 refuses path escape and symlinks, reads the exact bytes, and compares the raw

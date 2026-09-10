@@ -79,6 +79,7 @@ func newFixture(t *testing.T) fixture {
 		t.Fatal(err)
 	}
 	knowledgeState["record_integrity_enabled"] = json.RawMessage(`true`)
+	knowledgeState["review_neutrality_enabled"] = json.RawMessage(`true`)
 	appState["knowledge"], err = json.Marshal(knowledgeState)
 	if err != nil {
 		t.Fatal(err)

@@ -293,6 +293,7 @@ func TestHackDrill_AttributionOverReportRecovery(t *testing.T) {
 // manifest. This drill exercises both layers.
 func TestHackDrill_SybilPoisoningContainedByBreaker(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 

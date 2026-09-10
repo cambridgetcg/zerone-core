@@ -19,6 +19,7 @@ import (
 //   - only_successful_challenges filter returns only the disproved pairs
 func TestRouteB_DisputationCorpus(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultMethodologies(h.Ctx))
 
 	domain := "disputation_corpus_domain"
@@ -184,6 +185,7 @@ func TestRouteB_DisputationRebuttalText(t *testing.T) {
 			Relation:     knowledgetypes.RelationType_RELATION_TYPE_CONTRADICTS,
 		}},
 	}
+	fundDirectChallengeFixture(t, h, challenge)
 	require.NoError(t, h.KnowledgeKeeper.SetClaim(h.Ctx, challenge))
 
 	round := &knowledgetypes.VerificationRound{

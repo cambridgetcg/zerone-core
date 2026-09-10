@@ -81,7 +81,19 @@ func boundedIdleFactsLimit(limit uint32) uint32 {
 // the keyspace.
 //
 // Emits: zerone.knowledge.probe_invited per invited fact.
-func (k Keeper) InviteIdleFactsForProbing(ctx context.Context, height uint64, params *types.Params) {
+func (k Keeper) InviteIdleFactsForProbing(ctx context.Context, height uint64, params *types.Params) error {
+	neutral, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if neutral {
+		return nil
+	}
+	k.legacyInviteIdleFactsForProbing(ctx, height, params)
+	return nil
+}
+
+func (k Keeper) legacyInviteIdleFactsForProbing(ctx context.Context, height uint64, params *types.Params) {
 	if params == nil {
 		return
 	}

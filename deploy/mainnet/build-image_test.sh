@@ -37,6 +37,7 @@ for required in \
   '/internal/accountingmigration/context.go' \
   '/internal/survivalmigration/context.go' \
   '/internal/recordmigration/context.go' \
+  '/internal/reviewmigration/context.go' \
   '/runtime/entrypoint.sh' '/public/genesis.json'; do
   grep -q "${required}$" "${TMP}/context-files" || fail "context omitted ${required}"
 done
@@ -67,6 +68,9 @@ fi
 grep -q '^COPY internal/accountingmigration ./internal/accountingmigration$' \
   "${ROOT}/deploy/mainnet/Dockerfile" || \
   fail "Dockerfile omits the accounting migration dependency from its builder"
+grep -q '^COPY internal/reviewmigration ./internal/reviewmigration$' \
+  "${ROOT}/deploy/mainnet/Dockerfile" || \
+  fail "Dockerfile omits the review neutrality migration dependency from its builder"
 grep -q '^COPY internal/recordmigration ./internal/recordmigration$' \
   "${ROOT}/deploy/mainnet/Dockerfile" || \
   fail "Dockerfile omits the record integrity migration dependency from its builder"

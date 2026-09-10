@@ -376,6 +376,7 @@ func TestRouteB_Wave7_ManifestEndToEndWithContrastivePairs(t *testing.T) {
 // bounty escrow, RouteBCapabilities reports a non-zero escrowed balance.
 func TestRouteB_Wave7_EscrowVisibleInCapabilities(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 

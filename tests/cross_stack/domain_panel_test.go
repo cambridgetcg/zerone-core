@@ -25,6 +25,7 @@ import (
 
 func TestDomainPanel_DomainQualifiedVotersDominateGloballyCalibrated(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -127,6 +128,7 @@ func TestDomainPanel_DomainQualifiedVotersDominateGloballyCalibrated(t *testing.
 // consensus see their accuracy erode.
 func TestDomainPanel_VerdictFeedbackLoopUpdatesQualification(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -216,6 +218,7 @@ func TestDomainPanel_VerdictFeedbackLoopUpdatesQualification(t *testing.T) {
 // a one-time qualification exam.
 func TestDomainPanel_QualificationDecaysOnLowAccuracy(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -251,6 +254,7 @@ func TestDomainPanel_QualificationDecaysOnLowAccuracy(t *testing.T) {
 // back to ACTIVE. The feedback loop is bidirectional.
 func TestDomainPanel_QualificationRecoversFromProbation(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -286,6 +290,7 @@ func TestDomainPanel_QualificationRecoversFromProbation(t *testing.T) {
 // to vote effectively again.
 func TestDomainPanel_QualificationSuspendsOnContinuedFailure(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -354,6 +359,7 @@ func TestDomainPanel_QualificationDoesNotDecayBelowMinSamples(t *testing.T) {
 // weight; global calibration is a fallback only.
 func TestDomainPanel_InDomainLowWeightNotInflatedByGlobalCalibration(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 

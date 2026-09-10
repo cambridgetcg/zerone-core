@@ -16,6 +16,7 @@ import (
 // is preserved. Validates the substrate survives upgrades.
 func TestRouteB_Wave8_GenesisRoundtrip(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -137,6 +138,7 @@ func TestRouteB_Wave8_GenesisRoundtrip(t *testing.T) {
 // passes, the heartbeat returns escrow to the sponsor automatically.
 func TestRouteB_Wave8_HeartbeatBountyExpiry(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 

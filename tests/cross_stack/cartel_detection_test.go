@@ -24,14 +24,14 @@ import (
 // resolves with slashing.
 //
 // This drill exercises that pipeline end-to-end:
-//   1. Three stake-bearing validators collude on an augmentation verdict.
-//   2. The verdict finalizes (primary defense held by stake, but stake
-//      was itself compromised).
-//   3. Community submits x/capture_challenge against the three.
-//   4. Evidence is attached during the EVIDENCE phase.
-//   5. The phase advances to UNDER_REVIEW.
-//   6. Authority resolves UPHELD.
-//   7. Challenger is refunded + rewarded; slash records are written.
+//  1. Three stake-bearing validators collude on an augmentation verdict.
+//  2. The verdict finalizes (primary defense held by stake, but stake
+//     was itself compromised).
+//  3. Community submits x/capture_challenge against the three.
+//  4. Evidence is attached during the EVIDENCE phase.
+//  5. The phase advances to UNDER_REVIEW.
+//  6. Authority resolves UPHELD.
+//  7. Challenger is refunded + rewarded; slash records are written.
 //
 // The test is the integration-level proof that the second line of
 // defense (cartel detection) actually catches what the first line of
@@ -40,6 +40,7 @@ import (
 // complete in isolation but the moat is incomplete as a system.
 func TestCartelDetection_EndToEndCaptureChallengeFlow(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -184,6 +185,7 @@ func TestCartelDetection_EndToEndCaptureChallengeFlow(t *testing.T) {
 // detection layer finally has teeth on the panel layer.
 func TestCartelDetection_UpheldPenaltyReducesPanelWeight(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 

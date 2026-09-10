@@ -25,6 +25,11 @@ base.PLAN = PLAN
 
 
 class Rehearsal(survival.Rehearsal):
+    source_knowledge_version = 7
+    target_knowledge_version = 8
+    predecessor_v2 = False
+    neutral_reviews = False
+
     def __init__(self, before, after, directory):
         super().__init__(before, after, directory)
         self.chain = "record-local-" + self.root.name.rsplit("-", 1)[-1]
@@ -65,14 +70,17 @@ class Rehearsal(survival.Rehearsal):
     def salt(index):
         return f"record-integrity-public-test-salt-{index}".encode().hex()
 
+    def vote(self, index, current):
+        return "reject" if self.neutral_reviews and current and index == 4 else "accept"
+
     def commit(self, round_id, index, current):
-        flags = self.review_flags(index) if current else []
-        self.tx("knowledge", "submit-commitment", round_id, "--vote", "accept", "--salt", self.salt(index),
+        flags = self.review_flags(index) if current or self.predecessor_v2 else []
+        self.tx("knowledge", "submit-commitment", round_id, "--vote", self.vote(index, current), "--salt", self.salt(index),
                 *flags, signer=f"reviewer{index}", label=("v2" if current else "legacy") + f"-commit-{index}")
 
     def reveal(self, round_id, index, current):
-        flags = self.review_flags(index) if current else []
-        self.tx("knowledge", "submit-reveal", round_id, "accept", self.salt(index), *flags,
+        flags = self.review_flags(index) if current or self.predecessor_v2 else []
+        self.tx("knowledge", "submit-reveal", round_id, self.vote(index, current), self.salt(index), *flags,
                 signer=f"reviewer{index}", label=("v2" if current else "legacy") + f"-reveal-{index}")
 
     def initialize(self):
@@ -108,11 +116,16 @@ class Rehearsal(survival.Rehearsal):
         self.legacy_claim, self.legacy_round = self.submit("legacy", False)
         self.commit(self.legacy_round, 1, False)
         self.legacy_before = self.round(self.legacy_round)
-        if int(self.legacy_before.get("commitment_scheme", 0)) != 0 or len(self.legacy_before["commits"]) != 1:
+        if int(self.legacy_before.get("commitment_scheme", 0)) != (2 if self.predecessor_v2 else 0) or len(self.legacy_before["commits"]) != 1:
             raise RuntimeError("predecessor did not produce one genuine legacy commitment")
         base.write_json(self.reports / "legacy-round-before.json", self.legacy_before)
+        if self.neutral_reviews:
+            self.legacy_claim_before = self.query("knowledge", "claim", self.legacy_claim)["claim"]
+            if int(self.legacy_claim_before.get("review_policy_version", 0)) != 0 or int(self.legacy_before.get("review_policy_version", 0)) != 0:
+                raise RuntimeError("predecessor did not retain legacy claim and round terms")
+            base.write_json(self.reports / "legacy-claim-before.json", self.legacy_claim_before)
         self.source_versions = self.versions()
-        if (self.source_versions.get("knowledge"), self.source_versions.get("vesting_rewards")) != (7, 3):
+        if (self.source_versions.get("knowledge"), self.source_versions.get("vesting_rewards")) != (self.source_knowledge_version, 3):
             raise RuntimeError("predecessor is not the frozen survival target")
         self.source_tuple = {"height": self.height()}
         self.stop_cleanly()
@@ -158,7 +171,7 @@ class Rehearsal(survival.Rehearsal):
         observed = self.round(self.legacy_round)
         if observed != self.legacy_before:
             raise RuntimeError("migration changed an in-flight legacy round")
-        expected = dict(self.source_versions, knowledge=8)
+        expected = dict(self.source_versions, knowledge=self.target_knowledge_version)
         if self.versions() != expected or int(self.query("upgrade", "applied", PLAN)["height"]) != target:
             raise RuntimeError("upgrade changed unexpected versions or applied height")
         base.write_json(self.reports / "versions-after.json", expected)
@@ -166,6 +179,9 @@ class Rehearsal(survival.Rehearsal):
             self.commit(self.legacy_round, index, False)
         self.current_claim, self.current_round = self.submit("current", True)
         current = self.round(self.current_round)
+        if self.neutral_reviews and (int(current.get("review_policy_version", 0)) != 1 or
+            int(self.query("knowledge", "claim", self.current_claim)["claim"].get("review_policy_version", 0)) != 1):
+            raise RuntimeError("new claim/round policy not stamped at admission")
         if int(current.get("commitment_scheme", 0)) != 2 or current.get("commitment_chain_id") != self.chain:
             raise RuntimeError("new signed claim did not create a chain-bound v2 round")
         for index in range(1, 5):
@@ -174,14 +190,35 @@ class Rehearsal(survival.Rehearsal):
         original = next(c for c in committed["commits"] if c["verifier"] == self.addresses["reviewer1"])
         self.tx("knowledge", "submit-commitment", self.current_round, base64.b64decode(original["commit_hash"]).hex(),
                 signer="copier", label="v2-copied-hash-commit")
-        self.progress("revealing the preserved legacy round with original v1 preimages")
+        self.progress("revealing the preserved predecessor round under its recorded commitment scheme")
         self.wait(lambda: int(self.round(self.legacy_round)["phase"]) == 2, seconds=110)
         for index in range(1, 5):
             self.reveal(self.legacy_round, index, False)
         self.wait(lambda: int(self.round(self.legacy_round)["phase"]) == 4)
         legacy = self.round(self.legacy_round)
-        if int(legacy.get("commitment_scheme", 0)) != 0 or any(r.get("attestation") or int(r.get("confidence", 0)) for r in legacy["reveals"]):
+        if int(legacy.get("commitment_scheme", 0)) != (2 if self.predecessor_v2 else 0):
+            raise RuntimeError("predecessor commitment scheme changed")
+        if not self.predecessor_v2 and any(r.get("attestation") or int(r.get("confidence", 0)) for r in legacy["reveals"]):
             raise RuntimeError("legacy review was falsely relabelled as v2 evidence")
+        if self.neutral_reviews:
+            completed_claim = self.query("knowledge", "claim", self.legacy_claim)["claim"]
+            if int(legacy.get("review_policy_version", 0)) != 0 or int(completed_claim.get("review_policy_version", 0)) != 0:
+                raise RuntimeError("unfinished predecessor claim was repriced")
+            if completed_claim["stake"] != self.legacy_claim_before["stake"]:
+                raise RuntimeError("unfinished predecessor claim's recorded fee changed")
+            if len(legacy["reveals"]) != 4 or legacy.get("commitment_chain_id") != self.legacy_before.get("commitment_chain_id"):
+                raise RuntimeError("predecessor v2 reviews or original preimage chain were lost")
+            for index in range(1, 5):
+                matches = [r for r in legacy["reveals"] if r["verifier"] == self.addresses[f"reviewer{index}"]]
+                if len(matches) != 1:
+                    raise RuntimeError("predecessor v2 reviewer identity was lost or duplicated")
+                reveal = matches[0]
+                expected_att = {"reason": self.review_flags(index)[3], "scope": "This local fixture only",
+                                "evidence_ids": ["local-arithmetic-example"], "method_id": ""}
+                att = reveal.get("attestation") or {}
+                if reveal["vote"] != "accept" or base64.b64decode(reveal["salt"]).hex() != self.salt(index) or int(reveal["confidence"]) != 800000 or {key: att.get(key, "") for key in expected_att} != expected_att:
+                    raise RuntimeError("predecessor v2 review differs from its exact signed preimage")
+            base.write_json(self.reports / "legacy-claim-completed.json", completed_claim)
         base.write_json(self.reports / "legacy-round-completed.json", legacy)
         self.progress("revealing signed v2 reviews and refusing another signer's copied preimage")
         self.wait(lambda: int(self.round(self.current_round)["phase"]) == 2, seconds=110)
@@ -193,8 +230,8 @@ class Rehearsal(survival.Rehearsal):
             self.reveal(self.current_round, index, True)
         self.wait(lambda: int(self.round(self.current_round)["phase"]) == 4, seconds=65)
         final = self.round(self.current_round)
-        if len(final["reveals"]) != 4 or int(final.get("verdict", 0)) != 1:
-            raise RuntimeError("new round did not accept exactly four authenticated reveals")
+        if len(final["reveals"]) != 4 or int(final.get("verdict", 0)) != (3 if self.neutral_reviews else 1):
+            raise RuntimeError("new round did not preserve four authenticated reviews with the expected verdict")
         for index in range(1, 5):
             matches = [r for r in final["reveals"] if r["verifier"] == self.addresses[f"reviewer{index}"]]
             if len(matches) != 1:
@@ -203,7 +240,7 @@ class Rehearsal(survival.Rehearsal):
             att = reveal.get("attestation") or {}
             expected_att = {"reason": self.review_flags(index)[3], "scope": "This local fixture only",
                             "evidence_ids": ["local-arithmetic-example"], "method_id": ""}
-            if reveal["vote"] != "accept" or base64.b64decode(reveal["salt"]).hex() != self.salt(index) or int(reveal["confidence"]) != 800000 or {key: att.get(key, "") for key in expected_att} != expected_att:
+            if reveal["vote"] != self.vote(index, True) or base64.b64decode(reveal["salt"]).hex() != self.salt(index) or int(reveal["confidence"]) != 800000 or {key: att.get(key, "") for key in expected_att} != expected_att:
                 raise RuntimeError("retained v2 review differs from its exact signed preimage")
         plan = final.get("verifier_reward_settlement")
         if not plan or int(plan.get("paid_at_block", 0)) == 0:
@@ -217,6 +254,11 @@ class Rehearsal(survival.Rehearsal):
         for name in payout_before:
             if amount(payout_after[name]) - amount(payout_before[name]) != payments[self.addresses[name]] - 2000000:
                 raise RuntimeError("actual bank change differs from frozen payment less one signed reveal transaction fee")
+        if self.neutral_reviews:
+            if int(final.get("review_policy_version", 0)) != 1 or int(plan.get("withheld_total", 0)) != 0:
+                raise RuntimeError("new round did not use unmodulated neutral review terms")
+            if len(set(payments.values())) != 1 or sum(payments.values()) != 110000:
+                raise RuntimeError("dissent and inconclusive work did not receive equal fixed-pool payment")
         base.write_json(self.reports / "v2-bank-payment-comparison.json", {"before": payout_before, "after": payout_after,
             "one_reveal_fee_uzrn_each": "2000000", "plan": plan})
         base.write_json(self.reports / "v2-round-completed.json", final)
@@ -234,10 +276,14 @@ class Rehearsal(survival.Rehearsal):
         self.stop_cleanly()
         self.evidence.update({"upgrade_height": target, "legacy_round_id": self.legacy_round, "v2_round_id": self.current_round,
                               "restart": {"before_height": before_height, "after_height": after_height}})
+        if self.neutral_reviews:
+            self.evidence["checks"].update({"legacy_policy_preserved": True, "dissent_and_inconclusive_reviews_paid_equally": True,
+                "fixed_fee_pool_unmodulated": True, "new_claim_and_round_policy1": True})
         self.evidence["checks"].update({"real_signed_account_registration": True, "paid_signed_ordinary_claims": True,
-            "legacy_commitment_preserved_across_h": True, "legacy_v1_reveals_complete_after_h": True,
+            "legacy_commitment_preserved_across_h": True,
+            ("predecessor_v2_reveals_complete_after_h" if self.predecessor_v2 else "legacy_v1_reveals_complete_after_h"): True,
             "new_round_uses_scheme2_and_original_chain": True, "signed_review_reason_confidence_retained": True,
-            "copied_commitment_preimage_refused_for_other_signer": True, "only_knowledge7_to8": True,
+            "copied_commitment_preimage_refused_for_other_signer": True, f"only_knowledge{self.source_knowledge_version}_to{self.target_knowledge_version}": True,
             "paid_plan_matches_actual_bank_changes": True, "paid_plan_retained_without_restart_repayment": True, "supply_unchanged_on_restart": True,
             "owned_nodes_stopped_cleanly": True})
 

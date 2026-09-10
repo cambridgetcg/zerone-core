@@ -3807,6 +3807,11 @@
           "title": "Typed relationships to existing facts",
           "type": "array"
         },
+        "reviewPolicyVersion": {
+          "description": "Immutable admission terms: 0 preserves predecessor economics; 1 records neutral review work.",
+          "format": "int64",
+          "type": "integer"
+        },
         "stake": {
           "title": "coin amount as string (uzrn)",
           "type": "string"
@@ -4114,6 +4119,11 @@
         "attributedBy": {
           "title": "operator / owner posting the attribution",
           "type": "string"
+        },
+        "attributionPolicyVersion": {
+          "description": "0 is the historical score projection; 1 records an owner declaration without valuation.",
+          "format": "int64",
+          "type": "integer"
         },
         "computedTvw": {
           "description": "─── Wave 4: Popper-weighted training-value weight ─────────────────────\nSum of per-fact TrainingValueWeight at the moment of attribution,\nsnapshot-locked so later fact-state changes can't retroactively inflate\nor deflate the claim. Revenue share = TVW_share / total_TVW_across_models.",
@@ -9306,6 +9316,11 @@
             "type": "object"
           },
           "type": "array"
+        },
+        "reviewPolicyVersion": {
+          "description": "Copied from the claim; independent of commitment framing and block height.",
+          "format": "int64",
+          "type": "integer"
         },
         "selectedVerifiers": {
           "items": {

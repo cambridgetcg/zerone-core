@@ -47,6 +47,13 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 }
 
 func (m *msgServer) submitClaim(ctx context.Context, msg *types.MsgSubmitClaim, recordIntegrityEnabled bool) (*types.MsgSubmitClaimResponse, error) {
+	reviewPolicy, err := m.keeper.reviewPolicyAtAdmission(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if reviewPolicy == 1 && msg.Sponsored {
+		return nil, fmt.Errorf("automatic bootstrap sponsorship is retired; submit a self-funded review")
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 	if recordIntegrityEnabled {
@@ -238,22 +245,23 @@ func (m *msgServer) submitClaim(ctx context.Context, msg *types.MsgSubmitClaim, 
 	}
 
 	claim := &types.Claim{
-		Id:               claimID,
-		FactContent:      msg.FactContent,
-		Domain:           msg.Domain,
-		Category:         msg.Category,
-		Submitter:        msg.Submitter,
-		SubmittedAtBlock: height,
-		Status:           types.ClaimStatus_CLAIM_STATUS_PENDING,
-		References:       msg.References,
-		Stake:            msg.Stake,
-		PartnershipId:    msg.PartnershipId,
-		ContentHash:      contentHash,
-		ClaimType:        claimType,
-		Relations:        msg.Relations,
-		Structure:        msg.Structure,
-		CanonicalForm:    canonicalForm,
-		CanonicalHash:    canonicalHash,
+		ReviewPolicyVersion: reviewPolicy,
+		Id:                  claimID,
+		FactContent:         msg.FactContent,
+		Domain:              msg.Domain,
+		Category:            msg.Category,
+		Submitter:           msg.Submitter,
+		SubmittedAtBlock:    height,
+		Status:              types.ClaimStatus_CLAIM_STATUS_PENDING,
+		References:          msg.References,
+		Stake:               msg.Stake,
+		PartnershipId:       msg.PartnershipId,
+		ContentHash:         contentHash,
+		ClaimType:           claimType,
+		Relations:           msg.Relations,
+		Structure:           msg.Structure,
+		CanonicalForm:       canonicalForm,
+		CanonicalHash:       canonicalHash,
 	}
 	if recordIntegrityEnabled {
 		claim.MethodId = msg.MethodId
@@ -352,6 +360,10 @@ func (m *msgServer) SubmitCommitment(ctx context.Context, msg *types.MsgSubmitCo
 	if !found {
 		return nil, fmt.Errorf("verification round %s not found", msg.RoundId)
 	}
+	reviewPolicy, err := m.keeper.reviewPolicyForRound(ctx, round)
+	if err != nil {
+		return nil, err
+	}
 	if round.CommitmentScheme == types.CommitmentSchemeReviewV2 && len(msg.ProtoReflect().GetUnknown()) != 0 {
 		return nil, fmt.Errorf("unsupported commitment message fields")
 	}
@@ -396,8 +408,10 @@ func (m *msgServer) SubmitCommitment(ctx context.Context, msg *types.MsgSubmitCo
 		}
 	}
 
-	// Check domain qualification
-	if m.keeper.domainQualificationKeeper != nil {
+	// Legacy qualification standing remains relevant only to legacy reviews.
+	// Policy 1 keeps admission and balance limits, without claiming that prior
+	// agreement with panels establishes reviewer authority.
+	if reviewPolicy == 0 && m.keeper.domainQualificationKeeper != nil {
 		claim, found := m.keeper.GetClaim(ctx, round.ClaimId)
 		if !found {
 			return nil, fmt.Errorf("claim %s not found for round %s", round.ClaimId, msg.RoundId)
@@ -739,6 +753,10 @@ func (m *msgServer) ChallengeFact(ctx context.Context, msg *types.MsgChallengeFa
 }
 
 func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFact, enabled bool) (*types.MsgChallengeFactResponse, error) {
+	reviewPolicy, err := m.keeper.reviewPolicyAtAdmission(ctx)
+	if err != nil {
+		return nil, err
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 	if enabled {
@@ -771,6 +789,9 @@ func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFa
 	if !ok || stakeAmt.Sign() <= 0 {
 		return nil, fmt.Errorf("invalid stake amount: %s", msg.Stake)
 	}
+	if reviewPolicy == 1 && !stakeAmt.IsUint64() {
+		return nil, fmt.Errorf("challenge collateral exceeds uint64 accounting range")
+	}
 	effectiveMinStake := EffectiveMinChallengeStake(params, fact.Confidence)
 	if stakeAmt.Cmp(effectiveMinStake) < 0 {
 		return nil, fmt.Errorf("challenge stake %s below effective minimum %s (fact confidence %d) (commitment 4: probe cost scales with confidence — high-confidence facts must be the cheapest to test relative to what is at stake)",
@@ -798,15 +819,16 @@ func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFa
 	// Create a challenge claim and round
 	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
 	challengeClaim := &types.Claim{
-		Id:                challengeClaimID,
-		FactContent:       fmt.Sprintf("Challenge of fact %s: %s", msg.FactId, msg.Reason),
-		Domain:            fact.Domain,
-		Category:          fact.Category,
-		Submitter:         msg.Challenger,
-		SubmittedAtBlock:  height,
-		Status:            types.ClaimStatus_CLAIM_STATUS_PENDING,
-		Stake:             msg.Stake,
-		ProvisionalFactId: msg.FactId, // Track challenged fact for resolution
+		ReviewPolicyVersion: reviewPolicy,
+		Id:                  challengeClaimID,
+		FactContent:         fmt.Sprintf("Challenge of fact %s: %s", msg.FactId, msg.Reason),
+		Domain:              fact.Domain,
+		Category:            fact.Category,
+		Submitter:           msg.Challenger,
+		SubmittedAtBlock:    height,
+		Status:              types.ClaimStatus_CLAIM_STATUS_PENDING,
+		Stake:               msg.Stake,
+		ProvisionalFactId:   msg.FactId, // Track challenged fact for resolution
 	}
 	if enabled {
 		challengeClaim.ArgumentText = msg.Reason
@@ -865,6 +887,10 @@ func (m *msgServer) ChallengeProvisionalFact(ctx context.Context, msg *types.Msg
 }
 
 func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.MsgChallengeProvisionalFact, enabled bool) (*types.MsgChallengeProvisionalFactResponse, error) {
+	reviewPolicy, err := m.keeper.reviewPolicyAtAdmission(ctx)
+	if err != nil {
+		return nil, err
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 	if enabled {
@@ -919,6 +945,10 @@ func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.Msg
 		if !ok || stakeAmt.Sign() <= 0 {
 			return nil, fmt.Errorf("invalid stake amount: %s", msg.Stake)
 		}
+		if reviewPolicy == 1 && !stakeAmt.IsUint64() {
+			return nil, fmt.Errorf("challenge collateral exceeds uint64 accounting range")
+		}
+
 		challengerAddr, err := sdk.AccAddressFromBech32(msg.Challenger)
 		if err != nil {
 			return nil, err
@@ -936,15 +966,16 @@ func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.Msg
 
 	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
 	challengeClaim := &types.Claim{
-		Id:                challengeClaimID,
-		FactContent:       fmt.Sprintf("Provisional challenge of fact %s: %s", msg.FactId, msg.Reason),
-		Domain:            fact.Domain,
-		Category:          fact.Category,
-		Submitter:         msg.Challenger,
-		SubmittedAtBlock:  height,
-		Status:            types.ClaimStatus_CLAIM_STATUS_PENDING,
-		Stake:             msg.Stake,
-		ProvisionalFactId: msg.FactId, // Track challenged fact for resolution
+		ReviewPolicyVersion: reviewPolicy,
+		Id:                  challengeClaimID,
+		FactContent:         fmt.Sprintf("Provisional challenge of fact %s: %s", msg.FactId, msg.Reason),
+		Domain:              fact.Domain,
+		Category:            fact.Category,
+		Submitter:           msg.Challenger,
+		SubmittedAtBlock:    height,
+		Status:              types.ClaimStatus_CLAIM_STATUS_PENDING,
+		Stake:               msg.Stake,
+		ProvisionalFactId:   msg.FactId, // Track challenged fact for resolution
 	}
 	if enabled {
 		challengeClaim.ArgumentText = msg.Reason
@@ -979,6 +1010,10 @@ func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.Msg
 }
 
 func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmitContradiction) (*types.MsgSubmitContradictionResponse, error) {
+	reviewPolicy, err := m.keeper.reviewPolicyAtAdmission(ctx)
+	if err != nil {
+		return nil, err
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
@@ -1001,6 +1036,9 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 		if !ok || stakeAmt.Sign() <= 0 {
 			return nil, fmt.Errorf("invalid stake amount: %s", msg.Stake)
 		}
+		if reviewPolicy == 1 && !stakeAmt.IsUint64() {
+			return nil, fmt.Errorf("challenge collateral exceeds uint64 accounting range")
+		}
 		submitterAddr, err := sdk.AccAddressFromBech32(msg.Submitter)
 		if err != nil {
 			return nil, err
@@ -1020,15 +1058,16 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 	counterClaimID := GenerateClaimID(msg.Submitter, contentHash, height)
 
 	claim := &types.Claim{
-		Id:               counterClaimID,
-		FactContent:      msg.CounterClaim,
-		Domain:           domain,
-		Category:         msg.Category,
-		Submitter:        msg.Submitter,
-		SubmittedAtBlock: height,
-		Status:           types.ClaimStatus_CLAIM_STATUS_PENDING,
-		Stake:            msg.Stake,
-		ContentHash:      contentHash,
+		ReviewPolicyVersion: reviewPolicy,
+		Id:                  counterClaimID,
+		FactContent:         msg.CounterClaim,
+		Domain:              domain,
+		Category:            msg.Category,
+		Submitter:           msg.Submitter,
+		SubmittedAtBlock:    height,
+		Status:              types.ClaimStatus_CLAIM_STATUS_PENDING,
+		Stake:               msg.Stake,
+		ContentHash:         contentHash,
 		// Record the CONTRADICTS edge on the counter-claim (mirrors SubmitClaim).
 		// Without it, reverseContradictionsFromClaim — the only path that clears
 		// CONTESTED — has nothing to iterate, so a starved or rejected

@@ -48,8 +48,15 @@ func (k Keeper) GetTrainingAttestation(ctx context.Context, pipelineID string) (
 // The reverse index marks every (fact_id → model_id) pair so FactContributors
 // returns in O(n) per fact rather than scanning all models.
 func (k Keeper) SetContributionRecord(ctx context.Context, r *types.ContributionRecord) error {
-	if r == nil || r.ModelId == "" {
-		return fmt.Errorf("invalid contribution record")
+	if err := types.ValidateContributionRecord(r); err != nil {
+		return err
+	}
+	if hasUnknownRecordFields(r.ProtoReflect()) {
+		return fmt.Errorf("contribution record contains unsupported fields")
+	}
+	// Do not overwrite an unsupported historical record with a new declaration.
+	if _, _, err := k.GetContributionRecordChecked(ctx, r.ModelId); err != nil {
+		return err
 	}
 	store := k.storeService.OpenKVStore(ctx)
 	bz, err := marshalOpts.Marshal(r)
@@ -73,19 +80,8 @@ func (k Keeper) SetContributionRecord(ctx context.Context, r *types.Contribution
 
 // GetContributionRecord fetches the record for a model.
 func (k Keeper) GetContributionRecord(ctx context.Context, modelID string) (*types.ContributionRecord, bool) {
-	if modelID == "" {
-		return nil, false
-	}
-	store := k.storeService.OpenKVStore(ctx)
-	bz, err := store.Get(types.ContributionByModelKey(modelID))
-	if err != nil || bz == nil {
-		return nil, false
-	}
-	var r types.ContributionRecord
-	if err := proto.Unmarshal(bz, &r); err != nil {
-		return nil, false
-	}
-	return &r, true
+	record, found, err := k.GetContributionRecordChecked(ctx, modelID)
+	return record, found && err == nil
 }
 
 // GetModelsThatUsedFact walks the reverse index to return all models that

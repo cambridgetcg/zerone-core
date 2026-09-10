@@ -222,6 +222,7 @@ func TestMoat_CalibrationSnapshotFrozenAtAcceptance(t *testing.T) {
 // the moat depends on.
 func TestMoat_ChallengeStakeSettled(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -318,6 +319,7 @@ func TestMoat_HighConfidenceFactsCheaperToProbe(t *testing.T) {
 // for is the one the community didn't see coming.
 func TestMoat_SuccessfulChallengeRewardScalesWithTargetConfidence(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -446,6 +448,7 @@ func TestMoat_TVWHardensWithSurvivedAttacks(t *testing.T) {
 // has positive expected value for attempting a probe.
 func TestMoat_FailedProbesEarnParticipationReward(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -504,6 +507,7 @@ func TestMoat_FailedProbesEarnParticipationReward(t *testing.T) {
 // amplified rewards.
 func TestMoat_AugmentationPanelStakeWeighted(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -583,6 +587,7 @@ func TestMoat_AugmentationPanelStakeWeighted(t *testing.T) {
 // confidence facts don't.
 func TestMoat_HeartbeatInvitesIdleHighConfidenceFacts(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -652,6 +657,7 @@ func TestMoat_HeartbeatInvitesIdleHighConfidenceFacts(t *testing.T) {
 // signal, not a permanent flag.
 func TestMoat_ProbeInvitationClearsOnCorroboration(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -699,6 +705,7 @@ func TestMoat_ProbeInvitationClearsOnCorroboration(t *testing.T) {
 // disabled until governance reviews and sets a positive rate.
 func TestMoat_ProbeBountyPoolAccumulatesAndFundsBonuses(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 	params, err := h.KnowledgeKeeper.GetParams(h.Ctx)
@@ -742,6 +749,7 @@ func TestMoat_ProbeBountyPoolAccumulatesAndFundsBonuses(t *testing.T) {
 // Stops unbounded inflation from a perpetually-minting heartbeat.
 func TestMoat_ProbeBountyPoolRespectsCap(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -770,6 +778,7 @@ func TestMoat_ProbeBountyPoolRespectsCap(t *testing.T) {
 // stake AND skill — two independent rare resources.
 func TestMoat_PanelWeightedByStakeTimesCalibration(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -847,6 +856,7 @@ func TestMoat_PanelWeightedByStakeTimesCalibration(t *testing.T) {
 // paying for.
 func TestMoat_InvitationBonusPaidToAnswerer(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 

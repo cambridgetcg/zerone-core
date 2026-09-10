@@ -3211,8 +3211,10 @@ type ContributionRecord struct {
 	// parallel to fact_ids[]. Used in TVW computation; kept here so the audit
 	// trail shows exactly what weights were assigned.
 	PerFactCalibrationBps []uint64 `protobuf:"varint,8,rep,packed,name=per_fact_calibration_bps,json=perFactCalibrationBps,proto3" json:"per_fact_calibration_bps,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// 0 is the historical score projection; 1 records an owner declaration without valuation.
+	AttributionPolicyVersion uint32 `protobuf:"varint,9,opt,name=attribution_policy_version,json=attributionPolicyVersion,proto3" json:"attribution_policy_version,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *ContributionRecord) Reset() {
@@ -3299,6 +3301,13 @@ func (x *ContributionRecord) GetPerFactCalibrationBps() []uint64 {
 		return x.PerFactCalibrationBps
 	}
 	return nil
+}
+
+func (x *ContributionRecord) GetAttributionPolicyVersion() uint32 {
+	if x != nil {
+		return x.AttributionPolicyVersion
+	}
+	return 0
 }
 
 // AugmentationBounty is an open offer to produce variant formulations of a
@@ -4338,8 +4347,10 @@ type Claim struct {
 	CounterClaim string `protobuf:"bytes,26,opt,name=counter_claim,json=counterClaim,proto3" json:"counter_claim,omitempty"`
 	// Exact optional original-claim ID asserted by a provisional challenge.
 	ChallengedClaimId string `protobuf:"bytes,27,opt,name=challenged_claim_id,json=challengedClaimId,proto3" json:"challenged_claim_id,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Immutable admission terms: 0 preserves predecessor economics; 1 records neutral review work.
+	ReviewPolicyVersion uint32 `protobuf:"varint,28,opt,name=review_policy_version,json=reviewPolicyVersion,proto3" json:"review_policy_version,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *Claim) Reset() {
@@ -4561,6 +4572,13 @@ func (x *Claim) GetChallengedClaimId() string {
 	return ""
 }
 
+func (x *Claim) GetReviewPolicyVersion() uint32 {
+	if x != nil {
+		return x.ReviewPolicyVersion
+	}
+	return 0
+}
+
 // VerificationRound tracks one commit-reveal verification cycle.
 type VerificationRound struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
@@ -4581,8 +4599,10 @@ type VerificationRound struct {
 	// Original creation chain for scheme 2; preserved on export/import.
 	CommitmentChainId        string                    `protobuf:"bytes,14,opt,name=commitment_chain_id,json=commitmentChainId,proto3" json:"commitment_chain_id,omitempty"`
 	VerifierRewardSettlement *VerifierRewardSettlement `protobuf:"bytes,15,opt,name=verifier_reward_settlement,json=verifierRewardSettlement,proto3" json:"verifier_reward_settlement,omitempty"`
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
+	// Copied from the claim; independent of commitment framing and block height.
+	ReviewPolicyVersion uint32 `protobuf:"varint,16,opt,name=review_policy_version,json=reviewPolicyVersion,proto3" json:"review_policy_version,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *VerificationRound) Reset() {
@@ -4718,6 +4738,13 @@ func (x *VerificationRound) GetVerifierRewardSettlement() *VerifierRewardSettlem
 		return x.VerifierRewardSettlement
 	}
 	return nil
+}
+
+func (x *VerificationRound) GetReviewPolicyVersion() uint32 {
+	if x != nil {
+		return x.ReviewPolicyVersion
+	}
+	return 0
 }
 
 // ReviewAttestation records what the signer says they checked. It is not proof
@@ -8729,7 +8756,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x12completed_at_block\x18\x05 \x01(\x04R\x10completedAtBlock\x12\x1b\n" +
 	"\teval_hash\x18\x06 \x01(\tR\bevalHash\x12\x1c\n" +
 	"\tsignature\x18\a \x01(\tR\tsignature\x12\x14\n" +
-	"\x05notes\x18\b \x01(\tR\x05notes\"\xda\x02\n" +
+	"\x05notes\x18\b \x01(\tR\x05notes\"\x98\x03\n" +
 	"\x12ContributionRecord\x12\x19\n" +
 	"\bmodel_id\x18\x01 \x01(\tR\amodelId\x12\x19\n" +
 	"\bfact_ids\x18\x02 \x03(\tR\afactIds\x12#\n" +
@@ -8738,7 +8765,8 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\ftotal_weight\x18\x05 \x01(\x04R\vtotalWeight\x12!\n" +
 	"\fcomputed_tvw\x18\x06 \x01(\x04R\vcomputedTvw\x12:\n" +
 	"\x19rejected_commitment_count\x18\a \x01(\rR\x17rejectedCommitmentCount\x127\n" +
-	"\x18per_fact_calibration_bps\x18\b \x03(\x04R\x15perFactCalibrationBps\"\xcb\x03\n" +
+	"\x18per_fact_calibration_bps\x18\b \x03(\x04R\x15perFactCalibrationBps\x12<\n" +
+	"\x1aattribution_policy_version\x18\t \x01(\rR\x18attributionPolicyVersion\"\xcb\x03\n" +
 	"\x12AugmentationBounty\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
 	"\x0fsponsor_address\x18\x02 \x01(\tR\x0esponsorAddress\x12$\n" +
@@ -8844,7 +8872,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\vpenalty_bps\x18\x05 \x01(\x04R\n" +
 	"penaltyBps\x12\x1f\n" +
 	"\vadded_block\x18\x06 \x01(\x04R\n" +
-	"addedBlock\"\xdd\b\n" +
+	"addedBlock\"\x91\t\n" +
 	"\x05Claim\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
 	"\ffact_content\x18\x02 \x01(\tR\vfactContent\x12\x16\n" +
@@ -8876,7 +8904,8 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x17falsification_predicate\x18\x18 \x01(\tR\x16falsificationPredicate\x12!\n" +
 	"\fevidence_ids\x18\x19 \x03(\tR\vevidenceIds\x12#\n" +
 	"\rcounter_claim\x18\x1a \x01(\tR\fcounterClaim\x12.\n" +
-	"\x13challenged_claim_id\x18\x1b \x01(\tR\x11challengedClaimId\"\xf9\x05\n" +
+	"\x13challenged_claim_id\x18\x1b \x01(\tR\x11challengedClaimId\x122\n" +
+	"\x15review_policy_version\x18\x1c \x01(\rR\x13reviewPolicyVersion\"\xad\x06\n" +
 	"\x11VerificationRound\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bclaim_id\x18\x02 \x01(\tR\aclaimId\x12(\n" +
@@ -8893,7 +8922,8 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x14aggregation_deadline\x18\f \x01(\x04R\x13aggregationDeadline\x12+\n" +
 	"\x11commitment_scheme\x18\r \x01(\rR\x10commitmentScheme\x12.\n" +
 	"\x13commitment_chain_id\x18\x0e \x01(\tR\x11commitmentChainId\x12k\n" +
-	"\x1averifier_reward_settlement\x18\x0f \x01(\v2-.zerone.knowledge.v1.VerifierRewardSettlementR\x18verifierRewardSettlement\"\x81\x01\n" +
+	"\x1averifier_reward_settlement\x18\x0f \x01(\v2-.zerone.knowledge.v1.VerifierRewardSettlementR\x18verifierRewardSettlement\x122\n" +
+	"\x15review_policy_version\x18\x10 \x01(\rR\x13reviewPolicyVersion\"\x81\x01\n" +
 	"\x11ReviewAttestation\x12\x1b\n" +
 	"\tmethod_id\x18\x01 \x01(\tR\bmethodId\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\x12!\n" +

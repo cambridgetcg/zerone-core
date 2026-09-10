@@ -1404,8 +1404,10 @@ type GenesisState struct {
 	StatusTransitions        []*StatusTransition        `protobuf:"bytes,64,rep,name=status_transitions,json=statusTransitions,proto3" json:"status_transitions,omitempty"`
 	CascadeEvents            []*CascadeEvent            `protobuf:"bytes,65,rep,name=cascade_events,json=cascadeEvents,proto3" json:"cascade_events,omitempty"`
 	StatusTransitionCounters []*StatusTransitionCounter `protobuf:"bytes,66,rep,name=status_transition_counters,json=statusTransitionCounters,proto3" json:"status_transition_counters,omitempty"`
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
+	// Execution policy selection; imports preserve records without inventing upgrade receipts.
+	ReviewNeutralityEnabled bool `protobuf:"varint,67,opt,name=review_neutrality_enabled,json=reviewNeutralityEnabled,proto3" json:"review_neutrality_enabled,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -1646,6 +1648,13 @@ func (x *GenesisState) GetStatusTransitionCounters() []*StatusTransitionCounter 
 		return x.StatusTransitionCounters
 	}
 	return nil
+}
+
+func (x *GenesisState) GetReviewNeutralityEnabled() bool {
+	if x != nil {
+		return x.ReviewNeutralityEnabled
+	}
+	return false
 }
 
 // Preserves the allocated status-history sequence even when retained history has gaps.
@@ -1953,7 +1962,7 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x1badd_fact_veto_window_blocks\x18\xa0\x01 \x01(\x04R\x17addFactVetoWindowBlocks\x1aN\n" +
 	" MethodologyNormalizationBpsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\xe4\x12\n" +
+	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\xa0\x13\n" +
 	"\fGenesisState\x123\n" +
 	"\x06params\x18\x01 \x01(\v2\x1b.zerone.knowledge.v1.ParamsR\x06params\x12/\n" +
 	"\x05facts\x18\x02 \x03(\v2\x19.zerone.knowledge.v1.FactR\x05facts\x12A\n" +
@@ -1985,7 +1994,8 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x10completed_rounds\x18? \x03(\v2&.zerone.knowledge.v1.VerificationRoundR\x0fcompletedRounds\x12T\n" +
 	"\x12status_transitions\x18@ \x03(\v2%.zerone.knowledge.v1.StatusTransitionR\x11statusTransitions\x12H\n" +
 	"\x0ecascade_events\x18A \x03(\v2!.zerone.knowledge.v1.CascadeEventR\rcascadeEvents\x12j\n" +
-	"\x1astatus_transition_counters\x18B \x03(\v2,.zerone.knowledge.v1.StatusTransitionCounterR\x18statusTransitionCounters\"N\n" +
+	"\x1astatus_transition_counters\x18B \x03(\v2,.zerone.knowledge.v1.StatusTransitionCounterR\x18statusTransitionCounters\x12:\n" +
+	"\x19review_neutrality_enabled\x18C \x01(\bR\x17reviewNeutralityEnabled\"N\n" +
 	"\x17StatusTransitionCounter\x12\x17\n" +
 	"\afact_id\x18\x01 \x01(\tR\x06factId\x12\x1a\n" +
 	"\bsequence\x18\x02 \x01(\x04R\bsequence\"\xe0\x01\n" +

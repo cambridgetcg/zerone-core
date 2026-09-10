@@ -78,22 +78,17 @@ func (k Keeper) IterateTrainingAttestations(ctx context.Context, cb func(*types.
 }
 
 // IterateContributionRecords yields every stored ContributionRecord.
-func (k Keeper) IterateContributionRecords(ctx context.Context, cb func(*types.ContributionRecord) bool) {
-	store := k.storeService.OpenKVStore(ctx)
-	iter, err := store.Iterator(types.ContributionByModelKeyPrefix, prefixEndBytes(types.ContributionByModelKeyPrefix))
+func (k Keeper) IterateContributionRecords(ctx context.Context, cb func(*types.ContributionRecord) bool) error {
+	records, err := k.GetAllContributionRecordsChecked(ctx)
 	if err != nil {
-		return
+		return err
 	}
-	defer iter.Close()
-	for ; iter.Valid(); iter.Next() {
-		var r types.ContributionRecord
-		if err := proto.Unmarshal(iter.Value(), &r); err != nil {
-			continue
-		}
-		if cb(&r) {
-			return
+	for _, record := range records {
+		if cb(record) {
+			return nil
 		}
 	}
+	return nil
 }
 
 // SetTokenizerSpecHistory writes only the history entry for a given

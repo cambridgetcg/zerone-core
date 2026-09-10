@@ -19,20 +19,36 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/internal/recordmigration"
+	knowledgemodule "github.com/zerone-chain/zerone/x/knowledge"
 	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
-func recordIntegritySourceFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {
+type archivedRecordKnowledgeModule struct{ knowledgemodule.AppModule }
+
+func (archivedRecordKnowledgeModule) ConsensusVersion() uint64 { return 8 }
+func freezeRecordCompiledTarget(app *ZeroneApp) {
+	app.ModuleManager.Modules["knowledge"] = archivedRecordKnowledgeModule{app.ModuleManager.Modules["knowledge"].(knowledgemodule.AppModule)}
+}
+func newFrozenRecordFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {
 	t.Helper()
 	app, ctx, db := newAccountingAuthorityFixture(t)
+	freezeRecordCompiledTarget(app)
+	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey))
+	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, recordIntegrityTargetVersionMap()))
+	return app, ctx, db
+}
+
+func recordIntegritySourceFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {
+	t.Helper()
+	app, ctx, db := newFrozenRecordFixture(t)
 	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.RecordIntegrityEnabledStoreKey))
 	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, recordIntegritySourceVersionMap()))
 	return app, ctx, db
 }
 
 func TestRecordIntegrityOwnsExactVersionBoundary(t *testing.T) {
-	app, _, _ := newAccountingAuthorityFixture(t)
+	app, _, _ := newFrozenRecordFixture(t)
 	source, target := recordIntegritySourceVersionMap(), recordIntegrityTargetVersionMap()
 	require.Equal(t, target, app.CurrentModuleVersionMap())
 	require.Equal(t, uint64(7), survivalHandoffTargetVersionMap()["knowledge"])
@@ -84,7 +100,10 @@ func TestRecordIntegrityMigrationPreservesLegacyRoundsAndRestarts(t *testing.T) 
 	require.NoError(t, app.ValidateAccountingAuthorityStartup())
 	require.Error(t, app.UpgradeKeeper.ApplyUpgrade(ctx, plan))
 
-	restarted := NewZeroneApp(log.NewNopLogger(), db, nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(ctx.ChainID()))
+	restarted := NewZeroneApp(log.NewNopLogger(), db, nil, false, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(ctx.ChainID()))
+	freezeRecordCompiledTarget(restarted)
+	require.NoError(t, restarted.LoadLatestVersion())
+	require.NoError(t, restarted.ValidateAccountingAuthorityStartup())
 	rctx := restarted.NewUncachedContext(false, cmtproto.Header{Height: plan.Height, ChainID: ctx.ChainID()})
 	require.Equal(t, before, rctx.KVStore(restarted.keys["knowledge"]).Get(key))
 	newClaim := &knowledgetypes.Claim{Id: "new-claim", Domain: "general", FactContent: "New separately authored contribution", Stake: "100000"}
@@ -105,7 +124,9 @@ func TestRecordIntegrityMigrationPreservesLegacyRoundsAndRestarts(t *testing.T) 
 	require.NoError(t, err)
 	raw, err := json.Marshal(genesis)
 	require.NoError(t, err)
-	imported := NewZeroneApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID("record-import"))
+	imported := NewZeroneApp(log.NewNopLogger(), dbm.NewMemDB(), nil, false, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID("record-import"))
+	freezeRecordCompiledTarget(imported)
+	require.NoError(t, imported.LoadLatestVersion())
 	ictx := imported.NewUncachedContext(false, cmtproto.Header{ChainID: "record-import"})
 	_, err = imported.InitChainer(ictx, &abci.RequestInitChain{ChainId: "record-import", AppStateBytes: raw})
 	require.NoError(t, err)
@@ -163,7 +184,7 @@ func TestRecordIntegrityRejectsSourceOrMigrationCorruptionAtomically(t *testing.
 func TestRecordIntegrityTargetRequiresNativeSelectionAndCoherentReceipt(t *testing.T) {
 	for _, scenario := range []string{"missing selection", "false selection", "marker only", "done only", "future done", "corrupt enabled"} {
 		t.Run(scenario, func(t *testing.T) {
-			app, ctx, _ := newAccountingAuthorityFixture(t)
+			app, ctx, _ := newFrozenRecordFixture(t)
 			if scenario == "missing selection" || scenario == "false selection" {
 				genesis := sdk053IBC10GenesisWithValidator(t, app)
 				var knowledge map[string]json.RawMessage

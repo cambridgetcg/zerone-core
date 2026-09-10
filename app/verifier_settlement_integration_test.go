@@ -211,6 +211,12 @@ func TestRecordIntegritySubmissionSplitFailureRollsBackFeeAndSponsorship(t *test
 	for _, sponsored := range []bool{false, true} {
 		t.Run(fmt.Sprintf("sponsored=%t", sponsored), func(t *testing.T) {
 			app, ctx := settlementFixture(t)
+			if sponsored {
+				// Explicit predecessor fixture: sponsorship is retired for
+				// newly admitted neutral-policy claims. This case tests the
+				// existing sponsored fee batch's rollback, not new admission.
+				ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey))
+			}
 			submitter := settlementAddress(111)
 			coins := sdk.NewCoins(sdk.NewInt64Coin("uzrn", 2200000))
 			require.NoError(t, app.BankKeeper.MintCoins(ctx, knowledgetypes.BootstrapFundModuleName, coins))

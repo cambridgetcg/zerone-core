@@ -4,6 +4,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/zerone-chain/zerone/internal/recordmigration"
+	"github.com/zerone-chain/zerone/internal/reviewmigration"
 	"github.com/zerone-chain/zerone/internal/survivalmigration"
 	v3 "github.com/zerone-chain/zerone/x/knowledge/migrations/v3"
 	v4 "github.com/zerone-chain/zerone/x/knowledge/migrations/v4"
@@ -87,6 +88,25 @@ func (m Migrator) Migrate7to8(ctx sdk.Context) error {
 		return err
 	}
 	if err := m.keeper.WriteMigrationMarker(cache, "migration_v8_complete", "true"); err != nil {
+		return err
+	}
+	write()
+	return nil
+}
+
+// Migrate8to9 changes future admission terms without rewriting old obligations.
+func (m Migrator) Migrate8to9(ctx sdk.Context) error {
+	if err := reviewmigration.Require(ctx); err != nil {
+		return err
+	}
+	cache, write := ctx.CacheContext()
+	if err := m.keeper.ValidateReviewNeutralityActivation(cache); err != nil {
+		return err
+	}
+	if err := m.keeper.EnableReviewNeutrality(cache); err != nil {
+		return err
+	}
+	if err := m.keeper.WriteMigrationMarker(cache, "migration_v9_complete", "true"); err != nil {
 		return err
 	}
 	write()

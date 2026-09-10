@@ -58,6 +58,14 @@ const message = liquidityPoolMessages.fromPartial.swap({
 The generated custom messages support protobuf/direct signing. This package
 does not claim legacy Amino converters for them.
 
+Current source also records immutable `reviewPolicyVersion` on claims and
+rounds: `0` preserves predecessor terms and `1` selects equal-account, valid-review
+fee settlement after the named review-neutrality boundary. This field is separate
+from `commitmentScheme`; do not infer economics from the hash version or height.
+New contribution records use `attributionPolicyVersion=1` for owner declarations
+without computed valuation. The generated codecs preserve these fields. These
+source capabilities do not establish availability on the legacy live network.
+
 ## Reasoned review commitments
 
 `knowledge-record-integrity-v1` gives newly created rounds `commitment_scheme=2`.

@@ -6,6 +6,9 @@ import "fmt"
 // records remain scheme 0; enabling a native/imported genesis does not upgrade
 // their payload, review confidence or historical payment representation.
 func ValidateGenesisRounds(gs *GenesisState) error {
+	if gs.ReviewNeutralityEnabled && !gs.RecordIntegrityEnabled {
+		return fmt.Errorf("review neutrality requires record integrity")
+	}
 	claims := make(map[string]*Claim, len(gs.PendingClaims))
 	for _, claim := range gs.PendingClaims {
 		if claim == nil || claim.Id == "" {
@@ -13,6 +16,9 @@ func ValidateGenesisRounds(gs *GenesisState) error {
 		}
 		if _, exists := claims[claim.Id]; exists {
 			return fmt.Errorf("duplicate claim ID: %s", claim.Id)
+		}
+		if err := ValidateReviewPolicyVersion(claim.ReviewPolicyVersion, gs.ReviewNeutralityEnabled); err != nil {
+			return err
 		}
 		claims[claim.Id] = claim
 	}
@@ -29,11 +35,17 @@ func ValidateGenesisRounds(gs *GenesisState) error {
 			if seen[round.Id] != nil {
 				return fmt.Errorf("duplicate verification round ID: %s", round.Id)
 			}
+			if err := ValidateReviewPolicyVersion(round.ReviewPolicyVersion, gs.ReviewNeutralityEnabled); err != nil {
+				return err
+			}
 			seen[round.Id] = round
 			counts[round.ClaimId]++
 			terminal := round.Phase == VerificationPhase_VERIFICATION_PHASE_COMPLETE || round.Phase == VerificationPhase_VERIFICATION_PHASE_EXPIRED
 			if terminal != group.terminal {
 				return fmt.Errorf("genesis round %s is in wrong active/completed collection", round.Id)
+			}
+			if claim := claims[round.ClaimId]; claim != nil && claim.ReviewPolicyVersion != round.ReviewPolicyVersion {
+				return fmt.Errorf("genesis claim/round review policy mismatch")
 			}
 			if claims[round.ClaimId] == nil {
 				return fmt.Errorf("genesis round %s references missing claim %s", round.Id, round.ClaimId)

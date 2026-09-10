@@ -199,7 +199,8 @@ func setupKnowledgeTest(t *testing.T) (keeper.Keeper, sdk.Context) {
 
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 100}, false, log.NewNopLogger())
 	gs := types.DefaultGenesis()
-	gs.RecordIntegrityEnabled = false // This shared fixture exercises historical record semantics.
+	gs.ReviewNeutralityEnabled = false // This fixture exercises legacy review economics.
+	gs.RecordIntegrityEnabled = false  // This shared fixture exercises historical record semantics.
 	require.NoError(t, k.InitGenesis(ctx, gs))
 
 	return k, ctx
@@ -209,7 +210,8 @@ func setupKnowledgeTest(t *testing.T) (keeper.Keeper, sdk.Context) {
 func setupKnowledgeTestWithBank(t *testing.T) (keeper.Keeper, sdk.Context, *trackingBankKeeper) {
 	t.Helper()
 	gs := types.DefaultGenesis()
-	gs.RecordIntegrityEnabled = false // Native record-integrity tests opt in explicitly.
+	gs.ReviewNeutralityEnabled = false // This fixture exercises legacy review economics.
+	gs.RecordIntegrityEnabled = false  // Native record-integrity tests opt in explicitly.
 	// Most legacy keeper tests exercise sponsored-claim accounting and need a
 	// funded pool. Keep that funding explicit in the test fixture; it is not
 	// the protocol DefaultGenesis contract.
@@ -275,6 +277,7 @@ func setupKnowledgeTestFull(t *testing.T) (keeper.Keeper, sdk.Context, *tracking
 
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 100}, false, log.NewNopLogger())
 	gs := types.DefaultGenesis()
+	gs.ReviewNeutralityEnabled = false // This fixture exercises legacy review economics.
 	gs.RecordIntegrityEnabled = false
 	require.NoError(t, k.InitGenesis(ctx, gs))
 

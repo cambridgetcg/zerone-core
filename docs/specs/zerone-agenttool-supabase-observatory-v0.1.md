@@ -3,7 +3,7 @@
 - Protocol: `zerone-agenttool-supabase-observatory/0.1`
 - Status: `SOURCE_ONLY_OFFLINE_NO_EFFECT`
 - Decision: `COHERENT_SOURCE_ONLY`
-- Observation cutoff: `2026-09-10T20:33:45Z`
+- Observation cutoff: `2026-09-10T22:13:46Z`
 - Zerone unchanged-source baseline: `264f3c383f408729f4d0c27d332cd454c9eb4400`
 - AgentTool baseline revision: `796a753ab8624ad11af621ef4572544ea3b8f463`
 - Runtime integration: none
@@ -12,7 +12,7 @@
 The machine-readable contract is
 [`tools/zerone-supabase-observatory/protocol/manifest.v0.1.json`](../../tools/zerone-supabase-observatory/protocol/manifest.v0.1.json).
 Its raw SHA-256 at this revision is
-`7c6901518b74856cef41eda56c8ab9af6ba05ba6e80b439394a27a7bc25b828f`.
+`875e6bb10110585d05f9f88987028a62d4366d3561c402830dcd0e4d91a7f28d`.
 
 ## 1. Purpose
 
@@ -238,3 +238,10 @@ Research Commons sources, to commit `3f91dddf41c70595da8cc611306fb1ae912ea0c4`.
 The graph digest scope, observation semantics, schema, fixtures, external
 AgentTool baseline and all effect and activation gates remain unchanged. This
 is a local source-pin refresh; it creates no hosted or cross-owner execution.
+
+The 2026-09-10 review-neutrality refresh binds the two changed Zerone Research
+Commons sources to commit `a01e53b2ec487fe9cb96f8eea1256e34bce08e90`. Unchanged ToK
+source bytes retain their previous exact revisions. Observation semantics,
+schema, fixtures, the external AgentTool baseline, pending bindings and all
+effect and activation gates remain unchanged. This refresh records source
+compatibility only; it creates no hosted execution or chain activation.

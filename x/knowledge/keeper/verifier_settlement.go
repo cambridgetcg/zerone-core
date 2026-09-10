@@ -38,6 +38,9 @@ func (k Keeper) getVerificationRoundChecked(ctx context.Context, id string) (*ty
 	if bz == nil {
 		return nil, fmt.Errorf("verification round %s not found", id)
 	}
+	if err := types.ValidateRawPolicyField(bz, types.RoundReviewPolicyField); err != nil {
+		return nil, err
+	}
 	var round types.VerificationRound
 	if err := proto.Unmarshal(bz, &round); err != nil {
 		return nil, fmt.Errorf("decode verification round %s: %w", id, err)
@@ -86,9 +89,13 @@ func (k Keeper) buildVerifierRewardSettlement(ctx context.Context, claim *types.
 		if i == 0 {
 			amount += remainder
 		}
-		modulated, err := k.checkedIndependenceMultiplier(ctx, reward.Verifier, amount, params)
-		if err != nil {
-			return err
+		modulated := amount
+		if round.ReviewPolicyVersion == types.ReviewPolicyLegacy {
+			var err error
+			modulated, err = k.checkedIndependenceMultiplier(ctx, reward.Verifier, amount, params)
+			if err != nil {
+				return err
+			}
 		}
 		withheld := amount - modulated
 		withheldTotal += withheld
@@ -303,6 +310,9 @@ func (k Keeper) RebuildPendingVerifierRewardIndex(ctx context.Context) error {
 	}
 	var scanErr error
 	for ; it.Valid(); it.Next() {
+		if scanErr = types.ValidateRawPolicyField(it.Value(), types.RoundReviewPolicyField); scanErr != nil {
+			break
+		}
 		var round types.VerificationRound
 		if scanErr = proto.Unmarshal(it.Value(), &round); scanErr != nil {
 			break

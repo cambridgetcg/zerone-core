@@ -125,9 +125,14 @@ func (k Keeper) RecordSubmissionOutcome(
 	submitter string,
 	methodId string,
 	verdict types.Verdict,
-) {
+) error {
+	neutral, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil || neutral {
+		return err
+	}
+
 	if submitter == "" {
-		return
+		return nil
 	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
@@ -159,6 +164,7 @@ func (k Keeper) RecordSubmissionOutcome(
 	c.LastUpdatedBlock = height
 	_ = k.SetAgentCalibration(ctx, c)
 	k.EmitCalibrationUpdated(ctx, c)
+	return nil
 }
 
 // RecordCorroborationForSubmitter is called from handleChallengeSurvival
@@ -167,9 +173,14 @@ func (k Keeper) RecordCorroborationForSubmitter(
 	ctx context.Context,
 	submitter string,
 	methodId string,
-) {
+) error {
+	neutral, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil || neutral {
+		return err
+	}
+
 	if submitter == "" {
-		return
+		return nil
 	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
@@ -183,6 +194,7 @@ func (k Keeper) RecordCorroborationForSubmitter(
 	c.LastUpdatedBlock = height
 	_ = k.SetAgentCalibration(ctx, c)
 	k.EmitCalibrationUpdated(ctx, c)
+	return nil
 }
 
 // RecordDisprovalForSubmitter is called from cascadeFalsification / direct
@@ -191,9 +203,14 @@ func (k Keeper) RecordDisprovalForSubmitter(
 	ctx context.Context,
 	submitter string,
 	methodId string,
-) {
+) error {
+	neutral, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil || neutral {
+		return err
+	}
+
 	if submitter == "" {
-		return
+		return nil
 	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
@@ -207,6 +224,7 @@ func (k Keeper) RecordDisprovalForSubmitter(
 	c.LastUpdatedBlock = height
 	_ = k.SetAgentCalibration(ctx, c)
 	k.EmitCalibrationUpdated(ctx, c)
+	return nil
 }
 
 // RecordChallengeOutcome tracks the challenger's side of the ledger. A
@@ -215,9 +233,14 @@ func (k Keeper) RecordChallengeOutcome(
 	ctx context.Context,
 	challenger string,
 	succeeded bool,
-) {
+) error {
+	neutral, err := k.ReviewNeutralityEnabled(ctx)
+	if err != nil || neutral {
+		return err
+	}
+
 	if challenger == "" {
-		return
+		return nil
 	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
@@ -233,6 +256,7 @@ func (k Keeper) RecordChallengeOutcome(
 	c.LastUpdatedBlock = height
 	_ = k.SetAgentCalibration(ctx, c)
 	k.EmitCalibrationUpdated(ctx, c)
+	return nil
 }
 
 // ─── Score computation ──────────────────────────────────────────────────

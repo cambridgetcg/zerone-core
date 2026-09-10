@@ -2,7 +2,10 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 	"math/big"
+
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -19,7 +22,8 @@ type VerificationResult struct {
 	RejectCount uint64 // raw headcount (not stake-weighted) for diversity
 }
 
-// VerifierReward records a reward amount for a correct verifier.
+// VerifierReward identifies a reviewer eligible for the round's fee pool.
+// Amount is a legacy calculation; actual settlement divides the fixed pool.
 type VerifierReward struct {
 	Verifier string
 	Amount   uint64
@@ -32,8 +36,13 @@ type VerifierSlash struct {
 	VindicationEligible bool // true for wrong-vote slashes, false for missed-reveal/equivocation
 }
 
-// AggregateVerificationResult performs stake-weighted vote aggregation.
+// AggregateVerificationResult preserves legacy weighting for policy 0. Policy 1
+// counts declared accounts equally; the count is not proof of independence or truth.
 func (k Keeper) AggregateVerificationResult(ctx context.Context, round *types.VerificationRound) (*VerificationResult, error) {
+	policy, err := k.reviewPolicyForRound(ctx, round)
+	if err != nil {
+		return nil, err
+	}
 	params, err := k.GetParams(ctx)
 	if err != nil {
 		return nil, err
@@ -43,8 +52,8 @@ func (k Keeper) AggregateVerificationResult(ctx context.Context, round *types.Ve
 	var acceptStake, rejectStake, malformedStake, totalVoteStake uint64
 
 	for _, reveal := range round.Reveals {
-		var stake uint64
-		if k.stakingKeeper != nil {
+		stake := uint64(1)
+		if policy == types.ReviewPolicyLegacy && k.stakingKeeper != nil {
 			s, err := k.stakingKeeper.GetEffectiveStake(ctx, reveal.Verifier)
 			if err == nil {
 				stake = s
@@ -55,7 +64,7 @@ func (k Keeper) AggregateVerificationResult(ctx context.Context, round *types.Ve
 		}
 
 		// Apply agent verification bonus (R28-5), modulated by domain role elasticity (R29-3)
-		if params.AgentVerificationBonusBps > 0 {
+		if policy == types.ReviewPolicyLegacy && params.AgentVerificationBonusBps > 0 {
 			accountType := k.getAccountType(ctx, reveal.Verifier)
 			if accountType == "agent" {
 				domain := k.getDomainForRound(ctx, round)
@@ -87,10 +96,19 @@ func (k Keeper) AggregateVerificationResult(ctx context.Context, round *types.Ve
 	}
 
 	result := &VerificationResult{}
+	if policy == types.ReviewPolicyNeutral {
+		// Admission and the bound commitment check establish valid, on-time
+		// reviews. Dissent, malformed verdicts and missing quorum do not erase
+		// that work. A missed reveal creates no reward and no monetary debt.
+		for _, reveal := range round.Reveals {
+			result.Rewards = append(result.Rewards, VerifierReward{Verifier: reveal.Verifier})
+		}
+		result.AcceptCount, result.RejectCount = rawAccept, rawReject
+	}
 
 	// Check quorum: total reveals must be >= effective minimum (base + partnership + override).
 	effectiveMin := uint64(params.MinVerifiers)
-	if claim, found := k.GetClaim(ctx, round.ClaimId); found && claim.Domain != "" {
+	if claim, found := k.GetClaim(ctx, round.ClaimId); policy == types.ReviewPolicyLegacy && found && claim.Domain != "" {
 		effectiveMin = uint64(k.GetEffectiveMinVerifiers(ctx, claim.Domain))
 	}
 	if uint64(len(round.Reveals)) < effectiveMin {
@@ -165,7 +183,9 @@ func (k Keeper) AggregateVerificationResult(ctx context.Context, round *types.Ve
 	}
 
 	// Calculate rewards and slashes
-	k.calculateRewardsAndSlashes(ctx, round, result, params)
+	if policy == types.ReviewPolicyLegacy {
+		k.calculateRewardsAndSlashes(ctx, round, result, params)
+	}
 
 	result.AcceptCount = rawAccept
 	result.RejectCount = rawReject
@@ -173,12 +193,63 @@ func (k Keeper) AggregateVerificationResult(ctx context.Context, round *types.Ve
 	return result, nil
 }
 
+// reviewPolicyForRound selects only the immutable declared policy. Legacy
+// fixtures retain their historical read behavior; policy 1 requires the actual
+// retained claim, activated policy and the complete bound review record.
+func (k Keeper) reviewPolicyForRound(ctx context.Context, round *types.VerificationRound) (uint32, error) {
+	if round == nil {
+		return 0, fmt.Errorf("review round is required")
+	}
+	if round.ReviewPolicyVersion == types.ReviewPolicyLegacy {
+		return types.ReviewPolicyLegacy, nil
+	}
+	if round.ReviewPolicyVersion != types.ReviewPolicyNeutral {
+		return 0, fmt.Errorf("unsupported review policy %d", round.ReviewPolicyVersion)
+	}
+	claim, err := k.getClaimForNeutralReview(ctx, round.ClaimId)
+	if err != nil {
+		return 0, err
+	}
+	policy, err := k.ClaimReviewPolicyVersion(ctx, claim)
+	if err != nil {
+		return 0, err
+	}
+	if policy != round.ReviewPolicyVersion || round.CommitmentScheme != types.CommitmentSchemeReviewV2 {
+		return 0, fmt.Errorf("review policy must match its claim and bound commitment scheme")
+	}
+	if err := types.ValidateVerificationRoundRecord(round, true); err != nil {
+		return 0, err
+	}
+	return policy, nil
+}
+
+func (k Keeper) getClaimForNeutralReview(ctx context.Context, id string) (*types.Claim, error) {
+	bz, err := k.storeService.OpenKVStore(ctx).Get(types.ClaimKey(id))
+	if err != nil {
+		return nil, err
+	}
+	if bz == nil {
+		return nil, fmt.Errorf("review claim %s is missing", id)
+	}
+	if err := types.ValidateRawPolicyField(bz, types.ClaimReviewPolicyField); err != nil {
+		return nil, err
+	}
+	var claim types.Claim
+	if err := proto.Unmarshal(bz, &claim); err != nil {
+		return nil, fmt.Errorf("decode review claim: %w", err)
+	}
+	if claim.Id != id || hasUnknownRecordFields(claim.ProtoReflect()) {
+		return nil, fmt.Errorf("review claim identity or fields are invalid")
+	}
+	return &claim, nil
+}
+
 // calculateRewardsAndSlashes determines rewards for correct voters and slashes for incorrect ones.
 func (k Keeper) calculateRewardsAndSlashes(ctx context.Context, round *types.VerificationRound, result *VerificationResult, params *types.Params) {
 	// Determine which vote is "correct" based on verdict
 	var correctVote string
-	var partialRewardVote string      // vote that gets reduced reward instead of slash
-	var partialRewardRatio uint64     // BPS ratio of base reward for partial (0 = no partial)
+	var partialRewardVote string  // vote that gets reduced reward instead of slash
+	var partialRewardRatio uint64 // BPS ratio of base reward for partial (0 = no partial)
 	switch result.Verdict {
 	case types.Verdict_VERDICT_ACCEPT:
 		correctVote = "accept"

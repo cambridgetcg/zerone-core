@@ -2,16 +2,16 @@
   "_format": "zerone-agenttool-supabase-observatory-manifest/0.1",
   "protocol": "zerone-agenttool-supabase-observatory/0.1",
   "status": "SOURCE_ONLY_OFFLINE_NO_EFFECT",
-  "as_of": "2026-09-10T20:33:45Z",
+  "as_of": "2026-09-10T22:13:46Z",
   "source_pins": [
     {
       "id": "zerone.research-commons-spec",
       "owner": "ZERONE",
       "source_state": "CURRENT_TRACKED",
       "repository": "https://github.com/cambridgetcg/zerone-core",
-      "revision": "3f91dddf41c70595da8cc611306fb1ae912ea0c4",
+      "revision": "a01e53b2ec487fe9cb96f8eea1256e34bce08e90",
       "path": "docs/specs/research-commons-rc-0.1.md",
-      "raw_sha256": "sha256:cb17662b1df383d43d181895478864b4c9a754f36f862e365e119e6be0a3983e",
+      "raw_sha256": "sha256:3ae89e898b609b57de6f0f2ef3d921c23cfdcc805bc81e293a71d9c2514e84fb",
       "pin_role": "CURRENT",
       "verification": "LOCAL_BYTES"
     },
@@ -20,9 +20,9 @@
       "owner": "ZERONE",
       "source_state": "CURRENT_TRACKED",
       "repository": "https://github.com/cambridgetcg/zerone-core",
-      "revision": "3f91dddf41c70595da8cc611306fb1ae912ea0c4",
+      "revision": "a01e53b2ec487fe9cb96f8eea1256e34bce08e90",
       "path": "dashboard/public/standards/research-commons.v0.1.json",
-      "raw_sha256": "sha256:07f4f569a5daf4a644ced1cadb908d0720d59635ffdc557381d387865343ca4d",
+      "raw_sha256": "sha256:4594178bd5607bfd464441012ba47b0748d16d2441b5c556d412328fb63b5b52",
       "pin_role": "CURRENT",
       "verification": "LOCAL_BYTES"
     },

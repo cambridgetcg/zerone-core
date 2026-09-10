@@ -30,8 +30,11 @@ func recordIntegrityTargetVersionMap() module.VersionMap {
 func requireRecordIntegrityTransitionOwner(name string, fromVM, targetVM module.VersionMap) error {
 	from, fromOK := fromVM["knowledge"]
 	target, targetOK := targetVM["knowledge"]
-	if !fromOK || !targetOK || from < 6 || from > 8 || target < 6 || target > 8 {
+	if !fromOK || !targetOK || from < 6 || from > 9 || target < 6 || target > 9 {
 		return fmt.Errorf("record integrity requires complete known knowledge versions")
+	}
+	if from == 8 && target == 9 {
+		return requireReviewNeutralityTransitionOwner(name, fromVM, targetVM)
 	}
 	if from == target || (from < 8 && target < 8) {
 		return nil
@@ -119,28 +122,7 @@ func (app *ZeroneApp) registerRecordIntegrityUpgrade() {
 
 func (app *ZeroneApp) validateRecordIntegrityStartupVersions(ctx sdk.Context, vm module.VersionMap, latest int64) error {
 	if reflect.DeepEqual(vm, recordIntegrityTargetVersionMap()) {
-		enabled, err := app.KnowledgeKeeper.RecordIntegrityEnabled(ctx)
-		if err != nil || !enabled {
-			return fmt.Errorf("record integrity target requires explicit enabled marker: %v", err)
-		}
-		if err := app.validateSurvivalHandoffCompleted(ctx, latest); err != nil {
-			return err
-		}
-		done, err := app.UpgradeKeeper.GetDoneHeight(ctx, UpgradeNameKnowledgeRecordIntegrityV1)
-		if err != nil {
-			return err
-		}
-		marker, marked, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(ctx, "migration_v8_complete")
-		if err != nil {
-			return err
-		}
-		if done == 0 && !marked {
-			return nil // Native/imported genesis preserves semantics, not applied history.
-		}
-		if done <= 0 || done > latest || !marked || marker != "true" {
-			return fmt.Errorf("record integrity target has inconsistent migration marker and done height")
-		}
-		return nil
+		return app.validateRecordIntegrityCompleted(ctx, latest)
 	}
 	if !reflect.DeepEqual(vm, recordIntegritySourceVersionMap()) {
 		return fmt.Errorf("record integrity startup requires exact complete source or target version map")
@@ -168,6 +150,31 @@ func validateRecordIntegrityGenesisSelection(genesis GenesisState) error {
 	}
 	if selection.Enabled == nil || !*selection.Enabled {
 		return fmt.Errorf("native knowledge genesis requires explicit record_integrity_enabled=true")
+	}
+	return nil
+}
+
+func (app *ZeroneApp) validateRecordIntegrityCompleted(ctx sdk.Context, latest int64) error {
+	enabled, err := app.KnowledgeKeeper.RecordIntegrityEnabled(ctx)
+	if err != nil || !enabled {
+		return fmt.Errorf("record integrity target requires explicit enabled marker: %v", err)
+	}
+	if err := app.validateSurvivalHandoffCompleted(ctx, latest); err != nil {
+		return err
+	}
+	done, err := app.UpgradeKeeper.GetDoneHeight(ctx, UpgradeNameKnowledgeRecordIntegrityV1)
+	if err != nil {
+		return err
+	}
+	marker, marked, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(ctx, "migration_v8_complete")
+	if err != nil {
+		return err
+	}
+	if done == 0 && !marked {
+		return nil // Native/imported genesis preserves semantics, not applied history.
+	}
+	if done <= 0 || done > latest || !marked || marker != "true" {
+		return fmt.Errorf("record integrity target has inconsistent migration marker and done height")
 	}
 	return nil
 }

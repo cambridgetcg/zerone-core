@@ -24,6 +24,7 @@ import (
 // rejected_commitment_count and ALL payout math skips them.
 func TestRouteB_Wave4a_IsOughtWall(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultMethodologies(h.Ctx))
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultTokenizerSpec(h.Ctx))
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultCommitments(h.Ctx))
@@ -172,6 +173,7 @@ func TestRouteB_Wave4b_PopperWeightedTVWAndClawback(t *testing.T) {
 // verdict, not the sponsor.
 func TestRouteB_Wave4cd_AugmentationEscrowAndVerdict(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultMethodologies(h.Ctx))
 	require.NoError(t, h.KnowledgeKeeper.SeedDefaultTokenizerSpec(h.Ctx))
 

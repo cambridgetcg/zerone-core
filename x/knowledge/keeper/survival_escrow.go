@@ -301,13 +301,20 @@ func (k Keeper) deleteSurvivalPending(ctx context.Context, pr SurvivalPendingRew
 
 // EscrowSubmitterReward records the submitter reward as pending (nothing minted)
 // and stamps the fact's challenge window. Replaces the accept-time reward routing.
-func (k Keeper) EscrowSubmitterReward(ctx context.Context, fact *types.Fact, claim *types.Claim) {
+func (k Keeper) EscrowSubmitterReward(ctx context.Context, fact *types.Fact, claim *types.Claim) error {
+	policy, err := k.ClaimReviewPolicyVersion(ctx, claim)
+	if err != nil {
+		return err
+	}
+	if policy == 1 {
+		return nil
+	}
 	if k.vestingRewardsKeeper == nil {
-		return
+		return nil
 	}
 	params, err := k.GetParams(ctx)
 	if err != nil {
-		return
+		return nil
 	}
 	window := params.ChallengeDurationBlocks
 	if window == 0 {
@@ -324,10 +331,11 @@ func (k Keeper) EscrowSubmitterReward(ctx context.Context, fact *types.Fact, cla
 		Deadline:      deadline,
 	}); err != nil {
 		k.Logger(ctx).Error("record pending survival reward", "fact_id", fact.Id, "error", err)
-		return
+		return nil
 	}
 	fact.ChallengeWindowEnd = deadline
 	_ = k.SetFact(ctx, fact)
+	return nil
 }
 
 // releaseSurvivalReward hands a surviving claim to vesting atomically. Failure

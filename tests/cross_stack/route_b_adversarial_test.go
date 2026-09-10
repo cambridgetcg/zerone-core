@@ -206,6 +206,7 @@ func TestRouteB_Adversarial_ChildSurvivesParentSupersession(t *testing.T) {
 // adjudication grounded on the ORIGINAL fact.
 func TestRouteB_Adversarial_NoAugmentationOfAugmentation(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -288,9 +289,9 @@ func TestRouteB_Adversarial_ClawbackStickyAndIdempotent(t *testing.T) {
 
 	f := &knowledgetypes.Fact{
 		Id: "F-STICKY", Content: "p", Domain: "sciences",
-		Status:    knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
-		Submitter: testAddr("adv_stick").String(),
-		MethodId:  knowledgetypes.MethodologyEmpirical,
+		Status:     knowledgetypes.FactStatus_FACT_STATUS_ACTIVE,
+		Submitter:  testAddr("adv_stick").String(),
+		MethodId:   knowledgetypes.MethodologyEmpirical,
 		Confidence: 900_000, CorroborationCount: 5,
 		SubmitterCalibrationSnapshotBps: 800_000,
 	}
@@ -331,6 +332,7 @@ func TestRouteB_Adversarial_ClawbackStickyAndIdempotent(t *testing.T) {
 // could accept their own pet variants without verifier scrutiny.
 func TestRouteB_Adversarial_SponsorSelfFinalizeBlocked(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -375,6 +377,7 @@ func TestRouteB_Adversarial_SponsorSelfFinalizeBlocked(t *testing.T) {
 // three zero-stake votes do NOT reach consensus.
 func TestRouteB_Adversarial_ZeroStakeSybilCannotFinalize(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
@@ -431,6 +434,7 @@ func TestRouteB_Adversarial_ZeroStakeSybilCannotFinalize(t *testing.T) {
 // unbounded-scan risk.
 func TestRouteB_Adversarial_HeartbeatScalesToManyBounties(t *testing.T) {
 	h := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h)
 	_, err := h.KnowledgeKeeper.SeedRouteB(h.Ctx)
 	require.NoError(t, err)
 
