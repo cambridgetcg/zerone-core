@@ -34,10 +34,10 @@ var (
 	chainIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 
 	expectedSourcePins = []sourcePin{
-		{"zerone.research-commons-spec", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "5bfd1a0e010c9a0113987c7e4bf6ade56d07d5e4", "docs/specs/research-commons-rc-0.1.md", "sha256:ba4e329fd460823875390b32b9f15aa3846d19775b8c82ecf264f6f32fd8b01a", "CURRENT", "LOCAL_BYTES"},
-		{"zerone.research-commons-manifest", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "5bfd1a0e010c9a0113987c7e4bf6ade56d07d5e4", "dashboard/public/standards/research-commons.v0.1.json", "sha256:53eb57012115cdd98437638f7f2c173b83bc72d26488912a641c2a03f6254314", "CURRENT", "LOCAL_BYTES"},
-		{"zerone.tok-substrate-doctrine", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "264f3c383f408729f4d0c27d332cd454c9eb4400", "docs/TOK_SUBSTRATE.md", "sha256:4fec6e3a410d5736f61cd43f4d9c421380b93f649c2f0d026a5f4e68a6534328", "CURRENT", "LOCAL_BYTES"},
-		{"zerone.tok-bundle-implementation", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "264f3c383f408729f4d0c27d332cd454c9eb4400", "x/knowledge/keeper/tok_bundle.go", "sha256:e2d786d7287a2194ff858d47de84e3b140c9922b7ef37dcfadaec74be675f248", "CURRENT", "LOCAL_BYTES"},
+		{"zerone.research-commons-spec", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "3f91dddf41c70595da8cc611306fb1ae912ea0c4", "docs/specs/research-commons-rc-0.1.md", "sha256:cb17662b1df383d43d181895478864b4c9a754f36f862e365e119e6be0a3983e", "CURRENT", "LOCAL_BYTES"},
+		{"zerone.research-commons-manifest", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "3f91dddf41c70595da8cc611306fb1ae912ea0c4", "dashboard/public/standards/research-commons.v0.1.json", "sha256:07f4f569a5daf4a644ced1cadb908d0720d59635ffdc557381d387865343ca4d", "CURRENT", "LOCAL_BYTES"},
+		{"zerone.tok-substrate-doctrine", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "3f91dddf41c70595da8cc611306fb1ae912ea0c4", "docs/TOK_SUBSTRATE.md", "sha256:b4dae8b8dbc2345121c034c67f620bda0bd1a7ba57c8eb23c2671ab909c0e5c7", "CURRENT", "LOCAL_BYTES"},
+		{"zerone.tok-bundle-implementation", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "3f91dddf41c70595da8cc611306fb1ae912ea0c4", "x/knowledge/keeper/tok_bundle.go", "sha256:5e0d21f05335f9722863833b6f3b961f472df9651406a328cc7e5723053d6e45", "CURRENT", "LOCAL_BYTES"},
 		{"zerone.static-tree", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "264f3c383f408729f4d0c27d332cd454c9eb4400", "dashboard/public/standards/constructive-intelligence-tree.v1.json", "sha256:8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf", "CURRENT", "LOCAL_BYTES"},
 		{"zerone.knowledge-geometry-projection", "ZERONE", "CURRENT_TRACKED", "https://github.com/cambridgetcg/zerone-core", "264f3c383f408729f4d0c27d332cd454c9eb4400", "dashboard/functions/api/_knowledge.ts", "sha256:c828c0cd0cdca353d6fd6005d3e3e113cda964123d4a7722d060ad5ed9baed9e", "CURRENT", "LOCAL_BYTES"},
 		{"agenttool.research-commons-static-interop", "AGENTTOOL", "CURRENT_TRACKED", "https://github.com/cambridgetcg/agenttool", "796a753ab8624ad11af621ef4572544ea3b8f463", "packages/research-commons/interop/research-commons-zerone-v0.1.json", "sha256:8c5b1749447c1587b89b238dadb5113e10230df19fd3f4e7942d9a163aef6a8a", "CURRENT", "EXTERNAL_PIN_LITERAL"},
@@ -142,7 +142,7 @@ func validateManifestSeal(data []byte) error {
 }
 
 func validateManifest(contract manifest) error {
-	if contract.Format != manifestFormat || contract.Protocol != protocolID || contract.Status != "SOURCE_ONLY_OFFLINE_NO_EFFECT" || contract.AsOf != "2026-09-09T14:23:35Z" {
+	if contract.Format != manifestFormat || contract.Protocol != protocolID || contract.Status != "SOURCE_ONLY_OFFLINE_NO_EFFECT" || contract.AsOf != "2026-09-10T20:33:45Z" {
 		return errors.New("manifest identity or observation cutoff drifted")
 	}
 	if len(contract.SourcePins) != len(expectedSourcePins) {
