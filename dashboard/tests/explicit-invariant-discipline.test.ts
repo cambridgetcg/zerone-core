@@ -1450,7 +1450,7 @@ describe("explicit invariant renderer and dashboard integration", () => {
       noScript,
       /href="\/standards\/explicit-invariant-discipline\.v1\.json"/,
     );
-    assert.match(html, /href="#explicit-invariants">Invariants<\/a>/);
+    assert.match(html, /href="\/understand\/#research"/);
     assert.match(html, /id="explicit-invariant-discipline-root"/);
 
     assert.match(

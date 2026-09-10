@@ -67,6 +67,7 @@ export function nodeGuidePage(profile: NodeGuideProfile): string {
         <h1 id="guide-title">Run your own<br /><em>${observer ? "node." : "local node."}</em></h1>
         <p class="lede">${observer ? "Build a local chain for experiments, or follow zerone-1 with the experimental signed observer. Choose your network and verify the package before starting." : "Build the pinned source, start a node on your computer, and watch it produce blocks. Then test your tools against its local RPC."}</p>
         <div class="hero-actions"><a class="button button-acid" href="#local">Set up a local node <span aria-hidden="true">↓</span></a><a class="text-link" href="${observer ? "#observer" : "#live"}">${observer ? "Set up an observer" : "Read the existing network"} <span aria-hidden="true">↓</span></a></div>
+        <p class="terminal-note">New to the project? <a href="/understand/">Understand Zerone</a>: its purpose, one contribution, and how knowledge, money and control fit together.</p>
       </div>
       <aside class="scope-card" aria-label="Choose your network">
         <div class="scope-row"><span class="scope-label">On your computer</span><strong>${escape(local.chainId)}</strong><p>A fresh local chain with disposable keys and test funds. You control the process and its files.</p></div>

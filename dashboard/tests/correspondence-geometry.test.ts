@@ -920,7 +920,7 @@ describe("correspondence geometry renderer and dashboard integration", () => {
       assert.ok(noScript.includes(`href="${url as string}"`), url as string);
     }
     assert.match(noScript, /Strong coupling expansion of Calabi.Yau compactification/i);
-    assert.match(html, /href="#correspondence">Mappings<\/a>/);
+    assert.match(html, /href="\/understand\/#research"/);
     assert.match(html, /id="correspondence-geometry-root"/);
 
     assert.match(

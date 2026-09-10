@@ -1,6 +1,6 @@
 # Zerone
 
-> Run a local Zerone node, check signed observer releases for the existing ledger, and build agent integrations.
+> Understand Zerone's purpose, follow an illustrative contribution, and choose a verified participation path.
 
 This is a documentation index, not an agent protocol endpoint. Choose the network before following commands: the local sandbox creates local test funds; it does not join the existing zerone-1 network. The node guide separately records any published legacy observer package, exact source/patch and artifact pins, verification commands, and its bootstrap expiry. Observer availability does not open live account admission, starter funds or validator joining.
 
@@ -8,6 +8,8 @@ For automated reads, identify your client with an honest application User-Agent 
 
 ## Start
 
+- [Understand Zerone](https://zerone.ai/understand/): purpose, an illustrative contribution, roles, money, publication choices and current availability.
+- [Machine-readable introduction](https://zerone.ai/understand/guide.json): the same explanatory content and build-time availability declarations; an inert document, not an agent protocol or authorization endpoint. The contribution example is fictional and creates no record or payment.
 - [Run a node](https://zerone.ai/nodes/): local setup, signed observer release status, verification, stop and restart.
 - [Machine-readable node guide](https://zerone.ai/nodes/guide.json): exact source and helper pins, commands, network scope and participation availability.
 - [Explore Zerone](https://zerone.ai/#onboarding): public reads and current onboarding status.

@@ -1,0 +1,68 @@
+@import "./node-guide.css";
+
+.understand #main-content { scroll-margin-top: 100px; }
+.understand .eyebrow, .understand .card-label { font-size: 0.72rem; }
+.understand h1 { max-width: 10ch; }
+.understand h2 { max-width: 15ch; }
+.understand .hero-note { max-width: 38rem; margin-top: 1rem; color: var(--muted); font-size: 0.9rem; }
+.understand .question-card { padding: clamp(1.5rem, 3vw, 2.5rem); border: 1px solid var(--line); border-top: 2px solid var(--violet); background: linear-gradient(145deg, #b99bff0c, transparent), var(--surface); }
+.understand .question-card > p:nth-child(2) { margin-top: 1.5rem; font-family: var(--serif); font-size: clamp(1.7rem, 2.8vw, 2.25rem); line-height: 1.3; letter-spacing: -0.025em; }
+.understand .question-trace { display: block; margin-top: 2rem; color: var(--violet); font-family: var(--mono); font-size: 0.85rem; }
+.understand .guide-nav { gap: 0.5rem 1rem; }
+.understand .section-intro { gap: 2rem 4rem; }
+.understand .section-intro > p { font-size: 1rem; }
+.understand .explain-grid, .understand .availability-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.understand .three-columns { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.understand .explain-card { min-width: 0; padding: 1.75rem; background: var(--surface); }
+.understand .explain-card h3 { margin-bottom: 0.85rem; font-size: 1.15rem; }
+.understand .explain-card p:not(.card-label) { color: var(--muted); font-size: 0.94rem; }
+.understand .explain-card p + p { margin-top: 1rem; }
+.understand .explain-card .card-label { margin-bottom: 1rem; color: var(--violet); }
+.understand .example-label { color: var(--violet); font-family: var(--mono); font-size: 0.78rem; }
+.understand .claim-walkthrough { margin: 1.5rem 0; padding: 0; list-style: none; }
+.understand .claim-walkthrough > li { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 1.5rem; padding: 1.65rem 0; border-top: 1px solid var(--line); }
+.understand .claim-walkthrough > li > div { max-width: 52rem; }
+.understand .claim-walkthrough h3 { margin-bottom: 0.75rem; }
+.understand .claim-walkthrough p { color: var(--muted); font-size: 0.96rem; }
+.understand .explain-details { margin-top: 1.5rem; border: 1px solid var(--line); background: var(--surface); }
+.understand .explain-details { scroll-margin-top: 100px; }
+.understand .explain-details summary { min-height: 48px; padding: 1rem 1.25rem; color: var(--violet); cursor: pointer; font-weight: 600; }
+.understand .explain-details summary::marker { color: var(--acid); }
+.understand .explain-details[open] summary { border-bottom: 1px solid var(--line); }
+.understand .details-body { padding: 1.25rem; }
+.understand .details-body p { color: var(--muted); font-size: 0.93rem; }
+.understand .details-body p + p { margin-top: 1rem; }
+.understand .details-body .card-label { margin-bottom: 1rem; }
+.understand .example-input { display: inline-block; padding: 0.4rem 0.75rem; margin-bottom: 1rem; color: var(--ink); background: #b99bff10; border: 1px solid #b99bff35; font-size: 1.1rem; }
+.understand .scope-note { max-width: 64rem; margin-top: 1.5rem; color: var(--muted); font-size: 0.9rem; }
+.understand .explain-callout { margin-top: 1.5rem; padding: 1.25rem 1.5rem; border-left: 2px solid var(--violet); }
+.understand .explain-callout p { color: var(--muted); font-size: 0.95rem; }
+.understand .explain-callout p + p { margin-top: 1rem; }
+.understand .contribution-list { margin-top: 1.75rem; }
+.understand .contribution-list > p { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 1.5rem; padding-block: 1rem; border-bottom: 1px solid var(--line); font-size: 0.9rem; }
+.understand .contribution-list a { align-self: start; color: var(--violet); }
+.understand .contribution-list span { color: var(--muted); }
+.understand .evidence-section { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem 4rem; border-top: 1px solid var(--line); }
+.understand .evidence-section h2 + p { margin-top: 1.5rem; color: var(--muted); font-size: 0.94rem; }
+.understand .evidence-links { margin: 0; padding: 0; list-style: none; }
+.understand .evidence-links li + li { border-top: 1px solid var(--line); }
+.understand .evidence-links a { display: block; padding-block: 0.8rem; color: var(--violet); font-size: 0.9rem; }
+.understand .explanation-source { padding-bottom: 2.5rem; color: var(--muted); font-size: 0.8rem; }
+.understand .explanation-source p + p { margin-top: 0.8rem; }
+.understand .explanation-source a { display: inline-block; padding-block: 0.4rem; overflow-wrap: anywhere; color: var(--violet); }
+.understand .explanation-source code { font-size: 0.78rem; }
+.understand summary:focus-visible { outline: 2px solid var(--acid); outline-offset: 3px; }
+
+@media (max-width: 860px) {
+  .understand .three-columns { grid-template-columns: minmax(0, 1fr); }
+  .understand .section-intro { gap: 1.5rem; }
+}
+@media (max-width: 600px) {
+  .understand .explain-grid, .understand .availability-grid, .understand .evidence-section { grid-template-columns: minmax(0, 1fr); }
+  .understand .explain-card { padding: 1.25rem; }
+  .understand .claim-walkthrough > li { grid-template-columns: 24px minmax(0, 1fr); gap: 0.75rem; }
+  .understand .contribution-list > p { grid-template-columns: minmax(0, 1fr); gap: 0.65rem; }
+  .understand .explain-callout { padding-inline: 1rem; }
+  .understand .question-trace { font-size: 0.8rem; }
+  .understand .guide-nav a { font-size: 0.8rem; }
+}
