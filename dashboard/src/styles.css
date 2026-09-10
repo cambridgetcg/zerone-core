@@ -1,5 +1,14 @@
 @layer reset, base, components, utilities;
 
+@layer components {
+  .research-index { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; }
+  .research-index a { min-height: 44px; display: inline-flex; align-items: center; color: var(--violet); }
+  .research-index .research-legacy-target { display: none; }
+  .research-index .research-legacy-target:target { display: inline-flex; padding: 1rem; border: 1px solid var(--violet); }
+  .research-library [id], .research-page [id] { scroll-margin-top: 120px; }
+  .research-page .reveal { opacity: 1; transform: none; }
+}
+
 @layer reset {
   *,
   *::before,

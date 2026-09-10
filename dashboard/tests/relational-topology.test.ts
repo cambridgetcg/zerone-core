@@ -509,8 +509,8 @@ describe("relational topology v0", () => {
     });
 
     const source = readFileSync(new URL("../src/relational-topology.ts", import.meta.url), "utf8");
-    const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
-    const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+    const main = readFileSync(new URL("../src/research.ts", import.meta.url), "utf8");
+    const html = readFileSync(new URL("../research/index.html", import.meta.url), "utf8");
     assert.doesNotMatch(source, /\.innerHTML\s*=/u);
     assert.match(
       main,

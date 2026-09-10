@@ -65,6 +65,16 @@ tamper-evident history whose current custodial limits are disclosed. Not proof
 >
 > **Then:** [docs/TOK_SUBSTRATE.md](docs/TOK_SUBSTRATE.md) (what the chain *sells*), [docs/USEFUL_WORK.md](docs/USEFUL_WORK.md) (how the chain *grows itself*), and [docs/STRANGE_LOOP.md](docs/STRANGE_LOOP.md) (what the chain *is*) — the quartet is mutually constitutive.
 
+### Current consolidation
+
+Consolidation prioritizes scoped claims, inspectable evidence, challenge and
+correction history, and reliable settlement of explicitly funded work. The
+[lean-core consolidation plan](docs/LEAN-CORE-CONSOLIDATION.md) identifies
+redundant authorities, optional consensus analysis and economic retirement
+candidates, with existing claims and historical evidence preserved. The public
+[explanation](https://zerone.ai/understand/) and
+[research library](https://zerone.ai/research/) provide distinct starting points.
+
 ### Release posture
 
 **Status:** `zerone-1` mainnet is **LIVE** (custodial launch) ·

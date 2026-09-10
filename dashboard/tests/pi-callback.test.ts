@@ -314,9 +314,11 @@ describe("Pi callback page hardening", () => {
       source,
       /initialiseConstructiveTree\(constructiveTreeRoot\)/,
     );
-    assert.match(source, /initialiseQuantumSeason\(quantumSeasonRoot\)/);
-    assert.match(source, /initialiseMathFrontier\(mathFrontierRoot\)/);
-    assert.match(source, /initialiseLifeGarden\(lifeGardenRoot\)/);
+    const research = readFileSync(resolve(DASHBOARD_ROOT, "src/research.ts"), "utf8");
+    assert.match(research, /initialiseQuantumSeason\(quantumSeasonRoot\)/);
+    assert.match(research, /initialiseMathFrontier\(mathFrontierRoot\)/);
+    assert.match(research, /initialiseLifeGarden\(lifeGardenRoot\)/);
+    assert.doesNotMatch(source, /import \{ initialiseConstructiveTree \} from/u);
     assert.match(source, /initialNetworkReady = refreshNetwork\(false\)/);
     assert.ok(html.indexOf('id="skills"') < html.indexOf('id="life"'));
     assert.ok(html.indexOf('id="life"') < html.indexOf('id="frontier-commons"'));
@@ -326,7 +328,7 @@ describe("Pi callback page hardening", () => {
     assert.ok(
       html.indexOf('id="participate"') < html.indexOf('id="contribute"'),
     );
-    assert.match(html, /href="#skills"[^>]*>Browse without signing in/);
+    assert.match(html, /href="\/research\/#skills"[^>]*>Browse without signing in/);
     assert.match(html, /<span>09<\/span> Optional account pilot/);
   });
 

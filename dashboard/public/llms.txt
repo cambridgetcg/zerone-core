@@ -15,6 +15,8 @@ For automated reads, identify your client with an honest application User-Agent 
 - [Explore Zerone](https://zerone.ai/#onboarding): public reads and current onboarding status.
 - [Existing wallet](https://zerone.ai/#wallet): optional Keplr connection; supported transactions require separate review and signing.
 
+- [Research library](https://zerone.ai/research/): optional source-bound models, preserved evidence and static standards; no live claim, qualification or reward service.
+
 ## Understand and contribute
 
 - [Source repository](https://github.com/cambridgetcg/zerone-core): use the immutable revision named by the node guide when building.

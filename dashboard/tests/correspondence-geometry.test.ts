@@ -895,8 +895,8 @@ describe("correspondence geometry renderer and dashboard integration", () => {
   });
 
   it("ships a substantive no-JS summary and wires direct-hash alignment", () => {
-    const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-    const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+    const html = readFileSync(new URL("../research/index.html", import.meta.url), "utf8");
+    const main = readFileSync(new URL("../src/research.ts", import.meta.url), "utf8");
     const noScriptMarker = '<div class="correspondence-geometry-noscript">';
     const noScriptStart = html.indexOf(noScriptMarker);
     const noScriptEnd = html.indexOf("</noscript>", noScriptStart);
@@ -927,14 +927,9 @@ describe("correspondence geometry renderer and dashboard integration", () => {
       main,
       /initialiseCorrespondenceGeometry\(\s*correspondenceGeometryRoot,?\s*\)/,
     );
-    assert.match(main, /window\.location\.hash !== "#correspondence"/);
-    assert.match(
-      main,
-      /window\.location\.hash === "#correspondence"[\s\S]*?#correspondence/,
-    );
-    assert.match(
-      main,
-      /Promise\.allSettled\(\[[\s\S]*?correspondenceGeometryReady,[\s\S]*?initialNetworkReady,[\s\S]*?\]\)\.then\(\(\) => \{\s*initialHashInputsSettled = true;/,
-    );
+    assert.match(main, /void initialViews\.then\(alignResearchHash\)/);
+    assert.match(main, /getElementById\(id\)\?\.scrollIntoView\(\{ block: "start", behavior: "instant" \}\)/);
+    assert.doesNotMatch(main, /initialNetworkReady|refreshNetwork/);
+
   });
 });

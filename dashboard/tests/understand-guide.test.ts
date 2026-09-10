@@ -75,7 +75,7 @@ describe("shared explanatory guide", () => {
     const homepage = readFileSync(new URL("../index.html", import.meta.url), "utf8");
     const html = understandPage(guide);
     for (const id of ["relations", "correspondence", "explicit-invariants", "skills", "life", "frontier-commons"]) {
-      const url = `https://zerone.ai/#${id}`;
+      const url = `https://zerone.ai/research/#${id}`;
       assert.ok(guide.research.links.some((item) => item.url === url));
       assert.ok(html.includes(`href="${url}"`));
       assert.ok(homepage.includes(`id="${id}"`));

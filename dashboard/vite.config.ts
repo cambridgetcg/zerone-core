@@ -106,7 +106,9 @@ export default defineConfig({
       dashboard: resolve(DASHBOARD_ROOT, "index.html"), piCallback: resolve(DASHBOARD_ROOT, "pi/callback/index.html"),
       nodes: resolve(DASHBOARD_ROOT, "nodes/index.html"),
       understand: resolve(DASHBOARD_ROOT, "understand/index.html"),
+      research: resolve(DASHBOARD_ROOT, "research/index.html"),
     } : { dashboard: resolve(DASHBOARD_ROOT, "index.html"), nodes: resolve(DASHBOARD_ROOT, "nodes/index.html"),
-      understand: resolve(DASHBOARD_ROOT, "understand/index.html") } },
+      understand: resolve(DASHBOARD_ROOT, "understand/index.html"),
+      research: resolve(DASHBOARD_ROOT, "research/index.html") } },
   },
 });

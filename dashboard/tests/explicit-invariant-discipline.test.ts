@@ -1426,8 +1426,8 @@ describe("explicit invariant renderer and dashboard integration", () => {
   });
 
   it("ships all four no-JS records and wires navigation, root, and direct hash", () => {
-    const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
-    const main = readFileSync(new URL("../src/main.ts", import.meta.url), "utf8");
+    const html = readFileSync(new URL("../research/index.html", import.meta.url), "utf8");
+    const main = readFileSync(new URL("../src/research.ts", import.meta.url), "utf8");
     const marker = '<div class="explicit-invariant-noscript">';
     const start = html.indexOf(marker);
     const end = html.indexOf("</noscript>", start);
@@ -1457,14 +1457,9 @@ describe("explicit invariant renderer and dashboard integration", () => {
       main,
       /initialiseExplicitInvariantDiscipline\(\s*explicitInvariantDisciplineRoot,?\s*\)/,
     );
-    assert.match(main, /window\.location\.hash !== "#explicit-invariants"/);
-    assert.match(
-      main,
-      /window\.location\.hash === "#explicit-invariants"[\s\S]*?#explicit-invariants/,
-    );
-    assert.match(
-      main,
-      /Promise\.allSettled\(\[[\s\S]*?explicitInvariantDisciplineReady,[\s\S]*?initialNetworkReady,[\s\S]*?\]\)\.then\(\(\) => \{\s*initialHashInputsSettled = true;/,
-    );
+    assert.match(main, /void initialViews\.then\(alignResearchHash\)/);
+    assert.match(main, /getElementById\(id\)\?\.scrollIntoView\(\{ block: "start", behavior: "instant" \}\)/);
+    assert.doesNotMatch(main, /initialNetworkReady|refreshNetwork/);
+
   });
 });

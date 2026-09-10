@@ -25,6 +25,31 @@ and check desktop/mobile layouts with JavaScript enabled and disabled. Confirm
 the native disclosures, source links and homepage/node-guide discovery paths;
 the introduction should request only static resources from its own origin.
 
+## Optional research library
+
+`/research/` holds the existing reading path, relations, correspondence,
+explicit invariants, constructive-intelligence tree and its overlays, living
+garden, and Frontier Commons. Their eleven controllers initialize only on
+that page. Standards JSON, evidence, status disclosures and native no-JavaScript
+accounts retain their existing content and byte protections.
+
+The homepage keeps onboarding, wallet and account tools, liquidity, activity,
+network state, live knowledge, the authority observatory and participation
+covenant. Earlier research fragments resolve through explicit links to the same
+fragment on `/research/`. With JavaScript disabled, the targeted link remains
+visible and usable. Unknown fragments and core destinations are not redirected.
+
+The optional Pi compass remains behind both existing feature flags. If enabled,
+it loads the existing public tree controller into its own page; temporary
+capability choices stay in page memory rather than becoming navigation data.
+The default homepage loads neither that tree controller nor its artifact.
+
+The research page also ships in observer builds. It loads pinned static
+artifacts and links explicitly to the separate `zerone.ai` live knowledge view;
+it does not change the selected network profile, API middleware or wallet policy.
+Shared CSS and artifact validation remain intact. Measure initial JavaScript
+including static imports and module preloads when comparing build footprints.
+
 ## Staged-beta observer profiles
 
 `network-profile.json` is the **single public build input** imported by the
@@ -297,7 +322,7 @@ loaded or validated.
 
 ## Correspondence Geometry v0
 
-The read-only atlas at `#correspondence` loads the sealed
+The read-only atlas at `/research/#correspondence` loads the sealed
 `/standards/correspondence-geometry.v0.json`. Its five-lane taxonomy keeps
 physics, conjecture, Zerone protocol, engineering transfer, and theology or
 meditation distinct so a proposed map cannot silently carry truth, authority,
@@ -326,7 +351,7 @@ qualification, reward, money, consent, rights, doctrine, or chain state.
 
 ## Explicit Invariant Discipline v1
 
-The static reading aid at `#explicit-invariants` loads the sealed
+The static reading aid at `/research/#explicit-invariants` loads the sealed
 `/standards/explicit-invariant-discipline.v1.json`. EID-1 adapts a
 constraints-first pattern found in four version-pinned coauthored papers that
 include Clifford Cheung into an inspectable publication discipline:

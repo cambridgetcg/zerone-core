@@ -22,6 +22,9 @@
 /understand/guide.json
   Content-Type: application/json; charset=utf-8
 
+/research/*
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
 /llms.txt
   Cache-Control: public, max-age=0, must-revalidate, no-transform
   Content-Type: text/plain; charset=utf-8

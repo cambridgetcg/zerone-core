@@ -52,20 +52,16 @@ describe("production onboarding surface", () => {
   it("remains reachable after the purpose introduction and follows the honest-state disclosure", () => {
     const truthTitle = html.indexOf('id="truth-banner-title"');
     const truthEnd = html.indexOf("</aside>", truthTitle) + "</aside>".length;
-    const readingPathStart = html.lastIndexOf(
-      "<nav",
-      html.indexOf('id="reading-path"'),
-    );
     const walletStart = html.lastIndexOf(
       "<section",
       html.indexOf('id="wallet"'),
     );
 
     assert.ok(truthEnd < onboardingStart);
-    assert.ok(onboardingEnd < readingPathStart);
-    assert.ok(readingPathStart < walletStart);
+    assert.ok(onboardingEnd < walletStart);
     assert.match(html.slice(truthEnd, onboardingStart), /^\s*$/u);
-    assert.match(html.slice(onboardingEnd, readingPathStart), /^\s*$/u);
+    assert.match(html.slice(onboardingEnd, walletStart), /^\s*$/u);
+    assert.match(onboarding, /href="\/research\/#reading-path"/u);
     assert.equal(html.match(/href="#onboarding"/gu)?.length, 3);
     assert.match(
       html,

@@ -38,10 +38,10 @@ const runtimeSource = readFileSync(
   "utf8",
 );
 const mainSource = readFileSync(
-  new URL("../src/main.ts", import.meta.url),
+  new URL("../src/research.ts", import.meta.url),
   "utf8",
 );
-const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const html = readFileSync(new URL("../research/index.html", import.meta.url), "utf8");
 
 function copyFlow(): MutableBranchFlow {
   return structuredClone(canonical) as MutableBranchFlow;
@@ -402,11 +402,8 @@ describe("Branch Flow v1 read-only page wiring", () => {
       mainSource,
       /initialiseBranchFlow\(branchFlowRoot\)/,
     );
-    assert.match(mainSource, /byId<HTMLElement>\("branch-flow-root"\)/);
-    assert.match(mainSource, /window\.location\.hash !== "#branch-flow"/);
-    assert.match(
-      mainSource,
-      /branchFlowRoot\.closest<HTMLElement>\("#branch-flow"\)/,
-    );
+    assert.match(mainSource, /byId\("branch-flow-root"\)/);
+    assert.match(mainSource, /void initialViews\.then\(alignResearchHash\)/);
+
   });
 });

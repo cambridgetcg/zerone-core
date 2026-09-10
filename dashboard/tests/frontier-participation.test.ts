@@ -941,7 +941,7 @@ describe("frontier participation compact runtime guard", () => {
     const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
     assert.doesNotMatch(source, /innerHTML/);
     assert.match(main, /initialiseFrontierParticipation\(\s*frontierParticipationRoot/);
-    assert.match(main, /window\.location\.hash !== "#participate"/);
+    assert.match(main, /\[[^\]]*"#participate"[^\]]*\]\.includes\(window\.location\.hash\)/);
     assert.match(html, /href="#participate"/);
     assert.match(html, /id="frontier-participation-root"/);
 

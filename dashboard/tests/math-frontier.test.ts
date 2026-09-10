@@ -39,7 +39,7 @@ const runtimeSource = readFileSync(
   "utf8",
 );
 const mainSource = readFileSync(
-  new URL("../src/main.ts", import.meta.url),
+  new URL("../src/research.ts", import.meta.url),
   "utf8",
 );
 
@@ -500,13 +500,9 @@ describe("Math Frontier presentation helpers", () => {
       runtimeSource,
       /#math-frontier[\s\S]*scrollIntoView\(\{[\s\S]*block: "start",[\s\S]*behavior: "instant",/,
     );
-    assert.match(
-      mainSource,
-      /Promise\.allSettled\(\[\s*constructiveTreeReady,\s*researchCommonsReady,\s*lifeSciencesTreeReady,\s*quantumSeasonReady,\s*mathFrontierReady,\s*foldToFireReady,\s*lifeGardenReady,\s*\]\)\.then\(alignInitialHash\)/,
-    );
-    assert.match(
-      mainSource,
-      /Promise\.allSettled\(\[\s*constructiveTreeReady,\s*researchCommonsReady,\s*lifeSciencesTreeReady,\s*quantumSeasonReady,\s*mathFrontierReady,\s*foldToFireReady,\s*lifeGardenReady,\s*initialNetworkReady,\s*\]\)\.then\(alignInitialHash\)/,
-    );
+    assert.match(mainSource, /initialiseMathFrontier\(mathFrontierRoot\)/);
+    assert.match(mainSource, /void initialViews\.then\(alignResearchHash\)/);
+    assert.doesNotMatch(mainSource, /initialNetworkReady|refreshNetwork/);
+
   });
 });
