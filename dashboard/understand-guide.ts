@@ -160,6 +160,8 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
         { label: "Inspect the knowledge graph", url: "https://zerone.ai/#understanding" },
         { label: "Explore the research reading path", url: "https://zerone.ai/#reading-path" },
         { label: "Relations · distinct nodes and their connections", url: "https://zerone.ai/#relations" },
+        { label: "Mappings · correspondence with explicit limits", url: "https://zerone.ai/#correspondence" },
+        { label: "Invariants · assumptions, witnesses and bounded conclusions", url: "https://zerone.ai/#explicit-invariants" },
         { label: "Skills · constructive intelligence", url: "https://zerone.ai/#skills" },
         { label: "Life · the living garden", url: "https://zerone.ai/#life" },
         { label: "Commons · research and shared work", url: "https://zerone.ai/#frontier-commons" },

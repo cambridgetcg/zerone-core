@@ -40,9 +40,9 @@ assert.ok(sectionEnd > start, "missing FC-0 section end");
 const section = html.slice(sectionStart, sectionEnd);
 
 describe("Frontier Commons FC-0 page", () => {
-  it("makes the read-only milestone visible in primary navigation", () => {
+  it("keeps the read-only milestone discoverable through the research library", () => {
     assert.equal(html.match(/id="frontier-commons"/g)?.length, 1);
-    assert.match(html, /<a href="#frontier-commons">Commons<\/a>/);
+    assert.match(html, /<a href="\/understand\/#research">Research<\/a>/);
     assert.match(section, /The Reversible Hello/);
     assert.match(section, /A public, passive, non-targeted invitation—not enrollment/);
     assert.match(section, /FC-0 is set—and honestly not yet met/);

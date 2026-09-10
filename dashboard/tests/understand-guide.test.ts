@@ -69,4 +69,16 @@ describe("shared explanatory guide", () => {
     const homepage = readFileSync(new URL("../index.html", import.meta.url), "utf8");
     for (const match of homepage.matchAll(/href="\/understand\/#([^"]+)"/gu)) assert.ok(ids.includes(match[1]), `Missing homepage destination ${match[1]}`);
   });
+
+  it("preserves all research destinations through the shared library and their existing page anchors", () => {
+    const { guide } = build();
+    const homepage = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+    const html = understandPage(guide);
+    for (const id of ["relations", "correspondence", "explicit-invariants", "skills", "life", "frontier-commons"]) {
+      const url = `https://zerone.ai/#${id}`;
+      assert.ok(guide.research.links.some((item) => item.url === url));
+      assert.ok(html.includes(`href="${url}"`));
+      assert.ok(homepage.includes(`id="${id}"`));
+    }
+  });
 });

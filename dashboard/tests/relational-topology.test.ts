@@ -516,7 +516,7 @@ describe("relational topology v0", () => {
       main,
       /initialiseRelationalTopology\(\s*relationalTopologyRoot,?\s*\)/,
     );
-    assert.match(html, /href="#relations"/);
+    assert.match(html, /href="\/understand\/#research"/);
     assert.match(html, /id="relational-topology-root"/);
 
     await withFakeDocument(async () => {
