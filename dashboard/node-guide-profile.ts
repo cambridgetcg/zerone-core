@@ -164,6 +164,12 @@ export function buildNodeGuideProfile({
       existingState: "Initialization refuses an existing home. Restart the same home to continue; setup is not a reset command.",
       apiReference: source("docs/API.md"),
       sdkReference: source("sdk/typescript/README.md"),
+      claimWorkflow: {
+        title: "Put a claim into a block",
+        guide: source("docs/LOCAL-CLAIMS.md"),
+        summary: "Create a fresh knowledge sandbox with funded development participants. Submit a signed claim, save reasoned reviews, record a counterclaim and inspect the retained history in a local browser page.",
+        scope: "Local development only. The same operator controls these accounts; an accepted review outcome is not a guarantee of truth or independent scientific agreement.",
+      },
       apiScope: "These APIs describe the pinned local source. Public legacy routes and messages may differ.",
     },
     live: {

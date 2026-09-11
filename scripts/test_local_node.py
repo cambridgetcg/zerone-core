@@ -71,6 +71,24 @@ class SafetyTests(unittest.TestCase):
                 run.assert_not_called()
             self.assertEqual(before, {path.name: path.read_bytes() for path in home.iterdir()})
 
+    def test_knowledge_profile_requires_current_records_and_changes_only_windows(self):
+        knowledge = {"record_integrity_enabled": True, "review_neutrality_enabled": True,
+                     "claim_records_enabled": True, "params": {"min_verifiers": 3,
+                     "confidence_threshold": 770000, "commit_phase_blocks": "200",
+                     "reveal_phase_blocks": "200", "aggregation_phase_blocks": "50"}}
+        genesis = {"app_state": {"knowledge": knowledge}}
+        local.configure_knowledge_profile(genesis)
+        self.assertEqual(knowledge["params"], {"min_verifiers": 3, "confidence_threshold": 770000,
+            "commit_phase_blocks": "300", "reveal_phase_blocks": "300", "aggregation_phase_blocks": "5"})
+        local.configure_knowledge_profile(genesis, fast=True)
+        self.assertEqual(knowledge["params"]["commit_phase_blocks"], "60")
+        self.assertEqual(knowledge["params"]["reveal_phase_blocks"], "60")
+        for marker in ("record_integrity_enabled", "review_neutrality_enabled", "claim_records_enabled"):
+            knowledge[marker] = False
+            with self.assertRaisesRegex(local.LocalNodeError, marker):
+                local.configure_knowledge_profile(genesis)
+            knowledge[marker] = True
+
     def test_symlink_and_default_homes_refused(self):
         target = self.root / "target"
         target.mkdir()

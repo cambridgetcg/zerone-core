@@ -57,6 +57,14 @@ an error; it does not terminate another process or repair a different home.
 Keep the terminal's error output when diagnosing a failed start, but never
 publish the keyring, signing keys or a complete node home.
 
+## Claims and reviews
+
+To submit claims, carry out reasoned reviews and inspect challenges on a fresh
+local chain, follow the [claim workflow](LOCAL-CLAIMS.md). Its optional
+`--knowledge-profile` creates funded development participants and shorter
+review windows at initialization. An existing sandbox is never reset or
+silently reconfigured.
+
 ## Existing public network
 
 This creates a separate local chain. It does not replicate `zerone-1`, add
