@@ -368,6 +368,16 @@ message GenesisState {
   repeated StatusTransitionCounter status_transition_counters = 66;
   // Execution policy selection; imports preserve records without inventing upgrade receipts.
   bool review_neutrality_enabled = 67;
+  // Complete canonical relation inventory. Absence preserves historical genesis
+  // seeding; a present empty inventory explicitly restores an empty graph.
+  // Never reconstruct this inventory from embedded Fact arrays or Claim input.
+  FactRelationGenesis fact_relation_state = 68;
+}
+
+// Exports each ordered source/target pair once, including full provenance.
+// Import restores both canonical relation indexes from these primary records.
+message FactRelationGenesis {
+  repeated FactRelation relations = 1;
 }
 
 // Preserves the allocated status-history sequence even when retained history has gaps.

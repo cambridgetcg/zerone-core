@@ -12,6 +12,9 @@ import (
 
 // InitGenesis initializes the module state from a genesis state.
 func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
+	if err := types.ValidateFactRelationGenesis(gs); err != nil {
+		return err
+	}
 	// Check the whole pending slice before any genesis writes. The ordinary
 	// module validator also checks it, but direct keeper imports must not drop
 	// or partially replay an ambiguous obligation list.
@@ -229,6 +232,9 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	if err := k.LoadDoctrineFacts(ctx); err != nil {
 		return fmt.Errorf("load doctrine facts: %w", err)
 	}
+	if err := k.ImportFactRelationGenesis(ctx, gs); err != nil {
+		return fmt.Errorf("import fact relations: %w", err)
+	}
 	for _, reward := range gs.SurvivalPendingRewards {
 		if err := k.SetSurvivalPendingReward(ctx, SurvivalPendingReward{
 			ClaimId: reward.ClaimId, FactId: reward.FactId,
@@ -329,6 +335,13 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		facts = append(facts, fact)
 		return false
 	})
+	relationState, err := k.ExportFactRelationGenesis(ctx)
+	if err != nil {
+		panic(fmt.Errorf("export fact relations: %w", err))
+	}
+	if err := types.ValidateFactRelationGenesis(&types.GenesisState{Facts: facts, FactRelationState: relationState}); err != nil {
+		panic(fmt.Errorf("export fact relation references: %w", err))
+	}
 
 	claims, err := k.GetAllClaimsChecked(ctx)
 	if err != nil {
@@ -466,6 +479,7 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	return &types.GenesisState{
 		Params:                    params,
 		Facts:                     facts,
+		FactRelationState:         relationState,
 		PendingClaims:             claims,
 		Domains:                   domains,
 		ActiveRounds:              rounds,
