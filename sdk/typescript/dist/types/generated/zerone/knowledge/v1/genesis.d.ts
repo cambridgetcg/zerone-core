@@ -1,4 +1,4 @@
-import { Fact, Claim, VerificationRound, Domain, CommonKnowledgeEntry, Methodology, NormativeCommitment, TokenizerSpec, TraceSchema, TrainingPipeline, ModelCard, TrainingAttestation, ContributionRecord, AugmentationBounty, Augmentation, ContributionChallenge, TrainingFundDisbursement, TrainingManifest, AgentCalibration } from "./types.js";
+import { Fact, Claim, VerificationRound, Domain, CommonKnowledgeEntry, Methodology, NormativeCommitment, TokenizerSpec, TraceSchema, TrainingPipeline, ModelCard, TrainingAttestation, ContributionRecord, AugmentationBounty, Augmentation, ContributionChallenge, TrainingFundDisbursement, TrainingManifest, AgentCalibration, FactRelation } from "./types.js";
 import { StatusTransition, CascadeEvent } from "./tok_cascade.js";
 import { BinaryReader, BinaryWriter } from "../../../binary.js";
 import { DeepPartial } from "../../../helpers.js";
@@ -749,6 +749,22 @@ export interface GenesisState {
      * Execution policy selection; imports preserve records without inventing upgrade receipts.
      */
     reviewNeutralityEnabled: boolean;
+    /**
+     * Complete canonical relation inventory. Absence preserves historical genesis
+     * seeding; a present empty inventory explicitly restores an empty graph.
+     * Never reconstruct this inventory from embedded Fact arrays or Claim input.
+     */
+    factRelationState?: FactRelationGenesis;
+}
+/**
+ * Exports each ordered source/target pair once, including full provenance.
+ * Import restores both canonical relation indexes from these primary records.
+ * @name FactRelationGenesis
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.FactRelationGenesis
+ */
+export interface FactRelationGenesis {
+    relations: FactRelation[];
 }
 /**
  * Preserves the allocated status-history sequence even when retained history has gaps.
@@ -810,6 +826,19 @@ export declare const GenesisState: {
     encode(message: GenesisState, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): GenesisState;
     fromPartial(object: DeepPartial<GenesisState>): GenesisState;
+};
+/**
+ * Exports each ordered source/target pair once, including full provenance.
+ * Import restores both canonical relation indexes from these primary records.
+ * @name FactRelationGenesis
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.FactRelationGenesis
+ */
+export declare const FactRelationGenesis: {
+    typeUrl: string;
+    encode(message: FactRelationGenesis, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): FactRelationGenesis;
+    fromPartial(object: DeepPartial<FactRelationGenesis>): FactRelationGenesis;
 };
 /**
  * Preserves the allocated status-history sequence even when retained history has gaps.

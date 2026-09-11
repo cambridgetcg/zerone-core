@@ -1,5 +1,5 @@
 //@ts-nocheck
-import { Fact, Claim, VerificationRound, Domain, CommonKnowledgeEntry, Methodology, NormativeCommitment, TokenizerSpec, TraceSchema, TrainingPipeline, ModelCard, TrainingAttestation, ContributionRecord, AugmentationBounty, Augmentation, ContributionChallenge, TrainingFundDisbursement, TrainingManifest, AgentCalibration } from "./types";
+import { Fact, Claim, VerificationRound, Domain, CommonKnowledgeEntry, Methodology, NormativeCommitment, TokenizerSpec, TraceSchema, TrainingPipeline, ModelCard, TrainingAttestation, ContributionRecord, AugmentationBounty, Augmentation, ContributionChallenge, TrainingFundDisbursement, TrainingManifest, AgentCalibration, FactRelation } from "./types";
 import { StatusTransition, CascadeEvent } from "./tok_cascade";
 import { BinaryReader, BinaryWriter } from "../../../binary";
 import { DeepPartial } from "../../../helpers";
@@ -750,6 +750,22 @@ export interface GenesisState {
    * Execution policy selection; imports preserve records without inventing upgrade receipts.
    */
   reviewNeutralityEnabled: boolean;
+  /**
+   * Complete canonical relation inventory. Absence preserves historical genesis
+   * seeding; a present empty inventory explicitly restores an empty graph.
+   * Never reconstruct this inventory from embedded Fact arrays or Claim input.
+   */
+  factRelationState?: FactRelationGenesis;
+}
+/**
+ * Exports each ordered source/target pair once, including full provenance.
+ * Import restores both canonical relation indexes from these primary records.
+ * @name FactRelationGenesis
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.FactRelationGenesis
+ */
+export interface FactRelationGenesis {
+  relations: FactRelation[];
 }
 /**
  * Preserves the allocated status-history sequence even when retained history has gaps.
@@ -2097,7 +2113,8 @@ function createBaseGenesisState(): GenesisState {
     statusTransitions: [],
     cascadeEvents: [],
     statusTransitionCounters: [],
-    reviewNeutralityEnabled: false
+    reviewNeutralityEnabled: false,
+    factRelationState: undefined
   };
 }
 /**
@@ -2202,6 +2219,9 @@ export const GenesisState = {
     if (message.reviewNeutralityEnabled === true) {
       writer.uint32(536).bool(message.reviewNeutralityEnabled);
     }
+    if (message.factRelationState !== undefined) {
+      FactRelationGenesis.encode(message.factRelationState, writer.uint32(546).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -2304,6 +2324,9 @@ export const GenesisState = {
         case 67:
           message.reviewNeutralityEnabled = reader.bool();
           break;
+        case 68:
+          message.factRelationState = FactRelationGenesis.decode(reader, reader.uint32());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -2344,6 +2367,50 @@ export const GenesisState = {
     message.cascadeEvents = object.cascadeEvents?.map(e => CascadeEvent.fromPartial(e)) || [];
     message.statusTransitionCounters = object.statusTransitionCounters?.map(e => StatusTransitionCounter.fromPartial(e)) || [];
     message.reviewNeutralityEnabled = object.reviewNeutralityEnabled ?? false;
+    message.factRelationState = object.factRelationState !== undefined && object.factRelationState !== null ? FactRelationGenesis.fromPartial(object.factRelationState) : undefined;
+    return message;
+  }
+};
+function createBaseFactRelationGenesis(): FactRelationGenesis {
+  return {
+    relations: []
+  };
+}
+/**
+ * Exports each ordered source/target pair once, including full provenance.
+ * Import restores both canonical relation indexes from these primary records.
+ * @name FactRelationGenesis
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.FactRelationGenesis
+ */
+export const FactRelationGenesis = {
+  typeUrl: "/zerone.knowledge.v1.FactRelationGenesis",
+  encode(message: FactRelationGenesis, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    for (const v of message.relations) {
+      FactRelation.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): FactRelationGenesis {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseFactRelationGenesis();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.relations.push(FactRelation.decode(reader, reader.uint32()));
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<FactRelationGenesis>): FactRelationGenesis {
+    const message = createBaseFactRelationGenesis();
+    message.relations = object.relations?.map(e => FactRelation.fromPartial(e)) || [];
     return message;
   }
 };
