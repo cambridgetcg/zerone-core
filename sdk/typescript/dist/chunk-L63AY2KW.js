@@ -8865,6 +8865,98 @@ __export(tx_exports12, {
 });
 
 // src/generated/zerone/knowledge/v1/types.ts
+function createBaseFactRelation() {
+  return {
+    sourceFactId: "",
+    targetFactId: "",
+    relation: 0,
+    createdAtBlock: BigInt(0),
+    creator: "",
+    inference: 0,
+    inferenceStrengthBps: BigInt(0),
+    methodId: ""
+  };
+}
+var FactRelation = {
+  typeUrl: "/zerone.knowledge.v1.FactRelation",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.sourceFactId !== "") {
+      writer.uint32(10).string(message.sourceFactId);
+    }
+    if (message.targetFactId !== "") {
+      writer.uint32(18).string(message.targetFactId);
+    }
+    if (message.relation !== 0) {
+      writer.uint32(24).int32(message.relation);
+    }
+    if (message.createdAtBlock !== BigInt(0)) {
+      writer.uint32(32).uint64(message.createdAtBlock);
+    }
+    if (message.creator !== "") {
+      writer.uint32(42).string(message.creator);
+    }
+    if (message.inference !== 0) {
+      writer.uint32(48).int32(message.inference);
+    }
+    if (message.inferenceStrengthBps !== BigInt(0)) {
+      writer.uint32(56).uint64(message.inferenceStrengthBps);
+    }
+    if (message.methodId !== "") {
+      writer.uint32(66).string(message.methodId);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseFactRelation();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.sourceFactId = reader.string();
+          break;
+        case 2:
+          message.targetFactId = reader.string();
+          break;
+        case 3:
+          message.relation = reader.int32();
+          break;
+        case 4:
+          message.createdAtBlock = reader.uint64();
+          break;
+        case 5:
+          message.creator = reader.string();
+          break;
+        case 6:
+          message.inference = reader.int32();
+          break;
+        case 7:
+          message.inferenceStrengthBps = reader.uint64();
+          break;
+        case 8:
+          message.methodId = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseFactRelation();
+    message.sourceFactId = object.sourceFactId ?? "";
+    message.targetFactId = object.targetFactId ?? "";
+    message.relation = object.relation ?? 0;
+    message.createdAtBlock = object.createdAtBlock !== void 0 && object.createdAtBlock !== null ? BigInt(object.createdAtBlock.toString()) : BigInt(0);
+    message.creator = object.creator ?? "";
+    message.inference = object.inference ?? 0;
+    message.inferenceStrengthBps = object.inferenceStrengthBps !== void 0 && object.inferenceStrengthBps !== null ? BigInt(object.inferenceStrengthBps.toString()) : BigInt(0);
+    message.methodId = object.methodId ?? "";
+    return message;
+  }
+};
 function createBaseClaimRelation() {
   return {
     targetFactId: "",
@@ -9017,6 +9109,554 @@ var ClaimStructure = {
     return message;
   }
 };
+function createBaseFact() {
+  return {
+    id: "",
+    content: "",
+    domain: "",
+    category: "",
+    confidence: BigInt(0),
+    submitter: "",
+    submittedAtBlock: BigInt(0),
+    verifiedAtBlock: BigInt(0),
+    citationCount: BigInt(0),
+    fundamentality: BigInt(0),
+    references: [],
+    status: 0,
+    claimId: "",
+    reverificationBlock: BigInt(0),
+    lastVerifiedBlock: BigInt(0),
+    challengeWindowEnd: BigInt(0),
+    bridgeScore: BigInt(0),
+    noveltyScore: BigInt(0),
+    patronageAmount: "",
+    patronageExpiryBlock: BigInt(0),
+    stratum: "",
+    maturity: "",
+    incomingCitationCount: BigInt(0),
+    claimType: 0,
+    outgoingRelations: [],
+    incomingRelations: [],
+    structure: void 0,
+    canonicalForm: "",
+    canonicalHash: "",
+    fitnessScore: BigInt(0),
+    fitnessUpdatedBlock: BigInt(0),
+    queryCount: BigInt(0),
+    queryCountEpoch: BigInt(0),
+    epochBorn: BigInt(0),
+    energy: BigInt(0),
+    energyCap: BigInt(0),
+    energyLastUpdated: BigInt(0),
+    atRiskSinceEpoch: BigInt(0),
+    nicheKey: "",
+    nicheLeader: false,
+    nicheRank: BigInt(0),
+    nicheSize: BigInt(0),
+    competitionTax: BigInt(0),
+    parentFactId: "",
+    childFactIds: [],
+    lineageDepth: BigInt(0),
+    progenyCount: BigInt(0),
+    lineageRootId: "",
+    commonKnowledgeMatch: false,
+    satisfactionUp: BigInt(0),
+    satisfactionDown: BigInt(0),
+    satisfactionUpEpoch: BigInt(0),
+    satisfactionDownEpoch: BigInt(0),
+    axiomDistance: 0,
+    dependencyConfidenceFloor: BigInt(0),
+    methodId: "",
+    corroborationCount: BigInt(0),
+    lastCorroboratedBlock: BigInt(0),
+    reasoningTrace: "",
+    submitterCalibrationSnapshotBps: BigInt(0),
+    trainingRevenueEarned: "",
+    trainingRevenueEarnedRecent: "",
+    revenueClawbackBlock: BigInt(0),
+    probeInvitedAtBlock: BigInt(0),
+    falsificationPredicate: ""
+  };
+}
+var Fact = {
+  typeUrl: "/zerone.knowledge.v1.Fact",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.content !== "") {
+      writer.uint32(18).string(message.content);
+    }
+    if (message.domain !== "") {
+      writer.uint32(26).string(message.domain);
+    }
+    if (message.category !== "") {
+      writer.uint32(34).string(message.category);
+    }
+    if (message.confidence !== BigInt(0)) {
+      writer.uint32(40).uint64(message.confidence);
+    }
+    if (message.submitter !== "") {
+      writer.uint32(50).string(message.submitter);
+    }
+    if (message.submittedAtBlock !== BigInt(0)) {
+      writer.uint32(56).uint64(message.submittedAtBlock);
+    }
+    if (message.verifiedAtBlock !== BigInt(0)) {
+      writer.uint32(64).uint64(message.verifiedAtBlock);
+    }
+    if (message.citationCount !== BigInt(0)) {
+      writer.uint32(72).uint64(message.citationCount);
+    }
+    if (message.fundamentality !== BigInt(0)) {
+      writer.uint32(80).uint64(message.fundamentality);
+    }
+    for (const v of message.references) {
+      writer.uint32(90).string(v);
+    }
+    if (message.status !== 0) {
+      writer.uint32(96).int32(message.status);
+    }
+    if (message.claimId !== "") {
+      writer.uint32(106).string(message.claimId);
+    }
+    if (message.reverificationBlock !== BigInt(0)) {
+      writer.uint32(112).uint64(message.reverificationBlock);
+    }
+    if (message.lastVerifiedBlock !== BigInt(0)) {
+      writer.uint32(120).uint64(message.lastVerifiedBlock);
+    }
+    if (message.challengeWindowEnd !== BigInt(0)) {
+      writer.uint32(128).uint64(message.challengeWindowEnd);
+    }
+    if (message.bridgeScore !== BigInt(0)) {
+      writer.uint32(136).uint64(message.bridgeScore);
+    }
+    if (message.noveltyScore !== BigInt(0)) {
+      writer.uint32(144).uint64(message.noveltyScore);
+    }
+    if (message.patronageAmount !== "") {
+      writer.uint32(154).string(message.patronageAmount);
+    }
+    if (message.patronageExpiryBlock !== BigInt(0)) {
+      writer.uint32(160).uint64(message.patronageExpiryBlock);
+    }
+    if (message.stratum !== "") {
+      writer.uint32(170).string(message.stratum);
+    }
+    if (message.maturity !== "") {
+      writer.uint32(178).string(message.maturity);
+    }
+    if (message.incomingCitationCount !== BigInt(0)) {
+      writer.uint32(184).uint64(message.incomingCitationCount);
+    }
+    if (message.claimType !== 0) {
+      writer.uint32(192).int32(message.claimType);
+    }
+    for (const v of message.outgoingRelations) {
+      FactRelation.encode(v, writer.uint32(202).fork()).ldelim();
+    }
+    for (const v of message.incomingRelations) {
+      FactRelation.encode(v, writer.uint32(210).fork()).ldelim();
+    }
+    if (message.structure !== void 0) {
+      ClaimStructure.encode(message.structure, writer.uint32(218).fork()).ldelim();
+    }
+    if (message.canonicalForm !== "") {
+      writer.uint32(226).string(message.canonicalForm);
+    }
+    if (message.canonicalHash !== "") {
+      writer.uint32(234).string(message.canonicalHash);
+    }
+    if (message.fitnessScore !== BigInt(0)) {
+      writer.uint32(240).uint64(message.fitnessScore);
+    }
+    if (message.fitnessUpdatedBlock !== BigInt(0)) {
+      writer.uint32(248).uint64(message.fitnessUpdatedBlock);
+    }
+    if (message.queryCount !== BigInt(0)) {
+      writer.uint32(256).uint64(message.queryCount);
+    }
+    if (message.queryCountEpoch !== BigInt(0)) {
+      writer.uint32(264).uint64(message.queryCountEpoch);
+    }
+    if (message.epochBorn !== BigInt(0)) {
+      writer.uint32(272).uint64(message.epochBorn);
+    }
+    if (message.energy !== BigInt(0)) {
+      writer.uint32(280).uint64(message.energy);
+    }
+    if (message.energyCap !== BigInt(0)) {
+      writer.uint32(288).uint64(message.energyCap);
+    }
+    if (message.energyLastUpdated !== BigInt(0)) {
+      writer.uint32(296).uint64(message.energyLastUpdated);
+    }
+    if (message.atRiskSinceEpoch !== BigInt(0)) {
+      writer.uint32(304).uint64(message.atRiskSinceEpoch);
+    }
+    if (message.nicheKey !== "") {
+      writer.uint32(314).string(message.nicheKey);
+    }
+    if (message.nicheLeader === true) {
+      writer.uint32(320).bool(message.nicheLeader);
+    }
+    if (message.nicheRank !== BigInt(0)) {
+      writer.uint32(328).uint64(message.nicheRank);
+    }
+    if (message.nicheSize !== BigInt(0)) {
+      writer.uint32(336).uint64(message.nicheSize);
+    }
+    if (message.competitionTax !== BigInt(0)) {
+      writer.uint32(344).uint64(message.competitionTax);
+    }
+    if (message.parentFactId !== "") {
+      writer.uint32(354).string(message.parentFactId);
+    }
+    for (const v of message.childFactIds) {
+      writer.uint32(362).string(v);
+    }
+    if (message.lineageDepth !== BigInt(0)) {
+      writer.uint32(368).uint64(message.lineageDepth);
+    }
+    if (message.progenyCount !== BigInt(0)) {
+      writer.uint32(376).uint64(message.progenyCount);
+    }
+    if (message.lineageRootId !== "") {
+      writer.uint32(386).string(message.lineageRootId);
+    }
+    if (message.commonKnowledgeMatch === true) {
+      writer.uint32(392).bool(message.commonKnowledgeMatch);
+    }
+    if (message.satisfactionUp !== BigInt(0)) {
+      writer.uint32(480).uint64(message.satisfactionUp);
+    }
+    if (message.satisfactionDown !== BigInt(0)) {
+      writer.uint32(488).uint64(message.satisfactionDown);
+    }
+    if (message.satisfactionUpEpoch !== BigInt(0)) {
+      writer.uint32(496).uint64(message.satisfactionUpEpoch);
+    }
+    if (message.satisfactionDownEpoch !== BigInt(0)) {
+      writer.uint32(504).uint64(message.satisfactionDownEpoch);
+    }
+    if (message.axiomDistance !== 0) {
+      writer.uint32(512).uint32(message.axiomDistance);
+    }
+    if (message.dependencyConfidenceFloor !== BigInt(0)) {
+      writer.uint32(520).uint64(message.dependencyConfidenceFloor);
+    }
+    if (message.methodId !== "") {
+      writer.uint32(530).string(message.methodId);
+    }
+    if (message.corroborationCount !== BigInt(0)) {
+      writer.uint32(536).uint64(message.corroborationCount);
+    }
+    if (message.lastCorroboratedBlock !== BigInt(0)) {
+      writer.uint32(544).uint64(message.lastCorroboratedBlock);
+    }
+    if (message.reasoningTrace !== "") {
+      writer.uint32(554).string(message.reasoningTrace);
+    }
+    if (message.submitterCalibrationSnapshotBps !== BigInt(0)) {
+      writer.uint32(560).uint64(message.submitterCalibrationSnapshotBps);
+    }
+    if (message.trainingRevenueEarned !== "") {
+      writer.uint32(570).string(message.trainingRevenueEarned);
+    }
+    if (message.trainingRevenueEarnedRecent !== "") {
+      writer.uint32(578).string(message.trainingRevenueEarnedRecent);
+    }
+    if (message.revenueClawbackBlock !== BigInt(0)) {
+      writer.uint32(584).uint64(message.revenueClawbackBlock);
+    }
+    if (message.probeInvitedAtBlock !== BigInt(0)) {
+      writer.uint32(592).uint64(message.probeInvitedAtBlock);
+    }
+    if (message.falsificationPredicate !== "") {
+      writer.uint32(602).string(message.falsificationPredicate);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseFact();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.id = reader.string();
+          break;
+        case 2:
+          message.content = reader.string();
+          break;
+        case 3:
+          message.domain = reader.string();
+          break;
+        case 4:
+          message.category = reader.string();
+          break;
+        case 5:
+          message.confidence = reader.uint64();
+          break;
+        case 6:
+          message.submitter = reader.string();
+          break;
+        case 7:
+          message.submittedAtBlock = reader.uint64();
+          break;
+        case 8:
+          message.verifiedAtBlock = reader.uint64();
+          break;
+        case 9:
+          message.citationCount = reader.uint64();
+          break;
+        case 10:
+          message.fundamentality = reader.uint64();
+          break;
+        case 11:
+          message.references.push(reader.string());
+          break;
+        case 12:
+          message.status = reader.int32();
+          break;
+        case 13:
+          message.claimId = reader.string();
+          break;
+        case 14:
+          message.reverificationBlock = reader.uint64();
+          break;
+        case 15:
+          message.lastVerifiedBlock = reader.uint64();
+          break;
+        case 16:
+          message.challengeWindowEnd = reader.uint64();
+          break;
+        case 17:
+          message.bridgeScore = reader.uint64();
+          break;
+        case 18:
+          message.noveltyScore = reader.uint64();
+          break;
+        case 19:
+          message.patronageAmount = reader.string();
+          break;
+        case 20:
+          message.patronageExpiryBlock = reader.uint64();
+          break;
+        case 21:
+          message.stratum = reader.string();
+          break;
+        case 22:
+          message.maturity = reader.string();
+          break;
+        case 23:
+          message.incomingCitationCount = reader.uint64();
+          break;
+        case 24:
+          message.claimType = reader.int32();
+          break;
+        case 25:
+          message.outgoingRelations.push(FactRelation.decode(reader, reader.uint32()));
+          break;
+        case 26:
+          message.incomingRelations.push(FactRelation.decode(reader, reader.uint32()));
+          break;
+        case 27:
+          message.structure = ClaimStructure.decode(reader, reader.uint32());
+          break;
+        case 28:
+          message.canonicalForm = reader.string();
+          break;
+        case 29:
+          message.canonicalHash = reader.string();
+          break;
+        case 30:
+          message.fitnessScore = reader.uint64();
+          break;
+        case 31:
+          message.fitnessUpdatedBlock = reader.uint64();
+          break;
+        case 32:
+          message.queryCount = reader.uint64();
+          break;
+        case 33:
+          message.queryCountEpoch = reader.uint64();
+          break;
+        case 34:
+          message.epochBorn = reader.uint64();
+          break;
+        case 35:
+          message.energy = reader.uint64();
+          break;
+        case 36:
+          message.energyCap = reader.uint64();
+          break;
+        case 37:
+          message.energyLastUpdated = reader.uint64();
+          break;
+        case 38:
+          message.atRiskSinceEpoch = reader.uint64();
+          break;
+        case 39:
+          message.nicheKey = reader.string();
+          break;
+        case 40:
+          message.nicheLeader = reader.bool();
+          break;
+        case 41:
+          message.nicheRank = reader.uint64();
+          break;
+        case 42:
+          message.nicheSize = reader.uint64();
+          break;
+        case 43:
+          message.competitionTax = reader.uint64();
+          break;
+        case 44:
+          message.parentFactId = reader.string();
+          break;
+        case 45:
+          message.childFactIds.push(reader.string());
+          break;
+        case 46:
+          message.lineageDepth = reader.uint64();
+          break;
+        case 47:
+          message.progenyCount = reader.uint64();
+          break;
+        case 48:
+          message.lineageRootId = reader.string();
+          break;
+        case 49:
+          message.commonKnowledgeMatch = reader.bool();
+          break;
+        case 60:
+          message.satisfactionUp = reader.uint64();
+          break;
+        case 61:
+          message.satisfactionDown = reader.uint64();
+          break;
+        case 62:
+          message.satisfactionUpEpoch = reader.uint64();
+          break;
+        case 63:
+          message.satisfactionDownEpoch = reader.uint64();
+          break;
+        case 64:
+          message.axiomDistance = reader.uint32();
+          break;
+        case 65:
+          message.dependencyConfidenceFloor = reader.uint64();
+          break;
+        case 66:
+          message.methodId = reader.string();
+          break;
+        case 67:
+          message.corroborationCount = reader.uint64();
+          break;
+        case 68:
+          message.lastCorroboratedBlock = reader.uint64();
+          break;
+        case 69:
+          message.reasoningTrace = reader.string();
+          break;
+        case 70:
+          message.submitterCalibrationSnapshotBps = reader.uint64();
+          break;
+        case 71:
+          message.trainingRevenueEarned = reader.string();
+          break;
+        case 72:
+          message.trainingRevenueEarnedRecent = reader.string();
+          break;
+        case 73:
+          message.revenueClawbackBlock = reader.uint64();
+          break;
+        case 74:
+          message.probeInvitedAtBlock = reader.uint64();
+          break;
+        case 75:
+          message.falsificationPredicate = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseFact();
+    message.id = object.id ?? "";
+    message.content = object.content ?? "";
+    message.domain = object.domain ?? "";
+    message.category = object.category ?? "";
+    message.confidence = object.confidence !== void 0 && object.confidence !== null ? BigInt(object.confidence.toString()) : BigInt(0);
+    message.submitter = object.submitter ?? "";
+    message.submittedAtBlock = object.submittedAtBlock !== void 0 && object.submittedAtBlock !== null ? BigInt(object.submittedAtBlock.toString()) : BigInt(0);
+    message.verifiedAtBlock = object.verifiedAtBlock !== void 0 && object.verifiedAtBlock !== null ? BigInt(object.verifiedAtBlock.toString()) : BigInt(0);
+    message.citationCount = object.citationCount !== void 0 && object.citationCount !== null ? BigInt(object.citationCount.toString()) : BigInt(0);
+    message.fundamentality = object.fundamentality !== void 0 && object.fundamentality !== null ? BigInt(object.fundamentality.toString()) : BigInt(0);
+    message.references = object.references?.map((e) => e) || [];
+    message.status = object.status ?? 0;
+    message.claimId = object.claimId ?? "";
+    message.reverificationBlock = object.reverificationBlock !== void 0 && object.reverificationBlock !== null ? BigInt(object.reverificationBlock.toString()) : BigInt(0);
+    message.lastVerifiedBlock = object.lastVerifiedBlock !== void 0 && object.lastVerifiedBlock !== null ? BigInt(object.lastVerifiedBlock.toString()) : BigInt(0);
+    message.challengeWindowEnd = object.challengeWindowEnd !== void 0 && object.challengeWindowEnd !== null ? BigInt(object.challengeWindowEnd.toString()) : BigInt(0);
+    message.bridgeScore = object.bridgeScore !== void 0 && object.bridgeScore !== null ? BigInt(object.bridgeScore.toString()) : BigInt(0);
+    message.noveltyScore = object.noveltyScore !== void 0 && object.noveltyScore !== null ? BigInt(object.noveltyScore.toString()) : BigInt(0);
+    message.patronageAmount = object.patronageAmount ?? "";
+    message.patronageExpiryBlock = object.patronageExpiryBlock !== void 0 && object.patronageExpiryBlock !== null ? BigInt(object.patronageExpiryBlock.toString()) : BigInt(0);
+    message.stratum = object.stratum ?? "";
+    message.maturity = object.maturity ?? "";
+    message.incomingCitationCount = object.incomingCitationCount !== void 0 && object.incomingCitationCount !== null ? BigInt(object.incomingCitationCount.toString()) : BigInt(0);
+    message.claimType = object.claimType ?? 0;
+    message.outgoingRelations = object.outgoingRelations?.map((e) => FactRelation.fromPartial(e)) || [];
+    message.incomingRelations = object.incomingRelations?.map((e) => FactRelation.fromPartial(e)) || [];
+    message.structure = object.structure !== void 0 && object.structure !== null ? ClaimStructure.fromPartial(object.structure) : void 0;
+    message.canonicalForm = object.canonicalForm ?? "";
+    message.canonicalHash = object.canonicalHash ?? "";
+    message.fitnessScore = object.fitnessScore !== void 0 && object.fitnessScore !== null ? BigInt(object.fitnessScore.toString()) : BigInt(0);
+    message.fitnessUpdatedBlock = object.fitnessUpdatedBlock !== void 0 && object.fitnessUpdatedBlock !== null ? BigInt(object.fitnessUpdatedBlock.toString()) : BigInt(0);
+    message.queryCount = object.queryCount !== void 0 && object.queryCount !== null ? BigInt(object.queryCount.toString()) : BigInt(0);
+    message.queryCountEpoch = object.queryCountEpoch !== void 0 && object.queryCountEpoch !== null ? BigInt(object.queryCountEpoch.toString()) : BigInt(0);
+    message.epochBorn = object.epochBorn !== void 0 && object.epochBorn !== null ? BigInt(object.epochBorn.toString()) : BigInt(0);
+    message.energy = object.energy !== void 0 && object.energy !== null ? BigInt(object.energy.toString()) : BigInt(0);
+    message.energyCap = object.energyCap !== void 0 && object.energyCap !== null ? BigInt(object.energyCap.toString()) : BigInt(0);
+    message.energyLastUpdated = object.energyLastUpdated !== void 0 && object.energyLastUpdated !== null ? BigInt(object.energyLastUpdated.toString()) : BigInt(0);
+    message.atRiskSinceEpoch = object.atRiskSinceEpoch !== void 0 && object.atRiskSinceEpoch !== null ? BigInt(object.atRiskSinceEpoch.toString()) : BigInt(0);
+    message.nicheKey = object.nicheKey ?? "";
+    message.nicheLeader = object.nicheLeader ?? false;
+    message.nicheRank = object.nicheRank !== void 0 && object.nicheRank !== null ? BigInt(object.nicheRank.toString()) : BigInt(0);
+    message.nicheSize = object.nicheSize !== void 0 && object.nicheSize !== null ? BigInt(object.nicheSize.toString()) : BigInt(0);
+    message.competitionTax = object.competitionTax !== void 0 && object.competitionTax !== null ? BigInt(object.competitionTax.toString()) : BigInt(0);
+    message.parentFactId = object.parentFactId ?? "";
+    message.childFactIds = object.childFactIds?.map((e) => e) || [];
+    message.lineageDepth = object.lineageDepth !== void 0 && object.lineageDepth !== null ? BigInt(object.lineageDepth.toString()) : BigInt(0);
+    message.progenyCount = object.progenyCount !== void 0 && object.progenyCount !== null ? BigInt(object.progenyCount.toString()) : BigInt(0);
+    message.lineageRootId = object.lineageRootId ?? "";
+    message.commonKnowledgeMatch = object.commonKnowledgeMatch ?? false;
+    message.satisfactionUp = object.satisfactionUp !== void 0 && object.satisfactionUp !== null ? BigInt(object.satisfactionUp.toString()) : BigInt(0);
+    message.satisfactionDown = object.satisfactionDown !== void 0 && object.satisfactionDown !== null ? BigInt(object.satisfactionDown.toString()) : BigInt(0);
+    message.satisfactionUpEpoch = object.satisfactionUpEpoch !== void 0 && object.satisfactionUpEpoch !== null ? BigInt(object.satisfactionUpEpoch.toString()) : BigInt(0);
+    message.satisfactionDownEpoch = object.satisfactionDownEpoch !== void 0 && object.satisfactionDownEpoch !== null ? BigInt(object.satisfactionDownEpoch.toString()) : BigInt(0);
+    message.axiomDistance = object.axiomDistance ?? 0;
+    message.dependencyConfidenceFloor = object.dependencyConfidenceFloor !== void 0 && object.dependencyConfidenceFloor !== null ? BigInt(object.dependencyConfidenceFloor.toString()) : BigInt(0);
+    message.methodId = object.methodId ?? "";
+    message.corroborationCount = object.corroborationCount !== void 0 && object.corroborationCount !== null ? BigInt(object.corroborationCount.toString()) : BigInt(0);
+    message.lastCorroboratedBlock = object.lastCorroboratedBlock !== void 0 && object.lastCorroboratedBlock !== null ? BigInt(object.lastCorroboratedBlock.toString()) : BigInt(0);
+    message.reasoningTrace = object.reasoningTrace ?? "";
+    message.submitterCalibrationSnapshotBps = object.submitterCalibrationSnapshotBps !== void 0 && object.submitterCalibrationSnapshotBps !== null ? BigInt(object.submitterCalibrationSnapshotBps.toString()) : BigInt(0);
+    message.trainingRevenueEarned = object.trainingRevenueEarned ?? "";
+    message.trainingRevenueEarnedRecent = object.trainingRevenueEarnedRecent ?? "";
+    message.revenueClawbackBlock = object.revenueClawbackBlock !== void 0 && object.revenueClawbackBlock !== null ? BigInt(object.revenueClawbackBlock.toString()) : BigInt(0);
+    message.probeInvitedAtBlock = object.probeInvitedAtBlock !== void 0 && object.probeInvitedAtBlock !== null ? BigInt(object.probeInvitedAtBlock.toString()) : BigInt(0);
+    message.falsificationPredicate = object.falsificationPredicate ?? "";
+    return message;
+  }
+};
 function createBaseTokenizerSpec() {
   return {
     version: BigInt(0),
@@ -9165,6 +9805,414 @@ var TokenizerSpec = {
     return message;
   }
 };
+function createBaseClaim() {
+  return {
+    id: "",
+    factContent: "",
+    domain: "",
+    category: "",
+    submitter: "",
+    submittedAtBlock: BigInt(0),
+    status: 0,
+    references: [],
+    verificationRoundId: "",
+    stake: "",
+    partnershipId: "",
+    challengeWindowEnd: BigInt(0),
+    provisionalFactId: "",
+    contentHash: "",
+    claimType: 0,
+    relations: [],
+    structure: void 0,
+    canonicalForm: "",
+    canonicalHash: "",
+    methodId: "",
+    reasoningTrace: "",
+    argumentText: "",
+    rebuttalText: "",
+    falsificationPredicate: "",
+    evidenceIds: [],
+    counterClaim: "",
+    challengedClaimId: "",
+    reviewPolicyVersion: 0
+  };
+}
+var Claim = {
+  typeUrl: "/zerone.knowledge.v1.Claim",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.factContent !== "") {
+      writer.uint32(18).string(message.factContent);
+    }
+    if (message.domain !== "") {
+      writer.uint32(26).string(message.domain);
+    }
+    if (message.category !== "") {
+      writer.uint32(34).string(message.category);
+    }
+    if (message.submitter !== "") {
+      writer.uint32(42).string(message.submitter);
+    }
+    if (message.submittedAtBlock !== BigInt(0)) {
+      writer.uint32(48).uint64(message.submittedAtBlock);
+    }
+    if (message.status !== 0) {
+      writer.uint32(56).int32(message.status);
+    }
+    for (const v of message.references) {
+      writer.uint32(66).string(v);
+    }
+    if (message.verificationRoundId !== "") {
+      writer.uint32(74).string(message.verificationRoundId);
+    }
+    if (message.stake !== "") {
+      writer.uint32(82).string(message.stake);
+    }
+    if (message.partnershipId !== "") {
+      writer.uint32(90).string(message.partnershipId);
+    }
+    if (message.challengeWindowEnd !== BigInt(0)) {
+      writer.uint32(96).uint64(message.challengeWindowEnd);
+    }
+    if (message.provisionalFactId !== "") {
+      writer.uint32(106).string(message.provisionalFactId);
+    }
+    if (message.contentHash !== "") {
+      writer.uint32(114).string(message.contentHash);
+    }
+    if (message.claimType !== 0) {
+      writer.uint32(120).int32(message.claimType);
+    }
+    for (const v of message.relations) {
+      ClaimRelation.encode(v, writer.uint32(130).fork()).ldelim();
+    }
+    if (message.structure !== void 0) {
+      ClaimStructure.encode(message.structure, writer.uint32(138).fork()).ldelim();
+    }
+    if (message.canonicalForm !== "") {
+      writer.uint32(146).string(message.canonicalForm);
+    }
+    if (message.canonicalHash !== "") {
+      writer.uint32(154).string(message.canonicalHash);
+    }
+    if (message.methodId !== "") {
+      writer.uint32(162).string(message.methodId);
+    }
+    if (message.reasoningTrace !== "") {
+      writer.uint32(170).string(message.reasoningTrace);
+    }
+    if (message.argumentText !== "") {
+      writer.uint32(178).string(message.argumentText);
+    }
+    if (message.rebuttalText !== "") {
+      writer.uint32(186).string(message.rebuttalText);
+    }
+    if (message.falsificationPredicate !== "") {
+      writer.uint32(194).string(message.falsificationPredicate);
+    }
+    for (const v of message.evidenceIds) {
+      writer.uint32(202).string(v);
+    }
+    if (message.counterClaim !== "") {
+      writer.uint32(210).string(message.counterClaim);
+    }
+    if (message.challengedClaimId !== "") {
+      writer.uint32(218).string(message.challengedClaimId);
+    }
+    if (message.reviewPolicyVersion !== 0) {
+      writer.uint32(224).uint32(message.reviewPolicyVersion);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseClaim();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.id = reader.string();
+          break;
+        case 2:
+          message.factContent = reader.string();
+          break;
+        case 3:
+          message.domain = reader.string();
+          break;
+        case 4:
+          message.category = reader.string();
+          break;
+        case 5:
+          message.submitter = reader.string();
+          break;
+        case 6:
+          message.submittedAtBlock = reader.uint64();
+          break;
+        case 7:
+          message.status = reader.int32();
+          break;
+        case 8:
+          message.references.push(reader.string());
+          break;
+        case 9:
+          message.verificationRoundId = reader.string();
+          break;
+        case 10:
+          message.stake = reader.string();
+          break;
+        case 11:
+          message.partnershipId = reader.string();
+          break;
+        case 12:
+          message.challengeWindowEnd = reader.uint64();
+          break;
+        case 13:
+          message.provisionalFactId = reader.string();
+          break;
+        case 14:
+          message.contentHash = reader.string();
+          break;
+        case 15:
+          message.claimType = reader.int32();
+          break;
+        case 16:
+          message.relations.push(ClaimRelation.decode(reader, reader.uint32()));
+          break;
+        case 17:
+          message.structure = ClaimStructure.decode(reader, reader.uint32());
+          break;
+        case 18:
+          message.canonicalForm = reader.string();
+          break;
+        case 19:
+          message.canonicalHash = reader.string();
+          break;
+        case 20:
+          message.methodId = reader.string();
+          break;
+        case 21:
+          message.reasoningTrace = reader.string();
+          break;
+        case 22:
+          message.argumentText = reader.string();
+          break;
+        case 23:
+          message.rebuttalText = reader.string();
+          break;
+        case 24:
+          message.falsificationPredicate = reader.string();
+          break;
+        case 25:
+          message.evidenceIds.push(reader.string());
+          break;
+        case 26:
+          message.counterClaim = reader.string();
+          break;
+        case 27:
+          message.challengedClaimId = reader.string();
+          break;
+        case 28:
+          message.reviewPolicyVersion = reader.uint32();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseClaim();
+    message.id = object.id ?? "";
+    message.factContent = object.factContent ?? "";
+    message.domain = object.domain ?? "";
+    message.category = object.category ?? "";
+    message.submitter = object.submitter ?? "";
+    message.submittedAtBlock = object.submittedAtBlock !== void 0 && object.submittedAtBlock !== null ? BigInt(object.submittedAtBlock.toString()) : BigInt(0);
+    message.status = object.status ?? 0;
+    message.references = object.references?.map((e) => e) || [];
+    message.verificationRoundId = object.verificationRoundId ?? "";
+    message.stake = object.stake ?? "";
+    message.partnershipId = object.partnershipId ?? "";
+    message.challengeWindowEnd = object.challengeWindowEnd !== void 0 && object.challengeWindowEnd !== null ? BigInt(object.challengeWindowEnd.toString()) : BigInt(0);
+    message.provisionalFactId = object.provisionalFactId ?? "";
+    message.contentHash = object.contentHash ?? "";
+    message.claimType = object.claimType ?? 0;
+    message.relations = object.relations?.map((e) => ClaimRelation.fromPartial(e)) || [];
+    message.structure = object.structure !== void 0 && object.structure !== null ? ClaimStructure.fromPartial(object.structure) : void 0;
+    message.canonicalForm = object.canonicalForm ?? "";
+    message.canonicalHash = object.canonicalHash ?? "";
+    message.methodId = object.methodId ?? "";
+    message.reasoningTrace = object.reasoningTrace ?? "";
+    message.argumentText = object.argumentText ?? "";
+    message.rebuttalText = object.rebuttalText ?? "";
+    message.falsificationPredicate = object.falsificationPredicate ?? "";
+    message.evidenceIds = object.evidenceIds?.map((e) => e) || [];
+    message.counterClaim = object.counterClaim ?? "";
+    message.challengedClaimId = object.challengedClaimId ?? "";
+    message.reviewPolicyVersion = object.reviewPolicyVersion ?? 0;
+    return message;
+  }
+};
+function createBaseVerificationRound() {
+  return {
+    id: "",
+    claimId: "",
+    startedAtBlock: BigInt(0),
+    phase: 0,
+    selectedVerifiers: [],
+    commits: [],
+    reveals: [],
+    verdict: 0,
+    verdictBlock: BigInt(0),
+    commitDeadline: BigInt(0),
+    revealDeadline: BigInt(0),
+    aggregationDeadline: BigInt(0),
+    commitmentScheme: 0,
+    commitmentChainId: "",
+    verifierRewardSettlement: void 0,
+    reviewPolicyVersion: 0
+  };
+}
+var VerificationRound = {
+  typeUrl: "/zerone.knowledge.v1.VerificationRound",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.id !== "") {
+      writer.uint32(10).string(message.id);
+    }
+    if (message.claimId !== "") {
+      writer.uint32(18).string(message.claimId);
+    }
+    if (message.startedAtBlock !== BigInt(0)) {
+      writer.uint32(24).uint64(message.startedAtBlock);
+    }
+    if (message.phase !== 0) {
+      writer.uint32(32).int32(message.phase);
+    }
+    for (const v of message.selectedVerifiers) {
+      writer.uint32(42).string(v);
+    }
+    for (const v of message.commits) {
+      CommitEntry.encode(v, writer.uint32(50).fork()).ldelim();
+    }
+    for (const v of message.reveals) {
+      RevealEntry.encode(v, writer.uint32(58).fork()).ldelim();
+    }
+    if (message.verdict !== 0) {
+      writer.uint32(64).int32(message.verdict);
+    }
+    if (message.verdictBlock !== BigInt(0)) {
+      writer.uint32(72).uint64(message.verdictBlock);
+    }
+    if (message.commitDeadline !== BigInt(0)) {
+      writer.uint32(80).uint64(message.commitDeadline);
+    }
+    if (message.revealDeadline !== BigInt(0)) {
+      writer.uint32(88).uint64(message.revealDeadline);
+    }
+    if (message.aggregationDeadline !== BigInt(0)) {
+      writer.uint32(96).uint64(message.aggregationDeadline);
+    }
+    if (message.commitmentScheme !== 0) {
+      writer.uint32(104).uint32(message.commitmentScheme);
+    }
+    if (message.commitmentChainId !== "") {
+      writer.uint32(114).string(message.commitmentChainId);
+    }
+    if (message.verifierRewardSettlement !== void 0) {
+      VerifierRewardSettlement.encode(message.verifierRewardSettlement, writer.uint32(122).fork()).ldelim();
+    }
+    if (message.reviewPolicyVersion !== 0) {
+      writer.uint32(128).uint32(message.reviewPolicyVersion);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseVerificationRound();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.id = reader.string();
+          break;
+        case 2:
+          message.claimId = reader.string();
+          break;
+        case 3:
+          message.startedAtBlock = reader.uint64();
+          break;
+        case 4:
+          message.phase = reader.int32();
+          break;
+        case 5:
+          message.selectedVerifiers.push(reader.string());
+          break;
+        case 6:
+          message.commits.push(CommitEntry.decode(reader, reader.uint32()));
+          break;
+        case 7:
+          message.reveals.push(RevealEntry.decode(reader, reader.uint32()));
+          break;
+        case 8:
+          message.verdict = reader.int32();
+          break;
+        case 9:
+          message.verdictBlock = reader.uint64();
+          break;
+        case 10:
+          message.commitDeadline = reader.uint64();
+          break;
+        case 11:
+          message.revealDeadline = reader.uint64();
+          break;
+        case 12:
+          message.aggregationDeadline = reader.uint64();
+          break;
+        case 13:
+          message.commitmentScheme = reader.uint32();
+          break;
+        case 14:
+          message.commitmentChainId = reader.string();
+          break;
+        case 15:
+          message.verifierRewardSettlement = VerifierRewardSettlement.decode(reader, reader.uint32());
+          break;
+        case 16:
+          message.reviewPolicyVersion = reader.uint32();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseVerificationRound();
+    message.id = object.id ?? "";
+    message.claimId = object.claimId ?? "";
+    message.startedAtBlock = object.startedAtBlock !== void 0 && object.startedAtBlock !== null ? BigInt(object.startedAtBlock.toString()) : BigInt(0);
+    message.phase = object.phase ?? 0;
+    message.selectedVerifiers = object.selectedVerifiers?.map((e) => e) || [];
+    message.commits = object.commits?.map((e) => CommitEntry.fromPartial(e)) || [];
+    message.reveals = object.reveals?.map((e) => RevealEntry.fromPartial(e)) || [];
+    message.verdict = object.verdict ?? 0;
+    message.verdictBlock = object.verdictBlock !== void 0 && object.verdictBlock !== null ? BigInt(object.verdictBlock.toString()) : BigInt(0);
+    message.commitDeadline = object.commitDeadline !== void 0 && object.commitDeadline !== null ? BigInt(object.commitDeadline.toString()) : BigInt(0);
+    message.revealDeadline = object.revealDeadline !== void 0 && object.revealDeadline !== null ? BigInt(object.revealDeadline.toString()) : BigInt(0);
+    message.aggregationDeadline = object.aggregationDeadline !== void 0 && object.aggregationDeadline !== null ? BigInt(object.aggregationDeadline.toString()) : BigInt(0);
+    message.commitmentScheme = object.commitmentScheme ?? 0;
+    message.commitmentChainId = object.commitmentChainId ?? "";
+    message.verifierRewardSettlement = object.verifierRewardSettlement !== void 0 && object.verifierRewardSettlement !== null ? VerifierRewardSettlement.fromPartial(object.verifierRewardSettlement) : void 0;
+    message.reviewPolicyVersion = object.reviewPolicyVersion ?? 0;
+    return message;
+  }
+};
 function createBaseReviewAttestation() {
   return {
     methodId: "",
@@ -9222,6 +10270,246 @@ var ReviewAttestation = {
     message.reason = object.reason ?? "";
     message.evidenceIds = object.evidenceIds?.map((e) => e) || [];
     message.scope = object.scope ?? "";
+    return message;
+  }
+};
+function createBaseVerifierRewardSettlement() {
+  return {
+    createdAtBlock: BigInt(0),
+    payments: [],
+    withheldTotal: "",
+    paidAtBlock: BigInt(0)
+  };
+}
+var VerifierRewardSettlement = {
+  typeUrl: "/zerone.knowledge.v1.VerifierRewardSettlement",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.createdAtBlock !== BigInt(0)) {
+      writer.uint32(8).uint64(message.createdAtBlock);
+    }
+    for (const v of message.payments) {
+      VerifierRewardPayment.encode(v, writer.uint32(18).fork()).ldelim();
+    }
+    if (message.withheldTotal !== "") {
+      writer.uint32(26).string(message.withheldTotal);
+    }
+    if (message.paidAtBlock !== BigInt(0)) {
+      writer.uint32(32).uint64(message.paidAtBlock);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseVerifierRewardSettlement();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.createdAtBlock = reader.uint64();
+          break;
+        case 2:
+          message.payments.push(VerifierRewardPayment.decode(reader, reader.uint32()));
+          break;
+        case 3:
+          message.withheldTotal = reader.string();
+          break;
+        case 4:
+          message.paidAtBlock = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseVerifierRewardSettlement();
+    message.createdAtBlock = object.createdAtBlock !== void 0 && object.createdAtBlock !== null ? BigInt(object.createdAtBlock.toString()) : BigInt(0);
+    message.payments = object.payments?.map((e) => VerifierRewardPayment.fromPartial(e)) || [];
+    message.withheldTotal = object.withheldTotal ?? "";
+    message.paidAtBlock = object.paidAtBlock !== void 0 && object.paidAtBlock !== null ? BigInt(object.paidAtBlock.toString()) : BigInt(0);
+    return message;
+  }
+};
+function createBaseVerifierRewardPayment() {
+  return {
+    verifier: "",
+    amount: "",
+    withheld: ""
+  };
+}
+var VerifierRewardPayment = {
+  typeUrl: "/zerone.knowledge.v1.VerifierRewardPayment",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.verifier !== "") {
+      writer.uint32(10).string(message.verifier);
+    }
+    if (message.amount !== "") {
+      writer.uint32(18).string(message.amount);
+    }
+    if (message.withheld !== "") {
+      writer.uint32(26).string(message.withheld);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseVerifierRewardPayment();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.verifier = reader.string();
+          break;
+        case 2:
+          message.amount = reader.string();
+          break;
+        case 3:
+          message.withheld = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseVerifierRewardPayment();
+    message.verifier = object.verifier ?? "";
+    message.amount = object.amount ?? "";
+    message.withheld = object.withheld ?? "";
+    return message;
+  }
+};
+function createBaseCommitEntry() {
+  return {
+    verifier: "",
+    commitHash: new Uint8Array(),
+    committedAtBlock: BigInt(0)
+  };
+}
+var CommitEntry = {
+  typeUrl: "/zerone.knowledge.v1.CommitEntry",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.verifier !== "") {
+      writer.uint32(10).string(message.verifier);
+    }
+    if (message.commitHash.length !== 0) {
+      writer.uint32(18).bytes(message.commitHash);
+    }
+    if (message.committedAtBlock !== BigInt(0)) {
+      writer.uint32(24).uint64(message.committedAtBlock);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseCommitEntry();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.verifier = reader.string();
+          break;
+        case 2:
+          message.commitHash = reader.bytes();
+          break;
+        case 3:
+          message.committedAtBlock = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseCommitEntry();
+    message.verifier = object.verifier ?? "";
+    message.commitHash = object.commitHash ?? new Uint8Array();
+    message.committedAtBlock = object.committedAtBlock !== void 0 && object.committedAtBlock !== null ? BigInt(object.committedAtBlock.toString()) : BigInt(0);
+    return message;
+  }
+};
+function createBaseRevealEntry() {
+  return {
+    verifier: "",
+    vote: "",
+    salt: new Uint8Array(),
+    revealedAtBlock: BigInt(0),
+    confidence: BigInt(0),
+    attestation: void 0
+  };
+}
+var RevealEntry = {
+  typeUrl: "/zerone.knowledge.v1.RevealEntry",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.verifier !== "") {
+      writer.uint32(10).string(message.verifier);
+    }
+    if (message.vote !== "") {
+      writer.uint32(18).string(message.vote);
+    }
+    if (message.salt.length !== 0) {
+      writer.uint32(26).bytes(message.salt);
+    }
+    if (message.revealedAtBlock !== BigInt(0)) {
+      writer.uint32(32).uint64(message.revealedAtBlock);
+    }
+    if (message.confidence !== BigInt(0)) {
+      writer.uint32(40).uint64(message.confidence);
+    }
+    if (message.attestation !== void 0) {
+      ReviewAttestation.encode(message.attestation, writer.uint32(50).fork()).ldelim();
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseRevealEntry();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.verifier = reader.string();
+          break;
+        case 2:
+          message.vote = reader.string();
+          break;
+        case 3:
+          message.salt = reader.bytes();
+          break;
+        case 4:
+          message.revealedAtBlock = reader.uint64();
+          break;
+        case 5:
+          message.confidence = reader.uint64();
+          break;
+        case 6:
+          message.attestation = ReviewAttestation.decode(reader, reader.uint32());
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseRevealEntry();
+    message.verifier = object.verifier ?? "";
+    message.vote = object.vote ?? "";
+    message.salt = object.salt ?? new Uint8Array();
+    message.revealedAtBlock = object.revealedAtBlock !== void 0 && object.revealedAtBlock !== null ? BigInt(object.revealedAtBlock.toString()) : BigInt(0);
+    message.confidence = object.confidence !== void 0 && object.confidence !== null ? BigInt(object.confidence.toString()) : BigInt(0);
+    message.attestation = object.attestation !== void 0 && object.attestation !== null ? ReviewAttestation.fromPartial(object.attestation) : void 0;
     return message;
   }
 };
@@ -9430,6 +10718,92 @@ var CorpusSelector = {
     message.domainWhitelist = object.domainWhitelist?.map((e) => e) || [];
     message.domainBlacklist = object.domainBlacklist?.map((e) => e) || [];
     message.minSubmitterCalibrationBps = object.minSubmitterCalibrationBps !== void 0 && object.minSubmitterCalibrationBps !== null ? BigInt(object.minSubmitterCalibrationBps.toString()) : BigInt(0);
+    return message;
+  }
+};
+
+// src/generated/zerone/knowledge/v1/tok_cascade.ts
+function createBaseStatusTransition() {
+  return {
+    seq: BigInt(0),
+    factId: "",
+    priorStatus: 0,
+    newStatus: 0,
+    blockHeight: BigInt(0),
+    causeEventType: "",
+    causeId: ""
+  };
+}
+var StatusTransition = {
+  typeUrl: "/zerone.knowledge.v1.StatusTransition",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.seq !== BigInt(0)) {
+      writer.uint32(8).uint64(message.seq);
+    }
+    if (message.factId !== "") {
+      writer.uint32(18).string(message.factId);
+    }
+    if (message.priorStatus !== 0) {
+      writer.uint32(24).int32(message.priorStatus);
+    }
+    if (message.newStatus !== 0) {
+      writer.uint32(32).int32(message.newStatus);
+    }
+    if (message.blockHeight !== BigInt(0)) {
+      writer.uint32(40).uint64(message.blockHeight);
+    }
+    if (message.causeEventType !== "") {
+      writer.uint32(50).string(message.causeEventType);
+    }
+    if (message.causeId !== "") {
+      writer.uint32(58).string(message.causeId);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseStatusTransition();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.seq = reader.uint64();
+          break;
+        case 2:
+          message.factId = reader.string();
+          break;
+        case 3:
+          message.priorStatus = reader.int32();
+          break;
+        case 4:
+          message.newStatus = reader.int32();
+          break;
+        case 5:
+          message.blockHeight = reader.uint64();
+          break;
+        case 6:
+          message.causeEventType = reader.string();
+          break;
+        case 7:
+          message.causeId = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseStatusTransition();
+    message.seq = object.seq !== void 0 && object.seq !== null ? BigInt(object.seq.toString()) : BigInt(0);
+    message.factId = object.factId ?? "";
+    message.priorStatus = object.priorStatus ?? 0;
+    message.newStatus = object.newStatus ?? 0;
+    message.blockHeight = object.blockHeight !== void 0 && object.blockHeight !== null ? BigInt(object.blockHeight.toString()) : BigInt(0);
+    message.causeEventType = object.causeEventType ?? "";
+    message.causeId = object.causeId ?? "";
     return message;
   }
 };
@@ -23971,6 +25345,11 @@ export {
   tx_exports11,
   registry11,
   MessageComposer11,
+  FactRelation,
+  Fact,
+  Claim,
+  VerificationRound,
+  StatusTransition,
   MsgSubmitReveal,
   tx_exports12,
   registry12,

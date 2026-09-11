@@ -773,6 +773,12 @@ jobs:
           ref: c6fa5df13b090a287e69ba1d0e2281d33afa96e8
           path: record-target
           persist-credentials: false
+      - name: Check out frozen review target / claim records predecessor
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: 2fab850a0ae6f2193fb6e8986b303ee77d9a7d91
+          path: review-target
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.25.14"
@@ -783,6 +789,7 @@ jobs:
             accounting-target/go.sum
             survival-target/go.sum
             record-target/go.sum
+            review-target/go.sum
       - name: Build independent binaries and publish source provenance
         env:
           ACCOUNTING_REHEARSAL_PARENT: ${{ runner.temp }}/zerone-accounting-authority-evidence
@@ -796,7 +803,8 @@ jobs:
           mkdir -p "$ACCOUNTING_REHEARSAL_BINARIES" "$ACCOUNTING_REHEARSAL_PARENT/build/reports"
           test "$(git -C survival-target rev-parse HEAD)" = e0f9afd2b98c47a7b13c384e5762054d2acef701
           test "$(git -C record-target rev-parse HEAD)" = c6fa5df13b090a287e69ba1d0e2281d33afa96e8
-          for source in predecessor accounting-target survival-target record-target candidate; do
+          test "$(git -C review-target rev-parse HEAD)" = 2fab850a0ae6f2193fb6e8986b303ee77d9a7d91
+          for source in predecessor accounting-target survival-target record-target review-target candidate; do
             source_commit=$(git -C "$source" rev-parse HEAD)
             (
               cd "$source"
@@ -814,7 +822,7 @@ jobs:
           report = {"schema": "zerone.accounting-authority/ci-build-v1",
                     "release_evidence": False,
                     "go_version": subprocess.check_output(["go", "version"], text=True).strip()}
-          for source in ("predecessor", "accounting-target", "survival-target", "record-target", "candidate"):
+          for source in ("predecessor", "accounting-target", "survival-target", "record-target", "review-target", "candidate"):
               report[source] = {
                   "source_commit": subprocess.check_output(
                       ["git", "-C", source, "rev-parse", "HEAD"], text=True).strip(),
@@ -856,6 +864,15 @@ jobs:
         run: |
           python3 candidate/scripts/review-neutrality-rehearsal.py \
             --before "$ACCOUNTING_REHEARSAL_BINARIES/record-target" \
+            --after "$ACCOUNTING_REHEARSAL_BINARIES/review-target" \
+            --evidence-parent "$ACCOUNTING_REHEARSAL_PARENT"
+      - name: Rehearse claim records with signed contradictions and retained history
+        env:
+          ACCOUNTING_REHEARSAL_PARENT: ${{ runner.temp }}/zerone-accounting-authority-evidence
+          ACCOUNTING_REHEARSAL_BINARIES: ${{ runner.temp }}/zerone-accounting-authority-binaries
+        run: |
+          python3 candidate/scripts/claim-records-rehearsal.py \
+            --before "$ACCOUNTING_REHEARSAL_BINARIES/review-target" \
             --after "$ACCOUNTING_REHEARSAL_BINARIES/candidate" \
             --evidence-parent "$ACCOUNTING_REHEARSAL_PARENT"
       - name: Retain public accounting reports only

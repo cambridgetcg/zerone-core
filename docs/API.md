@@ -10,8 +10,8 @@ The checked-in Swagger 2.0 document is
 [`docs/swagger-ui/swagger.json`](swagger-ui/swagger.json). At this source
 revision it contains:
 
-- 217 REST paths; and
-- 449 schema definitions.
+- 218 REST paths; and
+- 454 schema definitions.
 
 Those counts cover standard Cosmos APIs and the 23 custom Zerone modules.
 Transaction generation separately covers 169 request message types across 20
@@ -29,6 +29,10 @@ jq '.definitions | length' docs/swagger-ui/swagger.json
 
 If this prose and the generated document differ, the generated document and
 its protobuf sources win.
+
+For retained claim, review and direct challenge records, see the
+[ClaimHistory contract](specs/knowledge-claim-records-v1.md). It documents the
+CLI and RPC entry points, bounded scope, missing history and proof limits.
 
 ## Interfaces
 

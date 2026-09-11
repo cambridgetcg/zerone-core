@@ -448,6 +448,7 @@ func DefaultGenesis() *GenesisState {
 		BootstrapFundAllocation: "0",
 		RecordIntegrityEnabled:  true,
 		ReviewNeutralityEnabled: true,
+		ClaimRecordsEnabled:     true,
 	}
 }
 

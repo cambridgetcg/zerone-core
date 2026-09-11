@@ -138,6 +138,12 @@ parameters at zero: mere transaction inclusion is proposer-controlled, not
 independently witnessed useful work. Validators continue to receive real
 transaction fees.
 
+The [claim records consolidation](docs/specs/knowledge-claim-records-v1.md)
+preserves new contradiction reasons and evidence at its separate knowledge
+9→10 boundary. Its bounded `claim-history` query joins retained claims,
+reviews, derived facts and directly linked challenges. It keeps historical
+absence explicit and introduces no new scientific score or reward mechanism.
+
 No separate founder stipend was activated at genesis: `FounderAddress` was
 unset, so the historical dormant `FounderShareBps` accrued 0 ZRN. Consensus v2
 clears both compatibility fields, preserves retirement of transaction-presence
@@ -345,7 +351,7 @@ make proto-gen
 ## SDK and API
 
 - The generated [Swagger document](docs/swagger-ui/swagger.json) is the REST
-  inventory of record: 217 paths and 449 definitions.
+  inventory of record: 218 paths and 454 definitions.
 - The repository [TypeScript SDK](sdk/typescript/) covers 169 request messages
   across 20 Zerone `Msg` services. The package is not yet published to npm.
 - [Open crypto SDK and standards integration](docs/standards/OPEN_CRYPTO_SDK.md)

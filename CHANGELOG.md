@@ -3,6 +3,20 @@
 Notable source changes are recorded here. Network activation and package
 publication are separate events and are stated explicitly when they occur.
 
+## Source — 2026-09-11 claim records consolidation
+
+- The separate `knowledge-claim-records-v1` 9→10 upgrade retains exact new
+  contradiction reasons and ordered evidence in existing Claim fields. Existing
+  IDs are refused before collateral movement; record and bank changes commit
+  atomically. Older records remain unchanged.
+- A bounded ClaimHistory query, CLI command and narrow TypeScript protobuf
+  reader join retained reviews, derived facts and directly linked challenges.
+  Missing records and proof limits remain explicit. No persistent index,
+  scientific score or reward mechanism is added.
+- Source publication does not activate this behavior on the legacy live chain
+  or publish the SDK to npm. See the
+  [boundary and query contract](docs/specs/knowledge-claim-records-v1.md).
+
 ## Unreleased — 2026-08-15 correspondence geometry
 
 ### Added
@@ -137,7 +151,7 @@ behavior.
 - Falsification clawback requires an adjudicated verdict.
 - Genesis/state validation and protobuf ownership handling are hardened.
 - Manual API inventories now defer to the generated Swagger document, which
-  contains 217 paths and 449 definitions across the current application.
+  contains 218 paths and 454 definitions across the current application.
 
 ### Consensus activation
 

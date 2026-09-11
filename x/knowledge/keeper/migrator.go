@@ -1,8 +1,11 @@
 package keeper
 
 import (
+	"fmt"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/zerone-chain/zerone/internal/claimrecordmigration"
 	"github.com/zerone-chain/zerone/internal/recordmigration"
 	"github.com/zerone-chain/zerone/internal/reviewmigration"
 	"github.com/zerone-chain/zerone/internal/survivalmigration"
@@ -107,6 +110,31 @@ func (m Migrator) Migrate8to9(ctx sdk.Context) error {
 		return err
 	}
 	if err := m.keeper.WriteMigrationMarker(cache, "migration_v9_complete", "true"); err != nil {
+		return err
+	}
+	write()
+	return nil
+}
+
+// Migrate9to10 enables retention only for future contradiction submissions. No
+// missing historical argument/evidence is inferred or copied from other records.
+func (m Migrator) Migrate9to10(ctx sdk.Context) error {
+	if err := claimrecordmigration.Require(ctx); err != nil {
+		return err
+	}
+	cache, write := ctx.CacheContext()
+	enabled, err := m.keeper.ClaimRecordsEnabled(cache)
+	if err != nil || enabled {
+		return fmt.Errorf("claim records requires unenabled predecessor: %v", err)
+	}
+	_, marked, err := m.keeper.ReadMigrationMarkerPresenceChecked(cache, "migration_v10_complete")
+	if err != nil || marked {
+		return fmt.Errorf("claim records predecessor already marked or unreadable: %v", err)
+	}
+	if err := m.keeper.EnableClaimRecords(cache); err != nil {
+		return err
+	}
+	if err := m.keeper.WriteMigrationMarker(cache, "migration_v10_complete", "true"); err != nil {
 		return err
 	}
 	write()

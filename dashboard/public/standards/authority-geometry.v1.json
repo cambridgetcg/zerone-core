@@ -1,7 +1,7 @@
 {
   "schema": "zerone.authority-geometry/v1",
-  "revision": "1.0.4",
-  "snapshotDate": "2026-09-10",
+  "revision": "1.0.5",
+  "snapshotDate": "2026-09-11",
   "status": "SOURCE_OBSERVATORY_ONLY",
   "title": "Authority Geometry",
   "summary": "A source-pinned map of Zerone authority, influence, challenge, repair, and exit. It reports the current split honestly and describes the accepted target without claiming that H4 or H5 is implemented or live.",
@@ -739,7 +739,7 @@
     {
       "id": "app-wiring",
       "path": "app/app.go",
-      "sha256": "e5adcc7a9888cbf750c10f688146d374f8d912a9c77c4113305d765c6c3515de",
+      "sha256": "1256071339dfb79e8d79bad87e630b9689d210bade7b25d139012fce73fe2706",
       "requiredSnippets": [
         "app.StakingKeeper = stakingkeeper.NewKeeper(",
         "app.GovKeeper = govkeeper.NewKeeper(",
@@ -783,7 +783,7 @@
     {
       "id": "knowledge-writers",
       "path": "x/knowledge/keeper/msg_server.go",
-      "sha256": "8987773e734205fd3788760d9922391f22e9a3a754546acda249787bc64b1234",
+      "sha256": "ded8bd96f02c47ba71dfb82b514858dca388f2882f0805960c1b77bc51375ed3",
       "requiredSnippets": [
         "func (m *msgServer) AddFact(ctx context.Context, msg *types.MsgAddFact)",
         "func (m *msgServer) ProposeDomain(ctx context.Context, msg *types.MsgProposeDomain)",

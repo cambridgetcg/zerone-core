@@ -73,6 +73,7 @@ func GetQueryCmd() *cobra.Command {
 		NewQueryFactsByDomainCmd(),
 		NewQueryFactsBySubmitterCmd(),
 		NewQueryClaimCmd(),
+		NewQueryClaimHistoryCmd(),
 		NewQueryPendingClaimsCmd(),
 		NewQueryVerificationRoundCmd(),
 		NewQueryDomainCmd(),
@@ -269,6 +270,33 @@ func NewQueryClaimCmd() *cobra.Command {
 				return fmt.Errorf("failed to query claim: %w", err)
 			}
 			return clientCtx.PrintObjectLegacy(resp)
+		},
+	}
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+// NewQueryClaimHistoryCmd reads the bounded scope at the SDK query height.
+func NewQueryClaimHistoryCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "claim-history [id]",
+		Short: "Query retained claim, review, fact and direct challenge records",
+		Long:  "Query retained claim records at the selected node height. This bounded state observation does not prove scientific truth, transaction inclusion or missing historical records.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			if clientCtx.Height < 0 {
+				return fmt.Errorf("query height must be nonnegative")
+			}
+			req := &types.QueryClaimHistoryRequest{Id: args[0], AtBlockHeight: uint64(clientCtx.Height)}
+			resp, err := types.NewQueryClient(clientCtx).ClaimHistory(cmd.Context(), req)
+			if err != nil {
+				return fmt.Errorf("failed to query claim history: %w", err)
+			}
+			return clientCtx.PrintProto(resp)
 		},
 	}
 	flags.AddQueryFlagsToCmd(cmd)

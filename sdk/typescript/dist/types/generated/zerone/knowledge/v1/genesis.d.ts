@@ -755,6 +755,11 @@ export interface GenesisState {
      * Never reconstruct this inventory from embedded Fact arrays or Claim input.
      */
     factRelationState?: FactRelationGenesis;
+    /**
+     * Preserve prospective contradiction reasons and evidence after v10 activation.
+     * Historical absence retains legacy writes; import does not invent upgrade receipts.
+     */
+    claimRecordsEnabled: boolean;
 }
 /**
  * Exports each ordered source/target pair once, including full provenance.

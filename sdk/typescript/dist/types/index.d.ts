@@ -7,3 +7,4 @@ export * from "./key-rotation.js";
 export * from "./provenance.js";
 export * from "./registry.js";
 export * from "./review-commitment.js";
+export * from "./claim-history.js";

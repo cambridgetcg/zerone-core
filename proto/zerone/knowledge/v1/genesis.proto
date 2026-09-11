@@ -372,6 +372,9 @@ message GenesisState {
   // seeding; a present empty inventory explicitly restores an empty graph.
   // Never reconstruct this inventory from embedded Fact arrays or Claim input.
   FactRelationGenesis fact_relation_state = 68;
+  // Preserve prospective contradiction reasons and evidence after v10 activation.
+  // Historical absence retains legacy writes; import does not invent upgrade receipts.
+  bool claim_records_enabled = 69;
 }
 
 // Exports each ordered source/target pair once, including full provenance.

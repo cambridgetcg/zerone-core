@@ -26,6 +26,9 @@ const typescriptCompiler = join(
   "bin",
   "tsc",
 );
+const claimHistoryFixture = JSON.parse(readFileSync(
+  join(packageRoot, "tests/fixtures/claim-history-response.json"), "utf8",
+));
 
 const consumerSource = `
 import * as root from "@zerone-chain/sdk";
@@ -138,6 +141,17 @@ const parsedProvenance = provenance.parseUnsignedZeroneInTotoStatement(
 );
 
 assert(root.cosmosChainId("zerone-1") === "cosmos:zerone-1", "root export failed");
+const history = await root.queryClaimHistory({
+  request: async (service: string, method: string, request: Uint8Array) => {
+    assert(service === "zerone.knowledge.v1.Query" && method === "ClaimHistory", "wrong history RPC");
+    assert(request.length > 0, "empty history request");
+    return Uint8Array.from(${JSON.stringify(claimHistoryFixture.protobufHex.match(/../g).map(byte => Number.parseInt(byte, 16)))});
+  },
+}, ${JSON.stringify(claimHistoryFixture.claimId)}, {
+  expectedChainId: ${JSON.stringify(claimHistoryFixture.chainId)},
+  expectedHeight: BigInt(${JSON.stringify(claimHistoryFixture.blockHeight)}),
+});
+assert(history.record?.claim?.argumentText === "Reason retained verbatim.", "packed claim history lost its reason");
 assert(network.chainId === "cosmos:zerone-1", "caip export failed");
 assert(validatedMemoryCid === memoryCid, "cid export failed");
 assert(

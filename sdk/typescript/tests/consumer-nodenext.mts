@@ -3,6 +3,8 @@ import {
   cosmosChainId,
   keyRotationAcceptanceSignBytes,
   keyRotationAuthorizationSignBytes,
+  queryClaimHistory,
+  type ClaimHistoryRpc,
   zeroneRegistryTypes,
 } from "@zerone-chain/sdk";
 import { asZeroneMemoryCid } from "@zerone-chain/sdk/cid";
@@ -28,6 +30,7 @@ import { createZeroneRegistry } from "@zerone-chain/sdk/registry";
 import {
   defaultRegistryTypes,
   type SigningStargateClient,
+  type ProtobufRpcClient,
 } from "@cosmjs/stargate";
 
 const chainId = cosmosChainId("zerone-1");
@@ -100,6 +103,11 @@ const feeDisclosure = discloseLiquiditySwapFee({
   protocolFeeMillionths: 0n,
 });
 
+// The adapter accepts the existing CosmJS transport without a runtime dependency.
+function claimHistoryTransport(transport: ProtobufRpcClient): ClaimHistoryRpc {
+  return transport;
+}
+
 void [
   chainId,
   memoryCid,
@@ -116,4 +124,6 @@ void [
   LIQUIDITY_FEE_SCALE,
   feeDisclosure,
   minimumOutputForSlippage("100", 10_000n),
+  queryClaimHistory,
+  claimHistoryTransport,
 ];

@@ -1010,6 +1010,35 @@ func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.Msg
 }
 
 func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmitContradiction) (*types.MsgSubmitContradictionResponse, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("contradiction is required")
+	}
+	enabled, err := m.keeper.ClaimRecordsEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !enabled {
+		return m.submitContradiction(ctx, msg, false)
+	}
+	if len(msg.ProtoReflect().GetUnknown()) != 0 {
+		return nil, fmt.Errorf("unsupported contradiction fields")
+	}
+	if err := types.ValidateRecordText("contradiction reason", msg.Reason, types.MaxReviewReasonBytes, false); err != nil {
+		return nil, err
+	}
+	if err := types.ValidateEvidenceReferences(msg.EvidenceIds); err != nil {
+		return nil, err
+	}
+	cache, commit := sdk.UnwrapSDKContext(ctx).CacheContext()
+	response, err := m.submitContradiction(cache, msg, true)
+	if err != nil {
+		return nil, err
+	}
+	commit()
+	return response, nil
+}
+
+func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmitContradiction, retainRecord bool) (*types.MsgSubmitContradictionResponse, error) {
 	reviewPolicy, err := m.keeper.reviewPolicyAtAdmission(ctx)
 	if err != nil {
 		return nil, err
@@ -1018,7 +1047,16 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 	height := uint64(sdkCtx.BlockHeight())
 
 	// Validate target fact exists
-	targetFact, found := m.keeper.GetFact(ctx, msg.FactId)
+	var targetFact *types.Fact
+	var found bool
+	if retainRecord {
+		targetFact, found, err = m.keeper.getFactChecked(ctx, msg.FactId)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		targetFact, found = m.keeper.GetFact(ctx, msg.FactId)
+	}
 	if !found {
 		return nil, fmt.Errorf("target fact %s not found", msg.FactId)
 	}
@@ -1028,6 +1066,24 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 	if IsConjecture(targetFact) {
 		return nil, types.ErrInvalidClaim.Wrapf(
 			"fact %s is a conjecture and cannot be contradicted — it makes no assertion to contradict; refute it with `tx knowledge challenge-provisional`", msg.FactId)
+	}
+	// Keep the existing identity scheme. Once exact input retention is enabled,
+	// another same-height submission must not replace this primary record or
+	// lock collateral a second time under the same claim identity.
+	domain := msg.Domain
+	if domain == "" {
+		domain = targetFact.Domain
+	}
+	contentHash := ComputeClaimContentHash(msg.CounterClaim, domain)
+	counterClaimID := GenerateClaimID(msg.Submitter, contentHash, height)
+	if retainRecord {
+		prior, err := m.keeper.storeService.OpenKVStore(ctx).Get(types.ClaimKey(counterClaimID))
+		if err != nil {
+			return nil, fmt.Errorf("read prior contradiction claim: %w", err)
+		}
+		if prior != nil {
+			return nil, fmt.Errorf("contradiction claim identity already exists")
+		}
 	}
 
 	// Lock stake
@@ -1050,13 +1106,6 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 	}
 
 	// Create counter-claim
-	domain := msg.Domain
-	if domain == "" {
-		domain = targetFact.Domain
-	}
-	contentHash := ComputeClaimContentHash(msg.CounterClaim, domain)
-	counterClaimID := GenerateClaimID(msg.Submitter, contentHash, height)
-
 	claim := &types.Claim{
 		ReviewPolicyVersion: reviewPolicy,
 		Id:                  counterClaimID,
@@ -1076,6 +1125,10 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 			Relation:     types.RelationType_RELATION_TYPE_CONTRADICTS,
 			TargetFactId: msg.FactId,
 		}},
+	}
+	if retainRecord {
+		claim.ArgumentText = msg.Reason
+		claim.EvidenceIds = append([]string(nil), msg.EvidenceIds...)
 	}
 	if err := m.keeper.SetClaim(ctx, claim); err != nil {
 		return nil, err
@@ -1097,7 +1150,9 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 	if targetFact.Status == types.FactStatus_FACT_STATUS_VERIFIED ||
 		targetFact.Status == types.FactStatus_FACT_STATUS_ACTIVE {
 		targetFact.Status = types.FactStatus_FACT_STATUS_CONTESTED
-		_ = m.keeper.SetFact(ctx, targetFact)
+		if err := m.keeper.SetFact(ctx, targetFact); err != nil && retainRecord {
+			return nil, err
+		}
 	}
 
 	sdkCtx.EventManager().EmitEvent(
