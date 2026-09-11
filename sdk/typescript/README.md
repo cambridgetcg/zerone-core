@@ -518,6 +518,49 @@ explicitly unsigned: `authenticated` and `signatureVerified` remain `false`.
 The parser does not fetch URLs, verify Sigstore material, or turn a current
 state projection into historical proof.
 
+## Retained claim history
+
+`queryClaimHistory` reads the bounded `zerone.knowledge.v1.Query/ClaimHistory`
+response from a compatible node. Supply a protobuf transport; the helper does
+not choose an endpoint, connect a wallet, sign, broadcast, or modify state.
+For example, with your already-configured CosmJS `QueryClient`:
+
+```ts
+import { createProtobufRpcClient } from "@cosmjs/stargate";
+import { queryClaimHistory } from "@zerone-chain/sdk";
+
+const history = await queryClaimHistory(
+  createProtobufRpcClient(queryClient),
+  claimId,
+  { expectedChainId: "zerone-local-1", maximumResponseBytes: 8 * 1024 * 1024 },
+);
+console.log(history.chainId, history.blockHeight, history.record);
+```
+
+The caller configures the transport's endpoint, timeouts and network response
+limits. Its only required method is
+`request(service, method, data: Uint8Array): Promise<Uint8Array>`. The SDK adds no
+CosmJS runtime dependency. This query is not exposed through the existing
+`zerone.ai` REST allowlist, and its presence in source does not activate it on
+the legacy network.
+
+Claim IDs are opaque, nonempty UTF-8 of at most 256 bytes; they are not trimmed.
+An optional positive `expectedHeight` bigint sets `at_block_height` and requires
+the same returned height. The transport must itself select an available SDK
+context at that height: the option cannot load pruned history or turn a latest
+query into a historical query. Chain and height labels are endpoint assertions,
+not authenticated state or transaction inclusion proofs.
+
+The reader returns the full decoded records, including reasons, evidence,
+reviews, canonical edge metadata, retained transitions, missing-round IDs and
+direct related-claim links. A missing historical claim remains absent; the
+helper does not infer a reason, complete retention, scientific truth or payment.
+It checks the response byte limit before decoding, enforces envelope and record
+identity consistency, and requires byte-identical protobuf re-encoding. Unknown
+fields and noncanonical encodings therefore refuse as a source-compatibility
+mismatch rather than silently losing fields. Repeated reads need not observe
+the same state unless the caller selects the same retained query context.
+
 ## Develop
 
 ```bash

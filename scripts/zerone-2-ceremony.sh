@@ -292,7 +292,7 @@ build_signed_artifact_auditor() {
     materialize_release_file "${relative}" "${source_root}/${relative}"
     count=$((count + 1))
   done < <(git -C "${PROJECT_ROOT}" ls-tree -r -z --name-only \
-    "${RELEASE_COMMIT}" -- go.mod go.sum app x internal/accountingmigration internal/survivalmigration internal/recordmigration internal/reviewmigration docs/swagger-ui \
+    "${RELEASE_COMMIT}" -- go.mod go.sum app x internal/accountingmigration internal/survivalmigration internal/recordmigration internal/reviewmigration internal/claimrecordmigration docs/swagger-ui \
     tools/zerone2-artifact-audit/main.go)
   [ "${count}" -gt 5 ] || die "signed auditor source allowlist was unexpectedly empty"
   [ -f "${source_root}/tools/zerone2-artifact-audit/main.go" ] || \

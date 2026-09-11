@@ -6,6 +6,7 @@ option go_package = "github.com/zerone-chain/zerone/x/knowledge/types";
 import "cosmos/base/query/v1beta1/pagination.proto";
 import "google/api/annotations.proto";
 import "zerone/knowledge/v1/genesis.proto";
+import "zerone/knowledge/v1/claim_history.proto";
 import "zerone/knowledge/v1/tok.proto";
 import "zerone/knowledge/v1/types.proto";
 
@@ -39,6 +40,11 @@ service Query {
   // Claim queries a single claim by ID.
   rpc Claim(QueryClaimRequest) returns (QueryClaimResponse) {
     option (google.api.http).get = "/zerone/knowledge/v1/claims/{id}";
+  }
+
+  // ClaimHistory joins bounded retained records and directly linked challenges.
+  rpc ClaimHistory(QueryClaimHistoryRequest) returns (QueryClaimHistoryResponse) {
+    option (google.api.http).get = "/zerone/knowledge/v1/claims/{id}/history";
   }
 
   // PendingClaims queries all pending claims.

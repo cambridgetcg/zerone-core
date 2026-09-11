@@ -14,6 +14,10 @@ import (
 func useLegacyReviewPolicy(t *testing.T, h *TestHarness) {
 	t.Helper()
 	store := h.Ctx.KVStore(h.App.GetStoreKeyForTests(knowledgetypes.StoreKey))
+	// Input-retention activation depends on neutral review; this historical
+	// fixture must clear the later selection as well as its predecessor.
+	require.Equal(t, []byte{1}, store.Get([]byte(knowledgekeeper.ClaimRecordsEnabledStoreKey)))
+	store.Delete([]byte(knowledgekeeper.ClaimRecordsEnabledStoreKey))
 	require.Equal(t, []byte{1}, store.Get([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey)))
 	store.Delete([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey))
 	enabled, err := h.KnowledgeKeeper.ReviewNeutralityEnabled(h.Ctx)

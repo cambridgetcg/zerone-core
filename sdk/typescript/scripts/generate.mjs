@@ -73,7 +73,7 @@ await telescope({
     interfaces: { enabled: false },
     prototypes: {
       enabled: true,
-      includes: { protos: ["zerone/**/tx.proto"] },
+      includes: { protos: ["zerone/**/tx.proto", "zerone/knowledge/v1/claim_history.proto"] },
       enableMessageComposer: true,
       enableRegistryLoader: true,
       methods: {

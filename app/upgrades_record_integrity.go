@@ -30,10 +30,10 @@ func recordIntegrityTargetVersionMap() module.VersionMap {
 func requireRecordIntegrityTransitionOwner(name string, fromVM, targetVM module.VersionMap) error {
 	from, fromOK := fromVM["knowledge"]
 	target, targetOK := targetVM["knowledge"]
-	if !fromOK || !targetOK || from < 6 || from > 9 || target < 6 || target > 9 {
+	if !fromOK || !targetOK || from < 6 || from > 10 || target < 6 || target > 10 {
 		return fmt.Errorf("record integrity requires complete known knowledge versions")
 	}
-	if from == 8 && target == 9 {
+	if (from == 8 && target == 9) || (from == 9 && target == 10) {
 		return requireReviewNeutralityTransitionOwner(name, fromVM, targetVM)
 	}
 	if from == target || (from < 8 && target < 8) {

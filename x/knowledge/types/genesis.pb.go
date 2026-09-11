@@ -1410,8 +1410,11 @@ type GenesisState struct {
 	// seeding; a present empty inventory explicitly restores an empty graph.
 	// Never reconstruct this inventory from embedded Fact arrays or Claim input.
 	FactRelationState *FactRelationGenesis `protobuf:"bytes,68,opt,name=fact_relation_state,json=factRelationState,proto3" json:"fact_relation_state,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Preserve prospective contradiction reasons and evidence after v10 activation.
+	// Historical absence retains legacy writes; import does not invent upgrade receipts.
+	ClaimRecordsEnabled bool `protobuf:"varint,69,opt,name=claim_records_enabled,json=claimRecordsEnabled,proto3" json:"claim_records_enabled,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -1666,6 +1669,13 @@ func (x *GenesisState) GetFactRelationState() *FactRelationGenesis {
 		return x.FactRelationState
 	}
 	return nil
+}
+
+func (x *GenesisState) GetClaimRecordsEnabled() bool {
+	if x != nil {
+		return x.ClaimRecordsEnabled
+	}
+	return false
 }
 
 // Exports each ordered source/target pair once, including full provenance.
@@ -2019,7 +2029,7 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x1badd_fact_veto_window_blocks\x18\xa0\x01 \x01(\x04R\x17addFactVetoWindowBlocks\x1aN\n" +
 	" MethodologyNormalizationBpsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\xfa\x13\n" +
+	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\xae\x14\n" +
 	"\fGenesisState\x123\n" +
 	"\x06params\x18\x01 \x01(\v2\x1b.zerone.knowledge.v1.ParamsR\x06params\x12/\n" +
 	"\x05facts\x18\x02 \x03(\v2\x19.zerone.knowledge.v1.FactR\x05facts\x12A\n" +
@@ -2053,7 +2063,8 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x0ecascade_events\x18A \x03(\v2!.zerone.knowledge.v1.CascadeEventR\rcascadeEvents\x12j\n" +
 	"\x1astatus_transition_counters\x18B \x03(\v2,.zerone.knowledge.v1.StatusTransitionCounterR\x18statusTransitionCounters\x12:\n" +
 	"\x19review_neutrality_enabled\x18C \x01(\bR\x17reviewNeutralityEnabled\x12X\n" +
-	"\x13fact_relation_state\x18D \x01(\v2(.zerone.knowledge.v1.FactRelationGenesisR\x11factRelationState\"V\n" +
+	"\x13fact_relation_state\x18D \x01(\v2(.zerone.knowledge.v1.FactRelationGenesisR\x11factRelationState\x122\n" +
+	"\x15claim_records_enabled\x18E \x01(\bR\x13claimRecordsEnabled\"V\n" +
 	"\x13FactRelationGenesis\x12?\n" +
 	"\trelations\x18\x01 \x03(\v2!.zerone.knowledge.v1.FactRelationR\trelations\"N\n" +
 	"\x17StatusTransitionCounter\x12\x17\n" +

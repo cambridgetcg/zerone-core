@@ -151,10 +151,10 @@ while IFS= read -r -d '' relative; do
 done < <(
   if [ "${PROFILE}" = "release" ]; then
     git -C "${ROOT}" ls-tree -r -z --name-only "${HEAD_COMMIT}" -- \
-      go.mod go.sum app cmd x internal/accountingmigration internal/survivalmigration internal/recordmigration internal/reviewmigration docs/swagger-ui
+      go.mod go.sum app cmd x internal/accountingmigration internal/survivalmigration internal/recordmigration internal/reviewmigration internal/claimrecordmigration docs/swagger-ui
   else
     git -C "${ROOT}" ls-files -z -- \
-      go.mod go.sum app cmd x internal/accountingmigration internal/survivalmigration internal/recordmigration internal/reviewmigration docs/swagger-ui
+      go.mod go.sum app cmd x internal/accountingmigration internal/survivalmigration internal/recordmigration internal/reviewmigration internal/claimrecordmigration docs/swagger-ui
   fi
 )
 [ "${tracked_count}" -gt 2 ] || die "tracked source allowlist was unexpectedly empty"

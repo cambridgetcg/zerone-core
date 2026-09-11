@@ -3836,6 +3836,80 @@
       },
       "type": "object"
     },
+    "zerone.knowledge.v1.ClaimHistoryFact": {
+      "description": "Relations are current canonical metadata; transitions are retained history.\nNeighbor IDs do not expand the query into their fact bodies or descendants.",
+      "properties": {
+        "fact": {
+          "$ref": "#/definitions/zerone.knowledge.v1.Fact"
+        },
+        "incomingRelations": {
+          "items": {
+            "$ref": "#/definitions/zerone.knowledge.v1.FactRelation",
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "outgoingRelations": {
+          "items": {
+            "$ref": "#/definitions/zerone.knowledge.v1.FactRelation",
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "statusTransitions": {
+          "items": {
+            "$ref": "#/definitions/zerone.knowledge.v1.StatusTransition",
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.knowledge.v1.ClaimHistoryLink": {
+      "properties": {
+        "field": {
+          "description": "One of provisional_fact_id, challenged_claim_id, relations.contradicts.",
+          "type": "string"
+        },
+        "targetId": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.knowledge.v1.ClaimHistoryRecord": {
+      "description": "Includes all retained rounds and derived facts for this claim ID. The claim\nitself can be absent when surviving records refer to a historical missing row.",
+      "properties": {
+        "claim": {
+          "$ref": "#/definitions/zerone.knowledge.v1.Claim"
+        },
+        "claimId": {
+          "type": "string"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/definitions/zerone.knowledge.v1.ClaimHistoryFact",
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "missingRoundIds": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "rounds": {
+          "items": {
+            "$ref": "#/definitions/zerone.knowledge.v1.VerificationRound",
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
     "zerone.knowledge.v1.ClaimRelation": {
       "description": "ClaimRelation declares a typed relationship from a claim to an existing fact.",
       "properties": {
@@ -6674,6 +6748,29 @@
       },
       "type": "object"
     },
+    "zerone.knowledge.v1.QueryClaimHistoryResponse": {
+      "description": "An observation of stored state, not a transaction inclusion proof or a\nscientific verdict. The bounded query either returns its whole scope or fails.",
+      "properties": {
+        "blockHeight": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "chainId": {
+          "type": "string"
+        },
+        "record": {
+          "$ref": "#/definitions/zerone.knowledge.v1.ClaimHistoryRecord"
+        },
+        "relatedClaims": {
+          "items": {
+            "$ref": "#/definitions/zerone.knowledge.v1.RelatedClaimHistory",
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
     "zerone.knowledge.v1.QueryClaimResponse": {
       "properties": {
         "claim": {
@@ -8104,6 +8201,22 @@
         "verdictNote": {
           "title": "panel rationale when non-unexamined",
           "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.knowledge.v1.RelatedClaimHistory": {
+      "description": "A single hop through an explicit stored claim field. This does not establish\ncausation, successful adjudication, credibility, or a completed payment.",
+      "properties": {
+        "links": {
+          "items": {
+            "$ref": "#/definitions/zerone.knowledge.v1.ClaimHistoryLink",
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "record": {
+          "$ref": "#/definitions/zerone.knowledge.v1.ClaimHistoryRecord"
         }
       },
       "type": "object"
@@ -14371,6 +14484,44 @@
           }
         },
         "summary": "Claim queries a single claim by ID.",
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/zerone/knowledge/v1/claims/{id}/history": {
+      "get": {
+        "operationId": "ClaimHistory",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "format": "uint64",
+            "in": "query",
+            "name": "atBlockHeight",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.knowledge.v1.QueryClaimHistoryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "summary": "ClaimHistory joins bounded retained records and directly linked challenges.",
         "tags": [
           "Query"
         ]

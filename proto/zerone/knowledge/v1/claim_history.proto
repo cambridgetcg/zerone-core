@@ -1,0 +1,55 @@
+syntax = "proto3";
+package zerone.knowledge.v1;
+
+option go_package = "github.com/zerone-chain/zerone/x/knowledge/types";
+
+import "zerone/knowledge/v1/types.proto";
+import "zerone/knowledge/v1/tok_cascade.proto";
+
+// Reads retained records at the actual query context height. A nonzero requested
+// height must match that context; it does not reconstruct pruned state.
+message QueryClaimHistoryRequest {
+  string id = 1;
+  uint64 at_block_height = 2;
+}
+
+// An observation of stored state, not a transaction inclusion proof or a
+// scientific verdict. The bounded query either returns its whole scope or fails.
+message QueryClaimHistoryResponse {
+  string chain_id = 1;
+  uint64 block_height = 2;
+  ClaimHistoryRecord record = 3;
+  repeated RelatedClaimHistory related_claims = 4;
+}
+
+// Includes all retained rounds and derived facts for this claim ID. The claim
+// itself can be absent when surviving records refer to a historical missing row.
+message ClaimHistoryRecord {
+  string claim_id = 1;
+  Claim claim = 2;
+  repeated VerificationRound rounds = 3;
+  repeated ClaimHistoryFact facts = 4;
+  repeated string missing_round_ids = 5;
+}
+
+// Relations are current canonical metadata; transitions are retained history.
+// Neighbor IDs do not expand the query into their fact bodies or descendants.
+message ClaimHistoryFact {
+  Fact fact = 1;
+  repeated FactRelation outgoing_relations = 2;
+  repeated FactRelation incoming_relations = 3;
+  repeated StatusTransition status_transitions = 4;
+}
+
+// A single hop through an explicit stored claim field. This does not establish
+// causation, successful adjudication, credibility, or a completed payment.
+message RelatedClaimHistory {
+  ClaimHistoryRecord record = 1;
+  repeated ClaimHistoryLink links = 2;
+}
+
+message ClaimHistoryLink {
+  // One of provisional_fact_id, challenged_claim_id, relations.contradicts.
+  string field = 1;
+  string target_id = 2;
+}

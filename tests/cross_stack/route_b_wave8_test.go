@@ -92,6 +92,7 @@ func TestRouteB_Wave8_GenesisRoundtrip(t *testing.T) {
 
 	// Re-init a fresh harness from the exported genesis.
 	h2 := NewTestHarness(t)
+	useLegacyReviewPolicy(t, h2)
 	require.NoError(t, h2.KnowledgeKeeper.InitGenesis(h2.Ctx, gs))
 
 	// Every record survives.

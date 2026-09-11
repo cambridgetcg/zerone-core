@@ -73,13 +73,14 @@ func newFixture(t *testing.T) fixture {
 		}
 	}
 	// Explicit synthetic current-native selection; the consensus-key-only
-	// compiler must preserve, never silently add, this execution-semantic flag.
+	// compiler must preserve, never silently add, these execution-semantic flags.
 	var knowledgeState map[string]json.RawMessage
 	if err := json.Unmarshal(appState["knowledge"], &knowledgeState); err != nil {
 		t.Fatal(err)
 	}
 	knowledgeState["record_integrity_enabled"] = json.RawMessage(`true`)
 	knowledgeState["review_neutrality_enabled"] = json.RawMessage(`true`)
+	knowledgeState["claim_records_enabled"] = json.RawMessage(`true`)
 	appState["knowledge"], err = json.Marshal(knowledgeState)
 	if err != nil {
 		t.Fatal(err)

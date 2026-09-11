@@ -756,6 +756,11 @@ export interface GenesisState {
    * Never reconstruct this inventory from embedded Fact arrays or Claim input.
    */
   factRelationState?: FactRelationGenesis;
+  /**
+   * Preserve prospective contradiction reasons and evidence after v10 activation.
+   * Historical absence retains legacy writes; import does not invent upgrade receipts.
+   */
+  claimRecordsEnabled: boolean;
 }
 /**
  * Exports each ordered source/target pair once, including full provenance.
@@ -2114,7 +2119,8 @@ function createBaseGenesisState(): GenesisState {
     cascadeEvents: [],
     statusTransitionCounters: [],
     reviewNeutralityEnabled: false,
-    factRelationState: undefined
+    factRelationState: undefined,
+    claimRecordsEnabled: false
   };
 }
 /**
@@ -2222,6 +2228,9 @@ export const GenesisState = {
     if (message.factRelationState !== undefined) {
       FactRelationGenesis.encode(message.factRelationState, writer.uint32(546).fork()).ldelim();
     }
+    if (message.claimRecordsEnabled === true) {
+      writer.uint32(552).bool(message.claimRecordsEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -2327,6 +2336,9 @@ export const GenesisState = {
         case 68:
           message.factRelationState = FactRelationGenesis.decode(reader, reader.uint32());
           break;
+        case 69:
+          message.claimRecordsEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -2368,6 +2380,7 @@ export const GenesisState = {
     message.statusTransitionCounters = object.statusTransitionCounters?.map(e => StatusTransitionCounter.fromPartial(e)) || [];
     message.reviewNeutralityEnabled = object.reviewNeutralityEnabled ?? false;
     message.factRelationState = object.factRelationState !== undefined && object.factRelationState !== null ? FactRelationGenesis.fromPartial(object.factRelationState) : undefined;
+    message.claimRecordsEnabled = object.claimRecordsEnabled ?? false;
     return message;
   }
 };

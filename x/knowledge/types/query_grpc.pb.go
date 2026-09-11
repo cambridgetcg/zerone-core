@@ -25,6 +25,7 @@ const (
 	Query_FactsByDomain_FullMethodName                = "/zerone.knowledge.v1.Query/FactsByDomain"
 	Query_FactsBySubmitter_FullMethodName             = "/zerone.knowledge.v1.Query/FactsBySubmitter"
 	Query_Claim_FullMethodName                        = "/zerone.knowledge.v1.Query/Claim"
+	Query_ClaimHistory_FullMethodName                 = "/zerone.knowledge.v1.Query/ClaimHistory"
 	Query_PendingClaims_FullMethodName                = "/zerone.knowledge.v1.Query/PendingClaims"
 	Query_VerificationRound_FullMethodName            = "/zerone.knowledge.v1.Query/VerificationRound"
 	Query_Domain_FullMethodName                       = "/zerone.knowledge.v1.Query/Domain"
@@ -129,6 +130,8 @@ type QueryClient interface {
 	FactsBySubmitter(ctx context.Context, in *QueryFactsBySubmitterRequest, opts ...grpc.CallOption) (*QueryFactsBySubmitterResponse, error)
 	// Claim queries a single claim by ID.
 	Claim(ctx context.Context, in *QueryClaimRequest, opts ...grpc.CallOption) (*QueryClaimResponse, error)
+	// ClaimHistory joins bounded retained records and directly linked challenges.
+	ClaimHistory(ctx context.Context, in *QueryClaimHistoryRequest, opts ...grpc.CallOption) (*QueryClaimHistoryResponse, error)
 	// PendingClaims queries all pending claims.
 	PendingClaims(ctx context.Context, in *QueryPendingClaimsRequest, opts ...grpc.CallOption) (*QueryPendingClaimsResponse, error)
 	// VerificationRound queries a verification round by ID.
@@ -427,6 +430,16 @@ func (c *queryClient) Claim(ctx context.Context, in *QueryClaimRequest, opts ...
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueryClaimResponse)
 	err := c.cc.Invoke(ctx, Query_Claim_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) ClaimHistory(ctx context.Context, in *QueryClaimHistoryRequest, opts ...grpc.CallOption) (*QueryClaimHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryClaimHistoryResponse)
+	err := c.cc.Invoke(ctx, Query_ClaimHistory_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1291,6 +1304,8 @@ type QueryServer interface {
 	FactsBySubmitter(context.Context, *QueryFactsBySubmitterRequest) (*QueryFactsBySubmitterResponse, error)
 	// Claim queries a single claim by ID.
 	Claim(context.Context, *QueryClaimRequest) (*QueryClaimResponse, error)
+	// ClaimHistory joins bounded retained records and directly linked challenges.
+	ClaimHistory(context.Context, *QueryClaimHistoryRequest) (*QueryClaimHistoryResponse, error)
 	// PendingClaims queries all pending claims.
 	PendingClaims(context.Context, *QueryPendingClaimsRequest) (*QueryPendingClaimsResponse, error)
 	// VerificationRound queries a verification round by ID.
@@ -1552,6 +1567,9 @@ func (UnimplementedQueryServer) FactsBySubmitter(context.Context, *QueryFactsByS
 }
 func (UnimplementedQueryServer) Claim(context.Context, *QueryClaimRequest) (*QueryClaimResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Claim not implemented")
+}
+func (UnimplementedQueryServer) ClaimHistory(context.Context, *QueryClaimHistoryRequest) (*QueryClaimHistoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ClaimHistory not implemented")
 }
 func (UnimplementedQueryServer) PendingClaims(context.Context, *QueryPendingClaimsRequest) (*QueryPendingClaimsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method PendingClaims not implemented")
@@ -1930,6 +1948,24 @@ func _Query_Claim_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(QueryServer).Claim(ctx, req.(*QueryClaimRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_ClaimHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryClaimHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).ClaimHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_ClaimHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).ClaimHistory(ctx, req.(*QueryClaimHistoryRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3476,6 +3512,10 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Claim",
 			Handler:    _Query_Claim_Handler,
+		},
+		{
+			MethodName: "ClaimHistory",
+			Handler:    _Query_ClaimHistory_Handler,
 		},
 		{
 			MethodName: "PendingClaims",

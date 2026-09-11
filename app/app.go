@@ -1482,8 +1482,13 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 			return nil, err
 		}
 	}
-	if app.ModuleManager.GetVersionMap()["knowledge"] == 9 {
+	if app.ModuleManager.GetVersionMap()["knowledge"] >= 9 {
 		if err := validateReviewNeutralityGenesisSelection(genesisState); err != nil {
+			return nil, err
+		}
+	}
+	if app.ModuleManager.GetVersionMap()["knowledge"] >= 10 {
+		if err := validateClaimRecordsGenesisSelection(genesisState); err != nil {
 			return nil, err
 		}
 	}

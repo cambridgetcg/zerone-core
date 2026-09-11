@@ -2,7 +2,7 @@
 
 Status: **static source observatory; target gate intentionally closed**
 
-Date: 2026-08-11; source pins revised 2026-09-09 (manifest 1.0.1)
+Date: 2026-08-11; source pins revised 2026-09-11 (manifest 1.0.5)
 
 Canonical machine artifact:
 `dashboard/public/standards/authority-geometry.v1.json`

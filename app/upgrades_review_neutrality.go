@@ -30,8 +30,11 @@ func reviewNeutralityTargetVersionMap() module.VersionMap {
 func requireReviewNeutralityTransitionOwner(name string, fromVM, targetVM module.VersionMap) error {
 	from, fromOK := fromVM["knowledge"]
 	target, targetOK := targetVM["knowledge"]
-	if !fromOK || !targetOK || from < 6 || from > 9 || target < 6 || target > 9 {
+	if !fromOK || !targetOK || from < 6 || from > 10 || target < 6 || target > 10 {
 		return fmt.Errorf("review neutrality requires complete known knowledge versions")
+	}
+	if from == 9 && target == 10 {
+		return requireClaimRecordsTransitionOwner(name, fromVM, targetVM)
 	}
 	if from == target || (from < 9 && target < 9) {
 		return nil
@@ -119,28 +122,7 @@ func (app *ZeroneApp) registerReviewNeutralityUpgrade() {
 
 func (app *ZeroneApp) validateReviewNeutralityStartupVersions(ctx sdk.Context, vm module.VersionMap, latest int64) error {
 	if reflect.DeepEqual(vm, reviewNeutralityTargetVersionMap()) {
-		enabled, err := app.KnowledgeKeeper.ReviewNeutralityEnabled(ctx)
-		if err != nil || !enabled {
-			return fmt.Errorf("review neutrality target requires explicit enabled marker: %v", err)
-		}
-		if err := app.validateRecordIntegrityCompleted(ctx, latest); err != nil {
-			return err
-		}
-		done, err := app.UpgradeKeeper.GetDoneHeight(ctx, UpgradeNameKnowledgeReviewNeutralityV1)
-		if err != nil {
-			return err
-		}
-		marker, marked, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(ctx, "migration_v9_complete")
-		if err != nil {
-			return err
-		}
-		if done == 0 && !marked {
-			return nil // Native/imported genesis preserves semantics, not applied history.
-		}
-		if done <= 0 || done > latest || !marked || marker != "true" {
-			return fmt.Errorf("review neutrality target has inconsistent migration marker and done height")
-		}
-		return nil
+		return app.validateReviewNeutralityCompleted(ctx, latest)
 	}
 	if !reflect.DeepEqual(vm, reviewNeutralitySourceVersionMap()) {
 		return fmt.Errorf("review neutrality startup requires exact complete source or target version map")
@@ -168,6 +150,32 @@ func validateReviewNeutralityGenesisSelection(genesis GenesisState) error {
 	}
 	if selection.Enabled == nil || !*selection.Enabled {
 		return fmt.Errorf("native knowledge genesis requires explicit review_neutrality_enabled=true")
+	}
+	return nil
+}
+
+// validateReviewNeutralityCompleted also serves later exact predecessors.
+func (app *ZeroneApp) validateReviewNeutralityCompleted(ctx sdk.Context, latest int64) error {
+	enabled, err := app.KnowledgeKeeper.ReviewNeutralityEnabled(ctx)
+	if err != nil || !enabled {
+		return fmt.Errorf("review neutrality target requires explicit enabled marker: %v", err)
+	}
+	if err := app.validateRecordIntegrityCompleted(ctx, latest); err != nil {
+		return err
+	}
+	done, err := app.UpgradeKeeper.GetDoneHeight(ctx, UpgradeNameKnowledgeReviewNeutralityV1)
+	if err != nil {
+		return err
+	}
+	marker, marked, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(ctx, "migration_v9_complete")
+	if err != nil {
+		return err
+	}
+	if done == 0 && !marked {
+		return nil // Native/imported genesis preserves semantics, not applied history.
+	}
+	if done <= 0 || done > latest || !marked || marker != "true" {
+		return fmt.Errorf("review neutrality target has inconsistent migration marker and done height")
 	}
 	return nil
 }
