@@ -13,6 +13,7 @@ For automated reads, identify your client with an honest application User-Agent 
 - [Run a node](https://zerone.ai/nodes/): local setup, signed observer release status, verification, stop and restart.
 - [Put a claim into a block](https://zerone.ai/nodes/#claims): source-pinned local claim, reasoned review and counterclaim workflow with a browser history page. Development accounts share one operator; no public claim submission service is implied.
 - [Machine-readable node guide](https://zerone.ai/nodes/guide.json): exact source and helper pins, commands, network scope and participation availability.
+- [Shared development](https://zerone.ai/development/): separate zerone-dev-1 participation and exact claim-ID history reads; publication status and source pins in /development/guide.json. Local participant keys and explicit client transactions; no browser wallet, faucet, signing, or inferred pending feed. Legacy zerone-1 admission remains paused.
 - [Explore Zerone](https://zerone.ai/#onboarding): public reads and current onboarding status.
 - [Existing wallet](https://zerone.ai/#wallet): optional Keplr connection; supported transactions require separate review and signing.
 

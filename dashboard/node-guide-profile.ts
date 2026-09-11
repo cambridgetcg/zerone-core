@@ -1,4 +1,5 @@
 import { buildObserverRelease, type ObserverPublication } from "./observer-release-profile";
+import { buildDevelopmentProfile, type DevelopmentPublication } from "./development-profile";
 
 const REPOSITORY = "https://github.com/cambridgetcg/zerone-core";
 const HELPER_PATH = "scripts/local-node.py";
@@ -7,6 +8,7 @@ export interface NodeGuideBuildInputs {
   sourceCommit: string;
   helperSha256: string;
   observerPublication?: ObserverPublication;
+  developmentPublication?: DevelopmentPublication;
 }
 
 function requirePin(value: string, length: number, name: string): void {
@@ -24,6 +26,7 @@ export function buildNodeGuideProfile({
   sourceCommit,
   helperSha256,
   observerPublication,
+  developmentPublication,
 }: NodeGuideBuildInputs) {
   requirePin(sourceCommit, 40, "sourceCommit");
   requirePin(helperSha256, 64, "helperSha256");
@@ -55,6 +58,7 @@ export function buildNodeGuideProfile({
       scope: "Pinned source for the local sandbox; not the installed zerone-1 executable.",
       productionBinaryProvenance: false,
     },
+    development: buildDevelopmentProfile(sourceCommit, developmentPublication),
     local: {
       id: "local-sandbox",
       title: "Run your own local node",
@@ -264,6 +268,7 @@ export function buildNodeGuideProfile({
       localSetupWritesStateAndCreatesTestKeys: true,
       privateStateUploadRequired: false,
       admitsValidatorsOrNewLiveAccounts: false,
+      legacyAdmissionScope: "zerone-1 only; the separate development lane has its own explicit publication state",
       activatesSuccessorNetwork: false,
       provesHistoricalPayments: false,
     },

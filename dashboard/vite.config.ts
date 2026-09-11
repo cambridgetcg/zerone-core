@@ -7,6 +7,7 @@ import { observerPage } from "./observer-page";
 import { loadNodeGuideProfile } from "./node-guide-build";
 import { nodeGuidePage } from "./node-guide-page";
 import { buildUnderstandGuide, understandPage } from "./understand-guide";
+import { developmentPage } from "./development-page";
 import { proxyRequest } from "./functions/api/_proxy";
 
 const MAINNET_RPC = "http://169.155.55.44:26657";
@@ -29,22 +30,24 @@ function nodeGuidePlugin(): Plugin {
       handler: (html, context) => {
         if (context.filename === resolve(DASHBOARD_ROOT, "nodes/index.html")) return nodeGuidePage(guide());
         if (context.filename === resolve(DASHBOARD_ROOT, "understand/index.html")) return understandPage(understanding());
+        if (context.filename === resolve(DASHBOARD_ROOT, "development/index.html")) return developmentPage(guide().development);
         return html;
       },
     },
     generateBundle() {
       this.emitFile({ type: "asset", fileName: "nodes/guide.json", source: json() });
       this.emitFile({ type: "asset", fileName: "understand/guide.json", source: understandJson() });
+      this.emitFile({ type: "asset", fileName: "development/guide.json", source: `${JSON.stringify(guide().development, null, 2)}\n` });
     },
     configureServer(server) {
       server.middlewares.use((request, response, next) => {
         const path = request.url?.split("?")[0];
-        if (path !== "/nodes/guide.json" && path !== "/understand/guide.json") { next(); return; }
+        if (path !== "/nodes/guide.json" && path !== "/understand/guide.json" && path !== "/development/guide.json") { next(); return; }
         if (request.method !== "GET" && request.method !== "HEAD") {
           response.writeHead(405, { Allow: "GET, HEAD" }); response.end(); return;
         }
         try {
-          const body = path === "/nodes/guide.json" ? json() : understandJson();
+          const body = path === "/nodes/guide.json" ? json() : path === "/development/guide.json" ? `${JSON.stringify(guide().development, null, 2)}\n` : understandJson();
           response.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
           response.end(request.method === "HEAD" ? undefined : body);
         } catch (error) {
@@ -107,8 +110,9 @@ export default defineConfig({
       nodes: resolve(DASHBOARD_ROOT, "nodes/index.html"),
       understand: resolve(DASHBOARD_ROOT, "understand/index.html"),
       research: resolve(DASHBOARD_ROOT, "research/index.html"),
+      development: resolve(DASHBOARD_ROOT, "development/index.html"),
     } : { dashboard: resolve(DASHBOARD_ROOT, "index.html"), nodes: resolve(DASHBOARD_ROOT, "nodes/index.html"),
       understand: resolve(DASHBOARD_ROOT, "understand/index.html"),
-      research: resolve(DASHBOARD_ROOT, "research/index.html") } },
+      research: resolve(DASHBOARD_ROOT, "research/index.html"), development: resolve(DASHBOARD_ROOT, "development/index.html") } },
   },
 });

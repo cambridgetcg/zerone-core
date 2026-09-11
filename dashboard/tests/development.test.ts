@@ -1,0 +1,106 @@
+import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { describe, it } from "node:test";
+import { buildDevelopmentProfile, type DevelopmentPublication } from "../development-profile";
+import { developmentPage } from "../development-page";
+import { buildNodeGuideProfile } from "../node-guide-profile";
+import { nodeGuidePage } from "../node-guide-page";
+import { enumLabel, getBytes, height, queryClaimId, validateHistory, verifyDescriptor } from "../src/development-reader";
+
+const commit = "ab".repeat(20);
+const publication: DevelopmentPublication = { schema: "zerone.development-publication/v1", chain_id: "zerone-dev-1", gateway: "https://zerone-dev-1.fly.dev", descriptor_sha256: "12".repeat(32), genesis_sha256: "23".repeat(32), rpc_genesis_sha256: "34".repeat(32), runtime_source_commit: "bc".repeat(20), binary_sha256: "45".repeat(32), verified_at: "2026-09-11T21:00:00Z" };
+const id = "ab".repeat(16);
+function historyFixture() { return { chain_id: "zerone-dev-1", block_height: "123", record: { claim_id: id, claim: { id, submitter: "zrn1author", fact_content: "<img src=x onerror=alert(1)>", reasoning_trace: "A bounded reason", status: 5 }, rounds: [{ id: "round-1", claim_id: id, phase: 2, reveals: [{ verifier: "zrn1reviewer", vote: "reject", attestation: { reason: "A counterexample", scope: "One input", evidence_ids: ["https://evidence.invalid/"] } }] }], facts: [{ fact: { id: "fact-1", claim_id: id, status: 5 }, outgoing_relations: [{ source_fact_id: "fact-1", target_fact_id: "fact-2", relation: 2 }] }], missing_round_ids: ["old-round"] }, related_claims: [] }; }
+
+describe("separate development publication and read-only surface", () => {
+  it("defaults to pending with no reader configuration and preserves legacy gates", () => {
+    const guide = buildNodeGuideProfile({ sourceCommit: commit, helperSha256: "56".repeat(32) });
+    assert.equal(guide.development.publication, null);
+    assert.equal(guide.development.effects.browserReads, "none");
+    assert.equal(guide.live.chainId, "zerone-1");
+    assert.equal(guide.live.newAccountAdmission.availability, "paused");
+    assert.equal(guide.boundaries.activatesSuccessorNetwork, false);
+    const html = developmentPage(guide.development);
+    assert.match(html, /Deployment verification pending/u);
+    assert.doesNotMatch(html, /id="development-reader"|data-descriptor-sha256/u);
+    assert.match(html, /id="claim-read"[^>]*disabled/u);
+    assert.match(html, /<noscript>/u);
+    assert.match(nodeGuidePage(guide), /id="development"/u);
+    assert.match(nodeGuidePage(guide), /On zerone-1, validator joining/u);
+  });
+  it("binds dated publication and source roles without fresh-read or authority claims", () => {
+    const profile = buildDevelopmentProfile(commit, publication);
+    assert.equal(profile.publication?.runtime_source_commit, publication.runtime_source_commit);
+    assert.match(profile.source.client, new RegExp(`/${commit}/scripts/shared-claims.py$`, "u"));
+    assert.match(profile.source.guide, new RegExp(`/${commit}/docs/SHARED-DEVELOPMENT.md$`, "u"));
+    assert.equal(profile.effects.transactions, false);
+    assert.equal(profile.effects.browserFaucet, false);
+    assert.equal(profile.effects.browserStorage, false);
+    assert.match(profile.status, /Availability can change/u);
+    assert.match(profile.consensus, /addresses do not prove independent/u);
+    const html = developmentPage(profile);
+    assert.match(html, new RegExp(`data-descriptor-sha256="${publication.descriptor_sha256}"`, "u"));
+    assert.match(html, /not a pending-work feed/u);
+    assert.match(html, /runtime source/u);
+  });
+  it("refuses arbitrary endpoints, incomplete pins, extra fields and invalid dates", () => {
+    for (const change of [{ gateway: "https://evil.invalid" }, { chain_id: "zerone-1" }, { binary_sha256: "0".repeat(64) }, { runtime_source_commit: "main" }, { descriptor_sha256: publication.descriptor_sha256.toUpperCase().replace("12", "AB") }, { verified_at: "2026-02-31T00:00:00Z" }, { extra: true }]) assert.throws(() => buildDevelopmentProfile(commit, { ...publication, ...change } as DevelopmentPublication));
+    assert.throws(() => buildDevelopmentProfile("main", publication));
+  });
+  it("contains only fixed explicit GET reads and safe text rendering", () => {
+    const source = readFileSync(new URL("../src/development-reader.ts", import.meta.url), "utf8") + readFileSync(new URL("../src/development.ts", import.meta.url), "utf8");
+    assert.doesNotMatch(source, /innerHTML|insertAdjacentHTML|localStorage|sessionStorage|indexedDB|eval\(|method:\s*["']POST/u);
+    assert.match(source, /textContent/u); assert.match(source, /credentials: "omit"/u); assert.match(source, /redirect: "error"/u);
+    assert.match(source, /params.has\("claim"\)/u);
+  });
+});
+
+describe("bounded endpoint observations", () => {
+  it("accepts exact IDs and large lossless heights while refusing URL intent and lossy numbers", () => {
+    assert.equal(queryClaimId(id), id); assert.equal(height("18446744073709551615"), "18446744073709551615");
+    for (const value of ["", `${id} `, id.toUpperCase(), "../status", "é".repeat(32), null]) assert.throws(() => queryClaimId(value));
+    for (const value of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1, "01", "18446744073709551616"]) assert.throws(() => height(value));
+  });
+  it("keeps missing historical rows explicit and refuses cross-chain or mismatched joins", () => {
+    assert.equal(validateHistory(historyFixture(), id).chain_id, "zerone-dev-1");
+    const absent = historyFixture(); delete (absent.record as { claim?: unknown }).claim;
+    assert.ok(validateHistory(absent, id));
+    const mutations = [
+      (v: ReturnType<typeof historyFixture>) => { v.chain_id = "zerone-1"; },
+      (v: ReturnType<typeof historyFixture>) => { v.block_height = "0"; },
+      (v: ReturnType<typeof historyFixture>) => { v.record.claim.id = "other"; },
+      (v: ReturnType<typeof historyFixture>) => { v.record.rounds[0]!.claim_id = "other"; },
+      (v: ReturnType<typeof historyFixture>) => { v.record.facts[0]!.fact.claim_id = "other"; },
+      (v: ReturnType<typeof historyFixture>) => { v.record.facts[0]!.outgoing_relations[0]!.source_fact_id = "other"; },
+      (v: ReturnType<typeof historyFixture>) => { v.record.rounds = Array(2001).fill(v.record.rounds[0]); },
+    ];
+    for (const change of mutations) { const value = historyFixture(); change(value); assert.throws(() => validateHistory(value, id)); }
+  });
+  it("renders numeric and symbolic enums with their own domain and explicit unknowns", () => {
+    assert.equal(enumLabel("CLAIM_STATUS", 5), "IN VERIFICATION");
+    assert.equal(enumLabel("FACT_STATUS", 5), "CONTESTED");
+    assert.equal(enumLabel("VERIFICATION_PHASE", 2), "REVEAL");
+    assert.equal(enumLabel("RELATION_TYPE", "RELATION_TYPE_CONTRADICTS"), "CONTRADICTS");
+    assert.equal(enumLabel("INFERENCE_TYPE", "INFERENCE_TYPE_EMPIRICAL"), "EMPIRICAL");
+    assert.match(enumLabel("VERDICT", 99), /Unknown VERDICT: 99/u);
+  });
+  it("joins descriptor bytes and runtime policy to the publication pins", async () => {
+    const descriptor = { schema: "zerone-shared-development/v1", chain_id: "zerone-dev-1", rpc_url: publication.gateway, genesis_url: `${publication.gateway}/genesis.json`, faucet_url: `${publication.gateway}/faucet`, genesis_sha256: publication.genesis_sha256, rpc_genesis_sha256: publication.rpc_genesis_sha256, source_commit: publication.runtime_source_commit, runtime_binary_sha256: publication.binary_sha256, bootstrap_consensus: "single-operator", reset_policy: "new-chain-id", knowledge_version: 10, commitment_scheme: 2, review_policy_version: 1, local_test: false, denom: "uzrn", gas_limit: 2000000, tx_fee_uzrn: "2000000" };
+    const bytes = new TextEncoder().encode(JSON.stringify(descriptor));
+    const pins = { descriptor: createHash("sha256").update(bytes).digest("hex"), genesis: publication.genesis_sha256, rpcGenesis: publication.rpc_genesis_sha256, source: publication.runtime_source_commit, binary: publication.binary_sha256 };
+    await verifyDescriptor(bytes, pins);
+    await assert.rejects(verifyDescriptor(bytes, { ...pins, binary: "ff".repeat(32) }));
+    await assert.rejects(verifyDescriptor(new Uint8Array([...bytes, 10]), pins));
+  });
+  it("bounds chunked reads before decode, refuses foreign routes, and omits credentials", async () => {
+    const requests: RequestInit[] = [];
+    const fetcher: typeof fetch = async (_url, init) => { requests.push(init!); return new Response(new Uint8Array([1, 2, 3, 4]), { headers: { "Content-Type": "application/json" } }); };
+    const signal = new AbortController().signal;
+    assert.deepEqual(await getBytes(`${publication.gateway}/network.json`, 4, signal, fetcher), new Uint8Array([1, 2, 3, 4]));
+    assert.equal(requests[0]?.method, "GET"); assert.equal(requests[0]?.credentials, "omit");
+    await assert.rejects(getBytes(`${publication.gateway}/claims/${id}`, 3, signal, fetcher));
+    for (const url of ["https://evil.invalid/network.json", `${publication.gateway}/faucet`, `${publication.gateway}/network.json?proxy=foo`, `${publication.gateway}/claims/../status`]) await assert.rejects(getBytes(url, 10, signal, fetcher));
+    await assert.rejects(getBytes(`${publication.gateway}/network.json`, 10, signal, async () => new Response("oops", { headers: { "Content-Type": "text/html" } })));
+  });
+});

@@ -4,6 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { buildNodeGuideProfile } from "./node-guide-profile";
 import { buildObserverRelease, type ObserverPublication } from "./observer-release-profile";
+import { validateDevelopmentPublication, type DevelopmentPublication } from "./development-profile";
 
 function parseObserverPublication(raw: Buffer): ObserverPublication {
   if (raw.length > 16 * 1024) throw new Error("Observer publication metadata exceeds 16 KiB");
@@ -54,9 +55,35 @@ export function loadNodeGuideProfile(repositoryRoot: string) {
     }
     observerPublication = parseObserverPublication(committed);
   }
+  // New participant instructions must name source bytes present at the pin too.
+  for (const path of ["scripts/shared-claims.py", "docs/SHARED-DEVELOPMENT.md"]) {
+    let committed: Buffer;
+    try { committed = git("show", `${sourceCommit}:${path}`); }
+    catch { throw new Error(`Development guide requires ${path} committed at HEAD`); }
+    if (!committed.equals(readFileSync(resolve(repositoryRoot, path)))) throw new Error(`Development source ${path} differs from HEAD`);
+  }
+  const developmentPath = "dashboard/development-publication.json";
+  const committedDevelopment = git("ls-tree", "--name-only", sourceCommit, "--", developmentPath).length > 0;
+  if (committedDevelopment !== existsSync(resolve(repositoryRoot, developmentPath))) throw new Error("Development publication presence differs from HEAD");
+  let developmentPublication: DevelopmentPublication | undefined;
+  if (committedDevelopment) {
+    const bytes = git("show", `${sourceCommit}:${developmentPath}`);
+    if (bytes.length > 16384 || !bytes.equals(readFileSync(resolve(repositoryRoot, developmentPath)))) throw new Error("Development publication bytes differ from HEAD or exceed the bound");
+    const text = bytes.toString("utf8");
+    developmentPublication = JSON.parse(text) as DevelopmentPublication;
+    validateDevelopmentPublication(developmentPublication);
+    const seen = new Set<string>();
+    for (const match of text.matchAll(/"(?:\\[\s\S]|[^"\\])*"/gu)) {
+      if (!/^\s*:/u.test(text.slice(match.index! + match[0].length))) continue;
+      const key = JSON.parse(match[0]) as string;
+      if (seen.has(key)) throw new Error("Duplicate development publication key");
+      seen.add(key);
+    }
+  }
   return buildNodeGuideProfile({
     sourceCommit,
     helperSha256: createHash("sha256").update(committedHelper).digest("hex"),
     observerPublication,
+    developmentPublication,
   });
 }
