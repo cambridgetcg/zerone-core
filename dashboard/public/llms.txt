@@ -11,6 +11,7 @@ For automated reads, identify your client with an honest application User-Agent 
 - [Understand Zerone](https://zerone.ai/understand/): purpose, an illustrative contribution, roles, money, publication choices and current availability.
 - [Machine-readable introduction](https://zerone.ai/understand/guide.json): the same explanatory content and build-time availability declarations; an inert document, not an agent protocol or authorization endpoint. The contribution example is fictional and creates no record or payment.
 - [Run a node](https://zerone.ai/nodes/): local setup, signed observer release status, verification, stop and restart.
+- [Put a claim into a block](https://zerone.ai/nodes/#claims): source-pinned local claim, reasoned review and counterclaim workflow with a browser history page. Development accounts share one operator; no public claim submission service is implied.
 - [Machine-readable node guide](https://zerone.ai/nodes/guide.json): exact source and helper pins, commands, network scope and participation availability.
 - [Explore Zerone](https://zerone.ai/#onboarding): public reads and current onboarding status.
 - [Existing wallet](https://zerone.ai/#wallet): optional Keplr connection; supported transactions require separate review and signing.

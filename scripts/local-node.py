@@ -31,6 +31,18 @@ CHAIN_PATTERN = re.compile(r"zerone-local-[a-z0-9][a-z0-9-]{0,39}\Z")
 CONTROL_FILES = ("config/genesis.json", "config/config.toml", "config/app.toml",
                  "config/client.toml")
 IDENTITY_FILES = ("config/node_key.json", "config/priv_validator_key.json")
+KNOWLEDGE_ACCOUNTS = ("reviewer1", "reviewer2", "reviewer3", "challenger")
+
+
+def configure_knowledge_profile(genesis: dict, fast: bool = False) -> None:
+    """Leave time for manual review; short windows are an explicit test option."""
+    knowledge = genesis["app_state"]["knowledge"]
+    for marker in ("record_integrity_enabled", "review_neutrality_enabled", "claim_records_enabled"):
+        if knowledge.get(marker) is not True:
+            raise LocalNodeError(f"Knowledge workflow requires native {marker}.")
+    window = "60" if fast else "300"
+    knowledge["params"].update({"commit_phase_blocks": window, "reveal_phase_blocks": window,
+                                "aggregation_phase_blocks": "5"})
 
 
 class LocalNodeError(Exception):
@@ -162,11 +174,15 @@ def public_info(home: Path, manifest: dict) -> dict:
             "rpc": f"http://127.0.0.1:{manifest['rpc_port']}",
             "binary": str(home / "bin/zeroned"),
             "validator_address": manifest["validator_address"],
-            "user_address": manifest["user_address"]}
+            "user_address": manifest["user_address"],
+            **({"knowledge_profile": manifest["knowledge_profile"], "accounts": manifest["accounts"]}
+               if manifest.get("knowledge_profile") else {})}
 
 
 def initialize(args) -> None:
     home = home_path(args.home)
+    if getattr(args, "fast_review", False) and not getattr(args, "knowledge_profile", False):
+        raise LocalNodeError("--fast-review requires --knowledge-profile on a fresh sandbox.")
     if home.exists():
         raise LocalNodeError("Init requires a new home that does not exist. Existing files were not changed; use start for an initialized sandbox.")
     if not CHAIN_PATTERN.fullmatch(args.chain_id):
@@ -195,16 +211,26 @@ def initialize(args) -> None:
         if auxiliary.exists():
             regular(auxiliary)
             shutil.copyfile(auxiliary, home / "bin/darwin-acl-check")
-            (home / "bin/darwin-acl-check").chmod(0o700)
+            # The identity store validates this executable's exact mode before
+            # creating onboarding identities on macOS.
+            (home / "bin/darwin-acl-check").chmod(0o555)
             auxiliary_hash = sha256(home / "bin/darwin-acl-check")
         cli(binary, home, "init", "local-validator", "--chain-id", args.chain_id, "--default-denom", "uzrn")
         addresses = {}
-        for name, balance in (("validator", "2000000000uzrn"), ("user", "1000000000uzrn")):
+        accounts = [("validator", "2000000000uzrn"), ("user", "1000000000uzrn")]
+        if getattr(args, "knowledge_profile", False):
+            accounts.extend((name, "1000000000uzrn") for name in KNOWLEDGE_ACCOUNTS)
+        for name, balance in accounts:
             cli(binary, home, "keys", "add", name, "--keyring-backend", "test", secret=True)
             addresses[name] = cli(binary, home, "keys", "show", name, "-a", "--keyring-backend", "test")
             if not re.fullmatch(r"zrn1[023456789acdefghjklmnpqrstuvwxyz]{38}", addresses[name]):
                 raise LocalNodeError("Generated test address is not a canonical Zerone address.")
             cli(binary, home, "add-genesis-account", addresses[name], balance)
+        if getattr(args, "knowledge_profile", False):
+            genesis_path = home / "config/genesis.json"
+            genesis = json.loads(genesis_path.read_text())
+            configure_knowledge_profile(genesis, getattr(args, "fast_review", False))
+            genesis_path.write_text(json.dumps(genesis, indent=2) + "\n")
         cli(binary, home, "genesis", "gentx", "validator", "1000000000uzrn", "--chain-id", args.chain_id,
             "--keyring-backend", "test", "--commission-rate", "0.1", "--commission-max-rate", "0.2",
             "--commission-max-change-rate", "0.01")
@@ -243,6 +269,8 @@ def initialize(args) -> None:
                     "control_sha256": {name: sha256(home / name) for name in CONTROL_FILES},
                     "identity_sha256": {name: sha256(home / name) for name in IDENTITY_FILES},
                     "notice": "Fresh local test keys and valueless tokens only. No shared-network peers or registration."}
+        if getattr(args, "knowledge_profile", False):
+            manifest.update({"knowledge_profile": "claims-v1", "accounts": addresses})
         (home / MARKER).write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
         (home / MARKER).chmod(0o600)
     print(json.dumps({"initialized": True, **public_info(home, manifest)}, sort_keys=True), flush=True)
@@ -379,6 +407,10 @@ def main() -> int:
     init.add_argument("--chain-id", default="zerone-local-1")
     init.add_argument("--rpc-port", type=port, default=47657)
     init.add_argument("--p2p-port", type=port, default=47656)
+    init.add_argument("--knowledge-profile", action="store_true",
+                      help="Fund three reviewers and a challenger; use 300/300/5-block review windows in this fresh local genesis.")
+    init.add_argument("--fast-review", action="store_true",
+                      help="With --knowledge-profile, use 60-block commit/reveal windows for automated exercises.")
     for name in ("start", "status"):
         command = sub.add_parser(name, help="Run in the foreground." if name == "start" else "Check local identity and advancing blocks.")
         command.add_argument("--home", required=True)
