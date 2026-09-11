@@ -1063,6 +1063,51 @@ fork/re-genesis rewrite with its own manifest.
 - Move privileged transaction authority to threshold control as the custodial
   exception is retired.
 
+#### Backup, restore and signer fencing
+
+The SDK transaction-wallet mnemonic, Comet consensus key, P2P identity and
+release-signing keys have separate recovery obligations. A wallet mnemonic
+does not normally recover the independently generated Comet consensus key.
+The local Comet signer stores its key as JSON with filesystem access control;
+mode `0600`, bootstrap base64 encoding and provider volume encryption do not
+establish exclusive historical custody. Current build safeguards must be
+verified on the actual deployment before being credited to it.
+
+For a route whose custody and restart authority have already been established:
+
+1. Identify the exact chain, consensus identity, home/volume, executable and
+   all possible signer processes, hosts, backups and automatic restart paths.
+   Record who owns fencing and who may authorize the replacement to sign.
+2. Stop the original signer cleanly and fence its restart paths. Preserve a
+   consistent full validator home: application and Comet databases/state/WAL,
+   genesis/configuration, consensus key **and unchanged last-sign state**, P2P
+   identity and the applicable binary/Cosmovisor tree. Do not copy a running
+   database and call it a stopped backup.
+3. Retain an access-controlled manifest of that stopped recovery unit and its
+   last signed height/round/step. The signing position may be ahead of the
+   last committed block. Keep secret bytes out of reports, images, builder
+   contexts and logs; account for backup holders and restore copies.
+4. Restore into a separate, stopped target and verify every required file,
+   identity, signing-state byte, mode and applicable ownership mapping against
+   the manifest. Preserve the original. A state-sync rebuild requires the
+   separately reviewed signer handoff below rather than this exact restore.
+5. Verify the original and every other copy are fenced before releasing the
+   replacement signer. A same-home `flock` prevents cooperating processes
+   sharing that lock; it does not fence a second home, another host or someone
+   holding a copied key. Missing cross-host/control-plane evidence stays open.
+6. Start only the authorized target. Verify the unchanged consensus identity,
+   preserved historical block commitments, advancing valid commits and
+   non-regressing signing state. A failure enters the incident procedure;
+   never repair it by clearing signing state or racing a second signer.
+
+Rehearse first with fresh test identities on an isolated local chain. Check
+duplicate-start, missing-signing-state and changed-identity refusals as well
+as full-home restore and resumed signatures. Such a drill establishes only
+the tested application's local behavior: it does not establish production
+key exclusivity, independent cross-host fencing or off-device recovery. Those
+require their own evidence for the selected production route. A zero-power
+observer restore is a different recovery scope.
+
 #### 11.4.1 One-validator key replacement
 
 Zerone has two independent staking records:

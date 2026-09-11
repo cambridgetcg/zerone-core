@@ -114,6 +114,16 @@ tokens are locked and do not earn rewards. The redelegation cooldown
 
 ## Slashing
 
+### Which rules apply to consensus block signing?
+
+Consensus-validator penalties come from the selected chain's Cosmos SDK
+`x/slashing` parameters, including `slash_fraction_double_sign` and
+`slash_fraction_downtime`. Query that chain's current parameters with the
+approved binary and RPC endpoint; there is no universal Zerone percentage.
+Consensus double-signing is separate from the custom verification offenses
+below. A valid signature or a readable key file does not establish exclusive
+custody of the signer.
+
 ### What offenses are slashed?
 
 | Offense | Slash Rate | Description |
@@ -222,7 +232,10 @@ authorization in this source publication; see the
 
 ### How do I back up my validator?
 
-Critical files to back up:
+Use the selected network's approved procedure for a consistent, **cleanly
+stopped full validator home**, including application and Comet databases,
+state/WAL, genesis, configuration and the compatible binary tree. These
+signing and identity files are part of that recovery unit:
 
 ```
 $HOME/.zeroned/config/priv_validator_key.json   # Consensus key — NEVER share
@@ -230,11 +243,23 @@ $HOME/.zeroned/config/node_key.json             # Node identity key
 $HOME/.zeroned/data/priv_validator_state.json    # Signing state (prevent double-sign)
 ```
 
-Back up your key mnemonic securely offline. If you lose
-`priv_validator_key.json`, you cannot recover your validator without it.
+The consensus key is generated separately from the SDK transaction wallet.
+Backing up the wallet mnemonic does **not** normally recover
+`priv_validator_key.json`. Keep recoverable, access-controlled offline backups
+of the actual consensus key and preserve its latest signing state with the
+matching stopped chain state. A key-only copy or provider snapshot alone is
+not a demonstrated validator recovery.
 
-> **Warning:** Never run two nodes with the same `priv_validator_key.json`.
-> This causes equivocation (double-signing) and results in a 20% slash.
+Before a restored validator can sign, fence every old signer and automatic
+restart path. Never run two copies of the same consensus identity, reset its
+last-sign state, or pair current signing state with older application/Comet
+state. Duplicate execution can cause conflicting signatures, slashing and
+tombstoning. A lock on one home directory does not fence another host.
+
+If the key may have been copied outside trusted custody, routine restoration
+does not resolve that exposure. Follow the canonical
+[backup, restore and fencing procedure](UPGRADE_AND_INCIDENT_OPERATIONS.md#backup-restore-and-signer-fencing)
+and [key-replacement decision](UPGRADE_AND_INCIDENT_OPERATIONS.md#1141-one-validator-key-replacement).
 
 ---
 
