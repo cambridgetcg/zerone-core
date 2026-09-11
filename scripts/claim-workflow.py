@@ -209,10 +209,16 @@ class Workflow:
             if not re.fullmatch(r"[0-9a-f]{32,64}\.json", path.name):
                 raise WorkflowError("Unexpected workflow inventory entry.")
             value = read_json(path)
-            if value.get("schema") != SCHEMA or value.get("chain_id") != self.chain:
-                raise WorkflowError("Workflow record belongs to a different schema or chain.")
+            self.validate_record(value)
             result.append((path, value))
         return result
+
+    def record_metadata(self):
+        return {"schema": SCHEMA, "chain_id": self.chain}
+
+    def validate_record(self, value):
+        if any(value.get(key) != expected for key, expected in self.record_metadata().items()):
+            raise WorkflowError("Workflow record belongs to a different schema or chain.")
 
     def actor(self, actor):
         if actor not in ACTORS:
@@ -305,7 +311,7 @@ class Workflow:
         if not raw or len(raw) > MAX_JSON:
             raise WorkflowError("Invalid encoded signed transaction.")
         digest = hashlib.sha256(raw).hexdigest().upper()
-        attempt = {"schema": SCHEMA, "chain_id": self.chain, "id": identifier, "action": action, "actor": actor,
+        attempt = {**self.record_metadata(), "id": identifier, "action": action, "actor": actor,
             "address": address, "status": "prepared", "txhash": digest, "tx_bytes_base64": encoded,
             "context": context or {}, "created_unix": int(time.time())}
         save_json(path, attempt, fresh=True)
@@ -320,6 +326,7 @@ class Workflow:
         if self.cli("tx", "encode", signed_path) != attempt["tx_bytes_base64"]:
             raise WorkflowError("Saved signed transaction changed; nothing was broadcast.")
         self.check_node()
+        prior_delivery = attempt["status"] != "prepared" or attempt.get("broadcast_count", 0) > 0
         attempt["status"] = "broadcasting"
         attempt["broadcast_count"] = attempt.get("broadcast_count", 0) + 1
         save_json(path, attempt)
@@ -329,7 +336,7 @@ class Workflow:
             if response.get("txhash", "").upper() != digest:
                 raise WorkflowError("Broadcast response returned a different hash.")
             code = integer(response.get("code", 0), "CheckTx code")
-            if code:
+            if code and not prior_delivery:
                 attempt.update(status="rejected", code=code, check_tx=response)
                 for field in ("gas_wanted", "gas_used"):
                     if field in response:
@@ -340,6 +347,11 @@ class Workflow:
                         attempt[field] = response[field]
                 save_json(path, attempt)
                 raise WorkflowError(f"CheckTx rejected transaction {digest} with code {code}; receipt retained.")
+            if code:
+                # A cache/sequence refusal on an explicit retry cannot reject
+                # the original delivery. Keep blocking new signing while its
+                # exact hash remains unresolved; only execution settles it.
+                attempt["check_tx"] = response
             attempt["status"] = "pending"
             save_json(path, attempt)
             deadline = time.monotonic() + self.wait
@@ -442,7 +454,7 @@ class Workflow:
                 raise WorkflowError("No saved review tuple; reveal cannot invent replacement values.")
             if len(self.records("reviews")) >= MAX_RECORDS:
                 raise WorkflowError("Local review inventory is full.")
-            review = {"schema": SCHEMA, "chain_id": self.chain, "claim_id": args.claim, "round_id": row["id"],
+            review = {**self.record_metadata(), "claim_id": args.claim, "round_id": row["id"],
                 "actor": args.actor, "address": self.accounts[args.actor], "vote": args.vote,
                 "confidence": args.confidence, "reason": args.reason, "scope": args.scope, "method": args.method, "evidence": args.evidence,
                 "salt": secrets.token_hex(32), "commit_deadline": row["commit_deadline"], "reveal_deadline": row["reveal_deadline"]}

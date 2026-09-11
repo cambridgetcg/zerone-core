@@ -128,6 +128,40 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(result["height"], "22")
         self.w.cli.assert_not_called()
 
+    def test_retry_checktx_refusal_does_not_release_unresolved_original(self):
+        path, value = self.attempt("pending")
+        value["broadcast_count"] = 1
+        workflow.save_json(path, value)
+        original = self.w.cli.side_effect
+        def cli(*args, **kwargs):
+            if args[:2] == ("tx", "broadcast"):
+                return json.dumps({"txhash": self.digest, "code": 19, "raw_log": "tx already exists in cache"})
+            return original(*args, **kwargs)
+        self.w.cli.side_effect = cli
+        self.w.tx_observation.return_value = None
+        with self.assertRaisesRegex(workflow.WorkflowError, "pending"):
+            self.w.retry(self.digest)
+        retained = workflow.read_json(path)
+        self.assertEqual(retained["status"], "pending")
+        self.assertEqual(retained["check_tx"]["code"], 19)
+        self.assertEqual(retained["tx_bytes_base64"], self.encoded)
+        count = self.w.cli.call_count
+        with self.assertRaisesRegex(workflow.WorkflowError, "earlier transaction"):
+            self.w.send("submit", "user", ["knowledge", "submit-claim", "different content"])
+        self.assertEqual(self.w.cli.call_count, count)
+        self.w.tx_observation.return_value = self.observation
+        self.assertEqual(self.w.reconcile(), [])
+        self.assertEqual(workflow.read_json(path)["status"], "committed")
+        self.assertEqual(workflow.read_json(path)["code"], 0)
+
+    def test_retry_checktx_refusal_can_observe_original_commit_without_new_signature(self):
+        self.attempt("broadcasting")
+        original = self.w.cli.side_effect
+        self.w.cli.side_effect = lambda *args, **kwargs: json.dumps({"txhash": self.digest, "code": 32}) if args[:2] == ("tx", "broadcast") else original(*args, **kwargs)
+        self.w.tx_observation.side_effect = [None, self.observation]
+        self.assertEqual(self.w.retry(self.digest)["status"], "committed")
+        self.assertFalse(any(call.args[:2] == ("tx", "sign") for call in self.w.cli.call_args_list))
+
     def test_retry_refuses_changed_signed_transaction(self):
         self.attempt("prepared")
         self.w.tx_observation.return_value = None

@@ -1,0 +1,25 @@
+@import "./node-guide.css";
+.development #main-content { scroll-margin-top: 100px; }
+.development .journey { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem 3rem; padding-left: 1.4rem; }
+.development .journey li { padding-left: .5rem; }
+.development .journey p, .history-intro { color: var(--muted); margin-top: .8rem; }
+.history-intro { max-width: 52rem; }
+#claim-form { margin-top: 2rem; }
+#claim-form label { display: block; margin-bottom: .6rem; font-weight: 600; }
+.claim-input { display: flex; gap: .7rem; }
+.claim-input input { min-width: 0; flex: 1; padding: .8rem; font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 3px; }
+#claim-help { color: var(--muted); font-size: .8rem; margin-top: .6rem; }
+.development button:disabled { opacity: .55; cursor: not-allowed; }
+.notice { margin-block: 1.5rem; padding: 1rem; border-left: 2px solid var(--violet); background: var(--surface); overflow-wrap: anywhere; }
+.notice[data-error="true"] { border-color: #ffb297; }
+#share-link { display: inline-block; margin-bottom: 1.5rem; color: var(--acid); overflow-wrap: anywhere; }
+.history-card { margin-top: 1.5rem; border: 1px solid var(--line); padding: 1.5rem; min-width: 0; }
+.history-card h3 { color: var(--violet); margin-bottom: 1rem; }
+.history-card h4 { margin: 1.5rem 0 .6rem; }
+.history-card p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.history-card .record-value { margin: .4rem 0 1rem; }
+.history-card .record-label { color: var(--muted); font-size: .8rem; }
+.history-card details { margin-top: 1.25rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+.history-card summary { color: var(--violet); cursor: pointer; overflow-wrap: anywhere; }
+.history-card ul { padding-left: 1.3rem; overflow-wrap: anywhere; }
+@media(max-width:600px) { .development .journey { grid-template-columns: 1fr; }.claim-input { flex-direction: column; }.history-card { padding: 1rem; } }

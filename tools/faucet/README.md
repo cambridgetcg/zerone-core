@@ -7,6 +7,11 @@ per-address rate limiting and total supply cap enforcement.
 > any chain ID except `zerone-localnet` and `zerone-rehearsal-*`. It is not a
 > shared-testnet or mainnet operator packet.
 
+For `zerone-dev-1`, use the separate [shared development runtime](../../deploy/networks/zerone-dev-1/README.md)
+and [participant guide](../../docs/SHARED-DEVELOPMENT.md). Its prefunded gateway
+retains signed transfers before broadcasting and reports committed execution;
+this older disposable-drill tool is not that network's funding service.
+
 ## Build
 
 ```bash

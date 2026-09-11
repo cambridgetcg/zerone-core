@@ -9,6 +9,12 @@ import { loadNodeGuideProfile } from "../node-guide-build";
 import { nodeGuidePage } from "../node-guide-page";
 import { buildNodeGuideProfile } from "../node-guide-profile";
 
+function developmentSources(root: string): void {
+  mkdirSync(join(root, "docs"), { recursive: true });
+  writeFileSync(join(root, "scripts/shared-claims.py"), "# Shared client fixture; never executed\n");
+  writeFileSync(join(root, "docs/SHARED-DEVELOPMENT.md"), "# Shared development fixture\n");
+}
+
 it("keeps public-network links on zerone.ai when the guide is hosted by an observer", () => {
   const profile = buildNodeGuideProfile({ sourceCommit: "a1".repeat(20), helperSha256: "b2".repeat(32) });
   const html = nodeGuidePage(profile);
@@ -37,7 +43,8 @@ it("publishes committed helper bytes and refuses missing or modified install ins
     mkdirSync(join(root, "scripts"));
     const helper = "# A local test fixture, never a runnable installer.\n";
     writeFileSync(join(root, "scripts/local-node.py"), helper);
-    git("add", "scripts/local-node.py");
+    developmentSources(root);
+    git("add", ".");
     git("-c", "user.name=Guide test", "-c", "user.email=guide@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "Helper fixture");
     const profile = loadNodeGuideProfile(root);
     assert.equal(profile.source.commit, git("rev-parse", "HEAD"));
@@ -78,6 +85,7 @@ it("requires an exact committed and bounded observer publication without duplica
     mkdirSync(join(root, "scripts"));
     mkdirSync(join(root, "dashboard"));
     writeFileSync(join(root, "scripts/local-node.py"), "# Fixture; never executed\n");
+    developmentSources(root);
     commit();
     assert.equal(loadNodeGuideProfile(root).live.replicaInstallation.availability, "not-published");
     writeFileSync(path, raw);
@@ -103,4 +111,23 @@ it("requires an exact committed and bounded observer publication without duplica
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+it("binds optional development publication and client docs to committed bytes", () => {
+  const root = mkdtempSync(join(tmpdir(), "zerone-development-publication-test-"));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: root, stdio: ["ignore", "pipe", "pipe"] }).toString().trim();
+  const commit = () => { git("add", "."); git("-c", "user.name=Guide test", "-c", "user.email=guide@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "Fixture"); };
+  const publication = { schema: "zerone.development-publication/v1", chain_id: "zerone-dev-1", gateway: "https://zerone-dev-1.fly.dev", descriptor_sha256: "12".repeat(32), genesis_sha256: "23".repeat(32), rpc_genesis_sha256: "34".repeat(32), runtime_source_commit: "ab".repeat(20), binary_sha256: "45".repeat(32), verified_at: "2026-09-11T22:00:00Z" };
+  const raw = JSON.stringify(publication); const path = join(root, "dashboard/development-publication.json");
+  try {
+    git("init", "--quiet"); mkdirSync(join(root, "scripts")); mkdirSync(join(root, "dashboard"));
+    writeFileSync(join(root, "scripts/local-node.py"), "# Fixture\n"); developmentSources(root); commit();
+    assert.equal(loadNodeGuideProfile(root).development.availability, "verification-pending");
+    writeFileSync(path, raw); assert.throws(() => loadNodeGuideProfile(root), /presence differs from HEAD/u); commit();
+    assert.equal(loadNodeGuideProfile(root).development.publication?.descriptor_sha256, publication.descriptor_sha256);
+    writeFileSync(path, `${raw}\n`); assert.throws(() => loadNodeGuideProfile(root), /bytes differ/u);
+    for (const key of ["chain_id", "chain\\u005fid"]) { writeFileSync(path, raw.replace("{", `{"${key}":"zerone-1",`)); commit(); assert.throws(() => loadNodeGuideProfile(root), /Duplicate development publication key/u); }
+    writeFileSync(path, raw); commit();
+    writeFileSync(join(root, "docs/SHARED-DEVELOPMENT.md"), "Uncommitted drift"); assert.throws(() => loadNodeGuideProfile(root), /Development source .* differs from HEAD/u);
+  } finally { rmSync(root, { recursive: true, force: true }); }
 });
