@@ -245,3 +245,9 @@ source bytes retain their previous exact revisions. Observation semantics,
 schema, fixtures, the external AgentTool baseline, pending bindings and all
 effect and activation gates remain unchanged. This refresh records source
 compatibility only; it creates no hosted execution or chain activation.
+
+The 2026-09-13 fund-settlement refresh binds only the two current Zerone Research
+Commons source rows to commit `4f29f28329da7eecd02fb8de13cd3726b9d4bd55` after their
+local protobuf source hash changed. The remaining source revisions, schema,
+fixtures, observation semantics, pending bindings and every effect/activation
+gate are unchanged. This is offline source compatibility, with no hosted action.
