@@ -118,13 +118,26 @@ it("binds optional development publication and client docs to committed bytes", 
   const git = (...args: string[]) => execFileSync("git", args, { cwd: root, stdio: ["ignore", "pipe", "pipe"] }).toString().trim();
   const commit = () => { git("add", "."); git("-c", "user.name=Guide test", "-c", "user.email=guide@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "Fixture"); };
   const publication = { schema: "zerone.development-publication/v1", chain_id: "zerone-dev-1", gateway: "https://zerone-dev-1.fly.dev", descriptor_sha256: "12".repeat(32), genesis_sha256: "23".repeat(32), rpc_genesis_sha256: "34".repeat(32), runtime_source_commit: "ab".repeat(20), binary_sha256: "45".repeat(32), verified_at: "2026-09-11T22:00:00Z" };
-  const raw = JSON.stringify(publication); const path = join(root, "dashboard/development-publication.json");
+  let raw = JSON.stringify(publication); const path = join(root, "dashboard/development-publication.json");
   try {
     git("init", "--quiet"); mkdirSync(join(root, "scripts")); mkdirSync(join(root, "dashboard"));
     writeFileSync(join(root, "scripts/local-node.py"), "# Fixture\n"); developmentSources(root); commit();
     assert.equal(loadNodeGuideProfile(root).development.availability, "verification-pending");
     writeFileSync(path, raw); assert.throws(() => loadNodeGuideProfile(root), /presence differs from HEAD/u); commit();
+    assert.throws(() => loadNodeGuideProfile(root), /requires committed deploy\/networks/u);
+    const directory = join(root, "deploy/networks/zerone-dev-1"); mkdirSync(directory, {recursive:true});
+    const genesis = JSON.stringify({chain_id:"zerone-dev-1"});
+    publication.genesis_sha256 = createHash("sha256").update(genesis).digest("hex");
+    const descriptor = JSON.stringify({schema:"zerone-shared-development/v1",chain_id:"zerone-dev-1",source_commit:publication.runtime_source_commit,runtime_binary_sha256:publication.binary_sha256,genesis_sha256:publication.genesis_sha256,rpc_genesis_sha256:publication.rpc_genesis_sha256,rpc_url:publication.gateway,local_test:false});
+    publication.descriptor_sha256 = createHash("sha256").update(descriptor).digest("hex");
+    const tag = `zerone-dev-1-${publication.runtime_source_commit.slice(0,12)}`;
+    const release = {schema:"zerone-development-release/v1",chain_id:"zerone-dev-1",source_commit:publication.runtime_source_commit,source_tree:"bc".repeat(20),release_tag:tag,release_url:`https://github.com/cambridgetcg/zerone-core/releases/tag/${tag}`,runtime_image:`registry.fly.io/zerone-dev-1@sha256:${"cd".repeat(32)}`,descriptor_sha256:publication.descriptor_sha256,genesis_sha256:publication.genesis_sha256,rpc_genesis_sha256:publication.rpc_genesis_sha256,runtime_binary_sha256:publication.binary_sha256,artifacts:["linux-amd64","darwin-arm64"].map(platform=>({name:`${tag}-${platform}.tar.gz`,platform,url:`https://github.com/cambridgetcg/zerone-core/releases/download/${tag}/${tag}-${platform}.tar.gz`,sha256:"ef".repeat(32),bytes:1024,binary_sha256:publication.binary_sha256})),bootstrap_consensus:"single-operator",funds:"valueless-development-only",private_keys_in_packages:false};
+    writeFileSync(join(directory,"genesis.json"),genesis); writeFileSync(join(directory,"network.json"),descriptor); writeFileSync(join(directory,"release.json"),JSON.stringify(release));
+    raw = JSON.stringify(publication); writeFileSync(path,raw); commit();
     assert.equal(loadNodeGuideProfile(root).development.publication?.descriptor_sha256, publication.descriptor_sha256);
+    writeFileSync(join(directory,"genesis.json"),genesis+"\n"); assert.throws(()=>loadNodeGuideProfile(root),/packet genesis.json differs/u);
+    commit(); assert.throws(()=>loadNodeGuideProfile(root),/public packet hash mismatch/u);
+    writeFileSync(join(directory,"genesis.json"),genesis); commit();
     writeFileSync(path, `${raw}\n`); assert.throws(() => loadNodeGuideProfile(root), /bytes differ/u);
     for (const key of ["chain_id", "chain\\u005fid"]) { writeFileSync(path, raw.replace("{", `{"${key}":"zerone-1",`)); commit(); assert.throws(() => loadNodeGuideProfile(root), /Duplicate development publication key/u); }
     writeFileSync(path, raw); commit();

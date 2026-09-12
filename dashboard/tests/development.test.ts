@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { buildDevelopmentProfile, type DevelopmentPublication } from "../development-profile";
+import { buildDevelopmentProfile, validateDevelopmentRelease, type DevelopmentPublication } from "../development-profile";
 import { developmentPage } from "../development-page";
 import { buildNodeGuideProfile } from "../node-guide-profile";
 import { nodeGuidePage } from "../node-guide-page";
@@ -17,6 +17,8 @@ describe("separate development publication and read-only surface", () => {
   it("defaults to pending with no reader configuration and preserves legacy gates", () => {
     const guide = buildNodeGuideProfile({ sourceCommit: commit, helperSha256: "56".repeat(32) });
     assert.equal(guide.development.publication, null);
+    assert.equal(guide.development.packages, null);
+    assert.equal(guide.development.exampleClaim, null);
     assert.equal(guide.development.effects.browserReads, "none");
     assert.equal(guide.live.chainId, "zerone-1");
     assert.equal(guide.live.newAccountAdmission.availability, "paused");
@@ -24,10 +26,35 @@ describe("separate development publication and read-only surface", () => {
     const html = developmentPage(guide.development);
     assert.match(html, /Deployment verification pending/u);
     assert.doesNotMatch(html, /id="development-reader"|data-descriptor-sha256/u);
+    assert.doesNotMatch(html, /id="example-claim"/u);
     assert.match(html, /id="claim-read"[^>]*disabled/u);
     assert.match(html, /<noscript>/u);
     assert.match(nodeGuidePage(guide), /id="development"/u);
     assert.match(nodeGuidePage(guide), /On zerone-1, validator joining/u);
+  });
+  it("derives compatible package URLs from the runtime pin and hashes from an external source record", () => {
+    const profile = buildDevelopmentProfile(commit, publication);
+    const packages = profile.packages!;
+    const tag = `zerone-dev-1-${publication.runtime_source_commit.slice(0, 12)}`;
+    assert.equal(packages.tag, tag);
+    assert.equal(packages.recordRawUrl, `https://raw.githubusercontent.com/cambridgetcg/zerone-core/${commit}/deploy/networks/zerone-dev-1/release.json`);
+    for (const artifact of packages.artifacts) assert.equal(artifact.url, `https://github.com/cambridgetcg/zerone-core/releases/download/${tag}/${tag}-${artifact.platform}.tar.gz`);
+    const release = { schema: "zerone-development-release/v1", chain_id: "zerone-dev-1", source_commit: publication.runtime_source_commit, source_tree: "cd".repeat(20), release_tag: packages.tag, release_url: packages.releaseUrl, runtime_image: `registry.fly.io/zerone-dev-1@sha256:${"ef".repeat(32)}`, descriptor_sha256: publication.descriptor_sha256, genesis_sha256: publication.genesis_sha256, rpc_genesis_sha256: publication.rpc_genesis_sha256, runtime_binary_sha256: publication.binary_sha256, artifacts: packages.artifacts.map(({name,platform,url}) => ({name,platform,url,sha256:"67".repeat(32),bytes:1000,binary_sha256:platform === "linux-amd64" ? publication.binary_sha256 : "78".repeat(32)})), bootstrap_consensus: "single-operator", funds: "valueless-development-only", private_keys_in_packages: false };
+    validateDevelopmentRelease(release, publication);
+    for (const edit of [
+      (value: typeof release) => { value.artifacts[0]!.url = "https://unrelated.invalid/package.tar.gz"; },
+      (value: typeof release) => { value.artifacts[0]!.binary_sha256 = "89".repeat(32); },
+      (value: typeof release) => { value.artifacts[0]!.bytes = 268435457; },
+      (value: typeof release) => { value.artifacts[1] = value.artifacts[0]!; },
+      (value: typeof release) => { value.descriptor_sha256 = "9a".repeat(32); },
+      (value: typeof release) => { value.source_commit = commit; },
+      (value: typeof release) => { value.private_keys_in_packages = true; },
+    ]) { const value = structuredClone(release); edit(value); assert.throws(() => validateDevelopmentRelease(value, publication)); }
+    const html = developmentPage(profile);
+    assert.match(html, /id="packages"/u);
+    assert.ok(html.includes(packages.recordUrl));
+    assert.ok(packages.artifacts.every(({url}) => html.includes(url)));
+    assert.doesNotMatch(developmentPage(buildDevelopmentProfile(commit)), /id="packages"/u);
   });
   it("binds dated publication and source roles without fresh-read or authority claims", () => {
     const profile = buildDevelopmentProfile(commit, publication);
@@ -43,6 +70,10 @@ describe("separate development publication and read-only surface", () => {
     assert.match(html, new RegExp(`data-descriptor-sha256="${publication.descriptor_sha256}"`, "u"));
     assert.match(html, /not a pending-work feed/u);
     assert.match(html, /runtime source/u);
+    assert.equal(profile.exampleClaim?.includedAtHeight, "432");
+    assert.match(profile.exampleClaim!.scope, /no reviews or challenges/u);
+    assert.match(profile.exampleClaim!.scope, /no claim of acceptance or independent endorsement/u);
+    assert.ok(html.includes(profile.exampleClaim!.url));
   });
   it("refuses arbitrary endpoints, incomplete pins, extra fields and invalid dates", () => {
     for (const change of [{ gateway: "https://evil.invalid" }, { chain_id: "zerone-1" }, { binary_sha256: "0".repeat(64) }, { runtime_source_commit: "main" }, { descriptor_sha256: publication.descriptor_sha256.toUpperCase().replace("12", "AB") }, { verified_at: "2026-02-31T00:00:00Z" }, { extra: true }]) assert.throws(() => buildDevelopmentProfile(commit, { ...publication, ...change } as DevelopmentPublication));

@@ -4,6 +4,7 @@
 .development .journey li { padding-left: .5rem; }
 .development .journey p, .history-intro { color: var(--muted); margin-top: .8rem; }
 .history-intro { max-width: 52rem; }
+.development #packages code { overflow-wrap: anywhere; }
 #claim-form { margin-top: 2rem; }
 #claim-form label { display: block; margin-bottom: .6rem; font-weight: 600; }
 .claim-input { display: flex; gap: .7rem; }

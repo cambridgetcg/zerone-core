@@ -732,6 +732,8 @@ jobs:
             python3 -m unittest discover -s scripts -p 'test_claim_workflow*.py' -v
           ZERONE_SHARED_TEST_BINARY="${binaries[0]}" \
             python3 -m unittest discover -s deploy/networks/zerone-dev-1 -p 'test_*.py' -v
+          mkdir -p "$ZERONE_CONSENSUS_EVIDENCE/shared-participant-reports"
+          ZERONE_SHARED_EVIDENCE_PARENT="$ZERONE_CONSENSUS_EVIDENCE/shared-participant-reports" \
           ZERONE_SHARED_TEST_BINARY="${binaries[0]}" \
             python3 -m unittest discover -s scripts -p 'test_shared_claims*.py' -v
       - name: Retain consensus reports and logs
@@ -742,6 +744,7 @@ jobs:
           path: |
             ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/**
             ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/logs/**
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/shared-participant-reports/**
           if-no-files-found: error
           retention-days: 30
 
