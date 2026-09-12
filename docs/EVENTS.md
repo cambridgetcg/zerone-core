@@ -1324,10 +1324,35 @@ produce an inconclusive terminal round with a payable review plan.
 - `round_id` -- verification round
 - `payment_status` -- `pending`
 
+### zerone.knowledge.claim_refund_accrued
+After `knowledge-fund-settlement-v1`, a newly funded terminal claim records the
+payer's exact positive refund. It includes the refundable challenge deposit and,
+when no valid reviews were revealed, the unused review budget. This event records
+an obligation; it does not establish that a transfer succeeded.
+
+- `claim_id` -- funded claim identifier
+- `round_id` -- verification round
+- `recipient` -- original payer
+- `amount_uzrn` -- frozen refundable amount
+- `payment_status` -- `pending`
+
+### zerone.knowledge.claim_refunded
+The recorded refund and any reviewer payments have committed together through
+SDK bank transfers. Failure on any leg leaves the entire batch pending and emits
+no paid events. A retry cannot recompute the amounts or pay a completed plan twice.
+
+- `claim_id` -- funded claim identifier
+- `round_id` -- verification round
+- `recipient` -- original payer
+- `amount_uzrn` -- actual refund transferred
+- `payment_status` -- `paid`
+- `paid_at_block` -- successful atomic settlement height
+
 ### zerone.knowledge.verifier_rewarded
 After record-integrity activation, each event belongs to a successfully settled
 atomic verifier batch from the 55% review-fee pool. Every verifier transfer and
-the development-fund withholding transfer succeed together. A failed batch emits
+the development-fund withholding transfer succeed together. New funded claims
+include their refund in that same atomic batch. A failed batch emits
 no paid event and remains pending for retry. `amount_uzrn + withheld_uzrn` equals
 the verifier's unmodulated pool share.
 

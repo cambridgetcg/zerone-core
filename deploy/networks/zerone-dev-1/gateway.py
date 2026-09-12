@@ -12,6 +12,7 @@ import datetime
 import fcntl
 import hashlib
 import http.server
+import importlib.util
 import ipaddress
 import json
 import os
@@ -111,7 +112,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class Node:
-    def __init__(self, home, binary, rpc):
+    def __init__(self, home, binary, rpc, upgrade_packet_sha256=None):
         self.home, self.binary, self.rpc = Path(home), Path(binary), rpc.rstrip("/")
         url = urllib.parse.urlsplit(self.rpc)
         if url.scheme != "http" or url.hostname != "127.0.0.1" or url.path or url.query or url.fragment or url.username:
@@ -125,6 +126,17 @@ class Node:
             raise GatewayError("Runtime genesis changed")
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         self.history_slots = threading.BoundedSemaphore(2)
+        self.upgrade_packet = None
+        if upgrade_packet_sha256 is not None:
+            spec = importlib.util.spec_from_file_location("development_runtime_upgrade", Path(__file__).with_name("runtime.py"))
+            runtime = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(runtime)
+            packet, original = runtime.load_upgrade(self.home, upgrade_packet_sha256)
+            self.manifest = runtime.upgraded_manifest(original, packet)
+            if runtime.digest(self.binary) != self.manifest["binary_sha256"]:
+                raise GatewayError("Gateway target binary differs from the staged upgrade")
+            runtime.verify_applied_upgrade(self.binary, self.home, self.manifest, packet)
+            self.upgrade_packet = packet
 
     def upstream(self, path="/", body=None):
         headers = {"Accept": "application/json"}
@@ -179,12 +191,21 @@ class Node:
         genesis = self.call("genesis")["genesis"]
         if genesis.get("chain_id") != CHAIN:
             raise GatewayError("RPC genesis names a different chain")
+        versions = parse(self.cli("query", "upgrade", "module-versions", "--node", self.rpc, "--output", "json"))
+        knowledge = [row.get("version") for row in versions.get("module_versions", []) if row.get("name") == "knowledge"]
+        if len(knowledge) != 1 or str(knowledge[0]) not in ("10", "11"):
+            raise GatewayError("Unsupported current knowledge module version")
+        knowledge_version = int(knowledge[0])
+        if self.upgrade_packet is not None and knowledge_version != 11:
+            raise GatewayError("Staged gateway requires applied knowledge 11")
+        if knowledge_version == 11 and self.upgrade_packet is None and genesis.get("app_state", {}).get("knowledge", {}).get("fund_settlement_enabled") is not True:
+            raise GatewayError("Upgraded ledger requires the explicit staged gateway path")
         local_test = self.manifest.get("local_test") is True
         endpoint = (f"http://127.0.0.1:{self.manifest['gateway_port']}" if local_test else "https://zerone-dev-1.fly.dev")
         value = {"schema": "zerone-shared-development/v1", "chain_id": CHAIN,
             "rpc_url": endpoint, "genesis_url": endpoint + "/genesis.json", "faucet_url": endpoint + "/faucet",
             "genesis_sha256": self.genesis_hash, "rpc_genesis_sha256": hashlib.sha256(canonical(genesis)).hexdigest(),
-            "denom": "uzrn", "knowledge_version": 10, "commitment_scheme": 2, "review_policy_version": 1,
+            "denom": "uzrn", "knowledge_version": knowledge_version, "commitment_scheme": 2, "review_policy_version": 1,
             "account_types": ["human", "agent"], "gas_limit": 2_000_000, "tx_fee_uzrn": "2000000",
             "source_commit": self.manifest["source_commit"], "bootstrap_consensus": "single-operator",
             "reset_policy": "new-chain-id", "peer": self.manifest["advertised_peer"],
@@ -197,7 +218,7 @@ class Node:
         directory.mkdir(mode=0o700, exist_ok=True)
         if directory.is_symlink() or not directory.is_dir():
             raise GatewayError("Invalid public packet directory")
-        path = directory / "network.json"
+        path = directory / ("network-knowledge-11.json" if self.upgrade_packet is not None else "network.json")
         if path.exists():
             if parse(regular_bytes(path)) != value:
                 raise GatewayError("Published development descriptor changed; no automatic rewrite")
@@ -548,8 +569,9 @@ def main():
     parser.add_argument("--bind", default="0.0.0.0", choices=("0.0.0.0", "127.0.0.1"))
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--retry-faucet", metavar="TXHASH")
+    parser.add_argument("--upgrade-packet-sha256")
     args = parser.parse_args()
-    node = Node(args.home, args.binary, args.rpc)
+    node = Node(args.home, args.binary, args.rpc, args.upgrade_packet_sha256)
     node.descriptor()
     faucet = Faucet(node)
     if args.retry_faucet:

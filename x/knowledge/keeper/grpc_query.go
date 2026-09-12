@@ -133,7 +133,7 @@ func decodeFact(value []byte) (*types.Fact, error) {
 }
 
 func decodeClaim(value []byte) (*types.Claim, error) {
-	if err := types.ValidateRawPolicyField(value, types.ClaimReviewPolicyField); err != nil {
+	if err := validateRawClaimRecord(value); err != nil {
 		return nil, status.Errorf(codes.Internal, "stored claim policy is malformed: %v", err)
 	}
 	var claim types.Claim

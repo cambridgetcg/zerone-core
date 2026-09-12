@@ -164,7 +164,10 @@ func (k Keeper) validatePendingVerifierRewardIndex(ctx context.Context, rounds [
 		if err := types.ValidateVerifierRewardSettlement(round); err != nil {
 			return err
 		}
-		if plan := round.VerifierRewardSettlement; plan != nil && plan.PaidAtBlock == 0 {
+		if err := types.ValidateClaimRefundSettlement(round); err != nil {
+			return err
+		}
+		if roundHasPendingFunds(round) {
 			expected[string(pendingVerifierRewardKey(round.Id))] = true
 		}
 	}

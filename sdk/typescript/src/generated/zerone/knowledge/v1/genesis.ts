@@ -761,6 +761,10 @@ export interface GenesisState {
    * Historical absence retains legacy writes; import does not invent upgrade receipts.
    */
   claimRecordsEnabled: boolean;
+  /**
+   * Prospective explicit claim funding; import does not reprice historical claims.
+   */
+  fundSettlementEnabled: boolean;
 }
 /**
  * Exports each ordered source/target pair once, including full provenance.
@@ -2120,7 +2124,8 @@ function createBaseGenesisState(): GenesisState {
     statusTransitionCounters: [],
     reviewNeutralityEnabled: false,
     factRelationState: undefined,
-    claimRecordsEnabled: false
+    claimRecordsEnabled: false,
+    fundSettlementEnabled: false
   };
 }
 /**
@@ -2231,6 +2236,9 @@ export const GenesisState = {
     if (message.claimRecordsEnabled === true) {
       writer.uint32(552).bool(message.claimRecordsEnabled);
     }
+    if (message.fundSettlementEnabled === true) {
+      writer.uint32(560).bool(message.fundSettlementEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -2339,6 +2347,9 @@ export const GenesisState = {
         case 69:
           message.claimRecordsEnabled = reader.bool();
           break;
+        case 70:
+          message.fundSettlementEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -2381,6 +2392,7 @@ export const GenesisState = {
     message.reviewNeutralityEnabled = object.reviewNeutralityEnabled ?? false;
     message.factRelationState = object.factRelationState !== undefined && object.factRelationState !== null ? FactRelationGenesis.fromPartial(object.factRelationState) : undefined;
     message.claimRecordsEnabled = object.claimRecordsEnabled ?? false;
+    message.fundSettlementEnabled = object.fundSettlementEnabled ?? false;
     return message;
   }
 };

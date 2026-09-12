@@ -17,21 +17,37 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/stretchr/testify/require"
 	"github.com/zerone-chain/zerone/internal/claimrecordmigration"
+	knowledgemodule "github.com/zerone-chain/zerone/x/knowledge"
 	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	"google.golang.org/protobuf/proto"
 )
 
-func claimRecordsSourceFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {
+type archivedClaimRecordsKnowledgeModule struct{ knowledgemodule.AppModule }
+
+func (archivedClaimRecordsKnowledgeModule) ConsensusVersion() uint64 { return 10 }
+func freezeClaimRecordsCompiledTarget(app *ZeroneApp) {
+	app.ModuleManager.Modules["knowledge"] = archivedClaimRecordsKnowledgeModule{app.ModuleManager.Modules["knowledge"].(knowledgemodule.AppModule)}
+}
+func newFrozenClaimRecordsFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {
 	t.Helper()
 	app, ctx, db := newAccountingAuthorityFixture(t)
+	freezeClaimRecordsCompiledTarget(app)
+	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.FundSettlementEnabledStoreKey))
+	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, claimRecordsTargetVersionMap()))
+	return app, ctx, db
+}
+
+func claimRecordsSourceFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {
+	t.Helper()
+	app, ctx, db := newFrozenClaimRecordsFixture(t)
 	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.ClaimRecordsEnabledStoreKey))
 	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, claimRecordsSourceVersionMap()))
 	return app, ctx, db
 }
 
 func TestClaimRecordsOwnsExactVersionBoundary(t *testing.T) {
-	app, _, _ := newAccountingAuthorityFixture(t)
+	app, _, _ := newFrozenClaimRecordsFixture(t)
 	source, target := claimRecordsSourceVersionMap(), claimRecordsTargetVersionMap()
 	require.Equal(t, target, app.CurrentModuleVersionMap())
 	require.Equal(t, uint64(9), reviewNeutralityTargetVersionMap()["knowledge"])
@@ -85,7 +101,10 @@ func TestClaimRecordsMigrationPreservesRecordsObligationsAndRestart(t *testing.T
 	require.Equal(t, plan.Height, app.CommitMultiStore().Commit().Version)
 	require.NoError(t, app.ValidateAccountingAuthorityStartup())
 	require.Error(t, app.UpgradeKeeper.ApplyUpgrade(ctx, plan))
-	restarted := NewZeroneApp(log.NewNopLogger(), db, nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(ctx.ChainID()))
+	restarted := NewZeroneApp(log.NewNopLogger(), db, nil, false, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(ctx.ChainID()))
+	freezeClaimRecordsCompiledTarget(restarted)
+	require.NoError(t, restarted.LoadLatestVersion())
+	require.NoError(t, restarted.ValidateAccountingAuthorityStartup())
 	rctx := restarted.NewUncachedContext(false, cmtproto.Header{Height: plan.Height, ChainID: ctx.ChainID()})
 	retained, found := restarted.KnowledgeKeeper.GetVerificationRound(rctx, round.Id)
 	require.True(t, found)
@@ -102,7 +121,9 @@ func TestClaimRecordsMigrationPreservesRecordsObligationsAndRestart(t *testing.T
 	require.NoError(t, err)
 	raw, err := json.Marshal(genesis)
 	require.NoError(t, err)
-	imported := NewZeroneApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID("claim-record-import"))
+	imported := NewZeroneApp(log.NewNopLogger(), dbm.NewMemDB(), nil, false, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID("claim-record-import"))
+	freezeClaimRecordsCompiledTarget(imported)
+	require.NoError(t, imported.LoadLatestVersion())
 	ictx := imported.NewUncachedContext(false, cmtproto.Header{ChainID: "claim-record-import"})
 	_, err = imported.InitChainer(ictx, &abci.RequestInitChain{ChainId: "claim-record-import", AppStateBytes: raw})
 	require.NoError(t, err)
@@ -164,7 +185,7 @@ func TestClaimRecordsRejectsWrongSourceAndPrematureActivation(t *testing.T) {
 func TestClaimRecordsNativeSelectionAndRestartReceipt(t *testing.T) {
 	for _, scenario := range []string{"missing selection", "false selection", "missing flag", "corrupt flag", "marker only", "done only", "future done"} {
 		t.Run(scenario, func(t *testing.T) {
-			app, ctx, _ := newAccountingAuthorityFixture(t)
+			app, ctx, _ := newFrozenClaimRecordsFixture(t)
 			if scenario == "missing selection" || scenario == "false selection" {
 				genesis := sdk053IBC10GenesisWithValidator(t, app)
 				var knowledge map[string]json.RawMessage

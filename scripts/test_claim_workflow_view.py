@@ -59,6 +59,13 @@ def snapshot():
 
 
 class SnapshotTests(unittest.TestCase):
+    def test_funding_and_owed_refund_survive_public_snapshot_exactly(self):
+        value = snapshot()
+        record = value["claims"][0]["history"]["record"]
+        record["claim"]["funding_terms"] = {"policy_version": 1, "kind": 2, "paid_amount": "200000", "review_budget": "110000", "refundable_amount": "90000", "retained_fee": "0"}
+        record["rounds"][0]["claim_refund_settlement"] = {"recipient": "zrn1author", "amount": "90000", "created_at_block": "42", "paid_at_block": "0"}
+        self.assertEqual(json.loads(view._snapshot_bytes(value)), value)
+
     def test_numeric_proto_snapshot_retains_exact_public_content(self):
         expected = snapshot()
         actual = json.loads(view._snapshot_bytes(expected))

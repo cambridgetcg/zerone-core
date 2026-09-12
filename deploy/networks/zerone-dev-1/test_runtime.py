@@ -58,7 +58,7 @@ class RuntimeTests(unittest.TestCase):
     def test_no_legacy_chain_or_missing_native_flags(self):
         value = {"chain_id": runtime.CHAIN, "app_state": {"zerone_staking": {"accounting_safety_enabled": True},
                  "zerone_gov": {"accounting_safety_enabled": True}, "knowledge": {field: True for field in
-                 ("record_integrity_enabled", "review_neutrality_enabled", "claim_records_enabled")}}}
+                 ("record_integrity_enabled", "review_neutrality_enabled", "claim_records_enabled", "fund_settlement_enabled")}}}
         runtime.check_genesis(value)
         value["chain_id"] = "zerone-1"
         with self.assertRaises(runtime.RuntimeError):

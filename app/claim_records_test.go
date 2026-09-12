@@ -201,6 +201,7 @@ func TestClaimRecordsActualBankAndRecordFailuresRollBack(t *testing.T) {
 
 func TestClaimRecordsLegacyBranchDoesNotInventRetainedInputs(t *testing.T) {
 	app, ctx, msg := claimRecordsAdmissionFixture(t)
+	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.FundSettlementEnabledStoreKey))
 	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.ClaimRecordsEnabledStoreKey))
 	response, err := knowledgekeeper.NewMsgServerImpl(app.KnowledgeKeeper).SubmitContradiction(ctx, msg)
 	require.NoError(t, err)

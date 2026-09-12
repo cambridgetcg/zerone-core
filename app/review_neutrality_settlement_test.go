@@ -129,6 +129,7 @@ func TestNeutralReviewActualBankAdmissionAndAtomicFeePool(t *testing.T) {
 
 func TestNeutralReviewPaysExactAccruedLegacyPlanAfterActivation(t *testing.T) {
 	app, ctx := settlementFixture(t)
+	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.FundSettlementEnabledStoreKey))
 	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey))
 	recipient := settlementAddress(181)
 	round := &knowledgetypes.VerificationRound{Id: "accrued-before-neutrality", ClaimId: "legacy-unavailable-claim", Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE, Verdict: knowledgetypes.Verdict_VERDICT_REJECT, VerdictBlock: 100, VerifierRewardSettlement: &knowledgetypes.VerifierRewardSettlement{CreatedAtBlock: 100, WithheldTotal: "1", Payments: []*knowledgetypes.VerifierRewardPayment{{Verifier: recipient.String(), Amount: "13", Withheld: "1"}}}}

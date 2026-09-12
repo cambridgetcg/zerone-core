@@ -1083,7 +1083,7 @@ func requireExactKarmaProducerSurface(t *testing.T, sources []productionGoSource
 		"x/knowledge/keeper/msg_server.go:challengeProvisionalFact->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
 		"x/knowledge/keeper/msg_server.go:submitClaim->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
 		"x/knowledge/keeper/msg_server.go:submitContradiction->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
-		"x/knowledge/keeper/msg_server_conjecture.go:PostConjecture->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
+		"x/knowledge/keeper/msg_server_conjecture.go:postConjecture->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
 		"x/knowledge/keeper/phases.go:AdvanceRoundPhases->emitKarmaEdgeState|kind=pending_settle|state=ORDINAL|attrs=verdict=types.Verdict_VERDICT_INCONCLUSIVE.String()",
 		"x/knowledge/keeper/rounds.go:completeRound->emitKarmaEdgeState|kind=pending_settle|state=ORDINAL|attrs=verdict=result.Verdict.String()",
 		"x/knowledge/keeper/rounds.go:completeRound->emitKarmaEdge|kind=verify|state=RECOGNIZED|attrs=assessment_basis=panel_agreement",

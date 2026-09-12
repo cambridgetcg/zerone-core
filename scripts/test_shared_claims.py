@@ -32,6 +32,17 @@ def descriptor(origin=shared.ORIGIN):
 
 
 class ParticipantTests(unittest.TestCase):
+    def test_known_descriptor_versions_without_rebinding(self):
+        for version in (10, 11):
+            value, _ = descriptor()
+            value["knowledge_version"] = version
+            self.assertIs(shared.validate_descriptor(value), value)
+        for version in (9, 12, True, "11", 11.0):
+            value, _ = descriptor()
+            value["knowledge_version"] = version
+            with self.assertRaises(shared.Error):
+                shared.validate_descriptor(value)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix="zerone-participant-test-")
         self.addCleanup(self.temp.cleanup)

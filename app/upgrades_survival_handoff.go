@@ -35,7 +35,7 @@ func requireSurvivalHandoffTransitionOwner(name string, fromVM, targetVM module.
 		knowledge, kOK := vm["knowledge"]
 		vesting, vOK := vm["vesting_rewards"]
 		pair := [2]uint64{knowledge, vesting}
-		if !kOK || !vOK || (pair != [2]uint64{6, 2} && pair != [2]uint64{7, 3} && pair != [2]uint64{8, 3} && pair != [2]uint64{9, 3} && pair != [2]uint64{10, 3}) {
+		if !kOK || !vOK || (pair != [2]uint64{6, 2} && pair != [2]uint64{7, 3} && pair != [2]uint64{8, 3} && pair != [2]uint64{9, 3} && pair != [2]uint64{10, 3} && pair != [2]uint64{11, 3}) {
 			return pair, fmt.Errorf("survival handoff requires complete known knowledge/vesting_rewards version pair, got %v", pair)
 		}
 		return pair, nil
@@ -51,7 +51,7 @@ func requireSurvivalHandoffTransitionOwner(name string, fromVM, targetVM module.
 	if from == target {
 		return nil
 	}
-	if (from == [2]uint64{7, 3} && target == [2]uint64{8, 3}) || (from == [2]uint64{8, 3} && target == [2]uint64{9, 3}) || (from == [2]uint64{9, 3} && target == [2]uint64{10, 3}) {
+	if (from == [2]uint64{7, 3} && target == [2]uint64{8, 3}) || (from == [2]uint64{8, 3} && target == [2]uint64{9, 3}) || (from == [2]uint64{9, 3} && target == [2]uint64{10, 3}) || (from == [2]uint64{10, 3} && target == [2]uint64{11, 3}) {
 		return requireRecordIntegrityTransitionOwner(name, fromVM, targetVM)
 	}
 	if name != UpgradeNameSurvivalRewardHandoffV1 || from != [2]uint64{6, 2} || target != [2]uint64{7, 3} {
@@ -136,6 +136,9 @@ func (app *ZeroneApp) registerSurvivalHandoffUpgrade() {
 // surrounding accounting startup check still validates all lineage markers.
 func (app *ZeroneApp) validateSurvivalHandoffStartupVersions(ctx sdk.Context, vm module.VersionMap, latest int64) error {
 	compiled := app.ModuleManager.GetVersionMap()
+	if reflect.DeepEqual(compiled, fundSettlementTargetVersionMap()) {
+		return app.validateFundSettlementStartupVersions(ctx, vm, latest)
+	}
 	if reflect.DeepEqual(compiled, claimRecordsTargetVersionMap()) {
 		return app.validateClaimRecordsStartupVersions(ctx, vm, latest)
 	}

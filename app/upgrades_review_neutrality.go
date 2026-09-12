@@ -30,10 +30,10 @@ func reviewNeutralityTargetVersionMap() module.VersionMap {
 func requireReviewNeutralityTransitionOwner(name string, fromVM, targetVM module.VersionMap) error {
 	from, fromOK := fromVM["knowledge"]
 	target, targetOK := targetVM["knowledge"]
-	if !fromOK || !targetOK || from < 6 || from > 10 || target < 6 || target > 10 {
+	if !fromOK || !targetOK || from < 6 || from > 11 || target < 6 || target > 11 {
 		return fmt.Errorf("review neutrality requires complete known knowledge versions")
 	}
-	if from == 9 && target == 10 {
+	if (from == 9 && target == 10) || (from == 10 && target == 11) {
 		return requireClaimRecordsTransitionOwner(name, fromVM, targetVM)
 	}
 	if from == target || (from < 9 && target < 9) {

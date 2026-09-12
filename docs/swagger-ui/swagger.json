@@ -3772,6 +3772,10 @@
           "description": "For CLAIM_TYPE_CONJECTURE only: the observation that would falsify this\nconjecture. This is what the verification panel adjudicates — a\nconjecture with no stated killer is not well-posed and must be returned\nMALFORMED. Empty for every other claim type.",
           "type": "string"
         },
+        "fundingTerms": {
+          "$ref": "#/definitions/zerone.knowledge.v1.ClaimFundingTerms",
+          "description": "Immutable prospective funding instructions. Absence does not establish a\nrefundable obligation for historical claims or unassigned module balances."
+        },
         "id": {
           "type": "string"
         },
@@ -3831,6 +3835,40 @@
           "type": "string"
         },
         "verificationRoundId": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.knowledge.v1.ClaimFundingKind": {
+      "default": "CLAIM_FUNDING_KIND_UNSPECIFIED",
+      "enum": [
+        "CLAIM_FUNDING_KIND_UNSPECIFIED",
+        "CLAIM_FUNDING_KIND_REVIEW_FEE",
+        "CLAIM_FUNDING_KIND_CHALLENGE_DEPOSIT"
+      ],
+      "type": "string"
+    },
+    "zerone.knowledge.v1.ClaimFundingTerms": {
+      "description": "Amounts are canonical uzrn decimal strings fixed at admission. The review\nbudget, refundable amount and retained fee sum to the amount actually paid.",
+      "properties": {
+        "kind": {
+          "$ref": "#/definitions/zerone.knowledge.v1.ClaimFundingKind"
+        },
+        "paidAmount": {
+          "type": "string"
+        },
+        "policyVersion": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "refundableAmount": {
+          "type": "string"
+        },
+        "retainedFee": {
+          "type": "string"
+        },
+        "reviewBudget": {
           "type": "string"
         }
       },
@@ -3906,6 +3944,26 @@
             "type": "object"
           },
           "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.knowledge.v1.ClaimRefundSettlement": {
+      "description": "A positive finalized refund, paid atomically with any verifier payments.\npaid_at_block 0 is a retained unpaid obligation, not a completed transfer.",
+      "properties": {
+        "amount": {
+          "type": "string"
+        },
+        "createdAtBlock": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "paidAtBlock": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "recipient": {
+          "type": "string"
         }
       },
       "type": "object"
@@ -9392,6 +9450,9 @@
         },
         "claimId": {
           "type": "string"
+        },
+        "claimRefundSettlement": {
+          "$ref": "#/definitions/zerone.knowledge.v1.ClaimRefundSettlement"
         },
         "commitDeadline": {
           "format": "uint64",

@@ -107,7 +107,9 @@ def json_value(raw):
 def validate_descriptor(value, allow_loopback=False):
     if value.get("schema") != "zerone-shared-development/v1" or value.get("chain_id") != CHAIN:
         raise Error("Descriptor is not the selected zerone-dev-1 development network.")
-    expected = {"denom": "uzrn", "knowledge_version": 10, "commitment_scheme": 2,
+    if type(value.get("knowledge_version")) is not int or value["knowledge_version"] not in (10, 11):
+        raise Error("Unsupported descriptor knowledge_version.")
+    expected = {"denom": "uzrn", "commitment_scheme": 2,
                 "review_policy_version": 1, "account_types": ["human", "agent"], "gas_limit": 2000000,
                 "tx_fee_uzrn": "2000000", "bootstrap_consensus": "single-operator", "reset_policy": "new-chain-id"}
     for key, wanted in expected.items():

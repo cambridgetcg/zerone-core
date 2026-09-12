@@ -17,7 +17,7 @@ class BuildContextTests(unittest.TestCase):
         self.repo = self.root / "repo"
         self.repo.mkdir()
         context.git(self.repo, "init", "-q")
-        for name in (*context.FIXED, "cmd/zeroned/main.go", "internal/claimrecordmigration/migration.go", "app/app_test.go", "app/fixture.key", "deploy/private.env"):
+        for name in (*context.FIXED, "cmd/zeroned/main.go", "internal/fundsettlementmigration/context.go", "app/app_test.go", "app/fixture.key", "deploy/private.env"):
             path = self.repo / name
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("public synthetic fixture\n")
@@ -35,7 +35,7 @@ class BuildContextTests(unittest.TestCase):
         output = self.root / "context"
         result = context.export(self.repo, self.head, output)
         self.assertEqual(result["source_commit"], self.head)
-        self.assertTrue((output / "internal/claimrecordmigration/migration.go").is_file())
+        self.assertTrue((output / "internal/fundsettlementmigration/context.go").is_file())
         self.assertTrue((output / "runtime/runtime.py").is_file())
         for name in ("app/app_test.go", "app/fixture.key", "deploy/private.env", ".git"):
             self.assertFalse((output / name).exists())

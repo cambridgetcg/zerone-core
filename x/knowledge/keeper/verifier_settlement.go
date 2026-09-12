@@ -22,7 +22,7 @@ var pendingVerifierRewardCursor = []byte{0x83}
 
 const PendingVerifierRewardBatchSize = 16
 
-// One maximum-size review batch, including its possible withholding transfer.
+// One maximum-size review batch, including either a legacy withholding or a claim refund.
 // A second batch waits for the next block rather than multiplying this work.
 const PendingVerifierRewardTransferBudget = types.CommitSeatHardCap + 1
 
@@ -38,7 +38,7 @@ func (k Keeper) getVerificationRoundChecked(ctx context.Context, id string) (*ty
 	if bz == nil {
 		return nil, fmt.Errorf("verification round %s not found", id)
 	}
-	if err := types.ValidateRawPolicyField(bz, types.RoundReviewPolicyField); err != nil {
+	if err := validateRawRoundRecord(bz); err != nil {
 		return nil, err
 	}
 	var round types.VerificationRound
@@ -57,9 +57,12 @@ func (k Keeper) SyncPendingVerifierRewardIndex(ctx context.Context, round *types
 	if err := types.ValidateVerifierRewardSettlement(round); err != nil {
 		return err
 	}
+	if err := types.ValidateClaimRefundSettlement(round); err != nil {
+		return err
+	}
 	store := k.storeService.OpenKVStore(ctx)
 	key := pendingVerifierRewardKey(round.Id)
-	if round.VerifierRewardSettlement != nil && round.VerifierRewardSettlement.PaidAtBlock == 0 {
+	if roundHasPendingFunds(round) {
 		return store.Set(key, []byte{1})
 	}
 	return store.Delete(key)
@@ -136,9 +139,9 @@ func (k Keeper) checkedIndependenceMultiplier(ctx context.Context, verifier stri
 	return safeMulDiv(amount, bps-penaltyBps, bps), nil
 }
 
-// TrySettleVerifierRewards transfers a complete frozen batch and marks it paid
-// in one SDK cache. A failure preserves every payment instruction and transfers
-// nothing; it does not reverse the independently recorded scientific verdict.
+// TrySettleVerifierRewards transfers the frozen reviewer and refund legs in
+// one SDK cache. No transfer or paid marker survives a failed leg. The existing
+// retry queue carries both kinds of obligation without changing the verdict.
 func (k Keeper) TrySettleVerifierRewards(ctx context.Context, roundID string) error {
 	enabled, err := k.RecordIntegrityEnabled(ctx)
 	if err != nil {
@@ -154,51 +157,85 @@ func (k Keeper) TrySettleVerifierRewards(ctx context.Context, roundID string) er
 	if err := types.ValidateVerifierRewardSettlement(round); err != nil {
 		return err
 	}
-	plan := round.VerifierRewardSettlement
-	if plan == nil || plan.PaidAtBlock != 0 {
+	if err := types.ValidateClaimRefundSettlement(round); err != nil {
+		return err
+	}
+	if err := k.validateRoundFunding(ctx, round); err != nil {
+		return err
+	}
+	if !roundHasPendingFunds(round) {
 		return nil
 	}
 	if k.bankKeeper == nil {
-		return fmt.Errorf("bank keeper unavailable; verifier rewards remain unpaid")
+		return fmt.Errorf("bank keeper unavailable; claim funds remain unpaid")
 	}
 	ctxSDK := sdk.UnwrapSDKContext(ctx)
-	if ctxSDK.BlockHeight() <= 0 || uint64(ctxSDK.BlockHeight()) < plan.CreatedAtBlock {
-		return fmt.Errorf("invalid verifier settlement payment height")
+	if ctxSDK.BlockHeight() <= 0 || uint64(ctxSDK.BlockHeight()) < round.VerdictBlock {
+		return fmt.Errorf("invalid claim settlement payment height")
 	}
 	cache, write := ctxSDK.CacheContext()
-	for _, payment := range plan.Payments {
-		amount, _ := types.SettlementAmount(payment.Amount)
-		if amount == 0 {
-			continue
+	plan, refund := round.VerifierRewardSettlement, round.ClaimRefundSettlement
+	payReview := plan != nil && plan.PaidAtBlock == 0
+	payRefund := refund != nil && refund.PaidAtBlock == 0
+	if payReview {
+		for _, payment := range plan.Payments {
+			amount, _ := types.SettlementAmount(payment.Amount)
+			if amount == 0 {
+				continue
+			}
+			addr, err := sdk.AccAddressFromBech32(payment.Verifier)
+			if err != nil {
+				return err
+			}
+			coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromUint64(amount)))
+			if err := k.bankKeeper.SendCoinsFromModuleToAccount(cache, types.ModuleName, addr, coins); err != nil {
+				return fmt.Errorf("verifier payment remains unpaid: %w", err)
+			}
 		}
-		addr, err := sdk.AccAddressFromBech32(payment.Verifier)
+		withheld, _ := types.SettlementAmount(plan.WithheldTotal)
+		if withheld > 0 {
+			coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromUint64(withheld)))
+			if err := k.bankKeeper.SendCoinsFromModuleToModule(cache, types.ModuleName, developmentFundModule, coins); err != nil {
+				return fmt.Errorf("verifier withholding remains unpaid: %w", err)
+			}
+		}
+		plan.PaidAtBlock = uint64(cache.BlockHeight())
+	}
+	if payRefund {
+		amount, _ := types.SettlementAmount(refund.Amount)
+		addr, err := sdk.AccAddressFromBech32(refund.Recipient)
 		if err != nil {
 			return err
 		}
 		coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromUint64(amount)))
 		if err := k.bankKeeper.SendCoinsFromModuleToAccount(cache, types.ModuleName, addr, coins); err != nil {
-			return fmt.Errorf("verifier payment remains unpaid: %w", err)
+			return fmt.Errorf("claim refund remains unpaid: %w", err)
 		}
+		refund.PaidAtBlock = uint64(cache.BlockHeight())
 	}
-	withheld, _ := types.SettlementAmount(plan.WithheldTotal)
-	if withheld > 0 {
-		coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromUint64(withheld)))
-		if err := k.bankKeeper.SendCoinsFromModuleToModule(cache, types.ModuleName, developmentFundModule, coins); err != nil {
-			return fmt.Errorf("verifier withholding remains unpaid: %w", err)
-		}
-	}
-	plan.PaidAtBlock = uint64(cache.BlockHeight())
 	if err := k.SetVerificationRound(cache, round); err != nil {
 		return err
 	}
-	for _, payment := range plan.Payments {
-		cache.EventManager().EmitEvent(sdk.NewEvent("zerone.knowledge.verifier_rewarded",
-			sdk.NewAttribute("verifier", payment.Verifier),
+	if payReview {
+		for _, payment := range plan.Payments {
+			cache.EventManager().EmitEvent(sdk.NewEvent("zerone.knowledge.verifier_rewarded",
+				sdk.NewAttribute("verifier", payment.Verifier),
+				sdk.NewAttribute("round_id", roundID),
+				sdk.NewAttribute("amount_uzrn", payment.Amount),
+				sdk.NewAttribute("withheld_uzrn", payment.Withheld),
+				sdk.NewAttribute("payment_status", "paid"),
+				sdk.NewAttribute("paid_at_block", strconv.FormatUint(plan.PaidAtBlock, 10)),
+			))
+		}
+	}
+	if payRefund {
+		cache.EventManager().EmitEvent(sdk.NewEvent("zerone.knowledge.claim_refunded",
+			sdk.NewAttribute("claim_id", round.ClaimId),
 			sdk.NewAttribute("round_id", roundID),
-			sdk.NewAttribute("amount_uzrn", payment.Amount),
-			sdk.NewAttribute("withheld_uzrn", payment.Withheld),
+			sdk.NewAttribute("recipient", refund.Recipient),
+			sdk.NewAttribute("amount_uzrn", refund.Amount),
 			sdk.NewAttribute("payment_status", "paid"),
-			sdk.NewAttribute("paid_at_block", strconv.FormatUint(plan.PaidAtBlock, 10)),
+			sdk.NewAttribute("paid_at_block", strconv.FormatUint(refund.PaidAtBlock, 10)),
 		))
 	}
 	write()
@@ -252,13 +289,13 @@ func (k Keeper) ProcessPendingVerifierRewards(ctx context.Context) error {
 		if err := types.ValidateVerifierRewardSettlement(round); err != nil {
 			return err
 		}
-		if round.VerifierRewardSettlement == nil || round.VerifierRewardSettlement.PaidAtBlock != 0 {
+		if err := types.ValidateClaimRefundSettlement(round); err != nil {
+			return err
+		}
+		if !roundHasPendingFunds(round) {
 			return fmt.Errorf("pending verifier reward index does not match primary round")
 		}
-		legs := len(round.VerifierRewardSettlement.Payments)
-		if round.VerifierRewardSettlement.WithheldTotal != "0" {
-			legs++
-		}
+		legs := pendingFundTransferCount(round)
 		if legs > transferBudget {
 			// Leave the cursor before this round so it gets the full budget
 			// next block, including when earlier rounds remain unfunded.
@@ -310,7 +347,7 @@ func (k Keeper) RebuildPendingVerifierRewardIndex(ctx context.Context) error {
 	}
 	var scanErr error
 	for ; it.Valid(); it.Next() {
-		if scanErr = types.ValidateRawPolicyField(it.Value(), types.RoundReviewPolicyField); scanErr != nil {
+		if scanErr = validateRawRoundRecord(it.Value()); scanErr != nil {
 			break
 		}
 		var round types.VerificationRound
