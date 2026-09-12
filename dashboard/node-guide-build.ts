@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { buildNodeGuideProfile } from "./node-guide-profile";
 import { buildObserverRelease, type ObserverPublication } from "./observer-release-profile";
-import { validateDevelopmentPublication, type DevelopmentPublication } from "./development-profile";
+import { validateDevelopmentPublication, validateDevelopmentRelease, type DevelopmentPublication } from "./development-profile";
 
 function parseObserverPublication(raw: Buffer): ObserverPublication {
   if (raw.length > 16 * 1024) throw new Error("Observer publication metadata exceeds 16 KiB");
@@ -79,6 +79,21 @@ export function loadNodeGuideProfile(repositoryRoot: string) {
       if (seen.has(key)) throw new Error("Duplicate development publication key");
       seen.add(key);
     }
+    const packet = (name: string, maximum: number): Buffer => {
+      const path = `deploy/networks/zerone-dev-1/${name}`;
+      let committed: Buffer;
+      try { committed = git("show", `${sourceCommit}:${path}`); }
+      catch { throw new Error(`Development publication requires committed ${path}`); }
+      if (committed.length > maximum || !committed.equals(readFileSync(resolve(repositoryRoot, path)))) throw new Error(`Development packet ${name} differs from HEAD or exceeds the bound`);
+      return committed;
+    };
+    const descriptor = packet("network.json", 65536);
+    const genesis = packet("genesis.json", 16 * 1024 * 1024);
+    if (createHash("sha256").update(descriptor).digest("hex") !== developmentPublication.descriptor_sha256 || createHash("sha256").update(genesis).digest("hex") !== developmentPublication.genesis_sha256) throw new Error("Development public packet hash mismatch");
+    const network = JSON.parse(descriptor.toString("utf8"));
+    if (network.schema !== "zerone-shared-development/v1" || network.chain_id !== developmentPublication.chain_id || network.source_commit !== developmentPublication.runtime_source_commit || network.runtime_binary_sha256 !== developmentPublication.binary_sha256 || network.genesis_sha256 !== developmentPublication.genesis_sha256 || network.rpc_genesis_sha256 !== developmentPublication.rpc_genesis_sha256 || network.rpc_url !== developmentPublication.gateway || network.local_test !== false) throw new Error("Development descriptor publication mismatch");
+    if (JSON.parse(genesis.toString("utf8")).chain_id !== developmentPublication.chain_id) throw new Error("Development genesis chain mismatch");
+    validateDevelopmentRelease(JSON.parse(packet("release.json", 65536).toString("utf8")), developmentPublication);
   }
   return buildNodeGuideProfile({
     sourceCommit,

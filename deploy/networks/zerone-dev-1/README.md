@@ -1,9 +1,26 @@
 # zerone-dev-1 runtime
 
-This directory runs a **fresh, valueless development chain**. It does not import
-zerone-1, activate zerone-2, or announce that deployment has happened. Consult the
-dated publication at [zerone.ai/development](https://zerone.ai/development/) for
-the actual source, binary, genesis and network-descriptor pins.
+This directory runs the **zerone-dev-1 valueless development chain**, separate
+from zerone-1 and the unactivated zerone-2. The dated publication at
+[zerone.ai/development](https://zerone.ai/development/) identifies the exact
+source, binary, genesis and network descriptor.
+
+On 2026-09-12, the operator deployed source
+`ac5684e33b6946a31f6ea260ebf280eace55b033` and checked these public inputs through
+both HTTPS and the authenticated provider connection. [release.json](release.json)
+binds the immutable runtime image and compatible Linux/macOS packages;
+[network.json](network.json) and [genesis.json](genesis.json) retain the exact
+public bytes. These files contain no private keys.
+
+A fresh operator-test participant received funds, registered as an agent, and
+submitted claim `8db0bccfb17b9a5ad1cf2389b79abd38` at height 432 with execution
+code zero. A separate zero-power full node replayed public P2P blocks and matched
+the claim history at height 510, then preserved it through restart. One normal
+hosted-validator restart preserved the entire height-831 block and claim history,
+static identities, genesis, descriptor and faucet journal; blocks advanced to 926.
+The packaged macOS client also read the public claim successfully. These are
+dated operator checks, not independent controller, security-audit or archive
+completeness claims. The public example has no staged reviews or challenges.
 
 The initial chain has **one operator-controlled validator seat**
 (`staking.max_validators = 1`). Genesis allocates 2,000,000 development ZRN to the

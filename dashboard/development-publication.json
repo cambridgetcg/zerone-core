@@ -1,0 +1,11 @@
+{
+  "schema": "zerone.development-publication/v1",
+  "chain_id": "zerone-dev-1",
+  "gateway": "https://zerone-dev-1.fly.dev",
+  "descriptor_sha256": "e01f9e472630d98faef57341cb431acb6a0e733873b79ca95103ab9cba043e2b",
+  "genesis_sha256": "f8b4570b37fd41d5b63c02fbae1f89225c197c75315e8629650716f6e5f79256",
+  "rpc_genesis_sha256": "94e246770c7429ecc7ce417edacb4af1f4b721ea3ff0875f7a1f09c5567878a7",
+  "runtime_source_commit": "ac5684e33b6946a31f6ea260ebf280eace55b033",
+  "binary_sha256": "62f1d54ab26742f7fb8ab51d2cab318fd513f41f4d5bb0a202de987dfff715b1",
+  "verified_at": "2026-09-12T13:08:04Z"
+}

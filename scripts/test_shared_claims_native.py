@@ -21,6 +21,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 import urllib.request
 import urllib.error
 
@@ -72,20 +73,104 @@ class NativeSharedClaimsTests(unittest.TestCase):
                 path.chmod(0o600)
         self.temporary.cleanup()
 
-    def command(self, args, timeout=120):
+    def command(self, args, timeout=120, failure_context=None):
         result = subprocess.run(list(map(str, args)), capture_output=True, text=True, timeout=timeout,
             env={k: v for k, v in os.environ.items() if not k.upper().startswith("ZERONED_")})
+        if result.returncode and failure_context is not None:
+            self.capture_client_failure(failure_context, result)
         self.assertEqual(result.returncode, 0, result.stderr[-2000:])
         return json.loads(result.stdout)
 
     def client(self, person, command, *args):
-        value = self.command([sys.executable, "-I", "-B", CLIENT, command, "--home", self.homes[person], *args])
+        value = self.command([sys.executable, "-I", "-B", CLIENT, command, "--home", self.homes[person], *args],
+                             failure_context={"participant": person, "action": command})
         if "txhash" in value:
             self.assertEqual(value["status"], "committed")
             self.assertGreater(int(value["height"]), 0)
             self.assertEqual(int(value["code"]), 0)
             self.txs[value["txhash"]] = value
         return value
+
+    def capture_client_failure(self, context, result):
+        """After refusal only: retain selected public execution fields.
+
+        Diagnostic failures must not mask the original assertion. Query H-1/H
+        labels are actual committed contexts, not a reconstruction of intra-H
+        BeginBlock state. The execution error itself remains authoritative.
+        """
+        diagnostic = {**context, "exit_code": result.returncode, "queries_after_failure_only": True,
+                      "private_keys_or_workflow_journals_copied": False,
+                      "transaction_body_retained": False}
+        self.evidence.setdefault("client_failures", []).append(diagnostic)
+        try:
+            matches = set(re.findall(r"(?i)transaction ([0-9a-f]{64})\b", result.stderr[-8192:]))
+            if len(matches) != 1:
+                diagnostic["capture_status"] = "no_unique_public_transaction_hash_in_client_error"
+                return
+            txhash = matches.pop().upper()
+            diagnostic["txhash"] = txhash
+            tx = self.rpc("tx", hash=base64.b64encode(bytes.fromhex(txhash)).decode(), prove=False)
+            raw = base64.b64decode(tx["tx"], validate=True)
+            if len(raw) > 256 * 1024 or hashlib.sha256(raw).hexdigest().upper() != txhash or tx["hash"].upper() != txhash:
+                raise ValueError("Public transaction hash/size mismatch")
+            height = int(tx["height"])
+            if height < 1 or len(json.dumps(tx).encode()) > 1024 * 1024:
+                raise ValueError("Public execution context exceeds diagnostic bound")
+            execution = tx["tx_result"]
+            diagnostic.update(capture_status="public_execution_observed", height=height,
+                              signed_tx_bytes=len(raw), signed_tx_sha256=hashlib.sha256(raw).hexdigest(),
+                              execution={"code": int(execution["code"]),
+                                         "codespace": str(execution.get("codespace", ""))[:128],
+                                         "raw_log": str(execution.get("log", ""))[:4096],
+                                         "raw_log_truncated": len(str(execution.get("log", ""))) > 4096})
+            prior = self.evidence.get("accepted_before_counterclaim", {}).get("record", {}).get("claim", {})
+            diagnostic["previous_accepted_claim"] = {key: prior[key] for key in ("id", "submitter", "submitted_at_block", "domain") if key in prior}
+            diagnostic["admission_context"] = []
+            for query_height in sorted({max(1, height - 1), height}):
+                for label, arguments in (("params", ["knowledge", "params"]),
+                                         ("pacing", ["alignment", "global-pacing"]),
+                                         ("domain_capacity", ["knowledge", "domain-capacity", "physics"])):
+                    row = {"height": query_height, "query": label}
+                    diagnostic["admission_context"].append(row)
+                    try:
+                        # Fixed read commands only; never sign, send, retry, or
+                        # directly inspect keyring/identity/attempt files. The
+                        # query CLI may read its ordinary client configuration.
+                        observed = subprocess.run([str(self.homes[context["participant"]] / "bin/zeroned"), "query", *arguments,
+                            "--home", str(self.homes[context["participant"]]), "--node", self.origin,
+                            "--height", str(query_height), "--output", "json"],
+                            capture_output=True, text=True, timeout=15,
+                            env={k: v for k, v in os.environ.items() if not k.upper().startswith("ZERONED_")})
+                        row["exit_code"] = observed.returncode
+                        if observed.returncode == 0 and len(observed.stdout.encode()) <= 65536:
+                            response = json.loads(observed.stdout)
+                            fields = {"params": ("claim_cooldown_blocks", "min_review_fee", "commit_phase_blocks", "reveal_phase_blocks"),
+                                      "pacing": ("health_category", "creation_multiplier_bps", "analysis_multiplier_bps"),
+                                      "domain_capacity": ("domain", "active_count", "at_risk_count", "capacity", "pressure_bps", "category")}[label]
+                            if label == "params":
+                                response = response["params"]
+                            row["response"] = {key: response[key] for key in fields
+                                               if key in response and isinstance(response[key], (str, int, bool))}
+                        else:
+                            row["capture_status"] = "query_failed_or_exceeded_bound"
+                    except Exception as error:
+                        row["capture_error_type"] = type(error).__name__
+        except Exception as error:
+            diagnostic["capture_error_type"] = type(error).__name__
+        finally:
+            if self.reports:
+                try:
+                    path = self.reports / ("client-failure-" + str(len(self.evidence["client_failures"])) + ".json")
+                    payload = (json.dumps(diagnostic, indent=2, sort_keys=True) + "\n").encode()
+                    if len(payload) > 2 * 1024 * 1024:
+                        raise ValueError("Combined public diagnostic exceeds 2 MiB")
+                    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+                    with os.fdopen(fd, "wb") as stream:
+                        stream.write(payload)
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                except Exception as error:
+                    diagnostic["persistence_error_type"] = type(error).__name__
 
     def get(self, path):
         with self.opener.open(self.origin + path, timeout=25) as response:
@@ -323,6 +408,53 @@ class NativeSharedClaimsTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(self.binary.read_bytes()).hexdigest(), self.binary_sha)
         self.evidence.update(result="PASS", final_root_history=final, inconclusive_history=inconclusive,
                              tx_sizes=sizes, clean_restart=True, participant_node_keys_absent=True)
+
+
+class NativeDiagnosticTests(unittest.TestCase):
+    def test_failed_client_retains_public_execution_and_preserves_original_assertion(self):
+        with tempfile.TemporaryDirectory(prefix="zerone-shared-diagnostic-") as temporary:
+            root = Path(temporary)
+            native = NativeSharedClaimsTests("test_five_separate_participants_signed_rounds_gateway_and_restart")
+            native.evidence = {}
+            native.reports = root
+            native.homes = {"author": root / "unread-private-home"}
+            native.origin = "http://127.0.0.1:12345"
+            raw = b"public committed fixture bytes, no private key or unrevealed preimage"
+            txhash = hashlib.sha256(raw).hexdigest().upper()
+            public_tx = {"hash": txhash, "height": "100", "tx": base64.b64encode(raw).decode(),
+                         "tx_result": {"code": 1, "log": "claim cooldown active:15 blocks remaining"}}
+            native.rpc = mock.Mock(return_value=public_tx)
+            failed = subprocess.CompletedProcess([], 1, "", f"shared-claims: Transaction {txhash} ended failed; receipt retained.")
+            observed = subprocess.CompletedProcess([], 0,
+                '{"params":{"claim_cooldown_blocks":"50","unrelated":"omitted"},"creation_multiplier_bps":"500000","pressure_bps":"1000000","unrelated":"omitted"}', "")
+            with mock.patch.object(subprocess, "run", side_effect=[failed] + [observed] * 6) as run:
+                with self.assertRaisesRegex(AssertionError, "ended failed"):
+                    native.command(["unused-client"], failure_context={"participant": "author", "action": "submit"})
+            row = native.evidence["client_failures"][0]
+            self.assertEqual(row["signed_tx_sha256"], txhash.lower())
+            self.assertEqual(row["signed_tx_bytes"], len(raw))
+            self.assertEqual(row["execution"]["raw_log"], public_tx["tx_result"]["log"])
+            self.assertEqual(row["execution"]["code"], 1)
+            self.assertNotIn("transaction", row)
+            self.assertNotIn(public_tx["tx"], json.dumps(row))
+            self.assertNotIn("unrelated", json.dumps(row))
+            self.assertEqual(row["capture_status"], "public_execution_observed")
+            self.assertEqual(len(row["admission_context"]), 6)
+            self.assertEqual({r["height"] for r in row["admission_context"]}, {99, 100})
+            self.assertFalse(native.homes["author"].exists(), "diagnostics must not create a private home")
+            self.assertEqual(json.loads((root / "client-failure-1.json").read_text()), row)
+            self.assertTrue(all(call.args[0][1] == "query" for call in run.call_args_list[1:]))
+
+    def test_diagnostic_read_failure_never_masks_original_client_failure(self):
+        native = NativeSharedClaimsTests("test_five_separate_participants_signed_rounds_gateway_and_restart")
+        native.evidence = {}
+        native.reports = None
+        native.rpc = mock.Mock(side_effect=TimeoutError("public RPC unavailable"))
+        failed = subprocess.CompletedProcess([], 1, "", "shared-claims: Transaction " + "A" * 64 + " ended failed; receipt retained.")
+        with mock.patch.object(subprocess, "run", return_value=failed):
+            with self.assertRaisesRegex(AssertionError, "ended failed"):
+                native.command(["unused-client"], failure_context={"participant": "author", "action": "submit"})
+        self.assertEqual(native.evidence["client_failures"][0]["capture_error_type"], "TimeoutError")
 
 
 if __name__ == "__main__":
