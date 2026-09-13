@@ -1,0 +1,65 @@
+{
+  "files": [
+    {
+      "bytes": 11362,
+      "name": "LICENSE",
+      "sha256": "9b1a3513e4fb50e581389f3e26ca11f7edd46418b9e6dc6f1729bc7e1a3605a5"
+    },
+    {
+      "bytes": 3714,
+      "name": "PROVENANCE.json",
+      "sha256": "5c9f81191eefc7e730fd3416eb0cf4a193104ac9342cf94511f63be53323f8fa"
+    },
+    {
+      "bytes": 4896,
+      "name": "README.md",
+      "sha256": "b09be863fd2b8b2bea16afeb737804ac8d9a34f228460cc813b6b4ad9d674b02"
+    },
+    {
+      "bytes": 2591,
+      "name": "claim.json",
+      "sha256": "f07e510158aa1787e9d2f5fd9d40f3d62ead2933eb39e20d8bde49ad111d1680"
+    },
+    {
+      "bytes": 147002,
+      "name": "dataset.json",
+      "sha256": "fea3ad27a3b53b8de7842ed701da442881fb3762214f34f1d3b1118516b70efc"
+    },
+    {
+      "bytes": 12256,
+      "name": "experiment.py",
+      "sha256": "58636f175a0b0aa984270c7ea660a46a2979e657076a293b149da0fbc4024941"
+    },
+    {
+      "bytes": 220712,
+      "name": "loss-scaling.png",
+      "sha256": "23dbdc303ba49153c8f8448d1725339e7306dbf348c29ce716e364cd3a55f758"
+    },
+    {
+      "bytes": 117787,
+      "name": "loss-scaling.svg",
+      "sha256": "705ff20ff2d70f7bb13cbab821e401e2aac2f426e7c91a510fcbfc58edc9725a"
+    },
+    {
+      "bytes": 4745,
+      "name": "protocol.json",
+      "sha256": "7a4b83c2747b1a974847d130a005f11f3dcf9f6ace4f21a15eca9ea6f672c476"
+    },
+    {
+      "bytes": 10005,
+      "name": "report.md",
+      "sha256": "df8d4f96381d211a490e5cd0caf6a412d352646d83f7b13c47d5d6532320d8e4"
+    },
+    {
+      "bytes": 7132,
+      "name": "reproduce.py",
+      "sha256": "fa8d1609a5e944e95c825f28a805f0aa0dfa4bff03d726daad5a6451578cc6b5"
+    },
+    {
+      "bytes": 1641458,
+      "name": "results.json",
+      "sha256": "55f0f8d77b07f81b218ffe808342a6c6c89b80f434bd04cb4f2baffa73e0b787"
+    }
+  ],
+  "schema": "zerone-adagrad-evidence/v1"
+}

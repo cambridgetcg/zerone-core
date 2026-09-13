@@ -18,6 +18,7 @@ For automated reads, identify your client with an honest application User-Agent 
 - [Existing wallet](https://zerone.ai/#wallet): optional Keplr connection; supported transactions require separate review and signing.
 
 - [Research library](https://zerone.ai/research/): optional source-bound models, preserved evidence and static standards; no live claim, qualification or reward service.
+- [Reproduce an AdaGrad claim](https://zerone.ai/research/adagrad/): portable, hash-pinned code, saved data and results for a finite mathematical/ML experiment; prepare your own review. The page states whether a public claim round exists. Same-operator reproduction is not independent scientific endorsement.
 
 ## Understand and contribute
 

@@ -1,0 +1,52 @@
+{
+  "authored_package": {
+    "attribution": "Zerone contributors (Yu and Ai)",
+    "license": "Apache-2.0",
+    "scope": "Our experiment code, generated data/results, analysis, figures and reproduction wrapper. The cited paper is not included or relicensed."
+  },
+  "ledger_scope": "This package contains no chain state and is not itself a verdict. A prior separate local exercise accepted a paper source-report claim using same-operator accounts. This new computational candidate was not submitted in that exercise. Any later public claim or review must be identified separately by its own receipt.",
+  "literature_source": {
+    "authors": [
+      "John Duchi",
+      "Elad Hazan",
+      "Yoram Singer"
+    ],
+    "downloaded_pdf_sha256": "691043712c05c19c98223fba52507beff0480afb11fa17ea40a2a032d6f0bf3c",
+    "title": "Adaptive Subgradient Methods for Online Learning and Stochastic Optimization",
+    "url": "https://jmlr.org/papers/volume12/duchi11a/duchi11a.pdf",
+    "use": "Eq. 1 motivates the diagonal update. This package's epsilon conventions, zero-step convention, synthetic data and finite experiment are our specified follow-up, not the paper authors' experimental result.",
+    "venue": "Journal of Machine Learning Research 12 (2011), 2121\u20132159"
+  },
+  "original_execution": {
+    "computational_content_sha256": "55f0f8d77b07f81b218ffe808342a6c6c89b80f434bd04cb4f2baffa73e0b787",
+    "environment": {
+      "implementation": "CPython",
+      "platform": "macOS-15.3-arm64-arm-64bit-Mach-O",
+      "python": "3.14.3 (main, Feb  3 2026, 15:32:20) [Clang 17.0.0 (clang-1700.6.3.2)]",
+      "runtime_dependencies": "Python standard library only"
+    },
+    "original_private_input_manifest_sha256": "f2987beac3bd6fa74e227e38ce7a02e677d3a089cbed9746d73a2d2535506c11",
+    "original_private_results_file_sha256": "3a7685353fe829f6003a8cc38bc81fe2e8d49f4bb1a6b1dd1135c970c572da6a",
+    "review_scope": "One operator and that operator's agents; parent rerun matched computational content. No independent external reviewer or paper-author endorsement."
+  },
+  "original_input_sha256": {
+    "dataset.json": "fea3ad27a3b53b8de7842ed701da442881fb3762214f34f1d3b1118516b70efc",
+    "experiment.py": "58636f175a0b0aa984270c7ea660a46a2979e657076a293b149da0fbc4024941",
+    "protocol.json": "7a4b83c2747b1a974847d130a005f11f3dcf9f6ace4f21a15eca9ea6f672c476"
+  },
+  "packaged_on": "2026-09-13",
+  "packaging_transformations": [
+    "protocol.json, dataset.json and experiment.py are byte-identical to the frozen original inputs.",
+    "results.json is exactly the canonical object containing original pass, runs and trajectory_comparisons. Every float, checkpoint, full-trajectory hash and comparison is unchanged. Absolute-path execution metadata is excluded.",
+    "reproduce.py verifies package-relative files and calls the frozen module's execute function; it does not invoke the original path-bearing CLI manifest mechanism.",
+    "report.md retains the scientific account with public reproduction instructions and links. claim.json retains the scoped computational statement with public evidence references.",
+    "Figures are exact copies of the corrected v2 render; matplotlib3.11.0 was used only for plotting. Numerical reproduction has no matplotlib dependency.",
+    "Private receipts/logs/manifests, paper PDF, all chain fixtures, identities, homes and keys are excluded."
+  ],
+  "preparation": {
+    "original_input_manifest_saved_utc": "2026-09-13T11:41:17.892900Z",
+    "protocol_saved_utc": "2026-09-13T11:35:25.544573Z",
+    "scope": "Local same-operator pre-specification before execution; not independently timestamped preregistration."
+  },
+  "schema": "zerone-adagrad-provenance/v1"
+}
