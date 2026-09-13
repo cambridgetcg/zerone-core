@@ -173,6 +173,88 @@ class RuntimeTests(unittest.TestCase):
         with runtime.lock(self.home):
             pass
 
+    def startup_clock(self, role, samples, invalid=None):
+        """Exercise run/status with simulated elapsed time and an owned fake child."""
+        if not self.home.exists():
+            self.fixture()
+        binary = self.root / "binary"
+        manifest = json.loads((self.home / runtime.MARKER).read_bytes())
+        manifest.update(role=role, local_test=False, node_id="1" * 40,
+                        consensus_address="AB", rpc_port=26657, source_commit="a" * 40,
+                        advertised_peer="", accounts={})
+        clock, calls, printed = [0], [], []
+        node = mock.Mock()
+        node.poll.return_value = None
+        node.wait.return_value = 0
+
+        def rpc(_origin, path):
+            self.assertEqual(path, "/status")
+            height, catching_up = samples[min(len(calls), len(samples) - 1)]
+            calls.append(clock[0])
+            value = {"node_info": {"network": runtime.CHAIN, "id": manifest["node_id"]},
+                     "sync_info": {"latest_block_height": str(height), "catching_up": catching_up},
+                     "validator_info": {"address": "AB", "voting_power": "0"}}
+            if invalid:
+                value[invalid[0]][invalid[1]] = invalid[2]
+            return value
+
+        def sleep(_seconds):
+            clock[0] += 50
+
+        def ready_print(value, **_kwargs):
+            printed.append(json.loads(value))
+            signal.getsignal(signal.SIGTERM)(signal.SIGTERM, None)
+
+        args = argparse.Namespace(binary=binary, gateway=HERE / "gateway.py")
+        try:
+            with mock.patch.object(runtime, "load", return_value=manifest), \
+                 mock.patch.object(runtime, "rpc", side_effect=rpc), \
+                 mock.patch.object(runtime.time, "monotonic", side_effect=lambda: clock[0]), \
+                 mock.patch.object(runtime.time, "sleep", side_effect=sleep), \
+                 mock.patch.object(runtime.subprocess, "Popen", return_value=node), \
+                 mock.patch.object(runtime, "print", side_effect=ready_print, create=True):
+                runtime.run(args, self.home)
+        finally:
+            node.send_signal.assert_called_once_with(signal.SIGTERM)
+            node.wait.assert_called_once_with(timeout=30)
+            self.startup_observed = {"elapsed": clock[0], "calls": calls, "printed": printed}
+            with runtime.lock(self.home):
+                pass
+        return self.startup_observed
+
+    def test_full_node_progress_can_reach_readiness_after_two_minutes(self):
+        observed = self.startup_clock("full-node", [(0, True), (10, True), (20, True), (30, False)])
+        self.assertEqual(observed["elapsed"], 150)
+        self.assertEqual(observed["calls"], [0, 50, 100, 150])
+        self.assertEqual(observed["printed"][0]["height"], 30)
+        self.assertTrue(observed["printed"][0]["ready"])
+
+    def test_full_node_stall_and_height_oscillation_do_not_extend_allowance(self):
+        with self.assertRaisesRegex(runtime.RuntimeError, "no new block-height progress for 120 seconds.*best height 8"):
+            self.startup_clock("full-node", [(5, True), (8, True), (7, True), (8, True)])
+        self.assertEqual(self.startup_observed["elapsed"], 200)
+        self.assertEqual(self.startup_observed["calls"], [0, 50, 100, 150])
+        self.assertEqual(self.startup_observed["printed"], [])
+
+    def test_validator_readiness_deadline_stays_fixed_despite_progress(self):
+        with self.assertRaisesRegex(runtime.RuntimeError, "Node did not demonstrate advancing blocks before timeout"):
+            self.startup_clock("validator", [(5, True), (8, True), (10, True), (11, False)])
+        self.assertEqual(self.startup_observed["elapsed"], 150)
+        self.assertEqual(self.startup_observed["calls"], [0, 50, 100])
+        self.assertEqual(self.startup_observed["printed"], [])
+
+    def test_full_node_progress_does_not_bypass_identity_or_zero_power(self):
+        for invalid in (("node_info", "network", "another-chain"),
+                        ("node_info", "id", "2" * 40),
+                        ("validator_info", "address", "CD"),
+                        ("validator_info", "voting_power", "1")):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(runtime.RuntimeError):
+                    self.startup_clock("full-node", [(100, True)], invalid)
+                self.assertEqual(self.startup_observed["elapsed"], 0)
+                self.assertEqual(self.startup_observed["calls"], [0])
+                self.assertEqual(self.startup_observed["printed"], [])
+
 
 @unittest.skipUnless(os.environ.get("ZERONE_SHARED_TEST_BINARY"), "set ZERONE_SHARED_TEST_BINARY for the real lifecycle")
 class NativeRuntimeTests(unittest.TestCase):

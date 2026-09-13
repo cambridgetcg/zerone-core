@@ -579,6 +579,7 @@ def run(args, home):
                 # checks the committed H-1 and both actual plans before signing.
                 return True
             deadline, first, ready = time.monotonic() + 120, None, None
+            best_height = 0
             while not stopping and time.monotonic() < deadline:
                 if reached_upgrade_boundary():
                     return "upgrade-boundary"
@@ -586,6 +587,9 @@ def run(args, home):
                     raise RuntimeError("Node exited before readiness; inspect the retained node.log.")
                 try:
                     observed = status(manifest, crosscheck=False)
+                    if manifest["role"] == "full-node" and observed["height"] > best_height:
+                        best_height = observed["height"]
+                        deadline = time.monotonic() + 120
                     if first is None:
                         first = observed["height"]
                     if observed["ready"] and observed["height"] > first:
@@ -597,6 +601,8 @@ def run(args, home):
             if stopping:
                 return
             if ready is None:
+                if manifest["role"] == "full-node":
+                    raise RuntimeError(f"Full node did not become ready and made no new block-height progress for 120 seconds (best height {best_height}).")
                 raise RuntimeError("Node did not demonstrate advancing blocks before timeout.")
             if target_phase:
                 applied = verify_applied_upgrade(args.binary, home, manifest, packet)

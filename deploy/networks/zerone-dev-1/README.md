@@ -153,6 +153,16 @@ an independent signature-verification receipt or independent consensus. It never
 compares a same-height post-state application root against that header's prior
 state root. Restart with the same `run` command; Ctrl-C preserves the home.
 
+Full replay from the original genesis can take much longer than two minutes as
+the chain grows. The current helper extends a full node's startup allowance by
+120 seconds only when its highest observed block height increases; repeated or
+lower heights do not extend it. A full node that makes no new height progress
+within that allowance stops and retains its home. Chain identity and zero-power
+checks still apply to every observation. Validator startup retains its fixed
+120-second readiness limit. This applies to both `run` and `run-upgrade` in the
+current helper; the original predecessor package's helper has its older fixed
+limit, so use the successor helper for staged replay.
+
 ## Stage a knowledge 10-to-11 upgrade
 
 This path preserves the original chain ID, genesis, runtime manifest, identities, signing state, application history and faucet journal. It does not initialize or reset a home, replace a participant client, schedule governance, or activate zerone-1. The operator must publish an externally verified upgrade packet and both source-built target binaries after the application rehearsal and release checks; no height is implied by this source guide.
