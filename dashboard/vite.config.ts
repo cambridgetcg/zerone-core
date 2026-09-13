@@ -110,9 +110,10 @@ export default defineConfig({
       nodes: resolve(DASHBOARD_ROOT, "nodes/index.html"),
       understand: resolve(DASHBOARD_ROOT, "understand/index.html"),
       research: resolve(DASHBOARD_ROOT, "research/index.html"),
+      literature: resolve(DASHBOARD_ROOT, "research/adagrad/index.html"),
       development: resolve(DASHBOARD_ROOT, "development/index.html"),
     } : { dashboard: resolve(DASHBOARD_ROOT, "index.html"), nodes: resolve(DASHBOARD_ROOT, "nodes/index.html"),
       understand: resolve(DASHBOARD_ROOT, "understand/index.html"),
-      research: resolve(DASHBOARD_ROOT, "research/index.html"), development: resolve(DASHBOARD_ROOT, "development/index.html") } },
+      research: resolve(DASHBOARD_ROOT, "research/index.html"), literature: resolve(DASHBOARD_ROOT, "research/adagrad/index.html"), development: resolve(DASHBOARD_ROOT, "development/index.html") } },
   },
 });

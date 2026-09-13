@@ -1,0 +1,31 @@
+{
+  "assumptions": [
+    "Positive scalar multiplies the whole objective and gradient, not features or parameters.",
+    "Same saved dataset, sample order, zero weights/accumulators and eta 0.25 for matched runs.",
+    "Ideal zero accumulator and zero gradient explicitly produce zero step, an experimental implementation convention.",
+    "Outside epsilon 0.01 has gradient units; matched inside epsilon 0.0001 has squared-gradient units; co-scaled epsilons are c*0.01 and c*c*0.0001."
+  ],
+  "computational_content_sha256": "55f0f8d77b07f81b218ffe808342a6c6c89b80f434bd04cb4f2baffa73e0b787",
+  "evidence_base_url": "https://zerone.ai/research/adagrad/v1/",
+  "evidence_files": [
+    "MANIFEST.json",
+    "protocol.json",
+    "dataset.json",
+    "experiment.py",
+    "results.json",
+    "report.md",
+    "PROVENANCE.json"
+  ],
+  "kind": "bounded-computational-observation",
+  "limitations": [
+    "Same-operator local computation; no independent external replication or scientific review.",
+    "Local pre-specification was saved before results but is not independently timestamped preregistration.",
+    "Finite binary64 observations do not prove exact arithmetic invariance; the report supplies a separate algebraic induction.",
+    "No universal convergence or superiority claim, no noisy/deep-learning/feature-scaling benchmark.",
+    "The five same-numeric-inside cases are deliberately unmatched, not a fair winner comparison."
+  ],
+  "reproduce": "python3 -I -B reproduce.py --manifest-sha256 EXPECTED_SHA256 --output my-result.json",
+  "results_sha256": "55f0f8d77b07f81b218ffe808342a6c6c89b80f434bd04cb4f2baffa73e0b787",
+  "statement": "In the 120-run prespecified sparse least-squares experiment documented in this v1 evidence package (five 24-dimensional noiseless full-rank datasets, four positive whole-loss multipliers 1e-6/1e-3/1/1e3, six variants, 500 sample updates each), all 15 nonunit-scale ideal AdaGrad trajectory comparisons differed from their same-seed c=1 baseline by at most 3.3306690738754696e-16 in any coordinate at any step. All 40 dimensionally co-scaled-epsilon comparisons differed by at most 1.4155343563970746e-15. At c=1e-6, all 15 fixed-stabilizer seed/variant comparisons differed from their own c=1 trajectory by more than 0.99248; ten use the matched zero-gradient-floor pair and five use the separately labeled unmatched same-numeric-inside convention. All 120 runs remained finite and passed all 70 prespecified trajectory checks.",
+  "status": "Computational candidate; package publication does not assert a submitted or accepted chain claim."
+}

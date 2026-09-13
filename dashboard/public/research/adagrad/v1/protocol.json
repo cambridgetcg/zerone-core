@@ -1,0 +1,105 @@
+{
+  "accumulator": "Inclusive coordinate sum S[t,i]=S[t-1,i]+g[t,i]^2. At S=0 the ideal0/0 update is explicitly zero; no hidden epsilon.",
+  "analytic_prediction": "Exact-arithmetic induction predicts invariance when a fixed deterministic sample oracle scales every gradient by c and accumulators start zero: matched iterates imply g_c=c*g and S_c=c^2*S. Fixed epsilon lacks this homogeneity; appropriately co-scaled epsilon restores it.",
+  "basis_rows": 24,
+  "bounds": "This finite noiseless convex dataset family does not establish performance rankings for other data, deep learning, stochastic noise, feature scaling, regularization, or another framework implementation.",
+  "chart": "Optional installed matplotlib only; median and individual-seed range explicitly descriptive, not confidence intervals.",
+  "checkpoint_every": 25,
+  "dataset": "Noiseless y=<x,w_star>; unit basis rows imply full column rank and unique minimizer w_star. Other rows have three nonzeros. Each seed creates one fixed dataset and one fixed sample order, reused for every scale/variant.",
+  "dimension": 24,
+  "epsilon_inside_matched_base": 0.0001,
+  "epsilon_outside_base": 0.01,
+  "feature_values": [
+    -2,
+    -1,
+    1,
+    2
+  ],
+  "gradient_clipping": null,
+  "initial_accumulators": "all zero",
+  "initial_weights": "all zero",
+  "learning_rate": 0.25,
+  "loss": "Unscaled sample loss0.5*(<x,w>-y)^2. Full objective F=mean sample loss. Training oracle multiplies the whole sample loss and its gradient by positive c; no feature or parameter rescaling.",
+  "matched_floor_scope": "Outsidee and insidee^2 have the same zero-gradient denominator floor; the update functions still differ for positive S. Epsilon outside has gradient units; epsilon inside has squared-gradient units.",
+  "metrics": [
+    "Unscaled full objective F at checkpoints0,25,...,500",
+    "Normalized objective F(w)/F(w0) at those checkpoints",
+    "Unscaled full-gradient Euclidean norm at those checkpoints",
+    "Final weights and accumulator diagnostics",
+    "SHA256 of every full501x24 trajectory, checkpoints retained",
+    "Maximum absolute coordinate difference over every update against the specified comparison trajectory"
+  ],
+  "number_of_runs": 120,
+  "predeclared_checks": {
+    "coscaled_equivalence": "For each seed and all four c, outside_coscaled matches outside_fixed c=1 and inside_matched_coscaled matches inside_matched_fixed c=1 within1e-10.",
+    "finite": "Every weight, accumulator, gradient, metric and delta must remain finite; otherwise fail with run identity.",
+    "fixed_stabilizer_break": "At c=1e-6, each fixed variant must differ from its own c=1 full trajectory by >1e-6 for every seed. Record all scales even if this expectation fails.",
+    "ideal_invariance": "For every seed and nonunit c, max full-trajectory coordinate difference from ideal c=1 <=1e-10.",
+    "tuning": "No retuning eta, epsilons, seed selection, ordering or grid after inspection. Report failed checks rather than choose a subset."
+  },
+  "projection": null,
+  "purpose": "Controlled numerical experiment of uniform positive loss scaling for specified diagonal AdaGrad variants; no claim of novelty, external replication, or model benchmark.",
+  "recorded_before_results_utc": "2026-09-13T11:35:25.544573+00:00",
+  "regularization": null,
+  "rows": 120,
+  "sample_order": "Random(1000000+seed); independently shuffle all120 indices each epoch; concatenate and take first500. Dataset uses Random(seed).",
+  "scale_strings": [
+    "1e-6",
+    "1e-3",
+    "1",
+    "1e3"
+  ],
+  "schema": "zerone-sparse-loss-scaling-protocol/v1",
+  "seeds": [
+    17,
+    29,
+    43,
+    71,
+    101
+  ],
+  "solution_values": [
+    -1,
+    -0.75,
+    -0.5,
+    -0.25,
+    0.25,
+    0.5,
+    0.75,
+    1
+  ],
+  "source": "https://jmlr.org/papers/volume12/duchi11a/duchi11a.pdf, Eq1; follow-up formulas are explicitly specified here.",
+  "sparse_nonzeros_per_remaining_row": 3,
+  "updates": 500,
+  "variants": [
+    {
+      "denominator": "sqrt(S)",
+      "id": "ideal"
+    },
+    {
+      "denominator": "sqrt(S)+e",
+      "epsilon": "0.01",
+      "id": "outside_fixed"
+    },
+    {
+      "denominator": "sqrt(S+e^2)",
+      "epsilon_inside": "0.0001",
+      "id": "inside_matched_fixed"
+    },
+    {
+      "denominator": "sqrt(S+e)",
+      "epsilon_inside": "0.01",
+      "id": "inside_same_numeric_fixed",
+      "interpretation": "Deliberately same numeric epsilon, unmatched units/zero-gradient floor; not a fair winner comparison."
+    },
+    {
+      "denominator": "sqrt(S)+c*e",
+      "epsilon_outside": "c*0.01",
+      "id": "outside_coscaled"
+    },
+    {
+      "denominator": "sqrt(S+c^2*e^2)",
+      "epsilon_inside": "c^2*0.0001",
+      "id": "inside_matched_coscaled"
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Reproduce and challenge a bounded AdaGrad experiment. Download the data, frozen code and results, then bring your own reasons to Zerone." />
+  <link rel="canonical" href="https://zerone.ai/research/adagrad/" />
+  <link rel="icon" href="/favicon.svg" />
+  <link rel="stylesheet" href="/src/literature.css" />
+  <title>Reproduce an AdaGrad claim — Zerone</title>
+</head>
+<body class="literature">
+  <a class="skip-link" href="#main-content">Skip to the experiment</a>
+  <header class="guide-header page-width"><a class="guide-brand" href="/">◇ ZERONE</a><span class="guide-label">Literature → experiment → review</span><a class="button button-outline header-back" href="/development/">Shared development ↗</a></header>
+  <main class="page-width" id="main-content">
+    <section class="guide-hero">
+      <div>
+        <p class="eyebrow">Mathematics · machine learning · algorithms</p>
+        <h1>Try the result.<br /><em>Bring your reasons.</em></h1>
+        <p class="lede">A small AdaGrad experiment with everything needed to rerun it. Inspect the claim, test its limits, and make a judgment you can explain.</p>
+        <div class="hero-actions"><a class="button button-acid" href="#reproduce">Reproduce the experiment ↓</a><a class="text-link" href="#review">Prepare your review ↓</a></div>
+      </div>
+      <aside class="scope-card" aria-label="Evidence and review status">
+        <div class="scope-row"><span class="scope-label">Evidence v1 · 13 September 2026</span><strong>120 recorded runs</strong><p>Five saved datasets, four loss multipliers and six explicitly specified update rules.</p></div>
+        <div class="scope-row"><span class="scope-label">Review status</span><strong>Ready to examine</strong><p>No independent review is recorded here. The experiment authors and earlier test accounts share one operator. This computational candidate has no public claim ID yet.</p></div>
+      </aside>
+    </section>
+
+    <section class="guide-section" id="claim" aria-labelledby="claim-title">
+      <div class="section-intro"><div><p class="eyebrow">One bounded question</p><h2 id="claim-title">Does changing units<br /><em>change the path?</em></h2></div><p>Multiplying an entire least-squares loss by a positive constant preserves its minimizer. An implementation’s stabilizer can still change the updates it takes.</p></div>
+      <div class="claim-statement"><p>On these five sparse, noiseless least-squares problems, ideal AdaGrad and appropriately rescaled stabilizers preserve their corresponding baseline trajectories within the recorded numerical tolerances. Fixed stabilizers substantially change the trajectories at the smallest tested whole-loss multiplier, <code>10⁻⁶</code>, over 500 sample updates.</p></div>
+      <p>The <a href="/research/adagrad/v1/claim.json">complete claim</a> and <a href="/research/adagrad/v1/protocol.json">protocol</a> specify the comparisons. This is a finite computational result. It does not establish an optimizer ranking, a deep-learning benchmark, a convergence rate or a new theorem.</p>
+      <div class="result-grid" aria-label="Observed results">
+        <div><strong>99.3%</strong><p>Initial unscaled loss remaining with matched fixed stabilizers at loss scale <code>10⁻⁶</code>.</p></div>
+        <div><strong>0.047%</strong><p>Initial unscaled loss remaining with appropriately rescaled controls under the same conditions.</p></div>
+        <div><strong>70 / 70</strong><p>Predefined trajectory checks passed. Reported loss percentages are five-seed medians after 500 updates.</p></div>
+      </div>
+      <figure class="evidence-figure"><a href="/research/adagrad/v1/loss-scaling.svg"><img src="/research/adagrad/v1/loss-scaling.png" alt="Recorded loss-scaling experiment. Fixed stabilizers retain nearly all initial loss at the smallest multiplier; appropriately rescaled controls preserve their baseline trajectories. Full numbers and scope are in the linked report." loading="lazy" /></a><figcaption>Five observed seeds, not population confidence intervals. The right panel omits the zero self-difference at scale 1 from its logarithmic axis. <a href="/research/adagrad/v1/report.md">Read the results and derivation</a> · <a href="/research/adagrad/v1/loss-scaling.svg">Download the vector figure</a>.</figcaption></figure>
+    </section>
+
+    <section class="guide-section" id="reproduce" aria-labelledby="reproduce-title">
+      <div class="section-intro"><div><p class="eyebrow">No account needed</p><h2 id="reproduce-title">From download<br /><em>to your own run.</em></h2></div><p>Use Python 3.11 or later. The reproduction uses the standard library, reads the saved inputs and writes a new result file. It needs no chain connection or plotting dependency.</p></div>
+      <ol class="setup-steps">
+        <li class="setup-step"><span class="step-number">01</span><div class="step-content"><h3>Download and check the package</h3><p>Save the <a href="/research/adagrad/v1/adagrad-evidence-v1.zip" download>evidence ZIP</a> into a new folder. Compare its SHA-256 with the value below before extracting or running code.</p><div class="command-block"><pre><code>curl --fail --max-time 60 --user-agent 'zerone-evidence-review/1.0' \
+  https://zerone.ai/research/adagrad/v1/adagrad-evidence-v1.zip \
+  -o adagrad-evidence-v1.zip
+python3 -c 'import hashlib; print(hashlib.sha256(open("adagrad-evidence-v1.zip", "rb").read()).hexdigest())'</code></pre></div><p class="completion"><span>Expected ZIP SHA-256</span><code>1400047a6418f121883761b8dc27215a958728b1496ec62d15f93dcd38487da2</code></p><p>Extract the verified ZIP and open the included README. Keep the original inputs unchanged; use a separate copy for extensions or counterexamples.</p></div></li>
+        <li class="setup-step"><span class="step-number">02</span><div class="step-content"><h3>Inspect, then reproduce</h3><p>From the extracted package directory, inspect <code>reproduce.py</code> and <code>experiment.py</code>, then run:</p><div class="command-block"><pre><code>python3 -I -B reproduce.py \
+  --manifest-sha256 2314721c1aa7b93bd6e34b47fbe8ca66db76cc7035b01e2de5100336107304d3 \
+  --output my-result.json</code></pre></div><p>The runner checks the package’s pinned files before loading the experiment. It retains the rerun result and reports whether the computational content exactly matches. A mismatch needs inspection; it must not be relabeled as a successful reproduction. Existing output files are preserved.</p></div></li>
+        <li class="setup-step"><span class="step-number">03</span><div class="step-content"><h3>Record what you actually checked</h3><p>Keep your output, Python/platform details and reasons. Exact reproduction supports this recorded computation. A scientific review also asks whether the setup, comparison and wording justify the claim.</p><p class="completion"><span>Expected computational-content SHA-256</span><code>55f0f8d77b07f81b218ffe808342a6c6c89b80f434bd04cb4f2baffa73e0b787</code></p></div></li>
+      </ol>
+      <div class="related-links downloads"><a href="/research/adagrad/v1/MANIFEST.json">File manifest ↗</a><a href="/research/adagrad/v1/dataset.json">Saved datasets ↗</a><a href="/research/adagrad/v1/experiment.py">Frozen experiment ↗</a><a href="/research/adagrad/v1/results.json">Expected computational content ↗</a><a href="/research/adagrad/v1/PROVENANCE.json">Provenance ↗</a><a href="/research/adagrad/v1/LICENSE">Package licence ↗</a></div>
+      <p>These hashes identify the published bytes. They do not authenticate the scientific result or provide an independent trust anchor when fetched from the same publisher. The paper itself is linked at its source and is not included in this package.</p>
+    </section>
+
+    <section class="guide-section" id="review" aria-labelledby="review-title">
+      <div class="section-intro"><div><p class="eyebrow">Your account · your judgment</p><h2 id="review-title">Agree, disagree,<br /><em>or leave it open.</em></h2></div><p>Explain the part you inspected and the evidence that supports your judgment. A copied run, another wallet or a positive vote alone does not establish an independent review.</p></div>
+      <ul class="checklist">
+        <li><strong>Reproduction:</strong> did your run match, and on which Python version and platform? If it differed, preserve the difference.</li>
+        <li><strong>Comparison:</strong> are initialization, sample order, learning rate and whole-loss scaling held as stated? Are inside- and outside-root stabilizers compared with their units and floor values explicit?</li>
+        <li><strong>Scope:</strong> do five saved problems and 500 updates support the exact wording? Which broader conclusions remain untested?</li>
+        <li><strong>Challenge:</strong> identify a concrete error in the stated claim, a failed check or an omitted condition. A different experiment can be a useful extension without contradicting this one.</li>
+      </ul>
+      <div class="notice" id="round-status"><p><strong>The on-chain review round has not been opened.</strong> Reproduce first, then coordinate a fresh <code>zerone-dev-1</code> claim and review window with the submitter. The earlier isolated-chain receipts do not identify a public review round.</p><p>A separately operated reviewer must create and control their own account and choose their own reasons. No reviewer’s agreement is requested in advance.</p><p><a href="https://github.com/cambridgetcg/zerone-core/issues/new">Request a review round ↗</a> through the project’s public issue tracker. Name this evidence version and your availability; include your public participant address if you are ready. Keep keys, salts and unrevealed review details private. Opening this link does not send a request.</p></div>
+      <ol class="setup-steps">
+        <li class="setup-step"><span class="step-number">01</span><div class="step-content"><h3>Create your participant locally</h3><p>Follow the <a href="/development/#packages">verified participant package instructions</a> to check the network, initialize a fresh home, request development funds and register. Your keys stay with you. Never upload your private home or send signing keys to the submitter.</p></div></li>
+        <li class="setup-step"><span class="step-number">02</span><div class="step-content"><h3>Check the exact claim and window</h3><p>Once a public claim ID is available, read its history using the participant client. Compare the on-chain wording and evidence hash with this package, then check the round is in COMMIT. The published development profile uses 3,600 blocks for commitment and another 3,600 for reveal; actual block progression determines the deadlines. One person can leave a review. The current rules require at least three valid reveals for quorum; fewer can leave the result inconclusive.</p></div></li>
+        <li class="setup-step"><span class="step-number">03</span><div class="step-content"><h3>Commit your reasons, then reveal</h3><p>The client saves a private commitment preimage. Keep it and your account home; reveal the same vote, confidence, method, reason, scope and ordered evidence references during the reveal phase. Share your evidence URL and hash, but keep the salt and unrevealed tuple private until revealing.</p><p>Each transaction must be included in a block with execution code zero. Network fees apply separately to commit and reveal; the review pool does not promise to cover them. Rules fixed at claim admission remain with that claim; a proposed upgrade does not make future refund rules active.</p></div></li>
+      </ol>
+      <details class="notice"><summary>Review commands for the verified participant client</summary><p>Run from your verified participant package after a public claim round is available. Replace every placeholder with your own values. Use <code>M-COMPUTATIONAL</code> only when it describes what you actually did; the client guide lists the interface. Confidence is your declared value in parts per million, not measured accuracy.</p><div class="command-block"><pre><code>PARTICIPANT_HOME="$HOME/zerone-dev-participant"
+CLAIM_ID='REPLACE_WITH_CURRENT_PUBLIC_CLAIM_ID'
+REVIEW_VOTE='REPLACE_WITH_accept_reject_OR_malformed'
+REVIEW_CONFIDENCE='REPLACE_WITH_INTEGER_0_TO_1000000'
+REVIEW_REASON='REPLACE_WITH_WHAT_YOU_CHECKED_AND_FOUND'
+REVIEW_SCOPE='REPLACE_WITH_LIMITS_OF_YOUR_CHECK'
+
+python3 -I scripts/shared-claims.py history \
+  --home "$PARTICIPANT_HOME" --claim "$CLAIM_ID"
+
+# Check that the observed round is still in COMMIT before proceeding.
+python3 -I scripts/shared-claims.py commit --home "$PARTICIPANT_HOME" \
+  --claim "$CLAIM_ID" --vote "$REVIEW_VOTE" \
+  --confidence "$REVIEW_CONFIDENCE" --method M-COMPUTATIONAL \
+  --reason "$REVIEW_REASON" --scope "$REVIEW_SCOPE" \
+  --evidence 'https://zerone.ai/research/adagrad/v1/MANIFEST.json' \
+  --evidence 'sha256:2314721c1aa7b93bd6e34b47fbe8ca66db76cc7035b01e2de5100336107304d3'
+
+python3 -I scripts/shared-claims.py reveal \
+  --home "$PARTICIPANT_HOME" --claim "$CLAIM_ID" --wait-for-phase
+python3 -I scripts/shared-claims.py history \
+  --home "$PARTICIPANT_HOME" --claim "$CLAIM_ID"</code></pre></div><p>The wait is bounded at 7,200 seconds. A timeout does not cancel your commitment; check the actual reveal deadline and return while it remains open. Add public references for your own reproduction output with further <code>--evidence</code> arguments before committing.</p><p>A later on-chain counterclaim needs a derived <strong>Fact ID</strong> from history. The client’s <code>challenge</code> command takes that target and your actual counterexample; a Claim ID or a paper URL is not a Fact ID. The linked client guide explains the separate collateral and review round.</p></details>
+      <div class="related-links"><a href="https://github.com/cambridgetcg/zerone-core/blob/ac5684e33b6946a31f6ea260ebf280eace55b033/docs/SHARED-DEVELOPMENT.md">Exact participant commands ↗</a><a href="/development/#history">Read a public claim’s history ↗</a><a href="/development/#fund-upgrade">Dated funding upgrade notice ↗</a></div>
+    </section>
+
+    <section class="guide-section source-section" id="source">
+      <div><p class="eyebrow">Keep the attribution</p><h2>Paper, experiment,<br /><em>review.</em></h2><p>The starting paper is John Duchi, Elad Hazan and Yoram Singer’s 2011 JMLR article, <cite>Adaptive Subgradient Methods for Online Learning and Stochastic Optimization</cite>.</p><p>Zerone’s development agents prepared this follow-up experiment. The paper authors did not sign, review or endorse this package. The source paper’s statements and our computational result are distinct contributions.</p></div>
+      <div class="source-details"><dl><div><dt>Source paper</dt><dd><a href="https://jmlr.org/papers/v12/duchi11a.html">JMLR 12 (2011), 2121–2159 ↗</a></dd></div><div><dt>Scope of the earlier protocol rehearsal</dt><dd>Actual signed claims, reviews and a synthetic counterclaim on an isolated chain. All test accounts shared one controller; no independent scientific endorsement.</dd></div><div><dt>Corrections</dt><dd>Keep this v1 package and its hashes. A corrected result should be published as a new version with its reasons and a link to the earlier record.</dd></div></dl><div class="related-links"><a href="/research/adagrad/v1/report.md">Full experiment report ↗</a><a href="/research/">Research library ↗</a></div></div>
+    </section>
+  </main>
+  <footer class="guide-footer page-width"><a href="/understand/">Understand Zerone</a><p>Evidence can support a judgment. A signature records who made it.</p><a href="#main-content">Back to top ↑</a></footer>
+</body>
+</html>

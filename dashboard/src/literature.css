@@ -1,0 +1,21 @@
+@import "./node-guide.css";
+.literature .guide-section > p { max-width: 54rem; margin-top: 1.2rem; color: var(--muted); }
+.literature .guide-section > p strong { color: var(--ink); }
+.literature .claim-statement { border-left: 2px solid var(--violet); padding: 1.5rem; margin: 2rem 0; background: var(--surface); }
+.literature .claim-statement p { max-width: 58rem; }
+.literature .evidence-figure { margin: 2rem 0; }
+.literature .evidence-figure img { display: block; width: 100%; height: auto; background: #fff; }
+.literature figcaption { margin-top: 1rem; color: var(--muted); font-size: .83rem; }
+.literature .result-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); margin-top: 2rem; }
+.literature .result-grid > div { background: var(--surface); padding: 1.5rem; }
+.literature .result-grid strong { display: block; color: var(--acid); font: 2.2rem var(--serif); margin-bottom: .6rem; }
+.literature .result-grid p { color: var(--muted); font-size: .85rem; }
+.literature .checklist { padding-left: 1.3rem; max-width: 56rem; color: var(--muted); }
+.literature .checklist li { margin-top: 1rem; padding-left: .4rem; }
+.literature .checklist strong { color: var(--ink); }
+.literature .setup-step p { margin-top: .8rem; color: var(--muted); }
+.literature code { overflow-wrap: anywhere; }
+.literature .notice { margin-top: 1.5rem; padding: 1.2rem; border: 1px solid var(--line); background: var(--surface); }
+.literature .notice p + p { margin-top: .75rem; }
+.literature .downloads a { overflow-wrap: anywhere; }
+@media (max-width: 600px) { .literature .result-grid { grid-template-columns: 1fr; } }

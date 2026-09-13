@@ -217,6 +217,20 @@ HTTPS dashboard never makes mixed-content requests to the HTTP-only node.
 
 ## Node and agent participation guide
 
+`/research/adagrad/` publishes the bounded AdaGrad loss-scaling experiment and
+an own-account review guide. The versioned `/research/adagrad/v1/` evidence
+contains the original frozen code, saved data, protocol and canonical
+computational results, plus a portable hash-checking runner. It contains no
+private node homes or source-paper PDF. The page pins the manifest and archive
+separately and states that independent review and a public claim round have
+not yet been recorded. Publishing the page does not open a timed review round.
+Keep this v1 evidence immutable; corrections need a separately named version.
+Verify downloaded bytes and reproduce from a fresh extracted directory before
+publication. Check the page at desktop and narrow mobile widths with JavaScript
+on and off, and verify its production page, downloads and links against the
+clean merged build. The scientific scope and same-operator attribution must
+remain visible in both modes.
+
 `/nodes/` is a separate static page, reachable from the compact header, hero
 and onboarding cards. It provides a persistent local `zerone-local-1` setup,
 public `zerone-1` reads and concrete contribution paths. Local test-key
