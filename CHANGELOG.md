@@ -3,6 +3,21 @@
 Notable source changes are recorded here. Network activation and package
 publication are separate events and are stated explicitly when they occur.
 
+## Source — 2026-09-13 claim fund settlement
+
+- The separate `knowledge-fund-settlement-v1` 10→11 upgrade records prospective
+  funding terms for paid claims, conjectures and all challenge routes. Valid
+  reviews retain their 55% pool; refundable deposits return at every verdict,
+  and unused review budgets return when nobody supplies an eligible review.
+- Reviewer payments and payer refunds share the existing bounded retry queue
+  and commit atomically with their paid markers. Frozen old obligations and
+  historical absence retain their original terms; no retrospective refund,
+  new issuance or scientific authority is inferred.
+- An explicit pinned runtime handoff supports the original development genesis
+  and predecessor replay before the recorded upgrade height. Source publication
+  is separate from network activation and package publication. See the
+  [financial terms and exact boundary](docs/specs/knowledge-fund-settlement-v1.md).
+
 ## Source — 2026-09-11 claim records consolidation
 
 - The separate `knowledge-claim-records-v1` 9→10 upgrade retains exact new
@@ -151,7 +166,7 @@ behavior.
 - Falsification clawback requires an adjudicated verdict.
 - Genesis/state validation and protobuf ownership handling are hardened.
 - Manual API inventories now defer to the generated Swagger document, which
-  contains 218 paths and 454 definitions across the current application.
+  contains 218 paths and 457 definitions across the current application.
 
 ### Consensus activation
 

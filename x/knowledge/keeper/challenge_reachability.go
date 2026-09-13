@@ -52,7 +52,7 @@ func (k Keeper) hasOtherActiveChallenge(ctx context.Context, excludeRoundID, tar
 		if roundBytes == nil {
 			return false, fmt.Errorf("active review round is missing")
 		}
-		if err := types.ValidateRawPolicyField(roundBytes, types.RoundReviewPolicyField); err != nil {
+		if err := validateRawRoundRecord(roundBytes); err != nil {
 			return false, err
 		}
 		var round types.VerificationRound
@@ -81,7 +81,7 @@ func (k Keeper) hasOtherActiveChallenge(ctx context.Context, excludeRoundID, tar
 		if claimBytes == nil {
 			return false, fmt.Errorf("active review claim is missing")
 		}
-		if err := types.ValidateRawPolicyField(claimBytes, types.ClaimReviewPolicyField); err != nil {
+		if err := validateRawClaimRecord(claimBytes); err != nil {
 			return false, err
 		}
 		var claim types.Claim

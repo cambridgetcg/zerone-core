@@ -35,6 +35,7 @@ func newFrozenReviewFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {
 	t.Helper()
 	app, ctx, db := newAccountingAuthorityFixture(t)
 	freezeReviewCompiledTarget(app)
+	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.FundSettlementEnabledStoreKey))
 	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.ClaimRecordsEnabledStoreKey))
 	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, reviewNeutralityTargetVersionMap()))
 	return app, ctx, db

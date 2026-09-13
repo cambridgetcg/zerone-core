@@ -27,8 +27,11 @@ func claimRecordsTargetVersionMap() module.VersionMap {
 func requireClaimRecordsTransitionOwner(name string, fromVM, targetVM module.VersionMap) error {
 	from, fromOK := fromVM["knowledge"]
 	target, targetOK := targetVM["knowledge"]
-	if !fromOK || !targetOK || from < 6 || from > 10 || target < 6 || target > 10 {
+	if !fromOK || !targetOK || from < 6 || from > 11 || target < 6 || target > 11 {
 		return fmt.Errorf("claim records requires complete known knowledge versions")
+	}
+	if from == 10 && target == 11 {
+		return requireFundSettlementTransitionOwner(name, fromVM, targetVM)
 	}
 	if from == target || (from < 10 && target < 10) {
 		return nil
@@ -116,28 +119,7 @@ func (app *ZeroneApp) registerClaimRecordsUpgrade() {
 
 func (app *ZeroneApp) validateClaimRecordsStartupVersions(ctx sdk.Context, vm module.VersionMap, latest int64) error {
 	if reflect.DeepEqual(vm, claimRecordsTargetVersionMap()) {
-		enabled, err := app.KnowledgeKeeper.ClaimRecordsEnabled(ctx)
-		if err != nil || !enabled {
-			return fmt.Errorf("claim records target requires explicit enabled marker: %v", err)
-		}
-		if err := app.validateReviewNeutralityCompleted(ctx, latest); err != nil {
-			return err
-		}
-		done, err := app.UpgradeKeeper.GetDoneHeight(ctx, UpgradeNameKnowledgeClaimRecordsV1)
-		if err != nil {
-			return err
-		}
-		marker, marked, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(ctx, "migration_v10_complete")
-		if err != nil {
-			return err
-		}
-		if done == 0 && !marked {
-			return nil // Native/imported genesis selects semantics, not applied history.
-		}
-		if done <= 0 || done > latest || !marked || marker != "true" {
-			return fmt.Errorf("claim records target has inconsistent migration marker and done height")
-		}
-		return nil
+		return app.validateClaimRecordsCompleted(ctx, latest)
 	}
 	if !reflect.DeepEqual(vm, claimRecordsSourceVersionMap()) {
 		return fmt.Errorf("claim records startup requires exact complete source or target version map")
@@ -165,6 +147,32 @@ func validateClaimRecordsGenesisSelection(genesis GenesisState) error {
 	}
 	if selection.Enabled == nil || !*selection.Enabled {
 		return fmt.Errorf("native knowledge genesis requires explicit claim_records_enabled=true")
+	}
+	return nil
+}
+
+// validateClaimRecordsCompleted also validates later exact predecessors.
+func (app *ZeroneApp) validateClaimRecordsCompleted(ctx sdk.Context, latest int64) error {
+	enabled, err := app.KnowledgeKeeper.ClaimRecordsEnabled(ctx)
+	if err != nil || !enabled {
+		return fmt.Errorf("claim records target requires explicit enabled marker: %v", err)
+	}
+	if err := app.validateReviewNeutralityCompleted(ctx, latest); err != nil {
+		return err
+	}
+	done, err := app.UpgradeKeeper.GetDoneHeight(ctx, UpgradeNameKnowledgeClaimRecordsV1)
+	if err != nil {
+		return err
+	}
+	marker, marked, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(ctx, "migration_v10_complete")
+	if err != nil {
+		return err
+	}
+	if done == 0 && !marked {
+		return nil // Native/imported genesis selects semantics, not applied history.
+	}
+	if done <= 0 || done > latest || !marked || marker != "true" {
+		return fmt.Errorf("claim records target has inconsistent migration marker and done height")
 	}
 	return nil
 }

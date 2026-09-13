@@ -96,7 +96,7 @@ activity.
 ### Generated REST and transaction coverage
 
 All generated custom query gateways are registered. The canonical generated
-Swagger document currently contains 218 paths and 454 definitions:
+Swagger document currently contains 218 paths and 457 definitions:
 [`docs/swagger-ui/swagger.json`](../swagger-ui/swagger.json).
 
 The repository TypeScript package contains protobuf/direct-signing codecs for

@@ -54,6 +54,12 @@ func (k Keeper) buildClaimHistory(ctx context.Context, id string) (*types.QueryC
 	if err != nil {
 		return nil, err
 	}
+	funded, err := k.FundSettlementEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	fundedClaims := make(map[string]*types.Claim)
+	fundedRoundCounts := make(map[string]int)
 	factsByClaim := make(map[string][]*types.Fact)
 	if err := k.walkClaimHistory(ctx, types.FactKeyPrefix, guard, func(key, value []byte) error {
 		fact := new(types.Fact)
@@ -85,6 +91,12 @@ func (k Keeper) buildClaimHistory(ctx context.Context, id string) (*types.QueryC
 		if claim.ReviewPolicyVersion == types.ReviewPolicyNeutral && !recordIntegrity {
 			return fmt.Errorf("neutral claim without record-integrity activation")
 		}
+		if err := types.ValidateClaimFundingTerms(claim, funded); err != nil {
+			return err
+		}
+		if claim.FundingTerms != nil {
+			fundedClaims[claim.Id] = claim
+		}
 		if claim.Id == id {
 			root.Claim = claim
 			return nil
@@ -114,6 +126,14 @@ func (k Keeper) buildClaimHistory(ctx context.Context, id string) (*types.QueryC
 		if err := types.ValidateVerificationRoundRecord(round, recordIntegrity); err != nil {
 			return err
 		}
+		if claim := fundedClaims[round.ClaimId]; claim != nil {
+			if err := types.ValidateClaimFundingRound(claim, round); err != nil {
+				return err
+			}
+			fundedRoundCounts[claim.Id]++
+		} else if round.ClaimRefundSettlement != nil {
+			return fmt.Errorf("refund record has no funded claim")
+		}
 		roundClaims[round.Id] = round.ClaimId
 		if record := records[round.ClaimId]; record != nil {
 			if record.Claim != nil && record.Claim.ReviewPolicyVersion != round.ReviewPolicyVersion {
@@ -124,6 +144,11 @@ func (k Keeper) buildClaimHistory(ctx context.Context, id string) (*types.QueryC
 		return nil
 	}); err != nil {
 		return nil, err
+	}
+	for id, claim := range fundedClaims {
+		if fundedRoundCounts[id] != 1 || claim.VerificationRoundId == "" || roundClaims[claim.VerificationRoundId] != id {
+			return nil, fmt.Errorf("funded claim lacks its sole selected round")
+		}
 	}
 	sort.Slice(related, func(i, j int) bool { return related[i].Record.ClaimId < related[j].Record.ClaimId })
 	ordered := []*types.ClaimHistoryRecord{root}

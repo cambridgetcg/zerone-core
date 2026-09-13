@@ -224,14 +224,27 @@ func (k Keeper) reviewPolicyForRound(ctx context.Context, round *types.Verificat
 }
 
 func (k Keeper) getClaimForNeutralReview(ctx context.Context, id string) (*types.Claim, error) {
+	claim, err := k.getClaimRecordChecked(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if claim == nil {
+		return nil, fmt.Errorf("review claim %s is missing", id)
+	}
+	return claim, nil
+}
+
+// A genuinely absent historical parent differs from a corrupt or unreadable
+// record. Existing frozen reviewer obligations can survive that old absence.
+func (k Keeper) getClaimRecordChecked(ctx context.Context, id string) (*types.Claim, error) {
 	bz, err := k.storeService.OpenKVStore(ctx).Get(types.ClaimKey(id))
 	if err != nil {
 		return nil, err
 	}
 	if bz == nil {
-		return nil, fmt.Errorf("review claim %s is missing", id)
+		return nil, nil
 	}
-	if err := types.ValidateRawPolicyField(bz, types.ClaimReviewPolicyField); err != nil {
+	if err := validateRawClaimRecord(bz); err != nil {
 		return nil, err
 	}
 	var claim types.Claim

@@ -265,5 +265,11 @@ func ValidateVerificationRoundRecord(round *VerificationRound, recordIntegrityEn
 	if round.VerifierRewardSettlement != nil && !recordIntegrityEnabled {
 		return fmt.Errorf("verifier settlement requires record-integrity activation")
 	}
+	if round.ClaimRefundSettlement != nil && !recordIntegrityEnabled {
+		return fmt.Errorf("claim refund requires record-integrity activation")
+	}
+	if err := ValidateClaimRefundSettlement(round); err != nil {
+		return err
+	}
 	return ValidateVerifierRewardSettlement(round)
 }

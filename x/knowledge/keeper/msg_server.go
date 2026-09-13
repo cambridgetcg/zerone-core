@@ -268,6 +268,9 @@ func (m *msgServer) submitClaim(ctx context.Context, msg *types.MsgSubmitClaim, 
 		claim.ReasoningTrace = msg.ReasoningTrace
 	}
 
+	if err := m.keeper.setClaimFundingTerms(ctx, claim, types.ClaimFundingKind_CLAIM_FUNDING_KIND_REVIEW_FEE); err != nil {
+		return nil, err
+	}
 	if err := m.keeper.SetClaim(ctx, claim); err != nil {
 		return nil, err
 	}
@@ -835,6 +838,9 @@ func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFa
 		challengeClaim.MethodId = msg.MethodId
 		challengeClaim.EvidenceIds = append([]string(nil), msg.EvidenceIds...)
 	}
+	if err := m.keeper.setClaimFundingTerms(ctx, challengeClaim, types.ClaimFundingKind_CLAIM_FUNDING_KIND_CHALLENGE_DEPOSIT); err != nil {
+		return nil, err
+	}
 	if err := m.keeper.SetClaim(ctx, challengeClaim); err != nil {
 		return nil, err
 	}
@@ -984,6 +990,9 @@ func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.Msg
 		challengeClaim.CounterClaim = msg.CounterClaim
 		challengeClaim.ChallengedClaimId = msg.ClaimId
 	}
+	if err := m.keeper.setClaimFundingTerms(ctx, challengeClaim, types.ClaimFundingKind_CLAIM_FUNDING_KIND_CHALLENGE_DEPOSIT); err != nil {
+		return nil, err
+	}
 	if err := m.keeper.SetClaim(ctx, challengeClaim); err != nil && enabled {
 		return nil, err
 	}
@@ -1129,6 +1138,9 @@ func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmi
 	if retainRecord {
 		claim.ArgumentText = msg.Reason
 		claim.EvidenceIds = append([]string(nil), msg.EvidenceIds...)
+	}
+	if err := m.keeper.setClaimFundingTerms(ctx, claim, types.ClaimFundingKind_CLAIM_FUNDING_KIND_CHALLENGE_DEPOSIT); err != nil {
+		return nil, err
 	}
 	if err := m.keeper.SetClaim(ctx, claim); err != nil {
 		return nil, err

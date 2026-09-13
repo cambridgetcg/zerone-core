@@ -60,12 +60,12 @@ func (k Keeper) scanRecordPrimary(ctx context.Context, prefix []byte, makeRecord
 		record := makeRecord()
 		switch record.(type) {
 		case *types.Claim:
-			if err := types.ValidateRawPolicyField(value, types.ClaimReviewPolicyField); err != nil {
+			if err := validateRawClaimRecord(value); err != nil {
 				_ = iterator.Close()
 				return err
 			}
 		case *types.VerificationRound:
-			if err := types.ValidateRawPolicyField(value, types.RoundReviewPolicyField); err != nil {
+			if err := validateRawRoundRecord(value); err != nil {
 				_ = iterator.Close()
 				return err
 			}

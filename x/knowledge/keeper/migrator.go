@@ -6,6 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/zerone-chain/zerone/internal/claimrecordmigration"
+	"github.com/zerone-chain/zerone/internal/fundsettlementmigration"
 	"github.com/zerone-chain/zerone/internal/recordmigration"
 	"github.com/zerone-chain/zerone/internal/reviewmigration"
 	"github.com/zerone-chain/zerone/internal/survivalmigration"
@@ -135,6 +136,30 @@ func (m Migrator) Migrate9to10(ctx sdk.Context) error {
 		return err
 	}
 	if err := m.keeper.WriteMigrationMarker(cache, "migration_v10_complete", "true"); err != nil {
+		return err
+	}
+	write()
+	return nil
+}
+
+// Migrate10to11 selects explicit funding terms for future admissions. Existing
+// claims, payment plans and balances are inventoried but never rewritten.
+func (m Migrator) Migrate10to11(ctx sdk.Context) error {
+	if err := fundsettlementmigration.Require(ctx); err != nil {
+		return err
+	}
+	cache, write := ctx.CacheContext()
+	if err := m.keeper.ValidateFundSettlementActivation(cache); err != nil {
+		return err
+	}
+	_, marked, err := m.keeper.ReadMigrationMarkerPresenceChecked(cache, "migration_v11_complete")
+	if err != nil || marked {
+		return fmt.Errorf("fund settlement predecessor already marked or unreadable: %v", err)
+	}
+	if err := m.keeper.EnableFundSettlement(cache); err != nil {
+		return err
+	}
+	if err := m.keeper.WriteMigrationMarker(cache, "migration_v11_complete", "true"); err != nil {
 		return err
 	}
 	write()

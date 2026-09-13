@@ -761,6 +761,42 @@ export function augmentationVerdictToJSON(object: AugmentationVerdict): string {
       return "UNRECOGNIZED";
   }
 }
+export enum ClaimFundingKind {
+  CLAIM_FUNDING_KIND_UNSPECIFIED = 0,
+  CLAIM_FUNDING_KIND_REVIEW_FEE = 1,
+  CLAIM_FUNDING_KIND_CHALLENGE_DEPOSIT = 2,
+  UNRECOGNIZED = -1,
+}
+export function claimFundingKindFromJSON(object: any): ClaimFundingKind {
+  switch (object) {
+    case 0:
+    case "CLAIM_FUNDING_KIND_UNSPECIFIED":
+      return ClaimFundingKind.CLAIM_FUNDING_KIND_UNSPECIFIED;
+    case 1:
+    case "CLAIM_FUNDING_KIND_REVIEW_FEE":
+      return ClaimFundingKind.CLAIM_FUNDING_KIND_REVIEW_FEE;
+    case 2:
+    case "CLAIM_FUNDING_KIND_CHALLENGE_DEPOSIT":
+      return ClaimFundingKind.CLAIM_FUNDING_KIND_CHALLENGE_DEPOSIT;
+    case -1:
+    case "UNRECOGNIZED":
+    default:
+      return ClaimFundingKind.UNRECOGNIZED;
+  }
+}
+export function claimFundingKindToJSON(object: ClaimFundingKind): string {
+  switch (object) {
+    case ClaimFundingKind.CLAIM_FUNDING_KIND_UNSPECIFIED:
+      return "CLAIM_FUNDING_KIND_UNSPECIFIED";
+    case ClaimFundingKind.CLAIM_FUNDING_KIND_REVIEW_FEE:
+      return "CLAIM_FUNDING_KIND_REVIEW_FEE";
+    case ClaimFundingKind.CLAIM_FUNDING_KIND_CHALLENGE_DEPOSIT:
+      return "CLAIM_FUNDING_KIND_CHALLENGE_DEPOSIT";
+    case ClaimFundingKind.UNRECOGNIZED:
+    default:
+      return "UNRECOGNIZED";
+  }
+}
 /**
  * StepInference names the epistemic move a single reasoning step makes.
  * Distinct from InferenceType (which describes a FactRelation edge) — this
@@ -2686,6 +2722,26 @@ export interface Claim {
    * Immutable admission terms: 0 preserves predecessor economics; 1 records neutral review work.
    */
   reviewPolicyVersion: number;
+  /**
+   * Immutable prospective funding instructions. Absence does not establish a
+   * refundable obligation for historical claims or unassigned module balances.
+   */
+  fundingTerms?: ClaimFundingTerms;
+}
+/**
+ * Amounts are canonical uzrn decimal strings fixed at admission. The review
+ * budget, refundable amount and retained fee sum to the amount actually paid.
+ * @name ClaimFundingTerms
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ClaimFundingTerms
+ */
+export interface ClaimFundingTerms {
+  policyVersion: number;
+  kind: ClaimFundingKind;
+  paidAmount: string;
+  reviewBudget: string;
+  refundableAmount: string;
+  retainedFee: string;
 }
 /**
  * VerificationRound tracks one commit-reveal verification cycle.
@@ -2719,6 +2775,20 @@ export interface VerificationRound {
    * Copied from the claim; independent of commitment framing and block height.
    */
   reviewPolicyVersion: number;
+  claimRefundSettlement?: ClaimRefundSettlement;
+}
+/**
+ * A positive finalized refund, paid atomically with any verifier payments.
+ * paid_at_block 0 is a retained unpaid obligation, not a completed transfer.
+ * @name ClaimRefundSettlement
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ClaimRefundSettlement
+ */
+export interface ClaimRefundSettlement {
+  recipient: string;
+  amount: string;
+  createdAtBlock: bigint;
+  paidAtBlock: bigint;
 }
 /**
  * ReviewAttestation records what the signer says they checked. It is not proof
@@ -6630,7 +6700,8 @@ function createBaseClaim(): Claim {
     evidenceIds: [],
     counterClaim: "",
     challengedClaimId: "",
-    reviewPolicyVersion: 0
+    reviewPolicyVersion: 0,
+    fundingTerms: undefined
   };
 }
 /**
@@ -6726,6 +6797,9 @@ export const Claim = {
     if (message.reviewPolicyVersion !== 0) {
       writer.uint32(224).uint32(message.reviewPolicyVersion);
     }
+    if (message.fundingTerms !== undefined) {
+      ClaimFundingTerms.encode(message.fundingTerms, writer.uint32(234).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): Claim {
@@ -6819,6 +6893,9 @@ export const Claim = {
         case 28:
           message.reviewPolicyVersion = reader.uint32();
           break;
+        case 29:
+          message.fundingTerms = ClaimFundingTerms.decode(reader, reader.uint32());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -6856,6 +6933,90 @@ export const Claim = {
     message.counterClaim = object.counterClaim ?? "";
     message.challengedClaimId = object.challengedClaimId ?? "";
     message.reviewPolicyVersion = object.reviewPolicyVersion ?? 0;
+    message.fundingTerms = object.fundingTerms !== undefined && object.fundingTerms !== null ? ClaimFundingTerms.fromPartial(object.fundingTerms) : undefined;
+    return message;
+  }
+};
+function createBaseClaimFundingTerms(): ClaimFundingTerms {
+  return {
+    policyVersion: 0,
+    kind: 0,
+    paidAmount: "",
+    reviewBudget: "",
+    refundableAmount: "",
+    retainedFee: ""
+  };
+}
+/**
+ * Amounts are canonical uzrn decimal strings fixed at admission. The review
+ * budget, refundable amount and retained fee sum to the amount actually paid.
+ * @name ClaimFundingTerms
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ClaimFundingTerms
+ */
+export const ClaimFundingTerms = {
+  typeUrl: "/zerone.knowledge.v1.ClaimFundingTerms",
+  encode(message: ClaimFundingTerms, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.policyVersion !== 0) {
+      writer.uint32(8).uint32(message.policyVersion);
+    }
+    if (message.kind !== 0) {
+      writer.uint32(16).int32(message.kind);
+    }
+    if (message.paidAmount !== "") {
+      writer.uint32(26).string(message.paidAmount);
+    }
+    if (message.reviewBudget !== "") {
+      writer.uint32(34).string(message.reviewBudget);
+    }
+    if (message.refundableAmount !== "") {
+      writer.uint32(42).string(message.refundableAmount);
+    }
+    if (message.retainedFee !== "") {
+      writer.uint32(50).string(message.retainedFee);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): ClaimFundingTerms {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseClaimFundingTerms();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.policyVersion = reader.uint32();
+          break;
+        case 2:
+          message.kind = reader.int32() as any;
+          break;
+        case 3:
+          message.paidAmount = reader.string();
+          break;
+        case 4:
+          message.reviewBudget = reader.string();
+          break;
+        case 5:
+          message.refundableAmount = reader.string();
+          break;
+        case 6:
+          message.retainedFee = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<ClaimFundingTerms>): ClaimFundingTerms {
+    const message = createBaseClaimFundingTerms();
+    message.policyVersion = object.policyVersion ?? 0;
+    message.kind = object.kind ?? 0;
+    message.paidAmount = object.paidAmount ?? "";
+    message.reviewBudget = object.reviewBudget ?? "";
+    message.refundableAmount = object.refundableAmount ?? "";
+    message.retainedFee = object.retainedFee ?? "";
     return message;
   }
 };
@@ -6876,7 +7037,8 @@ function createBaseVerificationRound(): VerificationRound {
     commitmentScheme: 0,
     commitmentChainId: "",
     verifierRewardSettlement: undefined,
-    reviewPolicyVersion: 0
+    reviewPolicyVersion: 0,
+    claimRefundSettlement: undefined
   };
 }
 /**
@@ -6936,6 +7098,9 @@ export const VerificationRound = {
     if (message.reviewPolicyVersion !== 0) {
       writer.uint32(128).uint32(message.reviewPolicyVersion);
     }
+    if (message.claimRefundSettlement !== undefined) {
+      ClaimRefundSettlement.encode(message.claimRefundSettlement, writer.uint32(138).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): VerificationRound {
@@ -6993,6 +7158,9 @@ export const VerificationRound = {
         case 16:
           message.reviewPolicyVersion = reader.uint32();
           break;
+        case 17:
+          message.claimRefundSettlement = ClaimRefundSettlement.decode(reader, reader.uint32());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -7018,6 +7186,74 @@ export const VerificationRound = {
     message.commitmentChainId = object.commitmentChainId ?? "";
     message.verifierRewardSettlement = object.verifierRewardSettlement !== undefined && object.verifierRewardSettlement !== null ? VerifierRewardSettlement.fromPartial(object.verifierRewardSettlement) : undefined;
     message.reviewPolicyVersion = object.reviewPolicyVersion ?? 0;
+    message.claimRefundSettlement = object.claimRefundSettlement !== undefined && object.claimRefundSettlement !== null ? ClaimRefundSettlement.fromPartial(object.claimRefundSettlement) : undefined;
+    return message;
+  }
+};
+function createBaseClaimRefundSettlement(): ClaimRefundSettlement {
+  return {
+    recipient: "",
+    amount: "",
+    createdAtBlock: BigInt(0),
+    paidAtBlock: BigInt(0)
+  };
+}
+/**
+ * A positive finalized refund, paid atomically with any verifier payments.
+ * paid_at_block 0 is a retained unpaid obligation, not a completed transfer.
+ * @name ClaimRefundSettlement
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ClaimRefundSettlement
+ */
+export const ClaimRefundSettlement = {
+  typeUrl: "/zerone.knowledge.v1.ClaimRefundSettlement",
+  encode(message: ClaimRefundSettlement, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.recipient !== "") {
+      writer.uint32(10).string(message.recipient);
+    }
+    if (message.amount !== "") {
+      writer.uint32(18).string(message.amount);
+    }
+    if (message.createdAtBlock !== BigInt(0)) {
+      writer.uint32(24).uint64(message.createdAtBlock);
+    }
+    if (message.paidAtBlock !== BigInt(0)) {
+      writer.uint32(32).uint64(message.paidAtBlock);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): ClaimRefundSettlement {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseClaimRefundSettlement();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.recipient = reader.string();
+          break;
+        case 2:
+          message.amount = reader.string();
+          break;
+        case 3:
+          message.createdAtBlock = reader.uint64();
+          break;
+        case 4:
+          message.paidAtBlock = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<ClaimRefundSettlement>): ClaimRefundSettlement {
+    const message = createBaseClaimRefundSettlement();
+    message.recipient = object.recipient ?? "";
+    message.amount = object.amount ?? "";
+    message.createdAtBlock = object.createdAtBlock !== undefined && object.createdAtBlock !== null ? BigInt(object.createdAtBlock.toString()) : BigInt(0);
+    message.paidAtBlock = object.paidAtBlock !== undefined && object.paidAtBlock !== null ? BigInt(object.paidAtBlock.toString()) : BigInt(0);
     return message;
   }
 };

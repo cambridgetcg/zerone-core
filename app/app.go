@@ -1492,6 +1492,11 @@ func (app *ZeroneApp) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (
 			return nil, err
 		}
 	}
+	if app.ModuleManager.GetVersionMap()["knowledge"] >= 11 {
+		if err := validateFundSettlementGenesisSelection(genesisState); err != nil {
+			return nil, err
+		}
+	}
 	app.UpgradeKeeper.SetModuleVersionMap(ctx, app.ModuleManager.GetVersionMap())
 	resp, err := app.ModuleManager.InitGenesis(ctx, app.appCodec, genesisState)
 	if err != nil {

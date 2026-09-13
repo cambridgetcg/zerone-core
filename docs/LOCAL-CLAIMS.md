@@ -192,3 +192,5 @@ query costs; it is not a proof of completeness or independently verified block
 inclusion. See [the record specification](specs/knowledge-claim-records-v1.md).
 The local viewer does not fetch arbitrary evidence URLs. The test keyring is
 for development; review production custody before an actual launch.
+
+For newly initialized version-11 local chains, claims carry explicit funding policy 1: 55% of the admission amount funds valid revealed reviews; an ordinary claim retains the remaining fee, while a challenge's remaining allocation is refundable for every terminal verdict. With no eligible reveals, the review budget is refunded too. Network fees remain separate. The viewer displays exact terms and distinguishes owed settlement records from a positive recorded transfer block. Existing claims with absent terms keep their historical rules. This does not upgrade an older local home. See [fund settlement](specs/knowledge-fund-settlement-v1.md).

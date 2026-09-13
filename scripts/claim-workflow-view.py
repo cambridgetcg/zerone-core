@@ -50,6 +50,15 @@ function field(parent,title,text){parent.append(el('dt',title),el('dd',value(tex
 function paragraph(parent,title,text){parent.append(el('h4',title),el('p',value(text),'text'));}
 function items(parent,title,rows,empty){parent.append(el('h4',title));if(!rows.length){parent.append(el('p',empty,'empty small'));return;}const ul=el('ul');for(const row of rows)ul.append(el('li',value(row)));parent.append(ul);}
 function details(title){const node=el('details');node.append(el('summary',title));return node;}
+function money(amount){if(typeof amount!=='string'||!/^(0|[1-9][0-9]*)$/.test(amount)||amount.length>20||BigInt(amount)>18446744073709551615n)throw new Error('Malformed recorded uzrn amount');return amount+' uzrn';}
+function funding(claim){const body=details('Funding terms and allocations'),terms=claim.funding_terms;
+  if(!terms){body.append(el('p','No prospective funding terms retained. Historical message-specific rules apply; absence is not a zero balance or refund promise.'));return body;}
+  if(terms.policy_version!==1)throw new Error('Unsupported funding policy');
+  const kind=({1:'Ordinary review fee',2:'Challenge deposit',CLAIM_FUNDING_KIND_REVIEW_FEE:'Ordinary review fee',CLAIM_FUNDING_KIND_CHALLENGE_DEPOSIT:'Challenge deposit'})[terms.kind];if(!kind)throw new Error('Unsupported funding kind');
+  body.append(el('p','Funding policy 1 · '+kind));const meta=el('dl');for(const [key,title]of[['paid_amount','Recorded admission amount'],['review_budget','Review budget'],['refundable_amount','Refundable allocation'],['retained_fee','Retained non-refundable fee']])field(meta,title,money(terms[key]));
+  if(BigInt(terms.paid_amount)!==BigInt(terms.review_budget)+BigInt(terms.refundable_amount)+BigInt(terms.retained_fee))throw new Error('Funding allocations do not sum to the recorded amount');
+  body.append(meta,el('p','Network fees are separate. Allocations are instructions; the round records show whether payment or refund was recorded.','muted small'));return body;
+}
 function renderRound(round){
   const card=el('section',undefined,'subcard');card.append(el('h4','Review round'),el('code',value(round.id),'identifier'),el('span',label('phase',round.phase),'badge'));
   const meta=el('dl');field(meta,'Verdict',label('verdict',round.verdict));field(meta,'Verdict block',round.verdict_block);field(meta,'Commit deadline',round.commit_deadline);field(meta,'Reveal deadline',round.reveal_deadline);field(meta,'Aggregation deadline',round.aggregation_deadline);field(meta,'Commitment scheme',round.commitment_scheme??0);field(meta,'Review policy',round.review_policy_version??0);card.append(meta);
@@ -65,9 +74,10 @@ function renderRound(round){
     const att=review.attestation;paragraph(body,'Reason / work described',att?.reason);paragraph(body,'Scope',att?.scope);paragraph(body,'Method',att?.method_id);items(body,'Evidence references',list(att?.evidence_ids),'No evidence references retained.');card.append(body);
   }
   const plan=round.verifier_reward_settlement;
-  if(plan){const payment=details('Separate payment record');payment.append(el('p',String(plan.paid_at_block??'0')==='0'?'Payment plan recorded; no paid-at block recorded.':'Payment plan marked paid at block '+plan.paid_at_block+'.'));
+  if(plan){const payment=details('Reviewer payment record');payment.append(el('p',String(plan.paid_at_block??'0')==='0'?'Recorded obligation awaiting transfer.':'Recorded transferred at block '+plan.paid_at_block+'.'));payment.append(el('p','Obligation created at block '+value(plan.created_at_block)));
     payment.append(el('p','This state observation is not an independent bank or transaction proof. Amounts are uzrn.','muted small'));
-    items(payment,'Recorded recipients',list(plan.payments).map(p=>`${value(p.verifier)} · amount ${value(p.amount)} · withheld ${value(p.withheld,'0')}`),'No payments listed.');card.append(payment);}
+    items(payment,'Recorded recipients',list(plan.payments).map(p=>`${value(p.verifier)} · amount ${money(p.amount)} · withheld ${money(p.withheld??'0')}`),'No payments listed.');card.append(payment);}else card.append(el('p','No reviewer settlement record returned; absence alone does not establish that nothing is owed.','muted small'));
+  const refund=round.claim_refund_settlement;if(refund){const body=details('Claim refund record');body.append(el('p',String(refund.paid_at_block??'0')==='0'?'Recorded obligation awaiting transfer.':'Recorded transferred at block '+refund.paid_at_block+'.'));const meta=el('dl');field(meta,'Recipient',refund.recipient);field(meta,'Amount',money(refund.amount));field(meta,'Obligation created at block',refund.created_at_block);body.append(meta,el('p','Retained state observation, not an independent bank-transfer proof.','muted small'));card.append(body);}else card.append(el('p','No refund settlement record returned; absence alone does not establish that nothing is owed.','muted small'));
   return card;
 }
 function renderFact(entry){
@@ -87,7 +97,7 @@ function renderRecord(record,title){
   else{
     card.append(el('span',label('claim',claim.status),'badge'),el('p',value(claim.fact_content),'content'));
     const meta=el('dl');field(meta,'Author / submitter',claim.submitter);field(meta,'Submitted at block',claim.submitted_at_block);field(meta,'Domain / category',`${value(claim.domain)} / ${value(claim.category)}`);field(meta,'Method',claim.method_id);field(meta,'Review policy',claim.review_policy_version??0);field(meta,'Recorded stake field',claim.stake===undefined?'Not retained':`${claim.stake} uzrn`);card.append(meta);
-    card.append(el('p','The stake field has message-specific fee or deposit rules. It is not a payment or refund receipt.','muted small'));
+    card.append(el('p','The stake field has message-specific fee or deposit rules. It is not a payment or refund receipt.','muted small'),funding(claim));
     paragraph(card,'Reasoning',claim.reasoning_trace);paragraph(card,'Challenge / contradiction reason',claim.argument_text);
     if(claim.counter_claim)paragraph(card,'Counterclaim',claim.counter_claim);if(claim.rebuttal_text)paragraph(card,'Retained rebuttal',claim.rebuttal_text);
     items(card,'References',list(claim.references),'No references retained.');items(card,'Challenge evidence',list(claim.evidence_ids),'No challenge evidence retained.');

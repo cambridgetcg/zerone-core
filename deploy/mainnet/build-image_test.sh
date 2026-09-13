@@ -39,6 +39,7 @@ for required in \
   '/internal/recordmigration/context.go' \
   '/internal/reviewmigration/context.go' \
   '/internal/claimrecordmigration/context.go' \
+  '/internal/fundsettlementmigration/context.go' \
   '/runtime/entrypoint.sh' '/public/genesis.json'; do
   grep -q "${required}$" "${TMP}/context-files" || fail "context omitted ${required}"
 done
@@ -75,6 +76,9 @@ grep -q '^COPY internal/reviewmigration ./internal/reviewmigration$' \
 grep -q '^COPY internal/claimrecordmigration ./internal/claimrecordmigration$' \
   "${ROOT}/deploy/mainnet/Dockerfile" || \
   fail "Dockerfile omits the claim records migration dependency from its builder"
+grep -q '^COPY internal/fundsettlementmigration ./internal/fundsettlementmigration$' \
+  "${ROOT}/deploy/mainnet/Dockerfile" || \
+  fail "Dockerfile omits the fund settlement migration dependency from its builder"
 grep -q '^COPY internal/recordmigration ./internal/recordmigration$' \
   "${ROOT}/deploy/mainnet/Dockerfile" || \
   fail "Dockerfile omits the record integrity migration dependency from its builder"

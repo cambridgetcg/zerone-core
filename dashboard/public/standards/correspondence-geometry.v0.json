@@ -28,7 +28,7 @@
     {
       "id": "knowledge-types",
       "path": "proto/zerone/knowledge/v1/types.proto",
-      "sha256": "e5f38e3d1768d8b5a9cbf2a587ffa31b30dd12bf2028aa092cd745819c8633fb",
+      "sha256": "8f3175e0a3678298fd483d96922e325d48548245ab337309970419be7fabd34c",
       "role": "TYPED_KNOWLEDGE_SEMANTICS"
     },
     {

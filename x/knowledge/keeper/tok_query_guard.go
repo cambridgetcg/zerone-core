@@ -179,7 +179,7 @@ func validateToKStoredRecord(key, value []byte) error {
 		msg = v
 		expected = types.FactKey(v.Id)
 	case types.ClaimKeyPrefix[0]:
-		if err := types.ValidateRawPolicyField(value, types.ClaimReviewPolicyField); err != nil {
+		if err := validateRawClaimRecord(value); err != nil {
 			return err
 		}
 		v := &types.Claim{}
@@ -189,7 +189,7 @@ func validateToKStoredRecord(key, value []byte) error {
 		msg = v
 		expected = types.ClaimKey(v.Id)
 	case types.VerificationRoundKeyPrefix[0]:
-		if err := types.ValidateRawPolicyField(value, types.RoundReviewPolicyField); err != nil {
+		if err := validateRawRoundRecord(value); err != nil {
 			return err
 		}
 		v := &types.VerificationRound{}

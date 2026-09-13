@@ -34,11 +34,14 @@ export function validateHistory(value: unknown, requestedId: string): Row {
     const record = object(value, "claim history record");
     const id = claimId(record.claim_id);
     if (expected !== undefined && id !== expected) throw new Error("History claim ID mismatch");
-    if (record.claim != null && object(record.claim, "claim").id !== id) throw new Error("Stored claim identity mismatch");
+    if (record.claim != null) { const claim = object(record.claim, "claim"); if (claim.id !== id) throw new Error("Stored claim identity mismatch"); fundingSummary(claim); }
     for (const item of bounded(record.rounds)) {
       const round = object(item, "round");
       if (round.claim_id !== id) throw new Error("Round claim identity mismatch");
       claimId(round.id);
+      if (round.verifier_reward_settlement != null) bounded(object(round.verifier_reward_settlement).payments);
+      settlementSummary(round.verifier_reward_settlement, false);
+      settlementSummary(round.claim_refund_settlement, true);
       bounded(round.commits).forEach((v) => object(v, "commit"));
       bounded(round.reveals).forEach((v) => { const reveal = object(v, "reveal"); if (reveal.attestation != null) object(reveal.attestation, "attestation"); });
     }
@@ -72,7 +75,7 @@ export async function verifyDescriptor(bytes: Uint8Array, pins: DescriptorPins):
   const digest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", Uint8Array.from(bytes)))).map((v) => v.toString(16).padStart(2, "0")).join("");
   if (digest !== pins.descriptor) throw new Error("Network descriptor differs from the published SHA-256; stop and check the network notice");
   const value = object(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)), "network descriptor");
-  if (value.schema !== "zerone-shared-development/v1" || value.chain_id !== DEVELOPMENT_CHAIN || value.rpc_url !== DEVELOPMENT_GATEWAY || value.genesis_url !== `${DEVELOPMENT_GATEWAY}/genesis.json` || value.faucet_url !== `${DEVELOPMENT_GATEWAY}/faucet` || value.genesis_sha256 !== pins.genesis || value.rpc_genesis_sha256 !== pins.rpcGenesis || value.source_commit !== pins.source || value.runtime_binary_sha256 !== pins.binary || value.bootstrap_consensus !== "single-operator" || value.reset_policy !== "new-chain-id" || value.knowledge_version !== 10 || value.commitment_scheme !== 2 || value.review_policy_version !== 1 || value.local_test !== false || value.denom !== "uzrn" || value.gas_limit !== 2000000 || value.tx_fee_uzrn !== "2000000") throw new Error("Network descriptor identity or policy mismatch");
+  if (value.schema !== "zerone-shared-development/v1" || value.chain_id !== DEVELOPMENT_CHAIN || value.rpc_url !== DEVELOPMENT_GATEWAY || value.genesis_url !== `${DEVELOPMENT_GATEWAY}/genesis.json` || value.faucet_url !== `${DEVELOPMENT_GATEWAY}/faucet` || value.genesis_sha256 !== pins.genesis || value.rpc_genesis_sha256 !== pins.rpcGenesis || value.source_commit !== pins.source || value.runtime_binary_sha256 !== pins.binary || value.bootstrap_consensus !== "single-operator" || value.reset_policy !== "new-chain-id" || ![10, 11].includes(value.knowledge_version as number) || value.commitment_scheme !== 2 || value.review_policy_version !== 1 || value.local_test !== false || value.denom !== "uzrn" || value.gas_limit !== 2000000 || value.tx_fee_uzrn !== "2000000") throw new Error("Network descriptor identity or policy mismatch");
   return value;
 }
 
@@ -108,6 +111,42 @@ export function enumLabel(field: string, value: unknown): string {
   return `Unknown ${field}: ${String(value)}`;
 }
 
+/** Exact decimal observations; never infer historical terms from today's parameters. */
+export function money(value: unknown): string {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]*)$/u.test(value) || value.length > 20 || BigInt(value) > 18446744073709551615n) throw new Error("Malformed recorded uzrn amount");
+  const amount = BigInt(value);
+  return `${amount / 1000000n}.${(amount % 1000000n).toString().padStart(6, "0")} development ZRN (${value} uzrn)`;
+}
+export function fundingSummary(claim: Row): [string, string][] {
+  if (claim.funding_terms == null) return [["Funding terms", "No prospective funding terms retained. Historical message-specific rules apply; this is not a zero balance or a promise of a refund."]];
+  const terms = object(claim.funding_terms);
+  if (terms.policy_version !== 1) throw new Error("Unsupported funding policy");
+  const kind = terms.kind;
+  const title = kind === 1 || kind === "CLAIM_FUNDING_KIND_REVIEW_FEE" ? "Ordinary review fee" : kind === 2 || kind === "CLAIM_FUNDING_KIND_CHALLENGE_DEPOSIT" ? "Challenge deposit" : null;
+  if (!title) throw new Error("Unsupported funding kind");
+  const result: [string, string][] = [["Funding policy 1", title]];
+  for (const [key, label] of [["paid_amount", "Recorded admission amount"], ["review_budget", "Review budget"], ["refundable_amount", "Refundable allocation"], ["retained_fee", "Retained non-refundable fee"]] as const) result.push([label, money(terms[key])]);
+  if (BigInt(terms.paid_amount as string) !== BigInt(terms.review_budget as string) + BigInt(terms.refundable_amount as string) + BigInt(terms.retained_fee as string)) throw new Error("Recorded funding allocations do not sum to the admission amount");
+  result.push(["Scope", "Network transaction fees are separate. Allocations are instructions; the round's payment and refund records show whether transfer has been recorded."]);
+  return result;
+}
+export function settlementSummary(value: unknown, refund: boolean): [string, string][] {
+  const label = refund ? "Claim refund" : "Reviewer payments";
+  if (value == null) return [[label, "No settlement record returned. Absence alone does not establish that nothing is owed."]];
+  const plan = object(value);
+  const created = height(plan.created_at_block);
+  const paid = height(plan.paid_at_block ?? "0");
+  if (created === "0" || (paid !== "0" && BigInt(paid) < BigInt(created))) throw new Error("Malformed settlement heights");
+  const result: [string, string][] = [[label, paid === "0" ? "Recorded obligation awaiting transfer" : `Recorded transferred at block ${paid}`], ["Obligation created at block", created]];
+  if (refund) { result.push(["Refund recipient", claimId(plan.recipient)], ["Refund amount", money(plan.amount)]); }
+  else {
+    for (const item of rows(plan.payments)) { const payment = object(item); result.push([`Reviewer ${claimId(payment.verifier)}`, `${money(payment.amount)}; withheld ${money(payment.withheld ?? "0")}`]); }
+    result.push(["Withheld total", money(plan.withheld_total ?? "0")]);
+  }
+  result.push(["Evidence limit", "This retained state observation is not an independent bank-transfer proof or evidence that the verdict is true."]);
+  return result;
+}
+
 const node = (tag: string, text?: string, className?: string): HTMLElement => { const element = document.createElement(tag); if (text !== undefined) element.textContent = text; if (className) element.className = className; return element; };
 const display = (value: unknown): string => value === undefined || value === null || value === "" ? "Not recorded" : typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : JSON.stringify(value);
 function field(parent: HTMLElement, label: string, value: unknown): void { parent.append(node("p", label, "record-label"), node("p", display(value), "record-value")); }
@@ -122,6 +161,8 @@ export function renderHistory(response: Row): DocumentFragment {
       const claim = object(record.claim); field(card, "Author / submitter", claim.submitter); field(card, "Claim", claim.fact_content); field(card, "Claim status", enumLabel("CLAIM_STATUS", claim.status));
       for (const [key, label] of [["method_id", "Method"], ["reasoning_trace", "Reasoning"], ["argument_text", "Argument"], ["rebuttal_text", "Rebuttal"], ["evidence_ids", "Evidence references"], ["references", "References"], ["challenged_claim_id", "Challenged claim"], ["provisional_fact_id", "Provisional / challenged fact"]]) field(card, label!, claim[key!]);
       field(card, "Submitted at block", claim.submitted_at_block);
+      const funding = details(card, "Funding terms and allocations");
+      for (const [label, text] of fundingSummary(claim)) field(funding, label, text);
     }
     const rounds = rows(record.rounds);
     if (!rounds.length) card.append(node("p", "No retained rounds returned for this claim."));
@@ -136,7 +177,8 @@ export function renderHistory(response: Row): DocumentFragment {
         if (review.attestation == null) reviewPanel.append(node("p", "No reasoned attestation retained for this review."));
         else for (const [key, label] of [["reason", "Reason / check performed"], ["scope", "Scope and limits"], ["method_id", "Method"], ["evidence_ids", "Evidence references"]]) field(reviewPanel, label!, object(review.attestation)[key!]);
       }
-      if (round.verifier_reward_settlement != null) { const plan = object(round.verifier_reward_settlement); field(panel, "Verifier payment record", plan.paid_at_block && plan.paid_at_block !== "0" ? `Recorded paid at block ${display(plan.paid_at_block)}` : "Pending recorded settlement"); panel.append(node("p", "This is a retained settlement record, not an independently verified bank transfer or evidence that the verdict is true.")); }
+      const payments = details(panel, "Reviewer payments and claim refund");
+      for (const [label, text] of [...settlementSummary(round.verifier_reward_settlement, false), ...settlementSummary(round.claim_refund_settlement, true)]) field(payments, label, text);
     }
     const facts = rows(record.facts); if (!facts.length) card.append(node("p", "No derived facts returned for this claim."));
     for (const item of facts) {

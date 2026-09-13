@@ -207,6 +207,14 @@ export declare enum AugmentationVerdict {
 }
 export declare function augmentationVerdictFromJSON(object: any): AugmentationVerdict;
 export declare function augmentationVerdictToJSON(object: AugmentationVerdict): string;
+export declare enum ClaimFundingKind {
+    CLAIM_FUNDING_KIND_UNSPECIFIED = 0,
+    CLAIM_FUNDING_KIND_REVIEW_FEE = 1,
+    CLAIM_FUNDING_KIND_CHALLENGE_DEPOSIT = 2,
+    UNRECOGNIZED = -1
+}
+export declare function claimFundingKindFromJSON(object: any): ClaimFundingKind;
+export declare function claimFundingKindToJSON(object: ClaimFundingKind): string;
 /**
  * StepInference names the epistemic move a single reasoning step makes.
  * Distinct from InferenceType (which describes a FactRelation edge) — this
@@ -1569,6 +1577,26 @@ export interface Claim {
      * Immutable admission terms: 0 preserves predecessor economics; 1 records neutral review work.
      */
     reviewPolicyVersion: number;
+    /**
+     * Immutable prospective funding instructions. Absence does not establish a
+     * refundable obligation for historical claims or unassigned module balances.
+     */
+    fundingTerms?: ClaimFundingTerms;
+}
+/**
+ * Amounts are canonical uzrn decimal strings fixed at admission. The review
+ * budget, refundable amount and retained fee sum to the amount actually paid.
+ * @name ClaimFundingTerms
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ClaimFundingTerms
+ */
+export interface ClaimFundingTerms {
+    policyVersion: number;
+    kind: ClaimFundingKind;
+    paidAmount: string;
+    reviewBudget: string;
+    refundableAmount: string;
+    retainedFee: string;
 }
 /**
  * VerificationRound tracks one commit-reveal verification cycle.
@@ -1602,6 +1630,20 @@ export interface VerificationRound {
      * Copied from the claim; independent of commitment framing and block height.
      */
     reviewPolicyVersion: number;
+    claimRefundSettlement?: ClaimRefundSettlement;
+}
+/**
+ * A positive finalized refund, paid atomically with any verifier payments.
+ * paid_at_block 0 is a retained unpaid obligation, not a completed transfer.
+ * @name ClaimRefundSettlement
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ClaimRefundSettlement
+ */
+export interface ClaimRefundSettlement {
+    recipient: string;
+    amount: string;
+    createdAtBlock: bigint;
+    paidAtBlock: bigint;
 }
 /**
  * ReviewAttestation records what the signer says they checked. It is not proof
@@ -2963,6 +3005,19 @@ export declare const Claim: {
     fromPartial(object: DeepPartial<Claim>): Claim;
 };
 /**
+ * Amounts are canonical uzrn decimal strings fixed at admission. The review
+ * budget, refundable amount and retained fee sum to the amount actually paid.
+ * @name ClaimFundingTerms
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ClaimFundingTerms
+ */
+export declare const ClaimFundingTerms: {
+    typeUrl: string;
+    encode(message: ClaimFundingTerms, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): ClaimFundingTerms;
+    fromPartial(object: DeepPartial<ClaimFundingTerms>): ClaimFundingTerms;
+};
+/**
  * VerificationRound tracks one commit-reveal verification cycle.
  * @name VerificationRound
  * @package zerone.knowledge.v1
@@ -2973,6 +3028,19 @@ export declare const VerificationRound: {
     encode(message: VerificationRound, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): VerificationRound;
     fromPartial(object: DeepPartial<VerificationRound>): VerificationRound;
+};
+/**
+ * A positive finalized refund, paid atomically with any verifier payments.
+ * paid_at_block 0 is a retained unpaid obligation, not a completed transfer.
+ * @name ClaimRefundSettlement
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ClaimRefundSettlement
+ */
+export declare const ClaimRefundSettlement: {
+    typeUrl: string;
+    encode(message: ClaimRefundSettlement, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): ClaimRefundSettlement;
+    fromPartial(object: DeepPartial<ClaimRefundSettlement>): ClaimRefundSettlement;
 };
 /**
  * ReviewAttestation records what the signer says they checked. It is not proof

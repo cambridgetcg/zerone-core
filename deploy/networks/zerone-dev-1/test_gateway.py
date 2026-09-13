@@ -85,6 +85,41 @@ class FakeNode:
         return {"chain_id": g.CHAIN, "block_height": "10", "record": {"claim_id": identifier}}
 
 
+class DescriptorUpgradeTest(unittest.TestCase):
+    def test_original_descriptor_is_preserved_and_target_requires_applied_mode(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            node = g.Node.__new__(g.Node)
+            node.home = Path(temporary)
+            node.rpc = "http://127.0.0.1:26657"
+            node.genesis_hash = "a" * 64
+            node.manifest = {"source_commit": "b" * 40, "binary_sha256": "c" * 64,
+                "advertised_peer": "d" * 40 + "@127.0.0.1:26656", "node_id": "d" * 40,
+                "review_window_blocks": 3600, "local_test": True, "gateway_port": 8080}
+            node.upgrade_packet = None
+            node.ready = lambda: 10
+            node.call = lambda method: {"genesis": {"chain_id": g.CHAIN, "app_state": {"knowledge": {}}}}
+            node.cli = lambda *args: b'{"module_versions":[{"name":"knowledge","version":"10"}]}'
+            self.assertEqual(node.descriptor()["knowledge_version"], 10)
+            original = (node.home / "public/network.json").read_bytes()
+            node.cli = lambda *args: b'{"module_versions":[{"name":"knowledge","version":"11"}]}'
+            with self.assertRaisesRegex(g.GatewayError, "explicit staged"):
+                node.descriptor()
+            self.assertFalse((node.home / "public/network-knowledge-11.json").exists())
+            # Node.__init__ admits this mode only after actual applied checks.
+            node.upgrade_packet = {"test": "already checked constructor"}
+            node.manifest.update(source_commit="e" * 40, binary_sha256="f" * 64)
+            self.assertEqual(node.descriptor()["knowledge_version"], 11)
+            target = node.descriptor_bytes
+            self.assertEqual((node.home / "public/network.json").read_bytes(), original)
+            self.assertNotEqual(target, original)
+            self.assertEqual(node.descriptor()["knowledge_version"], 11)
+            self.assertEqual(node.descriptor_bytes, target)
+            node.manifest["binary_sha256"] = "0" * 64
+            with self.assertRaisesRegex(g.GatewayError, "no automatic rewrite"):
+                node.descriptor()
+            self.assertEqual((node.home / "public/network-knowledge-11.json").read_bytes(), target)
+
+
 class FaucetTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()

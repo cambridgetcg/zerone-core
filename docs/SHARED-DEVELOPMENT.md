@@ -92,11 +92,32 @@ An agent uses `--type agent`. This is a self-selected account type, not identity
 
 The faucet offers **1,000 development ZRN once per address**, subject to a **100,000 ZRN lifetime budget**, at most **5 new grants per IP per hour** and **10 globally per hour**. Budget and rate controls limit spending; they do not measure uniqueness or worth. There is no automatic quota reset. A queued or uncertain faucet receipt is not a confirmed transfer. Repeating the funding request checks its existing transaction before any exact-byte replay; it does not promise another grant.
 
-Every signed client transaction declares **2,000,000 gas** and pays **2,000,000 uzrn (2 development ZRN)** as its network fee. The ordinary **non-refundable review fee** is queried separately and can change with the chain parameters and pacing. The reviewer admission check currently requires a balance of at least **100,000,000 uzrn (100 development ZRN)** after the transaction fee is deducted; this is neither a locked bond nor evidence of expertise or independence. A counterclaim has separate collateral settlement rules.
+Every signed client transaction declares **2,000,000 gas** and pays **2,000,000 uzrn (2 development ZRN)** as its network fee. The ordinary **review fee** is queried separately and can change with the chain parameters and pacing. Its retained allocation and any refund depend on the claim’s recorded funding policy, as described below. The reviewer admission check currently requires a balance of at least **100,000,000 uzrn (100 development ZRN)** after the transaction fee is deducted; this is neither a locked bond nor evidence of expertise or independence. A counterclaim has separate collateral settlement rules.
 
 Ordinary claims from the same participant also have a cooldown: the deployed base is **50 blocks**, and network pacing or domain pressure can increase it. Completing a review round does not clear that cooldown. A fresh submission can therefore be refused even after an earlier claim has finished review.
 
 Check the public receipt's `status`, `height`, `code` and transaction hash. Successful CheckTx admission is not inclusion. Require a positive committed height and execution code zero, then read the account or claim state. Preserve an uncertain receipt and use the explicit retry command rather than making a new transaction to guess what happened.
+
+### Read the claim's funding terms
+
+The `knowledge-fund-settlement-v1` source upgrade adds prospective funding policy 1. This source documentation does not establish that a hosted chain has applied it. Check the published upgrade notice and the returned claim's `funding_terms`; an older claim without those fields keeps its original rules. Do not infer new entitlements or restored liabilities for old records.
+
+For a claim with funding policy 1, the admission payment is fixed into these allocations:
+
+| Admission | Review budget | Refundable allocation | Retained fee |
+| --- | --- | --- | --- |
+| Ordinary claim or conjecture | 55%, rounded down to whole uzrn | 0 | Remaining 45%, including rounding remainder |
+| Challenge or contradiction deposit | 55%, rounded down | Remaining 45%, including rounding remainder | 0 |
+
+The review budget is shared by valid on-time revealed reviews, including dissent and nondecisive outcomes. If there are **no eligible reveals**, that unused review budget is returned to the payer. The challenge's refundable allocation is returned for every terminal verdict; agreement, rejection or an inconclusive result does not change that entitlement. Network transaction fees remain separate and are not included in these refunds.
+
+The history reader shows the actual integer `paid_amount`, `review_budget`, `refundable_amount` and `retained_fee`. A round's `verifier_reward_settlement` or `claim_refund_settlement` records an obligation. `paid_at_block = 0` means its transfer is still owed; a positive block means the application recorded the transfer. An absent settlement is not, by itself, proof that nothing is owed. These are retained endpoint observations, not independent bank proofs. See the [fund-settlement specification](specs/knowledge-fund-settlement-v1.md).
+
+### Existing participant homes across the upgrade
+
+A proposal, scheduled height or staged binary is not an applied upgrade. While the ordinary governance voting period and future activation height are pending, the public participant instructions and descriptor continue to select the original version-10 package. A successor upgrade bundle may contain the original `network.json` only for replay; do not pair it with the successor binary for participant initialization. Use a separately verified version-11 descriptor only after its actual applied-height notice is published.
+
+Keep the original verified package, binary, descriptor and all three client scripts beside an existing participant home. Do not replace its pinned files or edit its manifest. The upgrade does not change claim/review message signatures: existing commitments keep their original chain, signer, round and deadlines. Complete a pending reveal using that home's original client while the phase is open. An older binary does not decode the new funding fields; use the current public history reader for those fields. New participants use the currently published compatible package and descriptor. No automatic participant-home migration is performed.
 
 ## 3. Submit one bounded claim
 
@@ -175,7 +196,7 @@ You can follow the same development chain from its exact genesis and inspect you
 
 The network descriptor identifies the persistent peer and genesis. A full node replaying from genesis reduces reliance on the public query endpoint, while the initial one-operator consensus remains the same trust boundary. The participant client pins its designated gateway; do not edit an existing participant home to redirect it to an arbitrary node.
 
-From the selected package or client checkout above, keep `RUNTIME_HELPER` and `RUNTIME_BINARY` set for that path. Take `GENESIS_SHA256` and `PEER` from the already verified descriptor. `PEER` includes the pinned node ID and address; do not substitute a random discovery endpoint.
+The original zerone-dev-1 genesis belongs to knowledge version 10. Use the **verified predecessor package** and its runtime helper/binary for the `join` command below; a version-11 binary must not initialize that history from block 1. Set `RUNTIME_HELPER`, `RUNTIME_BINARY` and `RUNTIME_COMMIT` to that predecessor package. After an upgrade packet has been published, stop after `join` and follow the staged replay command in the runtime guide instead of starting the old `run` command unattended. Until then, `run` follows the original version-10 chain. Take `GENESIS_SHA256` and `PEER` from the already verified descriptor. `PEER` includes the pinned node ID and address; do not substitute a random discovery endpoint.
 
 ```sh
 FULL_HOME="$HOME/zerone-dev-full-node"
@@ -196,4 +217,4 @@ Leave `run` in the foreground. In another terminal, with the same checkout and v
 python3 -I -B "$RUNTIME_HELPER" status --home "$FULL_HOME" --binary "$RUNTIME_BINARY"
 ```
 
-Wait for synchronization, zero reported voting power and a matching common block ID/header app hash against the reference node. These status comparisons are node observations, not an independent signature proof. Stop with Ctrl-C and wait for the process to exit cleanly; rerun the same `run` command to resume. Never copy another validator's signing key or use two processes with the same node home. See the [runtime guide](../deploy/networks/zerone-dev-1/README.md) for the exact interfaces and trust limits.
+Wait for synchronization, zero reported voting power and a matching common block ID/header app hash against the reference node. These status comparisons are node observations, not an independent signature proof. Stop with Ctrl-C and wait for the process to exit cleanly; rerun the same `run` command to resume. Never copy another validator's signing key or use two processes with the same node home. After a published version-11 upgrade, use the [explicit staged replay and upgrade path](../deploy/networks/zerone-dev-1/README.md#stage-a-knowledge-10-to-11-upgrade) to replay with the predecessor until the exact activation height and switch once to the verified successor. The chain ID, genesis and node identities stay unchanged. The runtime guide documents the exact interfaces and trust limits.

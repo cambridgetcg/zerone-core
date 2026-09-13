@@ -179,6 +179,9 @@ func (k Keeper) SetClaim(ctx context.Context, claim *types.Claim) error {
 	if _, err := k.ClaimReviewPolicyVersion(ctx, claim); err != nil {
 		return err
 	}
+	if err := k.validateClaimFunding(ctx, claim); err != nil {
+		return err
+	}
 	if hasUnknownRecordFields(claim.ProtoReflect()) {
 		return fmt.Errorf("unsupported claim fields")
 	}
@@ -188,7 +191,7 @@ func (k Keeper) SetClaim(ctx context.Context, claim *types.Claim) error {
 		return fmt.Errorf("read prior claim: %w", err)
 	}
 	if previousBytes != nil {
-		if err := types.ValidateRawPolicyField(previousBytes, types.ClaimReviewPolicyField); err != nil {
+		if err := validateRawClaimRecord(previousBytes); err != nil {
 			return err
 		}
 		var previous types.Claim
@@ -197,6 +200,9 @@ func (k Keeper) SetClaim(ctx context.Context, claim *types.Claim) error {
 		}
 		if previous.Id != claim.Id || previous.ReviewPolicyVersion != claim.ReviewPolicyVersion {
 			return fmt.Errorf("claim identity and review policy are immutable")
+		}
+		if err := types.ValidateClaimFundingUpdate(&previous, claim); err != nil {
+			return err
 		}
 	}
 
@@ -224,7 +230,7 @@ func (k Keeper) GetClaim(ctx context.Context, id string) (*types.Claim, bool) {
 	if err != nil || bz == nil {
 		return nil, false
 	}
-	if err := types.ValidateRawPolicyField(bz, types.ClaimReviewPolicyField); err != nil {
+	if err := validateRawClaimRecord(bz); err != nil {
 		return nil, false
 	}
 	var claim types.Claim
@@ -235,6 +241,13 @@ func (k Keeper) GetClaim(ctx context.Context, id string) (*types.Claim, bool) {
 }
 
 func (k Keeper) DeleteClaim(ctx context.Context, id string) error {
+	claim, err := k.getClaimRecordChecked(ctx, id)
+	if err != nil {
+		return err
+	}
+	if claim != nil && claim.FundingTerms != nil {
+		return fmt.Errorf("funded claim and its payment history must be retained")
+	}
 	store := k.storeService.OpenKVStore(ctx)
 	return store.Delete(types.ClaimKey(id))
 }
@@ -247,7 +260,7 @@ func (k Keeper) IterateClaims(ctx context.Context, cb func(claim *types.Claim) b
 	}
 	defer iter.Close()
 	for ; iter.Valid(); iter.Next() {
-		if err := types.ValidateRawPolicyField(iter.Value(), types.ClaimReviewPolicyField); err != nil {
+		if err := validateRawClaimRecord(iter.Value()); err != nil {
 			continue
 		}
 		var claim types.Claim
@@ -283,12 +296,13 @@ func (k Keeper) SetVerificationRound(ctx context.Context, round *types.Verificat
 	if err := types.ValidateReviewPolicyVersion(round.ReviewPolicyVersion, neutral); err != nil {
 		return err
 	}
+	var fundingClaim *types.Claim
 	claimBytes, err := k.storeService.OpenKVStore(ctx).Get(types.ClaimKey(round.ClaimId))
 	if err != nil {
 		return err
 	}
 	if claimBytes != nil {
-		if err := types.ValidateRawPolicyField(claimBytes, types.ClaimReviewPolicyField); err != nil {
+		if err := validateRawClaimRecord(claimBytes); err != nil {
 			return err
 		}
 		var claim types.Claim
@@ -298,6 +312,10 @@ func (k Keeper) SetVerificationRound(ctx context.Context, round *types.Verificat
 		if claim.Id != round.ClaimId || claim.ReviewPolicyVersion != round.ReviewPolicyVersion {
 			return fmt.Errorf("round claim review policy mismatch")
 		}
+		if err := k.validateClaimFunding(ctx, &claim); err != nil {
+			return err
+		}
+		fundingClaim = &claim
 	} else if round.ReviewPolicyVersion == types.ReviewPolicyNeutral {
 		return fmt.Errorf("neutral round requires recorded claim")
 	}
@@ -319,6 +337,13 @@ func (k Keeper) SetVerificationRound(ctx context.Context, round *types.Verificat
 	if err := types.ValidateVerificationRoundRecord(round, true); err != nil {
 		return err
 	}
+	if fundingClaim != nil {
+		if err := types.ValidateClaimFundingRound(fundingClaim, round); err != nil {
+			return err
+		}
+	} else if round.ClaimRefundSettlement != nil {
+		return fmt.Errorf("claim refund requires its recorded funding terms")
+	}
 	store := k.storeService.OpenKVStore(ctx)
 	previousBytes, err := store.Get(types.RoundKey(round.Id))
 	if err != nil {
@@ -326,7 +351,7 @@ func (k Keeper) SetVerificationRound(ctx context.Context, round *types.Verificat
 	}
 	var previous *types.VerificationRound
 	if previousBytes != nil {
-		if err := types.ValidateRawPolicyField(previousBytes, types.RoundReviewPolicyField); err != nil {
+		if err := validateRawRoundRecord(previousBytes); err != nil {
 			return err
 		}
 		previous = new(types.VerificationRound)
@@ -364,6 +389,9 @@ func (k Keeper) SetVerificationRound(ctx context.Context, round *types.Verificat
 		}
 	}
 	if err := types.ValidateVerifierRewardSettlementUpdate(previous, round); err != nil {
+		return err
+	}
+	if err := types.ValidateClaimRefundSettlementUpdate(previous, round); err != nil {
 		return err
 	}
 	indexed, err := store.Get(types.ClaimRoundIndexKey(round.ClaimId))
@@ -434,7 +462,7 @@ func (k Keeper) GetVerificationRound(ctx context.Context, id string) (*types.Ver
 	if err != nil || bz == nil {
 		return nil, false
 	}
-	if err := types.ValidateRawPolicyField(bz, types.RoundReviewPolicyField); err != nil {
+	if err := validateRawRoundRecord(bz); err != nil {
 		return nil, false
 	}
 	var round types.VerificationRound
@@ -446,6 +474,23 @@ func (k Keeper) GetVerificationRound(ctx context.Context, id string) (*types.Ver
 
 func (k Keeper) DeleteVerificationRound(ctx context.Context, id string) error {
 	store := k.storeService.OpenKVStore(ctx)
+	raw, err := store.Get(types.RoundKey(id))
+	if err != nil {
+		return err
+	}
+	if raw != nil {
+		round, err := k.getVerificationRoundChecked(ctx, id)
+		if err != nil {
+			return err
+		}
+		claim, err := k.getClaimRecordChecked(ctx, round.ClaimId)
+		if err != nil {
+			return err
+		}
+		if round.ClaimRefundSettlement != nil || (claim != nil && claim.FundingTerms != nil) {
+			return fmt.Errorf("funded verification round and its payment history must be retained")
+		}
+	}
 	_ = store.Delete(activeRoundKey(id))
 	return store.Delete(types.RoundKey(id))
 }

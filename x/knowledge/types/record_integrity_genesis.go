@@ -6,6 +6,9 @@ import "fmt"
 // records remain scheme 0; enabling a native/imported genesis does not upgrade
 // their payload, review confidence or historical payment representation.
 func ValidateGenesisRounds(gs *GenesisState) error {
+	if gs.FundSettlementEnabled && !gs.ClaimRecordsEnabled {
+		return fmt.Errorf("fund settlement requires claim records")
+	}
 	if gs.ClaimRecordsEnabled && !gs.ReviewNeutralityEnabled {
 		return fmt.Errorf("claim records requires review neutrality")
 	}
@@ -21,6 +24,9 @@ func ValidateGenesisRounds(gs *GenesisState) error {
 			return fmt.Errorf("duplicate claim ID: %s", claim.Id)
 		}
 		if err := ValidateReviewPolicyVersion(claim.ReviewPolicyVersion, gs.ReviewNeutralityEnabled); err != nil {
+			return err
+		}
+		if err := ValidateClaimFundingTerms(claim, gs.FundSettlementEnabled); err != nil {
 			return err
 		}
 		claims[claim.Id] = claim
@@ -53,6 +59,9 @@ func ValidateGenesisRounds(gs *GenesisState) error {
 			if claims[round.ClaimId] == nil {
 				return fmt.Errorf("genesis round %s references missing claim %s", round.Id, round.ClaimId)
 			}
+			if err := ValidateClaimFundingRound(claims[round.ClaimId], round); err != nil {
+				return err
+			}
 		}
 	}
 	// Old exports omitted terminal rounds. An absent legacy reverse reference
@@ -60,6 +69,9 @@ func ValidateGenesisRounds(gs *GenesisState) error {
 	// is supplied, its primary claim identity must agree with the claim pointer.
 	for _, claim := range claims {
 		round := seen[claim.VerificationRoundId]
+		if claim.FundingTerms != nil && (claim.VerificationRoundId == "" || round == nil || counts[claim.Id] != 1) {
+			return fmt.Errorf("funded genesis claim requires exactly one selected retained round")
+		}
 		if counts[claim.Id] > 1 && round == nil {
 			return fmt.Errorf("multiple genesis rounds require an explicit selected round for claim %s", claim.Id)
 		}

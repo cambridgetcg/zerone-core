@@ -11,31 +11,36 @@ import (
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
-// ─── Conjecture: the chain holds a question open ────────────────────────────
-//
-// Every other earning path in this module terminates in "a verification panel
-// said ACCEPT". That makes expected revenue monotone in how already-known a
-// claim is, which is the correct incentive for settled knowledge and exactly
-// the wrong one for a frontier: a proposition that cannot be settled yet has
-// negative expected value under every existing message, because the review fee
-// is spent at submission and no payout can follow.
-//
-// A conjecture severs that link. It asserts nothing, so there is nothing for a
-// panel to accept as true; the panel is asked only whether the proposition is
-// WELL-POSED AND FALSIFIABLE. It earns its proposer nothing at all. The single
-// paid act against a live conjecture is MsgChallengeProvisionalFact — which has
-// existed, fully implemented and CLI-exposed, since before this file: its
-// status gate requires FACT_STATUS_PROVISIONAL, and until now no code path in
-// the module ever wrote that status. This handler is the ignition for machinery
-// that was already built.
-//
-// The asymmetry is the point. You cannot be paid for asserting; you can only be
-// paid for destroying. And because handleChallengeSurvival already increments
-// CorroborationCount on the provisional-challenge path, the price of destroying
-// a conjecture rises with how many probes it has already survived.
+// A conjecture asks whether a proposition is well-posed and falsifiable; it
+// does not assert that the proposition is true. Its review uses the ordinary
+// fee schedule. New funding terms distinguish paid review work from an unused
+// budget without creating an author reward or changing scientific judgment.
 
 // PostConjecture places an unsettled proposition into the graph.
 func (m *msgServer) PostConjecture(ctx context.Context, msg *types.MsgPostConjecture) (*types.MsgPostConjectureResponse, error) {
+	if msg == nil {
+		return nil, fmt.Errorf("conjecture is required")
+	}
+	funded, err := m.keeper.FundSettlementEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !funded {
+		return m.postConjecture(ctx, msg, false)
+	}
+	if len(msg.ProtoReflect().GetUnknown()) != 0 {
+		return nil, fmt.Errorf("unsupported conjecture fields")
+	}
+	cache, commit := sdk.UnwrapSDKContext(ctx).CacheContext()
+	response, err := m.postConjecture(cache, msg, true)
+	if err != nil {
+		return nil, err
+	}
+	commit()
+	return response, nil
+}
+
+func (m *msgServer) postConjecture(ctx context.Context, msg *types.MsgPostConjecture, funded bool) (*types.MsgPostConjectureResponse, error) {
 	reviewPolicy, err := m.keeper.reviewPolicyAtAdmission(ctx)
 	if err != nil {
 		return nil, err
@@ -80,15 +85,15 @@ func (m *msgServer) PostConjecture(ctx context.Context, msg *types.MsgPostConjec
 	}
 
 	// ─── Review fee: identical schedule to an ordinary claim ────────────
-	// A conjecture costs exactly what a claim costs and refunds exactly as
-	// much: nothing. Charging less would make conjectures the cheap way to
-	// occupy graph space; charging more would tax asking questions.
-	// Deliberately NOT sponsorable — the bootstrap fund exists to seed
-	// verifiable knowledge, and a fund that pays for unfalsified
-	// propositions is a fund that can be drained by asking.
+	// The ordinary funding policy applies prospectively, including returning
+	// the unused reviewer budget when nobody provides an eligible review.
+	// Historical gate-off requests retain their non-refundable fee terms.
 	stakeAmt, ok := new(big.Int).SetString(msg.Stake, 10)
 	if !ok || stakeAmt.Sign() <= 0 {
 		return nil, fmt.Errorf("invalid review fee amount: %s", msg.Stake)
+	}
+	if funded && !stakeAmt.IsUint64() {
+		return nil, fmt.Errorf("review fee exceeds supported uint64 accounting range")
 	}
 	effectiveMinFee := m.keeper.GetEffectiveMinReviewFee(ctx)
 	minFee, _ := new(big.Int).SetString(effectiveMinFee, 10)
@@ -123,6 +128,9 @@ func (m *msgServer) PostConjecture(ctx context.Context, msg *types.MsgPostConjec
 			return nil, fmt.Errorf("failed to collect review fee: %w", err)
 		}
 		if err := m.keeper.distributeReviewFee(ctx, stakeAmt.Uint64()); err != nil {
+			if funded {
+				return nil, fmt.Errorf("failed to distribute review fee: %w", err)
+			}
 			m.keeper.Logger(ctx).Error("failed to distribute review fee", "error", err)
 		}
 	}
@@ -153,6 +161,9 @@ func (m *msgServer) PostConjecture(ctx context.Context, msg *types.MsgPostConjec
 		FalsificationPredicate: msg.FalsificationPredicate,
 	}
 
+	if err := m.keeper.setClaimFundingTerms(ctx, claim, types.ClaimFundingKind_CLAIM_FUNDING_KIND_REVIEW_FEE); err != nil {
+		return nil, err
+	}
 	if err := m.keeper.SetClaim(ctx, claim); err != nil {
 		return nil, err
 	}

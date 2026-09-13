@@ -60,6 +60,12 @@ func emitKarmaEdgeState(sdkCtx sdk.Context, kind, state, beneficiary, counterpar
 
 // CreateVerificationRound creates a new verification round for a claim.
 func (k Keeper) CreateVerificationRound(ctx context.Context, claim *types.Claim) (*types.VerificationRound, error) {
+	if claim == nil {
+		return nil, fmt.Errorf("claim is required")
+	}
+	if claim.FundingTerms != nil && claim.VerificationRoundId != "" {
+		return nil, fmt.Errorf("funded claim already has its sole verification round")
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
@@ -174,7 +180,7 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	proto.Merge(round, working)
 	// Funding failure keeps the scientific result and its exact unpaid
 	// obligation. Each retry transfers the complete frozen batch atomically.
-	if working.VerifierRewardSettlement != nil {
+	if roundHasPendingFunds(working) {
 		if err := k.TrySettleVerifierRewards(ctx, working.Id); err != nil {
 			k.Logger(ctx).Error("verifier reward remains pending", "round_id", working.Id, "error", err)
 		}
@@ -299,6 +305,9 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 		if err := k.buildVerifierRewardSettlement(ctx, claim, round, result); err != nil {
 			return err
 		}
+		if err := k.buildClaimRefundSettlement(ctx, claim, round, result); err != nil {
+			return err
+		}
 	}
 	if err := k.SetVerificationRound(ctx, round); err != nil {
 		return err
@@ -306,6 +315,15 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 	if recordIntegrity && round.VerifierRewardSettlement != nil {
 		sdkCtx.EventManager().EmitEvent(sdk.NewEvent("zerone.knowledge.verifier_rewards_accrued",
 			sdk.NewAttribute("round_id", round.Id),
+			sdk.NewAttribute("payment_status", "pending"),
+		))
+	}
+	if refund := round.ClaimRefundSettlement; recordIntegrity && refund != nil {
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent("zerone.knowledge.claim_refund_accrued",
+			sdk.NewAttribute("claim_id", claim.Id),
+			sdk.NewAttribute("round_id", round.Id),
+			sdk.NewAttribute("recipient", refund.Recipient),
+			sdk.NewAttribute("amount_uzrn", refund.Amount),
 			sdk.NewAttribute("payment_status", "pending"),
 		))
 	}
@@ -399,7 +417,7 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 	// actor challenges bad facts. SuccessfulChallengeRewardBps controls the
 	// accepted-challenge bonus. FailedChallengeSlashBps is retained
 	// compatibility metadata; rejected-challenge routing below is fixed.
-	if claim.ProvisionalFactId != "" {
+	if claim.ProvisionalFactId != "" && claim.FundingTerms == nil {
 		if err := k.settleChallengeStake(ctx, claim, result.Verdict, params); err != nil {
 			return err
 		}

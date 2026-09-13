@@ -11,7 +11,7 @@ The checked-in Swagger 2.0 document is
 revision it contains:
 
 - 218 REST paths; and
-- 454 schema definitions.
+- 457 schema definitions.
 
 Those counts cover standard Cosmos APIs and the 23 custom Zerone modules.
 Transaction generation separately covers 169 request message types across 20
@@ -33,6 +33,8 @@ its protobuf sources win.
 For retained claim, review and direct challenge records, see the
 [ClaimHistory contract](specs/knowledge-claim-records-v1.md). It documents the
 CLI and RPC entry points, bounded scope, missing history and proof limits.
+The [fund settlement contract](specs/knowledge-fund-settlement-v1.md) defines
+prospective claim funding terms, reviewer payments and pending or paid refunds.
 
 ## Interfaces
 

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import argparse
 import base64
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path
+import platform
 import re
 import secrets
 import signal
@@ -30,6 +31,8 @@ MAX_JSON = 16 * 1024 * 1024
 VALIDATOR_ALLOCATION = 2_000_000_000_000
 VALIDATOR_BOND = 1_000_000_000_000
 FAUCET_ALLOCATION = 1_000_000_000_000
+UPGRADE_NAME = "knowledge-fund-settlement-v1"
+UPGRADE_DIRECTORY = "fund-settlement-upgrade"
 
 
 class RuntimeError(Exception):
@@ -80,6 +83,52 @@ def write_new(path, raw):
 
 def json_bytes(value):
     return (json.dumps(value, indent=2, sort_keys=True) + "\n").encode()
+
+
+def exact_fields(value, fields, label):
+    if not isinstance(value, dict) or set(value) != set(fields):
+        raise RuntimeError(f"Invalid {label} fields.")
+
+
+def hash_pin(value, length=64):
+    if not isinstance(value, str) or not re.fullmatch(rf"[0-9a-f]{{{length}}}", value) or set(value) == {"0"}:
+        raise RuntimeError("Expected an exact nonzero hash pin.")
+    return value
+
+
+def upgrade_platform():
+    name = (platform.system(), platform.machine().lower())
+    if name in (("Darwin", "arm64"), ("Darwin", "aarch64")):
+        return "darwin-arm64"
+    if name in (("Linux", "x86_64"), ("Linux", "amd64")):
+        return "linux-amd64"
+    raise RuntimeError("Upgrade packages support Linux AMD64 and Darwin ARM64 only.")
+
+
+def validate_upgrade_packet(packet):
+    exact_fields(packet, ("schema", "chain_id", "genesis_sha256", "predecessor_descriptor_sha256", "plan", "predecessor", "target"), "upgrade packet")
+    if packet["schema"] != "zerone-development-upgrade/v1" or packet["chain_id"] != CHAIN:
+        raise RuntimeError("Upgrade packet names another schema or chain.")
+    hash_pin(packet["genesis_sha256"])
+    hash_pin(packet["predecessor_descriptor_sha256"])
+    exact_fields(packet["plan"], ("name", "height", "info"), "upgrade plan")
+    if packet["plan"]["name"] != UPGRADE_NAME or packet["plan"]["info"] != "":
+        raise RuntimeError("Only the named fund-settlement upgrade with empty info is supported.")
+    height = integer(packet["plan"]["height"], "upgrade height", 2)
+    if type(packet["plan"]["height"]) is not str or height > (1 << 63) - 1:
+        raise RuntimeError("Upgrade height must be a canonical positive int64 string.")
+    for name, version in (("predecessor", 10), ("target", 11)):
+        release = packet[name]
+        exact_fields(release, ("knowledge_version", "source_commit", "binaries"), name)
+        if type(release["knowledge_version"]) is not int or release["knowledge_version"] != version:
+            raise RuntimeError("Unsupported upgrade knowledge versions.")
+        hash_pin(release["source_commit"], 40)
+        exact_fields(release["binaries"], ("linux-amd64", "darwin-arm64"), "platform binary pins")
+        for value in release["binaries"].values():
+            hash_pin(value)
+    if packet["target"]["source_commit"] == packet["predecessor"]["source_commit"]:
+        raise RuntimeError("An upgrade must identify a distinct target source.")
+    return packet
 
 
 def home_path(value):
@@ -166,7 +215,7 @@ def check_genesis(genesis):
     for module in ("zerone_staking", "zerone_gov"):
         if state[module].get("accounting_safety_enabled") is not True:
             raise RuntimeError("Genesis lacks native accounting safety.")
-    for field in ("record_integrity_enabled", "review_neutrality_enabled", "claim_records_enabled"):
+    for field in ("record_integrity_enabled", "review_neutrality_enabled", "claim_records_enabled", "fund_settlement_enabled"):
         if state["knowledge"].get(field) is not True:
             raise RuntimeError("Genesis lacks the current native knowledge flags.")
 
@@ -356,6 +405,102 @@ def load(home, binary):
     return manifest
 
 
+def stage_upgrade(args, home):
+    """Explicit preparation only: no node, signing, database writer or metadata replacement."""
+    with lock(home):
+        raw = read(Path(args.upgrade_packet), 32768)
+        if hashlib.sha256(raw).hexdigest() != hash_pin(args.upgrade_packet_sha256):
+            raise RuntimeError("Upgrade packet differs from its external pin.")
+        packet = validate_upgrade_packet(parse(raw))
+        manifest = load(home, args.predecessor_binary)
+        selected = upgrade_platform()
+        if manifest["genesis_sha256"] != packet["genesis_sha256"] or manifest["source_commit"] != packet["predecessor"]["source_commit"] or manifest["binary_sha256"] != packet["predecessor"]["binaries"][selected]:
+            raise RuntimeError("Upgrade predecessor does not match this initialized home.")
+        if manifest["role"] == "validator" and digest(home / "public/network.json") != packet["predecessor_descriptor_sha256"]:
+            raise RuntimeError("Upgrade predecessor descriptor does not match the preserved publication.")
+        binaries = {}
+        for name, path in (("predecessor", args.predecessor_binary), ("target", args.binary)):
+            binaries[name] = read(Path(path), 256 * 1024 * 1024)
+            if hashlib.sha256(binaries[name]).hexdigest() != packet[name]["binaries"][selected]:
+                raise RuntimeError(f"Wrong {name} binary for the selected upgrade platform.")
+        directory = home / UPGRADE_DIRECTORY
+        directory.mkdir(mode=0o700)  # Existing/partial preparation is preserved and refused.
+        write_new(directory / "packet.json", raw)
+        for name, raw_binary in binaries.items():
+            path = directory / (name + "-zeroned")
+            write_new(path, raw_binary)
+            path.chmod(0o500)
+            binary_identity(path, packet[name]["source_commit"])
+        write_new(directory / "stage.json", json_bytes({"schema": "zerone-development-upgrade-stage/v1",
+            "packet_sha256": args.upgrade_packet_sha256, "platform": selected,
+            "original_manifest_sha256": digest(home / MARKER)}))
+        return {"status": "staged-not-applied", "chain_id": CHAIN, "plan": packet["plan"], "packet_sha256": args.upgrade_packet_sha256}
+
+
+def load_upgrade(home, external_pin):
+    directory = home / UPGRADE_DIRECTORY
+    info = directory.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise RuntimeError("Unsafe upgrade preparation directory.")
+    raw = read(directory / "packet.json", 32768, private=True)
+    if hashlib.sha256(raw).hexdigest() != hash_pin(external_pin):
+        raise RuntimeError("Staged upgrade packet differs from its external pin.")
+    packet = validate_upgrade_packet(parse(raw))
+    stage = parse(read(directory / "stage.json", 32768, private=True))
+    exact_fields(stage, ("schema", "packet_sha256", "platform", "original_manifest_sha256"), "upgrade stage")
+    if stage["schema"] != "zerone-development-upgrade-stage/v1" or stage["packet_sha256"] != external_pin or stage["platform"] != upgrade_platform() or stage["original_manifest_sha256"] != digest(home / MARKER):
+        raise RuntimeError("Upgrade preparation no longer matches this home or platform.")
+    for name in ("predecessor", "target"):
+        if digest(directory / (name + "-zeroned")) != packet[name]["binaries"][stage["platform"]]:
+            raise RuntimeError("A staged upgrade binary changed.")
+    manifest = load(home, directory / "predecessor-zeroned")
+    if manifest["genesis_sha256"] != packet["genesis_sha256"] or manifest["source_commit"] != packet["predecessor"]["source_commit"]:
+        raise RuntimeError("Staged upgrade predecessor changed.")
+    if manifest["role"] == "validator" and digest(home / "public/network.json") != packet["predecessor_descriptor_sha256"]:
+        raise RuntimeError("Preserved predecessor descriptor changed.")
+    return packet, manifest
+
+
+def matching_upgrade_plan(value, packet):
+    if not isinstance(value, dict) or not {"name", "height"} <= set(value) or set(value) - {"name", "height", "info", "time", "upgraded_client_state"}:
+        raise RuntimeError("Actual upgrade plan has an unsupported shape.")
+    if value["name"] != UPGRADE_NAME or integer(value["height"], "actual upgrade height", 2) != int(packet["plan"]["height"]) or value.get("info", "") != "" or value.get("time") not in (None, "", "0001-01-01T00:00:00Z") or value.get("upgraded_client_state") is not None:
+        raise RuntimeError("Actual upgrade plan differs from the pinned name, height or empty metadata.")
+
+
+def disk_upgrade_plan(home, packet):
+    path = home / "data/upgrade-info.json"
+    if not os.path.lexists(path):
+        return False
+    matching_upgrade_plan(parse(read(path, 32768, private=True)), packet)
+    return True
+
+
+def upgrade_query(binary, home, manifest, *args):
+    return parse(cli(binary, home, "query", "upgrade", *args, "--node", f"http://127.0.0.1:{manifest['rpc_port']}", "--output", "json"))
+
+
+def verify_applied_upgrade(binary, home, manifest, packet):
+    versions = upgrade_query(binary, home, manifest, "module-versions")
+    rows = versions.get("module_versions")
+    if not isinstance(rows, list) or not rows:
+        raise RuntimeError("Applied upgrade has no module version map.")
+    mapped = {}
+    for row in rows:
+        if not isinstance(row, dict) or not isinstance(row.get("name"), str) or not row["name"] or row["name"] in mapped:
+            raise RuntimeError("Applied upgrade has duplicate or malformed module versions.")
+        mapped[row["name"]] = integer(row.get("version", "0"), "module version", 0)
+    applied = upgrade_query(binary, home, manifest, "applied", UPGRADE_NAME)
+    if mapped.get("knowledge") != 11 or integer(applied.get("height"), "applied upgrade height", 1) != int(packet["plan"]["height"]):
+        raise RuntimeError("Target has not applied the exact knowledge 10-to-11 upgrade.")
+    return {"module_versions": mapped, "applied_height": str(applied["height"])}
+
+
+def upgraded_manifest(manifest, packet):
+    return {**manifest, "source_commit": packet["target"]["source_commit"],
+            "binary_sha256": packet["target"]["binaries"][upgrade_platform()]}
+
+
 def status(manifest, crosscheck=True):
     origin = f"http://127.0.0.1:{manifest['rpc_port']}"
     value = rpc(origin, "/status")
@@ -388,8 +533,16 @@ def status(manifest, crosscheck=True):
 
 
 def run(args, home):
-    with lock(home):
-        manifest = load(home, args.binary) if home.exists() else initialize(args, home)
+    with (nullcontext() if getattr(args, "upgrade_lock_held", False) else lock(home)):
+        packet = getattr(args, "staged_upgrade", None)
+        target_phase = getattr(args, "upgrade_target", False)
+        if packet is None:
+            manifest = load(home, args.binary) if home.exists() else initialize(args, home)
+        else:
+            checked, original = load_upgrade(home, args.upgrade_packet_sha256)
+            if checked != packet:
+                raise RuntimeError("Staged upgrade changed while starting.")
+            manifest = upgraded_manifest(original, packet) if target_phase else original
         stopping = False
         def stop_request(_number, _frame):
             nonlocal stopping
@@ -413,12 +566,30 @@ def run(args, home):
                 children.append(child)
                 return child
             node = spawn("node", [str(args.binary), "start", "--home", str(home)])
+            def reached_upgrade_boundary():
+                if packet is None or target_phase or not disk_upgrade_plan(home, packet):
+                    return False
+                if node.poll() is None:
+                    observed = rpc(f"http://127.0.0.1:{manifest['rpc_port']}", "/abci_info")
+                    if integer(observed["response"].get("last_block_height"), "halted application height", 1) != int(packet["plan"]["height"]) - 1:
+                        raise RuntimeError("Predecessor halt is not at the pinned H-1.")
+                    planned = upgrade_query(args.binary, home, manifest, "plan")
+                    matching_upgrade_plan(planned.get("plan"), packet)
+                # If the predecessor exited, the new application's startup still
+                # checks the committed H-1 and both actual plans before signing.
+                return True
             deadline, first, ready = time.monotonic() + 120, None, None
+            best_height = 0
             while not stopping and time.monotonic() < deadline:
+                if reached_upgrade_boundary():
+                    return "upgrade-boundary"
                 if node.poll() is not None:
                     raise RuntimeError("Node exited before readiness; inspect the retained node.log.")
                 try:
                     observed = status(manifest, crosscheck=False)
+                    if manifest["role"] == "full-node" and observed["height"] > best_height:
+                        best_height = observed["height"]
+                        deadline = time.monotonic() + 120
                     if first is None:
                         first = observed["height"]
                     if observed["ready"] and observed["height"] > first:
@@ -430,16 +601,34 @@ def run(args, home):
             if stopping:
                 return
             if ready is None:
+                if manifest["role"] == "full-node":
+                    raise RuntimeError(f"Full node did not become ready and made no new block-height progress for 120 seconds (best height {best_height}).")
                 raise RuntimeError("Node did not demonstrate advancing blocks before timeout.")
+            if target_phase:
+                applied = verify_applied_upgrade(args.binary, home, manifest, packet)
+                receipt = {"schema": "zerone-development-upgrade-observation/v1", "chain_id": CHAIN,
+                    "packet_sha256": args.upgrade_packet_sha256, "source_commit": manifest["source_commit"],
+                    "binary_sha256": manifest["binary_sha256"], "observed_height": str(ready["height"]), **applied}
+                receipt_path = home / UPGRADE_DIRECTORY / "first-applied-observation.json"
+                if os.path.lexists(receipt_path):
+                    prior = parse(read(receipt_path, 32768, private=True))
+                    for key in ("schema", "chain_id", "packet_sha256", "source_commit", "binary_sha256", "module_versions", "applied_height"):
+                        if prior.get(key) != receipt[key]:
+                            raise RuntimeError("Retained upgrade observation conflicts with actual applied state.")
+                else:
+                    write_new(receipt_path, json_bytes(receipt))
             if manifest["role"] == "validator":
                 gateway = Path(args.gateway).absolute()
                 read(gateway, 1024 * 1024)
                 spawn("gateway", [sys.executable, "-I", "-B", str(gateway), "--home", str(home), "--binary", str(args.binary),
                     "--port", str(manifest["gateway_port"]), "--rpc", f"http://127.0.0.1:{manifest['rpc_port']}",
-                    "--bind", "127.0.0.1" if manifest["local_test"] else "0.0.0.0"])
+                    "--bind", "127.0.0.1" if manifest["local_test"] else "0.0.0.0",
+                    *(["--upgrade-packet-sha256", args.upgrade_packet_sha256] if target_phase else [])])
             print(json.dumps({**ready, "source_commit": manifest["source_commit"], "binary_sha256": manifest["binary_sha256"],
                               "advertised_peer": manifest["advertised_peer"], "accounts": manifest["accounts"]}), flush=True)
             while not stopping:
+                if reached_upgrade_boundary():
+                    return "upgrade-boundary"
                 if any(child.poll() is not None for child in children):
                     raise RuntimeError("An owned node/gateway process exited; stopping the other process and preserving the home.")
                 time.sleep(0.3)
@@ -466,10 +655,28 @@ def run(args, home):
                     signal.signal(number, handler)
 
 
+def run_upgrade(args, home):
+    """Run only an explicitly staged transition, holding one lock across both processes."""
+    with lock(home):
+        packet, _ = load_upgrade(home, args.upgrade_packet_sha256)
+        args.upgrade_lock_held = True
+        args.staged_upgrade = packet
+        args.upgrade_target = disk_upgrade_plan(home, packet)
+        while True:
+            name = "target" if args.upgrade_target else "predecessor"
+            args.binary = home / UPGRADE_DIRECTORY / (name + "-zeroned")
+            result = run(args, home)
+            if result != "upgrade-boundary":
+                return
+            if args.upgrade_target or not disk_upgrade_plan(home, packet):
+                raise RuntimeError("No consistent actual upgrade boundary for the target process.")
+            args.upgrade_target = True
+
+
 def arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("init", "run", "status", "join"):
+    for name in ("init", "run", "status", "join", "stage-upgrade", "run-upgrade", "upgrade-status"):
         cmd = sub.add_parser(name)
         cmd.add_argument("--home", default="/data/.zeroned")
         cmd.add_argument("--binary", default="/usr/local/bin/zeroned", type=Path)
@@ -486,6 +693,11 @@ def arguments():
             cmd.add_argument("--genesis-sha256", required=True)
             cmd.add_argument("--peer", required=True)
             cmd.add_argument("--reference-rpc", required=True)
+        if name in ("stage-upgrade", "run-upgrade", "upgrade-status"):
+            cmd.add_argument("--upgrade-packet-sha256", required=True)
+        if name == "stage-upgrade":
+            cmd.add_argument("--upgrade-packet", required=True)
+            cmd.add_argument("--predecessor-binary", required=True, type=Path)
     return parser.parse_args()
 
 
@@ -494,13 +706,24 @@ def main():
     args = arguments()
     try:
         home = home_path(args.home)
-        if not args.source_commit and args.build_info.exists():
+        if args.command not in ("stage-upgrade", "run-upgrade", "upgrade-status") and not args.source_commit and args.build_info.exists():
             info = parse(read(args.build_info, 32768))
             args.source_commit = info["source_commit"]
             if digest(args.binary) != info["binary_sha256"]:
                 raise RuntimeError("Image binary differs from its build receipt.")
         if args.command == "run":
             run(args, home)
+        elif args.command == "stage-upgrade":
+            print(json.dumps(stage_upgrade(args, home)), flush=True)
+        elif args.command == "run-upgrade":
+            run_upgrade(args, home)
+        elif args.command == "upgrade-status":
+            packet, original = load_upgrade(home, args.upgrade_packet_sha256)
+            manifest = upgraded_manifest(original, packet)
+            binary = home / UPGRADE_DIRECTORY / "target-zeroned"
+            observed = status(manifest)
+            applied = verify_applied_upgrade(binary, home, manifest, packet)
+            print(json.dumps({**observed, **applied, "packet_sha256": args.upgrade_packet_sha256}), flush=True)
         elif args.command == "status":
             print(json.dumps(status(load(home, args.binary))), flush=True)
         else:

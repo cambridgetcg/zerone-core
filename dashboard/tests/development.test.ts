@@ -6,7 +6,7 @@ import { buildDevelopmentProfile, validateDevelopmentRelease, type DevelopmentPu
 import { developmentPage } from "../development-page";
 import { buildNodeGuideProfile } from "../node-guide-profile";
 import { nodeGuidePage } from "../node-guide-page";
-import { enumLabel, getBytes, height, queryClaimId, validateHistory, verifyDescriptor } from "../src/development-reader";
+import { enumLabel, fundingSummary, settlementSummary, money, getBytes, height, queryClaimId, validateHistory, verifyDescriptor } from "../src/development-reader";
 
 const commit = "ab".repeat(20);
 const publication: DevelopmentPublication = { schema: "zerone.development-publication/v1", chain_id: "zerone-dev-1", gateway: "https://zerone-dev-1.fly.dev", descriptor_sha256: "12".repeat(32), genesis_sha256: "23".repeat(32), rpc_genesis_sha256: "34".repeat(32), runtime_source_commit: "bc".repeat(20), binary_sha256: "45".repeat(32), verified_at: "2026-09-11T21:00:00Z" };
@@ -133,5 +133,26 @@ describe("bounded endpoint observations", () => {
     await assert.rejects(getBytes(`${publication.gateway}/claims/${id}`, 3, signal, fetcher));
     for (const url of ["https://evil.invalid/network.json", `${publication.gateway}/faucet`, `${publication.gateway}/network.json?proxy=foo`, `${publication.gateway}/claims/../status`]) await assert.rejects(getBytes(url, 10, signal, fetcher));
     await assert.rejects(getBytes(`${publication.gateway}/network.json`, 10, signal, async () => new Response("oops", { headers: { "Content-Type": "text/html" } })));
+  });
+});
+
+describe("recorded funding and transfers", () => {
+  const terms = { policy_version: 1, kind: 1, paid_amount: "200001", review_budget: "110000", refundable_amount: "0", retained_fee: "90001" };
+  it("preserves integer amounts and historical absence", () => {
+    assert.equal(money("18446744073709551615"), "18446744073709.551615 development ZRN (18446744073709551615 uzrn)");
+    assert.match(fundingSummary({})[0]![1], /Historical message-specific rules/u);
+    assert.ok(fundingSummary({ funding_terms: terms }).some(([, text]) => text.includes("200001 uzrn")));
+    for (const value of ["01", "-1", "1.0", 2, "18446744073709551616"]) assert.throws(() => money(value));
+    assert.throws(() => fundingSummary({ funding_terms: { ...terms, paid_amount: "200000" } }));
+    assert.throws(() => fundingSummary({ funding_terms: { ...terms, policy_version: 2 } }));
+  });
+  it("separates pending reviewer and refund obligations from transferred records", () => {
+    const refund = { recipient: "zrn1author", amount: "90001", created_at_block: "42" };
+    assert.match(settlementSummary(refund, true)[0]![1], /awaiting transfer/u);
+    assert.match(settlementSummary({ ...refund, paid_at_block: "44" }, true)[0]![1], /transferred at block 44/u);
+    const review = { created_at_block: "42", paid_at_block: "43", payments: [{ verifier: "zrn1reviewer", amount: "110000", withheld: "0" }], withheld_total: "0" };
+    assert.ok(settlementSummary(review, false).some(([label,text]) => label.includes("zrn1reviewer") && text.includes("110000 uzrn")));
+    assert.match(settlementSummary(null, true)[0]![1], /does not establish/u);
+    assert.throws(() => settlementSummary({ ...refund, paid_at_block: "41" }, true));
   });
 });
