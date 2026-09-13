@@ -14,6 +14,51 @@ export interface DevelopmentPublication {
   verified_at: string;
 }
 
+/** A dated proposed upgrade notice, separate from the live participant publication. */
+export interface DevelopmentUpgradeProposal {
+  status: "proposed";
+  target_source_commit: string;
+  height: string;
+  proposal_id: string;
+  recorded_at: string;
+  observed_height: string;
+  packet_url: string;
+  packet_sha256: string;
+  release_record_url: string;
+  release_record_sha256: string;
+}
+// Filled only from the operator's verified release and actual proposal receipt.
+// Null publishes no upgrade notice or placeholder pins.
+export const DEVELOPMENT_UPGRADE_PROPOSAL: DevelopmentUpgradeProposal | null = {
+  "status": "proposed",
+  "target_source_commit": "5542b221864ca0080e143fa82abbef4cd2064f71",
+  "height": "300000",
+  "proposal_id": "1",
+  "recorded_at": "2026-09-13T01:12:41Z",
+  "observed_height": "44135",
+  "packet_url": "https://github.com/cambridgetcg/zerone-core/releases/download/zerone-dev-1-5542b221864c/UPGRADE.json",
+  "packet_sha256": "04f0415a361396e28397155ecb3c0b13d578475ebf1b86c3e2e2b5d533006f75",
+  "release_record_url": "https://github.com/cambridgetcg/zerone-core/releases/download/zerone-dev-1-5542b221864c/UPGRADE-RELEASE.json",
+  "release_record_sha256": "be85503652e9c467e074970c7169c80d5864a2a34fc620db7ca83d0b435d1d2b"
+};
+
+export function validateDevelopmentUpgradeProposal(value: DevelopmentUpgradeProposal): void {
+  const fields = ["status", "target_source_commit", "height", "proposal_id", "recorded_at", "observed_height", "packet_url", "packet_sha256", "release_record_url", "release_record_sha256"];
+  if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).length !== fields.length || fields.some((key) => !Object.hasOwn(value, key))) throw new Error("Invalid development upgrade notice fields");
+  if (value.status !== "proposed") throw new Error("An upgrade proposal cannot announce activation");
+  pin(value.target_source_commit, 40, "proposed source");
+  pin(value.packet_sha256, 64, "upgrade packet"); pin(value.release_record_sha256, 64, "upgrade release record");
+  for (const key of ["height", "proposal_id", "observed_height"] as const) if (typeof value[key] !== "string" || !/^[1-9][0-9]*$/u.test(value[key]) || value[key].length > 19 || BigInt(value[key]) > 9223372036854775807n) throw new Error("Invalid proposal ID or observed/proposed height");
+  if (typeof value.recorded_at !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/u.test(value.recorded_at) || new Date(value.recorded_at).toISOString() !== value.recorded_at.replace("Z", ".000Z")) throw new Error("Invalid proposal observation date");
+  let tag: string | undefined;
+  for (const [key, name] of [["packet_url", "UPGRADE.json"], ["release_record_url", "UPGRADE-RELEASE.json"]] as const) {
+    const url = new URL(value[key]);
+    const match = /^\/cambridgetcg\/zerone-core\/releases\/download\/([A-Za-z0-9._-]+)\/([^/]+)$/u.exec(url.pathname);
+    if (url.origin !== "https://github.com" || url.username || url.password || url.search || url.hash || !match || match[1] !== `zerone-dev-1-${value.target_source_commit.slice(0, 12)}` || match[2] !== name || (tag && tag !== match[1])) throw new Error("Upgrade links require one exact Zerone release");
+    tag = match[1];
+  }
+}
+
 function pin(value: unknown, length: number, label: string): asserts value is string {
   if (typeof value !== "string" || !new RegExp(`^[a-f0-9]{${length}}$`, "u").test(value) || /^0+$/u.test(value)) throw new Error(`Invalid ${label} pin`);
 }
@@ -75,9 +120,10 @@ export function validateDevelopmentPublication(value: DevelopmentPublication): v
 }
 
 /** Build-time publication evidence, never a current network-health assertion. */
-export function buildDevelopmentProfile(sourceCommit: string, publication?: DevelopmentPublication) {
+export function buildDevelopmentProfile(sourceCommit: string, publication?: DevelopmentPublication, proposal: DevelopmentUpgradeProposal | null = publication ? DEVELOPMENT_UPGRADE_PROPOSAL : null) {
   pin(sourceCommit, 40, "website source");
   if (publication !== undefined) validateDevelopmentPublication(publication);
+  if (proposal !== null) { validateDevelopmentUpgradeProposal(proposal); if (!publication || proposal.target_source_commit === publication.runtime_source_commit) throw new Error("Proposed target requires a distinct live predecessor publication"); }
   const source = (path: string) => `${REPOSITORY}/blob/${sourceCommit}/${path}`;
   return {
     schema: "zerone.development-guide/v1",
@@ -89,6 +135,18 @@ export function buildDevelopmentProfile(sourceCommit: string, publication?: Deve
     endpoints: { descriptor: `${DEVELOPMENT_GATEWAY}/network.json`, genesis: `${DEVELOPMENT_GATEWAY}/genesis.json`, gateway: DEVELOPMENT_GATEWAY },
     publication: publication ?? null,
     packages: publication ? packageLinks(sourceCommit, publication.runtime_source_commit) : null,
+    upgradeProposal: proposal ? {
+      ...proposal,
+      name: "knowledge-fund-settlement-v1",
+      label: "Proposed · activation not verified here",
+      releaseUrl: proposal.packet_url.replace(/\/download\/([^/]+)\/UPGRADE\.json$/u, "/tag/$1"),
+      specUrl: source("docs/specs/knowledge-fund-settlement-v1.md"),
+      runtimeGuideUrl: source("deploy/networks/zerone-dev-1/README.md") + "#stage-a-knowledge-10-to-11-upgrade",
+      effect: "This dated proposal notice does not verify activation. The original compatible participant packages remain available below. An applied upgrade and successor descriptor require separate observation and publication.",
+      participantContinuity: "Existing participant homes remain usable with their original verified package, binary, descriptor and client files. Existing commitments keep their original deadlines and can be revealed with that client. Older binaries omit the new funding fields; the current history reader can display them when the chain returns them.",
+      followerContinuity: "Fresh full nodes need both verified packages: use the predecessor helper to join the original genesis, then stage both binaries with the successor helper. Replay uses version 10 until the exact upgrade boundary and version 11 afterward. No genesis reset or identity replacement is part of this path.",
+      funding: "After actual activation, new admissions retain explicit funding terms. Ordinary claims and conjectures allocate 55% to review and retain the remainder; challenges allocate 55% to review and make the remainder refundable for every terminal verdict. With no eligible reveals the review budget is refundable too. A refundable amount is not evidence of payment. Network fees are separate, and old claims keep their original rules.",
+    } : null,
     exampleClaim: publication ? {
       claimId: "8db0bccfb17b9a5ad1cf2389b79abd38",
       url: "/development/?claim=8db0bccfb17b9a5ad1cf2389b79abd38",

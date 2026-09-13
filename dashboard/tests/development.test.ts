@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { buildDevelopmentProfile, validateDevelopmentRelease, type DevelopmentPublication } from "../development-profile";
+import { buildDevelopmentProfile, DEVELOPMENT_UPGRADE_PROPOSAL, validateDevelopmentRelease, type DevelopmentPublication, type DevelopmentUpgradeProposal } from "../development-profile";
 import { developmentPage } from "../development-page";
 import { buildNodeGuideProfile } from "../node-guide-profile";
 import { nodeGuidePage } from "../node-guide-page";
@@ -154,5 +154,69 @@ describe("recorded funding and transfers", () => {
     assert.ok(settlementSummary(review, false).some(([label,text]) => label.includes("zrn1reviewer") && text.includes("110000 uzrn")));
     assert.match(settlementSummary(null, true)[0]![1], /does not establish/u);
     assert.throws(() => settlementSummary({ ...refund, paid_at_block: "41" }, true));
+  });
+});
+
+describe("proposed upgrade notice remains separate from live participation", () => {
+  // Final release bytes, with a synthetic proposal ID/time/observation height for rendering only.
+  // This fixture is separate from the actual dated governance observation below.
+  const proposal: DevelopmentUpgradeProposal = { status: "proposed", target_source_commit: "5542b221864ca0080e143fa82abbef4cd2064f71", height: "300000", proposal_id: "7", recorded_at: "2026-09-13T12:00:00Z", observed_height: "15000", packet_url: "https://github.com/cambridgetcg/zerone-core/releases/download/zerone-dev-1-5542b221864c/UPGRADE.json", packet_sha256: "04f0415a361396e28397155ecb3c0b13d578475ebf1b86c3e2e2b5d533006f75", release_record_url: "https://github.com/cambridgetcg/zerone-core/releases/download/zerone-dev-1-5542b221864c/UPGRADE-RELEASE.json", release_record_sha256: "be85503652e9c467e074970c7169c80d5864a2a34fc620db7ca83d0b435d1d2b" };
+  it("publishes the actual dated proposal without replacing the original participant release", () => {
+    assert.equal(DEVELOPMENT_UPGRADE_PROPOSAL?.proposal_id, "1");
+    assert.equal(DEVELOPMENT_UPGRADE_PROPOSAL?.recorded_at, "2026-09-13T01:12:41Z");
+    assert.equal(DEVELOPMENT_UPGRADE_PROPOSAL?.observed_height, "44135");
+    const live = buildDevelopmentProfile(commit, publication);
+    assert.equal(live.upgradeProposal?.height, "300000");
+    assert.equal(live.upgradeProposal?.target_source_commit, proposal.target_source_commit);
+    assert.equal(live.upgradeProposal?.packet_sha256, proposal.packet_sha256);
+    assert.equal(live.upgradeProposal?.release_record_sha256, proposal.release_record_sha256);
+    assert.deepEqual(live.packages, buildDevelopmentProfile(commit, publication, null).packages);
+    assert.equal(buildDevelopmentProfile(commit).upgradeProposal, null);
+    assert.match(developmentPage(live), /Status observed 2026-09-13T01:12:41Z at block 44135/u);
+  });
+  it("renders exact proposal metadata with no replacement of live pins or packages", () => {
+    const original = buildDevelopmentProfile(commit, publication, null);
+    const proposed = buildDevelopmentProfile(commit, publication, proposal);
+    assert.deepEqual(proposed.publication, original.publication);
+    assert.deepEqual(proposed.packages, original.packages);
+    assert.deepEqual(proposed.effects, original.effects);
+    assert.equal(proposed.upgradeProposal?.height, "300000");
+    const html = developmentPage(proposed);
+    assert.match(html, /Proposed · activation not verified here/u);
+    assert.match(html, /Proposal 7 · proposed activation block 300000/u);
+    assert.match(html, /Status observed 2026-09-13T12:00:00Z at block 15000/u);
+    assert.doesNotMatch(html, /not activated|until then/iu);
+    assert.ok(html.includes(proposal.packet_url) && html.includes(proposal.packet_sha256));
+    assert.ok(html.includes(proposal.release_record_url) && html.includes(proposal.release_record_sha256));
+    assert.match(html, /Fresh full nodes need both verified packages/u);
+    assert.match(html, /Ordinary claims and conjectures allocate 55%/u);
+    assert.match(html, /A refundable amount is not evidence of payment/u);
+    assert.match(html, /original compatible participant packages are retained below/u);
+    assert.match(html, /<details><summary>Keep participating/u);
+    assert.doesNotMatch(developmentPage(original), /id="fund-upgrade"/u);
+  });
+  it("keeps an unknown proposal ID unpublished", () => {
+    assert.equal(buildDevelopmentProfile(commit, publication, null).upgradeProposal, null);
+    assert.doesNotMatch(developmentPage(buildDevelopmentProfile(commit, publication, null)), /id="fund-upgrade"/u);
+    for (const pending of [undefined, null, "", "pending"]) {
+      assert.throws(() => buildDevelopmentProfile(commit, publication, { ...proposal, proposal_id: pending } as unknown as DevelopmentUpgradeProposal));
+    }
+  });
+  it("refuses activation claims, unpinned inputs, cross-release links and ambiguous numbers", () => {
+    for (const change of [
+      (value: DevelopmentUpgradeProposal) => { (value as { status: string }).status = "activated"; },
+      (value: DevelopmentUpgradeProposal) => { value.target_source_commit = publication.runtime_source_commit; },
+      (value: DevelopmentUpgradeProposal) => { value.packet_sha256 = ""; },
+      (value: DevelopmentUpgradeProposal) => { value.height = "0200000"; },
+      (value: DevelopmentUpgradeProposal) => { value.proposal_id = "0"; },
+      (value: DevelopmentUpgradeProposal) => { value.observed_height = ""; },
+      (value: DevelopmentUpgradeProposal) => { value.observed_height = "015000"; },
+      (value: DevelopmentUpgradeProposal) => { value.recorded_at = "2026-99-99T00:00:00Z"; },
+      (value: DevelopmentUpgradeProposal) => { value.packet_url = value.packet_url.replace("github.com", "untrusted.invalid"); },
+      (value: DevelopmentUpgradeProposal) => { value.release_record_url = value.release_record_url.replace("zerone-dev-1-5542b221864c", "different-release"); },
+    ]) { const value = structuredClone(proposal); change(value); assert.throws(() => buildDevelopmentProfile(commit, publication, value)); }
+    const { observed_height: _missing, ...missingObservation } = proposal;
+    assert.throws(() => buildDevelopmentProfile(commit, publication, missingObservation as DevelopmentUpgradeProposal));
+    assert.throws(() => buildDevelopmentProfile(commit, undefined, proposal));
   });
 });
