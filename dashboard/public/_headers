@@ -47,3 +47,31 @@
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# Frozen mathematical reading copies: exact CSS only; scripts and connections disabled.
+# Pages canonicalizes .html to an extensionless URL. Both exact paths are covered.
+# Detach the inherited CSP before setting the document policy; never broaden the app policy.
+
+/research/checkpoints/2026-09-14-demimetric-v1/packets/v0.1/REPORT.html
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'none'; script-src 'none'; style-src 'none'; style-src-elem 'sha256-ZkZennJRx0xZ6/ng1khoOIYf7vdSaYm8DqzHcpmmtfw=' 'sha256-6VDfzd+PZbfcC74Y9gYZPj/Tjav3z4XQBRrgoNsjOnk='; style-src-attr 'unsafe-hashes' 'sha256-6l+tpow5lGPV0MHWZlDv8nD7HrL77FGFldqQ7zc5gxY=' 'sha256-KfvHpfbuLSDAJmmIJPM9K5tVD6Ms91WwXcTWjjh63a8='; img-src 'self' data:; connect-src 'none'; font-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'
+
+/research/checkpoints/2026-09-14-demimetric-v1/packets/v0.1/REPORT
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'none'; script-src 'none'; style-src 'none'; style-src-elem 'sha256-ZkZennJRx0xZ6/ng1khoOIYf7vdSaYm8DqzHcpmmtfw=' 'sha256-6VDfzd+PZbfcC74Y9gYZPj/Tjav3z4XQBRrgoNsjOnk='; style-src-attr 'unsafe-hashes' 'sha256-6l+tpow5lGPV0MHWZlDv8nD7HrL77FGFldqQ7zc5gxY=' 'sha256-KfvHpfbuLSDAJmmIJPM9K5tVD6Ms91WwXcTWjjh63a8='; img-src 'self' data:; connect-src 'none'; font-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'
+
+/research/checkpoints/2026-09-14-demimetric-v1/packets/followups/translation-v0.1/NOTE.html
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'none'; script-src 'none'; style-src 'none'; style-src-elem 'sha256-zpIbmvV0Q+JbQkZnBYT3vVjSVnE3lFgDdsuX5ExYoDg=' 'sha256-MkCuzQ2y5psFE/ErODvQVgDHjBazLGUrcPPlPz7g38k='; style-src-attr 'unsafe-hashes' 'sha256-N90MKmRow2DpYEVeqcc3uc8pOUsS4Rg4sNmkau1k0xQ=' 'sha256-KfvHpfbuLSDAJmmIJPM9K5tVD6Ms91WwXcTWjjh63a8='; img-src 'self' data:; connect-src 'none'; font-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'
+
+/research/checkpoints/2026-09-14-demimetric-v1/packets/followups/translation-v0.1/NOTE
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'none'; script-src 'none'; style-src 'none'; style-src-elem 'sha256-zpIbmvV0Q+JbQkZnBYT3vVjSVnE3lFgDdsuX5ExYoDg=' 'sha256-MkCuzQ2y5psFE/ErODvQVgDHjBazLGUrcPPlPz7g38k='; style-src-attr 'unsafe-hashes' 'sha256-N90MKmRow2DpYEVeqcc3uc8pOUsS4Rg4sNmkau1k0xQ=' 'sha256-KfvHpfbuLSDAJmmIJPM9K5tVD6Ms91WwXcTWjjh63a8='; img-src 'self' data:; connect-src 'none'; font-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'
+
+/research/checkpoints/2026-09-14-demimetric-v1/packets/followups/restricted-repair-v0.1/NOTE.html
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'none'; script-src 'none'; style-src 'none'; style-src-elem 'sha256-zpIbmvV0Q+JbQkZnBYT3vVjSVnE3lFgDdsuX5ExYoDg=' 'sha256-MkCuzQ2y5psFE/ErODvQVgDHjBazLGUrcPPlPz7g38k='; style-src-attr 'none'; img-src 'self' data:; connect-src 'none'; font-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'
+
+/research/checkpoints/2026-09-14-demimetric-v1/packets/followups/restricted-repair-v0.1/NOTE
+  ! Content-Security-Policy
+  Content-Security-Policy: default-src 'none'; script-src 'none'; style-src 'none'; style-src-elem 'sha256-zpIbmvV0Q+JbQkZnBYT3vVjSVnE3lFgDdsuX5ExYoDg=' 'sha256-MkCuzQ2y5psFE/ErODvQVgDHjBazLGUrcPPlPz7g38k='; style-src-attr 'none'; img-src 'self' data:; connect-src 'none'; font-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'
