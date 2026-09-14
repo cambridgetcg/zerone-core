@@ -7,8 +7,8 @@ The [browser view](https://zerone.ai/research/review/) loads an explicitly ficti
 demo or a JSON export selected from your computer. Selected files remain in
 browser memory. The view verifies the export before displaying its contents.
 
-Use Python 3.10+ on macOS/Linux. There are no Python dependencies, accounts,
-background services, signing keys or blockchain transactions. Work in a real
+Use Python 3.10+ on macOS/Linux. These local Python tools have no dependencies,
+accounts, background services, signing keys or blockchain transactions. Work in a real
 directory: stores and file paths containing symlinks are refused. On macOS,
 `/tmp` and `/var` are system symlinks; use a physical path or a directory under
 your home instead. Windows locking is not supported in this version.
@@ -107,9 +107,11 @@ Every row hashes the previous row and its own complete payload. Readers validate
 the entire supplied history before selecting a cutoff. This detects inconsistent
 bytes **within the supplied export**. A person controlling the store can rewrite
 and rehash it or supply a valid shorter prefix. An external saved head hash is
-needed to detect such replacement; this release does not provide independent
-timestamping, authenticated identities, completeness proofs or chain anchoring.
-Keep exports or head hashes separately when those comparisons matter.
+needed to detect such replacement. The journal and browser alone do not provide
+independent timestamping, authenticated identities or completeness proofs.
+Keep exports or head hashes separately when those comparisons matter. The
+optional [checkpoint workflow](../../docs/specs/research-checkpoint-v1.md) binds
+an exact export to an existing development-chain transaction.
 
 Stores use a process lock, private permissions and atomic batches. Limits are
 1,000 entries and 8 MiB per journal/export; this is a small collection tool.
@@ -135,6 +137,26 @@ claim and assumptions, preserve the notice and response, and attempt a bounded
 proof or computational check. Publish the result only with its evidence and
 scope. Reward design should value careful review, corrected concerns, negative
 results and shared artifacts; paying for accusation counts would invite gaming.
+
+## Prepare a storage checkpoint
+
+Freeze an exported file before preparing the memo. These commands are local and
+do not sign or submit anything:
+
+```sh
+python3 -B tools/research-review/checkpoint.py prepare ./review.json \
+  --chain-id zerone-dev-1 --output ./checkpoint.json
+python3 -B tools/research-review/checkpoint.py verify ./review.json ./checkpoint.json \
+  --chain-id zerone-dev-1 --memo '<exact memo from the transaction>'
+```
+
+The verification result means the file matches that memo. Follow the
+[offline chain-proof instructions](../research-checkpoint/README.md) to verify
+the transaction's signature, inclusion and validator trust anchor. A checkpoint
+uses a signed bank self-send and does not open a claim review round. The chain
+holds the digest commitment; publish or replicate the full records separately.
+See the [published checkpoint](https://zerone.ai/research/checkpoints/) for a
+worked example, downloadable history and explicit evidence-availability limits.
 
 ## Verify
 

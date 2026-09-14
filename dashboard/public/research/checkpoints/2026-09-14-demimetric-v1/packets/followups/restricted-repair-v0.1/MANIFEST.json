@@ -1,0 +1,58 @@
+{
+  "schema": "research-review-packet/v1",
+  "case": "2026-001-demimetric-audit",
+  "version": "restricted-repair-v0.1",
+  "scope": "Separate restricted replacement theorem and exact fixture checks; earlier packets unchanged",
+  "files": [
+    {
+      "name": "INTERNAL-REVIEW.json",
+      "bytes": 1435,
+      "sha256": "60a6e6a6f3a78513554b2ab00dc8e45bf75f920c1f041acf2928ecf961be9984"
+    },
+    {
+      "name": "NOTE.html",
+      "bytes": 77306,
+      "sha256": "4dab7883c423fc08ca02308cbb246b0f7f0a7e91477ef887b03370f06eed8717"
+    },
+    {
+      "name": "NOTE.md",
+      "bytes": 12476,
+      "sha256": "84b3720069e9741a425e9285a49857c18295f188bb60411ce4b188845c7ee771"
+    },
+    {
+      "name": "NOTE.pdf",
+      "bytes": 179646,
+      "sha256": "63a79eecc914fcf046821cc9b11266b2e102d3e74e63b55a8b143863d7196b2e"
+    },
+    {
+      "name": "PROTOCOL.md",
+      "bytes": 4271,
+      "sha256": "34d94d7785e3a3925b38e4e8cd138649d994a16efebc77bac6df3e4ba215a09c"
+    },
+    {
+      "name": "SOURCES.json",
+      "bytes": 2020,
+      "sha256": "4306f124be6ac9dcdcaed98fac43f5306dd66a65fe4fe987f87332fcc8bd9134"
+    },
+    {
+      "name": "VALIDATION.json",
+      "bytes": 1947,
+      "sha256": "2c8b0d30c8a3f4662cc3f03398b96bb0725898a2fa58826cbcabc6a536c203a2"
+    },
+    {
+      "name": "results.json",
+      "bytes": 49653,
+      "sha256": "88eb2a977f0eaeaaa519936597fb4b6f88321afe5336ad1986a34fc0e474dae1"
+    },
+    {
+      "name": "verify_packet.py",
+      "bytes": 2290,
+      "sha256": "868016d40c3c0fdc8ee5d837ab3b91b80c68286464f3e767e184e6eacf31b774"
+    },
+    {
+      "name": "verify_restricted.py",
+      "bytes": 22166,
+      "sha256": "c013a5569c29119ee19493c724bc9998c82d429470dabccb3e6a63b7f7e47f77"
+    }
+  ]
+}

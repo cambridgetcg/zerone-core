@@ -1,0 +1,54 @@
+{
+  "auth_info": {
+    "fee": {
+      "amount": [
+        {
+          "amount": "2000000",
+          "denom": "uzrn"
+        }
+      ],
+      "gas_limit": "2000000",
+      "granter": "",
+      "payer": ""
+    },
+    "signer_infos": [
+      {
+        "mode_info": {
+          "single": {
+            "mode": "SIGN_MODE_DIRECT"
+          }
+        },
+        "public_key": {
+          "@type": "/cosmos.crypto.secp256k1.PubKey",
+          "key": "A/zosCkMgZudZwJ+6fzY7MeXVQWBosjYPME0b+RMlBx5"
+        },
+        "sequence": "2"
+      }
+    ],
+    "tip": null
+  },
+  "body": {
+    "extension_options": [],
+    "memo": "zerone:research:v1:ce6e799a-6713-41a9-b95f-57c50a223074:81:86c8163599c0098aa43b4f3599a81b02a03557553fc595b67b026fdfe108704e:23baf5b0a2e7f4a48fe2b86775ae2ef92e607f2d793270ff10219e61d2563847",
+    "messages": [
+      {
+        "@type": "/cosmos.bank.v1beta1.MsgSend",
+        "amount": [
+          {
+            "amount": "1",
+            "denom": "uzrn"
+          }
+        ],
+        "from_address": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8",
+        "to_address": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8"
+      }
+    ],
+    "non_critical_extension_options": [],
+    "timeout_height": "0",
+    "timeout_timestamp": null,
+    "unordered": false
+  },
+  "signatures": [
+    "WvFMd+jHolf51frmNYQiYLLxfxlXREqKb1hSZ15uSnpmSPJZvQcewzNPOfuuj6RHd6dWzZJZl7NYdlgzT8A4kw=="
+  ]
+}

@@ -1,0 +1,374 @@
+{
+  "schema": "zerone-science-exact-check/v1",
+  "pass": true,
+  "review_scope": "same-operator internal check; no external review",
+  "verifier_sha256": "2887b292eb073e877ae9966be6e2227b2bece460c0bf1b9ac3fa30279f80ae1d",
+  "witness": {
+    "fixed_points": [
+      "0"
+    ],
+    "phi": "1",
+    "b": "1/2",
+    "input_distance": "1/2",
+    "output_distance": "3/4",
+    "ratio": "3/2",
+    "global_condition": "piecewise polynomial factor certificate"
+  },
+  "coefficient_checks": [
+    {
+      "phi": "1",
+      "b": "1/2",
+      "decrease_coefficient": "3/4"
+    },
+    {
+      "phi": "1",
+      "b": "2",
+      "decrease_coefficient": "0"
+    },
+    {
+      "phi": "1",
+      "b": "3",
+      "decrease_coefficient": "-3"
+    },
+    {
+      "phi": "4",
+      "b": "1/4",
+      "decrease_coefficient": "1/16"
+    },
+    {
+      "phi": "4",
+      "b": "3/4",
+      "decrease_coefficient": "-3/16"
+    }
+  ],
+  "adversarial_edges": [
+    "zero b hides a nonzero original residual",
+    "positive but vanishing b_n=1/n loses uniform residual control",
+    "signed weights 2,-1 cancel residuals of Q1=0 and Q2=-I",
+    "constant maps -1 and +1 have an averaged fixed point but no common fixed point",
+    "negative generalized parameter permits cancelling residual of Q2=2I",
+    "unnormalized weight 2 with constant Q=1 moves the common fixed point",
+    "a(x)=min(1,|x-1|), a(1)=1: r=a*x loses demiclosedness at 1",
+    "b=2/phi loses strict decrease; b>2/phi may lose quasi-nonexpansiveness"
+  ],
+  "projection_checks": {
+    "lemma33_limsup": "1",
+    "eq13_left": "1/2",
+    "eq13_right": "0"
+  },
+  "recurrences": [
+    {
+      "rho": "1/2",
+      "partial_sum": false,
+      "steps": 128,
+      "inertia_mode": "capped",
+      "last": {
+        "exact": "7378527374674512759504538243924063257472590786510407338433810193921706960832477935706793189190300413400477875008165761458545850927083767061712587/477766940406582066467264538521415283553005487856923772470228054062071485428080032646654581927366398365378994216872606191914451342238494490624000000",
+        "lower": "15443779/1000000000",
+        "upper_exclusive": "772189/50000000",
+        "normalized_signed_hex_fraction_sha256": "2cde4af8400bc1b741f5e3e6d410a19dc87d3f307e57752531dbf1174d164f34",
+        "numerator_bits": 482,
+        "denominator_bits": 488
+      },
+      "samples": [
+        {
+          "n": 1,
+          "mu_n_plus_1": {
+            "exact": "1/2",
+            "lower": "1/2",
+            "upper_exclusive": "500000001/1000000000",
+            "normalized_signed_hex_fraction_sha256": "04e06d7316af643c4544ecd99748d26462299ae9577a7cb6e53d28f4c1523bde",
+            "numerator_bits": 1,
+            "denominator_bits": 2
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 2,
+          "mu_n_plus_1": {
+            "exact": "29/54",
+            "lower": "537037037/1000000000",
+            "upper_exclusive": "268518519/500000000",
+            "normalized_signed_hex_fraction_sha256": "bca649572d1b016d0cd93bc2506f73aa1d38b7d0de165cd97e724450ce83bcdc",
+            "numerator_bits": 5,
+            "denominator_bits": 6
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 8,
+          "mu_n_plus_1": {
+            "exact": "48007667/228614400",
+            "lower": "13124629/62500000",
+            "upper_exclusive": "41998813/200000000",
+            "normalized_signed_hex_fraction_sha256": "140754a50965d17ddc5c64f5b7cbf48e06712d10152555f8140911eebe821c6f",
+            "numerator_bits": 26,
+            "denominator_bits": 28
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 32,
+          "mu_n_plus_1": {
+            "exact": "172269356190044128354842441230963987/2886221130529405400142909768990720000",
+            "lower": "29843409/500000000",
+            "upper_exclusive": "59686819/1000000000",
+            "normalized_signed_hex_fraction_sha256": "eee0285b96528b608006afe26bd36c7247c1a520144011b72e527dbfb99eeb62",
+            "numerator_bits": 118,
+            "denominator_bits": 122
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 128,
+          "mu_n_plus_1": {
+            "exact": "7378527374674512759504538243924063257472590786510407338433810193921706960832477935706793189190300413400477875008165761458545850927083767061712587/477766940406582066467264538521415283553005487856923772470228054062071485428080032646654581927366398365378994216872606191914451342238494490624000000",
+            "lower": "15443779/1000000000",
+            "upper_exclusive": "772189/50000000",
+            "normalized_signed_hex_fraction_sha256": "2cde4af8400bc1b741f5e3e6d410a19dc87d3f307e57752531dbf1174d164f34",
+            "numerator_bits": 482,
+            "denominator_bits": 488
+          },
+          "pointwise_bound_pass": true
+        }
+      ],
+      "limit_is_not_established_by_finite_checks": true,
+      "literal_printed_sum_of_iterates_equals_one_not_asserted": true
+    },
+    {
+      "rho": "1/2",
+      "partial_sum": true,
+      "steps": 128,
+      "inertia_mode": "capped",
+      "last": {
+        "exact": null,
+        "lower": "15443779/1000000000",
+        "upper_exclusive": "772189/50000000",
+        "normalized_signed_hex_fraction_sha256": "f4b7bf1f89bc880e7dbddccdea4e3ee5ce3723eabaf39ee2f1b98b8fd9a89963",
+        "numerator_bits": 16920,
+        "denominator_bits": 16926
+      },
+      "samples": [
+        {
+          "n": 1,
+          "mu_n_plus_1": {
+            "exact": "1/2",
+            "lower": "1/2",
+            "upper_exclusive": "500000001/1000000000",
+            "normalized_signed_hex_fraction_sha256": "04e06d7316af643c4544ecd99748d26462299ae9577a7cb6e53d28f4c1523bde",
+            "numerator_bits": 1,
+            "denominator_bits": 2
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 2,
+          "mu_n_plus_1": {
+            "exact": "269/576",
+            "lower": "1824273/3906250",
+            "upper_exclusive": "467013889/1000000000",
+            "normalized_signed_hex_fraction_sha256": "338d2b1c285b2b75c333397e7993ccba4fe443e894c7ce345e443a67d1ab969f",
+            "numerator_bits": 9,
+            "denominator_bits": 10
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 8,
+          "mu_n_plus_1": {
+            "exact": "484901195459555903090308061/2350151793330839115628806144",
+            "lower": "103163803/500000000",
+            "upper_exclusive": "206327607/1000000000",
+            "normalized_signed_hex_fraction_sha256": "094e15d3462cf7787fb85c89ee00489e9bf770e444a8c6a7cba60cf8c6a89ede",
+            "numerator_bits": 89,
+            "denominator_bits": 91
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 32,
+          "mu_n_plus_1": {
+            "exact": "918637466587428650720788437709370093977475256399634661501049326317055921832016619835008249418317739265431448144931987077911290677522985845224901433849332001606976672711901249080280838952549384257603883809133639076215474849308678595279079628393717364614095881740776756753803803544266833466131252686513468093006114409925260748197244933089330640557/15390960640459907779798598763768329942370428397822604851686311483214498186817926966111787137105109621014869752065631107184506734702117204129547120098314711944659098909287976317814623074086834342758473280869815547542102593354085031304933192053858960506214384923193356770881208695260446893636290025426134743158555557287545814471013286505810711543808",
+            "lower": "59686817/1000000000",
+            "upper_exclusive": "29843409/500000000",
+            "normalized_signed_hex_fraction_sha256": "c0b7221e532c30b765fc783de890d9436c95a8250166b521abe9a1129f560f0d",
+            "numerator_bits": 1146,
+            "denominator_bits": 1151
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 128,
+          "mu_n_plus_1": {
+            "exact": null,
+            "lower": "15443779/1000000000",
+            "upper_exclusive": "772189/50000000",
+            "normalized_signed_hex_fraction_sha256": "f4b7bf1f89bc880e7dbddccdea4e3ee5ce3723eabaf39ee2f1b98b8fd9a89963",
+            "numerator_bits": 16920,
+            "denominator_bits": 16926
+          },
+          "pointwise_bound_pass": true
+        }
+      ],
+      "limit_is_not_established_by_finite_checks": true,
+      "literal_printed_sum_of_iterates_equals_one_not_asserted": true
+    },
+    {
+      "rho": "1",
+      "partial_sum": false,
+      "steps": 128,
+      "inertia_mode": "capped",
+      "last": {
+        "exact": "20771500528546593952298025009102786644753170804368239493392979523521596729593703030483436253561461622335894341021120412824244968400899337988132856810561759115096890626737787/20764266647899245340560877599491588769989416636320140158157431366411128979386334063492282975884447450338758849181411522045281606199302884633334424744755200000000000000000000",
+        "lower": "1000348381/1000000000",
+        "upper_exclusive": "500174191/500000000",
+        "normalized_signed_hex_fraction_sha256": "e5b240061fc4c2bab409aa6772ddc144bfac9e9a4a5d4d706a6f45f95e2897ca",
+        "numerator_bits": 573,
+        "denominator_bits": 573
+      },
+      "samples": [
+        {
+          "n": 1,
+          "mu_n_plus_1": {
+            "exact": "1/2",
+            "lower": "1/2",
+            "upper_exclusive": "500000001/1000000000",
+            "normalized_signed_hex_fraction_sha256": "04e06d7316af643c4544ecd99748d26462299ae9577a7cb6e53d28f4c1523bde",
+            "numerator_bits": 1,
+            "denominator_bits": 2
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 2,
+          "mu_n_plus_1": {
+            "exact": "20/27",
+            "lower": "37037037/50000000",
+            "upper_exclusive": "740740741/1000000000",
+            "normalized_signed_hex_fraction_sha256": "efcb2685a2066fa0d2edc3bd2796dbf0981eb762dfa5b296befaa90b2e97dec9",
+            "numerator_bits": 5,
+            "denominator_bits": 5
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 8,
+          "mu_n_plus_1": {
+            "exact": "57402539/57153600",
+            "lower": "1004355613/1000000000",
+            "upper_exclusive": "502177807/500000000",
+            "normalized_signed_hex_fraction_sha256": "845c549062c1943fe89853ac74ab66f0a83eb3e8dac88ce8a7bd1ff1a8430847",
+            "numerator_bits": 26,
+            "denominator_bits": 26
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 32,
+          "mu_n_plus_1": {
+            "exact": "19454331273731229738133853957/19590316903573309333440000000",
+            "lower": "31033079/31250000",
+            "upper_exclusive": "993058529/1000000000",
+            "normalized_signed_hex_fraction_sha256": "ad0b694f96fca611d76ed86c48905dd0acb8254adbffb053e94c99a50fc46a67",
+            "numerator_bits": 94,
+            "denominator_bits": 94
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 128,
+          "mu_n_plus_1": {
+            "exact": "20771500528546593952298025009102786644753170804368239493392979523521596729593703030483436253561461622335894341021120412824244968400899337988132856810561759115096890626737787/20764266647899245340560877599491588769989416636320140158157431366411128979386334063492282975884447450338758849181411522045281606199302884633334424744755200000000000000000000",
+            "lower": "1000348381/1000000000",
+            "upper_exclusive": "500174191/500000000",
+            "normalized_signed_hex_fraction_sha256": "e5b240061fc4c2bab409aa6772ddc144bfac9e9a4a5d4d706a6f45f95e2897ca",
+            "numerator_bits": 573,
+            "denominator_bits": 573
+          },
+          "pointwise_bound_pass": true
+        }
+      ],
+      "limit_is_not_established_by_finite_checks": true,
+      "literal_printed_sum_of_iterates_equals_one_not_asserted": true
+    },
+    {
+      "rho": "1/2",
+      "partial_sum": false,
+      "steps": 128,
+      "inertia_mode": "singleton",
+      "last": {
+        "exact": "29514109498698051038018152975696253029903665763901305156483656089323531658023837846516127325932338478413273620883660459690195611316815077745772223/1911067761626328265869058154085661134212021951427695089880912216248285941712320130586618327709465593461515976867490424767657805368953977962496000000",
+        "lower": "15443779/1000000000",
+        "upper_exclusive": "772189/50000000",
+        "normalized_signed_hex_fraction_sha256": "3dcfae082ea91e4f26cd8eb99a1d665439172d724827d9ff6881e1e9e2062e8c",
+        "numerator_bits": 484,
+        "denominator_bits": 490
+      },
+      "samples": [
+        {
+          "n": 1,
+          "mu_n_plus_1": {
+            "exact": "1/2",
+            "lower": "1/2",
+            "upper_exclusive": "500000001/1000000000",
+            "normalized_signed_hex_fraction_sha256": "04e06d7316af643c4544ecd99748d26462299ae9577a7cb6e53d28f4c1523bde",
+            "numerator_bits": 1,
+            "denominator_bits": 2
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 2,
+          "mu_n_plus_1": {
+            "exact": "29/54",
+            "lower": "537037037/1000000000",
+            "upper_exclusive": "268518519/500000000",
+            "normalized_signed_hex_fraction_sha256": "bca649572d1b016d0cd93bc2506f73aa1d38b7d0de165cd97e724450ce83bcdc",
+            "numerator_bits": 5,
+            "denominator_bits": 6
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 8,
+          "mu_n_plus_1": {
+            "exact": "192151943/914457600",
+            "lower": "210126683/1000000000",
+            "upper_exclusive": "52531671/250000000",
+            "normalized_signed_hex_fraction_sha256": "1dcb8c6da0c83f80bd4af0ec8f40db73ab7d4ecb0b98c97055dbed82b0d6e4fd",
+            "numerator_bits": 28,
+            "denominator_bits": 30
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 32,
+          "mu_n_plus_1": {
+            "exact": "689077424785065429106353495638062823/11544884522117621600571639075962880000",
+            "lower": "29843409/500000000",
+            "upper_exclusive": "59686819/1000000000",
+            "normalized_signed_hex_fraction_sha256": "0256cd37379bcfdf48f35faab2a66ff6aa816cc9bc63a87d13d74340d9bd4be9",
+            "numerator_bits": 120,
+            "denominator_bits": 124
+          },
+          "pointwise_bound_pass": true
+        },
+        {
+          "n": 128,
+          "mu_n_plus_1": {
+            "exact": "29514109498698051038018152975696253029903665763901305156483656089323531658023837846516127325932338478413273620883660459690195611316815077745772223/1911067761626328265869058154085661134212021951427695089880912216248285941712320130586618327709465593461515976867490424767657805368953977962496000000",
+            "lower": "15443779/1000000000",
+            "upper_exclusive": "772189/50000000",
+            "normalized_signed_hex_fraction_sha256": "3dcfae082ea91e4f26cd8eb99a1d665439172d724827d9ff6881e1e9e2062e8c",
+            "numerator_bits": 484,
+            "denominator_bits": 490
+          },
+          "pointwise_bound_pass": true
+        }
+      ],
+      "limit_is_not_established_by_finite_checks": true,
+      "literal_printed_sum_of_iterates_equals_one_not_asserted": true
+    }
+  ],
+  "control_warning": "rho=1 control lies outside the printed rho interval"
+}

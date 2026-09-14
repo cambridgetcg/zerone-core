@@ -1,0 +1,1874 @@
+{
+  "counts": {
+    "admitted": 5,
+    "all_domain_Q_segments": 16,
+    "coordinate_trajectory_comparisons": 952,
+    "expected_restriction_refusals": 2,
+    "fixed_set_comparisons": 28,
+    "fixtures": 7,
+    "grid_joint_estimates": 1148,
+    "operator_conjugacy_comparisons": 308
+  },
+  "fixtures": [
+    {
+      "B": [
+        {
+          "intercept": "0/1",
+          "slope": "0/1"
+        },
+        {
+          "intercept": "0/1",
+          "slope": "0/1"
+        }
+      ],
+      "Fix_L": [
+        {
+          "lower": null,
+          "upper": null
+        }
+      ],
+      "Fix_U": [
+        {
+          "lower": null,
+          "upper": null
+        }
+      ],
+      "L": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "0/1",
+            "slope": "1/1"
+          }
+        ]
+      },
+      "Q": [
+        {
+          "cuts": [],
+          "pieces": [
+            {
+              "intercept": "0/1",
+              "slope": "1/1"
+            }
+          ]
+        },
+        {
+          "cuts": [],
+          "pieces": [
+            {
+              "intercept": "0/1",
+              "slope": "1/1"
+            }
+          ]
+        }
+      ],
+      "U": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "0/1",
+            "slope": "1/1"
+          }
+        ]
+      },
+      "Z": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "0/1",
+            "slope": "1/1"
+          }
+        ]
+      },
+      "admitted": true,
+      "b": "1/4",
+      "b_phi": [
+        "1/4",
+        "1/4"
+      ],
+      "demimetric_interval_certificates": [
+        [
+          {
+            "domain": {
+              "lower": null,
+              "upper": null
+            },
+            "gap_polynomial_coefficients": [
+              "0/1",
+              "0/1",
+              "0/1"
+            ]
+          }
+        ],
+        [
+          {
+            "domain": {
+              "lower": null,
+              "upper": null
+            },
+            "gap_polynomial_coefficients": [
+              "0/1",
+              "0/1",
+              "0/1"
+            ]
+          }
+        ]
+      ],
+      "eta": [
+        "1/1",
+        "1/1"
+      ],
+      "expected_refusal_reasons": [],
+      "g": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "1/1",
+            "slope": "0/1"
+          }
+        ]
+      },
+      "grid_summaries": [
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "-2/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "0/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "1/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "3/2"
+        }
+      ],
+      "lambda": "1/2",
+      "name": "identity_target1",
+      "original_common_fixed_set": [
+        {
+          "lower": null,
+          "upper": null
+        }
+      ],
+      "pairwise_nonexpansiveness_countercontrol": null,
+      "phi": [
+        "1/1",
+        "1/1"
+      ],
+      "rho": "3/4",
+      "sample_a": "3/2",
+      "sample_joint_terms": {
+        "D_gamma": "0/1",
+        "J_gamma": "0/1",
+        "bound_L": "0/1",
+        "joint": "0/1",
+        "lambda_D_beta": "0/1",
+        "lambda_J_beta": "0/1",
+        "loss_L": "0/1",
+        "loss_U": "0/1",
+        "mixing_loss": "0/1",
+        "resolvent_prefix_loss": "0/1",
+        "slack_L": "0/1",
+        "slack_U": "0/1",
+        "weighted_original_residual": "0/1"
+      },
+      "weights": [
+        "1/2",
+        "1/2"
+      ]
+    },
+    {
+      "B": [
+        {
+          "intercept": "-2/1",
+          "slope": "1/1"
+        },
+        {
+          "intercept": "-4/1",
+          "slope": "2/1"
+        }
+      ],
+      "Fix_L": [
+        {
+          "lower": "2/1",
+          "upper": "2/1"
+        }
+      ],
+      "Fix_U": [
+        {
+          "lower": "2/1",
+          "upper": "2/1"
+        }
+      ],
+      "L": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "1341/1024",
+            "slope": "707/2048"
+          }
+        ]
+      },
+      "Q": [
+        {
+          "cuts": [],
+          "pieces": [
+            {
+              "intercept": "1/1",
+              "slope": "1/2"
+            }
+          ]
+        },
+        {
+          "cuts": [],
+          "pieces": [
+            {
+              "intercept": "4/1",
+              "slope": "-1/1"
+            }
+          ]
+        }
+      ],
+      "U": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "447/256",
+            "slope": "65/512"
+          }
+        ]
+      },
+      "Z": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "3/4",
+            "slope": "5/8"
+          }
+        ]
+      },
+      "admitted": true,
+      "b": "1/4",
+      "b_phi": [
+        "1/4",
+        "1/2"
+      ],
+      "demimetric_interval_certificates": [
+        [
+          {
+            "domain": {
+              "lower": null,
+              "upper": null
+            },
+            "gap_polynomial_coefficients": [
+              "1/4",
+              "-1/1",
+              "1/1"
+            ]
+          }
+        ],
+        [
+          {
+            "domain": {
+              "lower": null,
+              "upper": null
+            },
+            "gap_polynomial_coefficients": [
+              "0/1",
+              "0/1",
+              "0/1"
+            ]
+          }
+        ]
+      ],
+      "eta": [
+        "1/1",
+        "1/2"
+      ],
+      "expected_refusal_reasons": [],
+      "g": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "1/1",
+            "slope": "1/4"
+          }
+        ]
+      },
+      "grid_summaries": [
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "-2/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "0/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "1/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "3/2"
+        }
+      ],
+      "lambda": "1/2",
+      "name": "affine_target2",
+      "original_common_fixed_set": [
+        {
+          "lower": "2/1",
+          "upper": "2/1"
+        }
+      ],
+      "pairwise_nonexpansiveness_countercontrol": null,
+      "phi": [
+        "1/1",
+        "2/1"
+      ],
+      "rho": "3/4",
+      "sample_a": "5/2",
+      "sample_joint_terms": {
+        "D_gamma": "17407/3145728",
+        "J_gamma": "169/524288",
+        "bound_L": "1718871/16777216",
+        "joint": "93287/1048576",
+        "lambda_D_beta": "103/24576",
+        "lambda_J_beta": "1/4096",
+        "loss_L": "3694455/16777216",
+        "loss_U": "257919/1048576",
+        "mixing_loss": "9/16384",
+        "resolvent_prefix_loss": "5/64",
+        "slack_L": "61737/524288",
+        "slack_U": "20579/131072",
+        "weighted_original_residual": "17/3072"
+      },
+      "weights": [
+        "1/3",
+        "2/3"
+      ]
+    },
+    {
+      "B": [
+        {
+          "intercept": "0/1",
+          "slope": "0/1"
+        },
+        {
+          "intercept": "0/1",
+          "slope": "0/1"
+        }
+      ],
+      "Fix_L": [
+        {
+          "lower": "2/1",
+          "upper": "2/1"
+        }
+      ],
+      "Fix_U": [
+        {
+          "lower": "2/1",
+          "upper": "2/1"
+        }
+      ],
+      "L": {
+        "cuts": [
+          "3/1",
+          "40/13",
+          "7/2",
+          "39/11"
+        ],
+        "pieces": [
+          {
+            "intercept": "17/48",
+            "slope": "79/96"
+          },
+          {
+            "intercept": "1/24",
+            "slope": "89/96"
+          },
+          {
+            "intercept": "-19/24",
+            "slope": "115/96"
+          },
+          {
+            "intercept": "-9/32",
+            "slope": "101/96"
+          },
+          {
+            "intercept": "17/32",
+            "slope": "79/96"
+          }
+        ]
+      },
+      "Q": [
+        {
+          "cuts": [
+            "3/1",
+            "7/2"
+          ],
+          "pieces": [
+            {
+              "intercept": "2/1",
+              "slope": "0/1"
+            },
+            {
+              "intercept": "-4/1",
+              "slope": "2/1"
+            },
+            {
+              "intercept": "3/1",
+              "slope": "0/1"
+            }
+          ]
+        },
+        {
+          "cuts": [],
+          "pieces": [
+            {
+              "intercept": "0/1",
+              "slope": "1/1"
+            }
+          ]
+        }
+      ],
+      "U": {
+        "cuts": [
+          "3/1",
+          "40/13",
+          "7/2",
+          "39/11"
+        ],
+        "pieces": [
+          {
+            "intercept": "17/36",
+            "slope": "55/72"
+          },
+          {
+            "intercept": "1/18",
+            "slope": "65/72"
+          },
+          {
+            "intercept": "-19/18",
+            "slope": "91/72"
+          },
+          {
+            "intercept": "-3/8",
+            "slope": "77/72"
+          },
+          {
+            "intercept": "17/24",
+            "slope": "55/72"
+          }
+        ]
+      },
+      "Z": {
+        "cuts": [
+          "3/1",
+          "7/2"
+        ],
+        "pieces": [
+          {
+            "intercept": "1/3",
+            "slope": "5/6"
+          },
+          {
+            "intercept": "-2/3",
+            "slope": "7/6"
+          },
+          {
+            "intercept": "1/2",
+            "slope": "5/6"
+          }
+        ]
+      },
+      "admitted": true,
+      "b": "1/4",
+      "b_phi": [
+        "1/4",
+        "1/4"
+      ],
+      "demimetric_interval_certificates": [
+        [
+          {
+            "domain": {
+              "lower": null,
+              "upper": "3/1"
+            },
+            "gap_polynomial_coefficients": [
+              "0/1",
+              "0/1",
+              "0/1"
+            ]
+          },
+          {
+            "domain": {
+              "lower": "3/1",
+              "upper": "7/2"
+            },
+            "gap_polynomial_coefficients": [
+              "-2/1",
+              "14/1",
+              "-24/1"
+            ]
+          },
+          {
+            "domain": {
+              "lower": "7/2",
+              "upper": null
+            },
+            "gap_polynomial_coefficients": [
+              "0/1",
+              "1/1",
+              "-3/1"
+            ]
+          }
+        ],
+        [
+          {
+            "domain": {
+              "lower": null,
+              "upper": null
+            },
+            "gap_polynomial_coefficients": [
+              "0/1",
+              "0/1",
+              "0/1"
+            ]
+          }
+        ]
+      ],
+      "eta": [
+        "1/1",
+        "1/1"
+      ],
+      "expected_refusal_reasons": [],
+      "g": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "1/1",
+            "slope": "1/4"
+          }
+        ]
+      },
+      "grid_summaries": [
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "-2/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "0/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "1/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "3/2"
+        }
+      ],
+      "lambda": "1/2",
+      "name": "piecewise_target2",
+      "original_common_fixed_set": [
+        {
+          "lower": "2/1",
+          "upper": "2/1"
+        }
+      ],
+      "pairwise_nonexpansiveness_countercontrol": {
+        "Z_distance": "7/12",
+        "input_distance": "1/2",
+        "meaning": "Admitted strong quasi-nonexpansive construction need not be pairwise nonexpansive",
+        "x": "3/1",
+        "y": "7/2"
+      },
+      "phi": [
+        "1/1",
+        "1/1"
+      ],
+      "rho": "3/4",
+      "sample_a": "5/2",
+      "sample_joint_terms": {
+        "D_gamma": "847/13824",
+        "J_gamma": "121/41472",
+        "bound_L": "2975/36864",
+        "joint": "2159/20736",
+        "lambda_D_beta": "7/192",
+        "lambda_J_beta": "1/576",
+        "loss_L": "2975/36864",
+        "loss_U": "2159/20736",
+        "mixing_loss": "1/576",
+        "resolvent_prefix_loss": "0/1",
+        "slack_L": "0/1",
+        "slack_U": "0/1",
+        "weighted_original_residual": "1/24"
+      },
+      "weights": [
+        "2/3",
+        "1/3"
+      ]
+    },
+    {
+      "B": [
+        {
+          "intercept": "0/1",
+          "slope": "0/1"
+        },
+        {
+          "intercept": "0/1",
+          "slope": "0/1"
+        }
+      ],
+      "Fix_L": [
+        {
+          "lower": "0/1",
+          "upper": "0/1"
+        }
+      ],
+      "Fix_U": [
+        {
+          "lower": "0/1",
+          "upper": "0/1"
+        }
+      ],
+      "L": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "0/1",
+            "slope": "1/4"
+          }
+        ]
+      },
+      "Q": [
+        {
+          "cuts": [],
+          "pieces": [
+            {
+              "intercept": "0/1",
+              "slope": "-3/1"
+            }
+          ]
+        },
+        {
+          "cuts": [],
+          "pieces": [
+            {
+              "intercept": "0/1",
+              "slope": "-3/1"
+            }
+          ]
+        }
+      ],
+      "U": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "0/1",
+            "slope": "0/1"
+          }
+        ]
+      },
+      "Z": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "0/1",
+            "slope": "0/1"
+          }
+        ]
+      },
+      "admitted": true,
+      "b": "1/4",
+      "b_phi": [
+        "1/1",
+        "1/1"
+      ],
+      "demimetric_interval_certificates": [
+        [
+          {
+            "domain": {
+              "lower": null,
+              "upper": null
+            },
+            "gap_polynomial_coefficients": [
+              "0/1",
+              "0/1",
+              "0/1"
+            ]
+          }
+        ],
+        [
+          {
+            "domain": {
+              "lower": null,
+              "upper": null
+            },
+            "gap_polynomial_coefficients": [
+              "0/1",
+              "0/1",
+              "0/1"
+            ]
+          }
+        ]
+      ],
+      "eta": [
+        "1/1",
+        "1/1"
+      ],
+      "expected_refusal_reasons": [],
+      "g": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "1/1",
+            "slope": "0/1"
+          }
+        ]
+      },
+      "grid_summaries": [
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "-2/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "0/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "1/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "3/2"
+        }
+      ],
+      "lambda": "1/2",
+      "name": "strict_minus3",
+      "original_common_fixed_set": [
+        {
+          "lower": "0/1",
+          "upper": "0/1"
+        }
+      ],
+      "pairwise_nonexpansiveness_countercontrol": null,
+      "phi": [
+        "4/1",
+        "4/1"
+      ],
+      "rho": "3/4",
+      "sample_a": "1/2",
+      "sample_joint_terms": {
+        "D_gamma": "1/16",
+        "J_gamma": "0/1",
+        "bound_L": "15/64",
+        "joint": "1/4",
+        "lambda_D_beta": "1/8",
+        "lambda_J_beta": "0/1",
+        "loss_L": "15/64",
+        "loss_U": "1/4",
+        "mixing_loss": "1/16",
+        "resolvent_prefix_loss": "0/1",
+        "slack_L": "0/1",
+        "slack_U": "0/1",
+        "weighted_original_residual": "1/4"
+      },
+      "weights": [
+        "1/2",
+        "1/2"
+      ]
+    },
+    {
+      "B": [
+        {
+          "intercept": "0/1",
+          "slope": "0/1"
+        },
+        {
+          "intercept": "0/1",
+          "slope": "0/1"
+        }
+      ],
+      "Fix_L": [
+        {
+          "lower": "0/1",
+          "upper": "0/1"
+        }
+      ],
+      "Fix_U": [
+        {
+          "lower": "0/1",
+          "upper": "0/1"
+        }
+      ],
+      "L": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "0/1",
+            "slope": "1/4"
+          }
+        ]
+      },
+      "Q": [
+        {
+          "cuts": [],
+          "pieces": [
+            {
+              "intercept": "0/1",
+              "slope": "-1/1"
+            }
+          ]
+        },
+        {
+          "cuts": [],
+          "pieces": [
+            {
+              "intercept": "0/1",
+              "slope": "-1/1"
+            }
+          ]
+        }
+      ],
+      "U": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "0/1",
+            "slope": "0/1"
+          }
+        ]
+      },
+      "Z": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "0/1",
+            "slope": "-1/1"
+          }
+        ]
+      },
+      "admitted": true,
+      "b": "1/1",
+      "b_phi": [
+        "2/1",
+        "2/1"
+      ],
+      "demimetric_interval_certificates": [
+        [
+          {
+            "domain": {
+              "lower": null,
+              "upper": null
+            },
+            "gap_polynomial_coefficients": [
+              "0/1",
+              "0/1",
+              "0/1"
+            ]
+          }
+        ],
+        [
+          {
+            "domain": {
+              "lower": null,
+              "upper": null
+            },
+            "gap_polynomial_coefficients": [
+              "0/1",
+              "0/1",
+              "0/1"
+            ]
+          }
+        ]
+      ],
+      "eta": [
+        "1/1",
+        "1/1"
+      ],
+      "expected_refusal_reasons": [],
+      "g": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "1/1",
+            "slope": "0/1"
+          }
+        ]
+      },
+      "grid_summaries": [
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "-2/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "0/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "1/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": true,
+          "shift": "3/2"
+        }
+      ],
+      "lambda": "1/2",
+      "name": "admitted_saturation",
+      "original_common_fixed_set": [
+        {
+          "lower": "0/1",
+          "upper": "0/1"
+        }
+      ],
+      "pairwise_nonexpansiveness_countercontrol": null,
+      "phi": [
+        "2/1",
+        "2/1"
+      ],
+      "rho": "3/4",
+      "sample_a": "1/2",
+      "sample_joint_terms": {
+        "D_gamma": "0/1",
+        "J_gamma": "0/1",
+        "bound_L": "15/64",
+        "joint": "1/4",
+        "lambda_D_beta": "0/1",
+        "lambda_J_beta": "0/1",
+        "loss_L": "15/64",
+        "loss_U": "1/4",
+        "mixing_loss": "1/4",
+        "resolvent_prefix_loss": "0/1",
+        "slack_L": "0/1",
+        "slack_U": "0/1",
+        "weighted_original_residual": "1/2"
+      },
+      "weights": [
+        "1/2",
+        "1/2"
+      ]
+    },
+    {
+      "B": [
+        {
+          "intercept": "0/1",
+          "slope": "0/1"
+        },
+        {
+          "intercept": "0/1",
+          "slope": "0/1"
+        }
+      ],
+      "Fix_L": [
+        {
+          "lower": null,
+          "upper": null
+        }
+      ],
+      "Fix_U": [
+        {
+          "lower": null,
+          "upper": null
+        }
+      ],
+      "L": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "0/1",
+            "slope": "1/1"
+          }
+        ]
+      },
+      "Q": [
+        {
+          "cuts": [],
+          "pieces": [
+            {
+              "intercept": "0/1",
+              "slope": "-1/1"
+            }
+          ]
+        },
+        {
+          "cuts": [],
+          "pieces": [
+            {
+              "intercept": "0/1",
+              "slope": "-1/1"
+            }
+          ]
+        }
+      ],
+      "U": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "0/1",
+            "slope": "1/1"
+          }
+        ]
+      },
+      "Z": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "0/1",
+            "slope": "-1/1"
+          }
+        ]
+      },
+      "admitted": false,
+      "b": "1/1",
+      "b_phi": [
+        "2/1",
+        "2/1"
+      ],
+      "demimetric_interval_certificates": [
+        [
+          {
+            "domain": {
+              "lower": null,
+              "upper": null
+            },
+            "gap_polynomial_coefficients": [
+              "0/1",
+              "0/1",
+              "0/1"
+            ]
+          }
+        ],
+        [
+          {
+            "domain": {
+              "lower": null,
+              "upper": null
+            },
+            "gap_polynomial_coefficients": [
+              "0/1",
+              "0/1",
+              "0/1"
+            ]
+          }
+        ]
+      ],
+      "eta": [
+        "1/1",
+        "1/1"
+      ],
+      "expected_refusal_reasons": [
+        "lambda must be interior"
+      ],
+      "g": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "1/1",
+            "slope": "0/1"
+          }
+        ]
+      },
+      "grid_summaries": [
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": false,
+          "shift": "-2/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": false,
+          "shift": "0/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": false,
+          "shift": "1/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": false,
+          "shift": "3/2"
+        }
+      ],
+      "lambda": "1/1",
+      "name": "excluded_saturation_lambda1",
+      "original_common_fixed_set": [
+        {
+          "lower": "0/1",
+          "upper": "0/1"
+        }
+      ],
+      "pairwise_nonexpansiveness_countercontrol": null,
+      "phi": [
+        "2/1",
+        "2/1"
+      ],
+      "rho": "3/4",
+      "sample_a": "1/2",
+      "sample_joint_terms": {
+        "D_gamma": "0/1",
+        "J_gamma": "0/1",
+        "bound_L": "0/1",
+        "joint": "0/1",
+        "lambda_D_beta": "0/1",
+        "lambda_J_beta": "0/1",
+        "loss_L": "0/1",
+        "loss_U": "0/1",
+        "mixing_loss": "0/1",
+        "resolvent_prefix_loss": "0/1",
+        "slack_L": "0/1",
+        "slack_U": "0/1",
+        "weighted_original_residual": "1/2"
+      },
+      "weights": [
+        "1/2",
+        "1/2"
+      ]
+    },
+    {
+      "B": [
+        {
+          "intercept": "0/1",
+          "slope": "0/1"
+        },
+        {
+          "intercept": "0/1",
+          "slope": "0/1"
+        }
+      ],
+      "Fix_L": [
+        {
+          "lower": null,
+          "upper": null
+        }
+      ],
+      "Fix_U": [
+        {
+          "lower": null,
+          "upper": null
+        }
+      ],
+      "L": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "0/1",
+            "slope": "1/1"
+          }
+        ]
+      },
+      "Q": [
+        {
+          "cuts": [],
+          "pieces": [
+            {
+              "intercept": "0/1",
+              "slope": "-3/1"
+            }
+          ]
+        },
+        {
+          "cuts": [],
+          "pieces": [
+            {
+              "intercept": "0/1",
+              "slope": "-3/1"
+            }
+          ]
+        }
+      ],
+      "U": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "0/1",
+            "slope": "1/1"
+          }
+        ]
+      },
+      "Z": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "0/1",
+            "slope": "-2/1"
+          }
+        ]
+      },
+      "admitted": false,
+      "b": "3/4",
+      "b_phi": [
+        "3/1",
+        "3/1"
+      ],
+      "demimetric_interval_certificates": [
+        [
+          {
+            "domain": {
+              "lower": null,
+              "upper": null
+            },
+            "gap_polynomial_coefficients": [
+              "0/1",
+              "0/1",
+              "0/1"
+            ]
+          }
+        ],
+        [
+          {
+            "domain": {
+              "lower": null,
+              "upper": null
+            },
+            "gap_polynomial_coefficients": [
+              "0/1",
+              "0/1",
+              "0/1"
+            ]
+          }
+        ]
+      ],
+      "eta": [
+        "1/1",
+        "1/1"
+      ],
+      "expected_refusal_reasons": [
+        "b>0, phi>0, b*phi<=2 required"
+      ],
+      "g": {
+        "cuts": [],
+        "pieces": [
+          {
+            "intercept": "1/1",
+            "slope": "0/1"
+          }
+        ]
+      },
+      "grid_summaries": [
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": false,
+          "shift": "-2/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": false,
+          "shift": "0/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": false,
+          "shift": "1/1"
+        },
+        {
+          "minimum_L_slack": "0/1",
+          "minimum_U_slack": "0/1",
+          "minimum_joint": "0/1",
+          "nonnegative_terms_required": false,
+          "shift": "3/2"
+        }
+      ],
+      "lambda": "1/2",
+      "name": "excluded_old_minus3",
+      "original_common_fixed_set": [
+        {
+          "lower": "0/1",
+          "upper": "0/1"
+        }
+      ],
+      "pairwise_nonexpansiveness_countercontrol": null,
+      "phi": [
+        "4/1",
+        "4/1"
+      ],
+      "rho": "9/10",
+      "sample_a": "1/2",
+      "sample_joint_terms": {
+        "D_gamma": "-3/16",
+        "J_gamma": "0/1",
+        "bound_L": "0/1",
+        "joint": "0/1",
+        "lambda_D_beta": "-3/8",
+        "lambda_J_beta": "0/1",
+        "loss_L": "0/1",
+        "loss_U": "0/1",
+        "mixing_loss": "9/16",
+        "resolvent_prefix_loss": "0/1",
+        "slack_L": "0/1",
+        "slack_U": "0/1",
+        "weighted_original_residual": "3/4"
+      },
+      "weights": [
+        "1/2",
+        "1/2"
+      ]
+    }
+  ],
+  "grid": [
+    "-4/1",
+    "-15/4",
+    "-7/2",
+    "-13/4",
+    "-3/1",
+    "-11/4",
+    "-5/2",
+    "-9/4",
+    "-2/1",
+    "-7/4",
+    "-3/2",
+    "-5/4",
+    "-1/1",
+    "-3/4",
+    "-1/2",
+    "-1/4",
+    "0/1",
+    "1/4",
+    "1/2",
+    "3/4",
+    "1/1",
+    "5/4",
+    "3/2",
+    "7/4",
+    "2/1",
+    "9/4",
+    "5/2",
+    "11/4",
+    "3/1",
+    "13/4",
+    "7/2",
+    "15/4",
+    "4/1",
+    "17/4",
+    "9/2",
+    "19/4",
+    "5/1",
+    "21/4",
+    "11/2",
+    "23/4",
+    "6/1"
+  ],
+  "indexing": "x0=x1=initial; n1..32 compute x2..x33; 34 retained states per trajectory",
+  "limits": [
+    "Seven declared one-dimensional maps; exact algebra for their finite affine pieces",
+    "Finite trajectories do not prove convergence, a rate or a general theorem",
+    "Admitted saturation plus interior mixing is distinct from the excluded combined endpoint",
+    "Same-controller assistant corroboration; no external independent reviewer",
+    "No unqualified claim about the source paper's literal notation"
+  ],
+  "schema": "restricted-repair-exact-check/v1",
+  "shifts": [
+    "-2/1",
+    "0/1",
+    "1/1",
+    "3/2"
+  ],
+  "status": "PASS",
+  "trajectories": [
+    {
+      "case": "identity_target1",
+      "coordinate_states_sha256": "8814e2a0315107edb8e5e56fd1de44c3a27b895bca701060a354e04514c24fa8",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.9930585283274680",
+        "denominator_bits": 94,
+        "exact_fraction": "19454331273731229738133853957/19590316903573309333440000000",
+        "exact_fraction_sha256": "0d6fe92362c091bebc4d4e698f8444a5f608bf674cfce49c252996543eedbd07",
+        "numerator_bits": 94
+      },
+      "physical_states_sha256": "ecb2e90acd957b067c02d8c7a435d3c9b81e9832175179949fc7758bb5119f91",
+      "shift": "-2/1",
+      "state_count": 34,
+      "target_physical": "1/1"
+    },
+    {
+      "case": "identity_target1",
+      "coordinate_states_sha256": "ecb2e90acd957b067c02d8c7a435d3c9b81e9832175179949fc7758bb5119f91",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.9930585283274680",
+        "denominator_bits": 94,
+        "exact_fraction": "19454331273731229738133853957/19590316903573309333440000000",
+        "exact_fraction_sha256": "0d6fe92362c091bebc4d4e698f8444a5f608bf674cfce49c252996543eedbd07",
+        "numerator_bits": 94
+      },
+      "physical_states_sha256": "ecb2e90acd957b067c02d8c7a435d3c9b81e9832175179949fc7758bb5119f91",
+      "shift": "0/1",
+      "state_count": 34,
+      "target_physical": "1/1"
+    },
+    {
+      "case": "identity_target1",
+      "coordinate_states_sha256": "e5c7ecd1b3c7304e923950d1bd33b125af8cc1d9a9fe0fd92aab58b7dc73ed2c",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.9930585283274680",
+        "denominator_bits": 94,
+        "exact_fraction": "19454331273731229738133853957/19590316903573309333440000000",
+        "exact_fraction_sha256": "0d6fe92362c091bebc4d4e698f8444a5f608bf674cfce49c252996543eedbd07",
+        "numerator_bits": 94
+      },
+      "physical_states_sha256": "ecb2e90acd957b067c02d8c7a435d3c9b81e9832175179949fc7758bb5119f91",
+      "shift": "1/1",
+      "state_count": 34,
+      "target_physical": "1/1"
+    },
+    {
+      "case": "identity_target1",
+      "coordinate_states_sha256": "f6892080618386f66d3af8fd222eee83c5d1fd02c309be53f9a83a044b314ed2",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.9930585283274680",
+        "denominator_bits": 94,
+        "exact_fraction": "19454331273731229738133853957/19590316903573309333440000000",
+        "exact_fraction_sha256": "0d6fe92362c091bebc4d4e698f8444a5f608bf674cfce49c252996543eedbd07",
+        "numerator_bits": 94
+      },
+      "physical_states_sha256": "ecb2e90acd957b067c02d8c7a435d3c9b81e9832175179949fc7758bb5119f91",
+      "shift": "3/2",
+      "state_count": 34,
+      "target_physical": "1/1"
+    },
+    {
+      "case": "affine_target2",
+      "coordinate_states_sha256": "ff03a19757042a8508ba8a24d80fb532a13982de601a1ba638628e303ffa19f2",
+      "endpoint_physical": {
+        "decimal_for_display_only": "1.976976927855298",
+        "denominator_bits": 397,
+        "exact_fraction": null,
+        "exact_fraction_sha256": "b7e548bea4d2867fff0fd41f85f2abc81a31a1325c9b8704d16b84746b7da29f",
+        "numerator_bits": 398
+      },
+      "physical_states_sha256": "0f350c88a7368875fed0543a8776516b673863a162dba5af06a1d4d66f51ee3f",
+      "shift": "-2/1",
+      "state_count": 34,
+      "target_physical": "2/1"
+    },
+    {
+      "case": "affine_target2",
+      "coordinate_states_sha256": "0f350c88a7368875fed0543a8776516b673863a162dba5af06a1d4d66f51ee3f",
+      "endpoint_physical": {
+        "decimal_for_display_only": "1.976976927855298",
+        "denominator_bits": 397,
+        "exact_fraction": null,
+        "exact_fraction_sha256": "b7e548bea4d2867fff0fd41f85f2abc81a31a1325c9b8704d16b84746b7da29f",
+        "numerator_bits": 398
+      },
+      "physical_states_sha256": "0f350c88a7368875fed0543a8776516b673863a162dba5af06a1d4d66f51ee3f",
+      "shift": "0/1",
+      "state_count": 34,
+      "target_physical": "2/1"
+    },
+    {
+      "case": "affine_target2",
+      "coordinate_states_sha256": "c9abe759bab867481a8d6ac7bc8120c96fd28965db088c244294daca01ba04d8",
+      "endpoint_physical": {
+        "decimal_for_display_only": "1.976976927855298",
+        "denominator_bits": 397,
+        "exact_fraction": null,
+        "exact_fraction_sha256": "b7e548bea4d2867fff0fd41f85f2abc81a31a1325c9b8704d16b84746b7da29f",
+        "numerator_bits": 398
+      },
+      "physical_states_sha256": "0f350c88a7368875fed0543a8776516b673863a162dba5af06a1d4d66f51ee3f",
+      "shift": "1/1",
+      "state_count": 34,
+      "target_physical": "2/1"
+    },
+    {
+      "case": "affine_target2",
+      "coordinate_states_sha256": "81c37f2a850d6627bc744ec91ac8b005c00896a7207bb4610ec288adc4deb520",
+      "endpoint_physical": {
+        "decimal_for_display_only": "1.976976927855298",
+        "denominator_bits": 397,
+        "exact_fraction": null,
+        "exact_fraction_sha256": "b7e548bea4d2867fff0fd41f85f2abc81a31a1325c9b8704d16b84746b7da29f",
+        "numerator_bits": 398
+      },
+      "physical_states_sha256": "0f350c88a7368875fed0543a8776516b673863a162dba5af06a1d4d66f51ee3f",
+      "shift": "3/2",
+      "state_count": 34,
+      "target_physical": "2/1"
+    },
+    {
+      "case": "piecewise_target2",
+      "coordinate_states_sha256": "5b282ddfaf10a43da6729ebe705e5de121dee7cf4d46be728f09a95aa0fa1e47",
+      "endpoint_physical": {
+        "decimal_for_display_only": "1.914757837270530",
+        "denominator_bits": 295,
+        "exact_fraction": "91030979375161387155482845634121366237565828252693954007427329005133403308622366773166473/47541771394405282758760923693010188235615542459406693373842945711781338949307334656000000",
+        "exact_fraction_sha256": "c2a0360dd6e7576ab702bc2b6a6290ce05687f7857ac9478857e48edda117311",
+        "numerator_bits": 296
+      },
+      "physical_states_sha256": "67a7f591aad3852452a288bf93e29aaa5ccb8a8fa1af2dffd981024d5abf9e8d",
+      "shift": "-2/1",
+      "state_count": 34,
+      "target_physical": "2/1"
+    },
+    {
+      "case": "piecewise_target2",
+      "coordinate_states_sha256": "67a7f591aad3852452a288bf93e29aaa5ccb8a8fa1af2dffd981024d5abf9e8d",
+      "endpoint_physical": {
+        "decimal_for_display_only": "1.914757837270530",
+        "denominator_bits": 295,
+        "exact_fraction": "91030979375161387155482845634121366237565828252693954007427329005133403308622366773166473/47541771394405282758760923693010188235615542459406693373842945711781338949307334656000000",
+        "exact_fraction_sha256": "c2a0360dd6e7576ab702bc2b6a6290ce05687f7857ac9478857e48edda117311",
+        "numerator_bits": 296
+      },
+      "physical_states_sha256": "67a7f591aad3852452a288bf93e29aaa5ccb8a8fa1af2dffd981024d5abf9e8d",
+      "shift": "0/1",
+      "state_count": 34,
+      "target_physical": "2/1"
+    },
+    {
+      "case": "piecewise_target2",
+      "coordinate_states_sha256": "e0601e6a33ba8a3ba5d6f058710e938620d2a03c01bf4526d20685768158d6c8",
+      "endpoint_physical": {
+        "decimal_for_display_only": "1.914757837270530",
+        "denominator_bits": 295,
+        "exact_fraction": "91030979375161387155482845634121366237565828252693954007427329005133403308622366773166473/47541771394405282758760923693010188235615542459406693373842945711781338949307334656000000",
+        "exact_fraction_sha256": "c2a0360dd6e7576ab702bc2b6a6290ce05687f7857ac9478857e48edda117311",
+        "numerator_bits": 296
+      },
+      "physical_states_sha256": "67a7f591aad3852452a288bf93e29aaa5ccb8a8fa1af2dffd981024d5abf9e8d",
+      "shift": "1/1",
+      "state_count": 34,
+      "target_physical": "2/1"
+    },
+    {
+      "case": "piecewise_target2",
+      "coordinate_states_sha256": "fcb4160132d980f0bd8da2f969324962e4ca62b16f4c35af72cc9d423666dcb9",
+      "endpoint_physical": {
+        "decimal_for_display_only": "1.914757837270530",
+        "denominator_bits": 295,
+        "exact_fraction": "91030979375161387155482845634121366237565828252693954007427329005133403308622366773166473/47541771394405282758760923693010188235615542459406693373842945711781338949307334656000000",
+        "exact_fraction_sha256": "c2a0360dd6e7576ab702bc2b6a6290ce05687f7857ac9478857e48edda117311",
+        "numerator_bits": 296
+      },
+      "physical_states_sha256": "67a7f591aad3852452a288bf93e29aaa5ccb8a8fa1af2dffd981024d5abf9e8d",
+      "shift": "3/2",
+      "state_count": 34,
+      "target_physical": "2/1"
+    },
+    {
+      "case": "strict_minus3",
+      "coordinate_states_sha256": "23e778a612c64be92a2f268e90ed37b17ce43250841a618b167f96037d485348",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.04010416826400075",
+        "denominator_bits": 151,
+        "exact_fraction": "71020043980330743475155972053449125896788903/1770889337806849051419941597727722475356160000",
+        "exact_fraction_sha256": "15aeeb762d8de4dae48ef8b65a3a445affd0005dec57937cb8e67395f073acfb",
+        "numerator_bits": 146
+      },
+      "physical_states_sha256": "5ec37d9b7f793a47fe8db4f68219cd5ce3ae7ec4e25025643cfe23539da8f53b",
+      "shift": "-2/1",
+      "state_count": 34,
+      "target_physical": "0/1"
+    },
+    {
+      "case": "strict_minus3",
+      "coordinate_states_sha256": "5ec37d9b7f793a47fe8db4f68219cd5ce3ae7ec4e25025643cfe23539da8f53b",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.04010416826400075",
+        "denominator_bits": 151,
+        "exact_fraction": "71020043980330743475155972053449125896788903/1770889337806849051419941597727722475356160000",
+        "exact_fraction_sha256": "15aeeb762d8de4dae48ef8b65a3a445affd0005dec57937cb8e67395f073acfb",
+        "numerator_bits": 146
+      },
+      "physical_states_sha256": "5ec37d9b7f793a47fe8db4f68219cd5ce3ae7ec4e25025643cfe23539da8f53b",
+      "shift": "0/1",
+      "state_count": 34,
+      "target_physical": "0/1"
+    },
+    {
+      "case": "strict_minus3",
+      "coordinate_states_sha256": "3c8a8efefdea87be6d469ab904846ae108e57df184682f76adf148c67f724cab",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.04010416826400075",
+        "denominator_bits": 151,
+        "exact_fraction": "71020043980330743475155972053449125896788903/1770889337806849051419941597727722475356160000",
+        "exact_fraction_sha256": "15aeeb762d8de4dae48ef8b65a3a445affd0005dec57937cb8e67395f073acfb",
+        "numerator_bits": 146
+      },
+      "physical_states_sha256": "5ec37d9b7f793a47fe8db4f68219cd5ce3ae7ec4e25025643cfe23539da8f53b",
+      "shift": "1/1",
+      "state_count": 34,
+      "target_physical": "0/1"
+    },
+    {
+      "case": "strict_minus3",
+      "coordinate_states_sha256": "791ee8acde621964ccc5a96b7f2158116f87134d0ea1d75f5edaa7c2da580619",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.04010416826400075",
+        "denominator_bits": 151,
+        "exact_fraction": "71020043980330743475155972053449125896788903/1770889337806849051419941597727722475356160000",
+        "exact_fraction_sha256": "15aeeb762d8de4dae48ef8b65a3a445affd0005dec57937cb8e67395f073acfb",
+        "numerator_bits": 146
+      },
+      "physical_states_sha256": "5ec37d9b7f793a47fe8db4f68219cd5ce3ae7ec4e25025643cfe23539da8f53b",
+      "shift": "3/2",
+      "state_count": 34,
+      "target_physical": "0/1"
+    },
+    {
+      "case": "admitted_saturation",
+      "coordinate_states_sha256": "23e778a612c64be92a2f268e90ed37b17ce43250841a618b167f96037d485348",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.04010416826400075",
+        "denominator_bits": 151,
+        "exact_fraction": "71020043980330743475155972053449125896788903/1770889337806849051419941597727722475356160000",
+        "exact_fraction_sha256": "15aeeb762d8de4dae48ef8b65a3a445affd0005dec57937cb8e67395f073acfb",
+        "numerator_bits": 146
+      },
+      "physical_states_sha256": "5ec37d9b7f793a47fe8db4f68219cd5ce3ae7ec4e25025643cfe23539da8f53b",
+      "shift": "-2/1",
+      "state_count": 34,
+      "target_physical": "0/1"
+    },
+    {
+      "case": "admitted_saturation",
+      "coordinate_states_sha256": "5ec37d9b7f793a47fe8db4f68219cd5ce3ae7ec4e25025643cfe23539da8f53b",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.04010416826400075",
+        "denominator_bits": 151,
+        "exact_fraction": "71020043980330743475155972053449125896788903/1770889337806849051419941597727722475356160000",
+        "exact_fraction_sha256": "15aeeb762d8de4dae48ef8b65a3a445affd0005dec57937cb8e67395f073acfb",
+        "numerator_bits": 146
+      },
+      "physical_states_sha256": "5ec37d9b7f793a47fe8db4f68219cd5ce3ae7ec4e25025643cfe23539da8f53b",
+      "shift": "0/1",
+      "state_count": 34,
+      "target_physical": "0/1"
+    },
+    {
+      "case": "admitted_saturation",
+      "coordinate_states_sha256": "3c8a8efefdea87be6d469ab904846ae108e57df184682f76adf148c67f724cab",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.04010416826400075",
+        "denominator_bits": 151,
+        "exact_fraction": "71020043980330743475155972053449125896788903/1770889337806849051419941597727722475356160000",
+        "exact_fraction_sha256": "15aeeb762d8de4dae48ef8b65a3a445affd0005dec57937cb8e67395f073acfb",
+        "numerator_bits": 146
+      },
+      "physical_states_sha256": "5ec37d9b7f793a47fe8db4f68219cd5ce3ae7ec4e25025643cfe23539da8f53b",
+      "shift": "1/1",
+      "state_count": 34,
+      "target_physical": "0/1"
+    },
+    {
+      "case": "admitted_saturation",
+      "coordinate_states_sha256": "791ee8acde621964ccc5a96b7f2158116f87134d0ea1d75f5edaa7c2da580619",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.04010416826400075",
+        "denominator_bits": 151,
+        "exact_fraction": "71020043980330743475155972053449125896788903/1770889337806849051419941597727722475356160000",
+        "exact_fraction_sha256": "15aeeb762d8de4dae48ef8b65a3a445affd0005dec57937cb8e67395f073acfb",
+        "numerator_bits": 146
+      },
+      "physical_states_sha256": "5ec37d9b7f793a47fe8db4f68219cd5ce3ae7ec4e25025643cfe23539da8f53b",
+      "shift": "3/2",
+      "state_count": 34,
+      "target_physical": "0/1"
+    },
+    {
+      "case": "excluded_saturation_lambda1",
+      "coordinate_states_sha256": "8814e2a0315107edb8e5e56fd1de44c3a27b895bca701060a354e04514c24fa8",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.9930585283274680",
+        "denominator_bits": 94,
+        "exact_fraction": "19454331273731229738133853957/19590316903573309333440000000",
+        "exact_fraction_sha256": "0d6fe92362c091bebc4d4e698f8444a5f608bf674cfce49c252996543eedbd07",
+        "numerator_bits": 94
+      },
+      "physical_states_sha256": "ecb2e90acd957b067c02d8c7a435d3c9b81e9832175179949fc7758bb5119f91",
+      "shift": "-2/1",
+      "state_count": 34,
+      "target_physical": "0/1"
+    },
+    {
+      "case": "excluded_saturation_lambda1",
+      "coordinate_states_sha256": "ecb2e90acd957b067c02d8c7a435d3c9b81e9832175179949fc7758bb5119f91",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.9930585283274680",
+        "denominator_bits": 94,
+        "exact_fraction": "19454331273731229738133853957/19590316903573309333440000000",
+        "exact_fraction_sha256": "0d6fe92362c091bebc4d4e698f8444a5f608bf674cfce49c252996543eedbd07",
+        "numerator_bits": 94
+      },
+      "physical_states_sha256": "ecb2e90acd957b067c02d8c7a435d3c9b81e9832175179949fc7758bb5119f91",
+      "shift": "0/1",
+      "state_count": 34,
+      "target_physical": "0/1"
+    },
+    {
+      "case": "excluded_saturation_lambda1",
+      "coordinate_states_sha256": "e5c7ecd1b3c7304e923950d1bd33b125af8cc1d9a9fe0fd92aab58b7dc73ed2c",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.9930585283274680",
+        "denominator_bits": 94,
+        "exact_fraction": "19454331273731229738133853957/19590316903573309333440000000",
+        "exact_fraction_sha256": "0d6fe92362c091bebc4d4e698f8444a5f608bf674cfce49c252996543eedbd07",
+        "numerator_bits": 94
+      },
+      "physical_states_sha256": "ecb2e90acd957b067c02d8c7a435d3c9b81e9832175179949fc7758bb5119f91",
+      "shift": "1/1",
+      "state_count": 34,
+      "target_physical": "0/1"
+    },
+    {
+      "case": "excluded_saturation_lambda1",
+      "coordinate_states_sha256": "f6892080618386f66d3af8fd222eee83c5d1fd02c309be53f9a83a044b314ed2",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.9930585283274680",
+        "denominator_bits": 94,
+        "exact_fraction": "19454331273731229738133853957/19590316903573309333440000000",
+        "exact_fraction_sha256": "0d6fe92362c091bebc4d4e698f8444a5f608bf674cfce49c252996543eedbd07",
+        "numerator_bits": 94
+      },
+      "physical_states_sha256": "ecb2e90acd957b067c02d8c7a435d3c9b81e9832175179949fc7758bb5119f91",
+      "shift": "3/2",
+      "state_count": 34,
+      "target_physical": "0/1"
+    },
+    {
+      "case": "excluded_old_minus3",
+      "coordinate_states_sha256": "8814e2a0315107edb8e5e56fd1de44c3a27b895bca701060a354e04514c24fa8",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.9930585283274680",
+        "denominator_bits": 94,
+        "exact_fraction": "19454331273731229738133853957/19590316903573309333440000000",
+        "exact_fraction_sha256": "0d6fe92362c091bebc4d4e698f8444a5f608bf674cfce49c252996543eedbd07",
+        "numerator_bits": 94
+      },
+      "physical_states_sha256": "ecb2e90acd957b067c02d8c7a435d3c9b81e9832175179949fc7758bb5119f91",
+      "shift": "-2/1",
+      "state_count": 34,
+      "target_physical": "0/1"
+    },
+    {
+      "case": "excluded_old_minus3",
+      "coordinate_states_sha256": "ecb2e90acd957b067c02d8c7a435d3c9b81e9832175179949fc7758bb5119f91",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.9930585283274680",
+        "denominator_bits": 94,
+        "exact_fraction": "19454331273731229738133853957/19590316903573309333440000000",
+        "exact_fraction_sha256": "0d6fe92362c091bebc4d4e698f8444a5f608bf674cfce49c252996543eedbd07",
+        "numerator_bits": 94
+      },
+      "physical_states_sha256": "ecb2e90acd957b067c02d8c7a435d3c9b81e9832175179949fc7758bb5119f91",
+      "shift": "0/1",
+      "state_count": 34,
+      "target_physical": "0/1"
+    },
+    {
+      "case": "excluded_old_minus3",
+      "coordinate_states_sha256": "e5c7ecd1b3c7304e923950d1bd33b125af8cc1d9a9fe0fd92aab58b7dc73ed2c",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.9930585283274680",
+        "denominator_bits": 94,
+        "exact_fraction": "19454331273731229738133853957/19590316903573309333440000000",
+        "exact_fraction_sha256": "0d6fe92362c091bebc4d4e698f8444a5f608bf674cfce49c252996543eedbd07",
+        "numerator_bits": 94
+      },
+      "physical_states_sha256": "ecb2e90acd957b067c02d8c7a435d3c9b81e9832175179949fc7758bb5119f91",
+      "shift": "1/1",
+      "state_count": 34,
+      "target_physical": "0/1"
+    },
+    {
+      "case": "excluded_old_minus3",
+      "coordinate_states_sha256": "f6892080618386f66d3af8fd222eee83c5d1fd02c309be53f9a83a044b314ed2",
+      "endpoint_physical": {
+        "decimal_for_display_only": "0.9930585283274680",
+        "denominator_bits": 94,
+        "exact_fraction": "19454331273731229738133853957/19590316903573309333440000000",
+        "exact_fraction_sha256": "0d6fe92362c091bebc4d4e698f8444a5f608bf674cfce49c252996543eedbd07",
+        "numerator_bits": 94
+      },
+      "physical_states_sha256": "ecb2e90acd957b067c02d8c7a435d3c9b81e9832175179949fc7758bb5119f91",
+      "shift": "3/2",
+      "state_count": 34,
+      "target_physical": "0/1"
+    }
+  ],
+  "trajectory_records_sha256": "0e1a1790e2f11d0ad1eee57f4b5714a0ee78a067501c3c8bf2d19fb55fd57cf4",
+  "updates": 32
+}

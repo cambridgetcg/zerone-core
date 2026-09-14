@@ -1,2 +1,5 @@
 # Unified diff context uses a leading space before Go module indentation.
 deploy/legacy-observer/observer-dependencies.patch whitespace=-space-before-tab
+
+# Signed protobuf transaction bytes must remain byte-exact, even without NULs.
+dashboard/public/research/checkpoints/**/chain/tx.bin binary

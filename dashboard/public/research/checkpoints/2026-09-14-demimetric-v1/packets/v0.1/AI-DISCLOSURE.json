@@ -1,0 +1,48 @@
+{
+  "schema": "research-review-ai-disclosure/v1",
+  "prepared_on": "2026-09-14",
+  "tools": [
+    {
+      "name": "Codex assistant and separately tasked agents",
+      "model_family": "GPT-6 per session configuration; exact deployed model build not independently recorded",
+      "controller": "One operator, shared development session",
+      "uses": [
+        "source discovery and transcription checks",
+        "mathematical derivation",
+        "adversarial internal proof review",
+        "original verifier implementation",
+        "manuscript and organisation drafts"
+      ],
+      "validation": [
+        "primary publisher PDF/XML comparison",
+        "separately tasked internal proof check",
+        "Python exact rational verifier",
+        "primary cited-predecessor inspection"
+      ],
+      "external_independence": false
+    },
+    {
+      "name": "Python standard library",
+      "uses": [
+        "rational arithmetic and polynomial identities",
+        "artifact hashing"
+      ]
+    },
+    {
+      "name": "Pandoc and local Chromium/Chrome",
+      "uses": [
+        "offline Markdown/MathML reading copy and PDF rendering"
+      ]
+    }
+  ],
+  "accountable_human_adoption": null,
+  "authors_contacted": false,
+  "external_reviewers": [],
+  "remaining_limits": [
+    "not machine-checked formal proofs",
+    "paper notation requires explicit interpretations",
+    "no full convergence theorem repair",
+    "no claim of novelty or intent"
+  ],
+  "disclosure_status": "Must be adopted and updated by actual contributors before a journal manuscript submission."
+}

@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":1,"result":{"block_height":"183706","validators":[{"address":"E85D65FC900DEFEB9FF160F1E6EEA2CA00768420","pub_key":{"type":"tendermint/PubKeyEd25519","value":"C7jBQ2qhJ6uORoLnFoshmLIeKOeOtDnDlCsWdpgsJBg="},"voting_power":"1000000","proposer_priority":"0"}],"count":"1","total":"1"}}

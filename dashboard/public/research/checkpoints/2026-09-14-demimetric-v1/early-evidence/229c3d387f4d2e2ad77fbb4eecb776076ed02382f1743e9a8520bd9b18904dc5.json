@@ -1,0 +1,13 @@
+{
+  "schema": "zerone-proof-step-witness/v1",
+  "arithmetic": "exact rational",
+  "input_distance": "1/2",
+  "output_distance": "3/4",
+  "distance_ratio": "3/2",
+  "bounded_result": "The constructed relaxed operator is not nonexpansive.",
+  "limits": [
+    "Finite control checks do not prove the demimetric inequality for all real x; see the retained piecewise derivation.",
+    "This does not instantiate every global algorithm assumption or refute the convergence conclusion.",
+    "No misconduct, novelty or independently controlled review is established."
+  ]
+}

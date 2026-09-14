@@ -1,0 +1,73 @@
+{
+  "schema": "zerone-research-chain-bundle/v1",
+  "chain_id": "zerone-dev-1",
+  "height": "183706",
+  "txhash": "8DFC740C5326E76B482B6D370F527311CB518934D6B64A4BF5EFDBD2806D0B8E",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 4144,
+      "sha256": "3339e2b7ed3648ddd0142b7e222208fec752f95c58dda2d27fcd6120305d0cb6"
+    },
+    {
+      "path": "block-results.json",
+      "bytes": 4233,
+      "sha256": "362e2aed3f7d1509e2d852ec77b3f717f175ea8e370365ab3cb91999bc6f7187"
+    },
+    {
+      "path": "checkpoint.json",
+      "bytes": 503,
+      "sha256": "87a9929a74b638437c7bd5d64ca00b28503a57edebf8f7bec850ebc89ce43898"
+    },
+    {
+      "path": "commit.json",
+      "bytes": 1576,
+      "sha256": "5d9f19f72149b3771c270223ab3decc57eee9e6f5440a0f05ce506b6c862eef2"
+    },
+    {
+      "path": "genesis.json",
+      "bytes": 42159,
+      "sha256": "f8b4570b37fd41d5b63c02fbae1f89225c197c75315e8629650716f6e5f79256"
+    },
+    {
+      "path": "next-commit.json",
+      "bytes": 1576,
+      "sha256": "35c1276c99abcbafb65691608c1d5217dc947da24ef56d2c6614d3554749ecab"
+    },
+    {
+      "path": "next-validators.json",
+      "bytes": 303,
+      "sha256": "346d57916dd094925cee6a4777f8e878258a875b9a8f6be8756b0b698d6bb6a8"
+    },
+    {
+      "path": "sdk-tx.json",
+      "bytes": 6160,
+      "sha256": "e738279a4def831b500d7131b9b67cc6bb9d7fafe3546b82d537293d9156aee1"
+    },
+    {
+      "path": "signed.json",
+      "bytes": 1391,
+      "sha256": "8a00f209a1472f981908b842cb536aa4267c5c802e9ea73dce94e99ccfd89ca5"
+    },
+    {
+      "path": "tx-rpc.json",
+      "bytes": 4185,
+      "sha256": "8450ce2a7a052b15e9e4dc1a720a915110db49ad20ab16c0d769c7e5021c84cf"
+    },
+    {
+      "path": "tx.bin",
+      "bytes": 501,
+      "sha256": "8dfc740c5326e76b482b6d370f527311cb518934d6b64a4bf5efdbd2806d0b8e"
+    },
+    {
+      "path": "validators.json",
+      "bytes": 303,
+      "sha256": "9b800dcfb5d34658450c2ce8c46257c613a7b5b5275049c692816ee7d7992922"
+    },
+    {
+      "path": "verification.json",
+      "bytes": 3615,
+      "sha256": "bd6aff6d53814e4973fbfe0b774a990177e311e5e49820c318862d9e511f270d"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "schema": "research-review-packet/v1",
+  "case": "2026-001-demimetric-audit",
+  "version": "translation-v0.1",
+  "scope": "Separate follow-up; internal AI-assisted mathematical work, original v0.1 unchanged",
+  "files": [
+    {
+      "name": "NOTE.html",
+      "bytes": 80328,
+      "sha256": "96b1963d318799cef6a879240d2078c13072f4792f3c338cf8ae5065baf59a9d"
+    },
+    {
+      "name": "NOTE.md",
+      "bytes": 7291,
+      "sha256": "165757621d17802812d49b7583324866b75f8d11c90cbdbc3a77f6e761b910b6"
+    },
+    {
+      "name": "NOTE.pdf",
+      "bytes": 203875,
+      "sha256": "a8b0cc4462e8c11da99281fa7400ae8637d5d16b0f50132cb2af720a32945fba"
+    },
+    {
+      "name": "REVIEW-NOTE.md",
+      "bytes": 1978,
+      "sha256": "5807475f6e3aabbc331e8478a82ca917df8fda79eb9f5ea78b47560b3ffd5754"
+    },
+    {
+      "name": "VALIDATION.json",
+      "bytes": 1526,
+      "sha256": "d1054b27a538dcfac9aebf6121e42aa1b8ac6f24480dad5d417707161cac73d6"
+    },
+    {
+      "name": "plot-data.json",
+      "bytes": 96385,
+      "sha256": "d474d276d578d76483d168e78df8359ae05f247ac14feb68f54cb6b13f79c84f"
+    },
+    {
+      "name": "plot.py",
+      "bytes": 2766,
+      "sha256": "cfabd1f8c2af0dba2d187af102b1e9b839c9452ff2a14431d8de8ab40f0cb588"
+    },
+    {
+      "name": "results.json",
+      "bytes": 73104,
+      "sha256": "393951e18ab9d1baec8af1e246ee7f34b216a2c42f2f051485df06b5e73d2723"
+    },
+    {
+      "name": "translation-check.svg",
+      "bytes": 37528,
+      "sha256": "40d1f19e47f6eb4bdb61fd5b190589837e25efc90296dbc54f846b48863bb594"
+    },
+    {
+      "name": "verify_packet.py",
+      "bytes": 2290,
+      "sha256": "868016d40c3c0fdc8ee5d837ab3b91b80c68286464f3e767e184e6eacf31b774"
+    },
+    {
+      "name": "verify_translation.py",
+      "bytes": 16981,
+      "sha256": "9169b7d524b1ee099ddf73ad08675482bdaae1c049c3660418cfc02eed900910"
+    }
+  ]
+}

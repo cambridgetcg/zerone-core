@@ -1,0 +1,31 @@
+{
+  "schema": "research-review-internal-checks/v1",
+  "date": "2026-09-14",
+  "status": "No material mathematical gap found within the stated assumptions",
+  "note": "NOTE.md",
+  "note_sha256": "84b3720069e9741a425e9285a49857c18295f188bb60411ce4b188845c7ee771",
+  "attribution": "Primary development assistant and separately tasked agents, all under the same operator; not outside independent review",
+  "checks": [
+    {
+      "scope": "Fixed-point preservation, closed convexity, joint loss, demiclosedness and parameter boundaries",
+      "receipt_sha256": "127a0b55364da399585c5e4ec2e387312c9c7f6757ecf525e30812bd77565819",
+      "findings": []
+    },
+    {
+      "scope": "Full convergence, perturbation constants, projection-sign extraction and both monotonicity cases",
+      "receipt_sha256": "81c29ed3763b5d5349e13b91f5504d76e78390135ae2cf3c5d55d0ff0702ad36",
+      "format_rebind_sha256": "51532f55d2dca1dea10e4f822aee50612bfe1f8fd49de3f10e0bd775ab242d8d",
+      "findings": []
+    },
+    {
+      "scope": "Primary predecessor statements",
+      "checked_by": "Primary assistant",
+      "evidence": "SOURCES.json; original PDF statements and relevant pages read visually"
+    }
+  ],
+  "limits": [
+    "Mathematical draft with internal review, not machine-checked proof",
+    "No proof of minimal assumptions or convergence rate",
+    "No external review, human adoption, author response, novelty or misconduct finding"
+  ]
+}

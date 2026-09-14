@@ -1,0 +1,270 @@
+{
+  "height": "183706",
+  "txhash": "8DFC740C5326E76B482B6D370F527311CB518934D6B64A4BF5EFDBD2806D0B8E",
+  "codespace": "",
+  "code": 0,
+  "data": "12260A242F636F736D6F732E62616E6B2E763162657461312E4D736753656E64526573706F6E7365",
+  "raw_log": "",
+  "logs": [],
+  "info": "",
+  "gas_wanted": "2000000",
+  "gas_used": "100584",
+  "tx": {
+    "@type": "/cosmos.tx.v1beta1.Tx",
+    "body": {
+      "messages": [
+        {
+          "@type": "/cosmos.bank.v1beta1.MsgSend",
+          "from_address": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8",
+          "to_address": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8",
+          "amount": [
+            {
+              "denom": "uzrn",
+              "amount": "1"
+            }
+          ]
+        }
+      ],
+      "memo": "zerone:research:v1:ce6e799a-6713-41a9-b95f-57c50a223074:81:86c8163599c0098aa43b4f3599a81b02a03557553fc595b67b026fdfe108704e:23baf5b0a2e7f4a48fe2b86775ae2ef92e607f2d793270ff10219e61d2563847",
+      "timeout_height": "0",
+      "unordered": false,
+      "timeout_timestamp": null,
+      "extension_options": [],
+      "non_critical_extension_options": []
+    },
+    "auth_info": {
+      "signer_infos": [
+        {
+          "public_key": {
+            "@type": "/cosmos.crypto.secp256k1.PubKey",
+            "key": "A/zosCkMgZudZwJ+6fzY7MeXVQWBosjYPME0b+RMlBx5"
+          },
+          "mode_info": {
+            "single": {
+              "mode": "SIGN_MODE_DIRECT"
+            }
+          },
+          "sequence": "2"
+        }
+      ],
+      "fee": {
+        "amount": [
+          {
+            "denom": "uzrn",
+            "amount": "2000000"
+          }
+        ],
+        "gas_limit": "2000000",
+        "payer": "",
+        "granter": ""
+      },
+      "tip": null
+    },
+    "signatures": [
+      "WvFMd+jHolf51frmNYQiYLLxfxlXREqKb1hSZ15uSnpmSPJZvQcewzNPOfuuj6RHd6dWzZJZl7NYdlgzT8A4kw=="
+    ]
+  },
+  "timestamp": "2026-09-14T16:16:57Z",
+  "events": [
+    {
+      "type": "coin_spent",
+      "attributes": [
+        {
+          "key": "spender",
+          "value": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8",
+          "index": true
+        },
+        {
+          "key": "amount",
+          "value": "2000000uzrn",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "coin_received",
+      "attributes": [
+        {
+          "key": "receiver",
+          "value": "zrn17xpfvakm2amg962yls6f84z3kell8c5ll9mw6t",
+          "index": true
+        },
+        {
+          "key": "amount",
+          "value": "2000000uzrn",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "transfer",
+      "attributes": [
+        {
+          "key": "recipient",
+          "value": "zrn17xpfvakm2amg962yls6f84z3kell8c5ll9mw6t",
+          "index": true
+        },
+        {
+          "key": "sender",
+          "value": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8",
+          "index": true
+        },
+        {
+          "key": "amount",
+          "value": "2000000uzrn",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "attributes": [
+        {
+          "key": "sender",
+          "value": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "tx",
+      "attributes": [
+        {
+          "key": "fee",
+          "value": "2000000uzrn",
+          "index": true
+        },
+        {
+          "key": "fee_payer",
+          "value": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "tx",
+      "attributes": [
+        {
+          "key": "acc_seq",
+          "value": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8/2",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "tx",
+      "attributes": [
+        {
+          "key": "signature",
+          "value": "WvFMd+jHolf51frmNYQiYLLxfxlXREqKb1hSZ15uSnpmSPJZvQcewzNPOfuuj6RHd6dWzZJZl7NYdlgzT8A4kw==",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "attributes": [
+        {
+          "key": "action",
+          "value": "/cosmos.bank.v1beta1.MsgSend",
+          "index": true
+        },
+        {
+          "key": "sender",
+          "value": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8",
+          "index": true
+        },
+        {
+          "key": "module",
+          "value": "bank",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "coin_spent",
+      "attributes": [
+        {
+          "key": "spender",
+          "value": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8",
+          "index": true
+        },
+        {
+          "key": "amount",
+          "value": "1uzrn",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "coin_received",
+      "attributes": [
+        {
+          "key": "receiver",
+          "value": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8",
+          "index": true
+        },
+        {
+          "key": "amount",
+          "value": "1uzrn",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "transfer",
+      "attributes": [
+        {
+          "key": "recipient",
+          "value": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8",
+          "index": true
+        },
+        {
+          "key": "sender",
+          "value": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8",
+          "index": true
+        },
+        {
+          "key": "amount",
+          "value": "1uzrn",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    },
+    {
+      "type": "message",
+      "attributes": [
+        {
+          "key": "sender",
+          "value": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8",
+          "index": true
+        },
+        {
+          "key": "msg_index",
+          "value": "0",
+          "index": true
+        }
+      ]
+    }
+  ]
+}

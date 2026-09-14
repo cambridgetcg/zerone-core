@@ -1,0 +1,49 @@
+{
+  "schema": "zerone-final-internal-mathematical-review/v1",
+  "created_utc": "2026-09-14T12:31:50.781395+00:00",
+  "status": "PASS",
+  "review_scope": "Same-operator internal mathematical review; prior proof review plus final precision changes. Not external peer review.",
+  "manuscript": {
+    "path": "REPORT.md",
+    "sha256": "777935be62e2713b49c8db012a8f0e92d5cc41315907b87f2e971a5c643ca9c8"
+  },
+  "prior_review": {
+    "path": "Privately retained prior internal review",
+    "sha256": "3fd38a9f36329729e3742bb836e86221edfecf44ef6891c5f2e74b48d8a0aca3"
+  },
+  "final_changes_checked": [
+    "capped inertia explicitly distinguished from literal singleton minimum; both imply |e_n|<=tau_n",
+    "initial-index relabeling explicitly declared and preserves required asymptotic sequence conditions",
+    "g:H->H explicitly introduced in sufficient auxiliary lemma",
+    "source inventory and verifier/result links retained with no formal-machine-proof implication"
+  ],
+  "prior_mathematical_findings_preserved": [
+    "exact generalized-demimetric scalar witness and failure of pairwise nonexpansiveness",
+    "missing projection premise and zero-trajectory scalar counterexample",
+    "equation13 origin-scaling failure",
+    "geometric contraction with vanishing forcing gives zero limit under the declared equation9 interpretation",
+    "positive fixed finite-average residual coercivity, firm-resolvent telescoping, and projection characterization prove the stated auxiliary lemma"
+  ],
+  "packet_bytes_checked": [
+    {
+      "file": "verify_exact.py",
+      "sha256": "2887b292eb073e877ae9966be6e2227b2bece460c0bf1b9ac3fa30279f80ae1d",
+      "matches_previously_verified_private_v2": true
+    },
+    {
+      "file": "exact-result.json",
+      "sha256": "cce9758f80394d15265a3b2694e187698f509cf56a0fbfbbd8d41d08ac2e6dc9",
+      "matches_previously_verified_private_v2": true
+    }
+  ],
+  "no_new_execution": true,
+  "limits": [
+    "does not establish a counterexample satisfying every malformed literal symbol of the original theorem",
+    "does not validate a full replacement algorithm or other article applications",
+    "does not add an independent review of the historical-antecedent citation",
+    "no author contact, external adoption, novelty, or misconduct finding"
+  ],
+  "frozen_prior_artifacts_modified": false,
+  "packaging_note": "Local filesystem paths replaced for sharing; original receipt retained privately with the following digest.",
+  "original_receipt_sha256": "7906d600a1494b5697cdce84a17741fe999ff1a76408b631d534f5214eeef523"
+}

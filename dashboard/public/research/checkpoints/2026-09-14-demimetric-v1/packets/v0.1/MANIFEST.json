@@ -1,0 +1,73 @@
+{
+  "schema": "research-review-packet/v1",
+  "case": "2026-001",
+  "version": "0.1",
+  "status": "internal technical review draft; not externally reviewed or human-adopted",
+  "files": [
+    {
+      "name": "AI-DISCLOSURE.json",
+      "bytes": 1583,
+      "sha256": "7150323258bf65f5e9c98f316e5a96636c25a77df9ebd9ac69eef7b1294d3b9b"
+    },
+    {
+      "name": "INTERNAL-ASSESSMENT.json",
+      "bytes": 2564,
+      "sha256": "32aa30e37a9acccd4fa4071ca7320578db8f64548e7ae6bf6313055207772ec8"
+    },
+    {
+      "name": "PREDECESSOR-CHECK.md",
+      "bytes": 1679,
+      "sha256": "6f136aec176a9e2e35f01059117f4c19929bf4ee556e1018b630ab613978638f"
+    },
+    {
+      "name": "README.md",
+      "bytes": 1724,
+      "sha256": "40bfe5c71ff9bdc59c2fe05f8c2fe7c17a7e9068296ec0ce93eaea2ed303aea4"
+    },
+    {
+      "name": "REPORT.html",
+      "bytes": 55733,
+      "sha256": "33162b47ff0e5d90de6b3ace393b72649ee1002b8d439f6d78208634de0c9762"
+    },
+    {
+      "name": "REPORT.md",
+      "bytes": 11555,
+      "sha256": "777935be62e2713b49c8db012a8f0e92d5cc41315907b87f2e971a5c643ca9c8"
+    },
+    {
+      "name": "REPORT.pdf",
+      "bytes": 233923,
+      "sha256": "9b424e7066c3d7c8931f7bd517804f3fd5a0287c0af3b9f570d0c7f79a053c1e"
+    },
+    {
+      "name": "REVIEW.md",
+      "bytes": 13426,
+      "sha256": "e664624edd21e00bc42492b3c0b1c6a809221c95ad685eb19b8fef16c25d3dd1"
+    },
+    {
+      "name": "SOURCES.json",
+      "bytes": 2466,
+      "sha256": "21a86b1092dabff5148f84ce4d7660ad1a09302033ea75b4952fd5c9b5fdb232"
+    },
+    {
+      "name": "VALIDATION.json",
+      "bytes": 561,
+      "sha256": "361fbf6ec6f73c21fb26b63d2f2b710d094b902dfd92ec2d4cbdea4124827807"
+    },
+    {
+      "name": "exact-result.json",
+      "bytes": 15507,
+      "sha256": "cce9758f80394d15265a3b2694e187698f509cf56a0fbfbbd8d41d08ac2e6dc9"
+    },
+    {
+      "name": "verify_exact.py",
+      "bytes": 9475,
+      "sha256": "2887b292eb073e877ae9966be6e2227b2bece460c0bf1b9ac3fa30279f80ae1d"
+    },
+    {
+      "name": "verify_packet.py",
+      "bytes": 2290,
+      "sha256": "868016d40c3c0fdc8ee5d837ab3b91b80c68286464f3e767e184e6eacf31b774"
+    }
+  ]
+}
