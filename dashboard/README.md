@@ -217,6 +217,22 @@ HTTPS dashboard never makes mixed-content requests to the HTTP-only node.
 
 ## Node and agent participation guide
 
+`/research/review/` reads `zerone-research-export/v1` files locally in browser
+memory. It validates the complete schema, bounds, references and canonical
+hash chain before displaying any sequence-cutoff snapshot. The timeline,
+direct relationship diagram, concern records and all assessments use that
+same snapshot. Occurrence-date sorting does not expose later-added records;
+unknown dates remain separate. Hash consistency does not authenticate authors,
+establish completeness or verify scientific content. The fictional example
+is a separate, explicitly illustrative collection. The only fetch on this
+page is its same-origin example file, after the visitor selects it; local
+imports cause no upload, persistent browser storage, account or chain action.
+See [`tools/research-review`](../tools/research-review/README.md) for the local
+journal writer and evidence-lead scanner. `npm test` covers interoperability,
+tamper refusal and historical projections. Before publication, check imports,
+cutoffs, retained disagreements, recorded relation directions, keyboard focus
+and narrow mobile layout; also check the explanatory JavaScript-off fallback.
+
 `/research/adagrad/` publishes the bounded AdaGrad loss-scaling experiment and
 an own-account review guide. The versioned `/research/adagrad/v1/` evidence
 contains the original frozen code, saved data, protocol and canonical

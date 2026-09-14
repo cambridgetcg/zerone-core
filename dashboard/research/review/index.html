@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#09090c" />
+    <meta name="description" content="Read a research journal locally: attributed contributions, relationships, concerns and assessments through time." />
+    <link rel="canonical" href="https://zerone.ai/research/review/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/src/research-review.css" />
+    <title>Research Review — Zerone</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">Skip to Research Review</a>
+    <header class="review-header page-width">
+      <a class="guide-brand" href="/">ZERONE</a>
+      <nav aria-label="Research navigation"><a href="/research/">Research library</a><a href="/research/adagrad/">AdaGrad experiment</a></nav>
+    </header>
+    <main id="main-content" class="page-width review-page">
+      <section class="review-intro" aria-labelledby="title">
+        <p class="eyebrow">Research Review · local journal reader</p>
+        <h1 id="title">Keep the origin.<br /><em>Follow the changes.</em></h1>
+        <p class="lede">Explore how attributed ideas, methods and findings connect. Revisit what was in a collection at a particular point, while keeping concerns and differing assessments visible.</p>
+        <p class="boundary">A journal’s hashes check its internal consistency. They do not authenticate its authors, establish an exhaustive history, or prove a finding. This page reads local exports; it does not create or modify on-chain records.</p>
+      </section>
+      <section class="import-panel" aria-labelledby="import-title">
+        <div><h2 id="import-title">Open a collection</h2><p>Choose a <code>zerone-research-export/v1</code> JSON file. Validation happens in this tab, before any record is displayed. No upload, browser storage, account or signature.</p></div>
+        <div class="import-actions"><label for="journal-file">Local journal export · up to 8 MiB<input id="journal-file" data-testid="journal-file" type="file" accept=".json,application/json" disabled /></label><button type="button" id="load-example" disabled>Explore the fictional example</button></div>
+        <p id="load-status" role="status" aria-live="polite">JavaScript is required to validate and explore a collection.</p>
+        <p id="load-error" role="alert" hidden></p>
+        <noscript><p class="notice">The interactive reader is unavailable with JavaScript off. You can <a href="/research/review/fictional-journal.v1.json" download>download the explicitly fictional example</a> and inspect it with the <a href="https://github.com/cambridgetcg/zerone-core/tree/main/tools/research-review">local journal tools</a>. No imported records have been validated or displayed here.</p></noscript>
+      </section>
+      <section id="workspace" hidden aria-label="Validated collection">
+        <div class="collection-header"><p id="collection-label"></p><p id="collection-identity" class="mono"></p></div>
+        <div class="snapshot-controls">
+          <label for="cutoff">In this collection by entry <output id="cutoff-value" for="cutoff"></output><input id="cutoff" data-testid="cutoff" type="range" min="0" step="1" /></label>
+          <div><p id="snapshot-mode" data-testid="snapshot-mode"></p><p id="snapshot-time" class="small"></p><button id="latest" type="button">Return to full collection</button></div>
+          <label for="clock">Order contributions by<select id="clock" data-testid="clock"><option value="occurred">Reported occurrence date</option><option value="recorded">Date added to this collection</option></select></label>
+        </div>
+        <p id="snapshot-counts" class="small"></p>
+        <div class="review-layout">
+          <section class="panel timeline-panel" aria-labelledby="timeline-title"><h2 id="timeline-title">Contributions</h2><p id="clock-explanation" class="small"></p><div id="timeline" data-testid="timeline"></div></section>
+          <div class="right-column">
+            <section class="panel graph-panel" aria-labelledby="graph-title">
+              <div class="panel-heading"><h2 id="graph-title">Relationships</h2><button id="impact" type="button" aria-pressed="false">Possible reassessment</button></div>
+              <p class="small">The diagram shows the selected contribution and its direct neighbours. Arrows preserve each recorded relation’s direction; visual proximity adds no dependency.</p>
+              <label class="selection-label" for="node-select">Selected contribution<select id="node-select" data-testid="node-select"></select></label>
+              <fieldset id="relation-filters"><legend>Visible relation types</legend></fieldset>
+              <p id="impact-description" class="notice small" hidden></p>
+              <div id="impact-paths" hidden></div>
+              <div id="graph-scroll" class="graph-scroll" tabindex="0" aria-label="Relationship diagram, scroll horizontally when needed"><svg id="graph" role="group" aria-label="Direct recorded relationships"></svg></div>
+              <div id="edge-list" data-testid="edge-list"></div>
+            </section>
+            <section class="panel details-panel" aria-labelledby="details-title"><h2 id="details-title">Record &amp; evidence</h2><div id="details" data-testid="details"></div></section>
+          </div>
+        </div>
+        <div class="review-ledger">
+          <section class="panel" aria-labelledby="concerns-title"><h2 id="concerns-title">Concerns in this snapshot</h2><p class="small">Attributed leads for review, including artifact discrepancies and publisher notices. A concern is not a misconduct verdict.</p><div id="concerns" data-testid="concerns"></div></section>
+          <section class="panel" aria-labelledby="assessments-title"><h2 id="assessments-title">All assessments in this snapshot</h2><p class="small">Each assessment keeps its author and scope. A later “addressed” entry does not erase disagreement or resolve the collection for everyone.</p><div id="assessments" data-testid="assessments"></div></section>
+        </div>
+      </section>
+      <section class="reader-notes" aria-labelledby="limits-title"><h2 id="limits-title">What this view can tell you</h2><p>The cutoff applies to contributions, links, concerns, assessments and version references before they are sorted or drawn. An earlier source discovered later stays absent from earlier snapshots. Unknown occurrence dates stay unknown. “Full collection” means this imported export, not everything that exists.</p><p>Possible reassessment follows <code>supports</code> from evidence to claim, <code>requires</code> from prerequisite to dependent, and <code>uses-input</code> from input to the activity using it. Shared input is labelled separately. Citation, inspiration and refinement do not propagate this highlight. A highlighted path is a reason to inspect, never an automatic declaration of falsity.</p><p>Attributions are declared labels. The fictional example depicts no real research, people, AdaGrad history or on-chain state. Imported files stay in memory until replaced or the page closes. Evidence links open only when you choose them.</p><p><a href="https://github.com/cambridgetcg/zerone-core/tree/main/tools/research-review">Journal tools and format documentation</a> · <a href="/research/review/fictional-journal.v1.json" download>Download the fictional collection</a></p></section>
+    </main>
+    <footer class="page-width review-footer">A record can be final while an interpretation remains revisable.</footer>
+    <script type="module" src="/src/research-review.ts"></script>
+  </body>
+</html>

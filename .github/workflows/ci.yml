@@ -970,6 +970,8 @@ jobs:
       - name: Verify dashboard dependency audit
         working-directory: dashboard
         run: npm audit
+      - name: Verify local research journal and notice importer
+        run: python3 -B -m unittest discover -s tools/research-review -p 'test_*.py' -v
       - name: Build dashboard
         working-directory: dashboard
         run: npm run build
