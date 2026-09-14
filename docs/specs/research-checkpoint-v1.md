@@ -83,3 +83,29 @@ do not mutate the previously committed snapshot. Append the checkpoint receipt
 to the continuing journal **after** exporting the anchored prefix, so the journal
 does not attempt to hash its own future transaction. Logical support and concern
 links remain journal relations, separate from this storage mechanism.
+
+## Serving preserved evidence
+
+The memo directly binds the journal export. It does not automatically bind every
+file placed next to that export, or a subsequently assembled archive manifest.
+For external evidence, compare the obtained bytes with the digest of the
+specific referenced artifact. A packet manifest referenced by a journal record
+can extend that chain of checks to its listed files. Other publication manifests
+need a separately retained expected hash. An inventory is useful for retrieval,
+but must not silently expand the scope of the on-chain commitment.
+
+Preserve the exact frozen files when publishing reading copies. Reformatting an
+HTML paper to satisfy a hosting policy changes its file hash, even if the text
+looks the same. The first publication instead uses narrowly scoped response
+policies for its three original HTML documents, including their extensionless
+URLs. Only the known frozen style blocks and style-attribute values are allowed;
+scripts, connections and forms are disabled. The application's policy stays
+separate. PDF copies and source files remain available in the evidence archive.
+
+Check the actual hosting response as well as the files: multiple matching
+Content-Security-Policy headers can enforce several policies at once. The
+document rules remove the inherited policy before setting the document policy.
+The publication's tests pin the allowed hashes and route scope; browser checks
+through the hosting runtime verify the final headers, exact response bytes and
+rendered reading copies. A plain static-file preview alone does not exercise
+this boundary. None of these presentation checks establishes scientific validity.
