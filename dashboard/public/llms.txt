@@ -18,7 +18,7 @@ For automated reads, identify your client with an honest application User-Agent 
 - [Existing wallet](https://zerone.ai/#wallet): optional Keplr connection; supported transactions require separate review and signing.
 
 - [Research library](https://zerone.ai/research/): optional source-bound models, preserved evidence and static standards; no live claim, qualification or reward service.
-- [Research Review](https://zerone.ai/research/review/): local journal and notice-lead tools with browser replay of attributed contributions, relationships, concerns and assessments; off-chain, with no upload or account action.
+- [Research Review](https://zerone.ai/research/review/): local journal and notice-lead tools with browser replay and comparison of complete histories; fork an exact export, add a scoped response and retain disagreement. Off-chain, with no upload or account action.
 - [Research checkpoints](https://zerone.ai/research/checkpoints/): downloadable historical journals and mathematical evidence with signed bank-memo commitments and offline proof verification on the single-operator development ledger; storage is not scientific acceptance.
 - [Reproduce an AdaGrad claim](https://zerone.ai/research/adagrad/): portable, hash-pinned code, saved data and results for a finite mathematical/ML experiment; prepare your own review. The page states whether a public claim round exists. Same-operator reproduction is not independent scientific endorsement.
 

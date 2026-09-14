@@ -28,8 +28,18 @@
         <div><h2 id="import-title">Open a collection</h2><p>Choose a <code>zerone-research-export/v1</code> JSON file. Validation happens in this tab, before any record is displayed. No upload, browser storage, account or signature.</p></div>
         <div class="import-actions"><label for="journal-file">Local journal export · up to 8 MiB<input id="journal-file" data-testid="journal-file" type="file" accept=".json,application/json" disabled /></label><button type="button" id="load-example" disabled>Explore the fictional example</button></div>
         <p id="load-status" role="status" aria-live="polite">JavaScript is required to validate and explore a collection.</p>
+        <p id="primary-file-hash" class="mono" hidden></p>
         <p id="load-error" role="alert" hidden></p>
         <noscript><p class="notice">The interactive reader is unavailable with JavaScript off. You can <a href="/research/review/fictional-journal.v1.json" download>download the explicitly fictional example</a> and inspect it with the <a href="https://github.com/cambridgetcg/zerone-core/tree/main/tools/research-review">local journal tools</a>. No imported records have been validated or displayed here.</p></noscript>
+      </section>
+      <section class="comparison-panel" aria-labelledby="comparison-title">
+        <div><h2 id="comparison-title">Compare complete files</h2><p>After opening the primary file (A), choose another export (B). Both complete histories are validated. This comparison is independent of the timeline cutoff below; it does not select a canonical or trustworthy branch.</p></div>
+        <label for="comparison-file">Second local export (B) · up to 8 MiB<input id="comparison-file" data-testid="comparison-file" type="file" accept=".json,application/json" disabled /></label>
+        <p id="comparison-status" role="status" aria-live="polite">Open a primary collection first. JavaScript is required for comparison.</p>
+        <p id="comparison-error" role="alert" hidden></p>
+        <div id="comparison-result" data-testid="comparison-result" hidden></div>
+        <p class="small">Try an explicitly fictional disagreement: download <a href="/research/review/fictional-branch-a.v1.json" download>branch A</a> and <a href="/research/review/fictional-branch-b.v1.json" download>branch B</a>. Open A under “Open a collection,” then compare B here. Neither depicts an actual external reviewer.</p>
+        <p class="small">A continuation keeps earlier recorded dates and declared attributions; it does not authenticate those authors or inherit their authority. Use “Open a collection” to inspect either file’s records. Imports stay in memory and are not uploaded or stored by the browser.</p>
       </section>
       <section id="workspace" hidden aria-label="Validated collection">
         <div class="collection-header"><p id="collection-label"></p><p id="collection-identity" class="mono"></p></div>
