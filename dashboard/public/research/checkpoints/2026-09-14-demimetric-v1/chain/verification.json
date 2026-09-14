@@ -1,0 +1,63 @@
+{
+  "schema": "zerone-research-checkpoint-verification/v1",
+  "verified": true,
+  "chain_id": "zerone-dev-1",
+  "height": "183706",
+  "input_sha256": {
+    "block_results": "362e2aed3f7d1509e2d852ec77b3f717f175ea8e370365ab3cb91999bc6f7187",
+    "commit": "5d9f19f72149b3771c270223ab3decc57eee9e6f5440a0f05ce506b6c862eef2",
+    "genesis": "f8b4570b37fd41d5b63c02fbae1f89225c197c75315e8629650716f6e5f79256",
+    "next_commit": "35c1276c99abcbafb65691608c1d5217dc947da24ef56d2c6614d3554749ecab",
+    "next_validators": "346d57916dd094925cee6a4777f8e878258a875b9a8f6be8756b0b698d6bb6a8",
+    "tx": "8450ce2a7a052b15e9e4dc1a720a915110db49ad20ab16c0d769c7e5021c84cf",
+    "validators": "9b800dcfb5d34658450c2ce8c46257c613a7b5b5275049c692816ee7d7992922"
+  },
+  "trust": {
+    "genesis_sha256": "f8b4570b37fd41d5b63c02fbae1f89225c197c75315e8629650716f6e5f79256",
+    "model": "explicit original single-validator trust anchor",
+    "original_validator_address_hex": "E85D65FC900DEFEB9FF160F1E6EEA2CA00768420",
+    "original_validator_public_key_base64": "C7jBQ2qhJ6uORoLnFoshmLIeKOeOtDnDlCsWdpgsJBg="
+  },
+  "transaction": {
+    "account_number": "7",
+    "amount_uzrn": "1",
+    "byte_length": 501,
+    "data_hash": "6BF2A7A3059DE5B445094C320D08626A9A928F5125FDA934F31CBC6D76084DBD",
+    "fee_uzrn": "2000000",
+    "gas_limit": "2000000",
+    "header_hash": "2218C2C1003A2AC8716394F95FED43B5153AFC8E02DE5E8ABB1B859A9F70AF4B",
+    "index": 0,
+    "public_key_base64": "A/zosCkMgZudZwJ+6fzY7MeXVQWBosjYPME0b+RMlBx5",
+    "recipient": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8",
+    "sender": "zrn1q36wcvumlxa3qrmsu8cmkrjqsa4jqfchtzkuj8",
+    "sequence": "2",
+    "sign_doc_sha256": "e9c95b2aec92eae39fc24dca5ae9d7ab4c0aecea861eb291717128e56249ef6a",
+    "signature_base64": "WvFMd+jHolf51frmNYQiYLLxfxlXREqKb1hSZ15uSnpmSPJZvQcewzNPOfuuj6RHd6dWzZJZl7NYdlgzT8A4kw==",
+    "signature_verified": true,
+    "txhash": "8DFC740C5326E76B482B6D370F527311CB518934D6B64A4BF5EFDBD2806D0B8E"
+  },
+  "checkpoint": {
+    "collection_id": "ce6e799a-6713-41a9-b95f-57c50a223074",
+    "entry_count": 81,
+    "export_sha256": "86c8163599c0098aa43b4f3599a81b02a03557553fc595b67b026fdfe108704e",
+    "head_sha256": "23baf5b0a2e7f4a48fe2b86775ae2ef92e607f2d793270ff10219e61d2563847",
+    "memo": "zerone:research:v1:ce6e799a-6713-41a9-b95f-57c50a223074:81:86c8163599c0098aa43b4f3599a81b02a03557553fc595b67b026fdfe108704e:23baf5b0a2e7f4a48fe2b86775ae2ef92e607f2d793270ff10219e61d2563847"
+  },
+  "execution": {
+    "code": 0,
+    "data_base64": "EiYKJC9jb3Ntb3MuYmFuay52MWJldGExLk1zZ1NlbmRSZXNwb25zZQ==",
+    "gas_used": "100584",
+    "gas_wanted": "2000000",
+    "last_results_hash": "32163E1EB00E65EE039BA8A9A114BC9C3B6EB6804BCF1DFF172D60714D7BD45B",
+    "next_header_hash": "1727E0177314D5ABE7C0A52C8EDBE25D35F6CB55D498B069BB1932F7F91FBE85",
+    "next_height": "183707",
+    "status": "code_data_gas_bound_to_signed_next_header"
+  },
+  "limits": [
+    "Offline verification against the original development validator key; not independent validator diversity, custody assurance, or complete chain replay.",
+    "Account number is supplied signing context; no account-state membership proof is claimed.",
+    "Memo commits to hashes; the journal export must be separately obtained and validated. Inclusion does not establish scientific truth or review agreement.",
+    "Execution logs, codespace and events are not committed by the Comet result root. Without the optional next-header proof, execution code and gas remain endpoint observations.",
+    "This receipt does not promise permanent RPC, block or application-history availability."
+  ]
+}

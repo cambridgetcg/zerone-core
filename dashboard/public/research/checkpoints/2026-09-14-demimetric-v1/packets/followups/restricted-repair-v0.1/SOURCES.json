@@ -1,0 +1,32 @@
+{
+  "schema": "research-review-followup-sources/v1",
+  "checked_on": "2026-09-14",
+  "sources": [
+    {
+      "title": "Kanokwan Wongchan and Satit Saejung, On the Strong Convergence of Viscosity Approximation Process for Quasinonexpansive Mappings in Hilbert Spaces",
+      "doi": "10.1155/2011/385843",
+      "source_url": "https://www.maths.tcd.ie/EMIS/journals/HOA/AAA/Volume2011/385843.pdf",
+      "retrieved_utc": "2026-09-14T15:06:39.621543+00:00",
+      "retained_pdf_bytes": 1895865,
+      "retained_pdf_sha256": "75da24a81559e261861f9ed24888e8b2b5f6cb0a0878aaa59b519434e1ca4527",
+      "locators": "Printed p.5, Theorem2.3; proof pp.5–7",
+      "inspection": "Statement read in original PDF and page visually checked; surrounding extracted proof inspected",
+      "scope": "Antecedent for viscosity convergence with a strongly quasinonexpansive map and demiclosed residual; does not itself instantiate our composite or input perturbation.",
+      "redistributed_in_packet": false
+    },
+    {
+      "title": "Koji Aoyama and Fumiaki Kohsaka, Viscosity approximation process for a sequence of quasinonexpansive mappings",
+      "doi": "10.1186/1687-1812-2014-17",
+      "source_url": "https://link.springer.com/content/pdf/10.1186/1687-1812-2014-17.pdf",
+      "retrieved_utc": "2026-09-14T15:05:34.829346+00:00",
+      "retained_pdf_bytes": 345721,
+      "retained_pdf_sha256": "78f5960731adbbdcf26b93dca9c96fd2fefcd2cac6dde6f613472225f758384c",
+      "locators": "Printed p.7, Corollary3.5; surrounding Section3",
+      "inspection": "Statement read in original PDF and page visually checked; surrounding extracted proof inspected",
+      "scope": "Corroborating fixed-map viscosity result within a broader sequence framework; our perturbed iteration is proved separately.",
+      "redistributed_in_packet": false
+    }
+  ],
+  "relationship": "Established mathematical antecedents; no novelty claim and no validation of all claims in either paper",
+  "earlier_source_inventory": "../../v0.1/SOURCES.json"
+}

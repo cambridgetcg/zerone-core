@@ -1,0 +1,48 @@
+{
+  "schema": "research-review-followup-validation/v1",
+  "date": "2026-09-14",
+  "status": "PASS for declared checks",
+  "exact_checker": {
+    "arithmetic": "stdlib fractions.Fraction; decimal values are presentation only",
+    "counts": {
+      "admitted": 5,
+      "all_domain_Q_segments": 16,
+      "coordinate_trajectory_comparisons": 952,
+      "expected_restriction_refusals": 2,
+      "fixed_set_comparisons": 28,
+      "fixtures": 7,
+      "grid_joint_estimates": 1148,
+      "operator_conjugacy_comparisons": 308
+    },
+    "platform": "macOS-15.3-arm64-arm-64bit-Mach-O",
+    "protocol_sha256": "34d94d7785e3a3925b38e4e8cd138649d994a16efebc77bac6df3e4ba215a09c",
+    "python": "3.14.3 (main, Feb  3 2026, 15:32:20) [Clang 17.0.0 (clang-1700.6.3.2)]",
+    "results_content_sha256": "f0e7476bde811f4caab1a726fdba38b3541acb1eac1a87fc062962c50d5850a1",
+    "source_sha256": "c013a5569c29119ee19493c724bc9998c82d429470dabccb3e6a63b7f7e47f77",
+    "status": "PASS"
+  },
+  "root_rerun": "Stored results.json byte-identical to agent output",
+  "optimized_mode": {
+    "returncode": 2,
+    "output_directory_created": false
+  },
+  "reading_copy": {
+    "pages": 4,
+    "visual_review": "All four pages read visually; equation labels subsequently made explicit and checked in rendered page and PDF extraction",
+    "browser": {
+      "pass": true,
+      "browser": "152.0.7977.84",
+      "layout": {
+        "math": 186,
+        "scripts": 0,
+        "title": "A restricted repair that preserves the intended solutions",
+        "overflow": false,
+        "badMath": 0
+      },
+      "networkRequests": [],
+      "errors": []
+    }
+  },
+  "original_packets": "Both original v0.1 and translation-v0.1 inventories match separately retained hashes",
+  "scope": "Finite scalar algebra corroborates the fixtures; general convergence rests on the internally reviewed conditional mathematical proof. No outside peer review or machine-checked proof."
+}

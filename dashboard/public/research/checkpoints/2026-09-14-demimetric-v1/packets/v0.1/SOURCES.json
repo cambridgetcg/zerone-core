@@ -1,0 +1,45 @@
+{
+  "schema": "research-review-sources/v1",
+  "sources": [
+    {
+      "role": "reviewed primary source",
+      "doi": "10.1371/journal.pone.0319047",
+      "url": "https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0319047&type=manuscript",
+      "observed_at": "2026-09-14T12:14:48.865852+00:00",
+      "sha256": "81057bae565d169111a17a858f513255cc80ded93cbf9028d1b04c32bbcbe5d3",
+      "bytes": 524368,
+      "locators": "PDF pp.4\u20137; XML e086, e119, e124, e138, e163, e170, e513 and equation (9)/(13)",
+      "redistribution": "Source bytes not included. Publisher version retained privately; consult source URL."
+    },
+    {
+      "role": "reviewed primary source",
+      "doi": "10.1371/journal.pone.0319047",
+      "url": "https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0319047&type=printable",
+      "observed_at": "2026-09-14T12:14:52.567025+00:00",
+      "sha256": "1e30b93b489d5a246a89ae9d681f18aff92eb290a978eb9fffd621fa6318115a",
+      "bytes": 280391,
+      "locators": "PDF pp.4\u20137; XML e086, e119, e124, e138, e163, e170, e513 and equation (9)/(13)",
+      "redistribution": "Source bytes not included. Publisher version retained privately; consult source URL."
+    },
+    {
+      "role": "cited antecedent inspected, not whole-paper audit",
+      "doi": "10.22436/jnsa.011.02.03",
+      "url": "https://www.isr-publications.com/jnsa/6677/download-iterative-methods-for-fixed-point-problems-and-generalized-split-feasibility-problems-in-banach-spaces",
+      "observed_at": "2026-09-14T12:15:47.181496+00:00",
+      "sha256": "afcbc03363ad813be6f8834117de1d9c99f4cd52fc1e6c66ad7ce46232fc9d6a",
+      "bytes": 1827781,
+      "locators": "Lemma2.5 pp202\u2013203; Lemma3.3 p204; Theorem3.4 proof p208",
+      "redistribution": "All rights reserved; full PDF and page images not included."
+    },
+    {
+      "role": "editorial context, not evidence of mathematical defect",
+      "doi": "10.1371/journal.pone.0343283",
+      "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0343283",
+      "sha256": "86d29b02ce1bb2d4a6ed274b466c0e6a07b4dad7410d49d4c87ec436e42b4723",
+      "bytes": 71489,
+      "locators": "Peer-review-process expression of concern",
+      "redistribution": "Only citation and digest included."
+    }
+  ],
+  "limits": "A URL/hash identifies a source; it does not show scientific validity, endorsement, timeless availability or independent observation."
+}

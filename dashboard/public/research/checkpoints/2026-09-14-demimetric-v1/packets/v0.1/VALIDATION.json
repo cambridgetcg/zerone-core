@@ -1,0 +1,15 @@
+{
+  "pass": true,
+  "python": "3.14.3 (main, Feb  3 2026, 15:32:20) [Clang 17.0.0 (clang-1700.6.3.2)]",
+  "exact_output_matches": true,
+  "recurrence_variants": 4,
+  "steps_per_variant": 128,
+  "optimized_mode_refused": true,
+  "script_sha256": "2887b292eb073e877ae9966be6e2227b2bece460c0bf1b9ac3fa30279f80ae1d",
+  "output_sha256": "cce9758f80394d15265a3b2694e187698f509cf56a0fbfbbd8d41d08ac2e6dc9",
+  "pdf_pages": 4,
+  "pdf_all_pages_visually_checked": true,
+  "native_mathml_elements": 121,
+  "html_network_requests": 0,
+  "no_formal_proof_assistant": true
+}

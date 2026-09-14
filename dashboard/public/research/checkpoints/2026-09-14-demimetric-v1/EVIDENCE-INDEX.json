@@ -1,0 +1,460 @@
+{
+  "schema": "zerone-research-evidence-index/v1",
+  "scope": "Availability of the references in this exact 81-record export; no modification to record bytes or journal format.",
+  "journal_sha256": "86c8163599c0098aa43b4f3599a81b02a03557553fc595b67b026fdfe108704e",
+  "entries": [
+    {
+      "sha256": "f88f97de7cb0843b73a44454b23735e7ec1c1fe39c7696e294c1d0f55f4fe477",
+      "original_url": "https://api.crossref.org/works/10.1371%2Fjournal.pone.0319047",
+      "label": "Crossref metadata captured at 2026-09-14T10:19:08.443416Z",
+      "record_ids": [
+        "crossref-source:34a620b19aa00f8ab58b7cfb5ab3c878d6af5ab853264fa0f1cff148752f532c",
+        "crossref-notice:30c7a31391af7a62d3eef4e69cad4a882c19ab2c8fc468a5ad1d14462762b18d",
+        "crossref-lookup:bc7aaf553c36d302c7956da1aba7c22c8d29f8308a041270f77f6dbbb1824fea"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": null,
+      "original_url": "https://doi.org/10.1371/journal.pone.0343283",
+      "label": "Linked notice DOI (content not fetched)",
+      "record_ids": [
+        "crossref-notice:30c7a31391af7a62d3eef4e69cad4a882c19ab2c8fc468a5ad1d14462762b18d"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": "a0dbeb6b679b8b9c398d004569bdef58fb5ea18756d2bacf650d90a8064052ca",
+      "original_url": null,
+      "label": "Lookup receipt",
+      "record_ids": [
+        "crossref-lookup:bc7aaf553c36d302c7956da1aba7c22c8d29f8308a041270f77f6dbbb1824fea"
+      ],
+      "status": "included_exact_bytes",
+      "path": "early-evidence/a0dbeb6b679b8b9c398d004569bdef58fb5ea18756d2bacf650d90a8064052ca.json"
+    },
+    {
+      "sha256": "878ac42f5855ad563491ed4314f63faef55e47be0219f613f281a762549d0cf2",
+      "original_url": "https://api.crossref.org/works/10.1007%2Fs10878-023-00988-w",
+      "label": "Crossref metadata captured at 2026-09-14T10:19:11.374459Z",
+      "record_ids": [
+        "crossref-source:c308ea28dd615c91632a935a0ee2be5bdf33cc87990b6b5b0596bc3c7152abe2",
+        "crossref-notice:859171be19046e5ceedb795319bc825666b3dd035ff79f6e2ed920cfb3a091e1",
+        "crossref-lookup:e26406d5bae94726024fad414044ddbef9fa61541ca6e2f8ac23b6f0e1563a9c"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": null,
+      "original_url": "https://doi.org/10.1007/s10878-024-01135-9",
+      "label": "Linked notice DOI (content not fetched)",
+      "record_ids": [
+        "crossref-notice:859171be19046e5ceedb795319bc825666b3dd035ff79f6e2ed920cfb3a091e1"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": "95f88774318df491a9e59835e02dc0c753454d782a365adeb9cfef03d0bc9d01",
+      "original_url": null,
+      "label": "Lookup receipt",
+      "record_ids": [
+        "crossref-lookup:e26406d5bae94726024fad414044ddbef9fa61541ca6e2f8ac23b6f0e1563a9c"
+      ],
+      "status": "included_exact_bytes",
+      "path": "early-evidence/95f88774318df491a9e59835e02dc0c753454d782a365adeb9cfef03d0bc9d01.json"
+    },
+    {
+      "sha256": "ece58547758f82f977a09c2ae50bd830cef23df424f6a27e405a7d667c44aa09",
+      "original_url": "https://api.crossref.org/works/10.1371%2Fjournal.pone.0290624",
+      "label": "Crossref metadata captured at 2026-09-14T10:19:13.999456Z",
+      "record_ids": [
+        "crossref-source:7d300579e24335ecad1a4a65db6dae14297c980cd1a9339fd5d2fb37f59e8f0c",
+        "crossref-notice:b0be7214ce3cd10dcb99199b17a24017302724e43ec4a68be2396cd356c16064",
+        "crossref-lookup:caaa584887bec3c936d179caf88788ce610066b1b49d67adfc55b5cbb652830d"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": null,
+      "original_url": "https://doi.org/10.1371/journal.pone.0320728",
+      "label": "Linked notice DOI (content not fetched)",
+      "record_ids": [
+        "crossref-notice:b0be7214ce3cd10dcb99199b17a24017302724e43ec4a68be2396cd356c16064"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": "c763cec5c573103c3be17b54d28d9927cba0816a485a3debf7712fcedbdcf880",
+      "original_url": null,
+      "label": "Lookup receipt",
+      "record_ids": [
+        "crossref-lookup:caaa584887bec3c936d179caf88788ce610066b1b49d67adfc55b5cbb652830d"
+      ],
+      "status": "included_exact_bytes",
+      "path": "early-evidence/c763cec5c573103c3be17b54d28d9927cba0816a485a3debf7712fcedbdcf880.json"
+    },
+    {
+      "sha256": "be6f809b84b73765205a7925dc69156c98a425da4280391bc601fd9294b1b960",
+      "original_url": "https://api.crossref.org/works/10.1023%2Fa%3A1010933404324",
+      "label": "Crossref metadata captured at 2026-09-14T10:19:16.234335Z",
+      "record_ids": [
+        "crossref-source:895052a835be49f10ee95126b3266392f22d091e0e9d1cf1e56a580545eff680",
+        "crossref-lookup:ee205f935b988d24ecc2e23fb6c0a00465fdc8ef02e48448e75b663bcbb9dce6"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": "1b1be9c7c99aad6c9bd358825d54485a7a7dd209e90c26abe073021e2074a8d0",
+      "original_url": null,
+      "label": "Lookup receipt",
+      "record_ids": [
+        "crossref-lookup:ee205f935b988d24ecc2e23fb6c0a00465fdc8ef02e48448e75b663bcbb9dce6"
+      ],
+      "status": "included_exact_bytes",
+      "path": "early-evidence/1b1be9c7c99aad6c9bd358825d54485a7a7dd209e90c26abe073021e2074a8d0.json"
+    },
+    {
+      "sha256": "72ad42d4f8761ad01f402bf3ba198334f950e1b302d467b506486fe384036f27",
+      "original_url": "https://api.crossref.org/works/10.1007%2Fbf00994018",
+      "label": "Crossref metadata captured at 2026-09-14T10:19:18.472617Z",
+      "record_ids": [
+        "crossref-source:b6bae793731d320a3bb147d7ef3dc52544fc35df278eb75b931ead1df6f436ed",
+        "crossref-lookup:650085cb9ad75e7725f01ff85835b143a68e72ab692317964be5634a2b44c5b6"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": "fe0a4a424f38ad04fe20ebe7e89c17818623e2fe8f7dcc16b483bdaddb40a6d8",
+      "original_url": null,
+      "label": "Lookup receipt",
+      "record_ids": [
+        "crossref-lookup:650085cb9ad75e7725f01ff85835b143a68e72ab692317964be5634a2b44c5b6"
+      ],
+      "status": "included_exact_bytes",
+      "path": "early-evidence/fe0a4a424f38ad04fe20ebe7e89c17818623e2fe8f7dcc16b483bdaddb40a6d8.json"
+    },
+    {
+      "sha256": "20005d5fad78974a5b0acf4fb1e45d383c04a5e6f3be605236d81ce81b2f4e0f",
+      "original_url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0319047",
+      "label": "Publisher page captured 2026-09-14",
+      "record_ids": [
+        "local:notice-check:formal-concern:1"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": "86d29b02ce1bb2d4a6ed274b466c0e6a07b4dad7410d49d4c87ec436e42b4723",
+      "original_url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0343283",
+      "label": "Publisher page captured 2026-09-14",
+      "record_ids": [
+        "local:notice-check:formal-concern:1"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": "44aaca197435f46067f5ba67dfd88f8a43af1af2ec310579381570f6db04569b",
+      "original_url": "https://link.springer.com/article/10.1007/s10878-023-00988-w",
+      "label": "Publisher page captured 2026-09-14",
+      "record_ids": [
+        "local:notice-check:retraction:2"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": "05b0eab3eeba71226d2453710cf20d3ac95fb3db1b6ffb7f7832f6dc6d00c8d8",
+      "original_url": "https://link.springer.com/article/10.1007/s10878-024-01135-9",
+      "label": "Publisher page captured 2026-09-14",
+      "record_ids": [
+        "local:notice-check:retraction:2"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": "284a034b66500f7caaba886e87f0c1c23802e27d092a0f1f86b751cb5cc461bf",
+      "original_url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0320728",
+      "label": "Publisher page captured 2026-09-14",
+      "record_ids": [
+        "local:notice-check:retraction:3"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": "20005d5fad78974a5b0acf4fb1e45d383c04a5e6f3be605236d81ce81b2f4e0f",
+      "original_url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0319047#article1.body1.sec3.p14",
+      "label": "Original publisher article, captured 2026-09-14",
+      "record_ids": [
+        "local:proof-claim",
+        "local:proof-claim-source",
+        "local:proof-step-concern"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": "a8d8451280532e0fcc6ccaa1f4f1330220afc2ff9d138de7c9bd297979d51a8f",
+      "original_url": null,
+      "label": "Exact piecewise derivation",
+      "record_ids": [
+        "local:proof-witness",
+        "local:proof-witness-input",
+        "local:proof-repair-question",
+        "local:proof-step-concern",
+        "local:proof-step-review"
+      ],
+      "status": "included_exact_bytes",
+      "path": "early-evidence/a8d8451280532e0fcc6ccaa1f4f1330220afc2ff9d138de7c9bd297979d51a8f.md"
+    },
+    {
+      "sha256": "2e77e1a2facc5d7ada5343011949afb0f62421a7bb53447ed0c30c88afa278f0",
+      "original_url": null,
+      "label": "Source scope and unresolved assumptions",
+      "record_ids": [
+        "local:proof-witness",
+        "local:proof-witness-input",
+        "local:proof-repair-question",
+        "local:proof-step-concern",
+        "local:proof-step-review"
+      ],
+      "status": "included_exact_bytes",
+      "path": "early-evidence/2e77e1a2facc5d7ada5343011949afb0f62421a7bb53447ed0c30c88afa278f0.md"
+    },
+    {
+      "sha256": "229c3d387f4d2e2ad77fbb4eecb776076ed02382f1743e9a8520bd9b18904dc5",
+      "original_url": null,
+      "label": "Exact rational witness check",
+      "record_ids": [
+        "local:proof-witness",
+        "local:proof-step-concern",
+        "local:proof-step-review"
+      ],
+      "status": "included_exact_bytes",
+      "path": "early-evidence/229c3d387f4d2e2ad77fbb4eecb776076ed02382f1743e9a8520bd9b18904dc5.json"
+    },
+    {
+      "sha256": "1e30b93b489d5a246a89ae9d681f18aff92eb290a978eb9fffd621fa6318115a",
+      "original_url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0319047",
+      "label": "Publisher PDF inspected pp.4–7",
+      "record_ids": [
+        "local:science-step:lemma-target-claim",
+        "local:science-step:damping-claim"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": "777935be62e2713b49c8db012a8f0e92d5cc41315907b87f2e971a5c643ca9c8",
+      "original_url": null,
+      "label": "Scoped technical report v0.1, 2026-09-14",
+      "record_ids": [
+        "local:science-step:projection-witness",
+        "local:science-step:projection-concern",
+        "local:science-step:projection-assessment",
+        "local:science-step:damping-witness",
+        "local:science-step:damping-concern",
+        "local:science-step:damping-assessment",
+        "local:science-step:repaired-lemma",
+        "local:science-step:review-packet",
+        "local:science-step:prior-proof-followup"
+      ],
+      "status": "included_exact_bytes",
+      "path": "packets/v0.1/REPORT.md"
+    },
+    {
+      "sha256": "2887b292eb073e877ae9966be6e2227b2bece460c0bf1b9ac3fa30279f80ae1d",
+      "original_url": null,
+      "label": "Original exact rational verifier v2; no publisher code",
+      "record_ids": [
+        "local:science-step:projection-witness",
+        "local:science-step:projection-concern",
+        "local:science-step:damping-witness",
+        "local:science-step:damping-concern",
+        "local:science-step:review-packet"
+      ],
+      "status": "included_exact_bytes",
+      "path": "packets/v0.1/verify_exact.py"
+    },
+    {
+      "sha256": "cce9758f80394d15265a3b2694e187698f509cf56a0fbfbbd8d41d08ac2e6dc9",
+      "original_url": null,
+      "label": "Four 128-step variants and exact algebraic checks",
+      "record_ids": [
+        "local:science-step:projection-witness",
+        "local:science-step:projection-concern",
+        "local:science-step:damping-witness",
+        "local:science-step:damping-concern",
+        "local:science-step:review-packet"
+      ],
+      "status": "included_exact_bytes",
+      "path": "packets/v0.1/exact-result.json"
+    },
+    {
+      "sha256": "7906d600a1494b5697cdce84a17741fe999ff1a76408b631d534f5214eeef523",
+      "original_url": null,
+      "label": "Final exact-manuscript internal review; same controller",
+      "record_ids": [
+        "local:science-step:projection-assessment",
+        "local:science-step:damping-assessment",
+        "local:science-step:repaired-lemma",
+        "local:science-step:review-packet",
+        "local:science-step:prior-proof-followup"
+      ],
+      "status": "original_withheld_private_paths",
+      "derivative": {
+        "path": "packets/v0.1/INTERNAL-ASSESSMENT.json",
+        "sha256": "32aa30e37a9acccd4fa4071ca7320578db8f64548e7ae6bf6313055207772ec8",
+        "relationship": "Existing sanitized copy declares this original digest; different bytes, not an exact hash match."
+      }
+    },
+    {
+      "sha256": "afcbc03363ad813be6f8834117de1d9c99f4cd52fc1e6c66ad7ce46232fc9d6a",
+      "original_url": "https://www.isr-publications.com/jnsa/6677/download-iterative-methods-for-fixed-point-problems-and-generalized-split-feasibility-problems-in-banach-spaces",
+      "label": "Song 2018 cited predecessor, especially printed p.208",
+      "record_ids": [
+        "local:science-step:song-source"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": "9b424e7066c3d7c8931f7bd517804f3fd5a0287c0af3b9f570d0c7f79a053c1e",
+      "original_url": null,
+      "label": "Four-page reading copy of scoped technical report v0.1",
+      "record_ids": [
+        "local:science-step:repaired-lemma",
+        "local:science-step:review-packet"
+      ],
+      "status": "included_exact_bytes",
+      "path": "packets/v0.1/REPORT.pdf"
+    },
+    {
+      "sha256": "165757621d17802812d49b7583324866b75f8d11c90cbdbc3a77f6e761b910b6",
+      "original_url": null,
+      "label": "Translation follow-up v0.1: analytic arguments, candidate and counterexample",
+      "record_ids": [
+        "local:translation-step:coordinate-question",
+        "local:translation-step:coordinate-explanation",
+        "local:translation-step:exact-method",
+        "local:translation-step:convex-candidate",
+        "local:translation-step:finite-symmetry-checks",
+        "local:translation-step:spurious-fixed-point-counterexample",
+        "local:translation-step:candidate-concern",
+        "local:translation-step:restricted-proof-question"
+      ],
+      "status": "included_exact_bytes",
+      "path": "packets/followups/translation-v0.1/NOTE.md"
+    },
+    {
+      "sha256": "9169b7d524b1ee099ddf73ad08675482bdaae1c049c3660418cfc02eed900910",
+      "original_url": null,
+      "label": "Exact rational translation checker; local original code",
+      "record_ids": [
+        "local:translation-step:exact-method",
+        "local:translation-step:finite-symmetry-checks",
+        "local:translation-step:spurious-fixed-point-counterexample",
+        "local:translation-step:candidate-concern"
+      ],
+      "status": "included_exact_bytes",
+      "path": "packets/followups/translation-v0.1/verify_translation.py"
+    },
+    {
+      "sha256": "393951e18ab9d1baec8af1e246ee7f34b216a2c42f2f051485df06b5e73d2723",
+      "original_url": null,
+      "label": "Stored 64/128-update exact checks; finite results, not a limit proof",
+      "record_ids": [
+        "local:translation-step:exact-method",
+        "local:translation-step:finite-symmetry-checks",
+        "local:translation-step:spurious-fixed-point-counterexample",
+        "local:translation-step:candidate-concern"
+      ],
+      "status": "included_exact_bytes",
+      "path": "packets/followups/translation-v0.1/results.json"
+    },
+    {
+      "sha256": "84b3720069e9741a425e9285a49857c18295f188bb60411ce4b188845c7ee771",
+      "original_url": null,
+      "label": "Restricted repair v0.1: declared hypotheses and complete analytic proof",
+      "record_ids": [
+        "local:restricted-repair:declared-assumptions-method",
+        "local:restricted-repair:fixedset-residual-finding",
+        "local:restricted-repair:strong-convergence-finding",
+        "local:restricted-repair:finite-fixture-experiment",
+        "local:restricted-repair:internal-proof-review"
+      ],
+      "status": "included_exact_bytes",
+      "path": "packets/followups/restricted-repair-v0.1/NOTE.md"
+    },
+    {
+      "sha256": "75da24a81559e261861f9ed24888e8b2b5f6cb0a0878aaa59b519434e1ca4527",
+      "original_url": "https://www.maths.tcd.ie/EMIS/journals/HOA/AAA/Volume2011/385843.pdf",
+      "label": "Wongchan and Saejung 2011, particularly Theorem 2.3",
+      "record_ids": [
+        "local:restricted-repair:wongchan-saejung-source"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": "78f5960731adbbdcf26b93dca9c96fd2fefcd2cac6dde6f613472225f758384c",
+      "original_url": "https://link.springer.com/article/10.1186/1687-1812-2014-17",
+      "label": "Aoyama and Kohsaka 2014, particularly Corollary 3.5",
+      "record_ids": [
+        "local:restricted-repair:aoyama-kohsaka-source"
+      ],
+      "status": "external_source_not_redistributed",
+      "note": "Historical captured bytes are not included. The URL is a source locator; it may not serve the same bytes now. No automatic fetch."
+    },
+    {
+      "sha256": "34d94d7785e3a3925b38e4e8cd138649d994a16efebc77bac6df3e4ba215a09c",
+      "original_url": null,
+      "label": "Bound finite fixture protocol; retrospective acquisition, not preregistration",
+      "record_ids": [
+        "local:restricted-repair:finite-fixture-experiment"
+      ],
+      "status": "included_exact_bytes",
+      "path": "packets/followups/restricted-repair-v0.1/PROTOCOL.md"
+    },
+    {
+      "sha256": "c013a5569c29119ee19493c724bc9998c82d429470dabccb3e6a63b7f7e47f77",
+      "original_url": null,
+      "label": "Original exact finite restricted-candidate checker",
+      "record_ids": [
+        "local:restricted-repair:finite-fixture-experiment"
+      ],
+      "status": "included_exact_bytes",
+      "path": "packets/followups/restricted-repair-v0.1/verify_restricted.py"
+    },
+    {
+      "sha256": "88eb2a977f0eaeaaa519936597fb4b6f88321afe5336ad1986a34fc0e474dae1",
+      "original_url": null,
+      "label": "Finite fixture results; not a Hilbert-space convergence proof",
+      "record_ids": [
+        "local:restricted-repair:finite-fixture-experiment"
+      ],
+      "status": "included_exact_bytes",
+      "path": "packets/followups/restricted-repair-v0.1/results.json"
+    },
+    {
+      "sha256": "60a6e6a6f3a78513554b2ab00dc8e45bf75f920c1f041acf2928ecf961be9984",
+      "original_url": null,
+      "label": "Frozen internal review receipts bound to the final note; same operator",
+      "record_ids": [
+        "local:restricted-repair:internal-proof-review"
+      ],
+      "status": "included_exact_bytes",
+      "path": "packets/followups/restricted-repair-v0.1/INTERNAL-REVIEW.json"
+    }
+  ]
+}

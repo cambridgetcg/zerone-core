@@ -1,0 +1,1974 @@
+{
+  "schema": "zerone-research-export/v1",
+  "header": {
+    "collection_id": "ce6e799a-6713-41a9-b95f-57c50a223074",
+    "created_at": "2026-09-14T10:19:08.396395Z",
+    "schema": "zerone-research-journal/v1"
+  },
+  "entries": [
+    {
+      "previous_sha256": "8197378c12a25cc8e3a070d874d7ad80b8c9de7dd2f470e02b8574c5cbd40d5c",
+      "record": {
+        "attributed_to": "Zerone Crossref importer (local, unsigned)",
+        "contribution_type": "source",
+        "doi": "10.1371/journal.pone.0319047",
+        "evidence": [
+          {
+            "label": "Crossref metadata captured at 2026-09-14T10:19:08.443416Z",
+            "sha256": "f88f97de7cb0843b73a44454b23735e7ec1c1fe39c7696e294c1d0f55f4fe477",
+            "url": "https://api.crossref.org/works/10.1371%2Fjournal.pone.0319047"
+          }
+        ],
+        "id": "crossref-source:34a620b19aa00f8ab58b7cfb5ab3c878d6af5ab853264fa0f1cff148752f532c",
+        "kind": "contribution",
+        "occurred_on": "2025-04-15",
+        "summary": "Bibliographic source imported from Crossref; no scientific claim or author signature inferred. Full metadata and later changes remain in captured lookup artifacts.",
+        "title": "Creating a novel algorithm for studying the strong convergence to a sequence with applications"
+      },
+      "recorded_at": "2026-09-14T10:19:10.364638Z",
+      "sequence": 1,
+      "sha256": "1e9b8ce413df6a32be947b70a5ce49e2edb2ab3fe7b746d2b6a77a9b7171d96a"
+    },
+    {
+      "previous_sha256": "1e9b8ce413df6a32be947b70a5ce49e2edb2ab3fe7b746d2b6a77a9b7171d96a",
+      "record": {
+        "attributed_to": "Zerone Crossref importer (local, unsigned)",
+        "category": "publisher-notice",
+        "evidence": [
+          {
+            "label": "Crossref metadata captured at 2026-09-14T10:19:08.443416Z",
+            "sha256": "f88f97de7cb0843b73a44454b23735e7ec1c1fe39c7696e294c1d0f55f4fe477",
+            "url": "https://api.crossref.org/works/10.1371%2Fjournal.pone.0319047"
+          },
+          {
+            "label": "Linked notice DOI (content not fetched)",
+            "sha256": null,
+            "url": "https://doi.org/10.1371/journal.pone.0343283"
+          }
+        ],
+        "id": "crossref-notice:30c7a31391af7a62d3eef4e69cad4a882c19ab2c8fc468a5ad1d14462762b18d",
+        "kind": "concern",
+        "notice_type": "expression_of_concern",
+        "occurred_on": "2026-02-19",
+        "provider": "Crossref: publisher",
+        "summary": "Crossref metadata reports update type 'expression_of_concern' for 10.1371/journal.pone.0319047, linked notice 10.1371/journal.pone.0343283. Sources: publisher. This is a metadata lead. Read the notice and assess its exact scope; it does not establish fraud, which claim is affected, or whether a scientific result is false. Later absence from a lookup does not withdraw this recorded observation.",
+        "target_id": "crossref-source:34a620b19aa00f8ab58b7cfb5ab3c878d6af5ab853264fa0f1cff148752f532c",
+        "title": "Notice metadata: expression_of_concern"
+      },
+      "recorded_at": "2026-09-14T10:19:10.364638Z",
+      "sequence": 2,
+      "sha256": "77e0913fc611558701ba636cb18364b3564981908c22b009e1b8ba2889b2c570"
+    },
+    {
+      "previous_sha256": "77e0913fc611558701ba636cb18364b3564981908c22b009e1b8ba2889b2c570",
+      "record": {
+        "attributed_to": "Zerone Crossref importer (local, unsigned)",
+        "contribution_type": "review",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Crossref metadata captured at 2026-09-14T10:19:08.443416Z",
+            "sha256": "f88f97de7cb0843b73a44454b23735e7ec1c1fe39c7696e294c1d0f55f4fe477",
+            "url": "https://api.crossref.org/works/10.1371%2Fjournal.pone.0319047"
+          },
+          {
+            "label": "Lookup receipt",
+            "sha256": "a0dbeb6b679b8b9c398d004569bdef58fb5ea18756d2bacf650d90a8064052ca",
+            "url": null
+          }
+        ],
+        "id": "crossref-lookup:bc7aaf553c36d302c7956da1aba7c22c8d29f8308a041270f77f6dbbb1824fea",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Explicit DOI lookup at 2026-09-14T10:19:08.443416Z: 1 distinct original/notice/type leads returned; 0 malformed-link observations. This checks this work response only: no citation crawl, reverse search, paper text or publisher notice fetch. Zero returned leads means none returned by this lookup, not a clean bill of health. Previously recorded concerns remain; authorship is bibliographic metadata, not authenticated attribution.",
+        "title": "Crossref lookup: 10.1371/journal.pone.0319047"
+      },
+      "recorded_at": "2026-09-14T10:19:10.364638Z",
+      "sequence": 3,
+      "sha256": "0958b3f0eea86fd635a72d608b315b26d5c09b4d09481dc4d65a4d7ac3544360"
+    },
+    {
+      "previous_sha256": "0958b3f0eea86fd635a72d608b315b26d5c09b4d09481dc4d65a4d7ac3544360",
+      "record": {
+        "attributed_to": "Zerone Crossref importer (local, unsigned)",
+        "contribution_type": "source",
+        "doi": "10.1007/s10878-023-00988-w",
+        "evidence": [
+          {
+            "label": "Crossref metadata captured at 2026-09-14T10:19:11.374459Z",
+            "sha256": "878ac42f5855ad563491ed4314f63faef55e47be0219f613f281a762549d0cf2",
+            "url": "https://api.crossref.org/works/10.1007%2Fs10878-023-00988-w"
+          }
+        ],
+        "id": "crossref-source:c308ea28dd615c91632a935a0ee2be5bdf33cc87990b6b5b0596bc3c7152abe2",
+        "kind": "contribution",
+        "occurred_on": "2023-01-23",
+        "summary": "Bibliographic source imported from Crossref; no scientific claim or author signature inferred. Full metadata and later changes remain in captured lookup artifacts.",
+        "title": "RETRACTED ARTICLE: AHI: a hybrid machine learning model for complex industrial information systems"
+      },
+      "recorded_at": "2026-09-14T10:19:12.988794Z",
+      "sequence": 4,
+      "sha256": "03b7a66b83fd19f0fcca26bbf3755f6ce1dd87476f90ccc9caac08633a504238"
+    },
+    {
+      "previous_sha256": "03b7a66b83fd19f0fcca26bbf3755f6ce1dd87476f90ccc9caac08633a504238",
+      "record": {
+        "attributed_to": "Zerone Crossref importer (local, unsigned)",
+        "category": "reported-concern",
+        "evidence": [
+          {
+            "label": "Crossref metadata captured at 2026-09-14T10:19:11.374459Z",
+            "sha256": "878ac42f5855ad563491ed4314f63faef55e47be0219f613f281a762549d0cf2",
+            "url": "https://api.crossref.org/works/10.1007%2Fs10878-023-00988-w"
+          },
+          {
+            "label": "Linked notice DOI (content not fetched)",
+            "sha256": null,
+            "url": "https://doi.org/10.1007/s10878-024-01135-9"
+          }
+        ],
+        "id": "crossref-notice:859171be19046e5ceedb795319bc825666b3dd035ff79f6e2ed920cfb3a091e1",
+        "kind": "concern",
+        "notice_type": "retraction",
+        "occurred_on": "2024-03-26",
+        "provider": "Crossref: publisher, retraction-watch",
+        "summary": "Crossref metadata reports update type 'retraction' for 10.1007/s10878-023-00988-w, linked notice 10.1007/s10878-024-01135-9. Sources: publisher, retraction-watch. This is a metadata lead. Read the notice and assess its exact scope; it does not establish fraud, which claim is affected, or whether a scientific result is false. Later absence from a lookup does not withdraw this recorded observation.",
+        "target_id": "crossref-source:c308ea28dd615c91632a935a0ee2be5bdf33cc87990b6b5b0596bc3c7152abe2",
+        "title": "Notice metadata: retraction"
+      },
+      "recorded_at": "2026-09-14T10:19:12.988794Z",
+      "sequence": 5,
+      "sha256": "ccb6440987ba0c7b54a9ad4a96d9c533f11f0ad3e23999362caf041aca633382"
+    },
+    {
+      "previous_sha256": "ccb6440987ba0c7b54a9ad4a96d9c533f11f0ad3e23999362caf041aca633382",
+      "record": {
+        "attributed_to": "Zerone Crossref importer (local, unsigned)",
+        "contribution_type": "review",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Crossref metadata captured at 2026-09-14T10:19:11.374459Z",
+            "sha256": "878ac42f5855ad563491ed4314f63faef55e47be0219f613f281a762549d0cf2",
+            "url": "https://api.crossref.org/works/10.1007%2Fs10878-023-00988-w"
+          },
+          {
+            "label": "Lookup receipt",
+            "sha256": "95f88774318df491a9e59835e02dc0c753454d782a365adeb9cfef03d0bc9d01",
+            "url": null
+          }
+        ],
+        "id": "crossref-lookup:e26406d5bae94726024fad414044ddbef9fa61541ca6e2f8ac23b6f0e1563a9c",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Explicit DOI lookup at 2026-09-14T10:19:11.374459Z: 1 distinct original/notice/type leads returned; 0 malformed-link observations. This checks this work response only: no citation crawl, reverse search, paper text or publisher notice fetch. Zero returned leads means none returned by this lookup, not a clean bill of health. Previously recorded concerns remain; authorship is bibliographic metadata, not authenticated attribution.",
+        "title": "Crossref lookup: 10.1007/s10878-023-00988-w"
+      },
+      "recorded_at": "2026-09-14T10:19:12.988794Z",
+      "sequence": 6,
+      "sha256": "0b7ce0ae40e801bcfbd3cbbafb43dee2d07be68f5a328aa16e0dfc7105450789"
+    },
+    {
+      "previous_sha256": "0b7ce0ae40e801bcfbd3cbbafb43dee2d07be68f5a328aa16e0dfc7105450789",
+      "record": {
+        "attributed_to": "Zerone Crossref importer (local, unsigned)",
+        "contribution_type": "source",
+        "doi": "10.1371/journal.pone.0290624",
+        "evidence": [
+          {
+            "label": "Crossref metadata captured at 2026-09-14T10:19:13.999456Z",
+            "sha256": "ece58547758f82f977a09c2ae50bd830cef23df424f6a27e405a7d667c44aa09",
+            "url": "https://api.crossref.org/works/10.1371%2Fjournal.pone.0290624"
+          }
+        ],
+        "id": "crossref-source:7d300579e24335ecad1a4a65db6dae14297c980cd1a9339fd5d2fb37f59e8f0c",
+        "kind": "contribution",
+        "occurred_on": "2023-10-30",
+        "summary": "Bibliographic source imported from Crossref; no scientific claim or author signature inferred. Full metadata and later changes remain in captured lookup artifacts.",
+        "title": "An improved beluga whale optimizer—Derived Adaptive multi-channel DeepLabv3+ for semantic segmentation of aerial images"
+      },
+      "recorded_at": "2026-09-14T10:19:15.228213Z",
+      "sequence": 7,
+      "sha256": "e5f6fcd56afd7af04355f81c98c0f72f2ea2c8bf594e2f01d56ffe8d6d18d8f1"
+    },
+    {
+      "previous_sha256": "e5f6fcd56afd7af04355f81c98c0f72f2ea2c8bf594e2f01d56ffe8d6d18d8f1",
+      "record": {
+        "attributed_to": "Zerone Crossref importer (local, unsigned)",
+        "category": "reported-concern",
+        "evidence": [
+          {
+            "label": "Crossref metadata captured at 2026-09-14T10:19:13.999456Z",
+            "sha256": "ece58547758f82f977a09c2ae50bd830cef23df424f6a27e405a7d667c44aa09",
+            "url": "https://api.crossref.org/works/10.1371%2Fjournal.pone.0290624"
+          },
+          {
+            "label": "Linked notice DOI (content not fetched)",
+            "sha256": null,
+            "url": "https://doi.org/10.1371/journal.pone.0320728"
+          }
+        ],
+        "id": "crossref-notice:b0be7214ce3cd10dcb99199b17a24017302724e43ec4a68be2396cd356c16064",
+        "kind": "concern",
+        "notice_type": "retraction",
+        "occurred_on": "2025-03-17",
+        "provider": "Crossref: publisher, retraction-watch",
+        "summary": "Crossref metadata reports update type 'retraction' for 10.1371/journal.pone.0290624, linked notice 10.1371/journal.pone.0320728. Sources: publisher, retraction-watch. This is a metadata lead. Read the notice and assess its exact scope; it does not establish fraud, which claim is affected, or whether a scientific result is false. Later absence from a lookup does not withdraw this recorded observation.",
+        "target_id": "crossref-source:7d300579e24335ecad1a4a65db6dae14297c980cd1a9339fd5d2fb37f59e8f0c",
+        "title": "Notice metadata: retraction"
+      },
+      "recorded_at": "2026-09-14T10:19:15.228213Z",
+      "sequence": 8,
+      "sha256": "7cfe09d2efd3a19507fee5aae5ab33e782cd57d4667f0e6764c268c14dcc672b"
+    },
+    {
+      "previous_sha256": "7cfe09d2efd3a19507fee5aae5ab33e782cd57d4667f0e6764c268c14dcc672b",
+      "record": {
+        "attributed_to": "Zerone Crossref importer (local, unsigned)",
+        "contribution_type": "review",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Crossref metadata captured at 2026-09-14T10:19:13.999456Z",
+            "sha256": "ece58547758f82f977a09c2ae50bd830cef23df424f6a27e405a7d667c44aa09",
+            "url": "https://api.crossref.org/works/10.1371%2Fjournal.pone.0290624"
+          },
+          {
+            "label": "Lookup receipt",
+            "sha256": "c763cec5c573103c3be17b54d28d9927cba0816a485a3debf7712fcedbdcf880",
+            "url": null
+          }
+        ],
+        "id": "crossref-lookup:caaa584887bec3c936d179caf88788ce610066b1b49d67adfc55b5cbb652830d",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Explicit DOI lookup at 2026-09-14T10:19:13.999456Z: 1 distinct original/notice/type leads returned; 0 malformed-link observations. This checks this work response only: no citation crawl, reverse search, paper text or publisher notice fetch. Zero returned leads means none returned by this lookup, not a clean bill of health. Previously recorded concerns remain; authorship is bibliographic metadata, not authenticated attribution.",
+        "title": "Crossref lookup: 10.1371/journal.pone.0290624"
+      },
+      "recorded_at": "2026-09-14T10:19:15.228213Z",
+      "sequence": 9,
+      "sha256": "ea80f20b76cf6b73577307ae7131a544f5e1d725d10c76c377a30d25790f24a6"
+    },
+    {
+      "previous_sha256": "ea80f20b76cf6b73577307ae7131a544f5e1d725d10c76c377a30d25790f24a6",
+      "record": {
+        "attributed_to": "Zerone Crossref importer (local, unsigned)",
+        "contribution_type": "source",
+        "doi": "10.1023/a:1010933404324",
+        "evidence": [
+          {
+            "label": "Crossref metadata captured at 2026-09-14T10:19:16.234335Z",
+            "sha256": "be6f809b84b73765205a7925dc69156c98a425da4280391bc601fd9294b1b960",
+            "url": "https://api.crossref.org/works/10.1023%2Fa%3A1010933404324"
+          }
+        ],
+        "id": "crossref-source:895052a835be49f10ee95126b3266392f22d091e0e9d1cf1e56a580545eff680",
+        "kind": "contribution",
+        "occurred_on": null,
+        "summary": "Bibliographic source imported from Crossref; no scientific claim or author signature inferred. Full metadata and later changes remain in captured lookup artifacts.",
+        "title": "Random Forests"
+      },
+      "recorded_at": "2026-09-14T10:19:17.463721Z",
+      "sequence": 10,
+      "sha256": "66956ac0deb43524284f1dd16c114566c6b47189b0ebfccdc72df9c9f7f3ecd3"
+    },
+    {
+      "previous_sha256": "66956ac0deb43524284f1dd16c114566c6b47189b0ebfccdc72df9c9f7f3ecd3",
+      "record": {
+        "attributed_to": "Zerone Crossref importer (local, unsigned)",
+        "contribution_type": "review",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Crossref metadata captured at 2026-09-14T10:19:16.234335Z",
+            "sha256": "be6f809b84b73765205a7925dc69156c98a425da4280391bc601fd9294b1b960",
+            "url": "https://api.crossref.org/works/10.1023%2Fa%3A1010933404324"
+          },
+          {
+            "label": "Lookup receipt",
+            "sha256": "1b1be9c7c99aad6c9bd358825d54485a7a7dd209e90c26abe073021e2074a8d0",
+            "url": null
+          }
+        ],
+        "id": "crossref-lookup:ee205f935b988d24ecc2e23fb6c0a00465fdc8ef02e48448e75b663bcbb9dce6",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Explicit DOI lookup at 2026-09-14T10:19:16.234335Z: 0 distinct original/notice/type leads returned; 0 malformed-link observations. This checks this work response only: no citation crawl, reverse search, paper text or publisher notice fetch. Zero returned leads means none returned by this lookup, not a clean bill of health. Previously recorded concerns remain; authorship is bibliographic metadata, not authenticated attribution.",
+        "title": "Crossref lookup: 10.1023/a:1010933404324"
+      },
+      "recorded_at": "2026-09-14T10:19:17.463721Z",
+      "sequence": 11,
+      "sha256": "36d3a4f2c57abe1f28d72ecedb746cac3465b28a0e8ce38b764cf33c3b0a57c4"
+    },
+    {
+      "previous_sha256": "36d3a4f2c57abe1f28d72ecedb746cac3465b28a0e8ce38b764cf33c3b0a57c4",
+      "record": {
+        "attributed_to": "Zerone Crossref importer (local, unsigned)",
+        "contribution_type": "source",
+        "doi": "10.1007/bf00994018",
+        "evidence": [
+          {
+            "label": "Crossref metadata captured at 2026-09-14T10:19:18.472617Z",
+            "sha256": "72ad42d4f8761ad01f402bf3ba198334f950e1b302d467b506486fe384036f27",
+            "url": "https://api.crossref.org/works/10.1007%2Fbf00994018"
+          }
+        ],
+        "id": "crossref-source:b6bae793731d320a3bb147d7ef3dc52544fc35df278eb75b931ead1df6f436ed",
+        "kind": "contribution",
+        "occurred_on": null,
+        "summary": "Bibliographic source imported from Crossref; no scientific claim or author signature inferred. Full metadata and later changes remain in captured lookup artifacts.",
+        "title": "Support-vector networks"
+      },
+      "recorded_at": "2026-09-14T10:19:19.701449Z",
+      "sequence": 12,
+      "sha256": "845c5e612f8b8ba13177536e0facec3047035ea0e0e21154f8859ec7a8ec014e"
+    },
+    {
+      "previous_sha256": "845c5e612f8b8ba13177536e0facec3047035ea0e0e21154f8859ec7a8ec014e",
+      "record": {
+        "attributed_to": "Zerone Crossref importer (local, unsigned)",
+        "contribution_type": "review",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Crossref metadata captured at 2026-09-14T10:19:18.472617Z",
+            "sha256": "72ad42d4f8761ad01f402bf3ba198334f950e1b302d467b506486fe384036f27",
+            "url": "https://api.crossref.org/works/10.1007%2Fbf00994018"
+          },
+          {
+            "label": "Lookup receipt",
+            "sha256": "fe0a4a424f38ad04fe20ebe7e89c17818623e2fe8f7dcc16b483bdaddb40a6d8",
+            "url": null
+          }
+        ],
+        "id": "crossref-lookup:650085cb9ad75e7725f01ff85835b143a68e72ab692317964be5634a2b44c5b6",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Explicit DOI lookup at 2026-09-14T10:19:18.472617Z: 0 distinct original/notice/type leads returned; 0 malformed-link observations. This checks this work response only: no citation crawl, reverse search, paper text or publisher notice fetch. Zero returned leads means none returned by this lookup, not a clean bill of health. Previously recorded concerns remain; authorship is bibliographic metadata, not authenticated attribution.",
+        "title": "Crossref lookup: 10.1007/bf00994018"
+      },
+      "recorded_at": "2026-09-14T10:19:19.701449Z",
+      "sequence": 13,
+      "sha256": "405db9b4b3692de5c3c1ed2fcce2e0dbe13bf141e182feb31c2790ae5ffca95e"
+    },
+    {
+      "previous_sha256": "405db9b4b3692de5c3c1ed2fcce2e0dbe13bf141e182feb31c2790ae5ffca95e",
+      "record": {
+        "attributed_to": "Zerone local research review (operator agents, unsigned)",
+        "disposition": "notice-checked",
+        "evidence": [
+          {
+            "label": "Publisher page captured 2026-09-14",
+            "sha256": "20005d5fad78974a5b0acf4fb1e45d383c04a5e6f3be605236d81ce81b2f4e0f",
+            "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0319047"
+          },
+          {
+            "label": "Publisher page captured 2026-09-14",
+            "sha256": "86d29b02ce1bb2d4a6ed274b466c0e6a07b4dad7410d49d4c87ec436e42b4723",
+            "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0343283"
+          }
+        ],
+        "id": "local:notice-check:formal-concern:1",
+        "kind": "assessment",
+        "occurred_on": "2026-09-14",
+        "summary": "PLOS editors report a concern about the peer-review process. The original article still displays the concern; the bounded Crossref reverse query returns only this notice. No resolution was observed in these checked sources; this is not proof of misconduct or an exhaustive investigation. This is an unsigned local review by operator agents, not independent scientific review.",
+        "target_id": "crossref-notice:30c7a31391af7a62d3eef4e69cad4a882c19ab2c8fc468a5ad1d14462762b18d",
+        "title": "Publisher notice scope checked"
+      },
+      "recorded_at": "2026-09-14T10:20:28.804836Z",
+      "sequence": 14,
+      "sha256": "36b190583acf1e83257d4a6dc3f614c9fb00c44c8935bc62f793f814af344df3"
+    },
+    {
+      "previous_sha256": "36b190583acf1e83257d4a6dc3f614c9fb00c44c8935bc62f793f814af344df3",
+      "record": {
+        "attributed_to": "Zerone local research review (operator agents, unsigned)",
+        "disposition": "notice-checked",
+        "evidence": [
+          {
+            "label": "Publisher page captured 2026-09-14",
+            "sha256": "44aaca197435f46067f5ba67dfd88f8a43af1af2ec310579381570f6db04569b",
+            "url": "https://link.springer.com/article/10.1007/s10878-023-00988-w"
+          },
+          {
+            "label": "Publisher page captured 2026-09-14",
+            "sha256": "05b0eab3eeba71226d2453710cf20d3ac95fb3db1b6ffb7f7832f6dc6d00c8d8",
+            "url": "https://link.springer.com/article/10.1007/s10878-024-01135-9"
+          }
+        ],
+        "id": "local:notice-check:retraction:2",
+        "kind": "assessment",
+        "occurred_on": "2026-09-14",
+        "summary": "Publisher labels the original retracted and records the March26,2024 retraction in its change history. The accessible notice preview does not substantiate a detailed reason; no fraud or numerical-error inference is made. Crossref has publisher and Retraction Watch assertions of the same notice. This is an unsigned local review by operator agents, not independent scientific review.",
+        "target_id": "crossref-notice:859171be19046e5ceedb795319bc825666b3dd035ff79f6e2ed920cfb3a091e1",
+        "title": "Publisher notice scope checked"
+      },
+      "recorded_at": "2026-09-14T10:20:28.804836Z",
+      "sequence": 15,
+      "sha256": "d69c9e0f58e1313623f1e57c1ff32948f10249d03e18949a00e60c9c77e71489"
+    },
+    {
+      "previous_sha256": "d69c9e0f58e1313623f1e57c1ff32948f10249d03e18949a00e60c9c77e71489",
+      "record": {
+        "attributed_to": "Zerone local research review (operator agents, unsigned)",
+        "disposition": "notice-checked",
+        "evidence": [
+          {
+            "label": "Publisher page captured 2026-09-14",
+            "sha256": "284a034b66500f7caaba886e87f0c1c23802e27d092a0f1f86b751cb5cc461bf",
+            "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0320728"
+          }
+        ],
+        "id": "local:notice-check:retraction:3",
+        "kind": "assessment",
+        "occurred_on": "2026-09-14",
+        "summary": "PLOS reports retraction for redundant publication after editorial assessment of overlap. The notice records that all authors disagreed and stood by the findings. It also records removal of the original contents and changed licence availability; no removed paper was downloaded. This is not a newly discovered fraud finding.  This is an unsigned local review by operator agents, not independent scientific review.",
+        "target_id": "crossref-notice:b0be7214ce3cd10dcb99199b17a24017302724e43ec4a68be2396cd356c16064",
+        "title": "Publisher notice scope checked"
+      },
+      "recorded_at": "2026-09-14T10:20:28.804836Z",
+      "sequence": 16,
+      "sha256": "c799a36379a041960cd5e352159b35d55aeff790640f53268f70d279742a46f6"
+    },
+    {
+      "previous_sha256": "c799a36379a041960cd5e352159b35d55aeff790640f53268f70d279742a46f6",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "contribution_type": "claim",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Original publisher article, captured 2026-09-14",
+            "sha256": "20005d5fad78974a5b0acf4fb1e45d383c04a5e6f3be605236d81ce81b2f4e0f",
+            "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0319047#article1.body1.sec3.p14"
+          }
+        ],
+        "id": "local:proof-claim",
+        "kind": "contribution",
+        "occurred_on": null,
+        "summary": "Scoped local extraction: the Lemma 3.3 proof invokes nonexpansiveness after identifying Z as demimetric. This record attributes that step to the cited passage; the paper authors have not signed or adopted this extraction. It is not the convergence conclusion of the lemma or theorem.",
+        "title": "Extracted proof step: the weighted relaxed operator Z is nonexpansive"
+      },
+      "recorded_at": "2026-09-14T10:40:14.700194Z",
+      "sequence": 17,
+      "sha256": "e009c5175c37d2facb9beec9191ddc9d589c893ceab222aa2008575c9c002ec3"
+    },
+    {
+      "previous_sha256": "e009c5175c37d2facb9beec9191ddc9d589c893ceab222aa2008575c9c002ec3",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "evidence": [
+          {
+            "label": "Original publisher article, captured 2026-09-14",
+            "sha256": "20005d5fad78974a5b0acf4fb1e45d383c04a5e6f3be605236d81ce81b2f4e0f",
+            "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0319047#article1.body1.sec3.p14"
+          }
+        ],
+        "from_id": "local:proof-claim",
+        "id": "local:proof-claim-source",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "cites",
+        "summary": "The cited passage is the origin of the extracted statement. Citation supplies source attribution and does not establish the statement as mathematically valid.",
+        "title": "Proof-step extraction cites the original article",
+        "to_id": "crossref-source:34a620b19aa00f8ab58b7cfb5ab3c878d6af5ab853264fa0f1cff148752f532c"
+      },
+      "recorded_at": "2026-09-14T10:40:14.700194Z",
+      "sequence": 18,
+      "sha256": "d072299bd5b542b96c71d6b0b001af18b2954ec17fe4c3c9dc4d1da5582b76f3"
+    },
+    {
+      "previous_sha256": "d072299bd5b542b96c71d6b0b001af18b2954ec17fe4c3c9dc4d1da5582b76f3",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "contribution_type": "finding",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Exact piecewise derivation",
+            "sha256": "a8d8451280532e0fcc6ccaa1f4f1330220afc2ff9d138de7c9bd297979d51a8f",
+            "url": null
+          },
+          {
+            "label": "Source scope and unresolved assumptions",
+            "sha256": "2e77e1a2facc5d7ada5343011949afb0f62421a7bb53447ed0c30c88afa278f0",
+            "url": null
+          },
+          {
+            "label": "Exact rational witness check",
+            "sha256": "229c3d387f4d2e2ad77fbb4eecb776076ed02382f1743e9a8520bd9b18904dc5",
+            "url": null
+          }
+        ],
+        "id": "local:proof-witness",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "On R, define Q(x)=0 for x<=1, Q(x)=2x-2 for 1<x<3/2, and Q(x)=1 for x>=3/2. Its sole fixed point is 0, Q is continuous, and x(x-Q(x)) >= (x-Q(x))^2 for every x; thus the inspected generalized-demimetric condition holds with phi=1. Two identical copies with weights 1/2 and b=1/2 give Z=(I+Q)/2. Z(1)=1/2 and Z(3/2)=5/4, so output distance3/4 exceeds input distance1/2. The exact derivation establishes a failure of this operator-property inference under reconstructed local conditions. Full algorithm hypotheses, inconsistent global weight notation, the convergence theorem and author intent remain unassessed.",
+        "title": "A scalar relaxed operator satisfying the reconstructed local conditions expands distance"
+      },
+      "recorded_at": "2026-09-14T10:40:14.700194Z",
+      "sequence": 19,
+      "sha256": "24416713d7ce258f87e101ec4a8299b144719b597765da7cc747526fee429eb2"
+    },
+    {
+      "previous_sha256": "24416713d7ce258f87e101ec4a8299b144719b597765da7cc747526fee429eb2",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "evidence": [
+          {
+            "label": "Exact piecewise derivation",
+            "sha256": "a8d8451280532e0fcc6ccaa1f4f1330220afc2ff9d138de7c9bd297979d51a8f",
+            "url": null
+          },
+          {
+            "label": "Source scope and unresolved assumptions",
+            "sha256": "2e77e1a2facc5d7ada5343011949afb0f62421a7bb53447ed0c30c88afa278f0",
+            "url": null
+          }
+        ],
+        "from_id": "local:proof-witness",
+        "id": "local:proof-witness-input",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "uses-input",
+        "summary": "The paper step determines the property being tested. This is input provenance, not an endorsement or a claim that the whole theorem fails.",
+        "title": "Counterexample construction uses the extracted proof step as its investigation input",
+        "to_id": "local:proof-claim"
+      },
+      "recorded_at": "2026-09-14T10:40:14.700194Z",
+      "sequence": 20,
+      "sha256": "e52a9606fe6355149fe08d1e4b5d0f9d319ce648e6a3b6118646fcd0667c599e"
+    },
+    {
+      "previous_sha256": "e52a9606fe6355149fe08d1e4b5d0f9d319ce648e6a3b6118646fcd0667c599e",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "contribution_type": "question",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Exact piecewise derivation",
+            "sha256": "a8d8451280532e0fcc6ccaa1f4f1330220afc2ff9d138de7c9bd297979d51a8f",
+            "url": null
+          },
+          {
+            "label": "Source scope and unresolved assumptions",
+            "sha256": "2e77e1a2facc5d7ada5343011949afb0f62421a7bb53447ed0c30c88afa278f0",
+            "url": null
+          }
+        ],
+        "id": "local:proof-repair-question",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Transcribe all Lemma 3.3 assumptions, resolve weight/index notation from authoritative context, and test whether residual demiclosedness plus fixed-point inequalities can replace the disputed inference. No repair or theorem counterexample is established.",
+        "title": "Can the convergence proof avoid the nonexpansiveness invocation?"
+      },
+      "recorded_at": "2026-09-14T10:40:14.700194Z",
+      "sequence": 21,
+      "sha256": "58813af51c431bfc991ee286e4f2d03f0236c608cc3ff4d8d52bf71f876fd7ca"
+    },
+    {
+      "previous_sha256": "58813af51c431bfc991ee286e4f2d03f0236c608cc3ff4d8d52bf71f876fd7ca",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "evidence": [],
+        "from_id": "local:proof-repair-question",
+        "id": "local:proof-question-origin",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "inspired-by",
+        "summary": "This records the origin of the follow-up question. Inspiration does not establish a mathematical dependency or transfer the scope of the witness to the whole theorem.",
+        "title": "The scalar witness motivates a proof-repair question",
+        "to_id": "local:proof-witness"
+      },
+      "recorded_at": "2026-09-14T10:40:14.700194Z",
+      "sequence": 22,
+      "sha256": "3bf3662c4805423c230311f0dd1b9ad1d3c76f842c92cf2e21637358adff5494"
+    },
+    {
+      "previous_sha256": "3bf3662c4805423c230311f0dd1b9ad1d3c76f842c92cf2e21637358adff5494",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "category": "reported-concern",
+        "evidence": [
+          {
+            "label": "Original publisher article, captured 2026-09-14",
+            "sha256": "20005d5fad78974a5b0acf4fb1e45d383c04a5e6f3be605236d81ce81b2f4e0f",
+            "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0319047#article1.body1.sec3.p14"
+          },
+          {
+            "label": "Exact piecewise derivation",
+            "sha256": "a8d8451280532e0fcc6ccaa1f4f1330220afc2ff9d138de7c9bd297979d51a8f",
+            "url": null
+          },
+          {
+            "label": "Source scope and unresolved assumptions",
+            "sha256": "2e77e1a2facc5d7ada5343011949afb0f62421a7bb53447ed0c30c88afa278f0",
+            "url": null
+          },
+          {
+            "label": "Exact rational witness check",
+            "sha256": "229c3d387f4d2e2ad77fbb4eecb776076ed02382f1743e9a8520bd9b18904dc5",
+            "url": null
+          }
+        ],
+        "id": "local:proof-step-concern",
+        "kind": "concern",
+        "notice_type": null,
+        "occurred_on": "2026-09-14",
+        "provider": "Local scoped proof review",
+        "summary": "The retained exact scalar witness is a counterexample to the identified local operator-property inference under the reconstructed conditions, even with a favorable normalized finite average. It does not instantiate every global Algorithm 3.1 assumption or refute the convergence conclusion. The publisher expression of concern concerns peer review and does not assert this mathematical issue. No fraud, novelty or misconduct finding is made.",
+        "target_id": "local:proof-claim",
+        "title": "The nonexpansiveness inference needs a stated additional justification"
+      },
+      "recorded_at": "2026-09-14T10:40:14.700194Z",
+      "sequence": 23,
+      "sha256": "2e2ead95199727c33558cfbdcb8a3ac6fb05219fbc0993aae9395f454dba1a5e"
+    },
+    {
+      "previous_sha256": "2e2ead95199727c33558cfbdcb8a3ac6fb05219fbc0993aae9395f454dba1a5e",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "disposition": "needs-review",
+        "evidence": [
+          {
+            "label": "Exact piecewise derivation",
+            "sha256": "a8d8451280532e0fcc6ccaa1f4f1330220afc2ff9d138de7c9bd297979d51a8f",
+            "url": null
+          },
+          {
+            "label": "Source scope and unresolved assumptions",
+            "sha256": "2e77e1a2facc5d7ada5343011949afb0f62421a7bb53447ed0c30c88afa278f0",
+            "url": null
+          },
+          {
+            "label": "Exact rational witness check",
+            "sha256": "229c3d387f4d2e2ad77fbb4eecb776076ed02382f1743e9a8520bd9b18904dc5",
+            "url": null
+          }
+        ],
+        "id": "local:proof-step-review",
+        "kind": "assessment",
+        "occurred_on": "2026-09-14",
+        "summary": "Operator agents checked the algebra, source equation images and exact rational distance witness. Fixed-point equality is a positive control. Remaining work is to resolve the paper notation and audit the full proof or construct an example satisfying every theorem hypothesis. This is not independent external review and does not establish intent or an invalid theorem.",
+        "target_id": "local:proof-step-concern",
+        "title": "Exact witness checked; a full proof audit remains open"
+      },
+      "recorded_at": "2026-09-14T10:40:14.700194Z",
+      "sequence": 24,
+      "sha256": "d979a371169f6d1d848903a274f0a540817225becbf9c35e15ee2a49ec66784e"
+    },
+    {
+      "previous_sha256": "d979a371169f6d1d848903a274f0a540817225becbf9c35e15ee2a49ec66784e",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "contribution_type": "claim",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Publisher PDF inspected pp.4–7",
+            "sha256": "1e30b93b489d5a246a89ae9d681f18aff92eb290a978eb9fffd621fa6318115a",
+            "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0319047"
+          }
+        ],
+        "id": "local:science-step:lemma-target-claim",
+        "kind": "contribution",
+        "occurred_on": null,
+        "summary": "Local extraction: the lemma selects a point in the solution set and concludes a nonpositive limsup. The inspected statement does not specify the projection condition needed for that final sign. This is an attributed extraction, not a signature or endorsement by the source authors.",
+        "title": "Lemma 3.3: does membership select the projected target?"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 25,
+      "sha256": "d0e46bc45c353358991953c560ef52f76fe1205037988be31aa38dedbe0c34e8"
+    },
+    {
+      "previous_sha256": "d0e46bc45c353358991953c560ef52f76fe1205037988be31aa38dedbe0c34e8",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "evidence": [],
+        "from_id": "local:science-step:lemma-target-claim",
+        "id": "local:science-step:lemma-source",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "cites",
+        "summary": "Source attribution; citation alone carries no downstream falsity inference.",
+        "title": "cites: lemma-source",
+        "to_id": "crossref-source:34a620b19aa00f8ab58b7cfb5ab3c878d6af5ab853264fa0f1cff148752f532c"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 26,
+      "sha256": "9ccb9ccc1c95704c8eab1ff32506a327f97dc999805c9c7d948ee6b7ce095b35"
+    },
+    {
+      "previous_sha256": "9ccb9ccc1c95704c8eab1ff32506a327f97dc999805c9c7d948ee6b7ce095b35",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "contribution_type": "finding",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Scoped technical report v0.1, 2026-09-14",
+            "sha256": "777935be62e2713b49c8db012a8f0e92d5cc41315907b87f2e971a5c643ca9c8",
+            "url": null
+          },
+          {
+            "label": "Original exact rational verifier v2; no publisher code",
+            "sha256": "2887b292eb073e877ae9966be6e2227b2bece460c0bf1b9ac3fa30279f80ae1d",
+            "url": null
+          },
+          {
+            "label": "Four 128-step variants and exact algebraic checks",
+            "sha256": "cce9758f80394d15265a3b2694e187698f509cf56a0fbfbbd8d41d08ac2e6dc9",
+            "url": null
+          }
+        ],
+        "id": "local:science-step:projection-witness",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "On R, identity Q maps and zero maximal monotone operators give Theta=R. With g=0, all iterates zero and selected point q=1, every displayed residual is zero but the claimed inner product is1. Theorem3.4 separately names a projected target, so this witness is not a counterexample to that theorem.",
+        "title": "Zero-iterate witness isolates a missing projection condition"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 27,
+      "sha256": "95cc825d2f0b0018d3d212aa27eb46a36b290c35101419986589d7e29c5b9df7"
+    },
+    {
+      "previous_sha256": "95cc825d2f0b0018d3d212aa27eb46a36b290c35101419986589d7e29c5b9df7",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "evidence": [],
+        "from_id": "local:science-step:projection-witness",
+        "id": "local:science-step:projection-input",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "uses-input",
+        "summary": "The witness tests the extracted lemma target and its stated scope.",
+        "title": "uses-input: projection-input",
+        "to_id": "local:science-step:lemma-target-claim"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 28,
+      "sha256": "5551716bc4c8c90a22a341fda7b5667fa8ad79dd323e28db6ba3e6f7e4496dba"
+    },
+    {
+      "previous_sha256": "5551716bc4c8c90a22a341fda7b5667fa8ad79dd323e28db6ba3e6f7e4496dba",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "category": "reported-concern",
+        "evidence": [
+          {
+            "label": "Scoped technical report v0.1, 2026-09-14",
+            "sha256": "777935be62e2713b49c8db012a8f0e92d5cc41315907b87f2e971a5c643ca9c8",
+            "url": null
+          },
+          {
+            "label": "Original exact rational verifier v2; no publisher code",
+            "sha256": "2887b292eb073e877ae9966be6e2227b2bece460c0bf1b9ac3fa30279f80ae1d",
+            "url": null
+          },
+          {
+            "label": "Four 128-step variants and exact algebraic checks",
+            "sha256": "cce9758f80394d15265a3b2694e187698f509cf56a0fbfbbd8d41d08ac2e6dc9",
+            "url": null
+          }
+        ],
+        "id": "local:science-step:projection-concern",
+        "kind": "concern",
+        "notice_type": null,
+        "occurred_on": "2026-09-14",
+        "provider": "Local scoped mathematical audit",
+        "summary": "The current internal audit provides an exact witness to the missing target condition. Natural operator notation is declared explicitly; author clarification and external proof review remain absent.",
+        "target_id": "local:science-step:lemma-target-claim",
+        "title": "Projection premise requires clarification"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 29,
+      "sha256": "42d7a8fbd42b5cae6eec774c8842aa54b4008491c48703733c4c9d83c2e76c18"
+    },
+    {
+      "previous_sha256": "42d7a8fbd42b5cae6eec774c8842aa54b4008491c48703733c4c9d83c2e76c18",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "disposition": "needs-review",
+        "evidence": [
+          {
+            "label": "Scoped technical report v0.1, 2026-09-14",
+            "sha256": "777935be62e2713b49c8db012a8f0e92d5cc41315907b87f2e971a5c643ca9c8",
+            "url": null
+          },
+          {
+            "label": "Final exact-manuscript internal review; same controller",
+            "sha256": "7906d600a1494b5697cdce84a17741fe999ff1a76408b631d534f5214eeef523",
+            "url": null
+          }
+        ],
+        "id": "local:science-step:projection-assessment",
+        "kind": "assessment",
+        "occurred_on": "2026-09-14",
+        "summary": "A separately tasked same-controller agent and the primary assistant checked the witness. This records internal reasons without treating agent count as independent scientific votes.",
+        "target_id": "local:science-step:projection-concern",
+        "title": "Internally checked; outside review pending"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 30,
+      "sha256": "1ed118da96a9cbd17bd8e6ae7f7d1aa7fdc4da04b8e9373c60638cfba9a2ff72"
+    },
+    {
+      "previous_sha256": "1ed118da96a9cbd17bd8e6ae7f7d1aa7fdc4da04b8e9373c60638cfba9a2ff72",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "contribution_type": "claim",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Publisher PDF inspected pp.4–7",
+            "sha256": "1e30b93b489d5a246a89ae9d681f18aff92eb290a978eb9fffd621fa6318115a",
+            "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0319047"
+          }
+        ],
+        "id": "local:science-step:damping-claim",
+        "kind": "contribution",
+        "occurred_on": null,
+        "summary": "Local extraction: equation13 bounds distance after scaling about zero; equation9 scales the auxiliary iterate by rho. The recurrence test uses explicit normalized weights and separately declared capped/singleton inertia. It does not instantiate the literal malformed sum of iterate symbols equal to1.",
+        "title": "Equation 13 and the interpreted Equation 9 projected target"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 31,
+      "sha256": "84953efb9b014e143e3f540b19262fa5f9890db47782821a7754bd5e81715c62"
+    },
+    {
+      "previous_sha256": "84953efb9b014e143e3f540b19262fa5f9890db47782821a7754bd5e81715c62",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "evidence": [],
+        "from_id": "local:science-step:damping-claim",
+        "id": "local:science-step:damping-source",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "cites",
+        "summary": "Exact paper source; qualified interpretation retained.",
+        "title": "cites: damping-source",
+        "to_id": "crossref-source:34a620b19aa00f8ab58b7cfb5ab3c878d6af5ab853264fa0f1cff148752f532c"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 32,
+      "sha256": "1885e596f4377260b057ba55c1031f095d0098cb5d96c2645916a6a318c7d4fd"
+    },
+    {
+      "previous_sha256": "1885e596f4377260b057ba55c1031f095d0098cb5d96c2645916a6a318c7d4fd",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "contribution_type": "finding",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Scoped technical report v0.1, 2026-09-14",
+            "sha256": "777935be62e2713b49c8db012a8f0e92d5cc41315907b87f2e971a5c643ca9c8",
+            "url": null
+          },
+          {
+            "label": "Original exact rational verifier v2; no publisher code",
+            "sha256": "2887b292eb073e877ae9966be6e2227b2bece460c0bf1b9ac3fa30279f80ae1d",
+            "url": null
+          },
+          {
+            "label": "Four 128-step variants and exact algebraic checks",
+            "sha256": "cce9758f80394d15265a3b2694e187698f509cf56a0fbfbbd8d41d08ac2e6dc9",
+            "url": null
+          }
+        ],
+        "id": "local:science-step:damping-witness",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Equation13 fails at Z=I,gamma=q=1,rho=1/2: left distance1/2 exceeds zero. Under the explicitly reconstructed equation9, identity maps, zero resolvents and g=1 give x_next bounded by rho|x|+delta+rho*tau and hence convergence to0, whereas the projected target is1. Four exact128-step variants supplement the analytic argument. The literal sum of iterates equal to1 is not satisfied; no unqualified full-theorem counterexample is asserted.",
+        "title": "Origin damping can send the interpreted iteration to the wrong target"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 33,
+      "sha256": "8403a8e958b49dd8d5314225a3b78bcc55143dc5d6caff5cdad02eb5a0378afa"
+    },
+    {
+      "previous_sha256": "8403a8e958b49dd8d5314225a3b78bcc55143dc5d6caff5cdad02eb5a0378afa",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "evidence": [],
+        "from_id": "local:science-step:damping-witness",
+        "id": "local:science-step:damping-input",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "uses-input",
+        "summary": "The calculation depends on the explicitly recorded equation and interpretation.",
+        "title": "uses-input: damping-input",
+        "to_id": "local:science-step:damping-claim"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 34,
+      "sha256": "803db18ca4176ba26bb711b6f0726a76ec9ed30d3616bc316b69b101fea34c48"
+    },
+    {
+      "previous_sha256": "803db18ca4176ba26bb711b6f0726a76ec9ed30d3616bc316b69b101fea34c48",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "category": "reported-concern",
+        "evidence": [
+          {
+            "label": "Scoped technical report v0.1, 2026-09-14",
+            "sha256": "777935be62e2713b49c8db012a8f0e92d5cc41315907b87f2e971a5c643ca9c8",
+            "url": null
+          },
+          {
+            "label": "Original exact rational verifier v2; no publisher code",
+            "sha256": "2887b292eb073e877ae9966be6e2227b2bece460c0bf1b9ac3fa30279f80ae1d",
+            "url": null
+          },
+          {
+            "label": "Four 128-step variants and exact algebraic checks",
+            "sha256": "cce9758f80394d15265a3b2694e187698f509cf56a0fbfbbd8d41d08ac2e6dc9",
+            "url": null
+          }
+        ],
+        "id": "local:science-step:damping-concern",
+        "kind": "concern",
+        "notice_type": null,
+        "occurred_on": "2026-09-14",
+        "provider": "Local scoped mathematical audit",
+        "summary": "The source equation13 scalar inequality is false at a nonzero target. The recurrence result has explicit interpretation limits. Repairing only the earlier auxiliary lemma does not repair this step.",
+        "target_id": "local:science-step:damping-claim",
+        "title": "Origin-damping step needs separate correction or explanation"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 35,
+      "sha256": "5f966631ffe7e9866283104b55f184a301cd7d767cbb28d2110ff3ff1514a20f"
+    },
+    {
+      "previous_sha256": "5f966631ffe7e9866283104b55f184a301cd7d767cbb28d2110ff3ff1514a20f",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "disposition": "needs-review",
+        "evidence": [
+          {
+            "label": "Scoped technical report v0.1, 2026-09-14",
+            "sha256": "777935be62e2713b49c8db012a8f0e92d5cc41315907b87f2e971a5c643ca9c8",
+            "url": null
+          },
+          {
+            "label": "Final exact-manuscript internal review; same controller",
+            "sha256": "7906d600a1494b5697cdce84a17741fe999ff1a76408b631d534f5214eeef523",
+            "url": null
+          }
+        ],
+        "id": "local:science-step:damping-assessment",
+        "kind": "assessment",
+        "occurred_on": "2026-09-14",
+        "summary": "Exact arithmetic, a geometric-forcing limit proof and a separately tasked internal source check support the stated scope. The intended source notation and any full algorithm repair remain unresolved.",
+        "target_id": "local:science-step:damping-concern",
+        "title": "Scoped internal verification; interpretation unresolved"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 36,
+      "sha256": "bc330ceb71ee2071a1e2bafbc409a7d9f1edba12c3449d83417353340cc5bcd7"
+    },
+    {
+      "previous_sha256": "bc330ceb71ee2071a1e2bafbc409a7d9f1edba12c3449d83417353340cc5bcd7",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "contribution_type": "source",
+        "doi": "10.22436/jnsa.011.02.03",
+        "evidence": [
+          {
+            "label": "Song 2018 cited predecessor, especially printed p.208",
+            "sha256": "afcbc03363ad813be6f8834117de1d9c99f4cd52fc1e6c66ad7ce46232fc9d6a",
+            "url": "https://www.isr-publications.com/jnsa/6677/download-iterative-methods-for-fixed-point-problems-and-generalized-split-feasibility-problems-in-banach-spaces"
+          }
+        ],
+        "id": "local:science-step:song-source",
+        "kind": "contribution",
+        "occurred_on": "2018-01-23",
+        "summary": "The directly cited predecessor already uses a weighted residual estimate, original-map demiclosedness and a projected comparison point in its Theorem3.4 proof p.208. Only selected passages were inspected; no whole-paper audit or novelty claim.",
+        "title": "Song 2018: antecedent for residual-based identification"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 37,
+      "sha256": "91c47d756f931af493e93a9da507f9845a630a2e47382357801b05dd9702395c"
+    },
+    {
+      "previous_sha256": "91c47d756f931af493e93a9da507f9845a630a2e47382357801b05dd9702395c",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "contribution_type": "finding",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Scoped technical report v0.1, 2026-09-14",
+            "sha256": "777935be62e2713b49c8db012a8f0e92d5cc41315907b87f2e971a5c643ca9c8",
+            "url": null
+          },
+          {
+            "label": "Four-page reading copy of scoped technical report v0.1",
+            "sha256": "9b424e7066c3d7c8931f7bd517804f3fd5a0287c0af3b9f570d0c7f79a053c1e",
+            "url": null
+          },
+          {
+            "label": "Final exact-manuscript internal review; same controller",
+            "sha256": "7906d600a1494b5697cdce84a17741fe999ff1a76408b631d534f5214eeef523",
+            "url": null
+          }
+        ],
+        "id": "local:science-step:repaired-lemma",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "A fixed finite-family replacement is proved with positive normalized weights, fixed positive relaxation, demiclosed original residuals, well-defined firm resolvents and an explicit projection/VI target. Weighted inner products identify every original-map residual; firm-resolvent telescoping identifies the remaining zeros. This repairs the stated auxiliary limit argument under new explicit assumptions, not the full algorithm.",
+        "title": "Explicit auxiliary repair using positive residuals and a projected point"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 38,
+      "sha256": "8255c70f459dd56a6f551fdbb03fbb201bf2504b82a582ed6cba9e158769c87e"
+    },
+    {
+      "previous_sha256": "8255c70f459dd56a6f551fdbb03fbb201bf2504b82a582ed6cba9e158769c87e",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "evidence": [],
+        "from_id": "local:science-step:repaired-lemma",
+        "id": "local:science-step:repair-origin",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "inspired-by",
+        "summary": "The new proof develops the earlier recorded question of avoiding nonexpansiveness. Inspiration is provenance, not logical support.",
+        "title": "inspired-by: repair-origin",
+        "to_id": "local:proof-repair-question"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 39,
+      "sha256": "61484dfbb167f264bf34904845b53d43f7a9f66c86881116b0cf5c367b5e02ac"
+    },
+    {
+      "previous_sha256": "61484dfbb167f264bf34904845b53d43f7a9f66c86881116b0cf5c367b5e02ac",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "evidence": [],
+        "from_id": "local:science-step:repaired-lemma",
+        "id": "local:science-step:repair-predecessor",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "cites",
+        "summary": "The residual strategy has a cited antecedent; no claim of first discovery.",
+        "title": "cites: repair-predecessor",
+        "to_id": "local:science-step:song-source"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 40,
+      "sha256": "77e9d24a9308bae6ab385ef2284a263efe2c2271389573c3d93c8ddee0ceae5b"
+    },
+    {
+      "previous_sha256": "77e9d24a9308bae6ab385ef2284a263efe2c2271389573c3d93c8ddee0ceae5b",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "evidence": [],
+        "from_id": "local:science-step:repaired-lemma",
+        "id": "local:science-step:repair-refinement",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "refines",
+        "summary": "Explicitly strengthens the missing target and clarifies operator/weight/composition assumptions. It does not silently replace the historical extraction.",
+        "title": "refines: repair-refinement",
+        "to_id": "local:science-step:lemma-target-claim"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 41,
+      "sha256": "933bb2c6a168629cd86f34fd9ee371090505fa1954b95024712497d584209b58"
+    },
+    {
+      "previous_sha256": "933bb2c6a168629cd86f34fd9ee371090505fa1954b95024712497d584209b58",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "contribution_type": "review",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Scoped technical report v0.1, 2026-09-14",
+            "sha256": "777935be62e2713b49c8db012a8f0e92d5cc41315907b87f2e971a5c643ca9c8",
+            "url": null
+          },
+          {
+            "label": "Four-page reading copy of scoped technical report v0.1",
+            "sha256": "9b424e7066c3d7c8931f7bd517804f3fd5a0287c0af3b9f570d0c7f79a053c1e",
+            "url": null
+          },
+          {
+            "label": "Original exact rational verifier v2; no publisher code",
+            "sha256": "2887b292eb073e877ae9966be6e2227b2bece460c0bf1b9ac3fa30279f80ae1d",
+            "url": null
+          },
+          {
+            "label": "Four 128-step variants and exact algebraic checks",
+            "sha256": "cce9758f80394d15265a3b2694e187698f509cf56a0fbfbbd8d41d08ac2e6dc9",
+            "url": null
+          },
+          {
+            "label": "Final exact-manuscript internal review; same controller",
+            "sha256": "7906d600a1494b5697cdce84a17741fe999ff1a76408b631d534f5214eeef523",
+            "url": null
+          }
+        ],
+        "id": "local:science-step:review-packet",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Four-page manuscript and exact verification package prepared for outside scrutiny. Same-controller AI assistance and lack of human adoption/external review are disclosed. No author, journal or institution contacted; no chain submission or misconduct finding.",
+        "title": "Technical review v0.1: concern, repair and remaining algorithm gap"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 42,
+      "sha256": "cbd0b45fb1d434295f5ed19087fc0f85c85f3ba39cfba6e0e9bf270046eea30b"
+    },
+    {
+      "previous_sha256": "cbd0b45fb1d434295f5ed19087fc0f85c85f3ba39cfba6e0e9bf270046eea30b",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "evidence": [],
+        "from_id": "local:science-step:review-packet",
+        "id": "local:science-step:review-input-prior-proof",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "uses-input",
+        "summary": "The review packet uses this bounded contribution; a later challenge identifies the packet for reassessment without automatically proving it false.",
+        "title": "uses-input: review-input-prior-proof",
+        "to_id": "local:proof-claim"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 43,
+      "sha256": "03d99921259cdbb68db1987672b8eb338cce815a2e9730ef43e957b84252292f"
+    },
+    {
+      "previous_sha256": "03d99921259cdbb68db1987672b8eb338cce815a2e9730ef43e957b84252292f",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "evidence": [],
+        "from_id": "local:science-step:review-packet",
+        "id": "local:science-step:review-input-projection",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "uses-input",
+        "summary": "The review packet uses this bounded contribution; a later challenge identifies the packet for reassessment without automatically proving it false.",
+        "title": "uses-input: review-input-projection",
+        "to_id": "local:science-step:projection-witness"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 44,
+      "sha256": "fb8c03ddb7bf6a579017d4cdd626baec78f689ff5f21ac7589dc112b2916c6e1"
+    },
+    {
+      "previous_sha256": "fb8c03ddb7bf6a579017d4cdd626baec78f689ff5f21ac7589dc112b2916c6e1",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "evidence": [],
+        "from_id": "local:science-step:review-packet",
+        "id": "local:science-step:review-input-damping",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "uses-input",
+        "summary": "The review packet uses this bounded contribution; a later challenge identifies the packet for reassessment without automatically proving it false.",
+        "title": "uses-input: review-input-damping",
+        "to_id": "local:science-step:damping-witness"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 45,
+      "sha256": "9c2b9a62c6a95fdf9d0afca8c7e7872e5da32af92bdcbdd36cc2fd2985ce38df"
+    },
+    {
+      "previous_sha256": "9c2b9a62c6a95fdf9d0afca8c7e7872e5da32af92bdcbdd36cc2fd2985ce38df",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "evidence": [],
+        "from_id": "local:science-step:review-packet",
+        "id": "local:science-step:review-input-repair",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "uses-input",
+        "summary": "The review packet uses this bounded contribution; a later challenge identifies the packet for reassessment without automatically proving it false.",
+        "title": "uses-input: review-input-repair",
+        "to_id": "local:science-step:repaired-lemma"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 46,
+      "sha256": "07a1b69b88a21777dcc7fec224b40129cb2e5a029cd5a175ebd7d0499adc3488"
+    },
+    {
+      "previous_sha256": "07a1b69b88a21777dcc7fec224b40129cb2e5a029cd5a175ebd7d0499adc3488",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned; no external independent review)",
+        "disposition": "needs-review",
+        "evidence": [
+          {
+            "label": "Scoped technical report v0.1, 2026-09-14",
+            "sha256": "777935be62e2713b49c8db012a8f0e92d5cc41315907b87f2e971a5c643ca9c8",
+            "url": null
+          },
+          {
+            "label": "Final exact-manuscript internal review; same controller",
+            "sha256": "7906d600a1494b5697cdce84a17741fe999ff1a76408b631d534f5214eeef523",
+            "url": null
+          }
+        ],
+        "id": "local:science-step:prior-proof-followup",
+        "kind": "assessment",
+        "occurred_on": "2026-09-14",
+        "summary": "The original nonexpansiveness inference remains unsupported by the exact witness. A separate repaired lemma is now available with explicit assumptions and predecessor attribution. It does not turn the original inference into a valid one or clear the independent damping concern.",
+        "target_id": "local:proof-step-concern",
+        "title": "Original concern retained alongside a possible auxiliary repair"
+      },
+      "recorded_at": "2026-09-14T12:34:37.168726Z",
+      "sequence": 47,
+      "sha256": "b7acafe0b0ca6ad2ac64d0743884bba81e4d1a7a2d7fce20785611e8529d4c2a"
+    },
+    {
+      "previous_sha256": "b7acafe0b0ca6ad2ac64d0743884bba81e4d1a7a2d7fce20785611e8529d4c2a",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "contribution_type": "question",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Translation follow-up v0.1: analytic arguments, candidate and counterexample",
+            "sha256": "165757621d17802812d49b7583324866b75f8d11c90cbdbc3a77f6e761b910b6",
+            "url": null
+          }
+        ],
+        "id": "local:translation-step:coordinate-question",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Retrospective follow-up to the earlier damping witness: translate the same problem by y=x-t, including operators, initial iterates and target, and compare physical outputs. This is a local research question, not a preregistered experiment or a new claim about the literal theorem.",
+        "title": "Does the reconstructed origin-damped iteration depend on coordinate zero?"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 48,
+      "sha256": "60ed51b4e2911e17fc6145ef61af032f6fa925269d4b27b2552da738aaade544"
+    },
+    {
+      "previous_sha256": "60ed51b4e2911e17fc6145ef61af032f6fa925269d4b27b2552da738aaade544",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:translation-step:coordinate-question",
+        "id": "local:translation-step:damping-inspiration",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "inspired-by",
+        "summary": "The earlier local witness prompted this coordinate question. Inspiration records provenance, not logical support.",
+        "title": "inspired-by: damping-inspiration",
+        "to_id": "local:science-step:damping-witness"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 49,
+      "sha256": "2e7ef4256c299ab2a96a84d029d89eb4cf9f00d2a3889e42a2757f04bc9f7acb"
+    },
+    {
+      "previous_sha256": "2e7ef4256c299ab2a96a84d029d89eb4cf9f00d2a3889e42a2757f04bc9f7acb",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "contribution_type": "finding",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Translation follow-up v0.1: analytic arguments, candidate and counterexample",
+            "sha256": "165757621d17802812d49b7583324866b75f8d11c90cbdbc3a77f6e761b910b6",
+            "url": null
+          }
+        ],
+        "id": "local:translation-step:coordinate-explanation",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "For the declared normalized-weight Equation (9) reconstruction, conjugate point maps as F^t(y)=F(y+t)-t and monotone displacement operators as B^t(y)=B(y+t). Difference-based inertia is unchanged. At corresponding input states the pulled-back raw update minus the original equals (1-delta)(1-rho)t. This is not the difference formula along already-diverged trajectories. The NOTE separates algebraic and analytic arguments from finite corroboration; earlier source-notation qualifications remain.",
+        "title": "Origin damping has an exact corresponding-state translation discrepancy"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 50,
+      "sha256": "2fa9e50f07e38e5965276995151599e80ee6ecd33509cc0e2d8df0a114bf830c"
+    },
+    {
+      "previous_sha256": "2fa9e50f07e38e5965276995151599e80ee6ecd33509cc0e2d8df0a114bf830c",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "contribution_type": "method",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Translation follow-up v0.1: analytic arguments, candidate and counterexample",
+            "sha256": "165757621d17802812d49b7583324866b75f8d11c90cbdbc3a77f6e761b910b6",
+            "url": null
+          },
+          {
+            "label": "Exact rational translation checker; local original code",
+            "sha256": "9169b7d524b1ee099ddf73ad08675482bdaae1c049c3660418cfc02eed900910",
+            "url": null
+          },
+          {
+            "label": "Stored 64/128-update exact checks; finite results, not a limit proof",
+            "sha256": "393951e18ab9d1baec8af1e246ee7f34b216a2c42f2f051485df06b5e73d2723",
+            "url": null
+          }
+        ],
+        "id": "local:translation-step:exact-method",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Use stdlib Fraction arithmetic for 64- and 128-update prefixes, delta_n=1/(n+1), tau_n=delta_n^2 and capped difference inertia. Test shifts -2,0,1,3/2, identity operators and a nonidentity affine problem with common fixed point 2. Test corresponding-state updates separately from independently evolved trajectories. Rounded plot values are not used in mathematical checks; optimized Python is refused.",
+        "title": "Exact rational conjugacy and trajectory checks with a nonidentity control"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 51,
+      "sha256": "4a89d5871e3ca9faf8c30cd974bca882a73e16de2baaba4d4733456b39055eec"
+    },
+    {
+      "previous_sha256": "4a89d5871e3ca9faf8c30cd974bca882a73e16de2baaba4d4733456b39055eec",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:translation-step:exact-method",
+        "id": "local:translation-step:method-coordinate-rule",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "requires",
+        "summary": "Interpreting this metamorphic check requires the declared conjugation and corresponding-state comparison rule.",
+        "title": "requires: method-coordinate-rule",
+        "to_id": "local:translation-step:coordinate-explanation"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 52,
+      "sha256": "51ad5bdafbbee84155c72b6cd30b3d42d1bf045345c361e2cf4ab2a80b3e58dd"
+    },
+    {
+      "previous_sha256": "51ad5bdafbbee84155c72b6cd30b3d42d1bf045345c361e2cf4ab2a80b3e58dd",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "contribution_type": "claim",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Translation follow-up v0.1: analytic arguments, candidate and counterexample",
+            "sha256": "165757621d17802812d49b7583324866b75f8d11c90cbdbc3a77f6e761b910b6",
+            "url": null
+          }
+        ],
+        "id": "local:translation-step:convex-candidate",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Replace ell=rho U(alpha) by ell=(1-rho)alpha+rho U(alpha), where U=Z composed with ((1-lambda)I+lambda Z) composed with the resolvents. Coefficients sum to one, so conjugation preserves the next physical iterate and, inductively, full trajectories. This is our proposed change and its translation property, not an accepted unrestricted convergence repair.",
+        "title": "Our affine-combination candidate preserves translations; convergence is not established"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 53,
+      "sha256": "258b217dad52be1d2af3c4fb5f71547fd5d7ec3ff1193dfc401231fc326c85a8"
+    },
+    {
+      "previous_sha256": "258b217dad52be1d2af3c4fb5f71547fd5d7ec3ff1193dfc401231fc326c85a8",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "contribution_type": "finding",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Translation follow-up v0.1: analytic arguments, candidate and counterexample",
+            "sha256": "165757621d17802812d49b7583324866b75f8d11c90cbdbc3a77f6e761b910b6",
+            "url": null
+          },
+          {
+            "label": "Exact rational translation checker; local original code",
+            "sha256": "9169b7d524b1ee099ddf73ad08675482bdaae1c049c3660418cfc02eed900910",
+            "url": null
+          },
+          {
+            "label": "Stored 64/128-update exact checks; finite results, not a limit proof",
+            "sha256": "393951e18ab9d1baec8af1e246ee7f34b216a2c42f2f051485df06b5e73d2723",
+            "url": null
+          }
+        ],
+        "id": "local:translation-step:finite-symmetry-checks",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Stored checks pass 2,048 corresponding-state update comparisons, 1,040 candidate trajectory state comparisons, 20 exact prefix checks and 672 operator-point checks. Identity and nonidentity affine cases are included. These computational checks corroborate the scoped algebraic claim; they are not independent reviewers, statistical samples or a general limit proof.",
+        "title": "Exact finite checks corroborate translation symmetry under the declared fixtures"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 54,
+      "sha256": "e0d60dc5d9829f04228633415b501fbfdf0c7964edf5b285755f3abe6a257a67"
+    },
+    {
+      "previous_sha256": "e0d60dc5d9829f04228633415b501fbfdf0c7964edf5b285755f3abe6a257a67",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:translation-step:finite-symmetry-checks",
+        "id": "local:translation-step:checks-support-symmetry",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "supports",
+        "summary": "The finite checks support the declared translation property only; they do not support unrestricted convergence.",
+        "title": "supports: checks-support-symmetry",
+        "to_id": "local:translation-step:convex-candidate"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 55,
+      "sha256": "2ac562eddc01e1dc4e786b7a6cc826853ff4f1aa22aae7c0dabd6d8087c78521"
+    },
+    {
+      "previous_sha256": "2ac562eddc01e1dc4e786b7a6cc826853ff4f1aa22aae7c0dabd6d8087c78521",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "contribution_type": "finding",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Translation follow-up v0.1: analytic arguments, candidate and counterexample",
+            "sha256": "165757621d17802812d49b7583324866b75f8d11c90cbdbc3a77f6e761b910b6",
+            "url": null
+          },
+          {
+            "label": "Exact rational translation checker; local original code",
+            "sha256": "9169b7d524b1ee099ddf73ad08675482bdaae1c049c3660418cfc02eed900910",
+            "url": null
+          },
+          {
+            "label": "Stored 64/128-update exact checks; finite results, not a limit proof",
+            "sha256": "393951e18ab9d1baec8af1e246ee7f34b216a2c42f2f051485df06b5e73d2723",
+            "url": null
+          }
+        ],
+        "id": "local:translation-step:spurious-fixed-point-counterexample",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Take H=R, two identical Q_j=-3I, phi_j=4, positive weights 1/2, b=3/4, rho=9/10, lambda=1/2, zero maximal monotone operators, identity resolvents, g=1 and zero initial iterates. The generalized-demimetric equality holds, b<rho<1, Z=-2I and U=I, while Theta={0}. Thus the candidate reduces to the identity trajectory, which the separate NOTE argument shows tends to 1, not the required target 0. All 130 stored states match the identity candidate exactly. This concerns our proposed unrestricted repair, not an unqualified counterexample to the paper's inconsistent literal theorem.",
+        "title": "Our candidate passes symmetry but fails the unrestricted fixed-point target"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 56,
+      "sha256": "12525ed80bcb9049cda5afabbd1d96efe45dbcddc5f895229b702bf85ad326f0"
+    },
+    {
+      "previous_sha256": "12525ed80bcb9049cda5afabbd1d96efe45dbcddc5f895229b702bf85ad326f0",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:translation-step:spurious-fixed-point-counterexample",
+        "id": "local:translation-step:counter-candidate-definition",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "requires",
+        "summary": "This counterexample targets the exact update definition of our candidate; it does not refute its translation property.",
+        "title": "requires: counter-candidate-definition",
+        "to_id": "local:translation-step:convex-candidate"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 57,
+      "sha256": "d8fe9aa1797cebf9f46bddd68d86b172014a309095fa6dcc94a72aab3a92bc7a"
+    },
+    {
+      "previous_sha256": "d8fe9aa1797cebf9f46bddd68d86b172014a309095fa6dcc94a72aab3a92bc7a",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "category": "reported-concern",
+        "evidence": [
+          {
+            "label": "Translation follow-up v0.1: analytic arguments, candidate and counterexample",
+            "sha256": "165757621d17802812d49b7583324866b75f8d11c90cbdbc3a77f6e761b910b6",
+            "url": null
+          },
+          {
+            "label": "Exact rational translation checker; local original code",
+            "sha256": "9169b7d524b1ee099ddf73ad08675482bdaae1c049c3660418cfc02eed900910",
+            "url": null
+          },
+          {
+            "label": "Stored 64/128-update exact checks; finite results, not a limit proof",
+            "sha256": "393951e18ab9d1baec8af1e246ee7f34b216a2c42f2f051485df06b5e73d2723",
+            "url": null
+          }
+        ],
+        "id": "local:translation-step:candidate-concern",
+        "kind": "concern",
+        "notice_type": null,
+        "occurred_on": "2026-09-14",
+        "provider": "Local internal mathematical follow-up; same operator",
+        "summary": "The composite U can introduce spurious fixed points: in the explicit counterexample Fix(U)=R but the required common fixed-point set is {0}. Passing translation symmetry does not resolve this issue. This is an unsigned local mathematical concern against our candidate, not a publisher notice, misconduct allegation or automatic falsity propagation.",
+        "target_id": "local:translation-step:convex-candidate",
+        "title": "Our candidate is not a valid general convergence repair"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 58,
+      "sha256": "033be08c591065daff9c50bd894544d42f1e7c2b2b596b6d4ca6d7f2f1f7e508"
+    },
+    {
+      "previous_sha256": "033be08c591065daff9c50bd894544d42f1e7c2b2b596b6d4ca6d7f2f1f7e508",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "contribution_type": "question",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Translation follow-up v0.1: analytic arguments, candidate and counterexample",
+            "sha256": "165757621d17802812d49b7583324866b75f8d11c90cbdbc3a77f6e761b910b6",
+            "url": null
+          }
+        ],
+        "id": "local:translation-step:restricted-proof-question",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Before treating the candidate as a convergence repair, prove that a suitably restricted composite preserves the intended common fixed-point set and provides sufficient residual decrease. The relaxed-map estimate has coefficient b(2/phi-b); b*phi<=2 gives the uniform quasi-nonexpansive guarantee and strict inequality gives positive residual decrease. Our counterexample has b*phi=3. These bounds motivate a restricted proof; no completed full-iteration convergence proof is recorded.",
+        "title": "Next: prove restricted fixed-point preservation and residual decrease"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 59,
+      "sha256": "32b93a664d3be62e7d65465b30d104e7adb44731d2ee049eb013962781d0999c"
+    },
+    {
+      "previous_sha256": "32b93a664d3be62e7d65465b30d104e7adb44731d2ee049eb013962781d0999c",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:translation-step:restricted-proof-question",
+        "id": "local:translation-step:restricted-refinement",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "refines",
+        "summary": "The next question narrows the proposed repair after its counterexample; the earlier candidate and concern remain unchanged.",
+        "title": "refines: restricted-refinement",
+        "to_id": "local:translation-step:convex-candidate"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 60,
+      "sha256": "86285676632d9f9e154ce72daec24be1f9b08786548d12ce8fa75fc14038f4f7"
+    },
+    {
+      "previous_sha256": "86285676632d9f9e154ce72daec24be1f9b08786548d12ce8fa75fc14038f4f7",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:translation-step:coordinate-explanation",
+        "id": "local:translation-step:explanation-question-origin",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "inspired-by",
+        "summary": "The coordinate question motivated this explanation; this retrospective edge records provenance without claiming preregistration.",
+        "title": "inspired-by: explanation-question-origin",
+        "to_id": "local:translation-step:coordinate-question"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 61,
+      "sha256": "3ef2b6af46156587cb497501505ae72de4304e05cf2e80c5a9996bec6aa9f61f"
+    },
+    {
+      "previous_sha256": "3ef2b6af46156587cb497501505ae72de4304e05cf2e80c5a9996bec6aa9f61f",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:translation-step:convex-candidate",
+        "id": "local:translation-step:candidate-explanation-origin",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "inspired-by",
+        "summary": "The identified origin term motivated the convex replacement. The explanation alone does not prove convergence of the candidate.",
+        "title": "inspired-by: candidate-explanation-origin",
+        "to_id": "local:translation-step:coordinate-explanation"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 62,
+      "sha256": "dc2c44e5dacf7f897a8b0c7740179dd09db2cffeadc804df300ffc21a4aa0273"
+    },
+    {
+      "previous_sha256": "dc2c44e5dacf7f897a8b0c7740179dd09db2cffeadc804df300ffc21a4aa0273",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:translation-step:finite-symmetry-checks",
+        "id": "local:translation-step:checks-method-input",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "requires",
+        "summary": "The reported finite check results depend on the exact method, fixtures and interpretation recorded here.",
+        "title": "requires: checks-method-input",
+        "to_id": "local:translation-step:exact-method"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 63,
+      "sha256": "2d25e74ab21f862e57ee4c811745ef304d538336c19c27d05048b064a8a89996"
+    },
+    {
+      "previous_sha256": "2d25e74ab21f862e57ee4c811745ef304d538336c19c27d05048b064a8a89996",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:translation-step:restricted-proof-question",
+        "id": "local:translation-step:restricted-counterexample-origin",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "inspired-by",
+        "summary": "The spurious-fixed-point counterexample prompted the narrower proof question; provenance is preserved without asserting a completed repair.",
+        "title": "inspired-by: restricted-counterexample-origin",
+        "to_id": "local:translation-step:spurious-fixed-point-counterexample"
+      },
+      "recorded_at": "2026-09-14T14:45:06.290037Z",
+      "sequence": 64,
+      "sha256": "fc16417854f46de88f45aa58b55778fcc3bc5ca3703d55061f0a224c685d40fe"
+    },
+    {
+      "sequence": 65,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "fc16417854f46de88f45aa58b55778fcc3bc5ca3703d55061f0a224c685d40fe",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "contribution_type": "method",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Restricted repair v0.1: declared hypotheses and complete analytic proof",
+            "sha256": "84b3720069e9741a425e9285a49857c18295f188bb60411ce4b188845c7ee771",
+            "url": null
+          }
+        ],
+        "id": "local:restricted-repair:declared-assumptions-method",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "On a real Hilbert space, use fixed finite positive-phi generalized-demimetric maps with demiclosed original residuals, positive normalized weights, b>0 with b*phi_j<=2, fixed lambda,rho in (0,1), fixed firm maximal-monotone resolvents and nonempty common solution set Theta. Set U=Z composed with ((1-lambda)I+lambda Z) composed with the resolvents, and S=(1-rho)I+rho U. For a strict contraction g, use delta_n=1/(n+1), alpha_n=x_n+e_n with norm(e_n)<=delta_n^2, and x_(n+1)=delta_n*g(x_n)+(1-delta_n)*S(alpha_n). Retain joint nonnegative losses, identify original residuals, then use the projection-sensitive scalar argument. These are explicit assumptions for our candidate, not a silent repair of the source theorem.",
+        "title": "Declared finite-family restrictions and residual-based proof method"
+      },
+      "sha256": "8d41d956a5ba873fb7f885a92fc177dceb7982e2edb14332fc41f852667d2580"
+    },
+    {
+      "sequence": 66,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "8d41d956a5ba873fb7f885a92fc177dceb7982e2edb14332fc41f852667d2580",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:restricted-repair:declared-assumptions-method",
+        "id": "local:restricted-repair:question-inspiration",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "inspired-by",
+        "summary": "The earlier unresolved fixed-point and residual question motivated these restrictions; inspiration does not propagate falsity.",
+        "title": "inspired-by: question-inspiration",
+        "to_id": "local:translation-step:restricted-proof-question"
+      },
+      "sha256": "519fbb7a199763f5057e5555057d4a6e4d4cf3f6a78ea9a9458c7e60312180ec"
+    },
+    {
+      "sequence": 67,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "519fbb7a199763f5057e5555057d4a6e4d4cf3f6a78ea9a9458c7e60312180ec",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "contribution_type": "finding",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Restricted repair v0.1: declared hypotheses and complete analytic proof",
+            "sha256": "84b3720069e9741a425e9285a49857c18295f188bb60411ce4b188845c7ee771",
+            "url": null
+          }
+        ],
+        "id": "local:restricted-repair:fixedset-residual-finding",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Under the declared method, Fix(U)=Fix(S)=Theta, which is closed and convex. The resolvent-prefix loss and positive lambda(1-lambda) mixing loss expose residuals. The weighted inner-product estimate identifies every original Q residual even at b*phi_j=2. S is strongly quasi-nonexpansive with coefficient (1-rho)/rho, and I-S is demiclosed at zero. This is an analytic finding; pairwise nonexpansiveness of Q, Z, U or S is neither assumed nor inferred.",
+        "title": "Restricted composite preserves Theta and has the required residual closure"
+      },
+      "sha256": "a382a12ba589ac9a9f8269705a966c0c4d004c912307a276f46fe651b75f8e3f"
+    },
+    {
+      "sequence": 68,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "a382a12ba589ac9a9f8269705a966c0c4d004c912307a276f46fe651b75f8e3f",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:restricted-repair:fixedset-residual-finding",
+        "id": "local:restricted-repair:fixedset-assumptions",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "requires",
+        "summary": "The fixed-set and closure finding depends on these fixed families, positive weights, bounds and demiclosedness assumptions.",
+        "title": "requires: fixedset-assumptions",
+        "to_id": "local:restricted-repair:declared-assumptions-method"
+      },
+      "sha256": "e05a17702d59241d2403fc0c24552d88dff1de74473440886c7d1cf8bb0de227"
+    },
+    {
+      "sequence": 69,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "e05a17702d59241d2403fc0c24552d88dff1de74473440886c7d1cf8bb0de227",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "contribution_type": "finding",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Restricted repair v0.1: declared hypotheses and complete analytic proof",
+            "sha256": "84b3720069e9741a425e9285a49857c18295f188bb60411ce4b188845c7ee771",
+            "url": null
+          }
+        ],
+        "id": "local:restricted-repair:strong-convergence-finding",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "The analytic proof gives x_n converging in norm to the unique p=P_Theta g(p). It establishes boundedness first, obtains vanishing residuals only on the required subsequences, identifies weak cluster points, and derives a scalar recurrence using g(x_n) exactly with an O(delta_n^2) input-error bound. Both eventual nonincrease and infinitely many strict increases of distance squared are handled. This is a conditional internal theorem, not formal machine verification or validation of the original article literal theorem.",
+        "title": "The declared restricted iteration converges strongly to its projected target"
+      },
+      "sha256": "e642a6b08b3a3dbcbf30ecfef9d9e1675ae3ebb9ee3a9f33ba3376898c1bfa27"
+    },
+    {
+      "sequence": 70,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "e642a6b08b3a3dbcbf30ecfef9d9e1675ae3ebb9ee3a9f33ba3376898c1bfa27",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:restricted-repair:strong-convergence-finding",
+        "id": "local:restricted-repair:convergence-fixedset",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "requires",
+        "summary": "The convergence proof needs the correct fixed set, strong quasi-nonexpansive loss and demiclosed residual.",
+        "title": "requires: convergence-fixedset",
+        "to_id": "local:restricted-repair:fixedset-residual-finding"
+      },
+      "sha256": "74ed8e93bc62939bc56ef657c29cd73837decc0ef76ae5b3e5f9befbbb4597e9"
+    },
+    {
+      "sequence": 71,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "74ed8e93bc62939bc56ef657c29cd73837decc0ef76ae5b3e5f9befbbb4597e9",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:restricted-repair:strong-convergence-finding",
+        "id": "local:restricted-repair:convergence-assumptions",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "requires",
+        "summary": "The proof also needs the exact contraction evaluation, fixed parameters and controlled input-error recurrence.",
+        "title": "requires: convergence-assumptions",
+        "to_id": "local:restricted-repair:declared-assumptions-method"
+      },
+      "sha256": "be82416031ded281672b90a5262ed9dd8b977f90cc8a7b88368c52413be3cae6"
+    },
+    {
+      "sequence": 72,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "be82416031ded281672b90a5262ed9dd8b977f90cc8a7b88368c52413be3cae6",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:restricted-repair:strong-convergence-finding",
+        "id": "local:restricted-repair:candidate-refinement",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "refines",
+        "summary": "This restricted conditional result refines the earlier candidate. It does not rewrite that unrestricted proposal or clear its retained counterexample and concern.",
+        "title": "refines: candidate-refinement",
+        "to_id": "local:translation-step:convex-candidate"
+      },
+      "sha256": "54a2b43b07f5bd38ff7f57d5abb2a29e646b321cdd81a241bca57a0a22f93b06"
+    },
+    {
+      "sequence": 73,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "54a2b43b07f5bd38ff7f57d5abb2a29e646b321cdd81a241bca57a0a22f93b06",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "contribution_type": "source",
+        "doi": "10.1155/2011/385843",
+        "evidence": [
+          {
+            "label": "Wongchan and Saejung 2011, particularly Theorem 2.3",
+            "sha256": "75da24a81559e261861f9ed24888e8b2b5f6cb0a0878aaa59b519434e1ca4527",
+            "url": "https://www.maths.tcd.ie/EMIS/journals/HOA/AAA/Volume2011/385843.pdf"
+          }
+        ],
+        "id": "local:restricted-repair:wongchan-saejung-source",
+        "kind": "contribution",
+        "occurred_on": null,
+        "summary": "Source attribution to Wongchan and Saejung, 2011, DOI 10.1155/2011/385843, particularly Theorem 2.3 on viscosity iteration for strongly quasinonexpansive mappings with demiclosed residuals. Selected primary passages were inspected by the local operator team. This records an established antecedent, not direct coverage of our perturbed input recurrence or author endorsement. Exact publication day is not asserted.",
+        "title": "Wongchan and Saejung 2011: viscosity approximation antecedent"
+      },
+      "sha256": "736ab7ee3b173fc1ab64f4a64fc79d15b3227fdab3a653be0517cbb9e00b8e04"
+    },
+    {
+      "sequence": 74,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "736ab7ee3b173fc1ab64f4a64fc79d15b3227fdab3a653be0517cbb9e00b8e04",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "contribution_type": "source",
+        "doi": "10.1186/1687-1812-2014-17",
+        "evidence": [
+          {
+            "label": "Aoyama and Kohsaka 2014, particularly Corollary 3.5",
+            "sha256": "78f5960731adbbdcf26b93dca9c96fd2fefcd2cac6dde6f613472225f758384c",
+            "url": "https://link.springer.com/article/10.1186/1687-1812-2014-17"
+          }
+        ],
+        "id": "local:restricted-repair:aoyama-kohsaka-source",
+        "kind": "contribution",
+        "occurred_on": "2014-01-22",
+        "summary": "Source attribution to Aoyama and Kohsaka, 2014, DOI 10.1186/1687-1812-2014-17, particularly Corollary 3.5, a fixed-map result in a broader sequence framework. Selected primary passages were inspected by the local operator team. The explicit proof here must still verify its composite and input perturbation assumptions; no general novelty or direct inertia coverage is inferred. The publisher Springer page identifies publication on 22 January 2014; that publication date is recorded here.",
+        "title": "Aoyama and Kohsaka 2014: fixed-map viscosity convergence antecedent"
+      },
+      "sha256": "ef93c5550ece81e4812cde21d7ddb4d1df52074b6cc0ae1c4305141d54f08717"
+    },
+    {
+      "sequence": 75,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "ef93c5550ece81e4812cde21d7ddb4d1df52074b6cc0ae1c4305141d54f08717",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:restricted-repair:strong-convergence-finding",
+        "id": "local:restricted-repair:wongchan-attribution",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "cites",
+        "summary": "Credit for established convergence methodology; citation alone is not a logical-dependency or automatic falsity edge.",
+        "title": "cites: wongchan-attribution",
+        "to_id": "local:restricted-repair:wongchan-saejung-source"
+      },
+      "sha256": "4be940f6482285897573a72f6ebb066728b21a803e9768353dae00d53c73da51"
+    },
+    {
+      "sequence": 76,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "4be940f6482285897573a72f6ebb066728b21a803e9768353dae00d53c73da51",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:restricted-repair:strong-convergence-finding",
+        "id": "local:restricted-repair:aoyama-attribution",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "cites",
+        "summary": "Credit for the relevant fixed-map result; this citation does not assert unexamined coverage of our input-error iteration.",
+        "title": "cites: aoyama-attribution",
+        "to_id": "local:restricted-repair:aoyama-kohsaka-source"
+      },
+      "sha256": "b921b75635f77d0de33f6db55f0f17f9906dffcd4382961256067a639711d9b5"
+    },
+    {
+      "sequence": 77,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "b921b75635f77d0de33f6db55f0f17f9906dffcd4382961256067a639711d9b5",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "contribution_type": "experiment",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Restricted repair v0.1: declared hypotheses and complete analytic proof",
+            "sha256": "84b3720069e9741a425e9285a49857c18295f188bb60411ce4b188845c7ee771",
+            "url": null
+          },
+          {
+            "label": "Bound finite fixture protocol; retrospective acquisition, not preregistration",
+            "sha256": "34d94d7785e3a3925b38e4e8cd138649d994a16efebc77bac6df3e4ba215a09c",
+            "url": null
+          },
+          {
+            "label": "Original exact finite restricted-candidate checker",
+            "sha256": "c013a5569c29119ee19493c724bc9998c82d429470dabccb3e6a63b7f7e47f77",
+            "url": null
+          },
+          {
+            "label": "Finite fixture results; not a Hilbert-space convergence proof",
+            "sha256": "88eb2a977f0eaeaaa519936597fb4b6f88321afe5336ad1986a34fc0e474dae1",
+            "url": null
+          }
+        ],
+        "id": "local:restricted-repair:finite-fixture-experiment",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "The exact fixture experiment checks declared affine and continuous-piecewise maps, joint residual-loss inequalities, translated trajectories and excluded-parameter controls. The bound protocol, code and results retain seven fixtures, including admitted saturation with interior mixing and excluded controls. These finite examples corroborate algebra and implementation; they do not establish the Hilbert-space fixed-point theorem, an infinite limit or a convergence rate. The experiment and this retrospective record remain under the same operator.",
+        "title": "Exact finite fixtures corroborate the restricted mapping and excluded controls"
+      },
+      "sha256": "10d5167b636fe7e74d03790d2717729932fd3f04d9be319c1b846f1b73e6ca8c"
+    },
+    {
+      "sequence": 78,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "10d5167b636fe7e74d03790d2717729932fd3f04d9be319c1b846f1b73e6ca8c",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:restricted-repair:finite-fixture-experiment",
+        "id": "local:restricted-repair:experiment-method",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "requires",
+        "summary": "Interpreting the exact fixture checks requires the declared mapping, admissibility bounds and update method.",
+        "title": "requires: experiment-method",
+        "to_id": "local:restricted-repair:declared-assumptions-method"
+      },
+      "sha256": "e9001a9901a066e61092ae2b97375c131ac2663fcb4722857e9aa12bb6af41ed"
+    },
+    {
+      "sequence": 79,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "e9001a9901a066e61092ae2b97375c131ac2663fcb4722857e9aa12bb6af41ed",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "contribution_type": "review",
+        "doi": null,
+        "evidence": [
+          {
+            "label": "Restricted repair v0.1: declared hypotheses and complete analytic proof",
+            "sha256": "84b3720069e9741a425e9285a49857c18295f188bb60411ce4b188845c7ee771",
+            "url": null
+          },
+          {
+            "label": "Frozen internal review receipts bound to the final note; same operator",
+            "sha256": "60a6e6a6f3a78513554b2ab00dc8e45bf75f920c1f041acf2928ecf961be9984",
+            "url": null
+          }
+        ],
+        "id": "local:restricted-repair:internal-proof-review",
+        "kind": "contribution",
+        "occurred_on": "2026-09-14",
+        "summary": "Separately tasked agents under one operator derived the fixed-point/closure and convergence arguments and reviewed the assembled note. The review checks the endpoint relaxation, exact g(x_n) evaluation, projection-sign subsequences, controlled input error and nonmonotone scalar branch. No material proof gap was identified in that internal review. This is unsigned same-controller work, not outside independent review, accountable human adoption, formal verification, source-author assent or a novelty claim. Earlier source concerns and the failed unrestricted candidate remain.",
+        "title": "Internal proof review: conditional analytic result and finite evidence separated"
+      },
+      "sha256": "68ca72adb3baa5308feba43079115fe595f50cd2c5bbc7801ecd5aab3de4b51b"
+    },
+    {
+      "sequence": 80,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "68ca72adb3baa5308feba43079115fe595f50cd2c5bbc7801ecd5aab3de4b51b",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:restricted-repair:internal-proof-review",
+        "id": "local:restricted-repair:review-convergence",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "requires",
+        "summary": "This scoped review statement must be reassessed if the declared convergence argument changes.",
+        "title": "requires: review-convergence",
+        "to_id": "local:restricted-repair:strong-convergence-finding"
+      },
+      "sha256": "34ffe2f2e8f581e999a3acf327fa355f16347492324ad016e60ac7dd2dcc6b3e"
+    },
+    {
+      "sequence": 81,
+      "recorded_at": "2026-09-14T15:19:41.823823Z",
+      "previous_sha256": "34ffe2f2e8f581e999a3acf327fa355f16347492324ad016e60ac7dd2dcc6b3e",
+      "record": {
+        "attributed_to": "Zerone local operator agents (unsigned, same controller; retrospective, no external review)",
+        "evidence": [],
+        "from_id": "local:restricted-repair:internal-proof-review",
+        "id": "local:restricted-repair:review-fixedset",
+        "kind": "relation",
+        "occurred_on": "2026-09-14",
+        "relation_type": "requires",
+        "summary": "The review also relies on the exact fixed-set and residual-closure result, not merely a favourable finite trajectory.",
+        "title": "requires: review-fixedset",
+        "to_id": "local:restricted-repair:fixedset-residual-finding"
+      },
+      "sha256": "23baf5b0a2e7f4a48fe2b86775ae2ef92e607f2d793270ff10219e61d2563847"
+    }
+  ]
+}

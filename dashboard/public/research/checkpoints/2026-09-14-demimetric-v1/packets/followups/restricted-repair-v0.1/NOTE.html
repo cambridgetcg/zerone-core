@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang xml:lang>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>A restricted repair that preserves the intended
+solutions</title>
+  <style>
+
+html {
+color: #1a1a1a;
+background-color: #fdfdfd;
+}
+body {
+margin: 0 auto;
+max-width: 36em;
+padding-left: 50px;
+padding-right: 50px;
+padding-top: 50px;
+padding-bottom: 50px;
+hyphens: auto;
+overflow-wrap: break-word;
+text-rendering: optimizeLegibility;
+font-kerning: normal;
+}
+@media (max-width: 600px) {
+body {
+font-size: 0.9em;
+padding: 12px;
+}
+h1 {
+font-size: 1.8em;
+}
+}
+@media print {
+html {
+background-color: white;
+}
+body {
+background-color: transparent;
+color: black;
+font-size: 12pt;
+}
+p, h2, h3 {
+orphans: 3;
+widows: 3;
+}
+h2, h3, h4 {
+page-break-after: avoid;
+}
+}
+p {
+margin: 1em 0;
+}
+a {
+color: #1a1a1a;
+}
+a:visited {
+color: #1a1a1a;
+}
+img {
+max-width: 100%;
+}
+svg {
+height: auto;
+max-width: 100%;
+}
+h1, h2, h3, h4, h5, h6 {
+margin-top: 1.4em;
+}
+h5, h6 {
+font-size: 1em;
+font-style: italic;
+}
+h6 {
+font-weight: normal;
+}
+ol, ul {
+padding-left: 1.7em;
+margin-top: 1em;
+}
+li > ol, li > ul {
+margin-top: 0;
+}
+blockquote {
+margin: 1em 0 1em 1.7em;
+padding-left: 1em;
+border-left: 2px solid #e6e6e6;
+color: #606060;
+}
+code {
+font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+font-size: 85%;
+margin: 0;
+hyphens: manual;
+}
+pre {
+margin: 1em 0;
+overflow: auto;
+}
+pre code {
+padding: 0;
+overflow: visible;
+overflow-wrap: normal;
+}
+.sourceCode {
+background-color: transparent;
+overflow: visible;
+}
+hr {
+border: none;
+border-top: 1px solid #1a1a1a;
+height: 1px;
+margin: 1em 0;
+}
+table {
+margin: 1em 0;
+border-collapse: collapse;
+width: 100%;
+overflow-x: auto;
+display: block;
+font-variant-numeric: lining-nums tabular-nums;
+}
+table caption {
+margin-bottom: 0.75em;
+}
+tbody {
+margin-top: 0.5em;
+border-top: 1px solid #1a1a1a;
+border-bottom: 1px solid #1a1a1a;
+}
+th {
+border-top: 1px solid #1a1a1a;
+padding: 0.25em 0.5em 0.25em 0.5em;
+}
+td {
+padding: 0.125em 0.5em 0.25em 0.5em;
+}
+header {
+margin-bottom: 4em;
+text-align: center;
+}
+#TOC li {
+list-style: none;
+}
+#TOC ul {
+padding-left: 1.3em;
+}
+#TOC > ul {
+padding-left: 0;
+}
+#TOC a:not(:hover) {
+text-decoration: none;
+}
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+
+ul.task-list[class]{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+font-size: inherit;
+width: 0.8em;
+margin: 0 0.8em 0.2em -1.6em;
+vertical-align: middle;
+}
+</style>
+  <style>
+@page { size: A4; margin: 17mm 18mm 18mm; }
+html { background: #fff; color: #17232b; }
+body { max-width: 760px; margin: 2rem auto; padding: 0 1.25rem;
+font-family: Georgia, 'Times New Roman', serif; font-size: 16px; line-height: 1.45; }
+h1, h2 { font-family: system-ui, sans-serif; line-height: 1.2; color: #183e47; }
+h1 { font-size: 1.8rem; margin-bottom: .7rem; }
+h2 { font-size: 1.18rem; margin-top: 1.6rem; break-after: avoid; }
+.subtitle { color: #526570; font-family: system-ui,sans-serif; font-size: .9rem; }
+p { margin: .65rem 0; }
+a { color: #125a75; text-decoration: underline; overflow-wrap: anywhere; }
+table { break-inside: avoid; border-collapse: collapse; width: 100%; font-size: .83em; }
+th,td { border-bottom: 1px solid #b9c8ce; padding: .45em; text-align: left; vertical-align: top; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th { background: #eef4f4; }
+math[display="block"] { display: block; margin: .8em 0; overflow: visible; break-inside: avoid; }
+code { font-family: ui-monospace, monospace; font-size: .88em; overflow-wrap: anywhere; }
+p, li { orphans: 3; widows: 3; }
+@media print {
+body { max-width: none; margin: 0; padding: 0; font-size: 10.5pt; line-height: 1.35; }
+h1 { font-size: 19pt; } h2 { font-size: 12pt; }
+.subtitle { font-size: 9pt; }
+a { color: #17232b; }
+}
+figure { margin: 1em 0; break-inside: avoid; }
+figure img { display: block; max-width: 100%; }
+figcaption { font-size: .85em; color: #526570; margin-top: .5em; }
+</style>
+</head>
+<body>
+<h1 id="a-restricted-repair-that-preserves-the-intended-solutions">A
+restricted repair that preserves the intended solutions</h1>
+<p>14 September 2026 · follow-up to the <a href="../translation-v0.1/NOTE.md">coordinate check</a>. Internal
+mathematical draft by the Zerone development assistant team under one
+operator. External review and accountable human adoption remain
+pending.</p>
+<p>The earlier convex candidate removed coordinate bias but could
+introduce spurious fixed points. Here we specify sufficient
+restrictions, prove that the composite has exactly the intended
+solutions, and give a strong-convergence proof for a declared iteration
+with small inertial errors. The restrictions are sufficient, not claimed
+minimal. This is a replacement theorem for our explicit algorithm; it
+does not validate the source article’s literal theorem.</p>
+<p>The useful mechanism is measurable at each stage: distance cannot
+increase relative to a common solution, and the mixing steps expose
+residual errors that would otherwise cancel. Even the boundary of the
+relaxation range can be admitted when the inner mixing parameter stays
+strictly between zero and one. Strict relaxation alone is therefore not
+a necessary condition here.</p>
+<h2 id="precise-setting-and-result">1. Precise setting and result</h2>
+<p>Let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math>
+be a real Hilbert space. There are fixed finite families
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Q</mi><mi>j</mi></msub><mo>:</mo><mi>H</mi><mo>→</mo><mi>H</mi></mrow><annotation encoding="application/x-tex">Q_j:H\to H</annotation></semantics></math>
+and maximal monotone operators
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>B</mi><mi>k</mi></msub><mo>:</mo><mi>H</mi><mo>⇉</mo><mi>H</mi></mrow><annotation encoding="application/x-tex">B_k:H\rightrightarrows H</annotation></semantics></math>,
+with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>≤</mo><mi>j</mi><mo>≤</mo><mi>m</mi></mrow><annotation encoding="application/x-tex">1\leq j\leq m</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mo>≤</mo><mi>k</mi><mo>≤</mo><mi>s</mi></mrow><annotation encoding="application/x-tex">1\leq k\leq s</annotation></semantics></math>.
+Suppose</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">⟨</mo><mi>x</mi><mo>−</mo><mi>p</mi><mo>,</mo><mi>x</mi><mo>−</mo><msub><mi>Q</mi><mi>j</mi></msub><mi>x</mi><mo stretchy="false" form="postfix">⟩</mo><mo>≥</mo><mo stretchy="false" form="postfix">∥</mo><mi>x</mi><mo>−</mo><msub><mi>Q</mi><mi>j</mi></msub><mi>x</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mspace width="1.0em"></mspace><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo>∈</mo><mi>H</mi><mo>,</mo><mspace width="0.222em"></mspace><mi>p</mi><mo>∈</mo><mrow><mi mathvariant="normal">Fix</mi><mo>⁡</mo></mrow><msub><mi>Q</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>ϕ</mi><mi>j</mi></msub><mo>&gt;</mo><mn>0</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">\phi_j\langle x-p,x-Q_jx\rangle\geq\|x-Q_jx\|^2
+\quad(x\in H,\ p\in\operatorname{Fix}Q_j),\qquad \phi_j&gt;0.</annotation></semantics></math></p>
+<p>Each
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>−</mo><msub><mi>Q</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">I-Q_j</annotation></semantics></math>
+is demiclosed at zero:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>z</mi><mi>i</mi></msub><mo>⇀</mo><mi>z</mi></mrow><annotation encoding="application/x-tex">z_i\rightharpoonup z</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>z</mi><mi>i</mi></msub><mo>−</mo><msub><mi>Q</mi><mi>j</mi></msub><msub><mi>z</mi><mi>i</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">z_i-Q_jz_i\to0</annotation></semantics></math>
+imply
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Q</mi><mi>j</mi></msub><mi>z</mi><mo>=</mo><mi>z</mi></mrow><annotation encoding="application/x-tex">Q_jz=z</annotation></semantics></math>.
+Assume the common solution set</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Θ</mi><mo>=</mo><munder><mo>⋂</mo><mi>j</mi></munder><mrow><mi mathvariant="normal">Fix</mi><mo>⁡</mo></mrow><msub><mi>Q</mi><mi>j</mi></msub><mo>∩</mo><munder><mo>⋂</mo><mi>k</mi></munder><msubsup><mi>B</mi><mi>k</mi><mrow><mi>−</mi><mn>1</mn></mrow></msubsup><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\Theta=\bigcap_j\operatorname{Fix}Q_j\cap\bigcap_k B_k^{-1}(0)</annotation></semantics></math></p>
+<p>is nonempty. Fix positive weights
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>w</mi><mi>j</mi></msub><annotation encoding="application/x-tex">w_j</annotation></semantics></math>
+with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mo>∑</mo><mi>j</mi></msub><msub><mi>w</mi><mi>j</mi></msub><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\sum_jw_j=1</annotation></semantics></math>,
+and constants</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mo>&gt;</mo><mn>0</mn><mo>,</mo><mspace width="1.0em"></mspace><mi>b</mi><msub><mi>ϕ</mi><mi>j</mi></msub><mo>≤</mo><mn>2</mn><mspace width="0.222em"></mspace><mrow><mtext mathvariant="normal">for every </mtext><mspace width="0.333em"></mspace></mrow><mi>j</mi><mo>,</mo><mspace width="2.0em"></mspace><mn>0</mn><mo>&lt;</mo><mi>λ</mi><mo>&lt;</mo><mn>1</mn><mo>,</mo><mspace width="1.0em"></mspace><mn>0</mn><mo>&lt;</mo><mi>ρ</mi><mo>&lt;</mo><mn>1</mn><mo>,</mo><mspace width="1.0em"></mspace><msub><mi>h</mi><mi>k</mi></msub><mo>&gt;</mo><mn>0</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">b&gt;0,\quad b\phi_j\leq2\ \text{for every }j,\qquad
+0&lt;\lambda&lt;1,\quad0&lt;\rho&lt;1,\quad h_k&gt;0.</annotation></semantics></math></p>
+<p>Let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>R</mi><mi>k</mi></msub><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mo>+</mo><msub><mi>h</mi><mi>k</mi></msub><msub><mi>B</mi><mi>k</mi></msub><msup><mo stretchy="false" form="postfix">)</mo><mrow><mi>−</mi><mn>1</mn></mrow></msup></mrow><annotation encoding="application/x-tex">R_k=(I+h_kB_k)^{-1}</annotation></semantics></math>,
+the everywhere-defined firm resolvent, and set</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>V</mi><mi>j</mi></msub><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>b</mi><mo stretchy="false" form="postfix">)</mo><mi>I</mi><mo>+</mo><mi>b</mi><msub><mi>Q</mi><mi>j</mi></msub><mo>,</mo><mspace width="1.0em"></mspace><mi>Z</mi><mo>=</mo><munder><mo>∑</mo><mi>j</mi></munder><msub><mi>w</mi><mi>j</mi></msub><msub><mi>V</mi><mi>j</mi></msub><mo>,</mo><mspace width="1.0em"></mspace><mi>R</mi><mo>=</mo><msub><mi>R</mi><mi>s</mi></msub><mi>⋯</mi><msub><mi>R</mi><mn>1</mn></msub><mo>,</mo></mrow><annotation encoding="application/x-tex">V_j=(1-b)I+bQ_j,\quad Z=\sum_jw_jV_j,\quad R=R_s\cdots R_1,</annotation></semantics></math>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo>=</mo><mi>R</mi><mi>x</mi><mo>,</mo><mspace width="1.0em"></mspace><mi>γ</mi><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>λ</mi><mo stretchy="false" form="postfix">)</mo><mi>β</mi><mo>+</mo><mi>λ</mi><mi>Z</mi><mi>β</mi><mo>,</mo><mspace width="1.0em"></mspace><mi>U</mi><mi>x</mi><mo>=</mo><mi>Z</mi><mi>γ</mi><mo>,</mo><mspace width="1.0em"></mspace><mi>S</mi><mi>x</mi><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>ρ</mi><mo stretchy="false" form="postfix">)</mo><mi>x</mi><mo>+</mo><mi>ρ</mi><mi>U</mi><mi>x</mi><mi>.</mi></mrow><annotation encoding="application/x-tex">\beta=Rx,\quad\gamma=(1-\lambda)\beta+\lambda Z\beta,
+\quad Ux=Z\gamma,\quad Sx=(1-\rho)x+\rho Ux.</annotation></semantics></math></p>
+<p>Let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo>:</mo><mi>H</mi><mo>→</mo><mi>H</mi></mrow><annotation encoding="application/x-tex">g:H\to H</annotation></semantics></math>
+be a contraction with Lipschitz bound
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0</mn><mo>≤</mo><mi>κ</mi><mo>&lt;</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">0\leq\kappa&lt;1</annotation></semantics></math>.
+For
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>≥</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">n\geq1</annotation></semantics></math>,
+define the complete iteration by</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>δ</mi><mi>n</mi></msub><mo>=</mo><mfrac><mn>1</mn><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></mfrac><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>α</mi><mi>n</mi></msub><mo>=</mo><msub><mi>x</mi><mi>n</mi></msub><mo>+</mo><msub><mi>e</mi><mi>n</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><mo stretchy="false" form="postfix">∥</mo><msub><mi>e</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">∥</mo><mo>≤</mo><msubsup><mi>δ</mi><mi>n</mi><mn>2</mn></msubsup><mo>,</mo></mrow><annotation encoding="application/x-tex">\delta_n=\frac1{n+1},\qquad \alpha_n=x_n+e_n,
+\qquad\|e_n\|\leq\delta_n^2,</annotation></semantics></math>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>x</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>δ</mi><mi>n</mi></msub><mi>g</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>x</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>+</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><msub><mi>δ</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><mi>S</mi><msub><mi>α</mi><mi>n</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">x_{n+1}=\delta_ng(x_n)+(1-\delta_n)S\alpha_n.</annotation></semantics></math></p>
+<p>Initial
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>x</mi><mn>0</mn></msub><mo>,</mo><msub><mi>x</mi><mn>1</mn></msub><mo>∈</mo><mi>H</mi></mrow><annotation encoding="application/x-tex">x_0,x_1\in H</annotation></semantics></math>
+are arbitrary. This includes the earlier capped inertial displacement,
+as well as zero inertia. The proof uses only the stated error bound. In
+particular,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>
+is evaluated at
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>x</mi><mi>n</mi></msub><annotation encoding="application/x-tex">x_n</annotation></semantics></math>,
+not at
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>α</mi><mi>n</mi></msub><annotation encoding="application/x-tex">\alpha_n</annotation></semantics></math>.
+All weights, operators and mixing parameters above remain fixed.</p>
+<p><strong>Result.</strong> The set
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Θ</mi><annotation encoding="application/x-tex">\Theta</annotation></semantics></math>
+is closed and convex,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">Fix</mi><mo>⁡</mo></mrow><mi>U</mi><mo>=</mo><mrow><mi mathvariant="normal">Fix</mi><mo>⁡</mo></mrow><mi>S</mi><mo>=</mo><mi mathvariant="normal">Θ</mi></mrow><annotation encoding="application/x-tex">\operatorname{Fix}U=\operatorname{Fix}S=\Theta</annotation></semantics></math>,
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>−</mo><mi>S</mi></mrow><annotation encoding="application/x-tex">I-S</annotation></semantics></math>
+is demiclosed at zero. The iterates converge in norm to the unique
+point</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mo>=</mo><msub><mi>P</mi><mi mathvariant="normal">Θ</mi></msub><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>p</mi><mo stretchy="false" form="postfix">)</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">p=P_\Theta g(p).</annotation></semantics></math></p>
+<p>No pairwise nonexpansiveness or continuity of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>Q</mi><mi>j</mi></msub><annotation encoding="application/x-tex">Q_j</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>U</mi><annotation encoding="application/x-tex">U</annotation></semantics></math>
+or
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>S</mi><annotation encoding="application/x-tex">S</annotation></semantics></math>
+is assumed. Firm resolvents and the metric projection have their usual
+nonexpansiveness properties. The proof below does not replace the
+controlled input error by an unjustified bound on
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><msub><mi>α</mi><mi>n</mi></msub><mo>−</mo><mi>S</mi><msub><mi>x</mi><mi>n</mi></msub></mrow><annotation encoding="application/x-tex">S\alpha_n-Sx_n</annotation></semantics></math>.</p>
+<h2 id="the-loss-estimate-and-the-common-fixed-point-set">2. The loss
+estimate and the common fixed-point set</h2>
+<p>Write
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>r</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mi>t</mi><mo>−</mo><msub><mi>Q</mi><mi>j</mi></msub><mi>t</mi></mrow><annotation encoding="application/x-tex">r_j(t)=t-Q_jt</annotation></semantics></math>.
+Expansion and the demimetric condition give, for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mo>∈</mo><mi mathvariant="normal">Θ</mi></mrow><annotation encoding="application/x-tex">p\in\Theta</annotation></semantics></math>,</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi>V</mi><mi>j</mi></msub><mi>t</mi><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>≤</mo><mo stretchy="false" form="postfix">∥</mo><mi>t</mi><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>−</mo><mi>b</mi><mo stretchy="false" form="prefix">(</mo><mn>2</mn><mi>/</mi><msub><mi>ϕ</mi><mi>j</mi></msub><mo>−</mo><mi>b</mi><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">∥</mo><msub><mi>r</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mi>.</mi></mrow><annotation encoding="application/x-tex">\|V_jt-p\|^2\leq\|t-p\|^2-
+b(2/\phi_j-b)\|r_j(t)\|^2.</annotation></semantics></math></p>
+<p>The coefficients are nonnegative under the declared bound. Define</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>A</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><munder><mo>∑</mo><mi>j</mi></munder><msub><mi>w</mi><mi>j</mi></msub><mi>b</mi><mo stretchy="false" form="prefix">(</mo><mn>2</mn><mi>/</mi><msub><mi>ϕ</mi><mi>j</mi></msub><mo>−</mo><mi>b</mi><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">∥</mo><msub><mi>r</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>,</mo></mrow><annotation encoding="application/x-tex">A(t)=\sum_jw_jb(2/\phi_j-b)\|r_j(t)\|^2,</annotation></semantics></math>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>D</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><munder><mo>∑</mo><mi>j</mi></munder><msub><mi>w</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">∥</mo><msub><mi>V</mi><mi>j</mi></msub><mi>t</mi><mo>−</mo><mi>Z</mi><mi>t</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>,</mo><mspace width="2.0em"></mspace><mi>C</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mi>A</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><mi>D</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">D(t)=\sum_jw_j\|V_jt-Zt\|^2,\qquad C(t)=A(t)+D(t).</annotation></semantics></math></p>
+<p>The weighted squared-norm identity yields
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><mi>Z</mi><mi>t</mi><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>≤</mo><mo stretchy="false" form="postfix">∥</mo><mi>t</mi><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>−</mo><mi>C</mi><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\|Zt-p\|^2\leq\|t-p\|^2-C(t)</annotation></semantics></math>.
+Thus
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
+and each
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>V</mi><mi>j</mi></msub><annotation encoding="application/x-tex">V_j</annotation></semantics></math>
+are quasi-nonexpansive: they do not increase distance to their fixed
+points. For completeness, the common fixed-point identity for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
+follows from</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0</mn><mo>≤</mo><munder><mo>∑</mo><mi>j</mi></munder><mfrac><mrow><msub><mi>w</mi><mi>j</mi></msub><mi>b</mi></mrow><msub><mi>ϕ</mi><mi>j</mi></msub></mfrac><mo stretchy="false" form="postfix">∥</mo><msub><mi>r</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>t</mi><mo stretchy="false" form="postfix">)</mo><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>≤</mo><mo stretchy="false" form="prefix">⟨</mo><mi>t</mi><mo>−</mo><mi>p</mi><mo>,</mo><mi>t</mi><mo>−</mo><mi>Z</mi><mi>t</mi><mo stretchy="false" form="postfix">⟩</mo><mi>.</mi><mspace width="2.0em"></mspace><mtext mathvariant="normal">(1)</mtext></mrow><annotation encoding="application/x-tex">0\leq\sum_j\frac{w_jb}{\phi_j}\|r_j(t)\|^2
+\leq\langle t-p,t-Zt\rangle.\qquad\text{(1)}</annotation></semantics></math></p>
+<p>If
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mi>t</mi><mo>=</mo><mi>t</mi></mrow><annotation encoding="application/x-tex">Zt=t</annotation></semantics></math>,
+every original residual vanishes. The converse is immediate. Here
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>p</mi><annotation encoding="application/x-tex">p</annotation></semantics></math>
+may be any common fixed point of the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>Q</mi><mi>j</mi></msub><annotation encoding="application/x-tex">Q_j</annotation></semantics></math>;
+it need not be a zero of the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>B</mi><mi>k</mi></msub><annotation encoding="application/x-tex">B_k</annotation></semantics></math>.</p>
+<p>Each
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">Fix</mi><mo>⁡</mo></mrow><msub><mi>Q</mi><mi>j</mi></msub><mo>=</mo><mrow><mi mathvariant="normal">Fix</mi><mo>⁡</mo></mrow><msub><mi>V</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">\operatorname{Fix}Q_j=\operatorname{Fix}V_j</annotation></semantics></math>
+is closed by demiclosedness. It is convex as follows. For fixed points
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>u</mi><mo>,</mo><mi>v</mi></mrow><annotation encoding="application/x-tex">u,v</annotation></semantics></math>,
+let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>z</mi><mo>=</mo><mi>θ</mi><mi>u</mi><mo>+</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>θ</mi><mo stretchy="false" form="postfix">)</mo><mi>v</mi></mrow><annotation encoding="application/x-tex">z=\theta u+(1-\theta)v</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0</mn><mo>&lt;</mo><mi>θ</mi><mo>&lt;</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">0&lt;\theta&lt;1</annotation></semantics></math>.
+Weighting the two quasi-nonexpansive inequalities for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>V</mi><mi>j</mi></msub><mi>z</mi></mrow><annotation encoding="application/x-tex">V_jz</annotation></semantics></math>
+gives</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi>V</mi><mi>j</mi></msub><mi>z</mi><mo>−</mo><mi>z</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>+</mo><mi>θ</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>θ</mi><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">∥</mo><mi>u</mi><mo>−</mo><mi>v</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>≤</mo><mi>θ</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>θ</mi><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">∥</mo><mi>u</mi><mo>−</mo><mi>v</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>,</mo></mrow><annotation encoding="application/x-tex">\|V_jz-z\|^2+\theta(1-\theta)\|u-v\|^2
+\leq\theta(1-\theta)\|u-v\|^2,</annotation></semantics></math></p>
+<p>so
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>V</mi><mi>j</mi></msub><mi>z</mi><mo>=</mo><mi>z</mi></mrow><annotation encoding="application/x-tex">V_jz=z</annotation></semantics></math>.
+The zero sets of the
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>B</mi><mi>k</mi></msub><annotation encoding="application/x-tex">B_k</annotation></semantics></math>
+are the closed convex fixed sets of their firm resolvents. Hence their
+finite intersection
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Θ</mi><annotation encoding="application/x-tex">\Theta</annotation></semantics></math>
+is closed and convex. The contraction
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>P</mi><mi mathvariant="normal">Θ</mi></msub><mo>∘</mo><mi>g</mi></mrow><annotation encoding="application/x-tex">P_\Theta\circ g</annotation></semantics></math>
+on
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Θ</mi><annotation encoding="application/x-tex">\Theta</annotation></semantics></math>
+therefore has exactly one fixed point, the target
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>p</mi><annotation encoding="application/x-tex">p</annotation></semantics></math>.</p>
+<p>For the resolvent prefixes set
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>y</mi><mn>0</mn></msub><mo>=</mo><mi>x</mi></mrow><annotation encoding="application/x-tex">y_0=x</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>y</mi><mi>k</mi></msub><mo>=</mo><msub><mi>R</mi><mi>k</mi></msub><msub><mi>y</mi><mrow><mi>k</mi><mo>−</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">y_k=R_ky_{k-1}</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>E</mi><mi>R</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mo>∑</mo><mi>k</mi></msub><mo stretchy="false" form="postfix">∥</mo><msub><mi>y</mi><mrow><mi>k</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>−</mo><msub><mi>y</mi><mi>k</mi></msub><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">E_R(x)=\sum_k\|y_{k-1}-y_k\|^2</annotation></semantics></math>.
+Firmness gives</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><mi>R</mi><mi>x</mi><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>≤</mo><mo stretchy="false" form="postfix">∥</mo><mi>x</mi><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>−</mo><msub><mi>E</mi><mi>R</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">\|Rx-p\|^2\leq\|x-p\|^2-E_R(x).</annotation></semantics></math></p>
+<p>Using the same squared-norm identity for the inner mixture and then
+applying
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
+gives the joint estimate</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><mi>U</mi><mi>x</mi><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>≤</mo><mo stretchy="false" form="postfix">∥</mo><mi>x</mi><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>−</mo><mi>L</mi><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo><mo>,</mo></mrow><annotation encoding="application/x-tex">\|Ux-p\|^2\leq\|x-p\|^2-L(x),</annotation></semantics></math>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>L</mi><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msub><mi>E</mi><mi>R</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><mi>λ</mi><mi>C</mi><mo stretchy="false" form="prefix">(</mo><mi>β</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><mi>λ</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>λ</mi><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">∥</mo><mi>β</mi><mo>−</mo><mi>Z</mi><mi>β</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>+</mo><mi>C</mi><mo stretchy="false" form="prefix">(</mo><mi>γ</mi><mo stretchy="false" form="postfix">)</mo><mo>≥</mo><mn>0</mn><mi>.</mi><mspace width="2.0em"></mspace><mtext mathvariant="normal">(2)</mtext></mrow><annotation encoding="application/x-tex">L(x)=E_R(x)+\lambda C(\beta)
++\lambda(1-\lambda)\|\beta-Z\beta\|^2+C(\gamma)\geq0.\qquad\text{(2)}</annotation></semantics></math></p>
+<p>Finally the outer mixture gives</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><mi>S</mi><mi>x</mi><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>≤</mo><mo stretchy="false" form="postfix">∥</mo><mi>x</mi><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>−</mo><mi>ρ</mi><mi>L</mi><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mi>ρ</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>ρ</mi><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">∥</mo><mi>x</mi><mo>−</mo><mi>U</mi><mi>x</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mi>.</mi><mspace width="2.0em"></mspace><mtext mathvariant="normal">(3)</mtext></mrow><annotation encoding="application/x-tex">\|Sx-p\|^2\leq\|x-p\|^2-\rho L(x)
+-\rho(1-\rho)\|x-Ux\|^2.\qquad\text{(3)}</annotation></semantics></math></p>
+<p>If
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>U</mi><mi>x</mi><mo>=</mo><mi>x</mi></mrow><annotation encoding="application/x-tex">Ux=x</annotation></semantics></math>,
+(2) forces all resolvent prefix differences to vanish, so
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>=</mo><mi>β</mi></mrow><annotation encoding="application/x-tex">x=\beta</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>∈</mo><msub><mo>⋂</mo><mi>k</mi></msub><mrow><mi mathvariant="normal">Fix</mi><mo>⁡</mo></mrow><msub><mi>R</mi><mi>k</mi></msub></mrow><annotation encoding="application/x-tex">x\in\bigcap_k\operatorname{Fix}R_k</annotation></semantics></math>.
+It also forces
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>β</mi><mo>−</mo><mi>Z</mi><mi>β</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\beta-Z\beta=0</annotation></semantics></math>
+because
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>λ</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>λ</mi><mo stretchy="false" form="postfix">)</mo><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\lambda(1-\lambda)&gt;0</annotation></semantics></math>.
+Equation (1) now identifies every
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>Q</mi><mi>j</mi></msub><annotation encoding="application/x-tex">Q_j</annotation></semantics></math>
+fixed point. Thus
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>∈</mo><mi mathvariant="normal">Θ</mi></mrow><annotation encoding="application/x-tex">x\in\Theta</annotation></semantics></math>.
+Conversely every
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>∈</mo><mi mathvariant="normal">Θ</mi></mrow><annotation encoding="application/x-tex">x\in\Theta</annotation></semantics></math>
+is fixed at every stage. Since
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ρ</mi><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\rho&gt;0</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">Fix</mi><mo>⁡</mo></mrow><mi>S</mi><mo>=</mo><mrow><mi mathvariant="normal">Fix</mi><mo>⁡</mo></mrow><mi>U</mi><mo>=</mo><mi mathvariant="normal">Θ</mi></mrow><annotation encoding="application/x-tex">\operatorname{Fix}S=\operatorname{Fix}U=\Theta</annotation></semantics></math>.</p>
+<p>With
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>η</mi><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>ρ</mi><mo stretchy="false" form="postfix">)</mo><mi>/</mi><mi>ρ</mi><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\eta=(1-\rho)/\rho&gt;0</annotation></semantics></math>,
+(3) also implies the quantitative estimate</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><mi>S</mi><mi>x</mi><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>≤</mo><mo stretchy="false" form="postfix">∥</mo><mi>x</mi><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>−</mo><mi>η</mi><mo stretchy="false" form="postfix">∥</mo><mi>x</mi><mo>−</mo><mi>S</mi><mi>x</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mi>.</mi><mspace width="2.0em"></mspace><mtext mathvariant="normal">(4)</mtext></mrow><annotation encoding="application/x-tex">\|Sx-p\|^2\leq\|x-p\|^2-\eta\|x-Sx\|^2.\qquad\text{(4)}</annotation></semantics></math></p>
+<h2 id="vanishing-composite-residual-identifies-valid-solutions">3.
+Vanishing composite residual identifies valid solutions</h2>
+<p>Suppose
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>z</mi><mi>i</mi></msub><mo>⇀</mo><mi>z</mi></mrow><annotation encoding="application/x-tex">z_i\rightharpoonup z</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>z</mi><mi>i</mi></msub><mo>−</mo><mi>S</mi><msub><mi>z</mi><mi>i</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">z_i-Sz_i\to0</annotation></semantics></math>.
+The sequence is bounded. Its distance-squared loss tends to zero,
+since</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mo stretchy="true" form="prefix">|</mo><mo stretchy="false" form="postfix">∥</mo><msub><mi>z</mi><mi>i</mi></msub><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mi>−</mi><mo stretchy="false" form="postfix">∥</mo><mi>S</mi><msub><mi>z</mi><mi>i</mi></msub><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo stretchy="true" form="postfix">|</mo></mrow><mo>≤</mo><mo stretchy="false" form="postfix">∥</mo><msub><mi>z</mi><mi>i</mi></msub><mo>−</mo><mi>S</mi><msub><mi>z</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">∥</mo><mo stretchy="false" form="prefix">(</mo><mo stretchy="false" form="postfix">∥</mo><msub><mi>z</mi><mi>i</mi></msub><mo>−</mo><mi>p</mi><mo stretchy="false" form="postfix">∥</mo><mi>+</mi><mo stretchy="false" form="postfix">∥</mo><mi>S</mi><msub><mi>z</mi><mi>i</mi></msub><mo>−</mo><mi>p</mi><mo stretchy="false" form="postfix">∥</mo><mo stretchy="false" form="postfix">)</mo><mo>→</mo><mn>0</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">\left|\|z_i-p\|^2-\|Sz_i-p\|^2\right|
+\leq\|z_i-Sz_i\|(\|z_i-p\|+\|Sz_i-p\|)\longrightarrow0.</annotation></semantics></math></p>
+<p>Equation (3) forces
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>E</mi><mi>R</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>z</mi><mi>i</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">E_R(z_i)\to0</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>β</mi><mi>i</mi></msub><mo>−</mo><mi>Z</mi><msub><mi>β</mi><mi>i</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\beta_i-Z\beta_i\to0</annotation></semantics></math>.
+In particular, every prefix
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>y</mi><mrow><mi>k</mi><mo>,</mo><mi>i</mi></mrow></msub><annotation encoding="application/x-tex">y_{k,i}</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>β</mi><mi>i</mi></msub><annotation encoding="application/x-tex">\beta_i</annotation></semantics></math>
+has the same weak limit
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>z</mi><annotation encoding="application/x-tex">z</annotation></semantics></math>
+as
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>z</mi><mi>i</mi></msub><annotation encoding="application/x-tex">z_i</annotation></semantics></math>.
+Equation (1) and boundedness give
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>β</mi><mi>i</mi></msub><mo>−</mo><msub><mi>Q</mi><mi>j</mi></msub><msub><mi>β</mi><mi>i</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\beta_i-Q_j\beta_i\to0</annotation></semantics></math>
+for every
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>j</mi><annotation encoding="application/x-tex">j</annotation></semantics></math>.
+The assumed demiclosedness puts
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>z</mi><annotation encoding="application/x-tex">z</annotation></semantics></math>
+in every
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">Fix</mi><mo>⁡</mo></mrow><msub><mi>Q</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">\operatorname{Fix}Q_j</annotation></semantics></math>.</p>
+<p>Also
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>y</mi><mrow><mi>k</mi><mo>−</mo><mn>1</mn><mo>,</mo><mi>i</mi></mrow></msub><mo>−</mo><msub><mi>R</mi><mi>k</mi></msub><msub><mi>y</mi><mrow><mi>k</mi><mo>−</mo><mn>1</mn><mo>,</mo><mi>i</mi></mrow></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">y_{k-1,i}-R_ky_{k-1,i}\to0</annotation></semantics></math>.
+Demiclosedness of the nonexpansive resolvent residual gives
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>R</mi><mi>k</mi></msub><mi>z</mi><mo>=</mo><mi>z</mi></mrow><annotation encoding="application/x-tex">R_kz=z</annotation></semantics></math>
+for every
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>.
+This standard closure fact can be seen directly: if
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>u</mi><mi>i</mi></msub><mo>⇀</mo><mi>u</mi></mrow><annotation encoding="application/x-tex">u_i\rightharpoonup u</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>u</mi><mi>i</mi></msub><mo>−</mo><mi>T</mi><msub><mi>u</mi><mi>i</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">u_i-Tu_i\to0</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>T</mi><annotation encoding="application/x-tex">T</annotation></semantics></math>
+is nonexpansive, expand
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><mi>T</mi><msub><mi>u</mi><mi>i</mi></msub><mo>−</mo><mi>T</mi><mi>u</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>≤</mo><mo stretchy="false" form="postfix">∥</mo><msub><mi>u</mi><mi>i</mi></msub><mo>−</mo><mi>u</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">\|Tu_i-Tu\|^2\leq\|u_i-u\|^2</annotation></semantics></math>
+after substituting
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>T</mi><msub><mi>u</mi><mi>i</mi></msub><mo>=</mo><msub><mi>u</mi><mi>i</mi></msub><mo>+</mo><mi>o</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">Tu_i=u_i+o(1)</annotation></semantics></math>.
+Boundedness and weak convergence yield
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><mi>u</mi><mo>−</mo><mi>T</mi><mi>u</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>≤</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\|u-Tu\|^2\leq0</annotation></semantics></math>.</p>
+<p>Therefore
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>z</mi><mo>∈</mo><mi mathvariant="normal">Θ</mi><mo>=</mo><mrow><mi mathvariant="normal">Fix</mi><mo>⁡</mo></mrow><mi>S</mi></mrow><annotation encoding="application/x-tex">z\in\Theta=\operatorname{Fix}S</annotation></semantics></math>,
+proving demiclosedness of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>−</mo><mi>S</mi></mrow><annotation encoding="application/x-tex">I-S</annotation></semantics></math>.
+Notice that this argument still works if some or all coefficients in
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>A</mi><annotation encoding="application/x-tex">A</annotation></semantics></math>
+vanish. The positive inner mixing term and (1) supply the needed
+individual residual control at the endpoint
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><msub><mi>ϕ</mi><mi>j</mi></msub><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">b\phi_j=2</annotation></semantics></math>.</p>
+<h2 id="strong-convergence-of-the-declared-iteration">4. Strong
+convergence of the declared iteration</h2>
+<p>Put
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>c</mi><mo>=</mo><mn>1</mn><mo>−</mo><mi>κ</mi><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">c=1-\kappa&gt;0</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>h</mi><mo>=</mo><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>p</mi><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mi>p</mi></mrow><annotation encoding="application/x-tex">h=g(p)-p</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>a</mi><mi>n</mi></msub><mo>=</mo><mo stretchy="false" form="postfix">∥</mo><msub><mi>x</mi><mi>n</mi></msub><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">a_n=\|x_n-p\|^2</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>q</mi><mi>n</mi></msub><mo>=</mo><mo stretchy="false" form="postfix">∥</mo><msub><mi>α</mi><mi>n</mi></msub><mo>−</mo><mi>S</mi><msub><mi>α</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">∥</mo></mrow><annotation encoding="application/x-tex">q_n=\|\alpha_n-S\alpha_n\|</annotation></semantics></math>.
+Quasi-nonexpansiveness gives</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi>x</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>−</mo><mi>p</mi><mo stretchy="false" form="postfix">∥</mo><mo>≤</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>c</mi><msub><mi>δ</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">∥</mo><msub><mi>x</mi><mi>n</mi></msub><mo>−</mo><mi>p</mi><mo stretchy="false" form="postfix">∥</mo><mo>+</mo><msub><mi>δ</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">∥</mo><mi>h</mi><mo stretchy="false" form="postfix">∥</mo><mo>+</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><msub><mi>δ</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><msubsup><mi>δ</mi><mi>n</mi><mn>2</mn></msubsup><mi>.</mi></mrow><annotation encoding="application/x-tex">\|x_{n+1}-p\|\leq(1-c\delta_n)\|x_n-p\|
++\delta_n\|h\|+(1-\delta_n)\delta_n^2.</annotation></semantics></math></p>
+<p>Thus
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi>x</mi><mi>n</mi></msub><mo>−</mo><mi>p</mi><mo stretchy="false" form="postfix">∥</mo><mo>≤</mo><mi>M</mi></mrow><annotation encoding="application/x-tex">\|x_n-p\|\leq M</annotation></semantics></math>
+for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>M</mi><mo>=</mo><mrow><mi mathvariant="normal">max</mi><mo>⁡</mo></mrow><mo stretchy="false" form="prefix">{</mo><mo stretchy="false" form="postfix">∥</mo><msub><mi>x</mi><mn>1</mn></msub><mo>−</mo><mi>p</mi><mo stretchy="false" form="postfix">∥</mo><mo>,</mo><mo stretchy="false" form="prefix">(</mo><mo stretchy="false" form="postfix">∥</mo><mi>h</mi><mo stretchy="false" form="postfix">∥</mo><mo>+</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mi>/</mi><mi>c</mi><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">M=\max\{\|x_1-p\|,(\|h\|+1)/c\}</annotation></semantics></math>,
+by induction. This also bounds
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>α</mi><mi>n</mi></msub><annotation encoding="application/x-tex">\alpha_n</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>S</mi><msub><mi>α</mi><mi>n</mi></msub></mrow><annotation encoding="application/x-tex">S\alpha_n</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>x</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">g(x_n)</annotation></semantics></math>
+relative to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>p</mi><annotation encoding="application/x-tex">p</annotation></semantics></math>.</p>
+<p><strong>Descent with vanishing forcing.</strong> Apply convexity of
+squared norm to the update and then (4). Since
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi>α</mi><mi>n</mi></msub><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>≤</mo><msub><mi>a</mi><mi>n</mi></msub><mo>+</mo><mn>2</mn><mi>M</mi><msubsup><mi>δ</mi><mi>n</mi><mn>2</mn></msubsup><mo>+</mo><msubsup><mi>δ</mi><mi>n</mi><mn>4</mn></msubsup></mrow><annotation encoding="application/x-tex">\|\alpha_n-p\|^2\leq a_n+2M\delta_n^2+\delta_n^4</annotation></semantics></math>,
+there is a fixed finite
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>K</mi><mn>1</mn></msub><annotation encoding="application/x-tex">K_1</annotation></semantics></math>
+such that</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><msub><mi>δ</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><mi>η</mi><msubsup><mi>q</mi><mi>n</mi><mn>2</mn></msubsup><mo>≤</mo><msub><mi>a</mi><mi>n</mi></msub><mo>−</mo><msub><mi>a</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>+</mo><msub><mi>K</mi><mn>1</mn></msub><msub><mi>δ</mi><mi>n</mi></msub><mi>.</mi><mspace width="2.0em"></mspace><mtext mathvariant="normal">(5)</mtext></mrow><annotation encoding="application/x-tex">(1-\delta_n)\eta q_n^2\leq a_n-a_{n+1}+K_1\delta_n.\qquad\text{(5)}</annotation></semantics></math></p>
+<p>For example,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>K</mi><mn>1</mn></msub><mo>=</mo><msup><mi>G</mi><mn>2</mn></msup><mo>+</mo><mn>2</mn><mi>M</mi><mo>+</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">K_1=G^2+2M+1</annotation></semantics></math>
+works for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>G</mi><mo>=</mo><msub><mrow><mi mathvariant="normal">sup</mi><mo>⁡</mo></mrow><mi>n</mi></msub><mo stretchy="false" form="postfix">∥</mo><mi>g</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>x</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mi>p</mi><mo stretchy="false" form="postfix">∥</mo></mrow><annotation encoding="application/x-tex">G=\sup_n\|g(x_n)-p\|</annotation></semantics></math>.
+No limit for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>a</mi><mi>n</mi></msub><annotation encoding="application/x-tex">a_n</annotation></semantics></math>
+or
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>q</mi><mi>n</mi></msub><annotation encoding="application/x-tex">q_n</annotation></semantics></math>
+has been assumed.</p>
+<p><strong>Projection-sensitive recurrence.</strong> Write</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>x</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>−</mo><mi>p</mi><mo>=</mo><msub><mi>v</mi><mi>n</mi></msub><mo>+</mo><msub><mi>δ</mi><mi>n</mi></msub><mi>h</mi><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>v</mi><mi>n</mi></msub><mo>=</mo><msub><mi>δ</mi><mi>n</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>g</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>x</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>p</mi><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">)</mo><mo>+</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><msub><mi>δ</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">(</mo><mi>S</mi><msub><mi>α</mi><mi>n</mi></msub><mo>−</mo><mi>p</mi><mo stretchy="false" form="postfix">)</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">x_{n+1}-p=v_n+\delta_nh,\qquad
+v_n=\delta_n(g(x_n)-g(p))+(1-\delta_n)(S\alpha_n-p).</annotation></semantics></math></p>
+<p>Then
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi>v</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">∥</mo><mo>≤</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>c</mi><msub><mi>δ</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><msqrt><msub><mi>a</mi><mi>n</mi></msub></msqrt><mo>+</mo><msubsup><mi>δ</mi><mi>n</mi><mn>2</mn></msubsup></mrow><annotation encoding="application/x-tex">\|v_n\|\leq(1-c\delta_n)\sqrt{a_n}+\delta_n^2</annotation></semantics></math>.
+The identity
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi>v</mi><mi>n</mi></msub><mo>+</mo><msub><mi>δ</mi><mi>n</mi></msub><mi>h</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>≤</mo><mo stretchy="false" form="postfix">∥</mo><msub><mi>v</mi><mi>n</mi></msub><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>+</mo><mn>2</mn><msub><mi>δ</mi><mi>n</mi></msub><mo stretchy="false" form="prefix">⟨</mo><mi>h</mi><mo>,</mo><msub><mi>x</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>−</mo><mi>p</mi><mo stretchy="false" form="postfix">⟩</mo></mrow><annotation encoding="application/x-tex">\|v_n+\delta_nh\|^2\leq\|v_n\|^2+
+2\delta_n\langle h,x_{n+1}-p\rangle</annotation></semantics></math>
+gives</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>a</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>≤</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>c</mi><msub><mi>δ</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><msub><mi>a</mi><mi>n</mi></msub><mo>+</mo><mi>c</mi><msub><mi>δ</mi><mi>n</mi></msub><msub><mi>t</mi><mi>n</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><mtext mathvariant="normal">(6)</mtext></mrow><annotation encoding="application/x-tex">a_{n+1}\leq(1-c\delta_n)a_n+c\delta_n t_n,\qquad\text{(6)}</annotation></semantics></math>
+<math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>t</mi><mi>n</mi></msub><mo>=</mo><mfrac><mn>2</mn><mi>c</mi></mfrac><mo stretchy="false" form="prefix">⟨</mo><mi>h</mi><mo>,</mo><msub><mi>x</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>−</mo><mi>p</mi><mo stretchy="false" form="postfix">⟩</mo><mo>+</mo><mfrac><msub><mi>K</mi><mn>2</mn></msub><mi>c</mi></mfrac><msub><mi>δ</mi><mi>n</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>K</mi><mn>2</mn></msub><mo>=</mo><mn>2</mn><mi>M</mi><mo>+</mo><mn>1</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">t_n=\frac2c\langle h,x_{n+1}-p\rangle+
+\frac{K_2}{c}\delta_n,\qquad K_2=2M+1.</annotation></semantics></math></p>
+<p>Here
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>c</mi><msub><mi>δ</mi><mi>n</mi></msub><msup><mo stretchy="false" form="postfix">)</mo><mn>2</mn></msup><mo>≤</mo><mn>1</mn><mo>−</mo><mi>c</mi><msub><mi>δ</mi><mi>n</mi></msub></mrow><annotation encoding="application/x-tex">(1-c\delta_n)^2\leq1-c\delta_n</annotation></semantics></math>
+and the remaining square terms are bounded by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>K</mi><mn>2</mn></msub><msubsup><mi>δ</mi><mi>n</mi><mn>2</mn></msubsup></mrow><annotation encoding="application/x-tex">K_2\delta_n^2</annotation></semantics></math>.</p>
+<p><strong>Where the projection sign becomes available.</strong> Along
+any indices for which
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>q</mi><mi>n</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">q_n\to0</annotation></semantics></math>,
+the update shows</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>x</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>−</mo><msub><mi>α</mi><mi>n</mi></msub><mo>=</mo><msub><mi>δ</mi><mi>n</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>g</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>x</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mi>S</mi><msub><mi>α</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>+</mo><mo stretchy="false" form="prefix">(</mo><mi>S</mi><msub><mi>α</mi><mi>n</mi></msub><mo>−</mo><msub><mi>α</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>→</mo><mn>0</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">x_{n+1}-\alpha_n=
+\delta_n(g(x_n)-S\alpha_n)+(S\alpha_n-\alpha_n)\longrightarrow0.</annotation></semantics></math></p>
+<p>Take a subsequence attaining the limsup of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">⟨</mo><mi>h</mi><mo>,</mo><msub><mi>x</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>−</mo><mi>p</mi><mo stretchy="false" form="postfix">⟩</mo></mrow><annotation encoding="application/x-tex">\langle h,x_{n+1}-p\rangle</annotation></semantics></math>,
+and a further weakly convergent subsequence of the bounded
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>α</mi><mi>n</mi></msub><annotation encoding="application/x-tex">\alpha_n</annotation></semantics></math>.
+Demiclosedness of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>−</mo><mi>S</mi></mrow><annotation encoding="application/x-tex">I-S</annotation></semantics></math>
+puts its limit
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>z</mi><annotation encoding="application/x-tex">z</annotation></semantics></math>
+in
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Θ</mi><annotation encoding="application/x-tex">\Theta</annotation></semantics></math>;
+the same limit holds for
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>x</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub><annotation encoding="application/x-tex">x_{n+1}</annotation></semantics></math>.
+The characterization of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mo>=</mo><msub><mi>P</mi><mi mathvariant="normal">Θ</mi></msub><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>p</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">p=P_\Theta g(p)</annotation></semantics></math>
+gives
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">⟨</mo><mi>h</mi><mo>,</mo><mi>z</mi><mo>−</mo><mi>p</mi><mo stretchy="false" form="postfix">⟩</mo><mo>≤</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\langle h,z-p\rangle\leq0</annotation></semantics></math>.
+Consequently
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">limsup</mi><mo>⁡</mo></mrow><msub><mi>t</mi><mi>n</mi></msub><mo>≤</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\limsup t_n\leq0</annotation></semantics></math>
+along those indices.</p>
+<p>There are two exhaustive cases.</p>
+<ol type="1">
+<li>If
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>a</mi><mi>n</mi></msub><annotation encoding="application/x-tex">a_n</annotation></semantics></math>
+is eventually nonincreasing, it has a nonnegative limit, so
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>a</mi><mi>n</mi></msub><mo>−</mo><msub><mi>a</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">a_n-a_{n+1}\to0</annotation></semantics></math>.
+Equation (5) gives
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>q</mi><mi>n</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">q_n\to0</annotation></semantics></math>,
+hence
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">limsup</mi><mo>⁡</mo></mrow><msub><mi>t</mi><mi>n</mi></msub><mo>≤</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\limsup t_n\leq0</annotation></semantics></math>.
+Given
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ϵ</mi><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\epsilon&gt;0</annotation></semantics></math>,
+eventually (6) is bounded by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>c</mi><msub><mi>δ</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><msub><mi>a</mi><mi>n</mi></msub><mo>+</mo><mi>c</mi><msub><mi>δ</mi><mi>n</mi></msub><mi>ϵ</mi></mrow><annotation encoding="application/x-tex">(1-c\delta_n)a_n+c\delta_n\epsilon</annotation></semantics></math>.
+Iteration and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mo>∑</mo><mi>n</mi></msub><mi>c</mi><msub><mi>δ</mi><mi>n</mi></msub><mo>=</mo><mi>∞</mi></mrow><annotation encoding="application/x-tex">\sum_n c\delta_n=\infty</annotation></semantics></math>
+imply
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">limsup</mi><mo>⁡</mo></mrow><msub><mi>a</mi><mi>n</mi></msub><mo>≤</mo><mi>ϵ</mi></mrow><annotation encoding="application/x-tex">\limsup a_n\leq\epsilon</annotation></semantics></math>.
+Letting
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ϵ</mi><mo>↓</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\epsilon\downarrow0</annotation></semantics></math>
+proves
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>a</mi><mi>n</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">a_n\to0</annotation></semantics></math>.</li>
+<li>Otherwise there are infinitely many indices
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>
+with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>a</mi><mi>k</mi></msub><mo>&lt;</mo><msub><mi>a</mi><mrow><mi>k</mi><mo>+</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">a_k&lt;a_{k+1}</annotation></semantics></math>.
+Along these indices (5) gives
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>q</mi><mi>k</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">q_k\to0</annotation></semantics></math>,
+hence
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">limsup</mi><mo>⁡</mo></mrow><msub><mi>t</mi><mi>k</mi></msub><mo>≤</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\limsup t_k\leq0</annotation></semantics></math>.
+Equation (6) and the increase imply
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0</mn><mo>≤</mo><msub><mi>a</mi><mi>k</mi></msub><mo>≤</mo><msub><mi>t</mi><mi>k</mi></msub></mrow><annotation encoding="application/x-tex">0\leq a_k\leq t_k</annotation></semantics></math>,
+so
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>a</mi><mi>k</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">a_k\to0</annotation></semantics></math>
+and then
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>a</mi><mrow><mi>k</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">a_{k+1}\to0</annotation></semantics></math>
+by (5). For each sufficiently large
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>,
+take the last increase index
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi><mo stretchy="false" form="prefix">(</mo><mi>n</mi><mo stretchy="false" form="postfix">)</mo><mo>≤</mo><mi>n</mi></mrow><annotation encoding="application/x-tex">k(n)\leq n</annotation></semantics></math>.
+Then
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>k</mi><mo stretchy="false" form="prefix">(</mo><mi>n</mi><mo stretchy="false" form="postfix">)</mo><mo>→</mo><mi>∞</mi></mrow><annotation encoding="application/x-tex">k(n)\to\infty</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>a</mi><mi>n</mi></msub><mo>≤</mo><msub><mi>a</mi><mrow><mi>k</mi><mo stretchy="false" form="prefix">(</mo><mi>n</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">a_n\leq a_{k(n)+1}</annotation></semantics></math>:
+all later steps up to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>
+decrease or are equal. Hence
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>a</mi><mi>n</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">a_n\to0</annotation></semantics></math>
+in this case too.</li>
+</ol>
+<p>Thus
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>x</mi><mi>n</mi></msub><mo>→</mo><mi>p</mi></mrow><annotation encoding="application/x-tex">x_n\to p</annotation></semantics></math>
+in norm. This proves the complete declared restricted iteration. The
+argument never infers an infinite limit from the finite runs.</p>
+<h2 id="boundary-controls-and-relation-to-earlier-work">5. Boundary
+controls and relation to earlier work</h2>
+<p>The previous
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Q</mi><mo>=</mo><mi>−</mi><mn>3</mn><mi>I</mi></mrow><annotation encoding="application/x-tex">Q=-3I</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ϕ</mi><mo>=</mo><mn>4</mn></mrow><annotation encoding="application/x-tex">\phi=4</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mo>=</mo><mn>3</mn><mi>/</mi><mn>4</mn></mrow><annotation encoding="application/x-tex">b=3/4</annotation></semantics></math>
+example violates the new bound:
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mi>ϕ</mi><mo>=</mo><mn>3</mn><mo>&gt;</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">b\phi=3&gt;2</annotation></semantics></math>.
+It remains a counterexample to the unrestricted candidate. Using
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mo>=</mo><mn>1</mn><mi>/</mi><mn>4</mn></mrow><annotation encoding="application/x-tex">b=1/4</annotation></semantics></math>
+for the same map gives
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">Z=0</annotation></semantics></math>
+and avoids that cancellation.</p>
+<p>The relaxation endpoint by itself is admissible. For
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Q</mi><mo>=</mo><mi>−</mi><mi>I</mi></mrow><annotation encoding="application/x-tex">Q=-I</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ϕ</mi><mo>=</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">\phi=2</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">b=1</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>λ</mi><mo>=</mo><mn>1</mn><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">\lambda=1/2</annotation></semantics></math>,
+we have
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>=</mo><mi>−</mi><mi>I</mi></mrow><annotation encoding="application/x-tex">Z=-I</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>γ</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\gamma=0</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>U</mi><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">U=0</annotation></semantics></math>
+when
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>R</mi><mo>=</mo><mi>I</mi></mrow><annotation encoding="application/x-tex">R=I</annotation></semantics></math>.
+In contrast, also taking the excluded value
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>λ</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\lambda=1</annotation></semantics></math>
+makes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>U</mi><mo>=</mo><msup><mi>Z</mi><mn>2</mn></msup><mo>=</mo><mi>I</mi></mrow><annotation encoding="application/x-tex">U=Z^2=I</annotation></semantics></math>
+while
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Θ</mi><mo>=</mo><mo stretchy="false" form="prefix">{</mo><mn>0</mn><mo stretchy="false" form="postfix">}</mo></mrow><annotation encoding="application/x-tex">\Theta=\{0\}</annotation></semantics></math>.
+With
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">g=1</annotation></semantics></math>
+the resulting identity-type iteration tends to one. This shows why a
+bound and a mixing condition must be considered together. It does not
+show that every excluded endpoint fails.</p>
+<p>The coefficients of the repaired point-valued combinations sum to
+one, so the coordinate-covariance argument from the earlier note still
+applies. When testing translated trajectories, translate
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>,
+the operator domains, point-valued maps, initial points and solution set
+consistently.</p>
+<p>The convergence mechanism has established antecedents. In particular,
+<a href="https://www.maths.tcd.ie/EMIS/journals/HOA/AAA/Volume2011/385843.pdf">Wongchan
+and Saejung (2011), Theorem 2.3</a> studies viscosity iteration for
+strongly quasinonexpansive mappings with demiclosed residuals. <a href="https://link.springer.com/article/10.1186/1687-1812-2014-17">Aoyama
+and Kohsaka (2014), Corollary 3.5</a> provides a corresponding fixed-map
+result within a broader sequence framework. Our explicit proof above
+handles the declared input perturbation and verifies the composite’s
+assumptions. We do not claim a novel general convergence principle or
+infer coverage of the perturbed iteration merely from a citation. The
+earlier <a href="../../v0.1/PREDECESSOR-CHECK.md">Song predecessor
+check</a> remains relevant to original-map residual identification.</p>
+<h2 id="reproduction-and-scope">6. Reproduction and scope</h2>
+<p>Run
+<code>python3 -I -B verify_restricted.py --output-dir ../restricted-rerun</code>
+from this directory, choosing a destination that does not exist. The
+checker uses standard-library rational arithmetic. It tests explicit
+affine and piecewise examples, the joint loss estimate, translated
+trajectories and excluded-parameter controls. <code>results.json</code>
+stores its finite output. <code>verify_packet.py</code> checks the
+inventory and hashes in <code>MANIFEST.json</code>.</p>
+<p>These computations corroborate examples and implementation; the
+Hilbert-space and limiting statements depend on the mathematical proof
+and its assumptions. Internal reviewers share one operator. This is
+neither external peer review nor a machine-checked proof. No claim of
+novelty, misconduct, author assent, on-chain settlement or general
+validation of the original article is made. The original review, failed
+unrestricted candidate and its counterexample remain unchanged in their
+earlier packets and in the local history.</p>
+</body>
+</html>

@@ -1,0 +1,38 @@
+{
+  "schema": "research-review-followup-validation/v1",
+  "date": "2026-09-14",
+  "status": "PASS for declared bounded checks",
+  "python": "3.14.3",
+  "exact_check_counts": {
+    "candidate_exact_trajectory_comparisons": 1040,
+    "corresponding_state_one_step_checks": 2048,
+    "operator_point_checks": 672,
+    "prefix_checks": 20
+  },
+  "independent_same_operator_rerun": "results.json and plot-data.json byte-identical; copied verifier source hash matches stored output",
+  "optimized_mode": {
+    "returncode": 2,
+    "output_directory_created": false,
+    "message": "Refused: this checker must run without Python optimization (-O/-OO)."
+  },
+  "plot": "Deterministic SVG rerender matched; exact comparisons use rational arithmetic, plotted values are rounded",
+  "reading_copy": {
+    "pages": 3,
+    "visual_review": "All three rendered pages inspected; readable formulas, plot, table and reproduction command",
+    "browser_checks": {
+      "pass": true,
+      "browser": "152.0.7977.84",
+      "layout": {
+        "math": 59,
+        "scripts": 0,
+        "title": "A coordinate check, and a limit of the proposed repair",
+        "overflow": false,
+        "badMath": 0
+      },
+      "networkRequests": [],
+      "errors": []
+    }
+  },
+  "original_packet": "All 13 inventoried files and separately retained manifest hash verified unchanged",
+  "scientific_scope": "Algebra and special-case limit proofs plus finite exact checks. Candidate general convergence refuted; no full repair or external peer review."
+}

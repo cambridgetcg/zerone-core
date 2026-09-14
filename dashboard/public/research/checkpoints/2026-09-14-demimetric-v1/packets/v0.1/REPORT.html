@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-GB" xml:lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>A scoped audit of fixed-point identification and origin damping</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    html {
+      color: #1a1a1a;
+      background-color: #fdfdfd;
+    }
+    body {
+      margin: 0 auto;
+      max-width: 36em;
+      padding-left: 50px;
+      padding-right: 50px;
+      padding-top: 50px;
+      padding-bottom: 50px;
+      hyphens: auto;
+      overflow-wrap: break-word;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+    }
+    @media (max-width: 600px) {
+      body {
+        font-size: 0.9em;
+        padding: 12px;
+      }
+      h1 {
+        font-size: 1.8em;
+      }
+    }
+    @media print {
+      html {
+        background-color: white;
+      }
+      body {
+        background-color: transparent;
+        color: black;
+        font-size: 12pt;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }
+    p {
+      margin: 1em 0;
+    }
+    a {
+      color: #1a1a1a;
+    }
+    a:visited {
+      color: #1a1a1a;
+    }
+    img {
+      max-width: 100%;
+    }
+    svg {
+      height: auto;
+      max-width: 100%;
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin-top: 1.4em;
+    }
+    h5, h6 {
+      font-size: 1em;
+      font-style: italic;
+    }
+    h6 {
+      font-weight: normal;
+    }
+    ol, ul {
+      padding-left: 1.7em;
+      margin-top: 1em;
+    }
+    li > ol, li > ul {
+      margin-top: 0;
+    }
+    blockquote {
+      margin: 1em 0 1em 1.7em;
+      padding-left: 1em;
+      border-left: 2px solid #e6e6e6;
+      color: #606060;
+    }
+    code {
+      font-family: Menlo, Monaco, Consolas, 'Lucida Console', monospace;
+      font-size: 85%;
+      margin: 0;
+      hyphens: manual;
+    }
+    pre {
+      margin: 1em 0;
+      overflow: auto;
+    }
+    pre code {
+      padding: 0;
+      overflow: visible;
+      overflow-wrap: normal;
+    }
+    .sourceCode {
+     background-color: transparent;
+     overflow: visible;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #1a1a1a;
+      height: 1px;
+      margin: 1em 0;
+    }
+    table {
+      margin: 1em 0;
+      border-collapse: collapse;
+      width: 100%;
+      overflow-x: auto;
+      display: block;
+      font-variant-numeric: lining-nums tabular-nums;
+    }
+    table caption {
+      margin-bottom: 0.75em;
+    }
+    tbody {
+      margin-top: 0.5em;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    th {
+      border-top: 1px solid #1a1a1a;
+      padding: 0.25em 0.5em 0.25em 0.5em;
+    }
+    td {
+      padding: 0.125em 0.5em 0.25em 0.5em;
+    }
+    header {
+      margin-bottom: 4em;
+      text-align: center;
+    }
+    #TOC li {
+      list-style: none;
+    }
+    #TOC ul {
+      padding-left: 1.3em;
+    }
+    #TOC > ul {
+      padding-left: 0;
+    }
+    #TOC a:not(:hover) {
+      text-decoration: none;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <style>
+  @page { size: A4; margin: 17mm 18mm 18mm; }
+  html { background: #fff; color: #17232b; }
+  body { max-width: 760px; margin: 2rem auto; padding: 0 1.25rem;
+    font-family: Georgia, 'Times New Roman', serif; font-size: 16px; line-height: 1.45; }
+  h1, h2 { font-family: system-ui, sans-serif; line-height: 1.2; color: #183e47; }
+  h1 { font-size: 1.8rem; margin-bottom: .7rem; }
+  h2 { font-size: 1.18rem; margin-top: 1.6rem; break-after: avoid; }
+  .subtitle { color: #526570; font-family: system-ui,sans-serif; font-size: .9rem; }
+  p { margin: .65rem 0; }
+  a { color: #125a75; text-decoration: underline; overflow-wrap: anywhere; }
+  table { border-collapse: collapse; width: 100%; font-size: .83em; }
+  th,td { border-bottom: 1px solid #b9c8ce; padding: .45em; text-align: left; vertical-align: top; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
+  th { background: #eef4f4; }
+  math[display="block"] { display: block; margin: .8em 0; overflow: visible; break-inside: avoid; }
+  code { font-family: ui-monospace, monospace; font-size: .88em; overflow-wrap: anywhere; }
+  p, li { orphans: 3; widows: 3; }
+  @media print {
+    body { max-width: none; margin: 0; padding: 0; font-size: 10.5pt; line-height: 1.35; }
+    h1 { font-size: 19pt; } h2 { font-size: 12pt; }
+    .subtitle { font-size: 9pt; }
+    a { color: #17232b; }
+  }
+  </style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">A scoped audit of fixed-point identification and
+origin damping</h1>
+<p class="subtitle">Technical review draft · case 2026-001 · version 0.1
+· 14 September 2026</p>
+</header>
+<p><strong>Status and attribution.</strong> Prepared by the Zerone
+development assistant team, including separately tasked checking agents
+under the same operator. No external independent review, accountable
+human adoption, author response or institutional endorsement has yet
+been obtained. This is a technical draft, not a finding about anyone’s
+intent. No novelty is claimed.</p>
+<h2 id="scope-and-result">Scope and result</h2>
+<p>We examine Lemma 3.3 and the origin-damping step in the proof of
+Theorem 3.4 of Hammad, Dafaalla and Abdalla, <em>Creating a novel
+algorithm for studying the strong convergence to a sequence with
+applications</em>, PLOS One (2025), <a
+href="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0319047">DOI
+10.1371/journal.pone.0319047</a>. The publisher PDF, especially pp. 4–7,
+and its manuscript XML are the source versions inspected. Source hashes
+and locators accompany this report.</p>
+<p>The result has four distinct scopes:</p>
+<table>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th>Check</th>
+<th>Supported conclusion</th>
+<th>Boundary</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Generalized-demimetric relaxation</td>
+<td>An explicit continuous scalar map disproves the claimed implication
+to pairwise nonexpansiveness.</td>
+<td>This implication alone does not refute convergence.</td>
+</tr>
+<tr>
+<td>Lemma 3.3’s selected point</td>
+<td>Its stated membership condition alone does not give the concluding
+projection inequality.</td>
+<td>Adding the missing projection condition changes the statement.</td>
+</tr>
+<tr>
+<td>Equation (13) and the recurrence in (9)</td>
+<td>The displayed damping inequality fails; a coherent, explicitly
+specified interpretation of (9) converges to the wrong projected
+target.</td>
+<td>The paper’s inconsistent weight and algorithm notation prevents
+presenting this as a witness satisfying every literal printed
+symbol.</td>
+</tr>
+<tr>
+<td>Auxiliary repair</td>
+<td>A self-contained fixed-family lemma recovers weak-limit
+identification and the projection inequality.</td>
+<td>This does not repair or validate the full algorithm.</td>
+</tr>
+</tbody>
+</table>
+<p>The separate <a
+href="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0343283">publisher
+expression of concern</a> concerns the peer-review process. It is not
+evidence for these mathematical findings, and these findings do not
+establish misconduct.</p>
+<h2 id="a-relaxed-demimetric-map-need-not-be-nonexpansive">1. A relaxed
+demimetric map need not be nonexpansive</h2>
+<p>Write the positive generalized-demimetric condition as</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ϕ</mi><mo stretchy="false" form="prefix">⟨</mo><mi>x</mi><mo>−</mo><mi>p</mi><mo>,</mo><mi>x</mi><mo>−</mo><mi>Q</mi><mi>x</mi><mo stretchy="false" form="postfix">⟩</mo><mo>≥</mo><mo stretchy="false" form="postfix">∥</mo><mi>x</mi><mo>−</mo><mi>Q</mi><mi>x</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>,</mo><mspace width="2.0em"></mspace><mi>p</mi><mo>∈</mo><mrow><mi mathvariant="normal">Fix</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">(</mo><mi>Q</mi><mo stretchy="false" form="postfix">)</mo><mo>,</mo><mspace width="1.0em"></mspace><mi>ϕ</mi><mo>&gt;</mo><mn>0</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">\phi\langle x-p,x-Qx\rangle\geq\|x-Qx\|^2,
+\qquad p\in\operatorname{Fix}(Q),\quad\phi&gt;0.</annotation></semantics></math></p>
+<p>On the real line define</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Q</mi><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mrow><mo stretchy="true" form="prefix">{</mo><mtable><mtr><mtd columnalign="left" style="text-align: left"><mn>0</mn><mo>,</mo></mtd><mtd columnalign="left" style="text-align: left"><mi>x</mi><mo>≤</mo><mn>1</mn><mo>,</mo></mtd></mtr><mtr><mtd columnalign="left" style="text-align: left"><mn>2</mn><mi>x</mi><mo>−</mo><mn>2</mn><mo>,</mo></mtd><mtd columnalign="left" style="text-align: left"><mn>1</mn><mo>&lt;</mo><mi>x</mi><mo>&lt;</mo><mn>3</mn><mi>/</mi><mn>2</mn><mo>,</mo></mtd></mtr><mtr><mtd columnalign="left" style="text-align: left"><mn>1</mn><mo>,</mo></mtd><mtd columnalign="left" style="text-align: left"><mi>x</mi><mo>≥</mo><mn>3</mn><mi>/</mi><mn>2</mn><mi>.</mi></mtd></mtr></mtable></mrow></mrow><annotation encoding="application/x-tex">Q(x)=\begin{cases}0,&amp;x\leq1,\\2x-2,&amp;1&lt;x&lt;3/2,\\1,&amp;x\geq3/2.\end{cases}</annotation></semantics></math></p>
+<p>This map is continuous and its only fixed point is zero. Put
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>r</mi><mo>=</mo><mi>x</mi><mo>−</mo><mi>Q</mi><mi>x</mi></mrow><annotation encoding="application/x-tex">r=x-Qx</annotation></semantics></math>.
+For
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>≤</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">x\leq1</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mi>r</mi><mo>=</mo><msup><mi>r</mi><mn>2</mn></msup></mrow><annotation encoding="application/x-tex">xr=r^2</annotation></semantics></math>.
+For
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mo>&gt;</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">x&gt;1</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0</mn><mo>≤</mo><mi>Q</mi><mi>x</mi><mo>≤</mo><mi>x</mi></mrow><annotation encoding="application/x-tex">0\leq Qx\leq x</annotation></semantics></math>,
+so
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>x</mi><mi>r</mi><mo>−</mo><msup><mi>r</mi><mn>2</mn></msup><mo>=</mo><mi>Q</mi><mi>x</mi><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo>−</mo><mi>Q</mi><mi>x</mi><mo stretchy="false" form="postfix">)</mo><mo>≥</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">xr-r^2=Qx(x-Qx)\geq0</annotation></semantics></math>.
+Thus the condition holds everywhere with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ϕ</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\phi=1</annotation></semantics></math>.
+Continuity on the real line also makes
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>−</mo><mi>Q</mi></mrow><annotation encoding="application/x-tex">I-Q</annotation></semantics></math>
+demiclosed at zero.</p>
+<p>Take two copies, weights
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mn>2</mn><mo>,</mo><mn>1</mn><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">1/2,1/2</annotation></semantics></math>,
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mo>=</mo><mn>1</mn><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">b=1/2</annotation></semantics></math>.
+Then
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>=</mo><mi>V</mi><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mo>+</mo><mi>Q</mi><mo stretchy="false" form="postfix">)</mo><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">Z=V=(I+Q)/2</annotation></semantics></math>.
+Direct calculation gives</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mo>,</mo><mspace width="2.0em"></mspace><mi>Z</mi><mo stretchy="false" form="prefix">(</mo><mn>3</mn><mi>/</mi><mn>2</mn><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mfrac><mn>5</mn><mn>4</mn></mfrac><mo>,</mo><mspace width="2.0em"></mspace><mo stretchy="false" form="prefix">|</mo><mi>Z</mi><mo stretchy="false" form="prefix">(</mo><mn>3</mn><mi>/</mi><mn>2</mn><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mi>Z</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">|</mo><mo>=</mo><mfrac><mn>3</mn><mn>4</mn></mfrac><mo>&gt;</mo><mfrac><mn>1</mn><mn>2</mn></mfrac><mi>.</mi></mrow><annotation encoding="application/x-tex">Z(1)=\frac12,\qquad Z(3/2)=\frac54,\qquad
+|Z(3/2)-Z(1)|=\frac34&gt;\frac12.</annotation></semantics></math></p>
+<p>Nevertheless
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">|</mo><mi>V</mi><mi>x</mi><mo stretchy="false" form="prefix">|</mo><mo>≤</mo><mo stretchy="false" form="prefix">|</mo><mi>x</mi><mo stretchy="false" form="prefix">|</mo></mrow><annotation encoding="application/x-tex">|Vx|\leq|x|</annotation></semantics></math>
+for all
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>x</mi><annotation encoding="application/x-tex">x</annotation></semantics></math>:
+the map is quasi-nonexpansive. Distances to fixed points and distances
+between arbitrary points are different requirements. A normalized finite
+average therefore does not justify the nonexpansiveness inference in the
+Lemma 3.3 proof.</p>
+<h2 id="membership-does-not-select-the-projection-target">2. Membership
+does not select the projection target</h2>
+<p>The lemma chooses
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi><mo>∈</mo><mi mathvariant="normal">Θ</mi></mrow><annotation encoding="application/x-tex">q\in\Theta</annotation></semantics></math>
+but concludes an inequality of the form</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><munder><mi mathvariant="normal">limsup</mi><mi>n</mi></munder><mo stretchy="false" form="prefix">⟨</mo><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>q</mi><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mi>q</mi><mo>,</mo><msub><mi>x</mi><mi>n</mi></msub><mo>−</mo><mi>q</mi><mo stretchy="false" form="postfix">⟩</mo><mo>≤</mo><mn>0</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">\limsup_n\langle g(q)-q,x_n-q\rangle\leq0.</annotation></semantics></math></p>
+<p>Set
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>H</mi><mo>=</mo><mi>ℝ</mi></mrow><annotation encoding="application/x-tex">H=\mathbb R</annotation></semantics></math>,
+all
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Q</mi><mi>j</mi></msub><mo>=</mo><mi>I</mi></mrow><annotation encoding="application/x-tex">Q_j=I</annotation></semantics></math>,
+all monotone operators
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>B</mi><mi>k</mi></msub><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">B_k=0</annotation></semantics></math>,
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo>≡</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">g\equiv0</annotation></semantics></math>.
+Every resolvent is
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>I</mi><annotation encoding="application/x-tex">I</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Θ</mi><mo>=</mo><mi>ℝ</mi></mrow><annotation encoding="application/x-tex">\Theta=\mathbb R</annotation></semantics></math>.
+Choose
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">q=1</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>x</mi><mi>n</mi></msub><mo>=</mo><msub><mi>a</mi><mi>n</mi></msub><mo>=</mo><msub><mi>b</mi><mi>n</mi></msub><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">x_n=a_n=b_n=0</annotation></semantics></math>
+for every
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>.
+Every displayed residual vanishes, including either the literal
+repeated-prefix residual or the natural successive-prefix correction.
+The zero sequence also remains zero under the algorithm’s zero
+initialization. But</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">⟨</mo><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mn>1</mn><mo>,</mo><mn>0</mn><mo>−</mo><mn>1</mn><mo stretchy="false" form="postfix">⟩</mo><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mi>−</mi><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="prefix">(</mo><mi>−</mi><mn>1</mn><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mn>1</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">\langle g(1)-1,0-1\rangle=(-1)(-1)=1.</annotation></semantics></math></p>
+<p>The additional condition
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi><mo>=</mo><msub><mi>P</mi><mi mathvariant="normal">Θ</mi></msub><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>q</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">q=P_\Theta g(q)</annotation></semantics></math>
+would exclude this choice: here it selects zero. Theorem 3.4 does refer
+to a projected target, so this particular witness does not contradict
+that theorem’s conclusion.</p>
+<h2 id="origin-damping-changes-the-target">3. Origin damping changes the
+target</h2>
+<p>The first inequality in (13) compares
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><mi>ρ</mi><mi>Z</mi><mi>γ</mi><mo>−</mo><mi>q</mi><mo stretchy="false" form="postfix">∥</mo></mrow><annotation encoding="application/x-tex">\|\rho Z\gamma-q\|</annotation></semantics></math>
+with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><mi>Z</mi><mi>γ</mi><mo>−</mo><mi>q</mi><mo stretchy="false" form="postfix">∥</mo></mrow><annotation encoding="application/x-tex">\|Z\gamma-q\|</annotation></semantics></math>
+using
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ρ</mi><mo>&lt;</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\rho&lt;1</annotation></semantics></math>.
+For
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>Z</mi><mo>=</mo><mi>I</mi></mrow><annotation encoding="application/x-tex">Z=I</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>γ</mi><mo>=</mo><mi>q</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\gamma=q=1</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ρ</mi><mo>=</mo><mn>1</mn><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">\rho=1/2</annotation></semantics></math>,
+it asserts
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mn>2</mn><mo>≤</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">1/2\leq0</annotation></semantics></math>.
+Scaling about the origin need not reduce distance to a different fixed
+point.</p>
+<p>There is also an asymptotic witness for the explicit recurrence in
+(9), with the following declared interpretation: a fixed finite family,
+positive weights summing to one,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
+their average, and the unambiguous line
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ℓ</mi><mi>n</mi></msub><mo>=</mo><mi>ρ</mi><mi>Z</mi><msub><mi>γ</mi><mi>n</mi></msub></mrow><annotation encoding="application/x-tex">\ell_n=\rho Z\gamma_n</annotation></semantics></math>
+from (9). This interpretation resolves the source’s weight/index
+conflict; it is not a claim to satisfy the literal condition
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mo>∑</mo><mi>j</mi></msub><msub><mi>μ</mi><mi>j</mi></msub><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\sum_j\mu_j=1</annotation></semantics></math>,
+which uses the iterate symbol. The algorithm line in (2) also contains
+an extra symbol absent from (9).</p>
+<p>Set two
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Q</mi><mi>j</mi></msub><mo>=</mo><mi>I</mi></mrow><annotation encoding="application/x-tex">Q_j=I</annotation></semantics></math>
+with weights
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mn>2</mn><mo>,</mo><mn>1</mn><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">1/2,1/2</annotation></semantics></math>,
+two
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>B</mi><mi>k</mi></msub><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">B_k=0</annotation></semantics></math>
+with resolvent parameters one,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo>≡</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">g\equiv1</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mi>j</mi></msub><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\phi_j=1</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>b</mi><mo>=</mo><mn>1</mn><mi>/</mi><mn>4</mn></mrow><annotation encoding="application/x-tex">b=1/4</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>ρ</mi><mo>=</mo><mn>1</mn><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">\rho=1/2</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>λ</mi><mo>=</mo><mn>1</mn><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">\lambda=1/2</annotation></semantics></math>,
+inertial cap one, and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>x</mi><mn>0</mn></msub><mo>=</mo><msub><mi>x</mi><mn>1</mn></msub><mo>=</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">x_0=x_1=0</annotation></semantics></math>,
+relabelling the two starting indices as zero and one. This index shift
+preserves the stated sequence-limit conditions. The constant
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>g</mi><annotation encoding="application/x-tex">g</annotation></semantics></math>
+is contractive with, for example, Lipschitz bound
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>1</mn><mi>/</mi><mn>4</mn></mrow><annotation encoding="application/x-tex">1/4</annotation></semantics></math>.
+Use</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>δ</mi><mi>n</mi></msub><mo>=</mo><mfrac><mn>1</mn><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></mfrac><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>τ</mi><mi>n</mi></msub><mo>=</mo><msubsup><mi>δ</mi><mi>n</mi><mn>2</mn></msubsup><mi>.</mi></mrow><annotation encoding="application/x-tex">\delta_n=\frac1{n+1},\qquad \tau_n=\delta_n^2.</annotation></semantics></math></p>
+<p>These satisfy
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>δ</mi><mi>n</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\delta_n\to0</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mo>∑</mo><mi>n</mi></msub><msub><mi>δ</mi><mi>n</mi></msub><mo>=</mo><mi>∞</mi></mrow><annotation encoding="application/x-tex">\sum_n\delta_n=\infty</annotation></semantics></math>,
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>τ</mi><mi>n</mi></msub><mi>/</mi><msub><mi>δ</mi><mi>n</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\tau_n/\delta_n\to0</annotation></semantics></math>.
+With
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi mathvariant="normal">Δ</mi><mi>n</mi></msub><mo>=</mo><msub><mi>x</mi><mi>n</mi></msub><mo>−</mo><msub><mi>x</mi><mrow><mi>n</mi><mo>−</mo><mn>1</mn></mrow></msub></mrow><annotation encoding="application/x-tex">\Delta_n=x_n-x_{n-1}</annotation></semantics></math>,
+define</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>e</mi><mi>n</mi></msub><mo>=</mo><mrow><mo stretchy="true" form="prefix">{</mo><mtable><mtr><mtd columnalign="left" style="text-align: left"><mrow><mi mathvariant="normal">min</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">{</mo><msub><mi>τ</mi><mi>n</mi></msub><mi>/</mi><mo stretchy="false" form="prefix">|</mo><msub><mi mathvariant="normal">Δ</mi><mi>n</mi></msub><mo stretchy="false" form="prefix">|</mo><mo>,</mo><mn>1</mn><mo stretchy="false" form="postfix">}</mo><msub><mi mathvariant="normal">Δ</mi><mi>n</mi></msub><mo>,</mo></mtd><mtd columnalign="left" style="text-align: left"><msub><mi mathvariant="normal">Δ</mi><mi>n</mi></msub><mo>≠</mo><mn>0</mn><mo>,</mo></mtd></mtr><mtr><mtd columnalign="left" style="text-align: left"><mn>0</mn><mo>,</mo></mtd><mtd columnalign="left" style="text-align: left"><msub><mi mathvariant="normal">Δ</mi><mi>n</mi></msub><mo>=</mo><mn>0</mn><mo>,</mo></mtd></mtr></mtable></mrow><mspace width="2.0em"></mspace><msub><mi>a</mi><mi>n</mi></msub><mo>=</mo><msub><mi>x</mi><mi>n</mi></msub><mo>+</mo><msub><mi>e</mi><mi>n</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">e_n=\begin{cases}\min\{\tau_n/|\Delta_n|,1\}\Delta_n,&amp;\Delta_n\ne0,\\0,&amp;\Delta_n=0,\end{cases}
+\qquad a_n=x_n+e_n.</annotation></semantics></math></p>
+<p>The displayed minimum in (9) has a singleton; the capped version
+above is an explicitly declared interpretation for the numerical check.
+Taking that singleton literally instead gives
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>e</mi><mi>n</mi></msub><mo>=</mo><msub><mi>τ</mi><mi>n</mi></msub><mrow><mi mathvariant="normal">sign</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi mathvariant="normal">Δ</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">e_n=\tau_n\operatorname{sign}(\Delta_n)</annotation></semantics></math>
+when
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi mathvariant="normal">Δ</mi><mi>n</mi></msub><mo>≠</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\Delta_n\ne0</annotation></semantics></math>.
+Both versions have
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">|</mo><msub><mi>e</mi><mi>n</mi></msub><mo stretchy="false" form="prefix">|</mo><mo>≤</mo><msub><mi>τ</mi><mi>n</mi></msub></mrow><annotation encoding="application/x-tex">|e_n|\leq\tau_n</annotation></semantics></math>,
+and the argument below applies to each. Identity operators reduce (9)
+to</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>x</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>=</mo><msub><mi>δ</mi><mi>n</mi></msub><mo>+</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><msub><mi>δ</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><mi>ρ</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>x</mi><mi>n</mi></msub><mo>+</mo><msub><mi>e</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><mi>.</mi></mrow><annotation encoding="application/x-tex">x_{n+1}=\delta_n+(1-\delta_n)\rho(x_n+e_n).</annotation></semantics></math></p>
+<p>Consequently</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">|</mo><msub><mi>x</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub><mo stretchy="false" form="prefix">|</mo><mo>≤</mo><mi>ρ</mi><mo stretchy="false" form="prefix">|</mo><msub><mi>x</mi><mi>n</mi></msub><mo stretchy="false" form="prefix">|</mo><mi>+</mi><msub><mi>δ</mi><mi>n</mi></msub><mo>+</mo><mi>ρ</mi><msub><mi>τ</mi><mi>n</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">|x_{n+1}|\leq\rho|x_n|+\delta_n+\rho\tau_n.</annotation></semantics></math></p>
+<p>For completeness, any nonnegative sequence satisfying
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>u</mi><mrow><mi>n</mi><mo>+</mo><mn>1</mn></mrow></msub><mo>≤</mo><mi>ρ</mi><msub><mi>u</mi><mi>n</mi></msub><mo>+</mo><msub><mi>ϵ</mi><mi>n</mi></msub></mrow><annotation encoding="application/x-tex">u_{n+1}\leq\rho u_n+\epsilon_n</annotation></semantics></math>,
+with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0</mn><mo>&lt;</mo><mi>ρ</mi><mo>&lt;</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">0&lt;\rho&lt;1</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϵ</mi><mi>n</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\epsilon_n\to0</annotation></semantics></math>,
+tends to zero: after any index
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math>,
+iterate the inequality to bound it by
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mi>ρ</mi><mrow><mi>n</mi><mo>−</mo><mi>N</mi></mrow></msup><msub><mi>u</mi><mi>N</mi></msub><mo>+</mo><msub><mrow><mi mathvariant="normal">sup</mi><mo>&#8289;</mo></mrow><mrow><mi>k</mi><mo>≥</mo><mi>N</mi></mrow></msub><msub><mi>ϵ</mi><mi>k</mi></msub><mi>/</mi><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><mi>ρ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\rho^{n-N}u_N+\sup_{k\geq N}\epsilon_k/(1-\rho)</annotation></semantics></math>;
+then let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>
+and subsequently
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math>
+tend to infinity. Hence
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>x</mi><mi>n</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">x_n\to0</annotation></semantics></math>.
+But
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Θ</mi><mo>=</mo><mi>ℝ</mi></mrow><annotation encoding="application/x-tex">\Theta=\mathbb R</annotation></semantics></math>
+and the projected equation
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi><mo>=</mo><msub><mi>P</mi><mi mathvariant="normal">Θ</mi></msub><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>q</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">q=P_\Theta g(q)</annotation></semantics></math>
+has the unique solution
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">q=1</annotation></semantics></math>.</p>
+<p>The same bound survives the increasing partial-sum reading with
+identical maps and weights
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mn>2</mn><mrow><mi>−</mi><mi>j</mi></mrow></msup><annotation encoding="application/x-tex">2^{-j}</annotation></semantics></math>:
+then
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Z</mi><mi>n</mi></msub><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><msup><mn>2</mn><mrow><mi>−</mi><mi>n</mi></mrow></msup><mo stretchy="false" form="postfix">)</mo><mi>I</mi></mrow><annotation encoding="application/x-tex">Z_n=(1-2^{-n})I</annotation></semantics></math>
+and the additional factors in (9) lie between zero and one. Neither
+variant satisfies an interpretation that literally imposes summability
+of these positive iterates to one. Clarifying the intended weight
+condition and algorithm is therefore an essential question for the
+authors, not a typographical change we can hide.</p>
+<h2 id="a-repaired-auxiliary-lemma">4. A repaired auxiliary lemma</h2>
+<p>Here is an explicitly stated replacement for the limit-identification
+step. The source prints
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>−</mo><msub><mi>ϕ</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">I-\phi_j</annotation></semantics></math>
+where
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>ϕ</mi><mi>j</mi></msub><annotation encoding="application/x-tex">\phi_j</annotation></semantics></math>
+is a scalar; we expressly require the operator residual
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>−</mo><msub><mi>Q</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">I-Q_j</annotation></semantics></math>
+instead. We also specify a fixed family, normalized weights and
+well-defined resolvents, and derive the prefix residuals rather than
+relying on the source’s self-subtracting expression. Let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>H</mi><annotation encoding="application/x-tex">H</annotation></semantics></math>
+be a real Hilbert space,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>Q</mi><mn>1</mn></msub><mo>,</mo><mi>…</mi><mo>,</mo><msub><mi>Q</mi><mi>m</mi></msub><mo>:</mo><mi>H</mi><mo>→</mo><mi>H</mi></mrow><annotation encoding="application/x-tex">Q_1,\ldots,Q_m:H\to H</annotation></semantics></math>
+satisfy the positive generalized-demimetric condition with fixed
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>ϕ</mi><mi>j</mi></msub><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\phi_j&gt;0</annotation></semantics></math>,
+and each
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>−</mo><msub><mi>Q</mi><mi>j</mi></msub></mrow><annotation encoding="application/x-tex">I-Q_j</annotation></semantics></math>
+be demiclosed at zero. Let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>B</mi><mn>1</mn></msub><mo>,</mo><mi>…</mi><mo>,</mo><msub><mi>B</mi><mi>s</mi></msub></mrow><annotation encoding="application/x-tex">B_1,\ldots,B_s</annotation></semantics></math>
+be maximal monotone,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>R</mi><mi>k</mi></msub><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mi>I</mi><mo>+</mo><msub><mi>η</mi><mi>k</mi></msub><msub><mi>B</mi><mi>k</mi></msub><msup><mo stretchy="false" form="postfix">)</mo><mrow><mi>−</mi><mn>1</mn></mrow></msup></mrow><annotation encoding="application/x-tex">R_k=(I+\eta_k B_k)^{-1}</annotation></semantics></math>
+with fixed
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>η</mi><mi>k</mi></msub><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\eta_k&gt;0</annotation></semantics></math>,
+and assume</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi mathvariant="normal">Θ</mi><mo>=</mo><munder><mo>⋂</mo><mi>j</mi></munder><mrow><mi mathvariant="normal">Fix</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>Q</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>∩</mo><munder><mo>⋂</mo><mi>k</mi></munder><msubsup><mi>B</mi><mi>k</mi><mrow><mi>−</mi><mn>1</mn></mrow></msubsup><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\Theta=\bigcap_j\operatorname{Fix}(Q_j)\cap\bigcap_k B_k^{-1}(0)</annotation></semantics></math></p>
+<p>is nonempty, closed and convex. Let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>w</mi><mi>j</mi></msub><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">w_j&gt;0</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mo>∑</mo><mi>j</mi></msub><msub><mi>w</mi><mi>j</mi></msub><mo>=</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">\sum_jw_j=1</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>c</mi><mi>j</mi></msub><mo>&gt;</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">c_j&gt;0</annotation></semantics></math>
+be fixed, and define</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>V</mi><mi>j</mi></msub><mo>=</mo><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>−</mo><msub><mi>c</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo><mi>I</mi><mo>+</mo><msub><mi>c</mi><mi>j</mi></msub><msub><mi>Q</mi><mi>j</mi></msub><mo>,</mo><mspace width="2.0em"></mspace><mi>Z</mi><mo>=</mo><munder><mo>∑</mo><mi>j</mi></munder><msub><mi>w</mi><mi>j</mi></msub><msub><mi>V</mi><mi>j</mi></msub><mi>.</mi></mrow><annotation encoding="application/x-tex">V_j=(1-c_j)I+c_jQ_j,\qquad Z=\sum_jw_jV_j.</annotation></semantics></math></p>
+<p>Let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>g</mi><mo>:</mo><mi>H</mi><mo>→</mo><mi>H</mi></mrow><annotation encoding="application/x-tex">g:H\to H</annotation></semantics></math>
+and choose
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi><mo>∈</mo><mi mathvariant="normal">Θ</mi></mrow><annotation encoding="application/x-tex">q\in\Theta</annotation></semantics></math>
+with
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>q</mi><mo>=</mo><msub><mi>P</mi><mi mathvariant="normal">Θ</mi></msub><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>q</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">q=P_\Theta g(q)</annotation></semantics></math>.
+Suppose
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>x</mi><mi>n</mi></msub><annotation encoding="application/x-tex">x_n</annotation></semantics></math>
+is bounded,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>b</mi><mi>n</mi></msub><mo>=</mo><msub><mi>R</mi><mi>s</mi></msub><mi>⋯</mi><msub><mi>R</mi><mn>1</mn></msub><msub><mi>a</mi><mi>n</mi></msub></mrow><annotation encoding="application/x-tex">b_n=R_s\cdots R_1a_n</annotation></semantics></math>,
+and</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>x</mi><mi>n</mi></msub><mo>−</mo><msub><mi>a</mi><mi>n</mi></msub><mo>→</mo><mn>0</mn><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>x</mi><mi>n</mi></msub><mo>−</mo><msub><mi>b</mi><mi>n</mi></msub><mo>→</mo><mn>0</mn><mo>,</mo><mspace width="2.0em"></mspace><msub><mi>b</mi><mi>n</mi></msub><mo>−</mo><mi>Z</mi><msub><mi>b</mi><mi>n</mi></msub><mo>→</mo><mn>0</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">x_n-a_n\to0,\qquad x_n-b_n\to0,\qquad b_n-Zb_n\to0.</annotation></semantics></math></p>
+<p>Then every weak cluster point of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>x</mi><mi>n</mi></msub><annotation encoding="application/x-tex">x_n</annotation></semantics></math>
+belongs to
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi mathvariant="normal">Θ</mi><annotation encoding="application/x-tex">\Theta</annotation></semantics></math>,
+and</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><munder><mi mathvariant="normal">limsup</mi><mi>n</mi></munder><mo stretchy="false" form="prefix">⟨</mo><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>q</mi><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mi>q</mi><mo>,</mo><msub><mi>x</mi><mi>n</mi></msub><mo>−</mo><mi>q</mi><mo stretchy="false" form="postfix">⟩</mo><mo>≤</mo><mn>0</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">\limsup_n\langle g(q)-q,x_n-q\rangle\leq0.</annotation></semantics></math></p>
+<p><strong>Proof.</strong> Fix
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>p</mi><mo>∈</mo><mi mathvariant="normal">Θ</mi></mrow><annotation encoding="application/x-tex">p\in\Theta</annotation></semantics></math>,
+put
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>r</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mi>x</mi><mo>−</mo><msub><mi>Q</mi><mi>j</mi></msub><mi>x</mi></mrow><annotation encoding="application/x-tex">r_j(x)=x-Q_jx</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>d</mi><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo><mo>=</mo><mi>x</mi><mo>−</mo><mi>Z</mi><mi>x</mi><mo>=</mo><msub><mo>∑</mo><mi>j</mi></msub><msub><mi>w</mi><mi>j</mi></msub><msub><mi>c</mi><mi>j</mi></msub><msub><mi>r</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><mi>x</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">d(x)=x-Zx=\sum_jw_jc_jr_j(x)</annotation></semantics></math>.
+Positivity gives</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>0</mn><mo>≤</mo><munder><mo>∑</mo><mi>j</mi></munder><mfrac><mrow><msub><mi>w</mi><mi>j</mi></msub><msub><mi>c</mi><mi>j</mi></msub></mrow><msub><mi>ϕ</mi><mi>j</mi></msub></mfrac><mo stretchy="false" form="postfix">∥</mo><msub><mi>r</mi><mi>j</mi></msub><mo stretchy="false" form="prefix">(</mo><msub><mi>b</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>≤</mo><mo stretchy="false" form="prefix">⟨</mo><msub><mi>b</mi><mi>n</mi></msub><mo>−</mo><mi>p</mi><mo>,</mo><mi>d</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>b</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">⟩</mo><mo>≤</mo><mo stretchy="false" form="postfix">∥</mo><msub><mi>b</mi><mi>n</mi></msub><mo>−</mo><mi>p</mi><mo stretchy="false" form="postfix">∥</mo><mo stretchy="false" form="postfix">∥</mo><mi>d</mi><mo stretchy="false" form="prefix">(</mo><msub><mi>b</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">)</mo><mo stretchy="false" form="postfix">∥</mo><mo>→</mo><mn>0</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">0\leq\sum_j\frac{w_jc_j}{\phi_j}\|r_j(b_n)\|^2
+\leq\langle b_n-p,d(b_n)\rangle
+\leq\|b_n-p\|\|d(b_n)\|\longrightarrow0.</annotation></semantics></math></p>
+<p>Every coefficient is fixed and positive, so each residual tends to
+zero. Along a weakly convergent subsequence of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>x</mi><mi>n</mi></msub><annotation encoding="application/x-tex">x_n</annotation></semantics></math>,
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>b</mi><mi>n</mi></msub><annotation encoding="application/x-tex">b_n</annotation></semantics></math>
+has the same weak limit. Demiclosedness of each original residual puts
+that limit in every
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">Fix</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>Q</mi><mi>j</mi></msub><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\operatorname{Fix}(Q_j)</annotation></semantics></math>.
+No pairwise nonexpansiveness of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Z</mi><annotation encoding="application/x-tex">Z</annotation></semantics></math>
+is used.</p>
+<p>For the resolvents let
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>y</mi><mrow><mn>0</mn><mo>,</mo><mi>n</mi></mrow></msub><mo>=</mo><msub><mi>a</mi><mi>n</mi></msub></mrow><annotation encoding="application/x-tex">y_{0,n}=a_n</annotation></semantics></math>
+and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>y</mi><mrow><mi>k</mi><mo>,</mo><mi>n</mi></mrow></msub><mo>=</mo><msub><mi>R</mi><mi>k</mi></msub><msub><mi>y</mi><mrow><mi>k</mi><mo>−</mo><mn>1</mn><mo>,</mo><mi>n</mi></mrow></msub></mrow><annotation encoding="application/x-tex">y_{k,n}=R_ky_{k-1,n}</annotation></semantics></math>.
+Firm nonexpansiveness and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>R</mi><mi>k</mi></msub><mi>p</mi><mo>=</mo><mi>p</mi></mrow><annotation encoding="application/x-tex">R_kp=p</annotation></semantics></math>
+give the telescoping estimate</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><munderover><mo>∑</mo><mrow><mi>k</mi><mo>=</mo><mn>1</mn></mrow><mi>s</mi></munderover><mo stretchy="false" form="postfix">∥</mo><msub><mi>y</mi><mrow><mi>k</mi><mo>−</mo><mn>1</mn><mo>,</mo><mi>n</mi></mrow></msub><mo>−</mo><msub><mi>y</mi><mrow><mi>k</mi><mo>,</mo><mi>n</mi></mrow></msub><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>≤</mo><mo stretchy="false" form="postfix">∥</mo><msub><mi>a</mi><mi>n</mi></msub><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mi>−</mi><mo stretchy="false" form="postfix">∥</mo><msub><mi>b</mi><mi>n</mi></msub><mo>−</mo><mi>p</mi><msup><mo stretchy="false" form="postfix">∥</mo><mn>2</mn></msup><mo>→</mo><mn>0</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">\sum_{k=1}^s\|y_{k-1,n}-y_{k,n}\|^2
+\leq\|a_n-p\|^2-\|b_n-p\|^2\longrightarrow0.</annotation></semantics></math></p>
+<p>The last limit follows from boundedness and
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>a</mi><mi>n</mi></msub><mo>−</mo><msub><mi>b</mi><mi>n</mi></msub><mo>→</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">a_n-b_n\to0</annotation></semantics></math>.
+Each prefix difference tends to zero. Since
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>R</mi><mi>k</mi></msub><annotation encoding="application/x-tex">R_k</annotation></semantics></math>
+is nonexpansive,</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="postfix">∥</mo><msub><mi>a</mi><mi>n</mi></msub><mo>−</mo><msub><mi>R</mi><mi>k</mi></msub><msub><mi>a</mi><mi>n</mi></msub><mo stretchy="false" form="postfix">∥</mo><mo>≤</mo><mn>2</mn><mo stretchy="false" form="postfix">∥</mo><msub><mi>a</mi><mi>n</mi></msub><mo>−</mo><msub><mi>y</mi><mrow><mi>k</mi><mo>−</mo><mn>1</mn><mo>,</mo><mi>n</mi></mrow></msub><mo stretchy="false" form="postfix">∥</mo><mi>+</mi><mo stretchy="false" form="postfix">∥</mo><msub><mi>y</mi><mrow><mi>k</mi><mo>−</mo><mn>1</mn><mo>,</mo><mi>n</mi></mrow></msub><mo>−</mo><msub><mi>y</mi><mrow><mi>k</mi><mo>,</mo><mi>n</mi></mrow></msub><mo stretchy="false" form="postfix">∥</mo><mo>→</mo><mn>0</mn><mi>.</mi></mrow><annotation encoding="application/x-tex">\|a_n-R_ka_n\|\leq
+2\|a_n-y_{k-1,n}\|+\|y_{k-1,n}-y_{k,n}\|\longrightarrow0.</annotation></semantics></math></p>
+<p>Demiclosedness of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>I</mi><mo>−</mo><msub><mi>R</mi><mi>k</mi></msub></mrow><annotation encoding="application/x-tex">I-R_k</annotation></semantics></math>
+therefore puts the common weak limit in
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">Fix</mi><mo>&#8289;</mo></mrow><mo stretchy="false" form="prefix">(</mo><msub><mi>R</mi><mi>k</mi></msub><mo stretchy="false" form="postfix">)</mo><mo>=</mo><msubsup><mi>B</mi><mi>k</mi><mrow><mi>−</mi><mn>1</mn></mrow></msubsup><mo stretchy="false" form="prefix">(</mo><mn>0</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\operatorname{Fix}(R_k)=B_k^{-1}(0)</annotation></semantics></math>
+for every
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>k</mi><annotation encoding="application/x-tex">k</annotation></semantics></math>.
+Finally choose a subsequence attaining the scalar limsup, and a weakly
+convergent subsubsequence, with limit
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>z</mi><mo>∈</mo><mi mathvariant="normal">Θ</mi></mrow><annotation encoding="application/x-tex">z\in\Theta</annotation></semantics></math>.
+The metric projection condition gives
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">⟨</mo><mi>g</mi><mo stretchy="false" form="prefix">(</mo><mi>q</mi><mo stretchy="false" form="postfix">)</mo><mo>−</mo><mi>q</mi><mo>,</mo><mi>z</mi><mo>−</mo><mi>q</mi><mo stretchy="false" form="postfix">⟩</mo><mo>≤</mo><mn>0</mn></mrow><annotation encoding="application/x-tex">\langle g(q)-q,z-q\rangle\leq0</annotation></semantics></math>,
+as required.</p>
+<p>This proof needs no upper bound on
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>c</mi><mi>j</mi></msub><annotation encoding="application/x-tex">c_j</annotation></semantics></math>
+for this particular closure argument. It does not assert
+quasi-nonexpansiveness of
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>V</mi><mi>j</mi></msub><annotation encoding="application/x-tex">V_j</annotation></semantics></math>
+or convergence of the full iteration for arbitrary
+<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>c</mi><mi>j</mi></msub><annotation encoding="application/x-tex">c_j</annotation></semantics></math>.
+Fixed positive coefficients, a common fixed point, and demiclosedness
+are substantive assumptions.</p>
+<p>The residual strategy has an antecedent in the directly cited <a
+href="https://isr-publications.com/jnsa/articles-6677-iterative-methods-for-fixed-point-problems-and-generalized-split-feasibility-problems-in-banach-spaces">Song
+(2018), proof of Theorem 3.4, p. 208</a>. Our argument is supplied in
+full for checking; it is not presented as a new general principle.</p>
+<h2 id="review-questions-and-reproducibility">5. Review questions and
+reproducibility</h2>
+<p>The included <a href="verify_exact.py">Python verifier</a> uses exact
+rational arithmetic for finite checks. Run
+<code>python3 -B verify_exact.py</code> from this packet’s directory and
+compare with <a href="exact-result.json">the stored result</a>. Python
+3.10 or newer and its standard library suffice; the program uses no
+network or third-party packages. The <a href="SOURCES.json">source
+inventory</a> gives publisher URLs, inspection locators and the hashes
+of locally retained versions. Those checks can detect errors in the
+examples and implementation; the all-domain and asymptotic arguments
+above are mathematical proofs for internal review, not consequences of a
+finite numerical test or machine-checked proofs.</p>
+<p>An outside reviewer is asked to check the source transcription, each
+witness, the declared interpretations, and the repaired lemma
+separately. The authors should be asked which weights and algorithm line
+are intended, whether the projection condition should be explicit in
+Lemma 3.3, and how the origin damping preserves a nonzero target. No
+author has yet been contacted. A later response should be retained and
+assessed without treating silence as assent.</p>
+<p>Removing or changing the damping may be a useful next hypothesis, but
+a complete replacement algorithm and convergence theorem have not been
+proved here. Other sections, applications and the broader literature
+remain outside this review. The draft does not establish novelty, fraud,
+a universal failure of fixed-point methods, or the invalidity of every
+result in the article.</p>
+</body>
+</html>
