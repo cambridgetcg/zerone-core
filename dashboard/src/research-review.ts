@@ -1,4 +1,4 @@
-import { EXPORT_LIMIT, RELATION_TYPES, validateExport, selectSnapshot, orderedContributions, impact, type Journal, type Entry, type Snapshot, type Contribution, type Relation, type Concern, type Assessment } from "./research-review-journal";
+import { EXPORT_LIMIT, RELATION_TYPES, validateExport, compareJournals, selectSnapshot, orderedContributions, impact, type Journal, type JournalComparison, type Entry, type Snapshot, type Contribution, type Relation, type Concern, type Assessment } from "./research-review-journal";
 
 const $ = <T extends Element = HTMLElement>(id: string): T => document.getElementById(id) as unknown as T;
 const make = <K extends keyof HTMLElementTagNameMap>(tag: K, content?: string, className?: string): HTMLElementTagNameMap[K] => {
@@ -9,9 +9,11 @@ const button = (content: string, key: string, action: () => void, className = ""
 };
 let journal: Journal | undefined, snapshot: Snapshot | undefined, selected = "", inspected = "", through = 0, loadNumber = 0;
 let showImpact = false;
+let primaryFile: { bytes: Uint8Array; hash: string; name: string } | undefined, comparisonNumber = 0;
 const enabledRelations = new Set<string>(RELATION_TYPES);
 const file = $<HTMLInputElement>("journal-file"), example = $<HTMLButtonElement>("load-example"), cutoff = $<HTMLInputElement>("cutoff"), clock = $<HTMLSelectElement>("clock");
 const nodeSelect = $<HTMLSelectElement>("node-select"), impactButton = $<HTMLButtonElement>("impact");
+const comparisonFile = $<HTMLInputElement>("comparison-file");
 const graph = $<SVGSVGElement>("graph");
 const notice = (content: string): HTMLParagraphElement => make("p", content, "small");
 const get = (id: string): Entry | undefined => snapshot?.entries.find(e => e.record.id === id);
@@ -178,15 +180,81 @@ function revealSelection(): void {
   if (rect.top < viewport.top + 12) box.scrollTop -= viewport.top + 12 - rect.top;
   else if (rect.bottom > viewport.bottom - 12) box.scrollTop += rect.bottom - viewport.bottom + 12;
 }
+async function fileHash(bytes: Uint8Array): Promise<string> {
+  const hash = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
+  return [...new Uint8Array(hash)].map(value => value.toString(16).padStart(2, "0")).join("");
+}
+function clearComparison(resetInput = true): void {
+  comparisonNumber++;
+  const result = $("comparison-result"); result.hidden = true; result.replaceChildren(); delete result.dataset.relationship;
+  $("comparison-error").hidden = true; $("comparison-error").textContent = "";
+  comparisonFile.disabled = !journal || !primaryFile;
+  if (resetInput) comparisonFile.value = "";
+  $("comparison-status").textContent = comparisonFile.disabled ? "Open a primary collection first." : "Choose a second local export to compare both complete histories.";
+}
+function renderComparison(result: JournalComparison, leftFile: NonNullable<typeof primaryFile>, rightFile: NonNullable<typeof primaryFile>): void {
+  const container = $("comparison-result"); container.replaceChildren(); container.dataset.relationship = result.relationship;
+  const labels: Record<JournalComparison["relationship"], string> = {
+    "same-history": "Same journal history", "left-prefix": "A is a strict prefix of B", "right-prefix": "B is a strict prefix of A",
+    diverged: "Different continuations of the same root", "different-root": "Different roots: collection headers differ",
+  };
+  container.append(make("h3", labels[result.relationship]));
+  const equalBytes = leftFile.bytes.length === rightFile.bytes.length && leftFile.bytes.every((value, i) => value === rightFile.bytes[i]);
+  const equality = make("p", equalBytes ? "File bytes: identical." : "File bytes: different. Equal history, if reported, does not mean the files match the same byte commitment.");
+  equality.id = "comparison-byte-equality"; container.append(equality);
+  const files = make("div", undefined, "comparison-files");
+  for (const [label, info, summary] of [["A · primary file", leftFile, result.left], ["B · compared file", rightFile, result.right]] as const) {
+    const card = make("article"), meta = make("dl"); card.append(make("h4", label));
+    for (const [key, value] of [["File", info.name], ["File SHA256", info.hash], ["Collection", summary.collection_id], ["Complete entry count", String(summary.entry_count)], ["History head SHA256", summary.head_sha256]] as const) {
+      meta.append(make("dt", key), make("dd", value, key.includes("SHA256") ? "mono" : ""));
+    }
+    card.append(meta); files.append(card);
+  }
+  container.append(files);
+  const common = make("p"); common.id = "comparison-common-prefix";
+  if (result.common_prefix) {
+    const n = result.common_prefix.entry_count;
+    common.textContent = `Shared prefix: ${n} entries. Entries after that prefix: A ${result.left.entry_count - n}; B ${result.right.entry_count - n}.`;
+    container.append(common, make("p", `Shared-prefix head SHA256 ${result.common_prefix.head_sha256}${n === 0 ? " (header hash; no shared entries)" : ""}`, "mono"));
+  } else { common.textContent = "No common prefix is reported across different collection headers, even if their collection IDs match."; container.append(common); }
+  container.append(notice("These results compare the complete files, regardless of the timeline cutoff. Neither continuation is selected as canonical, authentic or scientifically correct."));
+  container.hidden = false;
+}
+async function compareFile(chosen: File): Promise<void> {
+  clearComparison(false);
+  const number = comparisonNumber, primaryNumber = loadNumber, left = journal, leftFile = primaryFile;
+  if (!left || !leftFile) return;
+  $("comparison-status").textContent = "Validating the complete second export and comparing both histories…";
+  try {
+    if (chosen.size > EXPORT_LIMIT || chosen.size === 0) throw new Error("Export must be nonempty and at most 8 MiB");
+    const bytes = new Uint8Array(await chosen.arrayBuffer());
+    if (number !== comparisonNumber || primaryNumber !== loadNumber || journal !== left) return;
+    const [right, hash] = await Promise.all([validateExport(bytes), fileHash(bytes)]);
+    const result = await compareJournals(left, right);
+    if (number !== comparisonNumber || primaryNumber !== loadNumber || journal !== left) return;
+    renderComparison(result, leftFile, { bytes, hash, name: chosen.name });
+    $("comparison-status").textContent = "Both complete exports validated. The primary file remains in the timeline below.";
+  } catch (error) {
+    if (number !== comparisonNumber || primaryNumber !== loadNumber || journal !== left) return;
+    $("comparison-status").textContent = "No comparison is displayed. The validated primary collection remains open.";
+    $("comparison-error").hidden = false;
+    $("comparison-error").textContent = `Comparison refused: ${error instanceof Error ? error.message : "invalid export"}.`;
+  }
+}
 async function load(read: () => Promise<Uint8Array>, name: string, fictional: boolean): Promise<void> {
-  const number = ++loadNumber; journal = undefined; snapshot = undefined; $("workspace").hidden = true; $("load-error").hidden = true;
+  const number = ++loadNumber; journal = undefined; snapshot = undefined; primaryFile = undefined; clearComparison();
+  $("primary-file-hash").hidden = true; $("primary-file-hash").textContent = "";
+  $("workspace").hidden = true; $("load-error").hidden = true;
   $("load-status").textContent = "Checking the complete export: schema, bounds, references and every hash…";
   try {
-    const bytes = await read(); const checked = await validateExport(bytes); if (number !== loadNumber) return;
+    const bytes = await read(); if (number !== loadNumber) return;
+    const [checked, hash] = await Promise.all([validateExport(bytes), fileHash(bytes)]); if (number !== loadNumber) return;
+    primaryFile = { bytes, hash, name };
     journal = checked; through = journal.entries.length; selected = journal.entries.find(e => e.record.kind === "contribution")?.record.id ?? ""; inspected = selected; showImpact = false;
     $("collection-label").textContent = fictional ? "FICTIONAL EXAMPLE · illustrative records only" : `LOCAL IMPORT · ${name} · contents not independently authenticated`;
     $("collection-identity").textContent = `Collection ${journal.header.collection_id}`;
     $("load-status").textContent = `Internal consistency checked for all ${journal.entries.length} entries. No identity, external evidence or independent timestamp verified.`;
+    $("primary-file-hash").textContent = `Primary file SHA256 ${hash}`; $("primary-file-hash").hidden = false; clearComparison();
     $("workspace").hidden = false; render();
   } catch (error) {
     if (number !== loadNumber) return;
@@ -197,9 +265,10 @@ async function load(read: () => Promise<Uint8Array>, name: string, fictional: bo
 }
 file.disabled = false; example.disabled = false; $("load-status").textContent = "Choose a local export or explore the fictional example. Nothing has been loaded.";
 file.addEventListener("change", () => {
-  const chosen = file.files?.[0]; if (!chosen) return;
-  void load(async () => { if (chosen.size > EXPORT_LIMIT || chosen.size === 0) throw new Error("Export must be nonempty and at most 8 MiB"); return new Uint8Array(await chosen.arrayBuffer()); }, chosen.name, false);
+  const chosen = file.files?.[0];
+  void load(async () => { if (!chosen) throw new Error("No export selected"); if (chosen.size > EXPORT_LIMIT || chosen.size === 0) throw new Error("Export must be nonempty and at most 8 MiB"); return new Uint8Array(await chosen.arrayBuffer()); }, chosen?.name ?? "", false);
 });
+comparisonFile.addEventListener("change", () => { const chosen = comparisonFile.files?.[0]; if (chosen) void compareFile(chosen); else clearComparison(false); });
 example.addEventListener("click", () => { void load(async () => {
   const response = await fetch("/research/review/fictional-journal.v1.json", { method: "GET", credentials: "omit", redirect: "error" });
   if (!response.ok || !response.body) throw new Error("Fictional example is unavailable");

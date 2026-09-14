@@ -120,3 +120,8 @@ the field bounds above. Invalid or partial journals fail closed. The fictional
 site fixture is generated with the same format and is checked by both the
 Python and TypeScript implementations. No automatic pruning or evidence deletion
 is part of this version.
+
+The [fork and comparison workflow](research-journal-branches-v1.md) retains an
+exact source export in a fresh store and allows another local continuation.
+It preserves this wire format and the complete inherited header and rows.
+Matching collection UUIDs do not establish a single canonical writer or branch.

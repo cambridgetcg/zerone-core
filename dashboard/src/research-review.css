@@ -21,8 +21,17 @@
 .import-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem 3rem; padding: 1.75rem; border: 1px solid var(--line); background: var(--surface); }
 .import-panel p { color: var(--muted); font-size: .86rem; }
 .import-actions { display: grid; gap: .75rem; }
-#load-status, #load-error, .import-panel noscript { grid-column: 1/-1; }
-#load-error { border-left: 2px solid #ffb8a8; padding: .7rem 1rem; color: #ffb8a8; }
+#load-status, #load-error, #primary-file-hash, .import-panel noscript { grid-column: 1/-1; }
+#load-error, #comparison-error { border-left: 2px solid #ffb8a8; padding: .7rem 1rem; color: #ffb8a8; }
+.comparison-panel { margin-top: 1rem; padding: 1.75rem; border: 1px solid var(--line); background: var(--surface); }
+.comparison-panel > div:first-child { max-width: 55rem; }
+.comparison-panel p { font-size: .84rem; color: var(--muted); margin-block: .6rem; }
+.comparison-panel > label { max-width: 36rem; margin-block: 1rem; }
+.comparison-files { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-block: 1rem; }
+.comparison-files article { min-width: 0; border: 1px solid var(--line); padding: 1rem; }
+.comparison-files dl { display: grid; gap: .35rem; font-size: .78rem; }
+.comparison-files dt { color: var(--muted); margin-top: .45rem; }
+.comparison-files dd { margin: 0; overflow-wrap: anywhere; }
 .collection-header { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .7rem; margin: 2.5rem 0 1rem; }
 #collection-label { color: var(--acid); font-size: .8rem; }
 .mono, code { font-family: var(--mono); font-size: .75rem; overflow-wrap: anywhere; }
@@ -85,3 +94,4 @@
 @media(max-width: 900px) { .review-layout { grid-template-columns: minmax(190px, .7fr) minmax(0, 1.6fr); } .snapshot-controls { grid-template-columns: 1fr 1fr; } .snapshot-controls > label:last-child { grid-column: 1/-1; } }
 @media(max-width: 680px) { .review-page, .review-header, .review-footer { width: calc(100% - 32px); } .review-header { align-items: flex-start; padding-block: 1.3rem; } .review-header nav { justify-content: flex-end; font-size: .72rem; } .review-intro { padding-block: 3rem 2rem; } .import-panel, .snapshot-controls, .review-layout, .review-ledger { grid-template-columns: 1fr; } .import-panel, .panel, .snapshot-controls { padding: 1rem; } .timeline-panel { max-height: 430px; } .snapshot-controls > label:last-child { grid-column: auto; } .collection-header { flex-direction: column; } .detail-meta { grid-template-columns: 1fr; gap: .15rem; } .detail-meta dd { margin-bottom: .6rem; } }
 @media(prefers-reduced-motion: reduce) { :root { scroll-behavior: auto; } }
+@media(max-width: 680px) { .comparison-panel { padding: 1rem; } .comparison-files { grid-template-columns: 1fr; } }

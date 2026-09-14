@@ -277,6 +277,42 @@ def validate_export(export):
     return export
 
 
+def _history_summary(export):
+    entries = export["entries"]
+    return {"collection_id": export["header"]["collection_id"],
+            "entry_count": len(entries),
+            "head_sha256": entries[-1]["sha256"] if entries else _hash(export["header"])}
+
+
+def compare_exports(left, right):
+    """Compare fully validated histories; no merge, authority or signature claim."""
+    validate_export(left)
+    validate_export(right)
+    result = {"schema": "zerone-research-comparison/v1", "relationship": "different-root",
+              "left": _history_summary(left), "right": _history_summary(right),
+              "common_prefix": None}
+    if canonical(left["header"]) != canonical(right["header"]):
+        return result
+    count = 0
+    for left_row, right_row in zip(left["entries"], right["entries"]):
+        if canonical(left_row) != canonical(right_row):
+            break
+        count += 1
+    result["common_prefix"] = {
+        "entry_count": count,
+        "head_sha256": left["entries"][count - 1]["sha256"] if count else _hash(left["header"])}
+    left_count, right_count = len(left["entries"]), len(right["entries"])
+    if count == left_count == right_count:
+        result["relationship"] = "same-history"
+    elif count == left_count:
+        result["relationship"] = "left-prefix"
+    elif count == right_count:
+        result["relationship"] = "right-prefix"
+    else:
+        result["relationship"] = "diverged"
+    return result
+
+
 def make_export(records, *, collection_id=None, created_at=None, recorded_at=None):
     """Pure constructor for deterministic fixtures; never writes a store.
 
@@ -457,6 +493,57 @@ def create_store(path):
             os.close(parent)
 
 
+def fork_store(source_path, store_path, expected_sha256):
+    """Copy an exact validated export into a fresh store without rebuilding rows.
+
+    The source is read once and checked before creating any output. Its original
+    bytes are retained separately from canonical JSONL; export whitespace may
+    differ even when the complete history is equal. A fork confers no authority
+    over its lineage and authenticates no attributed author or operator.
+    """
+    _digest(expected_sha256)
+    source = Path(source_path)
+    directory = fd = None
+    try:
+        directory = _open_dir(source.parent)
+        fd = _open_file(source.name, directory)
+        raw = _read_fd(fd)
+    except OSError as exc:
+        raise JournalError("cannot read regular fork source: " + str(exc)) from exc
+    finally:
+        if fd is not None:
+            os.close(fd)
+        if directory is not None:
+            os.close(directory)
+    if hashlib.sha256(raw).hexdigest() != expected_sha256:
+        raise JournalError("fork source does not match expected SHA256")
+    export = validate_export(parse_json(raw))
+    journal_raw = _journal_bytes(export)
+    destination = Path(store_path)
+    directory = parent = None
+    try:
+        parent = _open_dir(destination.parent)
+        os.mkdir(destination.name, 0o700, dir_fd=parent)
+        directory = os.open(destination.name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                            dir_fd=parent)
+        _new_file(directory, ".lock", b"")
+        _new_file(directory, "fork-source.json", raw)
+        _new_file(directory, "journal.jsonl", journal_raw)
+        os.fsync(directory)
+        os.fsync(parent)
+    except OSError as exc:
+        # As for init, failed fresh stores remain inspectable; never reset/reuse.
+        raise JournalError("cannot create a fresh fork store: " + str(exc)) from exc
+    finally:
+        if directory is not None:
+            os.close(directory)
+        if parent is not None:
+            os.close(parent)
+    return {"schema": "zerone-research-fork/v1", **_history_summary(export),
+            "source_sha256": expected_sha256,
+            "scope": "Local history copy; no authentication or branch authority."}
+
+
 def export_store(store_path):
     with _locked(store_path) as directory:
         return _load_locked(directory)[0]
@@ -608,6 +695,13 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("init").add_argument("store")
+    fork = commands.add_parser("fork")
+    fork.add_argument("source")
+    fork.add_argument("store")
+    fork.add_argument("--expected-sha256", required=True)
+    compare = commands.add_parser("compare")
+    compare.add_argument("left")
+    compare.add_argument("right")
     append = commands.add_parser("append")
     append.add_argument("store")
     append.add_argument("record_json")
@@ -624,6 +718,10 @@ def main(argv=None):
     try:
         if args.command == "init":
             result = create_store(args.store)
+        elif args.command == "fork":
+            result = fork_store(args.source, args.store, args.expected_sha256)
+        elif args.command == "compare":
+            result = compare_exports(load_export(args.left), load_export(args.right))
         elif args.command == "append":
             records = read_json_file(args.record_json)
             result = append_records(args.store, records if isinstance(records, list) else [records])

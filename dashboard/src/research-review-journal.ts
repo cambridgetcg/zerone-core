@@ -16,6 +16,13 @@ export type JournalRecord = Contribution | Relation | Concern | Assessment;
 export interface Header { schema: "zerone-research-journal/v1"; collection_id: string; created_at: string }
 export interface Entry { sequence: number; recorded_at: string; previous_sha256: string; record: JournalRecord; sha256: string }
 export interface Journal { schema: "zerone-research-export/v1"; header: Header; entries: Entry[] }
+export interface JournalComparison {
+  schema: "zerone-research-comparison/v1";
+  relationship: "same-history" | "left-prefix" | "right-prefix" | "diverged" | "different-root";
+  left: { collection_id: string; entry_count: number; head_sha256: string };
+  right: { collection_id: string; entry_count: number; head_sha256: string };
+  common_prefix: { entry_count: number; head_sha256: string } | null;
+}
 export interface Snapshot { journal: Journal; through: number; historical: boolean; entries: Entry[]; contributions: Entry[]; relations: Entry[]; concerns: Entry[]; assessments: Entry[] }
 export interface ImpactStep { relation: Entry; from: string; to: string; mode: "support" | "dependency" | "shared-input" }
 const verified = new WeakSet<object>();
@@ -189,6 +196,22 @@ export async function validateExport(bytes: Uint8Array): Promise<Journal> {
     prior.set(r.id, r); previous = expected; recorded = time;
   }
   const journal = parsed as unknown as Journal; freeze(journal); verified.add(journal); return journal;
+}
+/** Compare complete validated histories, never selecting an authoritative branch. */
+export async function compareJournals(left: Journal, right: Journal): Promise<JournalComparison> {
+  if (!verified.has(left) || !verified.has(right)) fail("Validate both complete exports before comparing histories");
+  const leftHeader = canonicalJSON(left.header), rightHeader = canonicalJSON(right.header);
+  const [leftRoot, rightRoot] = await Promise.all([sha256(leftHeader), sha256(rightHeader)]);
+  const summary = (journal: Journal, root: string) => ({ collection_id: journal.header.collection_id, entry_count: journal.entries.length, head_sha256: journal.entries.at(-1)?.sha256 ?? root });
+  const result: JournalComparison = { schema: "zerone-research-comparison/v1", relationship: "different-root", left: summary(left, leftRoot), right: summary(right, rightRoot), common_prefix: null };
+  if (leftHeader !== rightHeader) return result;
+  let shared = 0;
+  while (shared < Math.min(left.entries.length, right.entries.length) && canonicalJSON(left.entries[shared]) === canonicalJSON(right.entries[shared])) shared++;
+  result.common_prefix = { entry_count: shared, head_sha256: shared ? left.entries[shared - 1]!.sha256 : leftRoot };
+  result.relationship = shared === left.entries.length
+    ? (shared === right.entries.length ? "same-history" : "left-prefix")
+    : shared === right.entries.length ? "right-prefix" : "diverged";
+  return result;
 }
 export function selectSnapshot(journal: Journal, through = journal.entries.length): Snapshot {
   if (!verified.has(journal)) fail("Validate the complete export before selecting a snapshot");

@@ -95,6 +95,70 @@ refinement. A path is not a proof that a downstream claim is false. Missing
 relations and independent alternative evidence are not inferred. Logical groups
 of necessary/sufficient premises are a later design step.
 
+## Continue a published history
+
+Keep a copy of the exact export and verify its checkpoint separately. From a
+source checkout containing the fork command, start a new local store using the
+published journal's expected file hash:
+
+```sh
+python3 -B tools/research-review/journal.py fork ./journal.json ./my-review \
+  --expected-sha256 86c8163599c0098aa43b4f3599a81b02a03557553fc595b67b026fdfe108704e
+```
+
+That pin identifies the [14 September 2026, 81-entry checkpoint](https://zerone.ai/research/checkpoints/).
+Download its `journal.json` first. The tool performs no download or chain-proof
+verification. It validates the complete file before creating the store and
+retains its exact bytes at `my-review/fork-source.json`. Existing directories
+are refused. The original header and all rows are preserved; only later
+appends get new local acquisition times. Both this continuation and another
+person's continuation can share the same collection UUID without either being
+canonical. Keep each export's own head and file hash.
+
+Prepare a scoped review or concern using the existing record schema, then:
+
+```sh
+python3 -B tools/research-review/journal.py append ./my-review ./my-scoped-review.json
+python3 -B tools/research-review/journal.py export ./my-review --output ./my-review-v1.json
+python3 -B tools/research-review/journal.py compare ./my-review/fork-source.json ./my-review-v1.json
+```
+
+The expected relationship is `left-prefix`: the original is entirely retained
+and the right side adds entries. Use a `review` contribution for an account of
+your check, a concern for a precise issue with a contribution, or an assessment
+of an existing concern/relation. State what you checked and what remains open.
+An attribution label does not authenticate you. No records are submitted or
+signed by these commands.
+
+To try disagreement without making a real scientific assertion, use the
+existing fictional collection and supplied fictional assessment records:
+
+```sh
+python3 -B tools/research-review/journal.py fork \
+  dashboard/public/research/review/fictional-journal.v1.json ./fictional-a \
+  --expected-sha256 bff3ed5ba70b69af8f67ae2be09bb1b30b1b09c746accf59f1bea054eec35f8f
+python3 -B tools/research-review/journal.py fork \
+  dashboard/public/research/review/fictional-journal.v1.json ./fictional-b \
+  --expected-sha256 bff3ed5ba70b69af8f67ae2be09bb1b30b1b09c746accf59f1bea054eec35f8f
+python3 -B tools/research-review/journal.py append ./fictional-a tools/research-review/examples/fictional-review-a.json
+python3 -B tools/research-review/journal.py append ./fictional-b tools/research-review/examples/fictional-review-b.json
+python3 -B tools/research-review/journal.py compare ./fictional-a ./fictional-b
+```
+
+Both branches retain the same 27 earlier entries and add different assessments
+at entry 28. Comparison reports `diverged` with a 27-entry common prefix. It
+does not pick a winner or merge them. Export either store to inspect it in the
+reader; choose the other export under “Compare complete files.” The downloadable
+fictional A/B examples model this split with fixed illustrative timestamps.
+Your actual appends use the current local time, so their hashes will differ.
+
+Comparison validates both complete exports, regardless of the reader's timeline
+cutoff. It distinguishes identical histories, strict extensions, divergence
+and different roots. Identical rows need not mean identical exported bytes;
+whitespace can change an exact-file checkpoint hash. See the
+[branch specification](../../docs/specs/research-journal-branches-v1.md) for the
+comparison fields, preservation rules and trust limits.
+
 ## Integrity and history
 
 The journal generates append times and sequences; `occurred_on` is a separately
