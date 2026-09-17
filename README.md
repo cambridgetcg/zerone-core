@@ -67,6 +67,9 @@ tamper-evident history whose current custodial limits are disclosed. Not proof
 
 ### Current consolidation
 
+For an implementation-grounded overview, read the [Zerone system map](docs/ZERONE_MAP.md):
+networks, infrastructure, all registered modules, data flows and unfinished connections.
+
 Consolidation prioritizes scoped claims, inspectable evidence, challenge and
 correction history, and reliable settlement of explicitly funded work. The
 [lean-core consolidation plan](docs/LEAN-CORE-CONSOLIDATION.md) identifies

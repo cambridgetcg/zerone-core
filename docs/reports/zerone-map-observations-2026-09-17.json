@@ -1,0 +1,563 @@
+{
+  "schema": "zerone.map-observations/v1",
+  "observed_at": "2026-09-17T12:28:04.120018Z",
+  "source_commit": "cb12a457b15fb21ebc42d9fb9b6414c161c194cc",
+  "scope": "Dated public endpoint responses and selected non-secret Fly inventory facts. Operator observations, not independent consensus proofs. Machine IDs, volume IDs, image coordinates, keys, environment and account metadata are excluded.",
+  "public_observations": {
+    "development_status": {
+      "url": "https://zerone-dev-1.fly.dev/status",
+      "observed_at": "2026-09-17T12:28:04.121073Z",
+      "method": "GET",
+      "http_status": 200,
+      "response_sha256": "bfbfa0491ee35c6bf1828d7551beefbeacb76e18c25dac9e7c2adbfb74da62f8",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": -1,
+        "result": {
+          "node_info": {
+            "protocol_version": {
+              "p2p": "8",
+              "block": "11",
+              "app": "0"
+            },
+            "id": "930f24e3a4ac6ef4e3b7164bc4383f91a962a4eb",
+            "listen_addr": "zerone-dev-1.fly.dev:26656",
+            "network": "zerone-dev-1",
+            "version": "0.38.25",
+            "channels": "40202122233038606100",
+            "moniker": "zerone-dev-validator",
+            "other": {
+              "tx_index": "on",
+              "rpc_address": "tcp://127.0.0.1:26657"
+            }
+          },
+          "sync_info": {
+            "latest_block_hash": "96B9C7CED9015DAB1E00F95C3CBD7AB7B47578CAD0649CD6695F69F7D932B8F5",
+            "latest_app_hash": "FB605DCD2DEDF5E4C57999D739827A9D619931F25039FA1C4FC03F97C4A09201",
+            "latest_block_height": "427212",
+            "latest_block_time": "2026-09-17T12:28:03.927497371Z",
+            "earliest_block_hash": "15B8C817F778039D947C5E43A5FBB4B43519886E4842531E99CE19D125A23135",
+            "earliest_app_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "earliest_block_height": "1",
+            "earliest_block_time": "2026-09-12T12:51:11.56567347Z",
+            "catching_up": false
+          },
+          "validator_info": {
+            "address": "E85D65FC900DEFEB9FF160F1E6EEA2CA00768420",
+            "pub_key": {
+              "type": "tendermint/PubKeyEd25519",
+              "value": "C7jBQ2qhJ6uORoLnFoshmLIeKOeOtDnDlCsWdpgsJBg="
+            },
+            "voting_power": "1000000"
+          }
+        }
+      }
+    },
+    "development_network": {
+      "url": "https://zerone-dev-1.fly.dev/network.json",
+      "observed_at": "2026-09-17T12:28:04.121150Z",
+      "method": "GET",
+      "http_status": 200,
+      "response_sha256": "768d7dd7b389d844670fa7f4ac7b34b41c7b9ac4994f88526369f7726dd993e1",
+      "response": {
+        "account_types": [
+          "human",
+          "agent"
+        ],
+        "bootstrap_consensus": "single-operator",
+        "chain_id": "zerone-dev-1",
+        "commitment_scheme": 2,
+        "denom": "uzrn",
+        "faucet": {
+          "amount_uzrn": "1000000000",
+          "grants_per_address": 1,
+          "grants_per_hour": 10,
+          "grants_per_ip_per_hour": 5,
+          "lifetime_cap_uzrn": "100000000000"
+        },
+        "faucet_url": "https://zerone-dev-1.fly.dev/faucet",
+        "gas_limit": 2000000,
+        "genesis_sha256": "f8b4570b37fd41d5b63c02fbae1f89225c197c75315e8629650716f6e5f79256",
+        "genesis_url": "https://zerone-dev-1.fly.dev/genesis.json",
+        "knowledge_version": 11,
+        "local_test": false,
+        "node_id": "930f24e3a4ac6ef4e3b7164bc4383f91a962a4eb",
+        "notice": "Valueless development funds. One operator initially produces blocks. Account count does not establish reviewer independence. Queries are operator-node observations, not verified inclusion proofs.",
+        "peer": "930f24e3a4ac6ef4e3b7164bc4383f91a962a4eb@zerone-dev-1.fly.dev:26656",
+        "reset_policy": "new-chain-id",
+        "review_policy_version": 1,
+        "review_window_blocks": 3600,
+        "rpc_genesis_sha256": "94e246770c7429ecc7ce417edacb4af1f4b721ea3ff0875f7a1f09c5567878a7",
+        "rpc_url": "https://zerone-dev-1.fly.dev",
+        "runtime_binary_sha256": "6cbafddf0d1c8dda3e6ab9f8a5d87d49992f7b699f746ee2d7632e494115a2c6",
+        "schema": "zerone-shared-development/v1",
+        "source_commit": "5542b221864ca0080e143fa82abbef4cd2064f71",
+        "tx_fee_uzrn": "2000000"
+      }
+    },
+    "development_health": {
+      "url": "https://zerone-dev-1.fly.dev/healthz",
+      "observed_at": "2026-09-17T12:28:04.121236Z",
+      "method": "GET",
+      "http_status": 200,
+      "response_sha256": "4a7cd7f1d43776e7892b141850cb82fa0e6e274206de6cf73203f27b15699116",
+      "response": {
+        "chain_id": "zerone-dev-1",
+        "height": "427212"
+      }
+    },
+    "development_applied_upgrade": {
+      "url": "https://zerone-dev-1.fly.dev/abci_query?path=%22%2Fcosmos.upgrade.v1beta1.Query%2FAppliedPlan%22&data=0x0a1c6b6e6f776c656467652d66756e642d736574746c656d656e742d7631",
+      "observed_at": "2026-09-17T12:28:04.121300Z",
+      "method": "GET",
+      "http_status": 200,
+      "response_sha256": "34a20ef2077076745d8744d458fe8576afbb4fe3c8154bcd27b6bba2b90aa79b",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": -1,
+        "result": {
+          "response": {
+            "code": 0,
+            "log": "",
+            "info": "",
+            "index": "0",
+            "key": null,
+            "value": "COCnEg==",
+            "proofOps": null,
+            "height": "427212",
+            "codespace": ""
+          }
+        }
+      },
+      "decoded_response": {
+        "plan_name": "knowledge-fund-settlement-v1",
+        "protobuf_field_1_applied_height": 300000,
+        "protobuf_response_hex": "08e0a712"
+      }
+    },
+    "legacy_status_via_edge": {
+      "url": "https://zerone-rpc.fly.dev/status",
+      "observed_at": "2026-09-17T12:28:04.121347Z",
+      "method": "GET",
+      "http_status": 200,
+      "response_sha256": "1e8cbd2df1227bda6e78174be28e684a3e16190e4e0add100ae09f1d0cba2324",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": -1,
+        "result": {
+          "node_info": {
+            "protocol_version": {
+              "p2p": "8",
+              "block": "11",
+              "app": "0"
+            },
+            "id": "ed8c8d49dc23f3478b2f3eddb49b8f8087828b6e",
+            "listen_addr": "169.155.55.44:26656",
+            "network": "zerone-1",
+            "version": "0.38.19",
+            "channels": "40202122233038606100",
+            "moniker": "zerone-1-fly-0",
+            "other": {
+              "tx_index": "on",
+              "rpc_address": "tcp://0.0.0.0:26657"
+            }
+          },
+          "sync_info": {
+            "latest_block_hash": "36A882DD72E605B99214FE566D5D6FA1212C0CC4FA5655F3222596B4B005C14C",
+            "latest_app_hash": "A191AE685FD7DC1AF84CBDED0A95DCB051B1DD6EAE4156759B37BFFD3B2490DD",
+            "latest_block_height": "1284199",
+            "latest_block_time": "2026-09-17T12:27:25.380600106Z",
+            "earliest_block_hash": "73616776E9B59FDAE3030F04C5F5AF55BD1EB351AC8911AA3756A4A3242E5B13",
+            "earliest_app_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "earliest_block_height": "1",
+            "earliest_block_time": "2026-07-08T14:10:14.997174Z",
+            "catching_up": false
+          },
+          "validator_info": {
+            "address": "93DBC1A1D9A07E67423B193395C9EB6F1E41B844",
+            "pub_key": {
+              "type": "tendermint/PubKeyEd25519",
+              "value": "LA944mpk44k8Jr9EN/uOzSSf8G+Ng2LiIvf9FJBkl80="
+            },
+            "voting_power": "11111"
+          }
+        }
+      }
+    },
+    "legacy_edge_health": {
+      "url": "https://zerone-rpc.fly.dev/healthz",
+      "observed_at": "2026-09-17T12:28:04.121401Z",
+      "method": "GET",
+      "http_status": 200,
+      "response_sha256": "31d6a1e720dfc8c2d18b4ffd249738502382f22346a24673b31800b6bc7093bb",
+      "response_excerpt": "query-edge-ready\n"
+    },
+    "legacy_direct_status": {
+      "url": "http://zerone-1.fly.dev:26657/status",
+      "observed_at": "2026-09-17T12:28:04.121447Z",
+      "method": "GET",
+      "http_status": 200,
+      "response_sha256": "1e8cbd2df1227bda6e78174be28e684a3e16190e4e0add100ae09f1d0cba2324",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": -1,
+        "result": {
+          "node_info": {
+            "protocol_version": {
+              "p2p": "8",
+              "block": "11",
+              "app": "0"
+            },
+            "id": "ed8c8d49dc23f3478b2f3eddb49b8f8087828b6e",
+            "listen_addr": "169.155.55.44:26656",
+            "network": "zerone-1",
+            "version": "0.38.19",
+            "channels": "40202122233038606100",
+            "moniker": "zerone-1-fly-0",
+            "other": {
+              "tx_index": "on",
+              "rpc_address": "tcp://0.0.0.0:26657"
+            }
+          },
+          "sync_info": {
+            "latest_block_hash": "36A882DD72E605B99214FE566D5D6FA1212C0CC4FA5655F3222596B4B005C14C",
+            "latest_app_hash": "A191AE685FD7DC1AF84CBDED0A95DCB051B1DD6EAE4156759B37BFFD3B2490DD",
+            "latest_block_height": "1284199",
+            "latest_block_time": "2026-09-17T12:27:25.380600106Z",
+            "earliest_block_hash": "73616776E9B59FDAE3030F04C5F5AF55BD1EB351AC8911AA3756A4A3242E5B13",
+            "earliest_app_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "earliest_block_height": "1",
+            "earliest_block_time": "2026-07-08T14:10:14.997174Z",
+            "catching_up": false
+          },
+          "validator_info": {
+            "address": "93DBC1A1D9A07E67423B193395C9EB6F1E41B844",
+            "pub_key": {
+              "type": "tendermint/PubKeyEd25519",
+              "value": "LA944mpk44k8Jr9EN/uOzSSf8G+Ng2LiIvf9FJBkl80="
+            },
+            "voting_power": "11111"
+          }
+        }
+      }
+    },
+    "legacy_testnet_direct_status": {
+      "url": "http://zerone-testnet-1.fly.dev:26657/status",
+      "observed_at": "2026-09-17T12:28:04.121486Z",
+      "method": "GET",
+      "http_status": 200,
+      "response_sha256": "9fe722efd479cb7c48c7c5a2c995db1f753ef1893951899b27b649fee4670c67",
+      "response": {
+        "jsonrpc": "2.0",
+        "id": -1,
+        "result": {
+          "node_info": {
+            "protocol_version": {
+              "p2p": "8",
+              "block": "11",
+              "app": "0"
+            },
+            "id": "9a9c6b9d36c55d21c32b1ee8749adf8dd7c6b0d4",
+            "listen_addr": "37.16.28.121:26656",
+            "network": "zerone-testnet-1",
+            "version": "0.38.19",
+            "channels": "40202122233038606100",
+            "moniker": "zerone-testnet-fly-0",
+            "other": {
+              "tx_index": "on",
+              "rpc_address": "tcp://0.0.0.0:26657"
+            }
+          },
+          "sync_info": {
+            "latest_block_hash": "8A2B787C6ED5BBD736F331BBE1AA689BA6571C4620AE72F3BD67B26DB555AE7B",
+            "latest_app_hash": "ECD7176A9BE0D42A6B321E1AFE1CC1FA0CF3C494FE9893A4AF82A137B97D9DCA",
+            "latest_block_height": "2278098",
+            "latest_block_time": "2026-09-17T12:28:02.422027182Z",
+            "earliest_block_hash": "D9A35EB92CB3BE6568BF16E56C4067C2E308BE352BCD75541AE7E18C169FED2B",
+            "earliest_app_hash": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855",
+            "earliest_block_height": "1",
+            "earliest_block_time": "2026-07-07T15:46:17.69565Z",
+            "catching_up": false
+          },
+          "validator_info": {
+            "address": "15F0AF1ED9DD3CDCB2BC229DD4FF56FFDDCA80F8",
+            "pub_key": {
+              "type": "tendermint/PubKeyEd25519",
+              "value": "Fi59pHgJWWSYvydfBDz/vuY0sAyWDtlaRBnT2lOfRPU="
+            },
+            "voting_power": "100000"
+          }
+        }
+      }
+    },
+    "website_development_guide": {
+      "url": "https://zerone.ai/development/guide.json",
+      "method": "GET",
+      "http_status": 200,
+      "observed_at": "2026-09-17T12:31:59Z",
+      "response_sha256": "33919e03aa620c03056976139fb8a637534cf54ade56d27139853ab569280906",
+      "response": {
+        "schema": "zerone.development-guide/v1",
+        "chainId": "zerone-dev-1",
+        "title": "Work on a claim together",
+        "availability": "operator-verified-publication",
+        "status": "Deployment checked 2026-09-12T13:08:04Z. Availability can change; reads below make a new endpoint observation.",
+        "source": {
+          "commit": "cb12a457b15fb21ebc42d9fb9b6414c161c194cc",
+          "guide": "https://github.com/cambridgetcg/zerone-core/blob/cb12a457b15fb21ebc42d9fb9b6414c161c194cc/docs/SHARED-DEVELOPMENT.md",
+          "client": "https://github.com/cambridgetcg/zerone-core/blob/cb12a457b15fb21ebc42d9fb9b6414c161c194cc/scripts/shared-claims.py",
+          "scope": "Website documentation and participant client source; deployed binary source is identified separately."
+        },
+        "endpoints": {
+          "descriptor": "https://zerone-dev-1.fly.dev/network.json",
+          "genesis": "https://zerone-dev-1.fly.dev/genesis.json",
+          "gateway": "https://zerone-dev-1.fly.dev"
+        },
+        "publication": {
+          "schema": "zerone.development-publication/v1",
+          "chain_id": "zerone-dev-1",
+          "gateway": "https://zerone-dev-1.fly.dev",
+          "descriptor_sha256": "e01f9e472630d98faef57341cb431acb6a0e733873b79ca95103ab9cba043e2b",
+          "genesis_sha256": "f8b4570b37fd41d5b63c02fbae1f89225c197c75315e8629650716f6e5f79256",
+          "rpc_genesis_sha256": "94e246770c7429ecc7ce417edacb4af1f4b721ea3ff0875f7a1f09c5567878a7",
+          "runtime_source_commit": "ac5684e33b6946a31f6ea260ebf280eace55b033",
+          "binary_sha256": "62f1d54ab26742f7fb8ab51d2cab318fd513f41f4d5bb0a202de987dfff715b1",
+          "verified_at": "2026-09-12T13:08:04Z"
+        },
+        "packages": {
+          "tag": "zerone-dev-1-ac5684e33b69",
+          "releaseUrl": "https://github.com/cambridgetcg/zerone-core/releases/tag/zerone-dev-1-ac5684e33b69",
+          "recordUrl": "https://github.com/cambridgetcg/zerone-core/blob/cb12a457b15fb21ebc42d9fb9b6414c161c194cc/deploy/networks/zerone-dev-1/release.json",
+          "recordRawUrl": "https://raw.githubusercontent.com/cambridgetcg/zerone-core/cb12a457b15fb21ebc42d9fb9b6414c161c194cc/deploy/networks/zerone-dev-1/release.json",
+          "sourceScope": "Package source is the runtime commit; the release record and instructions are pinned to this website's source commit.",
+          "verification": "Verify the archive SHA-256 against the source-pinned release record before extracting or running it. That record also identifies each platform's binary hash. A checksum identifies bytes; it is not a security audit or independent operator trust.",
+          "artifacts": [
+            {
+              "platform": "linux-amd64",
+              "label": "Linux \u00b7 x86-64",
+              "name": "zerone-dev-1-ac5684e33b69-linux-amd64.tar.gz",
+              "url": "https://github.com/cambridgetcg/zerone-core/releases/download/zerone-dev-1-ac5684e33b69/zerone-dev-1-ac5684e33b69-linux-amd64.tar.gz"
+            },
+            {
+              "platform": "darwin-arm64",
+              "label": "macOS \u00b7 Apple Silicon",
+              "name": "zerone-dev-1-ac5684e33b69-darwin-arm64.tar.gz",
+              "url": "https://github.com/cambridgetcg/zerone-core/releases/download/zerone-dev-1-ac5684e33b69/zerone-dev-1-ac5684e33b69-darwin-arm64.tar.gz"
+            }
+          ]
+        },
+        "upgradeProposal": {
+          "status": "proposed",
+          "target_source_commit": "5542b221864ca0080e143fa82abbef4cd2064f71",
+          "height": "300000",
+          "proposal_id": "1",
+          "recorded_at": "2026-09-13T01:12:41Z",
+          "observed_height": "44135",
+          "packet_url": "https://github.com/cambridgetcg/zerone-core/releases/download/zerone-dev-1-5542b221864c/UPGRADE.json",
+          "packet_sha256": "04f0415a361396e28397155ecb3c0b13d578475ebf1b86c3e2e2b5d533006f75",
+          "release_record_url": "https://github.com/cambridgetcg/zerone-core/releases/download/zerone-dev-1-5542b221864c/UPGRADE-RELEASE.json",
+          "release_record_sha256": "be85503652e9c467e074970c7169c80d5864a2a34fc620db7ca83d0b435d1d2b",
+          "name": "knowledge-fund-settlement-v1",
+          "label": "Proposed \u00b7 activation not verified here",
+          "releaseUrl": "https://github.com/cambridgetcg/zerone-core/releases/tag/zerone-dev-1-5542b221864c",
+          "specUrl": "https://github.com/cambridgetcg/zerone-core/blob/cb12a457b15fb21ebc42d9fb9b6414c161c194cc/docs/specs/knowledge-fund-settlement-v1.md",
+          "runtimeGuideUrl": "https://github.com/cambridgetcg/zerone-core/blob/cb12a457b15fb21ebc42d9fb9b6414c161c194cc/deploy/networks/zerone-dev-1/README.md#stage-a-knowledge-10-to-11-upgrade",
+          "effect": "This dated proposal notice does not verify activation. The original compatible participant packages remain available below. An applied upgrade and successor descriptor require separate observation and publication.",
+          "participantContinuity": "Existing participant homes remain usable with their original verified package, binary, descriptor and client files. Existing commitments keep their original deadlines and can be revealed with that client. Older binaries omit the new funding fields; the current history reader can display them when the chain returns them.",
+          "followerContinuity": "Fresh full nodes need both verified packages: use the predecessor helper to join the original genesis, then stage both binaries with the successor helper. Replay uses version 10 until the exact upgrade boundary and version 11 afterward. No genesis reset or identity replacement is part of this path.",
+          "funding": "After actual activation, new admissions retain explicit funding terms. Ordinary claims and conjectures allocate 55% to review and retain the remainder; challenges allocate 55% to review and make the remainder refundable for every terminal verdict. With no eligible reveals the review budget is refundable too. A refundable amount is not evidence of payment. Network fees are separate, and old claims keep their original rules."
+        },
+        "exampleClaim": {
+          "claimId": "8db0bccfb17b9a5ad1cf2389b79abd38",
+          "url": "/development/?claim=8db0bccfb17b9a5ad1cf2389b79abd38",
+          "includedAtHeight": "432",
+          "observedOn": "2026-09-12",
+          "label": "Read the operator-owned example",
+          "scope": "An operator-owned prime-polynomial exercise was included at height 432 on 12 September 2026. At that check it had no reviews or challenges. This is a setup exercise, with no claim of acceptance or independent endorsement; open it for a new endpoint observation."
+        },
+        "consensus": "The initial consensus has one operator-controlled validator seat. Development funds and full nodes do not confer block-signing membership. Separately controlled contributors and reviewers are welcome; several addresses do not prove independent people or agents.",
+        "funds": "Valueless development funds: 1,000 ZRN per address, once, within a 100,000 ZRN lifetime faucet budget. At most 5 new grants per IP per hour and 10 globally per hour. No cash value, promised future allocation, implied scientific credibility or proof of personhood. Existing development fee and review-settlement rules still apply.",
+        "reviews": "Commit and reveal each allow 3,600 blocks by default. Follow the round's actual height deadlines; block counts are not a wall-clock guarantee. Keep your committed review and salt locally until reveal.",
+        "resets": "A reset requires a new chain ID and a public notice preserving the old public history. This network does not replace zerone-1 or activate zerone-2.",
+        "privacy": "Claims, reasons, references and revealed reviews become public records. Publish only material you may share; corrections do not make prior public material private.",
+        "effects": {
+          "browserReads": "fixed-development-gateway-GET-only",
+          "browserFaucet": false,
+          "wallet": false,
+          "signing": false,
+          "transactions": false,
+          "browserStorage": false,
+          "agentProtocolEndpoint": false
+        }
+      }
+    }
+  },
+  "provider_summary": [
+    {
+      "role": "zerone-1",
+      "observed_at": "2026-09-17T12:28:05.280147Z",
+      "machines": [
+        {
+          "state": "started",
+          "region": "lhr",
+          "guest": {
+            "cpu_kind": "shared",
+            "cpus": 2,
+            "memory_mb": 4096
+          }
+        }
+      ],
+      "volumes": [
+        {
+          "size_gb": 20,
+          "encrypted": true,
+          "snapshot_retention": 60,
+          "auto_backup_enabled": true,
+          "snapshot_inventory": {
+            "count": 37,
+            "latest": {
+              "created_at": "2026-09-17T10:40:03Z",
+              "status": "created",
+              "retention_days": 60,
+              "size": 2326120214,
+              "volume_size": 21474836480
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "zerone-dev-1",
+      "observed_at": "2026-09-17T12:28:05.280397Z",
+      "machines": [
+        {
+          "state": "started",
+          "region": "lhr",
+          "guest": {
+            "cpu_kind": "shared",
+            "cpus": 2,
+            "memory_mb": 4096
+          }
+        }
+      ],
+      "volumes": [
+        {
+          "size_gb": 20,
+          "encrypted": true,
+          "snapshot_retention": 5,
+          "auto_backup_enabled": true,
+          "snapshot_inventory": {
+            "count": 5,
+            "latest": {
+              "created_at": "2026-09-16T21:13:38Z",
+              "status": "created",
+              "retention_days": 5,
+              "size": 16506044509,
+              "volume_size": 21474836480
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "zerone-rpc",
+      "observed_at": "2026-09-17T12:28:05.287573Z",
+      "machines": [
+        {
+          "state": "started",
+          "region": "lhr",
+          "guest": {
+            "cpu_kind": "shared",
+            "cpus": 1,
+            "memory_mb": 256
+          }
+        },
+        {
+          "state": "started",
+          "region": "lhr",
+          "guest": {
+            "cpu_kind": "shared",
+            "cpus": 1,
+            "memory_mb": 256
+          }
+        }
+      ],
+      "volumes": []
+    },
+    {
+      "role": "zerone-testnet-1",
+      "observed_at": "2026-09-17T12:28:05.290134Z",
+      "machines": [
+        {
+          "state": "started",
+          "region": "lhr",
+          "guest": {
+            "cpu_kind": "shared",
+            "cpus": 2,
+            "memory_mb": 4096
+          }
+        }
+      ],
+      "volumes": [
+        {
+          "size_gb": 20,
+          "encrypted": true,
+          "snapshot_retention": 14,
+          "auto_backup_enabled": true,
+          "snapshot_inventory": {
+            "count": 14,
+            "latest": {
+              "created_at": "2026-09-16T18:56:56Z",
+              "status": "created",
+              "retention_days": 14,
+              "size": 16546910788,
+              "volume_size": 21474836480
+            }
+          }
+        }
+      ]
+    },
+    {
+      "role": "release workstation",
+      "observed_at": "2026-09-17T12:28:05.292083Z",
+      "machines": [
+        {
+          "state": "stopped",
+          "region": "lhr",
+          "guest": {
+            "cpu_kind": "performance",
+            "cpus": 4,
+            "memory_mb": 8192
+          }
+        }
+      ],
+      "volumes": [
+        {
+          "size_gb": 30,
+          "encrypted": true,
+          "snapshot_retention": 14,
+          "auto_backup_enabled": true,
+          "snapshot_inventory": {
+            "count": 11,
+            "latest": {
+              "created_at": "2026-09-16T21:02:11Z",
+              "status": "created",
+              "retention_days": 14,
+              "size": 486461,
+              "volume_size": 32212254720
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "reader_verification": {
+    "observed_at": "2026-09-17T12:31:59Z",
+    "implementation": "dashboard/src/development-reader.ts:verifyDescriptor",
+    "method": "Existing function invoked through tsx against fresh public descriptor bytes and the public website guide pins; no implementation changes.",
+    "expected_sha256": "e01f9e472630d98faef57341cb431acb6a0e733873b79ca95103ab9cba043e2b",
+    "actual_sha256": "768d7dd7b389d844670fa7f4ac7b34b41c7b9ac4994f88526369f7726dd993e1",
+    "outcome": "rejected-before-claim-history-fetch",
+    "message": "Network descriptor differs from the published SHA-256; stop and check the network notice"
+  }
+}
