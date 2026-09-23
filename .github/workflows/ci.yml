@@ -736,6 +736,9 @@ jobs:
           ZERONE_SHARED_EVIDENCE_PARENT="$ZERONE_CONSENSUS_EVIDENCE/shared-participant-reports" \
           ZERONE_SHARED_TEST_BINARY="${binaries[0]}" \
             python3 -m unittest discover -s scripts -p 'test_shared_claims*.py' -v
+          ZERONE_RESEARCH_EVIDENCE_PARENT="$ZERONE_CONSENSUS_EVIDENCE/shared-participant-reports" \
+          ZERONE_RESEARCH_TEST_BINARY="${binaries[0]}" \
+            python3 -B -m unittest discover -s tools/research-review -p 'test_workflow_native.py' -v
       - name: Retain consensus reports and logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2

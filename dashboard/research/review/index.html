@@ -21,7 +21,7 @@
         <p class="eyebrow">Research Review · local journal reader</p>
         <h1 id="title">Keep the origin.<br /><em>Follow the changes.</em></h1>
         <p class="lede">Explore how attributed ideas, methods and findings connect. Revisit what was in a collection at a particular point, while keeping concerns and differing assessments visible.</p>
-        <p class="boundary">A journal’s hashes check its internal consistency. They do not authenticate its authors, establish an exhaustive history, or prove a finding. This page reads local exports; it does not create or modify on-chain records.</p>
+        <p class="boundary">A journal’s hashes check its internal consistency. They do not authenticate its authors, establish an exhaustive history, or prove a finding. Prepare a claim locally, submit with your own participant client, then bring its receipt back to follow reviews, corrections and funding.</p>
         <p><a href="/research/checkpoints/">Download a dated research checkpoint</a>: an attributed mathematical case, its earlier attempts and reproducible evidence. Import its journal here to explore the history.</p>
       </section>
       <section class="import-panel" aria-labelledby="import-title">
@@ -31,6 +31,12 @@
         <p id="primary-file-hash" class="mono" hidden></p>
         <p id="load-error" role="alert" hidden></p>
         <noscript><p class="notice">The interactive reader is unavailable with JavaScript off. You can <a href="/research/review/fictional-journal.v1.json" download>download the explicitly fictional example</a> and inspect it with the <a href="https://github.com/cambridgetcg/zerone-core/tree/main/tools/research-review">local journal tools</a>. No imported records have been validated or displayed here.</p></noscript>
+      </section>
+      <section class="workflow-import" aria-labelledby="workflow-import-title">
+        <h2 id="workflow-import-title">Continue a claim workflow</h2>
+        <p>Open a previously downloaded workflow packet, including one returned by your participant client. Its complete journal, chosen claim and recorded observations are checked locally. Importing makes no network request.</p>
+        <label for="workflow-file">Local workflow packet · up to 16 MiB<input id="workflow-file" type="file" accept=".json,application/json" disabled /></label>
+        <p id="workflow-import-status" role="status" aria-live="polite">JavaScript is required to validate a workflow packet.</p>
       </section>
       <section class="comparison-panel" aria-labelledby="comparison-title">
         <div><h2 id="comparison-title">Compare complete files</h2><p>After opening the primary file (A), choose another export (B). Both complete histories are validated. This comparison is independent of the timeline cutoff below; it does not select a canonical or trustworthy branch.</p></div>
@@ -65,6 +71,29 @@
             <section class="panel details-panel" aria-labelledby="details-title"><h2 id="details-title">Record &amp; evidence</h2><div id="details" data-testid="details"></div></section>
           </div>
         </div>
+        <section class="workflow-panel panel" aria-labelledby="workflow-title">
+          <p class="eyebrow">Journal → claim → review → correction → funding</p>
+          <h2 id="workflow-title">Prepare one bounded claim</h2>
+          <p id="workflow-selection" class="small"></p>
+          <p class="small">Choose what you want reviewed. These fields are your draft, separate from the original attributed contribution. A correction starts with a new journal record that keeps its earlier version through <code>supersedes</code>; existing assessments are never moved to the new claim.</p>
+          <form id="workflow-form">
+            <label for="workflow-content">Claim to review · 20–1,000 UTF-8 bytes<textarea id="workflow-content" rows="4" required></textarea></label>
+            <label for="workflow-reasoning">Reasoning, evidence references and limits<textarea id="workflow-reasoning" rows="4" required></textarea></label>
+            <div class="workflow-fields"><label for="workflow-domain">Domain<input id="workflow-domain" type="text" required /></label><label for="workflow-category">Category<input id="workflow-category" type="text" required /></label><label for="workflow-method">Method ID · optional<input id="workflow-method" type="text" placeholder="For example, M-COMPUTATIONAL" /></label></div>
+            <p class="small">The downloaded packet contains the complete imported journal, including entries after a historical cutoff. Check its contents before sharing. The participant client submits only your chosen claim, reasoning and provenance hashes; the full journal is not uploaded by this page.</p>
+            <button id="workflow-prepare" type="submit" disabled>Prepare local packet</button>
+          </form>
+          <p id="workflow-status" role="status" aria-live="polite">Select a contribution to prepare a packet.</p>
+          <div id="workflow-summary" hidden></div>
+          <div class="workflow-actions"><button id="workflow-download" type="button" disabled>Download workflow packet</button><button id="workflow-read" type="button" disabled>Read current native history</button></div>
+          <div id="workflow-next" hidden><h3>Continue with your own keys</h3><p>From a verified source checkout, inspect the downloaded packet, then submit with your existing participant home and its verified client. Replace the two absolute paths below with your own. The client returns its receipt in the packet; import that same file here.</p><pre><code>python3 tools/research-review/workflow.py inspect --packet ./zerone-research-workflow.json
+python3 tools/research-review/workflow.py submit --packet ./zerone-research-workflow.json --home /absolute/participant-home --client /absolute/verified-package/shared-claims.py
+python3 tools/research-review/workflow.py refresh --packet ./zerone-research-workflow.json --home /absolute/participant-home --client /absolute/verified-package/shared-claims.py</code></pre><p>After a started or uncertain submission, use <code>refresh</code> first. If the packet remains started without a receipt, deliberately resume through the existing client’s recovery guards:</p><pre><code>python3 tools/research-review/workflow.py resume --packet ./zerone-research-workflow.json --home /absolute/participant-home --client /absolute/verified-package/shared-claims.py</code></pre><p>Do not submit the packet again. Reviewers choose and sign their own reasons and verdicts in their clients. This page never holds a key or signs a transaction.</p><p><a href="/development/#participate">Participant setup and review guide →</a> · <a href="https://github.com/cambridgetcg/zerone-core/tree/main/tools/research-review">Workflow commands and journal tools →</a></p></div>
+          <p class="small">Native observations use their own recorded block heights and times, separate from the journal timeline cutoff above. A review can remain inconclusive; a correction or payment is shown only when the retained native records report it.</p>
+          <p id="workflow-observation-status" class="notice" role="status" aria-live="polite">Native history requires a validated successful submission receipt. A saved observation is dated endpoint state, not a live result or a proof of truth.</p>
+          <div id="workflow-history"></div>
+          <!-- RESEARCH_DEVELOPMENT_PINS -->
+        </section>
         <div class="review-ledger">
           <section class="panel" aria-labelledby="concerns-title"><h2 id="concerns-title">Concerns in this snapshot</h2><p class="small">Attributed leads for review, including artifact discrepancies and publisher notices. A concern is not a misconduct verdict.</p><div id="concerns" data-testid="concerns"></div></section>
           <section class="panel" aria-labelledby="assessments-title"><h2 id="assessments-title">All assessments in this snapshot</h2><p class="small">Each assessment keeps its author and scope. A later “addressed” entry does not erase disagreement or resolve the collection for everyone.</p><div id="assessments" data-testid="assessments"></div></section>

@@ -1,9 +1,10 @@
 # Module consolidation sequence
 
-Status: **staged engineering plan, 23 September 2026**, reviewed against source
-`6e2437ded256b761baabef75a9cca98cbcfe079b`. The app still registers all 23 custom
-modules. This plan selects implementation work; it removes no module, changes
-no custody or admission rule, and adopts no controller/consent policy.
+Status: **implementation sequence, 23 September 2026**. App/authority baseline:
+`8f40f59c96dd01c0d59b454a7254fda8bc632c89`; the local workflow implementation is
+linked below. The app still registers all 23 custom modules. The journal/client
+integration changes no keeper wiring, custody or admission rule and adopts no
+controller/consent policy. H4-F, H4 and H5 remain pending.
 
 [Authoritative State](AUTHORITATIVE-STATE.md) remains the accepted authority
 design. [Lean core consolidation](LEAN-CORE-CONSOLIDATION.md) remains the product
@@ -17,7 +18,7 @@ consistency boundary; it does not establish independent operator control.
 | --- | --- | --- |
 | Keep literature, a question, method, concern, assessment or divergent continuation | Local [Research Review journal](specs/research-review-journal-v1.md), export and browser reader | Attributed local records and plural branches; no consensus mutation, native verdict or payment entitlement. |
 | Commit one exact research export to a signed chain transaction | Optional [research checkpoint](specs/research-checkpoint-v1.md) | Account-signed digest commitment; no native Claim/Fact or review round. Exact files require separate preservation. |
-| Ask for a bounded, paid review of an assertion | Explicit signed native claim through [shared development](SHARED-DEVELOPMENT.md) | Public assertion, review deadlines, recorded funding terms, retained reviews and possible Fact. Evidence must be retrievable separately. |
+| Ask for a bounded, paid review of an assertion | Explicit signed native claim through [shared development](SHARED-DEVELOPMENT.md); the [research workflow adapter](specs/research-workflow-v1.md) binds a selected journal contribution to that intent | Public assertion, review deadlines, recorded funding terms, retained reviews and possible Fact. Evidence must be retrievable separately. |
 | Present counterevidence to an existing native Fact | Explicit native contradiction/challenge with the actual Fact ID | Separate counterclaim, fees/deposit, review and retained relation; no automatic erasure or final falsification. |
 
 Use the journal when no native admission is needed. A journal entry, DOI
@@ -26,6 +27,15 @@ not silently become a native claim or reward request. When deliberately moving
 work into a claim, the submitter selects the exact assertion and evidence,
 accepts the published costs, and signs that admission. Keep journal attribution,
 account control, independent review and scientific validity as separate claims.
+
+The implemented [local adapter](../tools/research-review/README.md) prepares an
+exact journal/record/intent binding, delegates explicit submission to the
+participant's pinned client, and retains its receipt and dated history in a
+separate workflow file. The browser can prepare/import that file and explicitly
+read matching native history using the published development pins. Importing
+does not submit or fetch; the complete journal stays local. Saved observations
+remain labelled observations, and a journal correction needs its own explicit
+native action if the participant wants one.
 
 The current neutral-review policy counts admitted accounts equally and pays
 timely recorded reviews, including dissent. Its reusable 100 ZRN balance check
@@ -36,13 +46,17 @@ current panel or impose identity collection on research readers.
 
 ## Sequence and completion evidence
 
-1. **Make the supported development workflow usable.** Reconcile the published
-   participant descriptor/package with the applied knowledge-11 runtime. Keep
-   version-10 genesis replay, immutable upgrade artifacts and existing homes
-   usable. Run the [participant review handoff](DEVELOPMENT-REVIEW-HANDOFF.md)
+1. **Use the supported development workflow.** Development publication is
+   complete: separate knowledge-11 participant packages match the applied
+   runtime, while version-10 genesis replay packages, immutable upgrade artifacts
+   and existing homes remain available. See the
+   [dated runtime observations](reports/development-publication-2026-09-23.json)
+   and [participant guide](SHARED-DEVELOPMENT.md). The local journal → explicit
+   native submission → shared history reader connection is implemented without
+   changing the chain. Run the [participant review handoff](DEVELOPMENT-REVIEW-HANDOFF.md)
    with a willing reviewer's own key and judgment, retaining any relevant
    operator relationship.
-   Review by a genuinely separate effective controller remains its own
+   Review by a separate effective controller remains its own
    milestone. Completion records publication consistency, retained
    review/correction and payment observations
    separately; extra operator accounts do not satisfy independence.
@@ -79,6 +93,16 @@ Each protocol change still needs its named source/target, tests, release packet
 and actual authorized activation boundary. Do not assign new version numbers or
 reuse an earlier handler through this planning table. Independent participation
 is useful product evidence, not a substitute for migration or custody proofs.
+
+The current wiring must be traced before stage 4 removes or reconnects it.
+Alignment's [corrections are advisory](../x/alignment/keeper/corrections.go#L107),
+but its [pacing input](../app/app.go#L1100) still changes claim
+[cooldowns and minimum fees](../x/knowledge/keeper/pacing.go).
+[Ontology ceilings](../x/knowledge/keeper/confidence.go#L166) still apply to an
+accepted neutral review. Neutral review therefore does not make all older
+dependencies inert. Keep these effects separate from the retired review-score
+bonuses and automatic issuance; changing them needs explicit behavior tests and
+its own protocol boundary.
 
 ## Disposition of all 23 registered custom modules
 

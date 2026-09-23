@@ -1,6 +1,8 @@
 import { defineConfig, type Plugin } from "vite";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { NETWORK_PROFILE } from "./network-profile";
 import { observerPage } from "./observer-page";
@@ -8,6 +10,7 @@ import { loadNodeGuideProfile } from "./node-guide-build";
 import { nodeGuidePage } from "./node-guide-page";
 import { buildUnderstandGuide, understandPage } from "./understand-guide";
 import { developmentPage } from "./development-page";
+import { researchReviewPage } from "./research-review-page";
 import { proxyRequest } from "./functions/api/_proxy";
 
 const MAINNET_RPC = "http://169.155.55.44:26657";
@@ -31,6 +34,13 @@ function nodeGuidePlugin(): Plugin {
         if (context.filename === resolve(DASHBOARD_ROOT, "nodes/index.html")) return nodeGuidePage(guide());
         if (context.filename === resolve(DASHBOARD_ROOT, "understand/index.html")) return understandPage(understanding());
         if (context.filename === resolve(DASHBOARD_ROOT, "development/index.html")) return developmentPage(guide().development);
+        if (context.filename === resolve(DASHBOARD_ROOT, "research/review/index.html")) {
+          const development = guide().development;
+          // guide() has checked this retained descriptor against HEAD, its
+          // predecessor release and the applied upgrade's unchanged genesis.
+          const predecessor = development.upgradeApplied ? createHash("sha256").update(readFileSync(resolve(DASHBOARD_ROOT, "../deploy/networks/zerone-dev-1/network-knowledge-10.json"))).digest("hex") : undefined;
+          return researchReviewPage(html, development, predecessor);
+        }
         return html;
       },
     },

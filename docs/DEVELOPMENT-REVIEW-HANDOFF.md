@@ -52,6 +52,12 @@ Refusal, silence and stopping carry no adverse person score.
 
 ## Run the native workflow
 
+The [research workflow adapter](../tools/research-review/README.md#carry-a-record-through-native-review)
+can retain this handoff's chosen journal record, submitted assertion, receipt
+and later native history in one local packet. Preparing or inspecting it opens
+no round. The reviewer still supplies and signs their own judgment using the
+existing participant client; an imported packet establishes no independence.
+
 1. Verify the current participant package and initialize each new home using
    the guide. Existing homes keep their original files and pins. Inspect the
    evidence and plan the scope before opening the round.

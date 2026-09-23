@@ -78,6 +78,13 @@ candidates, with existing claims and historical evidence preserved. The public
 [explanation](https://zerone.ai/understand/) and
 [research library](https://zerone.ai/research/) provide distinct starting points.
 
+To use the research path, open [Research Review](https://zerone.ai/research/review/):
+record → explicit claim → review → correction → funding observations. The
+[local walkthrough](tools/research-review/README.md#carry-a-record-through-native-review)
+connects a journal contribution to an existing participant client, keeping the
+original record and the resulting reviews and settlements together. Each
+participant controls their own keys and judgment.
+
 ### Release posture
 
 **Status:** `zerone-1` mainnet is **LIVE** (custodial launch) ·

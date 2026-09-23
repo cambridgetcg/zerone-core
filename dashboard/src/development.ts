@@ -1,5 +1,4 @@
-import { DEVELOPMENT_GATEWAY } from "../development-profile";
-import { queryClaimId, getBytes, height, renderHistory, validateHistory, verifyDescriptor } from "./development-reader";
+import { queryClaimId, height, renderHistory, readClaimHistory } from "./development-reader";
 
 const config = document.querySelector<HTMLElement>("#development-reader");
 if (config) {
@@ -19,9 +18,7 @@ if (config) {
     status.textContent = "Verifying the published descriptor, then reading this claim…";
     try {
       const id = queryClaimId(input.value);
-      await verifyDescriptor(await getBytes(`${DEVELOPMENT_GATEWAY}/network.json`, 65536, controller.signal), pins);
-      const bytes = await getBytes(`${DEVELOPMENT_GATEWAY}/claims/${encodeURIComponent(id)}`, 8 * 1024 * 1024, controller.signal);
-      const response = validateHistory(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)), id);
+      const { history: response } = await readClaimHistory(id, pins, controller.signal);
       if (controller.signal.aborted) return;
       result.append(renderHistory(response));
       status.textContent = `Endpoint observation: zerone-dev-1 at block ${height(response.block_height)}, read ${new Date().toISOString()}. This snapshot does not refresh automatically. Read again for a new observation.`;

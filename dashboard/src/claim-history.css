@@ -1,0 +1,10 @@
+.history-card { margin-top: 1.5rem; border: 1px solid var(--line); padding: 1.5rem; min-width: 0; }
+.history-card h3 { color: var(--violet); margin-bottom: 1rem; }
+.history-card h4 { margin: 1.5rem 0 .6rem; }
+.history-card p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.history-card .record-value { margin: .4rem 0 1rem; }
+.history-card .record-label { color: var(--muted); font-size: .8rem; }
+.history-card details { margin-top: 1.25rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+.history-card summary { color: var(--violet); cursor: pointer; overflow-wrap: anywhere; }
+.history-card ul { padding-left: 1.3rem; overflow-wrap: anywhere; }
+@media(max-width:600px) { .history-card { padding: 1rem; } }

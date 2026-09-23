@@ -95,6 +95,16 @@ export async function getBytes(url: string, limit: number, signal: AbortSignal, 
   const result = new Uint8Array(size); let offset = 0; for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.length; } return result;
 }
 
+/** Read only after checking the exact published network descriptor. */
+export async function readClaimHistory(id: string, pins: DescriptorPins, signal: AbortSignal, fetcher: typeof fetch = fetch): Promise<{ history: Row; historyUtf8: string }> {
+  const requested = queryClaimId(id);
+  await verifyDescriptor(await getBytes(`${DEVELOPMENT_GATEWAY}/network.json`, 65536, signal, fetcher), pins);
+  if (signal.aborted) throw new Error("History read cancelled");
+  const bytes = await getBytes(`${DEVELOPMENT_GATEWAY}/claims/${encodeURIComponent(requested)}`, 8 * 1024 * 1024, signal, fetcher);
+  const historyUtf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+  return { history: validateHistory(JSON.parse(historyUtf8), requested), historyUtf8 };
+}
+
 const ENUMS: Record<string, readonly string[]> = {
   CLAIM_STATUS: ["UNSPECIFIED", "PENDING", "PENDING_EVALUATION", "EVALUATED", "PROVISIONAL", "IN_VERIFICATION", "ACCEPTED", "REJECTED", "CHALLENGED", "EXPIRED", "INSUFFICIENT", "CONTESTED", "MALFORMED"],
   VERIFICATION_PHASE: ["UNSPECIFIED", "COMMIT", "REVEAL", "AGGREGATION", "COMPLETE", "EXPIRED"],
