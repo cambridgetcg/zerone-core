@@ -1,6 +1,17 @@
 # Zerone: what exists and how it connects
 
-**Snapshot: 17 September 2026.** Source reviewed: GitHub `main` at
+**Follow-up: 23 September 2026.** The development publication in this source
+now selects separate knowledge-11 participant packages and preserves the
+knowledge-10 packages for original-genesis replay. Public queries observed the
+fund-settlement upgrade applied at height 300000, knowledge version 11, and the
+unchanged genesis. See the [dated observations](reports/development-publication-2026-09-23.json)
+and [current participant guide](SHARED-DEVELOPMENT.md). Website publication is
+a separate release step; the mismatch described below is the historical
+17 September observation. The [module sequence](MODULE-CONSOLIDATION-SEQUENCE.md)
+and [review handoff](DEVELOPMENT-REVIEW-HANDOFF.md) identify the next work without
+claiming completed module retirement or independently controlled participation.
+
+**Historical snapshot: 17 September 2026.** Source reviewed: GitHub `main` at
 [`cb12a457`](https://github.com/cambridgetcg/zerone-core/tree/cb12a457b15fb21ebc42d9fb9b6414c161c194cc).
 This is a map of the system, not an instruction to upgrade or launch a network.
 “In source” means implemented in that checkout; “observed” means a dated endpoint
