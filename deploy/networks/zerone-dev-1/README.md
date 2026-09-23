@@ -5,12 +5,23 @@ from zerone-1 and the unactivated zerone-2. The dated publication at
 [zerone.ai/development](https://zerone.ai/development/) identifies the exact
 source, binary, genesis and network descriptor.
 
-On 2026-09-12, the operator deployed source
-`ac5684e33b6946a31f6ea260ebf280eace55b033` and checked these public inputs through
-both HTTPS and the authenticated provider connection. [release.json](release.json)
-binds the immutable runtime image and compatible Linux/macOS packages;
-[network.json](network.json) and [genesis.json](genesis.json) retain the exact
-public bytes. These files contain no private keys.
+On 2026-09-23, the operator rechecked the hosted knowledge-11 runtime at source
+`5542b221864ca0080e143fa82abbef4cd2064f71`, its executable and original genesis.
+The chain applied `knowledge-fund-settlement-v1` at height **300,000**. The
+[dated observation](../../../docs/reports/development-publication-2026-09-23.json)
+records the evidence and its scope. [release.json](release.json) identifies the
+separate current participant packages and [network.json](network.json) the
+applied descriptor. Linux reuses the observed runtime executable; macOS uses
+the separately pinned build from the same source release. Neither a package
+nor an endpoint observation establishes independent consensus or current health.
+
+The 2026-09-12 launch used source
+`ac5684e33b6946a31f6ea260ebf280eace55b033`. Its original package and descriptor
+records are preserved as [release-knowledge-10.json](release-knowledge-10.json)
+and [network-knowledge-10.json](network-knowledge-10.json). The original
+[genesis.json](genesis.json) is unchanged. Those predecessor inputs remain
+necessary for genesis replay and existing participant homes; they are not the
+current new-participant configuration. These public files contain no private keys.
 
 A fresh operator-test participant received funds, registered as an agent, and
 submitted claim `8db0bccfb17b9a5ad1cf2389b79abd38` at height 432 with execution
@@ -32,7 +43,7 @@ not money, production allocations, or credentials. Consensus membership would
 require a separate explicit plan. Distinct reviewer accounts do not establish
 independent controllers.
 
-The original published version-10 genesis enables its native accounting and knowledge flags. Current version-11 source genesis additionally enables `fund_settlement_enabled`; this does not relabel the original genesis or announce an applied hosted upgrade. Default source
+The original published version-10 genesis enables its native accounting and knowledge flags. Fresh version-11 source genesis additionally enables `fund_settlement_enabled`; it must not replace the existing chain's original genesis. That chain acquired the new behavior through its applied upgrade. Default source
 genesis/initialization supplies the standard methodologies. Commit and reveal
 windows each last 3,600 blocks; aggregation lasts five. The configured one-second
 commit timeout is a pacing target, not a wall-clock promise. Default application
@@ -114,44 +125,49 @@ liveness. The public health route checks the node, not scientific claims.
 
 ## Run a fresh full node
 
-For the original version-10 genesis, use Python 3.11+ and the **verified predecessor package** (runtime helper and binary from `ac5684e33b6946a31f6ea260ebf280eace55b033`). After publication of the version-11 upgrade packet, run `join` with that predecessor, then use the staged replay below. Do not run the version-11 native initializer against the original version-10 genesis. For a newly created version-11 test genesis, use its matching current source helper and binary. A native build need not share the Linux image
-binary hash. Build at the exact runtime commit, then keep its bytes unchanged.
-Verify the public descriptor and copy its `source_commit`, `genesis_sha256`,
-`peer` and `rpc_url` from the pinned publication. Do not derive trust solely from
-an unverified endpoint.
+For the original version-10 genesis, use Python 3.11+ and the **verified
+predecessor package**: helper and binary from
+`ac5684e33b6946a31f6ea260ebf280eace55b033`. Verify it against the preserved
+knowledge-10 release record linked above. Run `join` with that predecessor,
+then use the staged replay below. Do not initialize this history with a
+version-11 binary. The new participant package is not a fresh full-node join
+package.
+
+Set the two predecessor paths below to that separately extracted package.
+Copy `genesis_sha256` and `peer` from its verified original descriptor, not the
+current participant descriptor. Do not derive trust solely from an unverified
+endpoint. Staged replay requires the exact platform binary hashes in the upgrade
+packet; a source build is usable here only if it matches those pins.
 
 ```sh
-RUNTIME_COMMIT='REPLACE_WITH_VERIFIED_40_HEX_RUNTIME_COMMIT'
+PREDECESSOR_HELPER='/ABSOLUTE/PATH/TO/VERIFIED/PREDECESSOR/runtime/runtime.py'
+PREDECESSOR_BINARY='/ABSOLUTE/PATH/TO/VERIFIED/PREDECESSOR/bin/zeroned'
+RUNTIME_COMMIT='ac5684e33b6946a31f6ea260ebf280eace55b033'
 GENESIS_SHA256='REPLACE_WITH_VERIFIED_64_HEX_GENESIS_HASH'
 PEER='REPLACE_WITH_VERIFIED_NODE_ID@zerone-dev-1.fly.dev:26656'
 FULL_HOME="$HOME/zerone-dev-full-node"
 curl --fail --max-time 30 --max-filesize 16777216 \
   https://zerone-dev-1.fly.dev/genesis.json -o zerone-dev-genesis.json
-python3 -I -B deploy/networks/zerone-dev-1/runtime.py join \
-  --home "$FULL_HOME" --binary "$PWD/build/zeroned" \
+python3 -I -B "$PREDECESSOR_HELPER" join \
+  --home "$FULL_HOME" --binary "$PREDECESSOR_BINARY" \
   --source-commit "$RUNTIME_COMMIT" \
   --genesis zerone-dev-genesis.json --genesis-sha256 "$GENESIS_SHA256" \
   --peer "$PEER" --reference-rpc https://zerone-dev-1.fly.dev
-python3 -I -B deploy/networks/zerone-dev-1/runtime.py run \
-  --home "$FULL_HOME" --binary "$PWD/build/zeroned"
-```
-
-In another terminal:
-
-```sh
-python3 -I -B deploy/networks/zerone-dev-1/runtime.py status \
-  --home "$FULL_HOME" --binary "$PWD/build/zeroned"
 ```
 
 `join` creates fresh zero-power identities, validates the supplied genesis and
 its pin, checks the reference chain/peer identity, and configures genesis replay
-through the persistent P2P peer. No faucet/account key is created. Local RPC is
+through the persistent P2P peer without starting it. Continue with `stage-upgrade`
+and `run-upgrade` below using the original verified upgrade bundle and its
+successor helper. The plain predecessor `run` path cannot follow this chain
+past its upgrade. No faucet/account key is created. Local RPC is
 127.0.0.1:26657; P2P listens on26656. The helper refuses a nonzero reported local
-voting power. `status` compares a common committed block ID and header AppHash
+voting power. `upgrade-status` compares a common committed block ID and header AppHash
 with the pinned reference node; these are cross-checked node observations, not
 an independent signature-verification receipt or independent consensus. It never
 compares a same-height post-state application root against that header's prior
-state root. Restart with the same `run` command; Ctrl-C preserves the home.
+state root. Restart with the same staged `run-upgrade` command; Ctrl-C preserves
+the home.
 
 Full replay from the original genesis can take much longer than two minutes as
 the chain grows. The current helper extends a full node's startup allowance by
@@ -165,7 +181,7 @@ limit, so use the successor helper for staged replay.
 
 ## Stage a knowledge 10-to-11 upgrade
 
-This path preserves the original chain ID, genesis, runtime manifest, identities, signing state, application history and faucet journal. It does not initialize or reset a home, replace a participant client, schedule governance, or activate zerone-1. The operator must publish an externally verified upgrade packet and both source-built target binaries after the application rehearsal and release checks; no height is implied by this source guide.
+This path preserves the original chain ID, genesis, runtime manifest, identities, signing state, application history and faucet journal. It does not initialize or reset a home, replace a participant client, schedule governance, or activate zerone-1. For this chain, use the original [upgrade release](https://github.com/cambridgetcg/zerone-core/releases/tag/zerone-dev-1-5542b221864c), its pinned [UPGRADE.json](https://github.com/cambridgetcg/zerone-core/releases/download/zerone-dev-1-5542b221864c/UPGRADE.json) and [UPGRADE-RELEASE.json](https://github.com/cambridgetcg/zerone-core/releases/download/zerone-dev-1-5542b221864c/UPGRADE-RELEASE.json), which bind height **300,000** and both binaries. The new participant release does not replace this immutable upgrade bundle. Obtain the external hashes from the dated development publication before downloading or using these inputs.
 
 The packet is a small JSON object with exactly these fields (placeholders are not executable pins):
 
@@ -197,7 +213,7 @@ For a new full node, first use the predecessor helper's `join` command with the 
 UPGRADE_HELPER='/ABSOLUTE/PATH/TO/SUCCESSOR/runtime/runtime.py'
 PREDECESSOR_BINARY='/ABSOLUTE/PATH/TO/VERIFIED/PREDECESSOR/bin/zeroned'
 TARGET_BINARY='/ABSOLUTE/PATH/TO/VERIFIED/SUCCESSOR/bin/zeroned'
-UPGRADE_PACKET='/ABSOLUTE/PATH/TO/VERIFIED/upgrade.json'
+UPGRADE_PACKET='/ABSOLUTE/PATH/TO/VERIFIED/UPGRADE.json'
 UPGRADE_SHA256='REPLACE_WITH_EXTERNAL_PACKET_SHA256'
 NODE_HOME='/ABSOLUTE/PATH/TO/EXISTING/PRIVATE/NODE/HOME'
 python3 -I -B "$UPGRADE_HELPER" stage-upgrade \

@@ -1,0 +1,34 @@
+{
+  "artifacts": [
+    {
+      "binary_sha256": "62f1d54ab26742f7fb8ab51d2cab318fd513f41f4d5bb0a202de987dfff715b1",
+      "bytes": 36020975,
+      "name": "zerone-dev-1-ac5684e33b69-linux-amd64.tar.gz",
+      "platform": "linux-amd64",
+      "sha256": "27f1d10a967fe5aeea4a3dc5073aa03460887f6e87466b1519ac9f2c00e3e532",
+      "url": "https://github.com/cambridgetcg/zerone-core/releases/download/zerone-dev-1-ac5684e33b69/zerone-dev-1-ac5684e33b69-linux-amd64.tar.gz"
+    },
+    {
+      "binary_sha256": "c944a8239949624e228eb11dfad8a0be78ffe0e00b709031ff5007184f10c766",
+      "bytes": 33808425,
+      "name": "zerone-dev-1-ac5684e33b69-darwin-arm64.tar.gz",
+      "platform": "darwin-arm64",
+      "sha256": "e46c71dcae82db507e34e78729bdc3cb65c1e200314d0d766ca8571ef53fc50d",
+      "url": "https://github.com/cambridgetcg/zerone-core/releases/download/zerone-dev-1-ac5684e33b69/zerone-dev-1-ac5684e33b69-darwin-arm64.tar.gz"
+    }
+  ],
+  "bootstrap_consensus": "single-operator",
+  "chain_id": "zerone-dev-1",
+  "descriptor_sha256": "e01f9e472630d98faef57341cb431acb6a0e733873b79ca95103ab9cba043e2b",
+  "funds": "valueless-development-only",
+  "genesis_sha256": "f8b4570b37fd41d5b63c02fbae1f89225c197c75315e8629650716f6e5f79256",
+  "private_keys_in_packages": false,
+  "release_tag": "zerone-dev-1-ac5684e33b69",
+  "release_url": "https://github.com/cambridgetcg/zerone-core/releases/tag/zerone-dev-1-ac5684e33b69",
+  "rpc_genesis_sha256": "94e246770c7429ecc7ce417edacb4af1f4b721ea3ff0875f7a1f09c5567878a7",
+  "runtime_binary_sha256": "62f1d54ab26742f7fb8ab51d2cab318fd513f41f4d5bb0a202de987dfff715b1",
+  "runtime_image": "registry.fly.io/zerone-dev-1@sha256:689708873ff15bba56d4138bc52afb5aa4fdf42884aeaba4200c8855ba84dc52",
+  "schema": "zerone-development-release/v1",
+  "source_commit": "ac5684e33b6946a31f6ea260ebf280eace55b033",
+  "source_tree": "11dd4c2149c654132646f82e655565320c78b19d"
+}

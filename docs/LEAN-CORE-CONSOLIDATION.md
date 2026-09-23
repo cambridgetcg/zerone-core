@@ -1,8 +1,9 @@
 # Lean core consolidation
 
-Status: **2026-09-10 removal plan, with survival handoff and knowledge record
-integrity implemented in source; no module retirement or network activation.**
-Reviewed application source: `632f372fe7243c4619c0c0a5a82535f5b02c4107`.
+Status: **2026-09-10 removal plan, with progress refreshed 2026-09-23. No custom
+module has been retired and the accepted authority migration remains unimplemented.**
+Original reviewed application source: `632f372fe7243c4619c0c0a5a82535f5b02c4107`.
+Progress review baseline: `6e2437ded256b761baabef75a9cca98cbcfe079b`.
 
 Zerone's core should make scientific contributions inspectable and correctable,
 with reliable custody where money is involved. Maintenance should concentrate
@@ -41,8 +42,29 @@ binds reviews to their signers and reasons, preserves completed reviews and
 correction history through genesis, and separates verifier payment obligations
 from successful transfers. It also bounds ToK exports and corrects their stated
 authentication scope. Its separate knowledge 7→8 boundary preserves existing
-round commitments. Agreement-based credibility, reviewer liability, related-party
-rewards and global scoring remain the explicit subsequent retirement work.
+round commitments.
+
+The subsequent [review-neutrality release](specs/knowledge-review-neutrality-v1.md)
+advances knowledge 8→9. New-policy reviews use equal admitted-account votes and
+pay timely reviews including dissent. Agreement-based score feedback, new
+wrong-vote/missed-reveal monetary penalties, survival/invitation/challenge
+bonuses, automatic probes and new augmentation bounties are retired on those
+paths. Preserved obligations and legacy ecological/authority machinery remain;
+this is not removal of their modules or proof of independent controllers.
+
+[Claim records](specs/knowledge-claim-records-v1.md) advance knowledge 9→10,
+retaining contradiction reasons/evidence and exposing bounded retained history.
+[Fund settlement](specs/knowledge-fund-settlement-v1.md) advances 10→11 with
+immutable prospective funding terms, explicit refunds and atomic payment retries.
+The separate development chain applied that last boundary at height 300,000;
+its [published participant path](SHARED-DEVELOPMENT.md) identifies the compatible
+runtime. These changes do not upgrade legacy `zerone-1` or activate `zerone-2`.
+
+The [module consolidation sequence](MODULE-CONSOLIDATION-SEQUENCE.md) turns the
+dispositions below into staged work with custody and authority prerequisites.
+The [development review handoff](DEVELOPMENT-REVIEW-HANDOFF.md) defines the next
+observable participant exercise. Neither document records its completion,
+adopts a controller policy or authorizes a protocol retirement.
 
 ## The core to preserve
 
@@ -86,7 +108,8 @@ module. SDK/IBC modules are additional dependencies.
 | `trust_score`, `alignment`, `capture_defense` | Move dispensable analysis outside consensus | `trust_score` is already stateless. `alignment/module.go` applies corrections; capture analysis can open challenges and change downstream rules. Preserve source observations and distinguish them from derived scores; remove effectful consumers through an explicit migration. No person leaderboard replaces them. |
 | `capture_challenge` | Consolidate dispute and custody handling | It consumes capture metrics and can alter qualification/knowledge thresholds. Preserve open cases, bonds, outcomes and refunds before retiring automatic metric-driven authority. Keep evidence-based challenge available. |
 | `tokens`, `liquiditypool` | Retirement candidates outside the minimal core | Wrapping/emissions, LP issuance, pools and oracle/TWAP maintenance need a demonstrated core use to remain. Inventory every asset, pool, pending exit and external dependency first. Native bank balances are not these optional products. |
-| `claiming_pot`, `sponsorship` | Retire special issuance; review explicit funding need | Preserve bootstrap claims, sponsorship escrows and refunds. A narrowly funded review arrangement may remain; another minting or admission system is not needed merely to support contributions. |
+| `claiming_pot` | Retire special issuance after reconciliation | Preserve bootstrap/general-pot claims and identify every existing claim before closing admissions or mint paths. Another issuance/admission system is not needed merely to support contributions. |
+| `sponsorship` | Review the need for a separate funded-work ledger | It spends existing sponsor funds rather than minting. Preserve orders, escrows, fulfillment and refunds. Retain a narrow funded arrangement only where the core review funding path does not meet the need. |
 | `home` | Move agent session/notification state to clients where possible | `home/keeper/keeper.go` stores homes, sessions and alerts. Preserve recorded ownership and historical links; determine what any consensus consumer actually needs before removing writes. |
 | `creed`, `work_creed` | Consolidate artifact pins | Keep signed/versioned commitments and their historical references. Avoid separate permanent registries for every class of document; do not silently change a pinned commitment's meaning. |
 | `substrate_bridge` | Keep bounded attestation provenance; review economic extensions | `app/app.go` wires knowledge resolution, qualification, bank and vesting into this module. Preserve attestations, settled records, bonds and pending payouts; speculative issuance or economic policy is a retirement candidate, not the provenance itself. |
@@ -132,9 +155,10 @@ H1/H2/H3, reinterpret their pins, or declare H4-F/H4/H5 implemented.
    retained research links and substantive tests. Protocol changes continue to
    run relevant consensus, accounting and upgrade checks; website-only changes
    need not rebuild an unrelated validator binary.
-2. **Care for existing settlement before removing economic paths.** Start with
-   the bounded handoff below. Then address ordinary fee distribution and
-   verifier payments with existing transaction/cache patterns. Completion means
+2. **Care for existing settlement before removing economic paths.** Survival
+   handoff, neutral review and prospective funding/refund repairs now exist in
+   source. Verify the matching network and inventory unresolved historical
+   obligations before considering further retirement. Completion means
    failed attempts preserve unpaid work, successful retries cannot pay twice,
    and reported success matches committed state. Do not reprice historical
    claims or use a migration to invent their recipients.

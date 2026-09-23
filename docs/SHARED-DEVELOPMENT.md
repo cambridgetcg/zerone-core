@@ -2,7 +2,7 @@
 
 Use this separate development network to submit a claim, have someone else inspect it, and leave a reasoned review or counterexample. Each participant keeps their own keys and decides what to sign. The initial consensus has one operator-controlled validator seat; different account addresses do not establish independent controllers or scientific endorsement.
 
-**Check [the development page](https://zerone.ai/development/) first.** Until it contains a dated verified publication, deployment and admission are pending. This source guide alone does not announce a live network. The page's [machine-readable profile](https://zerone.ai/development/guide.json) carries the publication pins when available. An operator verification date is not a current health guarantee.
+**Check [the development page](https://zerone.ai/development/) first.** The development chain applied `knowledge-fund-settlement-v1` at **height 300,000**, advancing knowledge 10→11 with runtime source `5542b221864ca0080e143fa82abbef4cd2064f71`. The page's [machine-readable profile](https://zerone.ai/development/guide.json) identifies the published descriptor, participant packages and dated verification. Use that publication to verify the files below; this source guide alone does not authenticate a downloaded package. An operator verification date is not a current health guarantee.
 
 This is **zerone-dev-1**, separate from the legacy **zerone-1**, local `zerone-local-*` sandboxes, and the unactivated production successor **zerone-2**. Existing zerone-1 admission and wallet gates are unchanged. Development funds have no cash value, promised future allocation or implied scientific credibility; existing development fee and review-settlement rules still apply. A reset must use a new chain ID and publish a notice preserving old public history; an existing participant home must not be rebound silently.
 
@@ -16,7 +16,12 @@ Choose **one** of the following paths, then initialize your participant. If ther
 
 ### Compatible package
 
-Open the source-pinned `release.json` from the development page. Choose the `linux-amd64` or `darwin-arm64` entry in `artifacts` and copy its `url`, `sha256` and `binary_sha256` below. Also copy the top-level `descriptor_sha256` and `source_commit`. The GitHub prerelease tag is `zerone-dev-1-` followed by the first 12 characters of that runtime commit; a tag alone is not an integrity check.
+Open the source-pinned **current participant** `release.json` from the development page. Choose the `linux-amd64` or `darwin-arm64` entry in `artifacts` and copy its `url`, `sha256` and `binary_sha256` below. Also copy the top-level `descriptor_sha256` and `source_commit`. Use the record's exact `release_tag` and artifact URLs; a tag alone is not an integrity check. The current participant bundle pairs the knowledge-11 binary with the applied network descriptor. The separately published upgrade bundle retains the predecessor descriptor for replay and must not be used to initialize a new participant.
+
+The current participant release tag is `zerone-dev-1-5542b221864c-participants-v1`.
+The original [knowledge-10 release record](../deploy/networks/zerone-dev-1/release-knowledge-10.json)
+and [descriptor](../deploy/networks/zerone-dev-1/network-knowledge-10.json)
+remain available for existing homes and full-node replay.
 
 ```sh
 ARCHIVE_URL='REPLACE_WITH_SELECTED_ARTIFACT_URL'
@@ -100,7 +105,7 @@ Check the public receipt's `status`, `height`, `code` and transaction hash. Succ
 
 ### Read the claim's funding terms
 
-The `knowledge-fund-settlement-v1` source upgrade adds prospective funding policy 1. This source documentation does not establish that a hosted chain has applied it. Check the published upgrade notice and the returned claim's `funding_terms`; an older claim without those fields keeps its original rules. Do not infer new entitlements or restored liabilities for old records.
+The applied `knowledge-fund-settlement-v1` upgrade adds prospective funding policy 1. Read the returned claim's `funding_terms`; a claim admitted before height 300,000 without those fields keeps its original rules. The current runtime does not retroactively assign new terms to old claims. Do not infer new entitlements or restored liabilities for old records.
 
 For a claim with funding policy 1, the admission payment is fixed into these allocations:
 
@@ -115,9 +120,11 @@ The history reader shows the actual integer `paid_amount`, `review_budget`, `ref
 
 ### Existing participant homes across the upgrade
 
-A proposal, scheduled height or staged binary is not an applied upgrade. While the ordinary governance voting period and future activation height are pending, the public participant instructions and descriptor continue to select the original version-10 package. A successor upgrade bundle may contain the original `network.json` only for replay; do not pair it with the successor binary for participant initialization. Use a separately verified version-11 descriptor only after its actual applied-height notice is published.
+A proposal, scheduled height or staged binary is not an applied upgrade. The published applied-height notice now selects the separate knowledge-11 participant package and descriptor for **new** homes. It does not replace the original knowledge-10 package or the immutable replay/upgrade bundle. Their descriptors have different purposes; do not substitute one merely because all refer to the same chain ID.
 
 Keep the original verified package, binary, descriptor and all three client scripts beside an existing participant home. Do not replace its pinned files or edit its manifest. The upgrade does not change claim/review message signatures: existing commitments keep their original chain, signer, round and deadlines. Complete a pending reveal using that home's original client while the phase is open. An older binary does not decode the new funding fields; use the current public history reader for those fields. New participants use the currently published compatible package and descriptor. No automatic participant-home migration is performed.
+
+For a planned participant review, use the [review handoff](DEVELOPMENT-REVIEW-HANDOFF.md). It records evidence, control disclosures, corrections and payment observations without treating operator test accounts as independent controllers. Research journals and optional digest checkpoints have a separate [admission decision](MODULE-CONSOLIDATION-SEQUENCE.md#choose-the-record-before-admission); neither opens a native claim round by itself.
 
 ## 3. Submit one bounded claim
 
@@ -142,7 +149,7 @@ https://zerone.ai/development/?claim=YOUR_32_CHARACTER_CLAIM_ID
 
 The public reader accepts generated 32-character lowercase hexadecimal claim IDs. It fetches only the requested retained history, not a list of pending work. A claim normally enters verification directly; an endpoint listing only `PENDING` claims would not be a complete review queue.
 
-Once the development page publishes its verification record, you can inspect [the operator-owned prime-polynomial exercise](https://zerone.ai/development/?claim=8db0bccfb17b9a5ad1cf2389b79abd38). It was included at height **432** on **12 September 2026**, with no reviews or challenges at that check. This setup exercise is not a claim of acceptance or independent endorsement. The page makes a new endpoint observation when opened; later records may differ.
+You can inspect [the operator-owned prime-polynomial exercise](https://zerone.ai/development/?claim=8db0bccfb17b9a5ad1cf2389b79abd38). It was included at height **432** on **12 September 2026**, with no reviews or challenges at that check. This setup exercise predates funding policy 1 and is not a claim of acceptance or independent endorsement. The page makes a new endpoint observation when opened; later records may differ.
 
 ## 4. Review from your own participant home
 
@@ -196,7 +203,7 @@ You can follow the same development chain from its exact genesis and inspect you
 
 The network descriptor identifies the persistent peer and genesis. A full node replaying from genesis reduces reliance on the public query endpoint, while the initial one-operator consensus remains the same trust boundary. The participant client pins its designated gateway; do not edit an existing participant home to redirect it to an arbitrary node.
 
-The original zerone-dev-1 genesis belongs to knowledge version 10. Use the **verified predecessor package** and its runtime helper/binary for the `join` command below; a version-11 binary must not initialize that history from block 1. Set `RUNTIME_HELPER`, `RUNTIME_BINARY` and `RUNTIME_COMMIT` to that predecessor package. After an upgrade packet has been published, stop after `join` and follow the staged replay command in the runtime guide instead of starting the old `run` command unattended. Until then, `run` follows the original version-10 chain. Take `GENESIS_SHA256` and `PEER` from the already verified descriptor. `PEER` includes the pinned node ID and address; do not substitute a random discovery endpoint.
+The original zerone-dev-1 genesis belongs to knowledge version 10. Use the **verified predecessor package** at source `ac5684e33b6946a31f6ea260ebf280eace55b033` and its runtime helper/binary for the `join` command below; a version-11 binary must not initialize that history from block 1. Set `RUNTIME_HELPER`, `RUNTIME_BINARY` and `RUNTIME_COMMIT` to that predecessor package, separately from any current participant variables. Take `GENESIS_SHA256` and `PEER` from its verified original descriptor. `PEER` includes the pinned node ID and address; do not substitute a random discovery endpoint.
 
 ```sh
 FULL_HOME="$HOME/zerone-dev-full-node"
@@ -208,13 +215,8 @@ python3 -I -B "$RUNTIME_HELPER" join \
   --home "$FULL_HOME" --binary "$RUNTIME_BINARY" --source-commit "$RUNTIME_COMMIT" \
   --genesis zerone-dev-genesis.json --genesis-sha256 "$GENESIS_SHA256" \
   --peer "$PEER" --reference-rpc https://zerone-dev-1.fly.dev
-python3 -I -B "$RUNTIME_HELPER" run --home "$FULL_HOME" --binary "$RUNTIME_BINARY"
 ```
 
-Leave `run` in the foreground. In another terminal, with the same checkout and variables:
+`join` creates the zero-power home without replaying it. Continue with the [explicit staged replay and upgrade path](../deploy/networks/zerone-dev-1/README.md#stage-a-knowledge-10-to-11-upgrade), using the verified upgrade packet for **height 300,000**, the predecessor binary and the separately extracted successor upgrade bundle. Its `stage-upgrade` and `run-upgrade` commands replay with knowledge 10 until the recorded boundary, verify the halt and switch once to knowledge 11. Do not start the predecessor's plain `run` command unattended or use the new participant bundle as an upgrade packet.
 
-```sh
-python3 -I -B "$RUNTIME_HELPER" status --home "$FULL_HOME" --binary "$RUNTIME_BINARY"
-```
-
-Wait for synchronization, zero reported voting power and a matching common block ID/header app hash against the reference node. These status comparisons are node observations, not an independent signature proof. Stop with Ctrl-C and wait for the process to exit cleanly; rerun the same `run` command to resume. Never copy another validator's signing key or use two processes with the same node home. After a published version-11 upgrade, use the [explicit staged replay and upgrade path](../deploy/networks/zerone-dev-1/README.md#stage-a-knowledge-10-to-11-upgrade) to replay with the predecessor until the exact activation height and switch once to the verified successor. The chain ID, genesis and node identities stay unchanged. The runtime guide documents the exact interfaces and trust limits.
+Leave `run-upgrade` in the foreground and use the runtime guide's `upgrade-status` command in another terminal. Wait for synchronization, zero reported voting power and a matching common block ID/header app hash against the reference node. These status comparisons are node observations, not an independent signature proof. Stop with Ctrl-C and wait for the process to exit cleanly; resume using the same staged `run-upgrade` command. Never copy another validator's signing key or use two processes with the same node home. The chain ID, genesis and node identities stay unchanged. The runtime guide documents the exact interfaces and trust limits.

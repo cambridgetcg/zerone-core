@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { buildDevelopmentProfile, DEVELOPMENT_UPGRADE_PROPOSAL, validateDevelopmentRelease, type DevelopmentPublication, type DevelopmentUpgradeProposal } from "../development-profile";
+import { buildDevelopmentProfile, DEVELOPMENT_UPGRADE_PROPOSAL, DEVELOPMENT_UPGRADE_APPLIED, validateDevelopmentRelease, type DevelopmentPublication, type DevelopmentUpgradeProposal, type DevelopmentUpgradeApplied } from "../development-profile";
 import { developmentPage } from "../development-page";
 import { buildNodeGuideProfile } from "../node-guide-profile";
 import { nodeGuidePage } from "../node-guide-page";
@@ -123,6 +123,11 @@ describe("bounded endpoint observations", () => {
     await verifyDescriptor(bytes, pins);
     await assert.rejects(verifyDescriptor(bytes, { ...pins, binary: "ff".repeat(32) }));
     await assert.rejects(verifyDescriptor(new Uint8Array([...bytes, 10]), pins));
+    const successorBytes = new TextEncoder().encode(JSON.stringify({ ...descriptor, knowledge_version: 11 }));
+    const successorPins = { ...pins, descriptor: createHash("sha256").update(successorBytes).digest("hex") };
+    await verifyDescriptor(successorBytes, successorPins);
+    await assert.rejects(verifyDescriptor(successorBytes, pins));
+    await assert.rejects(verifyDescriptor(bytes, successorPins));
   });
   it("bounds chunked reads before decode, refuses foreign routes, and omits credentials", async () => {
     const requests: RequestInit[] = [];
@@ -133,6 +138,92 @@ describe("bounded endpoint observations", () => {
     await assert.rejects(getBytes(`${publication.gateway}/claims/${id}`, 3, signal, fetcher));
     for (const url of ["https://evil.invalid/network.json", `${publication.gateway}/faucet`, `${publication.gateway}/network.json?proxy=foo`, `${publication.gateway}/claims/../status`]) await assert.rejects(getBytes(url, 10, signal, fetcher));
     await assert.rejects(getBytes(`${publication.gateway}/network.json`, 10, signal, async () => new Response("oops", { headers: { "Content-Type": "text/html" } })));
+  });
+});
+
+describe("applied upgrade publication and preserved replay packages", () => {
+  // Synthetic observation for boundary tests; actual publication is independently recorded.
+  const applied: DevelopmentUpgradeApplied = {
+    ...DEVELOPMENT_UPGRADE_PROPOSAL!,
+    status: "applied", knowledge_version: 11,
+    recorded_at: "2026-09-23T12:00:00Z", observed_height: "530000",
+    descriptor_sha256: "9a".repeat(32), binary_sha256: "ab".repeat(32),
+    predecessor_source_commit: publication.runtime_source_commit,
+    participant_release_tag: "zerone-dev-1-5542b221864c-participants-v1",
+  };
+  const successor: DevelopmentPublication = {
+    ...publication,
+    runtime_source_commit: applied.target_source_commit,
+    descriptor_sha256: applied.descriptor_sha256, binary_sha256: applied.binary_sha256,
+    verified_at: applied.recorded_at,
+  };
+  it("renders applied evidence with distinct successor, replay and immutable upgrade links", () => {
+    const profile = buildDevelopmentProfile(commit, successor, applied);
+    assert.equal(profile.upgradeProposal, null);
+    assert.equal(profile.upgradeApplied?.height, "300000");
+    assert.equal(profile.packages?.tag, applied.participant_release_tag);
+    assert.equal(profile.predecessorPackages?.tag, `zerone-dev-1-${publication.runtime_source_commit.slice(0, 12)}`);
+    assert.match(profile.predecessorPackages!.recordUrl, /\/release-knowledge-10\.json$/u);
+    assert.match(profile.upgradeApplied!.evidenceUrl, new RegExp(`/${commit}/docs/reports/development-publication-2026-09-23\\.json$`, "u"));
+    const html = developmentPage(profile);
+    assert.match(html, /Funding upgrade applied/u);
+    assert.match(html, /applied at block 300000/u);
+    assert.match(html, /Status observed 2026-09-23T12:00:00Z at block 530000/u);
+    assert.match(html, /not an independent application-state proof/u);
+    assert.match(html, /id="predecessor-packages"/u);
+    assert.doesNotMatch(html, /A proposed funding upgrade|activation not verified here/u);
+    assert.ok(profile.packages!.artifacts.every(({url}) => html.includes(url)));
+    assert.ok(profile.predecessorPackages!.artifacts.every(({url}) => html.includes(url)));
+    assert.ok(html.includes(applied.packet_url) && html.includes(applied.release_record_url));
+    assert.match(html, new RegExp(`data-descriptor-sha256="${successor.descriptor_sha256}"`, "u"));
+    assert.equal(profile.effects.transactions, false);
+    assert.equal(profile.effects.browserFaucet, false);
+  });
+  it("selects the recorded applied observation for matching published runtime pins", () => {
+    const recorded = DEVELOPMENT_UPGRADE_APPLIED!;
+    const observedPublication: DevelopmentPublication = { ...successor, descriptor_sha256: recorded.descriptor_sha256, binary_sha256: recorded.binary_sha256, verified_at: recorded.recorded_at };
+    const profile = buildDevelopmentProfile(commit, observedPublication);
+    assert.equal(profile.upgradeApplied?.observed_height, "925042");
+    assert.equal(profile.upgradeApplied?.recorded_at, "2026-09-23T10:01:17Z");
+    assert.equal(profile.packages?.tag, "zerone-dev-1-5542b221864c-participants-v1");
+    assert.equal(profile.upgradeProposal, null);
+  });
+  it("refuses incomplete observations, mismatched publication pins and unsafe release substitutions", () => {
+    for (const change of [
+      { status: "proposed" }, { knowledge_version: 10 }, { observed_height: "299999" },
+      { observed_height: "0530000" }, { recorded_at: "2026-09-22T12:00:00Z" },
+      { descriptor_sha256: publication.descriptor_sha256 }, { binary_sha256: publication.binary_sha256 },
+      { target_source_commit: commit }, { predecessor_source_commit: applied.target_source_commit },
+      { predecessor_source_commit: "main" },
+      { participant_release_tag: "zerone-dev-1-5542b221864c" },
+      { participant_release_tag: "unrelated-participants-v1" },
+      { packet_url: applied.packet_url.replace("5542b221864c", "5542b221864c-participants-v1") },
+      { extra: true },
+    ]) assert.throws(() => buildDevelopmentProfile(commit, successor, { ...applied, ...change } as DevelopmentUpgradeApplied));
+    const { knowledge_version: _missing, ...incomplete } = applied;
+    assert.throws(() => buildDevelopmentProfile(commit, successor, incomplete as DevelopmentUpgradeApplied));
+    assert.throws(() => buildDevelopmentProfile(commit, undefined, applied));
+    assert.throws(() => buildDevelopmentProfile(commit, publication, applied));
+    assert.throws(() => buildDevelopmentProfile(commit, successor, null));
+  });
+  it("accepts only separate participant archives matching the observed binary and descriptor", () => {
+    const packages = buildDevelopmentProfile(commit, successor, applied).packages!;
+    const release = { schema: "zerone-development-participant-release/v1", chain_id: "zerone-dev-1", source_commit: successor.runtime_source_commit, source_tree: "cd".repeat(20), release_tag: packages.tag, release_url: packages.releaseUrl, runtime_image: `registry.fly.io/zerone-dev-1@sha256:${"ef".repeat(32)}`, descriptor_sha256: successor.descriptor_sha256, genesis_sha256: successor.genesis_sha256, rpc_genesis_sha256: successor.rpc_genesis_sha256, runtime_binary_sha256: successor.binary_sha256, artifacts: packages.artifacts.map(({name,platform,url}) => ({name,platform,url,sha256:"67".repeat(32),bytes:1000,binary_sha256:platform === "linux-amd64" ? successor.binary_sha256 : "78".repeat(32)})), bootstrap_consensus: "single-operator", funds: "valueless-development-only", private_keys_in_packages: false, knowledge_version:11, packaging_recipe_sha256:"89".repeat(32), upstream_release_sha256:applied.release_record_sha256, upgrade_packet_sha256:applied.packet_sha256, runtime_image_basis:"Upstream build-image provenance; no new hosted-machine observation.", publication_status:"applied-runtime-verified" };
+    validateDevelopmentRelease(release, successor, applied);
+    assert.throws(() => validateDevelopmentRelease(release, successor, null));
+    for (const change of [
+      { release_tag: "zerone-dev-1-5542b221864c" },
+      { descriptor_sha256: publication.descriptor_sha256 },
+      { runtime_binary_sha256: publication.binary_sha256 },
+      { schema: "zerone-development-release/v1" },
+      { knowledge_version: 10 },
+      { packaging_recipe_sha256: "" },
+      { upstream_release_sha256: "ab".repeat(32) },
+      { upgrade_packet_sha256: "ab".repeat(32) },
+      { runtime_image_basis: "Host image verified by this packager" },
+      { publication_status: "candidate; separate dated applied-upgrade and publication verification required" },
+      { artifacts: release.artifacts.map((artifact) => ({ ...artifact, url: artifact.url.replaceAll("-participants-v1", "") })) },
+    ]) assert.throws(() => validateDevelopmentRelease({ ...release, ...change }, successor, applied));
   });
 });
 

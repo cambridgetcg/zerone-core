@@ -27,6 +27,35 @@ export interface DevelopmentUpgradeProposal {
   release_record_url: string;
   release_record_sha256: string;
 }
+/** A dated endpoint observation of an applied upgrade, tied to the participant publication. */
+export interface DevelopmentUpgradeApplied extends Omit<DevelopmentUpgradeProposal, "status"> {
+  status: "applied";
+  knowledge_version: 11;
+  descriptor_sha256: string;
+  binary_sha256: string;
+  predecessor_source_commit: string;
+  participant_release_tag: string;
+}
+export type DevelopmentUpgradeNotice = DevelopmentUpgradeProposal | DevelopmentUpgradeApplied;
+
+// Filled only after observing the applied upgrade, module version and exact runtime pins.
+export const DEVELOPMENT_UPGRADE_APPLIED: DevelopmentUpgradeApplied | null = {
+  status: "applied",
+  target_source_commit: "5542b221864ca0080e143fa82abbef4cd2064f71",
+  height: "300000",
+  proposal_id: "1",
+  recorded_at: "2026-09-23T10:01:17Z",
+  observed_height: "925042",
+  packet_url: "https://github.com/cambridgetcg/zerone-core/releases/download/zerone-dev-1-5542b221864c/UPGRADE.json",
+  packet_sha256: "04f0415a361396e28397155ecb3c0b13d578475ebf1b86c3e2e2b5d533006f75",
+  release_record_url: "https://github.com/cambridgetcg/zerone-core/releases/download/zerone-dev-1-5542b221864c/UPGRADE-RELEASE.json",
+  release_record_sha256: "be85503652e9c467e074970c7169c80d5864a2a34fc620db7ca83d0b435d1d2b",
+  knowledge_version: 11,
+  descriptor_sha256: "768d7dd7b389d844670fa7f4ac7b34b41c7b9ac4994f88526369f7726dd993e1",
+  binary_sha256: "6cbafddf0d1c8dda3e6ab9f8a5d87d49992f7b699f746ee2d7632e494115a2c6",
+  predecessor_source_commit: "ac5684e33b6946a31f6ea260ebf280eace55b033",
+  participant_release_tag: "zerone-dev-1-5542b221864c-participants-v1",
+};
 // Filled only from the operator's verified release and actual proposal receipt.
 // Null publishes no upgrade notice or placeholder pins.
 export const DEVELOPMENT_UPGRADE_PROPOSAL: DevelopmentUpgradeProposal | null = {
@@ -63,15 +92,34 @@ function pin(value: unknown, length: number, label: string): asserts value is st
   if (typeof value !== "string" || !new RegExp(`^[a-f0-9]{${length}}$`, "u").test(value) || /^0+$/u.test(value)) throw new Error(`Invalid ${label} pin`);
 }
 
-function packageLinks(sourceCommit: string, runtimeCommit: string) {
-  const tag = `zerone-dev-1-${runtimeCommit.slice(0, 12)}`;
-  const recordPath = "deploy/networks/zerone-dev-1/release.json";
+export function validateDevelopmentUpgradeApplied(value: DevelopmentUpgradeApplied, publication: DevelopmentPublication): void {
+  validateDevelopmentPublication(publication);
+  const fields = ["status", "target_source_commit", "height", "proposal_id", "recorded_at", "observed_height", "packet_url", "packet_sha256", "release_record_url", "release_record_sha256", "knowledge_version", "descriptor_sha256", "binary_sha256", "predecessor_source_commit", "participant_release_tag"];
+  if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).length !== fields.length || fields.some((key) => !Object.hasOwn(value, key))) throw new Error("Invalid applied development upgrade fields");
+  const { knowledge_version, descriptor_sha256, binary_sha256, predecessor_source_commit, participant_release_tag, ...notice } = value;
+  validateDevelopmentUpgradeProposal({ ...notice, status: "proposed" });
+  pin(predecessor_source_commit, 40, "predecessor source");
+  if (value.status !== "applied" || knowledge_version !== 11 || BigInt(value.observed_height) < BigInt(value.height)) throw new Error("Applied upgrade requires the observed successor module and height");
+  if (value.target_source_commit !== publication.runtime_source_commit || descriptor_sha256 !== publication.descriptor_sha256 || binary_sha256 !== publication.binary_sha256 || value.recorded_at !== publication.verified_at) throw new Error("Applied upgrade does not match the verified publication");
+  if (predecessor_source_commit === value.target_source_commit || participant_release_tag !== `zerone-dev-1-${value.target_source_commit.slice(0, 12)}-participants-v1`) throw new Error("Applied upgrade requires distinct predecessor and participant packages");
+}
+
+function defaultUpgradeNotice(publication?: DevelopmentPublication): DevelopmentUpgradeNotice | null {
+  if (!publication) return null;
+  if (DEVELOPMENT_UPGRADE_APPLIED?.target_source_commit === publication.runtime_source_commit) return DEVELOPMENT_UPGRADE_APPLIED;
+  return DEVELOPMENT_UPGRADE_PROPOSAL;
+}
+
+function packageLinks(sourceCommit: string, runtimeCommit: string, role: "original" | "participant" | "predecessor" = "original") {
+  const tag = `zerone-dev-1-${runtimeCommit.slice(0, 12)}${role === "participant" ? "-participants-v1" : ""}`;
+  const recordPath = `deploy/networks/zerone-dev-1/${role === "predecessor" ? "release-knowledge-10.json" : "release.json"}`;
   return {
     tag,
     releaseUrl: `${REPOSITORY}/releases/tag/${tag}`,
     recordUrl: `${REPOSITORY}/blob/${sourceCommit}/${recordPath}`,
     recordRawUrl: `https://raw.githubusercontent.com/cambridgetcg/zerone-core/${sourceCommit}/${recordPath}`,
-    sourceScope: "Package source is the runtime commit; the release record and instructions are pinned to this website's source commit.",
+    descriptorUrl: `${REPOSITORY}/blob/${sourceCommit}/deploy/networks/zerone-dev-1/${role === "predecessor" ? "network-knowledge-10.json" : "network.json"}`,
+    sourceScope: role === "participant" ? "The Linux package identifies the observed version-11 runtime binary. The macOS package contains a separate platform build from the same source. Both include the version-11 descriptor; the checksum record and instructions are pinned to this website's source commit." : "Package source is the runtime commit; the release record and instructions are pinned to this website's source commit.",
     verification: "Verify the archive SHA-256 against the source-pinned release record before extracting or running it. That record also identifies each platform's binary hash. A checksum identifies bytes; it is not a security audit or independent operator trust.",
     artifacts: [
       { platform: "linux-amd64", label: "Linux · x86-64" },
@@ -84,15 +132,22 @@ function packageLinks(sourceCommit: string, runtimeCommit: string) {
 }
 
 /** The website links to a committed external checksum record, not a hash supplied by its archive. */
-export function validateDevelopmentRelease(value: unknown, publication: DevelopmentPublication): void {
+export function validateDevelopmentRelease(value: unknown, publication: DevelopmentPublication, notice: DevelopmentUpgradeNotice | null = defaultUpgradeNotice(publication)): void {
   validateDevelopmentPublication(publication);
+  if (publication.runtime_source_commit === DEVELOPMENT_UPGRADE_PROPOSAL?.target_source_commit && notice?.status !== "applied") throw new Error("Successor participant packages require an applied upgrade observation");
+  const applied = notice?.status === "applied" ? notice : null;
+  if (applied) validateDevelopmentUpgradeApplied(applied, publication);
   const object = (item: unknown, fields: string[]): Record<string, unknown> => {
     if (!item || typeof item !== "object" || Array.isArray(item) || Object.keys(item).length !== fields.length || fields.some((key) => !Object.hasOwn(item, key))) throw new Error("Invalid development release fields");
     return item as Record<string, unknown>;
   };
-  const release = object(value, ["schema", "chain_id", "source_commit", "source_tree", "release_tag", "release_url", "runtime_image", "descriptor_sha256", "genesis_sha256", "rpc_genesis_sha256", "runtime_binary_sha256", "artifacts", "bootstrap_consensus", "funds", "private_keys_in_packages"]);
-  const expected = packageLinks(publication.runtime_source_commit, publication.runtime_source_commit);
-  if (release.schema !== "zerone-development-release/v1" || release.chain_id !== DEVELOPMENT_CHAIN || release.source_commit !== publication.runtime_source_commit || release.release_tag !== expected.tag || release.release_url !== expected.releaseUrl || release.bootstrap_consensus !== "single-operator" || release.funds !== "valueless-development-only" || release.private_keys_in_packages !== false) throw new Error("Development release identity or scope mismatch");
+  const release = object(value, ["schema", "chain_id", "source_commit", "source_tree", "release_tag", "release_url", "runtime_image", "descriptor_sha256", "genesis_sha256", "rpc_genesis_sha256", "runtime_binary_sha256", "artifacts", "bootstrap_consensus", "funds", "private_keys_in_packages", ...(applied ? ["knowledge_version", "packaging_recipe_sha256", "upstream_release_sha256", "upgrade_packet_sha256", "runtime_image_basis", "publication_status"] : [])]);
+  const expected = packageLinks(publication.runtime_source_commit, publication.runtime_source_commit, applied ? "participant" : "original");
+  if (release.schema !== (applied ? "zerone-development-participant-release/v1" : "zerone-development-release/v1") || release.chain_id !== DEVELOPMENT_CHAIN || release.source_commit !== publication.runtime_source_commit || release.release_tag !== expected.tag || release.release_url !== expected.releaseUrl || release.bootstrap_consensus !== "single-operator" || release.funds !== "valueless-development-only" || release.private_keys_in_packages !== false) throw new Error("Development release identity or scope mismatch");
+  if (applied) {
+    pin(release.packaging_recipe_sha256, 64, "participant packaging recipe");
+    if (release.knowledge_version !== applied.knowledge_version || release.upstream_release_sha256 !== applied.release_record_sha256 || release.upgrade_packet_sha256 !== applied.packet_sha256 || release.runtime_image_basis !== "Upstream build-image provenance; no new hosted-machine observation." || release.publication_status !== "applied-runtime-verified") throw new Error("Participant release provenance or observation scope mismatch");
+  }
   pin(release.source_tree, 40, "runtime source tree");
   if (typeof release.runtime_image !== "string" || !/^registry\.fly\.io\/zerone-dev-1@sha256:[a-f0-9]{64}$/u.test(release.runtime_image)) throw new Error("Development release requires an immutable runtime image");
   for (const field of ["descriptor_sha256", "genesis_sha256", "rpc_genesis_sha256"] as const) if (release[field] !== publication[field]) throw new Error(`Development release ${field} mismatch`);
@@ -120,10 +175,15 @@ export function validateDevelopmentPublication(value: DevelopmentPublication): v
 }
 
 /** Build-time publication evidence, never a current network-health assertion. */
-export function buildDevelopmentProfile(sourceCommit: string, publication?: DevelopmentPublication, proposal: DevelopmentUpgradeProposal | null = publication ? DEVELOPMENT_UPGRADE_PROPOSAL : null) {
+export function buildDevelopmentProfile(sourceCommit: string, publication?: DevelopmentPublication, notice: DevelopmentUpgradeNotice | null = defaultUpgradeNotice(publication)) {
   pin(sourceCommit, 40, "website source");
   if (publication !== undefined) validateDevelopmentPublication(publication);
+  const proposal = notice?.status === "proposed" ? notice : null;
+  const applied = notice?.status === "applied" ? notice : null;
+  if (notice !== null && !proposal && !applied) throw new Error("Invalid development upgrade status");
+  if (publication?.runtime_source_commit === DEVELOPMENT_UPGRADE_PROPOSAL?.target_source_commit && !applied) throw new Error("Successor participant packages require an applied upgrade observation");
   if (proposal !== null) { validateDevelopmentUpgradeProposal(proposal); if (!publication || proposal.target_source_commit === publication.runtime_source_commit) throw new Error("Proposed target requires a distinct live predecessor publication"); }
+  if (applied !== null) { if (!publication) throw new Error("Applied upgrade requires a verified publication"); validateDevelopmentUpgradeApplied(applied, publication); }
   const source = (path: string) => `${REPOSITORY}/blob/${sourceCommit}/${path}`;
   return {
     schema: "zerone.development-guide/v1",
@@ -134,7 +194,21 @@ export function buildDevelopmentProfile(sourceCommit: string, publication?: Deve
     source: { commit: sourceCommit, guide: source("docs/SHARED-DEVELOPMENT.md"), client: source("scripts/shared-claims.py"), scope: "Website documentation and participant client source; deployed binary source is identified separately." },
     endpoints: { descriptor: `${DEVELOPMENT_GATEWAY}/network.json`, genesis: `${DEVELOPMENT_GATEWAY}/genesis.json`, gateway: DEVELOPMENT_GATEWAY },
     publication: publication ?? null,
-    packages: publication ? packageLinks(sourceCommit, publication.runtime_source_commit) : null,
+    packages: publication ? packageLinks(sourceCommit, publication.runtime_source_commit, applied ? "participant" : "original") : null,
+    predecessorPackages: applied ? packageLinks(sourceCommit, applied.predecessor_source_commit, "predecessor") : null,
+    upgradeApplied: applied ? {
+      ...applied,
+      name: "knowledge-fund-settlement-v1",
+      label: "Applied · dated endpoint observation",
+      releaseUrl: applied.packet_url.replace(/\/download\/([^/]+)\/UPGRADE\.json$/u, "/tag/$1"),
+      evidenceUrl: source("docs/reports/development-publication-2026-09-23.json"),
+      specUrl: source("docs/specs/knowledge-fund-settlement-v1.md"),
+      runtimeGuideUrl: source("deploy/networks/zerone-dev-1/README.md") + "#stage-a-knowledge-10-to-11-upgrade",
+      effect: `The endpoint reported this upgrade applied at block ${applied.height} and knowledge version 11. The participant publication below identifies the observed successor descriptor and binary. This dated endpoint observation is not an independent application-state proof or a guarantee of current availability.`,
+      participantContinuity: "New participants use the separate version-11 client packages below. Existing participant homes and original commitments remain usable with their verified original client; deadlines and historical claim rules are preserved. Older binaries omit the new funding fields, which the current history reader can display.",
+      followerContinuity: `Fresh full nodes replay from the original genesis with the predecessor package, then use the immutable upgrade bundle to stage version 10 before block ${applied.height} and version 11 from that boundary onward. The new participant descriptor does not replace the original replay input. No genesis reset or identity replacement is part of this path.`,
+      funding: "New admissions retain explicit funding terms. Ordinary claims and conjectures allocate 55% to review and retain the remainder; challenges allocate 55% to review and make the remainder refundable for every terminal verdict. With no eligible reveals the review budget is refundable too. A refundable amount is not evidence of payment. Network fees are separate, and old claims keep their original rules.",
+    } : null,
     upgradeProposal: proposal ? {
       ...proposal,
       name: "knowledge-fund-settlement-v1",
