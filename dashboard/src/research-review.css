@@ -1,4 +1,5 @@
 @import "./node-guide.css";
+@import "./claim-history.css";
 .review-page, .review-header, .review-footer { width: min(1380px, calc(100% - 64px)); }
 .review-page { overflow-wrap: anywhere; }
 .review-header { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; min-height: 90px; border-bottom: 1px solid var(--line); }
@@ -91,6 +92,21 @@
 .reader-notes { padding-block: 3.5rem; max-width: 900px; }
 .reader-notes p { margin-top: 1rem; color: var(--muted); font-size: .84rem; }
 .review-footer { padding-block: 1.5rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .8rem; }
+.workflow-import { margin-top: 1rem; padding: 1.75rem; border: 1px solid var(--line); background: var(--surface); }
+.workflow-import p, .workflow-panel > p, #workflow-next p { margin-block: .7rem; font-size: .84rem; color: var(--muted); }
+.workflow-import > label { max-width: 36rem; margin-block: 1rem; }
+.workflow-panel { margin-top: 1.2rem; }
+#workflow-form { display: grid; gap: 1rem; margin-top: 1.4rem; }
+.workflow-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.workflow-panel textarea, .workflow-panel input[type=text] { width: 100%; min-width: 0; color: var(--ink); background: #09090c; border: 1px solid var(--line); border-radius: 4px; font: inherit; font-size: .86rem; padding: .75rem; }
+.workflow-panel textarea { resize: vertical; min-height: 100px; }
+#workflow-prepare { justify-self: start; }
+.workflow-actions { display: flex; flex-wrap: wrap; gap: .7rem; margin-block: 1rem; }
+#workflow-summary { padding: 1rem; border: 1px solid var(--line); margin-top: 1rem; }
+#workflow-summary p { margin-block: .4rem; font-size: .8rem; }
+#workflow-next pre { padding: 1rem; background: #09090c; border: 1px solid var(--line); overflow-x: auto; font-size: .75rem; line-height: 1.8; }
+#workflow-status[data-error=true], #workflow-import-status[data-error=true], #workflow-observation-status[data-error=true] { color: #ffb8a8; }
+@media(max-width:680px) { .workflow-fields { grid-template-columns: 1fr; } .workflow-import { padding: 1rem; } }
 @media(max-width: 900px) { .review-layout { grid-template-columns: minmax(190px, .7fr) minmax(0, 1.6fr); } .snapshot-controls { grid-template-columns: 1fr 1fr; } .snapshot-controls > label:last-child { grid-column: 1/-1; } }
 @media(max-width: 680px) { .review-page, .review-header, .review-footer { width: calc(100% - 32px); } .review-header { align-items: flex-start; padding-block: 1.3rem; } .review-header nav { justify-content: flex-end; font-size: .72rem; } .review-intro { padding-block: 3rem 2rem; } .import-panel, .snapshot-controls, .review-layout, .review-ledger { grid-template-columns: 1fr; } .import-panel, .panel, .snapshot-controls { padding: 1rem; } .timeline-panel { max-height: 430px; } .snapshot-controls > label:last-child { grid-column: auto; } .collection-header { flex-direction: column; } .detail-meta { grid-template-columns: 1fr; gap: .15rem; } .detail-meta dd { margin-bottom: .6rem; } }
 @media(prefers-reduced-motion: reduce) { :root { scroll-behavior: auto; } }

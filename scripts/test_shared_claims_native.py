@@ -48,6 +48,7 @@ class NativeSharedClaimsTests(unittest.TestCase):
         self.process = None
         self.addresses = {}
         self.txs = {}
+        self.tx_participants = {}
         self.evidence = {"synthetic_accounts_one_controller": True, "independent_reviewers_claimed": False,
                          "network_scope": "isolated local-test zerone-dev-1 runtime; all participant traffic uses actual gateway"}
         self.reports = None
@@ -89,6 +90,8 @@ class NativeSharedClaimsTests(unittest.TestCase):
             self.assertGreater(int(value["height"]), 0)
             self.assertEqual(int(value["code"]), 0)
             self.txs[value["txhash"]] = value
+            previous = self.tx_participants.setdefault(value["txhash"], person)
+            self.assertEqual(previous, person)
         return value
 
     def capture_client_failure(self, context, result):
@@ -237,6 +240,112 @@ class NativeSharedClaimsTests(unittest.TestCase):
         self.assertFalse(value["record"].get("missing_round_ids"))
         return value
 
+    def bank_snapshot(self):
+        # All accounts and supply share one committed context. Only public
+        # gateway queries are used; the runtime's keyring is never consulted.
+        status = json.loads(self.get("/status"))["result"]
+        height = int(status["sync_info"]["latest_block_height"])
+        self.assertGreater(height, 0)
+        def query(*args):
+            return self.command([self.binary, "query", *args, "--home", self.homes["author"],
+                                 "--node", self.origin, "--height", height, "--output", "json"])
+        balances = {}
+        for person, address in self.addresses.items():
+            result = query("bank", "balances", address)
+            self.assertFalse(result.get("pagination", {}).get("next_key"), "balance query must be complete")
+            self.assertEqual({coin["denom"] for coin in result["balances"]}, {"uzrn"})
+            balances[person] = int(result["balances"][0]["amount"])
+        supply = query("bank", "total")
+        self.assertFalse(supply.get("pagination", {}).get("next_key"), "supply query must be complete")
+        return {"height": height, "balances": balances, "supply": supply["supply"]}
+
+    def funding_terms(self, history, receipt, challenge=False):
+        claim = history["record"]["claim"]
+        self.assertEqual(claim["id"], receipt["claim_id"])
+        paid = int(receipt["collateral_uzrn" if challenge else "review_fee_uzrn"])
+        self.assertGreater(paid, 0)
+        pool = paid * 55 // 100
+        terms = claim["funding_terms"]
+        self.assertEqual(set(terms), {"policy_version", "kind", "paid_amount", "review_budget", "refundable_amount", "retained_fee"})
+        self.assertEqual(terms["policy_version"], 1)
+        self.assertTrue(fixture.enum_is(terms["kind"], 2 if challenge else 1,
+                                       "CLAIM_FUNDING_KIND_CHALLENGE_DEPOSIT" if challenge else "CLAIM_FUNDING_KIND_REVIEW_FEE"))
+        self.assertEqual({key: terms[key] for key in ("paid_amount", "review_budget", "refundable_amount", "retained_fee")},
+                         {"paid_amount": str(paid), "review_budget": str(pool),
+                          "refundable_amount": str(paid - pool if challenge else 0),
+                          "retained_fee": str(0 if challenge else paid - pool)})
+        return terms
+
+    def terminal_funding(self, claim, seconds=160):
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            value = json.loads(self.get("/claims/" + claim))
+            row = value["record"]["rounds"][0]
+            terminal = fixture.enum_is(row["phase"], 4, "VERIFICATION_PHASE_COMPLETE") or fixture.enum_is(row["phase"], 5, "VERIFICATION_PHASE_EXPIRED")
+            plans = [row[field] for field in ("verifier_reward_settlement", "claim_refund_settlement") if row.get(field)]
+            if terminal and all(int(plan.get("paid_at_block", 0)) > 0 for plan in plans):
+                return value
+            self.assertIsNone(self.process.poll())
+            time.sleep(0.8)
+        self.fail("Terminal funding was not observed within the isolated test window")
+
+    def assert_funding_settlement(self, history, admission_terms, reviewed=True):
+        record = history["record"]
+        self.assertEqual(record["claim"]["funding_terms"], admission_terms, "admission terms must remain immutable")
+        self.assertEqual(len(record["rounds"]), 1)
+        row = record["rounds"][0]
+        pool = int(admission_terms["review_budget"])
+        plan = row.get("verifier_reward_settlement")
+        if reviewed:
+            self.assertIsNotNone(plan)
+            payments = plan["payments"]
+            self.assertEqual(len(payments), len(REVIEWERS))
+            self.assertEqual({p["verifier"] for p in payments}, {self.addresses[p] for p in REVIEWERS})
+            share, remainder = divmod(pool, len(REVIEWERS))
+            self.assertEqual(sorted(int(p["amount"]) for p in payments), sorted([share + remainder, share, share]))
+            self.assertTrue(all(p["withheld"] == "0" for p in payments))
+            self.assertEqual(plan["withheld_total"], "0", "a dissenting review receives its pool share")
+        else:
+            self.assertFalse(row.get("commits"))
+            self.assertFalse(row.get("reveals"))
+            self.assertIsNone(plan, "an empty round must not invent reviewer payments")
+            self.assertFalse(record.get("facts"))
+        refund_amount = int(admission_terms["refundable_amount"]) + (0 if reviewed else pool)
+        refund = row.get("claim_refund_settlement")
+        if refund_amount:
+            self.assertIsNotNone(refund)
+            self.assertEqual(refund["recipient"], record["claim"]["submitter"])
+            self.assertEqual(refund["amount"], str(refund_amount))
+        else:
+            self.assertIsNone(refund)
+        for payment in (plan, refund):
+            if payment is not None:
+                self.assertEqual(int(payment["created_at_block"]), int(row["verdict_block"]))
+                self.assertGreaterEqual(int(payment["paid_at_block"]), int(payment["created_at_block"]))
+                self.assertGreater(int(payment["paid_at_block"]), 0, "a recorded obligation is not a payment")
+                self.assertLessEqual(int(payment["paid_at_block"]), int(history["block_height"]))
+
+    def assert_bank_conservation(self, before, after, histories, fees):
+        by_address = {address: person for person, address in self.addresses.items()}
+        expected = dict(before["balances"])
+        retained = 0
+        for person, amount in fees.items():
+            expected[person] -= amount
+        for history in histories.values():
+            record = history["record"]
+            terms = record["claim"]["funding_terms"]
+            expected[by_address[record["claim"]["submitter"]]] -= int(terms["paid_amount"])
+            retained += int(terms["retained_fee"])
+            row = record["rounds"][0]
+            for payment in (row.get("verifier_reward_settlement") or {}).get("payments", []):
+                expected[by_address[payment["verifier"]]] += int(payment["amount"])
+            refund = row.get("claim_refund_settlement")
+            if refund:
+                expected[by_address[refund["recipient"]]] += int(refund["amount"])
+        self.assertEqual(after["balances"], expected, "actual bank changes must match admissions, payments, refunds and signed transaction fees")
+        self.assertEqual(sum(after["balances"].values()) - sum(before["balances"].values()), -sum(fees.values()) - retained)
+        self.assertEqual(after["supply"], before["supply"], "review settlement must not change the supply")
+
     def wait_phase(self, claim, phase, seconds=160):
         deadline = time.monotonic() + seconds
         while time.monotonic() < deadline:
@@ -301,6 +410,7 @@ class NativeSharedClaimsTests(unittest.TestCase):
         descriptor_sha = hashlib.sha256(raw).hexdigest()
         descriptor = json.loads(raw)
         self.assertTrue(descriptor["local_test"])
+        self.assertEqual(descriptor["knowledge_version"], 11)
         self.assertEqual(descriptor["review_window_blocks"], 60)
         self.evidence.update(descriptor=descriptor, descriptor_sha256=descriptor_sha)
         # In this fixture the trusted descriptor comes from the explicitly owned
@@ -326,6 +436,8 @@ class NativeSharedClaimsTests(unittest.TestCase):
         self.assertEqual({row["name"] for row in node_keys}, {"validator", "faucet"})
         self.assertFalse({row["address"] for row in node_keys} & set(self.addresses.values()))
         self.evidence["participant_keys_absent_from_runtime_keyring"] = True
+        bank_before = self.bank_snapshot()
+        setup_transactions = set(self.txs)
 
         evidence_ids = {}
         for kind, name in (("review", "scoped-review.json"), ("counterexample", "counterexample.json")):
@@ -341,6 +453,7 @@ class NativeSharedClaimsTests(unittest.TestCase):
         self.assertEqual(pending["record"]["claim"]["fact_content"], fixture.CLAIM)
         self.assertEqual(pending["record"]["claim"]["reasoning_trace"], fixture.REASONING)
         self.assertFalse(pending["record"].get("facts"))
+        accepted_terms = self.funding_terms(pending, submitted)
         self.client("challenger", "watch", "--claim", accepted_id)
         self.assertEqual([c["claim_id"] for c in self.client("challenger", "snapshot")["claims"]], [accepted_id])
         reasons = [fixture.review_reason(p) for p in REVIEWERS]
@@ -356,10 +469,14 @@ class NativeSharedClaimsTests(unittest.TestCase):
         self.assertEqual(fact["content"], fixture.CLAIM)
         self.evidence["accepted_before_counterclaim"] = accepted
 
-        second_id = self.client("author", "submit", "--content", fixture.SECOND_CLAIM, "--method", "M-COMPUTATIONAL",
-                                "--reasoning", "Synthetic signed disagreement; one rejection is intentional.")["claim_id"]
-        counter_id = self.client("challenger", "challenge", "--fact", fact["id"], "--content", fixture.COUNTER_CONTENT,
-                                 "--reason", fixture.COUNTER_REASON, "--evidence", evidence_ids["counterexample"])["claim_id"]
+        second_submission = self.client("author", "submit", "--content", fixture.SECOND_CLAIM, "--method", "M-COMPUTATIONAL",
+                                        "--reasoning", "Synthetic signed disagreement; one rejection is intentional.")
+        second_id = second_submission["claim_id"]
+        counter_submission = self.client("challenger", "challenge", "--fact", fact["id"], "--content", fixture.COUNTER_CONTENT,
+                                         "--reason", fixture.COUNTER_REASON, "--evidence", evidence_ids["counterexample"])
+        counter_id = counter_submission["claim_id"]
+        second_terms = self.funding_terms(self.history(second_id), second_submission)
+        counter_terms = self.funding_terms(self.history(counter_id), counter_submission, challenge=True)
         second_reasons = [f"Synthetic {p}: intentional {v} for the bounded test." for p, v in zip(REVIEWERS, ("accept", "accept", "reject"))]
         counter_reasons = [f"Synthetic {p}: checked 1681 = 41*41 at n=40." for p in REVIEWERS]
         scope = "Isolated separate-home test; all participants are controlled by one harness, not independent people."
@@ -379,9 +496,34 @@ class NativeSharedClaimsTests(unittest.TestCase):
         self.assertFalse(inconclusive["record"].get("facts"))
         self.assertTrue(fixture.enum_is(inconclusive["record"]["claim"]["status"], 10, "CLAIM_STATUS_INSUFFICIENT"))
         self.evidence.update(final_root_history=final, inconclusive_history=inconclusive)
+
+        # Empty ordinary and correction rounds prove that no review is neither
+        # approval nor a lost refund. These remain synthetic signed admissions.
+        empty_submission = self.client("author", "submit", "--content", "Synthetic unreviewed funding fixture: this assertion has no supporting review.",
+                                       "--reasoning", "Exercise return of the unused review budget without asserting a scientific result.")
+        empty_counter = self.client("challenger", "challenge", "--fact", fact["id"],
+                                   "--content", "Synthetic unreviewed correction fixture: no reviewer has checked this counterclaim.",
+                                   "--reason", "Exercise return of the unused review budget and challenge remainder.")
+        empty_terms = self.funding_terms(self.history(empty_submission["claim_id"]), empty_submission)
+        empty_counter_terms = self.funding_terms(self.history(empty_counter["claim_id"]), empty_counter, challenge=True)
+        terms_by_claim = {accepted_id: accepted_terms, second_id: second_terms, counter_id: counter_terms,
+                          empty_submission["claim_id"]: empty_terms, empty_counter["claim_id"]: empty_counter_terms}
+        reviewed_claims = {accepted_id, second_id, counter_id}
+        financial_histories = {claim: self.terminal_funding(claim) for claim in terms_by_claim}
+        for claim, history in financial_histories.items():
+            self.assert_funding_settlement(history, terms_by_claim[claim], claim in reviewed_claims)
+        bank_after = self.bank_snapshot()
+        self.evidence["funding_histories"] = financial_histories
         self.stop()
         self.start()
         self.assertEqual(self.get("/network.json"), raw)
+        bank_restart = self.bank_snapshot()
+        self.assertEqual(bank_restart["balances"], bank_after["balances"], "restart must not pay a reviewer or refund twice")
+        self.assertEqual(bank_restart["supply"], bank_after["supply"])
+        for claim, history in financial_histories.items():
+            restarted = self.history(claim)["record"]
+            self.assertEqual(restarted["claim"], history["record"]["claim"])
+            self.assertEqual(restarted["rounds"], history["record"]["rounds"])
         after = self.history(accepted_id)
         self.assertEqual(after["record"]["claim"], final["record"]["claim"])
         self.assertEqual(after["record"]["rounds"], final["record"]["rounds"])
@@ -393,6 +535,8 @@ class NativeSharedClaimsTests(unittest.TestCase):
             self.assertTrue(all(row["status"] == "revealed" for row in snapshot["pending_reviews"]))
             self.assertTrue(all(not {"salt", "vote", "reason", "attestation"} & row.keys() for row in snapshot["pending_reviews"]))
         sizes = []
+        fees = {person: 0 for person in PEOPLE}
+        fee_receipts = []
         for txhash, receipt in sorted(self.txs.items()):
             tx = self.rpc("tx", hash=base64.b64encode(bytes.fromhex(txhash)).decode(), prove=False)
             txraw = base64.b64decode(tx["tx"], validate=True)
@@ -400,7 +544,28 @@ class NativeSharedClaimsTests(unittest.TestCase):
             self.assertGreater(int(tx["height"]), 0)
             self.assertEqual(int(tx["tx_result"]["code"]), 0)
             sizes.append({"txhash": txhash, "height": tx["height"], "bytes": len(txraw), "code": 0})
-        self.assertEqual(len(sizes), 31, "five grants, five onboard, three submissions, nine commits, nine reveals")
+            if txhash not in setup_transactions:
+                person = self.tx_participants[txhash]
+                # Decode only hash-checked, already committed public bytes. Fee
+                # accounting must not assume a constant from the client code.
+                decoded = self.command([self.binary, "tx", "decode", tx["tx"], "--home", self.homes[person], "--output", "json"])
+                fee = decoded["auth_info"]["fee"]
+                self.assertIn(fee.get("payer", ""), ("", self.addresses[person]))
+                self.assertFalse(fee.get("granter"), "this fixture uses each participant's own funds")
+                self.assertEqual(len(fee["amount"]), 1)
+                self.assertEqual(fee["amount"][0]["denom"], "uzrn")
+                amount = int(fee["amount"][0]["amount"])
+                self.assertGreater(amount, 0)
+                fees[person] += amount
+                fee_receipts.append({"txhash": txhash, "participant": person, "fee_uzrn": str(amount)})
+        expected_transactions = len(setup_transactions) + len(financial_histories) + sum(
+            2 * len(value["record"]["rounds"][0].get("reveals", [])) for value in financial_histories.values())
+        self.assertEqual(len(sizes), expected_transactions, "every fixture grant, onboard, admission, commit and reveal must have a receipt")
+        self.assertEqual(len(fee_receipts), len(self.txs) - len(setup_transactions))
+        self.assert_bank_conservation(bank_before, bank_after, financial_histories, fees)
+        self.evidence["bank_comparison"] = {"before": bank_before, "after": bank_after, "after_restart": bank_restart,
+                                            "transaction_fees_by_participant": fees, "signed_fee_receipts": fee_receipts,
+                                            "actual_balances_match_recorded_settlement": True, "restart_did_not_repeat_payment": True}
         self.stop()
         after_hashes = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in self.source_hashes}
         self.evidence["source_hashes_after"] = after_hashes

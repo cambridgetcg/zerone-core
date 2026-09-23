@@ -1,15 +1,16 @@
 # Zerone: what exists and how it connects
 
-**Follow-up: 23 September 2026.** The development publication in this source
-now selects separate knowledge-11 participant packages and preserves the
-knowledge-10 packages for original-genesis replay. Public queries observed the
-fund-settlement upgrade applied at height 300000, knowledge version 11, and the
+**Follow-up: 23 September 2026.** Development participant-package and website
+publication is complete: it offers separate knowledge-11 participant packages
+and retains the knowledge-10 packages for original-genesis replay. Public queries
+observed the fund-settlement upgrade applied at height 300000, knowledge version 11, and the
 unchanged genesis. See the [dated observations](reports/development-publication-2026-09-23.json)
-and [current participant guide](SHARED-DEVELOPMENT.md). Website publication is
-a separate release step; the mismatch described below is the historical
-17 September observation. The [module sequence](MODULE-CONSOLIDATION-SEQUENCE.md)
-and [review handoff](DEVELOPMENT-REVIEW-HANDOFF.md) identify the next work without
-claiming completed module retirement or independently controlled participation.
+and [current participant guide](SHARED-DEVELOPMENT.md). The mismatch described
+below is the historical 17 September observation, now resolved by that publication.
+The new [research workflow](specs/research-workflow-v1.md) implementation connects
+a selected local journal contribution to an explicit native submission and a shared browser history
+reader. It changes no runtime or keeper wiring. All 23 custom modules remain
+registered; H4-F/H4/H5 and independently controlled human review remain pending.
 
 **Historical snapshot: 17 September 2026.** Source reviewed: GitHub `main` at
 [`cb12a457`](https://github.com/cambridgetcg/zerone-core/tree/cb12a457b15fb21ebc42d9fb9b6414c161c194cc).
@@ -59,13 +60,16 @@ flowchart TB
   Knowledge --> Edge["zerone-rpc.fly.dev · read-only edge"]
   Edge --> Legacy
   Site --> DevReader["Development claim reader · GET only"]
-  DevReader -.->|currently blocked: stale publication pin| DevGate["zerone-dev-1.fly.dev · development gateway"]
+  DevReader -->|verify published pins, then GET history| DevGate["zerone-dev-1.fly.dev · development gateway"]
   Person --> Client["Local participant CLI · keys and signed transactions"]
   Client --> DevGate
   DevGate --> Dev["zerone-dev-1 · development ledger"]
   Person --> Journal["Local research journal and evidence files"]
   Journal --> Export["Exported JSON"]
   Export --> Reader["Research Review · browser memory"]
+  Reader --> Packet["Local journal/record/intent workflow file"]
+  Packet -->|explicit submission via pinned client| Client
+  Reader -->|explicit matched native-history read| DevGate
 ```
 
 The homepage's legacy wallet can also submit a signed bank transfer through its
@@ -86,7 +90,7 @@ Source: [website build](../dashboard/vite.config.ts),
 
 | Piece | Job | What is established |
 | --- | --- | --- |
-| **Cloudflare Pages / `zerone.ai`** | Static frontend, research files and Pages Functions | Public website; its live development guide identifies source `cb12a457`. |
+| **Cloudflare Pages / `zerone.ai`** | Static frontend, research files and Pages Functions | Public website; the 23 September development publication selects the separate knowledge-11 participant packages. |
 | **Fly.io / `zerone-1`** | Historical custodial ledger and its RPC/REST services | Public status responds as `zerone-1`; this is an older application lineage, not a deployment of current `main`. |
 | **Fly.io / `zerone-rpc`** | Stateless, restricted HTTPS access to legacy queries | Public `/rpc/status` responds; the knowledge view uses this edge. It is not an independent validator. |
 | **Fly.io / `zerone-dev-1`** | Persistent shared development node, gateway and prefunded faucet | Public runtime reports knowledge **11**, source `5542b221`; separate genesis, state and development funds. |
@@ -104,22 +108,22 @@ checkpoints or promises of availability. The
 [observation record](reports/zerone-map-observations-2026-09-17.json) preserves
 public responses and a minimal infrastructure inventory.
 
-**A live publication gap:** on 17 September the development runtime reports
+**Historical publication gap, resolved 23 September:** on 17 September the
+development runtime reported
 knowledge 11 at `5542b221864ca0080e143fa82abbef4cd2064f71`. A separate
-`AppliedPlan` query reports `knowledge-fund-settlement-v1` applied at height
+`AppliedPlan` query reported `knowledge-fund-settlement-v1` applied at height
 **300,000**. The website's
-[`development/guide.json`](https://zerone.ai/development/guide.json) still selects
-the original `ac5684e33b6946a31f6ea260ebf280eace55b033` package and labels the
+[`development/guide.json`](https://zerone.ai/development/guide.json) still selected
+the original `ac5684e33b6946a31f6ea260ebf280eace55b033` package and labelled the
 upgrade proposed. The original genesis still needs the predecessor binary for
 replay; old participant homes have their own pinned files. This map does not
 replace those pins or constitute a successor-package publication.
 
-This affects use today: calling the current reader's `verifyDescriptor` with
-the served descriptor and published pins **rejects it before claim history is
-fetched**. The expected hash starts `e01f9e47`; the served hash starts
-`768d7dd7`. Its message is “Network descriptor differs from the published
-SHA-256; stop and check the network notice.” Thus the diagram shows the intended
-read route, with this publication mismatch presently blocking it. See
+That mismatch made the reader's `verifyDescriptor` **reject the descriptor
+before fetching claim history**. The old expected hash started `e01f9e47`; the
+served hash started `768d7dd7`. The completed publication now selects the matching
+descriptor while retaining the original replay inputs. Verification still
+fails closed when served bytes differ from the published pins. See
 [descriptor check](../dashboard/src/development-reader.ts) and
 [read sequence](../dashboard/src/development.ts).
 
@@ -249,6 +253,15 @@ flowchart TB
 at [line 1089](../app/app.go#L1089), so its flagged-domain sensor is skipped.
 The direct qualification → capture-defense hookup remains a commented TODO at
 [line 928](../app/app.go#L928). These are source findings, not completed fixes.
+Moving the alignment setter would activate a previously absent sensor and can
+change health-derived [claim fees and cooldowns](../x/knowledge/keeper/pacing.go);
+it is not a neutral cleanup. Conversely, alignment's
+[corrections are now advisory](../x/alignment/keeper/corrections.go#L107), so a
+correction record is not evidence of an automatic economic mutation. Neutral
+reviews bypass legacy qualification/reputation weighting, but still use
+[ontology confidence ceilings](../x/knowledge/keeper/confidence.go#L166) and
+current pacing. Simplification must trace these remaining consumers before
+disconnecting them or restoring older feedback paths.
 
 ### Who actually owns what?
 
@@ -261,9 +274,9 @@ The direct qualification → capture-defense hookup remains a commented TODO at
 | Domains | Ontology and knowledge both retain domain registries | Ontology as the canonical owner; other views become projections. |
 | Qualification custody | Qualification still holds its own stake escrow; normal expiry and withdrawals continue | Non-economic qualifications and reconciliation of legacy custody. |
 | Scientific claims and review history | Knowledge, with related counterexample records | Preserve evidence, disagreement and correction history while reducing unrelated machinery. |
-| Research-file timeline | Local journal/export | Stays an off-chain record unless an explicit transaction commits a checkpoint. |
+| Research-file timeline | Local journal/export | Remains local; an explicit checkpoint commits its digest, while the workflow adapter binds a separately selected native assertion. |
 
-The authority migration is a specified target, not completed retirement. See
+The H4-F → H4 → H5 authority migration remains pending. See
 [Authoritative State](AUTHORITATIVE-STATE.md). A paid balance, identity record,
 review tally or derived score must not be casually relabelled as independent
 scientific authority.
@@ -347,6 +360,17 @@ See [journal tools](../tools/research-review/README.md),
 [checkpoint tools](../tools/research-checkpoint/README.md) and
 [public checkpoint](https://zerone.ai/research/checkpoints/).
 
+For deliberate native review, the [workflow adapter](../tools/research-review/workflow.py)
+binds the exact export, selected record and edited assertion. The browser prepares
+or imports its local workflow file; explicit CLI submission uses the participant's
+existing pinned client and private home. Read-only refresh can recover a completed
+submission from client observations and retain claim, review, correction and
+funding history. The browser's explicit history read matches the retained native
+assertion to the selected intent and published network pins. Importing a file
+does not submit, fetch or turn journal attribution into signer identity.
+See the [workflow contract](specs/research-workflow-v1.md) and
+[browser binding](../dashboard/src/research-workflow.ts).
+
 ## Where data lives
 
 | Data | Home | What a reader should understand |
@@ -356,6 +380,7 @@ See [journal tools](../tools/research-review/README.md),
 | Participant signing keys, identity file, review salts and saved transactions | Private local participant home | These are not stored by the development web reader. |
 | Website, schemas, research models and published evidence | Repository → built Cloudflare Pages assets | A JSON “observatory” may be a static model, not a database query. |
 | Research journal and fetched source artifacts | Local store plus explicitly exported/published files | A content hash identifies an artifact; it does not contain or preserve the artifact. |
+| Research workflow file | Local file/browser memory, separate from the journal and private participant home | Embeds the exact journal export, selected native intent, public receipt and dated observations; does not import participant signing keys or private review tuples. |
 | Agent-home memory CID | Reference in chain state; content stored separately | The reference does not establish an operating IPFS or pinning service. |
 | Pi pilot sessions/consent/deletion bookkeeping | D1 schema and backend implementation | Feature-gated source; Pi is unavailable on the checked public session route. |
 | Supabase observatory | Source-only offline contracts and validation fixtures | No deployed Supabase ingestion/database connection is established by this repository. |
@@ -431,9 +456,10 @@ a validator. See [CI](../.github/workflows/ci.yml) and
 
 ## The main unfinished connections
 
-- **Development publication:** reconcile the observed version-11 runtime with
-  the still-version-10 public package pins and proposed-upgrade notice; the
-  public reader currently refuses the changed network descriptor.
+- **Independent participation:** publication and the local journal/native handoff
+  are implemented; the [reviewer handoff](DEVELOPMENT-REVIEW-HANDOFF.md) still needs
+  a willing independently controlled participant. Synthetic separate-key tests
+  establish workflow and settlement behavior, not independent human review.
 - **Authority consolidation:** custom staking/governance and duplicate domains
   still have implementation work before the single-owner design is real.
 - **Legacy compatibility:** current source, legacy observer and future successor

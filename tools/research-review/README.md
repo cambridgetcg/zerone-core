@@ -7,8 +7,10 @@ The [browser view](https://zerone.ai/research/review/) loads an explicitly ficti
 demo or a JSON export selected from your computer. Selected files remain in
 browser memory. The view verifies the export before displaying its contents.
 
-Use Python 3.10+ on macOS/Linux. These local Python tools have no dependencies,
-accounts, background services, signing keys or blockchain transactions. Work in a real
+Use Python 3.10+ on macOS/Linux for the local journal; the optional participant
+client requires Python 3.11+. Journal preparation and inspection have no dependencies,
+accounts, background services, signing keys or blockchain transactions. The explicit
+workflow `submit` delegates to your existing participant client. Work in a real
 directory: stores and file paths containing symlinks are refused. On macOS,
 `/tmp` and `/var` are system symlinks; use a physical path or a directory under
 your home instead. Windows locking is not supported in this version.
@@ -189,18 +191,112 @@ immutable IDs prevent a repeated batch from being appended twice.
 
 ## Where this fits Zerone
 
-This release records local contributions and observations. The blockchain's
-existing claim, review and challenge messages remain a separate admission
-process; a DOI import does not create a native Fact or submit a claim. Before a
-later chain submission, choose a bounded statement and reproducible evidence,
-adopt it under the actual contributor's key, and prepare an explicit mapping to
-the native record. There is no automatic upload, reward or scientific verdict.
+The journal records local contributions and observations. The workflow adapter
+below connects a selected contribution to the blockchain's existing claim,
+review, correction and funding history through an explicit signed admission.
+A DOI import still creates no native Fact or claim. Choose a bounded statement
+and reproducible evidence and adopt it under the actual submitter's key.
 
 Useful next investigation: select one documented concern, extract the exact
 claim and assumptions, preserve the notice and response, and attempt a bounded
 proof or computational check. Publish the result only with its evidence and
 scope. Reward design should value careful review, corrected concerns, negative
 results and shared artifacts; paying for accusation counts would invite gaming.
+
+## Carry a record through native review
+
+Open your export in [Research Review](https://zerone.ai/research/review/), select
+a contribution, and fill in “Prepare one bounded claim.” Download the workflow
+packet. It contains the complete journal, your chosen assertion and provenance
+hashes; preparation remains local. Use a verified source checkout from the
+page's source-pinned tools link for the following commands.
+
+Alternatively, prepare it in the terminal using your actual record ID and
+claim. The text below is a template and is not a submitted scientific assertion:
+
+```sh
+python3 -B tools/research-review/workflow.py prepare \
+  --journal ./review.json --record 'YOUR_CONTRIBUTION_ID' \
+  --content 'REPLACE WITH YOUR BOUNDED CLAIM' \
+  --reasoning 'REPLACE WITH EVIDENCE REFERENCES, METHOD AND LIMITS' \
+  --domain mathematics --category empirical --method M-COMPUTATIONAL \
+  --output ./zerone-research-workflow.json
+python3 -B tools/research-review/workflow.py inspect \
+  --packet ./zerone-research-workflow.json
+```
+
+Inspect the `prepared_payload`, including the exact hash binding appended to
+the reasoning. Content must be 20–1,000 UTF-8 bytes; the full bound reasoning
+must fit 8,192 bytes. Select a domain/category supported by the network. No claim
+opens until explicit submission. The packet includes entries beyond any
+historical browser cutoff: check the full file before sharing it.
+
+Initialize, fund and register your own participant using the verified
+[development package](../../docs/SHARED-DEVELOPMENT.md). Existing homes keep
+their original package, three pinned client scripts and binary. This adapter
+lives in the source checkout and does not replace those files. Set these paths
+to your actual existing home and verified package:
+
+```sh
+PARTICIPANT_HOME="$HOME/zerone-dev-participant"
+CLIENT_SCRIPT='/absolute/path/to/verified-package/scripts/shared-claims.py'
+python3 -B tools/research-review/workflow.py submit \
+  --packet ./zerone-research-workflow.json \
+  --home "$PARTICIPANT_HOME" --client "$CLIENT_SCRIPT"
+python3 -B tools/research-review/workflow.py refresh \
+  --packet ./zerone-research-workflow.json \
+  --home "$PARTICIPANT_HOME" --client "$CLIENT_SCRIPT"
+```
+
+`submit` invokes that client's signing/admission path and incurs the network's
+current transaction and review fees. It submits the chosen claim fields and
+hash binding, not the complete journal. It checks for an already tracked exact
+admission before invoking submission. It records `started` before handing off;
+if a response is lost, retain the file and run `refresh` to recover an observed
+result. Do not clear the marker or alter the intent to guess whether it worked.
+Pending, failed and unresolved results remain distinct from a successful claim.
+
+If the packet is still `started` with no receipt, first inspect the original
+client's snapshot locally. An interruption may have occurred before the client
+was launched. You can deliberately resume the exact prepared intent:
+
+```sh
+python3 -B tools/research-review/workflow.py resume \
+  --packet ./zerone-research-workflow.json \
+  --home "$PARTICIPANT_HOME" --client "$CLIENT_SCRIPT"
+```
+
+`resume` first tries observation recovery. If no successful match exists, it
+invokes the same client's submission guard with the unchanged payload. This may
+sign when no attempt existed; pending attempts remain protected by the original
+client. For a known saved transaction, use that client's explicit `retry --tx`
+and then refresh. Resume refuses drafts and packets with an observed receipt.
+
+Import the same updated packet under “Continue a claim workflow.” Saved history
+is shown with its observation height/time. “Read current native history” is an
+explicit read of the published development endpoint; download again to keep
+the new observation. The full journal stays local. Loopback test packets can be
+inspected but cannot select a public-network reader.
+
+Share the committed Claim ID and accessible evidence with your reviewer. They
+use their own home and decide their own `commit`/`reveal` fields following
+[steps 4–5](../../docs/SHARED-DEVELOPMENT.md#4-review-from-your-own-participant-home).
+The adapter does not choose or sign their judgment. After the round, `refresh`
+brings back retained reviews, results, funding allocations and recorded
+reviewer/refund settlements. A positive payment block is an application record;
+bank verification and controller independence remain separate checks.
+
+For a correction, append a new journal contribution with `supersedes`, export
+again and prepare a new packet. Earlier records and assessments remain attached
+to their original version. A new native claim has its own fees; a native
+challenge additionally requires a derived Fact ID and counterevidence. Refresh
+the original packet to observe directly related native challenges. The adapter
+does not infer a native contradiction from a journal link.
+
+Keep the original packet and participant home. The packet retains up to 32
+distinct observations and 16 MiB, refusing new observations at the limit without
+discarding old ones. Archive it and use the client's `history`/`snapshot` for
+further observations. See the [workflow format and recovery rules](../../docs/specs/research-workflow-v1.md).
 
 ## Prepare a storage checkpoint
 

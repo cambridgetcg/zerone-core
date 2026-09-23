@@ -128,6 +128,15 @@ For a planned participant review, use the [review handoff](DEVELOPMENT-REVIEW-HA
 
 ## 3. Submit one bounded claim
 
+For work already recorded in a research journal, use the
+[research workflow adapter](../tools/research-review/README.md#carry-a-record-through-native-review).
+Prepare the bounded claim in [Research Review](https://zerone.ai/research/review/),
+inspect its packet locally, then explicitly submit through this same participant
+home and verified client. The packet binds the exact journal entry and brings
+the resulting review/correction/funding observations back into the reader.
+Keep existing package files and home pins unchanged. This optional adapter
+does not replace the direct commands below or open a review by importing a file.
+
 State what you checked, which method you used, and where your claim might fail. Publish only evidence you may share. Claim content, reasoning and later revealed reviews are public; a correction does not make earlier material private.
 
 This is an **illustrative submission command**, not an assertion that this example has been submitted, reviewed or accepted:
