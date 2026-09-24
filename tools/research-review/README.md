@@ -272,8 +272,9 @@ sign when no attempt existed; pending attempts remain protected by the original
 client. For a known saved transaction, use that client's explicit `retry --tx`
 and then refresh. Resume refuses drafts and packets with an observed receipt.
 
-Import the same updated packet under “Continue a claim workflow.” Saved history
-is shown with its observation height/time. “Read current native history” is an
+Open the updated packet through “Open a research file.” The same input accepts
+journals and workflow packets; a rejected file leaves your current work open.
+Saved history is shown with its observation height/time. “Read current native history” is an
 explicit read of the published development endpoint; download again to keep
 the new observation. The full journal stays local. Loopback test packets can be
 inspected but cannot select a public-network reader.

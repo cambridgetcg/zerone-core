@@ -217,21 +217,30 @@ HTTPS dashboard never makes mixed-content requests to the HTTP-only node.
 
 ## Node and agent participation guide
 
-`/research/review/` reads `zerone-research-export/v1` files locally in browser
-memory. It validates the complete schema, bounds, references and canonical
-hash chain before displaying any sequence-cutoff snapshot. The timeline,
-direct relationship diagram, concern records and all assessments use that
-same snapshot. Occurrence-date sorting does not expose later-added records;
-unknown dates remain separate. Hash consistency does not authenticate authors,
-establish completeness or verify scientific content. The fictional example
-is a separate, explicitly illustrative collection. The only fetch on this
-page is its same-origin example file, after the visitor selects it; local
-imports cause no upload, persistent browser storage, account or chain action.
+`/research/review/` opens either a `zerone-research-export/v1` journal (8 MiB)
+or a `zerone-research-workflow/v1` packet (16 MiB) through one local file input.
+It checks the complete file before replacing the current view; an invalid file
+leaves the existing journal and draft available. Record selection, evidence
+and claim actions come first. History, relationships and journal comparison
+are expandable; the active cutoff and native observation status stay visible.
+The timeline, diagram, concerns and assessments share the same cutoff.
+Occurrence-date sorting does not expose later-added records; unknown dates
+remain separate. Hash consistency does not authenticate authors or verify
+scientific content.
+
+Opening files causes no upload, persistent storage or network read. The
+fictional example is fetched only when selected. A workflow with a successful
+bound receipt can explicitly read the published development descriptor and
+claim history; only the public claim ID leaves the browser. Preparing and
+downloading stay local, while submission and review use the participant's
+own client. Workflow downloads contain the complete journal, including entries
+after the displayed cutoff.
 See [`tools/research-review`](../tools/research-review/README.md) for the local
 journal writer and evidence-lead scanner. `npm test` covers interoperability,
-tamper refusal and historical projections. Before publication, check imports,
-cutoffs, retained disagreements, recorded relation directions, keyboard focus
-and narrow mobile layout; also check the explanatory JavaScript-off fallback.
+format detection, tamper refusal and historical projections. Before publication,
+check both file types, failed and overlapping imports, cutoffs, retained
+disagreements, recorded relation directions, keyboard focus and narrow mobile
+layout; also check the explanatory JavaScript-off fallback.
 
 `/research/adagrad/` publishes the bounded AdaGrad loss-scaling experiment and
 an own-account review guide. The versioned `/research/adagrad/v1/` evidence

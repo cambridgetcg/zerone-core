@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#09090c" />
-    <meta name="description" content="Read a research journal locally: attributed contributions, relationships, concerns and assessments through time." />
+    <meta name="description" content="Open a local research file, inspect a record, prepare a claim or continue its review." />
     <link rel="canonical" href="https://zerone.ai/research/review/" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/src/research-review.css" />
@@ -14,94 +14,104 @@
     <a class="skip-link" href="#main-content">Skip to Research Review</a>
     <header class="review-header page-width">
       <a class="guide-brand" href="/">ZERONE</a>
-      <nav aria-label="Research navigation"><a href="/research/">Research library</a><a href="/research/adagrad/">AdaGrad experiment</a></nav>
+      <nav aria-label="Research navigation"><a href="/research/">Research library</a><a href="/research/checkpoints/">Research checkpoints</a></nav>
     </header>
     <main id="main-content" class="page-width review-page">
       <section class="review-intro" aria-labelledby="title">
-        <p class="eyebrow">Research Review · local journal reader</p>
-        <h1 id="title">Keep the origin.<br /><em>Follow the changes.</em></h1>
-        <p class="lede">Explore how attributed ideas, methods and findings connect. Revisit what was in a collection at a particular point, while keeping concerns and differing assessments visible.</p>
-        <p class="boundary">A journal’s hashes check its internal consistency. They do not authenticate its authors, establish an exhaustive history, or prove a finding. Prepare a claim locally, submit with your own participant client, then bring its receipt back to follow reviews, corrections and funding.</p>
-        <p><a href="/research/checkpoints/">Download a dated research checkpoint</a>: an attributed mathematical case, its earlier attempts and reproducible evidence. Import its journal here to explore the history.</p>
+        <p class="eyebrow">Research Review</p>
+        <h1 id="title">Open a record.<br /><em>Work on a claim.</em></h1>
+        <p class="lede">Inspect a contribution, prepare a claim for your participant client, or open its returned packet to follow reviews, corrections and funding.</p>
       </section>
       <section class="import-panel" aria-labelledby="import-title">
-        <div><h2 id="import-title">Open a collection</h2><p>Choose a <code>zerone-research-export/v1</code> JSON file. Validation happens in this tab, before any record is displayed. No upload, browser storage, account or signature.</p></div>
-        <div class="import-actions"><label for="journal-file">Local journal export · up to 8 MiB<input id="journal-file" data-testid="journal-file" type="file" accept=".json,application/json" disabled /></label><button type="button" id="load-example" disabled>Explore the fictional example</button></div>
-        <p id="load-status" role="status" aria-live="polite">JavaScript is required to validate and explore a collection.</p>
+        <div><h2 id="import-title">Open a research file</h2><p>A journal (up to 8 MiB) or workflow packet (up to 16 MiB). Files stay in this tab: no upload, browser storage, wallet or signature. Hash checks establish internal consistency, not authorship or scientific truth.</p></div>
+        <div class="import-actions"><label for="journal-file">Journal or workflow packet<input id="journal-file" data-testid="journal-file" type="file" accept=".json,application/json" disabled /></label><button type="button" id="load-example" disabled>Try the fictional example</button></div>
+        <p id="load-status" role="status" aria-live="polite">JavaScript is required to validate and open a research file.</p>
         <p id="primary-file-hash" class="mono" hidden></p>
         <p id="load-error" role="alert" hidden></p>
-        <noscript><p class="notice">The interactive reader is unavailable with JavaScript off. You can <a href="/research/review/fictional-journal.v1.json" download>download the explicitly fictional example</a> and inspect it with the <a href="https://github.com/cambridgetcg/zerone-core/tree/main/tools/research-review">local journal tools</a>. No imported records have been validated or displayed here.</p></noscript>
-      </section>
-      <section class="workflow-import" aria-labelledby="workflow-import-title">
-        <h2 id="workflow-import-title">Continue a claim workflow</h2>
-        <p>Open a previously downloaded workflow packet, including one returned by your participant client. Its complete journal, chosen claim and recorded observations are checked locally. Importing makes no network request.</p>
-        <label for="workflow-file">Local workflow packet · up to 16 MiB<input id="workflow-file" type="file" accept=".json,application/json" disabled /></label>
-        <p id="workflow-import-status" role="status" aria-live="polite">JavaScript is required to validate a workflow packet.</p>
-      </section>
-      <section class="comparison-panel" aria-labelledby="comparison-title">
-        <div><h2 id="comparison-title">Compare complete files</h2><p>After opening the primary file (A), choose another export (B). Both complete histories are validated. This comparison is independent of the timeline cutoff below; it does not select a canonical or trustworthy branch.</p></div>
-        <label for="comparison-file">Second local export (B) · up to 8 MiB<input id="comparison-file" data-testid="comparison-file" type="file" accept=".json,application/json" disabled /></label>
-        <p id="comparison-status" role="status" aria-live="polite">Open a primary collection first. JavaScript is required for comparison.</p>
-        <p id="comparison-error" role="alert" hidden></p>
-        <div id="comparison-result" data-testid="comparison-result" hidden></div>
-        <p class="small">Try an explicitly fictional disagreement: download <a href="/research/review/fictional-branch-a.v1.json" download>branch A</a> and <a href="/research/review/fictional-branch-b.v1.json" download>branch B</a>. Open A under “Open a collection,” then compare B here. Neither depicts an actual external reviewer.</p>
-        <p class="small">A continuation keeps earlier recorded dates and declared attributions; it does not authenticate those authors or inherit their authority. Use “Open a collection” to inspect either file’s records. Imports stay in memory and are not uploaded or stored by the browser.</p>
+        <noscript><p class="notice">The interactive reader needs JavaScript. <a href="/research/review/fictional-journal.v1.json" download>Download the fictional journal</a> and inspect it with the <a href="https://github.com/cambridgetcg/zerone-core/tree/main/tools/research-review">local journal tools</a>. No imported records have been validated or displayed here.</p></noscript>
       </section>
       <section id="workspace" hidden aria-label="Validated collection">
         <div class="collection-header"><p id="collection-label"></p><p id="collection-identity" class="mono"></p></div>
-        <div class="snapshot-controls">
-          <label for="cutoff">In this collection by entry <output id="cutoff-value" for="cutoff"></output><input id="cutoff" data-testid="cutoff" type="range" min="0" step="1" /></label>
-          <div><p id="snapshot-mode" data-testid="snapshot-mode"></p><p id="snapshot-time" class="small"></p><button id="latest" type="button">Return to full collection</button></div>
-          <label for="clock">Order contributions by<select id="clock" data-testid="clock"><option value="occurred">Reported occurrence date</option><option value="recorded">Date added to this collection</option></select></label>
+        <div class="record-selection">
+          <label class="selection-label" for="node-select">Choose a contribution<select id="node-select" data-testid="node-select"></select></label>
+          <div class="snapshot-summary"><p id="snapshot-mode" data-testid="snapshot-mode"></p><p id="snapshot-time" class="small"></p><button id="latest" type="button">Return to full collection</button></div>
         </div>
         <p id="snapshot-counts" class="small"></p>
-        <div class="review-layout">
-          <section class="panel timeline-panel" aria-labelledby="timeline-title"><h2 id="timeline-title">Contributions</h2><p id="clock-explanation" class="small"></p><div id="timeline" data-testid="timeline"></div></section>
-          <div class="right-column">
+        <div class="review-core">
+          <section class="panel details-panel" aria-labelledby="details-title"><h2 id="details-title">Record &amp; evidence</h2><div id="details" data-testid="details"></div></section>
+          <section class="workflow-panel panel" aria-labelledby="workflow-title">
+            <h2 id="workflow-title">Claim &amp; review</h2>
+            <p id="workflow-selection" class="small"></p>
+            <p class="small">Choose the statement and checks you want reviewed. Editing this draft leaves the original journal record unchanged.</p>
+            <form id="workflow-form">
+              <label for="workflow-content">Claim to review · 20–1,000 UTF-8 bytes<textarea id="workflow-content" rows="4" required></textarea></label>
+              <label for="workflow-reasoning">Reasoning, evidence references and limits<textarea id="workflow-reasoning" rows="4" required></textarea></label>
+              <div class="workflow-fields"><label for="workflow-domain">Domain<input id="workflow-domain" type="text" required /></label><label for="workflow-category">Category<input id="workflow-category" type="text" required /></label><label for="workflow-method">Method ID · optional<input id="workflow-method" type="text" placeholder="For example, M-COMPUTATIONAL" /></label></div>
+              <button id="workflow-prepare" type="submit" disabled>Prepare local packet</button>
+            </form>
+            <p id="workflow-status" role="status" aria-live="polite">Select a contribution to prepare a packet.</p>
+            <div id="workflow-summary" hidden></div>
+            <p class="small download-scope">The download contains the complete journal, including entries beyond a historical cutoff. Check it before sharing. The client submits only your chosen claim, reasoning and provenance hashes.</p>
+            <div class="workflow-actions"><button id="workflow-download" type="button" disabled>Download workflow packet</button><button id="workflow-read" type="button" disabled>Read current native history</button></div>
+            <details id="workflow-next" class="client-guidance" hidden>
+              <summary>Use your participant client</summary>
+              <p>From a verified source checkout, inspect the downloaded file, then submit with your existing home and verified client. Replace the two absolute paths below. Open the returned packet here to continue.</p>
+              <pre><code>python3 tools/research-review/workflow.py inspect --packet ./zerone-research-workflow.json
+python3 tools/research-review/workflow.py submit --packet ./zerone-research-workflow.json --home /absolute/participant-home --client /absolute/verified-package/shared-claims.py
+python3 tools/research-review/workflow.py refresh --packet ./zerone-research-workflow.json --home /absolute/participant-home --client /absolute/verified-package/shared-claims.py</code></pre>
+              <details class="recovery-guidance"><summary>Recover an interrupted submission</summary><p>Use <code>refresh</code> first. If the packet remains started without a receipt, deliberately resume through the existing client’s recovery guards. Do not submit it again.</p><pre><code>python3 tools/research-review/workflow.py resume --packet ./zerone-research-workflow.json --home /absolute/participant-home --client /absolute/verified-package/shared-claims.py</code></pre></details>
+              <p>Reviewers choose and sign their own reasons and verdicts. This page never holds a key or signs a transaction.</p>
+              <p><a href="/development/#participate">Participant setup and review guide →</a> · <a href="https://github.com/cambridgetcg/zerone-core/tree/main/tools/research-review">Workflow commands and journal tools →</a></p>
+            </details>
+            <p class="small">Chain observations have their own block heights and times, separate from the journal cutoff. An inconclusive review stays inconclusive; corrections and payments appear only as recorded.</p>
+            <p id="workflow-observation-status" class="notice" role="status" aria-live="polite">Native history requires a successful submission receipt. Saved observations are dated endpoint state, not fresh reads or proofs of truth.</p>
+            <div id="workflow-history"></div>
+            <!-- RESEARCH_DEVELOPMENT_PINS -->
+          </section>
+        </div>
+        <details id="journal-history" class="review-disclosure">
+          <summary>Journal history and relationships</summary>
+          <div class="snapshot-controls">
+            <label for="cutoff">In this collection by entry <output id="cutoff-value" for="cutoff"></output><input id="cutoff" data-testid="cutoff" type="range" min="0" step="1" /></label>
+            <label for="clock">Order contributions by<select id="clock" data-testid="clock"><option value="occurred">Reported occurrence date</option><option value="recorded">Date added to this collection</option></select></label>
+          </div>
+          <div class="review-layout">
+            <section class="panel timeline-panel" aria-labelledby="timeline-title"><h2 id="timeline-title">Contributions</h2><p id="clock-explanation" class="small"></p><div id="timeline" data-testid="timeline"></div></section>
             <section class="panel graph-panel" aria-labelledby="graph-title">
               <div class="panel-heading"><h2 id="graph-title">Relationships</h2><button id="impact" type="button" aria-pressed="false">Possible reassessment</button></div>
-              <p class="small">The diagram shows the selected contribution and its direct neighbours. Arrows preserve each recorded relation’s direction; visual proximity adds no dependency.</p>
-              <label class="selection-label" for="node-select">Selected contribution<select id="node-select" data-testid="node-select"></select></label>
+              <p class="small">Recorded relations to the selected contribution. A highlighted path suggests what to inspect; it does not establish falsity.</p>
               <fieldset id="relation-filters"><legend>Visible relation types</legend></fieldset>
               <p id="impact-description" class="notice small" hidden></p>
               <div id="impact-paths" hidden></div>
               <div id="graph-scroll" class="graph-scroll" tabindex="0" aria-label="Relationship diagram, scroll horizontally when needed"><svg id="graph" role="group" aria-label="Direct recorded relationships"></svg></div>
               <div id="edge-list" data-testid="edge-list"></div>
             </section>
-            <section class="panel details-panel" aria-labelledby="details-title"><h2 id="details-title">Record &amp; evidence</h2><div id="details" data-testid="details"></div></section>
           </div>
-        </div>
-        <section class="workflow-panel panel" aria-labelledby="workflow-title">
-          <p class="eyebrow">Journal → claim → review → correction → funding</p>
-          <h2 id="workflow-title">Prepare one bounded claim</h2>
-          <p id="workflow-selection" class="small"></p>
-          <p class="small">Choose what you want reviewed. These fields are your draft, separate from the original attributed contribution. A correction starts with a new journal record that keeps its earlier version through <code>supersedes</code>; existing assessments are never moved to the new claim.</p>
-          <form id="workflow-form">
-            <label for="workflow-content">Claim to review · 20–1,000 UTF-8 bytes<textarea id="workflow-content" rows="4" required></textarea></label>
-            <label for="workflow-reasoning">Reasoning, evidence references and limits<textarea id="workflow-reasoning" rows="4" required></textarea></label>
-            <div class="workflow-fields"><label for="workflow-domain">Domain<input id="workflow-domain" type="text" required /></label><label for="workflow-category">Category<input id="workflow-category" type="text" required /></label><label for="workflow-method">Method ID · optional<input id="workflow-method" type="text" placeholder="For example, M-COMPUTATIONAL" /></label></div>
-            <p class="small">The downloaded packet contains the complete imported journal, including entries after a historical cutoff. Check its contents before sharing. The participant client submits only your chosen claim, reasoning and provenance hashes; the full journal is not uploaded by this page.</p>
-            <button id="workflow-prepare" type="submit" disabled>Prepare local packet</button>
-          </form>
-          <p id="workflow-status" role="status" aria-live="polite">Select a contribution to prepare a packet.</p>
-          <div id="workflow-summary" hidden></div>
-          <div class="workflow-actions"><button id="workflow-download" type="button" disabled>Download workflow packet</button><button id="workflow-read" type="button" disabled>Read current native history</button></div>
-          <div id="workflow-next" hidden><h3>Continue with your own keys</h3><p>From a verified source checkout, inspect the downloaded packet, then submit with your existing participant home and its verified client. Replace the two absolute paths below with your own. The client returns its receipt in the packet; import that same file here.</p><pre><code>python3 tools/research-review/workflow.py inspect --packet ./zerone-research-workflow.json
-python3 tools/research-review/workflow.py submit --packet ./zerone-research-workflow.json --home /absolute/participant-home --client /absolute/verified-package/shared-claims.py
-python3 tools/research-review/workflow.py refresh --packet ./zerone-research-workflow.json --home /absolute/participant-home --client /absolute/verified-package/shared-claims.py</code></pre><p>After a started or uncertain submission, use <code>refresh</code> first. If the packet remains started without a receipt, deliberately resume through the existing client’s recovery guards:</p><pre><code>python3 tools/research-review/workflow.py resume --packet ./zerone-research-workflow.json --home /absolute/participant-home --client /absolute/verified-package/shared-claims.py</code></pre><p>Do not submit the packet again. Reviewers choose and sign their own reasons and verdicts in their clients. This page never holds a key or signs a transaction.</p><p><a href="/development/#participate">Participant setup and review guide →</a> · <a href="https://github.com/cambridgetcg/zerone-core/tree/main/tools/research-review">Workflow commands and journal tools →</a></p></div>
-          <p class="small">Native observations use their own recorded block heights and times, separate from the journal timeline cutoff above. A review can remain inconclusive; a correction or payment is shown only when the retained native records report it.</p>
-          <p id="workflow-observation-status" class="notice" role="status" aria-live="polite">Native history requires a validated successful submission receipt. A saved observation is dated endpoint state, not a live result or a proof of truth.</p>
-          <div id="workflow-history"></div>
-          <!-- RESEARCH_DEVELOPMENT_PINS -->
-        </section>
-        <div class="review-ledger">
-          <section class="panel" aria-labelledby="concerns-title"><h2 id="concerns-title">Concerns in this snapshot</h2><p class="small">Attributed leads for review, including artifact discrepancies and publisher notices. A concern is not a misconduct verdict.</p><div id="concerns" data-testid="concerns"></div></section>
-          <section class="panel" aria-labelledby="assessments-title"><h2 id="assessments-title">All assessments in this snapshot</h2><p class="small">Each assessment keeps its author and scope. A later “addressed” entry does not erase disagreement or resolve the collection for everyone.</p><div id="assessments" data-testid="assessments"></div></section>
-        </div>
+          <div class="review-ledger">
+            <section class="panel" aria-labelledby="concerns-title"><h2 id="concerns-title">Concerns in this snapshot</h2><p class="small">Attributed leads for review, not misconduct verdicts.</p><div id="concerns" data-testid="concerns"></div></section>
+            <section class="panel" aria-labelledby="assessments-title"><h2 id="assessments-title">All assessments in this snapshot</h2><p class="small">Every author and scope is retained. Later assessments do not erase disagreement.</p><div id="assessments" data-testid="assessments"></div></section>
+          </div>
+        </details>
+        <details class="comparison-panel review-disclosure">
+          <summary id="comparison-title">Compare complete journals</summary>
+          <p>Choose a second journal export. Comparison is independent of the timeline cutoff; it does not choose a canonical or trustworthy branch.</p>
+          <label for="comparison-file">Second local export · up to 8 MiB<input id="comparison-file" data-testid="comparison-file" type="file" accept=".json,application/json" disabled /></label>
+          <p id="comparison-status" role="status" aria-live="polite">Open a primary collection first. JavaScript is required for comparison.</p>
+          <p id="comparison-error" role="alert" hidden></p>
+          <div id="comparison-result" data-testid="comparison-result" hidden></div>
+          <p class="small">Try fictional <a href="/research/review/fictional-branch-a.v1.json" download>branch A</a> and <a href="/research/review/fictional-branch-b.v1.json" download>branch B</a>. Open A above, then compare B here. Neither depicts an actual external reviewer.</p>
+        </details>
       </section>
-      <section class="reader-notes" aria-labelledby="limits-title"><h2 id="limits-title">What this view can tell you</h2><p>The cutoff applies to contributions, links, concerns, assessments and version references before they are sorted or drawn. An earlier source discovered later stays absent from earlier snapshots. Unknown occurrence dates stay unknown. “Full collection” means this imported export, not everything that exists.</p><p>Possible reassessment follows <code>supports</code> from evidence to claim, <code>requires</code> from prerequisite to dependent, and <code>uses-input</code> from input to the activity using it. Shared input is labelled separately. Citation, inspiration and refinement do not propagate this highlight. A highlighted path is a reason to inspect, never an automatic declaration of falsity.</p><p>Attributions are declared labels. The fictional example depicts no real research, people, AdaGrad history or on-chain state. Imported files stay in memory until replaced or the page closes. Evidence links open only when you choose them.</p><p><a href="https://github.com/cambridgetcg/zerone-core/tree/main/tools/research-review">Journal tools and format documentation</a> · <a href="/research/review/fictional-journal.v1.json" download>Download the fictional collection</a></p></section>
+      <details class="reader-notes review-disclosure">
+        <summary id="limits-title">About the records and their limits</summary>
+        <p>The cutoff applies to all journal records before display. Earlier events discovered later remain absent from earlier snapshots. Unknown dates stay unknown; “full collection” means this imported file.</p>
+        <p>For a correction, add a new journal record using <code>supersedes</code> to retain the earlier version, then prepare its own claim. Earlier assessments do not transfer to it.</p>
+        <p>Possible reassessment follows <code>supports</code> from evidence to claim, <code>requires</code> from prerequisite to dependent, and <code>uses-input</code> from input to activity. Shared input is labelled separately. Citation, inspiration and refinement do not propagate the highlight.</p>
+        <p>Attributions are declared labels. The fictional example depicts no real research, people or on-chain state. Evidence links open only when you choose them; they are not verified here.</p>
+        <p><a href="/research/checkpoints/">Download a dated research checkpoint</a> · <a href="/research/adagrad/">AdaGrad experiment</a> · <a href="https://github.com/cambridgetcg/zerone-core/tree/main/tools/research-review">Journal tools and format documentation</a> · <a href="/research/review/fictional-journal.v1.json" download>Download the fictional collection</a></p>
+      </details>
     </main>
-    <footer class="page-width review-footer">A record can be final while an interpretation remains revisable.</footer>
+    <footer class="page-width review-footer">Research records · <a href="/research/">Reference library</a></footer>
     <script type="module" src="/src/research-review.ts"></script>
   </body>
 </html>

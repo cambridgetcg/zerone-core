@@ -26,15 +26,11 @@ type Keeper struct {
 	ontologyKeeper            types.OntologyKeeper
 	vestingRewardsKeeper      types.VestingRewardsKeeper
 	domainQualificationKeeper types.DomainQualificationKeeper // nil until R6-5
-	zeroneAuthKeeper           types.ZeroneAuthKeeper           // nil until R28-5
-	captureDefenseKeeper       types.CaptureDefenseKeeper       // nil until R28-8
-	pacingKeeper               types.PacingKeeper               // nil until R29-6
-	counterexampleKeeper       types.CounterexampleKeeper       // nil until counterexamples wired
-	substrateBridgeKeeper      types.SubstrateBridgeKeeper      // nil until substrate_bridge wired (SB-22)
-
-	// hooks dispatches lifecycle events to external consumers (e.g., x/contribution).
-	// Set via SetHooks at app init; defaults to no-op (MultiKnowledgeHooks{}).
-	hooks types.KnowledgeHooks
+	zeroneAuthKeeper          types.ZeroneAuthKeeper          // nil until R28-5
+	captureDefenseKeeper      types.CaptureDefenseKeeper      // nil until R28-8
+	pacingKeeper              types.PacingKeeper              // nil until R29-6
+	counterexampleKeeper      types.CounterexampleKeeper      // nil until counterexamples wired
+	substrateBridgeKeeper     types.SubstrateBridgeKeeper     // nil until substrate_bridge wired (SB-22)
 }
 
 // NewKeeper creates a new knowledge Keeper.

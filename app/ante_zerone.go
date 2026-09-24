@@ -13,7 +13,6 @@ import (
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authz "github.com/cosmos/cosmos-sdk/x/authz"
-	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	icatypes "github.com/cosmos/ibc-go/v10/modules/apps/27-interchain-accounts/types"
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
@@ -699,13 +698,11 @@ var msgTypeURLToGas = map[string]uint64{
 
 // FeeRouterDecorator observes fees whose actual routing is performed by
 // vesting_rewards.RouteFees using the current on-chain RevenueSplit params.
-type FeeRouterDecorator struct {
-	bankKeeper bankkeeper.Keeper
-}
+type FeeRouterDecorator struct{}
 
 // NewFeeRouterDecorator creates a new FeeRouterDecorator.
-func NewFeeRouterDecorator(bk bankkeeper.Keeper) FeeRouterDecorator {
-	return FeeRouterDecorator{bankKeeper: bk}
+func NewFeeRouterDecorator() FeeRouterDecorator {
+	return FeeRouterDecorator{}
 }
 
 func (frd FeeRouterDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {

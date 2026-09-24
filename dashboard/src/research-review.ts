@@ -1,7 +1,7 @@
 import { EXPORT_LIMIT, RELATION_TYPES, validateExport, compareJournals, selectSnapshot, orderedContributions, impact, type Journal, type JournalComparison, type Entry, type Snapshot, type Contribution, type Relation, type Concern, type Assessment } from "./research-review-journal";
 import { DEVELOPMENT_CHAIN } from "../development-profile";
 import { readClaimHistory, renderHistory, height, type DescriptorPins } from "./development-reader";
-import { WORKFLOW_LIMIT, MAX_OBSERVATIONS, prepareWorkflow, validateWorkflow, workflowClaimId, validateBoundHistory, appendWorkflowObservation, type ValidatedResearchWorkflow } from "./research-workflow";
+import { WORKFLOW_LIMIT, MAX_OBSERVATIONS, prepareWorkflow, validateResearchFile, workflowClaimId, appendWorkflowObservation, type ValidatedResearchWorkflow } from "./research-workflow";
 
 const $ = <T extends Element = HTMLElement>(id: string): T => document.getElementById(id) as unknown as T;
 const make = <K extends keyof HTMLElementTagNameMap>(tag: K, content?: string, className?: string): HTMLElementTagNameMap[K] => {
@@ -17,11 +17,11 @@ const enabledRelations = new Set<string>(RELATION_TYPES);
 const file = $<HTMLInputElement>("journal-file"), example = $<HTMLButtonElement>("load-example"), cutoff = $<HTMLInputElement>("cutoff"), clock = $<HTMLSelectElement>("clock");
 const nodeSelect = $<HTMLSelectElement>("node-select"), impactButton = $<HTMLButtonElement>("impact");
 const comparisonFile = $<HTMLInputElement>("comparison-file");
-const workflowFile = $<HTMLInputElement>("workflow-file"), workflowPrepare = $<HTMLButtonElement>("workflow-prepare"), workflowDownload = $<HTMLButtonElement>("workflow-download"), workflowRead = $<HTMLButtonElement>("workflow-read");
+const workflowPrepare = $<HTMLButtonElement>("workflow-prepare"), workflowDownload = $<HTMLButtonElement>("workflow-download"), workflowRead = $<HTMLButtonElement>("workflow-read");
 const workflowFields = { content: $<HTMLTextAreaElement>("workflow-content"), reasoning: $<HTMLTextAreaElement>("workflow-reasoning"), domain: $<HTMLInputElement>("workflow-domain"), category: $<HTMLInputElement>("workflow-category"), method: $<HTMLInputElement>("workflow-method") };
 const publication = document.getElementById("research-development-reader");
 const publishedPins: DescriptorPins | undefined = publication ? { descriptor: publication.dataset.descriptorSha256!, genesis: publication.dataset.genesisSha256!, rpcGenesis: publication.dataset.rpcGenesisSha256!, source: publication.dataset.runtimeSource!, binary: publication.dataset.binarySha256! } : undefined;
-let workflow: ValidatedResearchWorkflow | undefined, workflowSelection = "", workflowGeneration = 0, workflowImportNumber = 0;
+let workflow: ValidatedResearchWorkflow | undefined, workflowSelection = "", workflowGeneration = 0;
 let workflowPending: AbortController | undefined;
 const graph = $<SVGSVGElement>("graph");
 const notice = (content: string): HTMLParagraphElement => make("p", content, "small");
@@ -56,7 +56,7 @@ function assessment(entry: Entry, context: string): HTMLElement {
 }
 function allAssessments(target: string, context: string): HTMLElement {
   const container = make("div"); const entries = snapshot!.assessments.filter(e => (e.record as Assessment).target_id === target);
-  if (!entries.length) container.append(notice("No assessments of this record in this snapshot. This does not establish agreement or absence of concerns elsewhere."));
+  if (!entries.length) container.append(notice("No assessments of this record in this snapshot."));
   else for (const e of entries) container.append(assessment(e, context)); return container;
 }
 function renderDetails(): void {
@@ -75,7 +75,7 @@ function renderDetails(): void {
   const versions = snapshot!.entries.filter(item => item.record.supersedes === r.id);
   if (versions.length) { container.append(make("h4", "Later versions present in this snapshot")); for (const v of versions) container.append(reference(v.record.id, "versions")); }
   container.append(make("h4", "Evidence as recorded"));
-  if (!r.evidence.length) container.append(notice("No evidence reference recorded. The journal hash is not evidence for the scientific content."));
+  if (!r.evidence.length) container.append(notice("No evidence reference recorded."));
   else {
     const list = make("ul", undefined, "evidence-list");
     for (const evidence of r.evidence) {
@@ -89,7 +89,7 @@ function renderDetails(): void {
   if (r.kind === "contribution") {
     container.append(make("h4", "Concerns about this contribution"));
     const concerns = snapshot!.concerns.filter(item => (item.record as Concern).target_id === r.id);
-    if (!concerns.length) container.append(notice("No concern about this contribution is recorded in this snapshot. This is not a clean bill of health."));
+    if (!concerns.length) container.append(notice("No concerns about this contribution in this snapshot."));
     else for (const concern of concerns) container.append(recordButton(concern, "detail-concern"), allAssessments(concern.record.id, "contribution-assessment"));
   }
   const hashes = make("details"); hashes.append(make("summary", "Internal hash linkage"), make("p", `Entry SHA256 ${e.sha256}`, "mono"), make("p", `Previous SHA256 ${e.previous_sha256}`, "mono"), notice("These hashes establish consistency within this export only. No signature or independent time anchor is verified here.")); container.append(hashes);
@@ -154,7 +154,7 @@ function render(): void {
   if (!snapshot.contributions.some(e => e.record.id === selected)) selected = snapshot.contributions.at(-1)?.record.id ?? "";
   if (!snapshot.entries.some(e => e.record.id === inspected)) inspected = selected;
   cutoff.max = String(journal.entries.length); cutoff.value = String(through); $("cutoff-value").textContent = `${through} / ${journal.entries.length}`;
-  $("snapshot-mode").textContent = snapshot.historical ? "Historical snapshot · later entries excluded" : "Full imported collection · no wider completeness claim";
+  $("snapshot-mode").textContent = snapshot.historical ? "Historical snapshot · later entries excluded" : "Full imported collection";
   $("snapshot-time").textContent = `Through ${snapshot.entries.at(-1)?.recorded_at ?? journal.header.created_at}`;
   $("snapshot-counts").textContent = `${snapshot.contributions.length} contributions · ${snapshot.relations.length} relations · ${snapshot.concerns.length} concerns · ${snapshot.assessments.length} assessments in this snapshot`;
   nodeSelect.replaceChildren(); for (const e of snapshot.contributions) { const option = make("option", `${e.record.title} · ${e.record.id}`); option.value = e.record.id; nodeSelect.append(option); } nodeSelect.value = selected;
@@ -170,7 +170,7 @@ function render(): void {
   renderTimeline(result.nodes); renderGraph(result.nodes, result.steps); renderDetails();
   renderWorkflowSelection();
   const concerns = $("concerns"); concerns.replaceChildren();
-  if (!snapshot.concerns.length) concerns.append(notice("No concerns recorded in this snapshot. Absence here is not evidence of reliability."));
+  if (!snapshot.concerns.length) concerns.append(notice("No concerns recorded in this snapshot."));
   for (const e of snapshot.concerns) { const item = make("div", undefined, "ledger-record"); item.append(recordButton(e, "concern"), notice(`About ${title((e.record as Concern).target_id)}`), allAssessments(e.record.id, "concern-assessment")); concerns.append(item); }
   const assessments = $("assessments"); assessments.replaceChildren();
   if (!snapshot.assessments.length) assessments.append(notice("No assessments recorded in this snapshot."));
@@ -185,6 +185,7 @@ function render(): void {
 function revealSelection(): void {
   const node = Array.from(graph.querySelectorAll<SVGGElement>(".graph-node")).find(e => e.dataset.testid === `graph-node-${selected}`); if (!node) return;
   const box = $("graph-scroll"), viewport = box.getBoundingClientRect(), rect = node.getBoundingClientRect();
+  if (!viewport.width || !viewport.height) return;
   if (rect.left < viewport.left + 12) box.scrollLeft -= viewport.left + 12 - rect.left;
   else if (rect.right > viewport.right - 12) box.scrollLeft += rect.right - viewport.right + 12;
   if (rect.top < viewport.top + 12) box.scrollTop -= viewport.top + 12 - rect.top;
@@ -232,52 +233,61 @@ function renderComparison(result: JournalComparison, leftFile: NonNullable<typeo
 }
 async function compareFile(chosen: File): Promise<void> {
   clearComparison(false);
-  const number = comparisonNumber, primaryNumber = loadNumber, left = journal, leftFile = primaryFile;
+  const number = comparisonNumber, left = journal, leftFile = primaryFile;
   if (!left || !leftFile) return;
   $("comparison-status").textContent = "Validating the complete second export and comparing both histories…";
   try {
     if (chosen.size > EXPORT_LIMIT || chosen.size === 0) throw new Error("Export must be nonempty and at most 8 MiB");
     const bytes = new Uint8Array(await chosen.arrayBuffer());
-    if (number !== comparisonNumber || primaryNumber !== loadNumber || journal !== left) return;
+    if (number !== comparisonNumber || journal !== left) return;
     const [right, hash] = await Promise.all([validateExport(bytes), fileHash(bytes)]);
     const result = await compareJournals(left, right);
-    if (number !== comparisonNumber || primaryNumber !== loadNumber || journal !== left) return;
+    if (number !== comparisonNumber || journal !== left) return;
     renderComparison(result, leftFile, { bytes, hash, name: chosen.name });
-    $("comparison-status").textContent = "Both complete exports validated. The primary file remains in the timeline below.";
+    $("comparison-status").textContent = "Both complete exports validated. The primary collection remains open.";
   } catch (error) {
-    if (number !== comparisonNumber || primaryNumber !== loadNumber || journal !== left) return;
+    if (number !== comparisonNumber || journal !== left) return;
     $("comparison-status").textContent = "No comparison is displayed. The validated primary collection remains open.";
     $("comparison-error").hidden = false;
     $("comparison-error").textContent = `Comparison refused: ${error instanceof Error ? error.message : "invalid export"}.`;
   }
 }
 async function load(read: () => Promise<Uint8Array>, name: string, fictional: boolean): Promise<void> {
-  const number = ++loadNumber; journal = undefined; snapshot = undefined; primaryFile = undefined; clearComparison();
-  clearWorkflow(); workflowSelection = "";
-  $("primary-file-hash").hidden = true; $("primary-file-hash").textContent = "";
-  $("workspace").hidden = true; $("load-error").hidden = true;
-  $("load-status").textContent = "Checking the complete export: schema, bounds, references and every hash…";
+  const number = ++loadNumber;
+  $("load-error").hidden = true;
+  $("load-status").textContent = `Checking ${name} locally…`;
   try {
     const bytes = await read(); if (number !== loadNumber) return;
-    const [checked, hash] = await Promise.all([validateExport(bytes), fileHash(bytes)]); if (number !== loadNumber) return;
-    primaryFile = { bytes, hash, name };
-    journal = checked; through = journal.entries.length; selected = journal.entries.find(e => e.record.kind === "contribution")?.record.id ?? ""; inspected = selected; showImpact = false;
+    const checked = await validateResearchFile(bytes); if (number !== loadNumber) return;
+    // Install only a complete validated file. An older read cannot replace a newer choice.
+    clearWorkflow(); workflowSelection = "";
+    primaryFile = { bytes: checked.bytes, hash: checked.hash, name: checked.workflow ? `${name} · embedded journal` : name };
+    journal = checked.journal; through = journal.entries.length;
+    selected = checked.workflow?.entry.record.id ?? journal.entries.find(e => e.record.kind === "contribution")?.record.id ?? "";
+    inspected = selected; showImpact = false;
     $("collection-label").textContent = fictional ? "FICTIONAL EXAMPLE · illustrative records only" : `LOCAL IMPORT · ${name} · contents not independently authenticated`;
     $("collection-identity").textContent = `Collection ${journal.header.collection_id}`;
     $("load-status").textContent = `Internal consistency checked for all ${journal.entries.length} entries. No identity, external evidence or independent timestamp verified.`;
-    $("primary-file-hash").textContent = `Primary file SHA256 ${hash}`; $("primary-file-hash").hidden = false; clearComparison();
+    $("primary-file-hash").textContent = `Complete journal SHA256 ${checked.hash}`; $("primary-file-hash").hidden = false; clearComparison();
     $("workspace").hidden = false; render();
+    if (checked.workflow) {
+      workflow = checked.workflow;
+      for (const [key, input] of Object.entries(workflowFields)) input.value = workflow.packet.intent[key as keyof typeof workflowFields];
+      displayWorkflow();
+      workflowMessage("workflow-status", "Workflow opened locally. Editing creates a new draft without the saved receipt or observations.");
+    }
   } catch (error) {
     if (number !== loadNumber) return;
-    $("load-status").textContent = "No collection is displayed."; $("load-error").hidden = false;
-    $("load-error").textContent = `Import refused: ${error instanceof Error ? error.message : "invalid export"}. Fix the export or choose another file; no partial snapshot is shown.`;
-    for (const id of ["timeline", "details", "concerns", "assessments", "edge-list", "impact-paths"]) $(id).replaceChildren(); graph.replaceChildren();
+    $("load-status").textContent = journal ? "The previously opened collection remains available." : "No collection is open.";
+    $("load-error").hidden = false;
+    $("load-error").textContent = `Could not open ${name}: ${error instanceof Error ? error.message : "invalid research file"}.`;
   }
 }
-file.disabled = false; example.disabled = false; $("load-status").textContent = "Choose a local export or explore the fictional example. Nothing has been loaded.";
+file.disabled = false; example.disabled = false; $("load-status").textContent = "Choose a journal or workflow file, or try the fictional example.";
 file.addEventListener("change", () => {
   const chosen = file.files?.[0];
-  void load(async () => { if (!chosen) throw new Error("No export selected"); if (chosen.size > EXPORT_LIMIT || chosen.size === 0) throw new Error("Export must be nonempty and at most 8 MiB"); return new Uint8Array(await chosen.arrayBuffer()); }, chosen?.name ?? "", false);
+  if (!chosen) return;
+  void load(async () => { if (chosen.size > WORKFLOW_LIMIT || chosen.size === 0) throw new Error("Research file must be nonempty and at most 16 MiB"); return new Uint8Array(await chosen.arrayBuffer()); }, chosen.name, false);
 });
 comparisonFile.addEventListener("change", () => { const chosen = comparisonFile.files?.[0]; if (chosen) void compareFile(chosen); else clearComparison(false); });
 example.addEventListener("click", () => { void load(async () => {
@@ -296,6 +306,7 @@ for (const type of RELATION_TYPES) {
   input.addEventListener("change", () => { if (input.checked) enabledRelations.add(type); else enabledRelations.delete(type); render(); }); label.append(input, document.createTextNode(type)); $("relation-filters").append(label);
 }
 window.addEventListener("resize", revealSelection);
+$("journal-history").addEventListener("toggle", revealSelection);
 
 function workflowMessage(id: string, message: string, error = false): void {
   const element = $(id); element.textContent = message; element.dataset.error = String(error);
@@ -337,36 +348,13 @@ function displayWorkflow(): void {
   } else workflowMessage("workflow-observation-status", id ? canReadWorkflow(workflow) ? "Use Read current native history to verify the published descriptor and observe this claim. The endpoint receives this public claim ID; the journal remains local." : "Live reads are unavailable for this packet: its participant must match the published public development network. Existing packet records remain local." : "No successful observed submission receipt is attached. Submit or resume through the participant client before reading native history here.");
   if (packet.observations.length >= MAX_OBSERVATIONS) workflowMessage("workflow-observation-status", `This packet retains ${MAX_OBSERVATIONS} dated observations, its maximum. Download it to preserve them; the participant guide explains further observation. No old observation was removed.`);
 }
-async function importWorkflow(chosen: File): Promise<void> {
-  const number = ++workflowImportNumber, originalLoad = loadNumber;
-  workflowMessage("workflow-import-status", "Checking the workflow packet and its complete embedded journal locally…");
-  try {
-    if (chosen.size === 0 || chosen.size > WORKFLOW_LIMIT) throw new Error("Workflow packet must be nonempty and at most 16 MiB");
-    const raw = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(await chosen.arrayBuffer());
-    const checked = await validateWorkflow(raw);
-    if (number !== workflowImportNumber || originalLoad !== loadNumber) return;
-    const expectedLoad = loadNumber + 1;
-    await load(async () => new TextEncoder().encode(checked.packet.journal.export_utf8), `${chosen.name} · embedded journal`, false);
-    if (number !== workflowImportNumber || loadNumber !== expectedLoad || !journal) return;
-    selected = checked.entry.record.id; inspected = selected; render();
-    workflow = checked;
-    for (const [key, input] of Object.entries(workflowFields)) input.value = checked.packet.intent[key as keyof typeof workflowFields];
-    displayWorkflow();
-    workflowMessage("workflow-status", "The imported claim fields and hashes match this packet. Editing creates a new draft without the previous receipt or observations.");
-    workflowMessage("workflow-import-status", "Packet validated locally. Its selected contribution is open below; no network request was made.");
-  } catch (error) {
-    if (number !== workflowImportNumber || originalLoad !== loadNumber) return;
-    workflowMessage("workflow-import-status", `Packet refused: ${error instanceof Error ? error.message : "invalid packet"}. The previously opened collection is unchanged.`, true);
-  }
-}
 async function prepareSelectedWorkflow(): Promise<void> {
   if (!primaryFile || !journal || !selected) return;
   clearWorkflow(); const generation = workflowGeneration, fileBytes = primaryFile.bytes, id = selected;
   workflowPrepare.disabled = true; workflowMessage("workflow-status", "Validating the chosen claim and binding it to this exact journal export…");
   try {
     const intent = { content: workflowFields.content.value, reasoning: workflowFields.reasoning.value, domain: workflowFields.domain.value, category: workflowFields.category.value, method: workflowFields.method.value };
-    const packet = await prepareWorkflow(new TextDecoder("utf-8", { fatal: true }).decode(fileBytes), id, intent);
-    const checked = await validateWorkflow(JSON.stringify(packet));
+    const checked = await prepareWorkflow(new TextDecoder("utf-8", { fatal: true }).decode(fileBytes), id, intent);
     if (generation !== workflowGeneration) return;
     workflow = checked; displayWorkflow();
     workflowMessage("workflow-status", "Local packet prepared. Download it and inspect it with your participant client before submitting.");
@@ -383,12 +371,10 @@ async function readWorkflowHistory(): Promise<void> {
   workflowMessage("workflow-observation-status", "Verifying the published descriptor, then reading and matching this claim to the submitted intent…");
   try {
     const observed = await readClaimHistory(id, pins, controller.signal);
-    validateBoundHistory(current.packet, observed.history);
-    const packet = await appendWorkflowObservation(current.packet, observed.historyUtf8);
-    const checked = await validateWorkflow(JSON.stringify(packet));
+    const checked = await appendWorkflowObservation(current.packet, observed.historyUtf8);
     if (controller.signal.aborted || generation !== workflowGeneration || workflow !== current) return;
     workflow = checked; displayWorkflow();
-    workflowMessage("workflow-observation-status", `Endpoint observation: ${DEVELOPMENT_CHAIN} at block ${height(observed.history.block_height)}, read ${packet.observations.at(-1)!.observed_at}. Matched to the packet’s submitted intent. This snapshot does not refresh automatically; download the packet to retain it. Endpoint state is not an independent proof of scientific truth or bank transfers.`);
+    workflowMessage("workflow-observation-status", `Endpoint observation: ${DEVELOPMENT_CHAIN} at block ${height(observed.history.block_height)}, read ${checked.packet.observations.at(-1)!.observed_at}. Matched to the packet’s submitted intent. This snapshot does not refresh automatically; download the packet to retain it. Endpoint state is not an independent proof of scientific truth or bank transfers.`);
   } catch (error) {
     if (generation !== workflowGeneration || workflowPending !== controller) return;
     $("workflow-history").replaceChildren();
@@ -398,9 +384,6 @@ async function readWorkflowHistory(): Promise<void> {
     if (generation === workflowGeneration && workflowPending === controller) { workflowPending = undefined; workflowRead.disabled = !workflow || !canReadWorkflow(workflow) || workflow.packet.observations.length >= MAX_OBSERVATIONS; }
   }
 }
-workflowFile.disabled = false;
-workflowMessage("workflow-import-status", "Choose a workflow packet to continue locally. Importing does not submit a claim or read the network.");
-workflowFile.addEventListener("change", () => { const chosen = workflowFile.files?.[0]; if (chosen) void importWorkflow(chosen); });
 $("workflow-form").addEventListener("submit", event => { event.preventDefault(); void prepareSelectedWorkflow(); });
 for (const input of Object.values(workflowFields)) input.addEventListener("input", () => { clearWorkflow(); workflowPrepare.disabled = !selected; workflowMessage("workflow-status", "Draft changed. Prepare a new packet to bind these fields to the journal; the previous submission is not attached to this new draft."); });
 workflowRead.addEventListener("click", () => { void readWorkflowHistory(); });

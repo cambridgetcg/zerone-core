@@ -242,12 +242,6 @@ func (k Keeper) handleChallengeDisproven(ctx context.Context, challengeClaim *ty
 		}
 	}
 
-	// Hook: claim (via fact) has been disproven. disproverArtifactID is the
-	// newly created counter-fact that replaced it. Errors are swallowed.
-	if err = k.Hooks().AfterClaimDisproven(ctx, originalFact.ClaimId, newFactId); err != nil {
-		return err
-	}
-
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	// Popper, not popularity: a fact stops being a fact when a serious
 	// attempt to disprove it succeeds. The chain announces the verdict
@@ -319,10 +313,6 @@ func (k Keeper) legacyHandleChallengeDisproven(ctx context.Context, challengeCla
 
 	// Survival-gate: the fact fell — cancel its escrowed submitter reward (no mint).
 	k.cancelSurvivalReward(ctx, originalFact.Id)
-
-	// Hook: claim (via fact) has been disproven. disproverArtifactID is the
-	// newly created counter-fact that replaced it. Errors are swallowed.
-	_ = k.Hooks().AfterClaimDisproven(ctx, originalFact.ClaimId, newFactId)
 
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	// Popper, not popularity: a fact stops being a fact when a serious

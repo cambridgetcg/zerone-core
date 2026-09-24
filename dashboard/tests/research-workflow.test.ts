@@ -3,8 +3,8 @@ import { readFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
-import { canonicalJSON, sha256 } from "../src/research-review-journal";
-import { appendWorkflowObservation, boundReasoning, prepareWorkflow, validateBoundHistory, validateWorkflow, workflowClaimId, type ResearchWorkflow, type WorkflowIntent } from "../src/research-workflow";
+import { canonicalJSON, EXPORT_LIMIT, sha256 } from "../src/research-review-journal";
+import { appendWorkflowObservation, boundReasoning, prepareWorkflow, validateBoundHistory, validateResearchFile, validateWorkflow, workflowClaimId, WORKFLOW_LIMIT, type ResearchWorkflow, type WorkflowIntent } from "../src/research-workflow";
 
 const source = readFileSync(new URL("../public/research/review/fictional-journal.v1.json", import.meta.url), "utf8");
 const pythonRoot = fileURLToPath(new URL("../../tools/research-review/", import.meta.url));
@@ -12,8 +12,9 @@ const intent: WorkflowIntent = { content: "Fictional sorting experiment preserve
 const address = `zrn1${"q".repeat(38)}`;
 const claimId = "a".repeat(32), roundId = "b".repeat(32);
 const stringify = (value: unknown): string => JSON.stringify(value);
+const utf8 = new TextEncoder();
 const python = (code: string, value: unknown): unknown => JSON.parse(execFileSync("python3", ["-B", "-c", "import json,sys,workflow\n" + code], { cwd: pythonRoot, input: stringify(value), encoding: "utf8", maxBuffer: 32 * 1024 * 1024 }));
-async function draft(): Promise<ResearchWorkflow> { return prepareWorkflow(source, "finding-v1", intent); }
+async function draft(): Promise<ResearchWorkflow> { return (await prepareWorkflow(source, "finding-v1", intent)).packet; }
 async function submitted(): Promise<ResearchWorkflow> {
   const packet = await draft();
   packet.participant = { chain_id: "zerone-dev-1", address, descriptor_sha256: "1".repeat(64), genesis_sha256: "2".repeat(64), binary_sha256: "3".repeat(64), local_test: true, client_files: { "shared-claims.py": "4".repeat(64), "claim-workflow.py": "5".repeat(64), "local-node.py": "6".repeat(64) } };
@@ -35,10 +36,10 @@ async function rehashIntent(packet: ResearchWorkflow): Promise<void> {
 
 describe("research/native workflow binding", () => {
   it("prepares byte-identical Python/browser drafts without promoting the journal to a native claim", async () => {
-    const packet = await draft();
+    const checked = await prepareWorkflow(source, "finding-v1", intent);
+    const packet = checked.packet;
     const other = python("v=json.load(sys.stdin)\nprint(json.dumps(workflow.prepare(v['source'].encode(),v['record'],v['intent'])))", { source, record: "finding-v1", intent });
     assert.equal(canonicalJSON(packet), canonicalJSON(other));
-    const checked = await validateWorkflow(stringify(packet));
     assert.equal(checked.journal.entries.length, 27);
     assert.equal(packet.journal.export_utf8, source);
     assert.equal(checked.entry.record.id, "finding-v1");
@@ -50,10 +51,12 @@ describe("research/native workflow binding", () => {
   });
   it("binds exact native assertion, author, admission height and journal digest; Python agrees", async () => {
     const packet = await submitted();
-    const complete = await appendWorkflowObservation(packet, stringify(history(packet)), "2026-09-23T12:00:00.000Z");
-    const checked = await validateWorkflow(stringify(complete));
+    const checked = await appendWorkflowObservation(packet, stringify(history(packet)), "2026-09-23T12:00:00.000Z");
+    const complete = checked.packet;
     assert.equal(workflowClaimId(complete), claimId);
     assert.equal(checked.history?.block_height, "120");
+    assert.equal(checked.entry.record.id, packet.journal.record_id);
+    assert.equal(checked.journal.entries.length, 27);
     assert.equal(packet.observations.length, 0, "append returns a new record rather than mutating a retained input");
     assert.equal(python("v=json.load(sys.stdin)\nworkflow.validate_packet(v)\nprint(json.dumps(True))", complete), true);
     assert.ok(boundReasoning(packet).includes(packet.intent_sha256));
@@ -61,8 +64,8 @@ describe("research/native workflow binding", () => {
   });
   it("retains corrections and earlier assessments while a new correction is a separate admission", async () => {
     const original = await draft();
-    const correction = await prepareWorkflow(source, "finding-v2", { ...intent, content: "Fictional revised sorting result narrows its tested input assumptions." });
-    const checked = await validateWorkflow(stringify(correction));
+    const checked = await prepareWorkflow(source, "finding-v2", { ...intent, content: "Fictional revised sorting result narrows its tested input assumptions." });
+    const correction = checked.packet;
     assert.equal(checked.entry.record.supersedes, "finding-v1");
     assert.equal(checked.journal.entries.length, 27);
     assert.notEqual(correction.intent_sha256, original.intent_sha256);
@@ -94,7 +97,7 @@ describe("research/native workflow binding", () => {
     ];
     for (const change of mutate) { const response = history(packet); change(response); assert.throws(() => validateBoundHistory(packet, response)); }
     const retained = await appendWorkflowObservation(packet, stringify(history(packet)), "2026-09-23T12:00:00.000Z");
-    await assert.rejects(appendWorkflowObservation(retained, stringify(history(packet, "119"))), /regressed/u);
+    await assert.rejects(appendWorkflowObservation(retained.packet, stringify(history(packet, "119"))), /regressed/u);
   });
   it("keeps unresolved and failed submissions distinct from a successful receipt", async () => {
     for (const status of ["pending", "failed", "committed-unresolved"]) {
@@ -121,10 +124,14 @@ describe("research/native workflow binding", () => {
     const draftPacket = await draft();
     await assert.rejects(validateWorkflow(stringify(draftPacket).replace('"observations":[]', '"observations":[],"observations":[]')), /Duplicate/u);
     const bound = await submitted(); const complete = await appendWorkflowObservation(bound, stringify(history(bound)));
-    const duplicate = await appendWorkflowObservation(complete, stringify(history(bound)));
-    assert.equal(duplicate.observations.length, 1);
-    complete.observations[0]!.history_utf8 += " ";
-    await assert.rejects(validateWorkflow(stringify(complete)), /history SHA/u);
+    const duplicate = await appendWorkflowObservation(complete.packet, stringify(history(bound)));
+    assert.equal(duplicate.packet.observations.length, 1);
+    assert.equal(canonicalJSON(duplicate.packet), canonicalJSON(complete.packet));
+    assert.deepEqual(duplicate.history, complete.history);
+    assert.notStrictEqual(duplicate.packet, complete.packet, "duplicate observation returns a separately validated packet");
+    duplicate.packet.observations[0]!.history_utf8 += " ";
+    assert.equal(complete.packet.observations[0]!.history_utf8, stringify(history(bound)), "changing a returned packet cannot change its input");
+    await assert.rejects(validateWorkflow(stringify(duplicate.packet)), /history SHA/u);
   });
   it("enforces native UTF-8 limits including binding overhead, calendar dates and retained-observation caps", async () => {
     for (const change of [{ content: "too short" }, { content: "Ω".repeat(501) }, { reasoning: "x".repeat(8192) }, { method: "a".repeat(129) }, { reasoning: "NUL\0value" }]) await assert.rejects(prepareWorkflow(source, "finding-v1", { ...intent, ...change }));
@@ -137,5 +144,58 @@ describe("research/native workflow binding", () => {
     }
     await validateWorkflow(stringify(full));
     await assert.rejects(appendWorkflowObservation(full, stringify(history(packet, "152"))), /32 observations/u);
+  });
+});
+
+describe("complete research file detection", () => {
+  it("opens a journal with its original bytes and a workflow with its exact embedded journal", async () => {
+    const journalBytes = utf8.encode(source);
+    const standalone = await validateResearchFile(journalBytes);
+    assert.deepEqual(standalone.bytes, journalBytes);
+    assert.equal(standalone.hash, await sha256(source));
+    assert.equal(standalone.journal.entries.length, 27);
+    assert.equal(standalone.workflow, undefined);
+
+    const packet = await submitted();
+    const complete = await appendWorkflowObservation(packet, stringify(history(packet)));
+    const wrapper = JSON.stringify(complete.packet, null, 2) + "\n";
+    const opened = await validateResearchFile(utf8.encode(wrapper));
+    assert.deepEqual(opened.bytes, journalBytes, "returns embedded bytes rather than a reconstructed journal or wrapper");
+    assert.equal(opened.hash, standalone.hash);
+    assert.notEqual(opened.hash, await sha256(wrapper));
+    assert.strictEqual(opened.journal, opened.workflow!.journal, "reuses the complete validated journal");
+    assert.equal(opened.workflow!.entry.record.id, "finding-v1");
+    assert.equal(opened.workflow!.history!.block_height, "120");
+  });
+
+  it("keeps the journal's 8 MiB bound inside the outer 16 MiB file bound", async () => {
+    function padded(raw: string, length: number): Uint8Array {
+      const bytes = new Uint8Array(length).fill(32);
+      bytes.set(utf8.encode(raw));
+      return bytes;
+    }
+    await validateResearchFile(padded(source, EXPORT_LIMIT));
+    await assert.rejects(validateResearchFile(padded(source, EXPORT_LIMIT + 1)), /8 MiB/u);
+    const packet = await draft();
+    await validateResearchFile(padded(stringify(packet), WORKFLOW_LIMIT));
+    await assert.rejects(validateResearchFile(padded(stringify(packet), WORKFLOW_LIMIT + 1)), /16 MiB/u);
+    packet.journal.export_utf8 = new TextDecoder().decode(padded(source, EXPORT_LIMIT + 1));
+    await assert.rejects(validateResearchFile(utf8.encode(stringify(packet))), /journal export/u);
+    await assert.rejects(validateResearchFile(new Uint8Array()), /nonempty/u);
+  });
+
+  it("refuses unknown schemas, malformed UTF-8, duplicate keys and source tampering before opening", async () => {
+    for (const value of [{}, { schema: "zerone-research-export/v2" }, { schema: "__proto__" }]) {
+      await assert.rejects(validateResearchFile(utf8.encode(stringify(value))), /Unsupported research file schema/u);
+    }
+    await assert.rejects(validateResearchFile(new Uint8Array([0xff, 0xfe])));
+    await assert.rejects(validateResearchFile(utf8.encode('{"schema":"zerone-research-export/v1","schema":"zerone-research-workflow/v1"}')), /Duplicate/u);
+    await assert.rejects(validateResearchFile(utf8.encode("\uFEFF" + source)), /Invalid JSON/u);
+    const packet = await draft();
+    packet.journal.export_utf8 += " ";
+    await assert.rejects(validateResearchFile(utf8.encode(stringify(packet))), /journal export SHA/u);
+    const altered = JSON.parse(source);
+    altered.entries[0].record.summary += " unauthenticated change";
+    await assert.rejects(validateResearchFile(utf8.encode(stringify(altered))), /SHA256 mismatch/u);
   });
 });
