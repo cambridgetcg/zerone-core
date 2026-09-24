@@ -3,9 +3,10 @@
 Record contributions, their dependencies and sourced concerns in a local journal;
 replay what the collection contained at an earlier point. This is the first
 off-chain implementation of the Tree of Knowledge's contribution history.
-The [browser view](https://zerone.ai/research/review/) loads an explicitly fictional
-demo or a JSON export selected from your computer. Selected files remain in
-browser memory. The view verifies the export before displaying its contents.
+The [browser view](https://zerone.ai/research/review/) can start a journal, append
+contributions or open an explicitly fictional demo or a file from your computer.
+It verifies complete imports before displaying them. Work stays in the tab's
+memory until you explicitly download it; there is no automatic save or upload.
 
 Use Python 3.10+ on macOS/Linux for the local journal; the optional participant
 client requires Python 3.11+. Journal preparation and inspection have no dependencies,
@@ -16,6 +17,20 @@ directory: stores and file paths containing symlinks are refused. On macOS,
 your home instead. Windows locking is not supported in this version.
 
 ## Start a collection
+
+In the browser, start a new journal and add a contribution with its type, title,
+summary and declared attribution. You may add one evidence reference (HTTPS URL,
+SHA-256, or both), and one explicit relation from the new contribution to an
+earlier contribution. A correction gets a new ID and names the earlier version
+through `supersedes`; “Write a correction of this record” fills that reference.
+Append preserves the complete history, including entries hidden by a historical
+cutoff. Acquisition times come from your current local clock.
+
+Download the journal to keep your work. Starting another journal, opening a file
+or loading the example replaces the current collection and claim workspace;
+download the journal and any workflow packet you want to keep first. A rejected
+import leaves your current work open. Browser-authored exports use the same
+format as the Python tools below.
 
 From the repository root, choose a new private directory whose parent exists:
 
@@ -205,11 +220,25 @@ results and shared artifacts; paying for accusation counts would invite gaming.
 
 ## Carry a record through native review
 
-Open your export in [Research Review](https://zerone.ai/research/review/), select
-a contribution, and fill in “Prepare one bounded claim.” Download the workflow
-packet. It contains the complete journal, your chosen assertion and provenance
+Open or author a journal in [Research Review](https://zerone.ai/research/review/),
+select a contribution, and explicitly use it as the claim source. Fill in
+"Claim & review," prepare, then download the workflow packet. It
+contains the complete source journal, your chosen assertion and provenance
 hashes; preparation remains local. Use a verified source checkout from the
 page's source-pinned tools link for the following commands.
+
+Browsing other records or appending to the journal does not change the active
+claim source: it retains the exact snapshot chosen for that claim. “Use selected
+record for this claim” changes the draft's source explicitly. Edits and failed
+preparation preserve the previous validated packet; the download label says when
+it contains that earlier packet rather than your edited fields. Successful
+preparation replaces it, while
+preparing the same source and intent retains its receipt and observations.
+
+Adding journal content or changing export whitespace changes the exact intent
+identity, even when the chosen record and assertion are unchanged. Continue an
+existing claim with its original packet. Preparing from a newer export is a new
+intent, not recovery of the old one.
 
 Alternatively, prepare it in the terminal using your actual record ID and
 claim. The text below is a template and is not a submitted scientific assertion:
@@ -274,10 +303,12 @@ and then refresh. Resume refuses drafts and packets with an observed receipt.
 
 Open the updated packet through “Open a research file.” The same input accepts
 journals and workflow packets; a rejected file leaves your current work open.
-Saved history is shown with its observation height/time. “Read current native history” is an
-explicit read of the published development endpoint; download again to keep
-the new observation. The full journal stays local. Loopback test packets can be
-inspected but cannot select a public-network reader.
+Saved history is shown with its observation height/time. “Read current native
+history” is an explicit read of the published development endpoint; download
+again to keep a new observation. Identical history bytes retain the original
+saved observation and its timestamp; the latest check time is labelled
+separately. The full journal stays local. Loopback test packets can be inspected
+but cannot select a public-network reader.
 
 Share the committed Claim ID and accessible evidence with your reviewer. They
 use their own home and decide their own `commit`/`reveal` fields following

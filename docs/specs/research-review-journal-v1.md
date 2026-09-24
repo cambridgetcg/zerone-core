@@ -5,7 +5,7 @@ token or transaction changes. [Usage](../../tools/research-review/README.md).
 
 ## Time, attribution and identity
 
-`recorded_at` is the local store's generated UTC append time; `sequence` defines
+`recorded_at` is the local tool's generated UTC append time; `sequence` defines
 collection order. `occurred_on` is a declared source/event date, or null. Neither
 clock is an independently authenticated historical timestamp. `attributed_to`
 is a declared label, not a verified signer. Bibliographic authors are not treated
@@ -30,6 +30,9 @@ Subsequent rows have exactly `sequence`, `recorded_at`, `previous_sha256`,
 hash is SHA-256 of the canonical header; later rows refer to the preceding row
 hash. A row's hash covers its canonical encoding with `sha256` omitted.
 Timestamps use `YYYY-MM-DDTHH:MM:SS.ffffffZ` and are nondecreasing.
+The browser generates them from its current clock at millisecond precision,
+padding the final three fractional digits with zeroes. Clock regression refuses
+an append; a displayed fictional timestamp is never reused as a new acquisition time.
 
 Canonical JSON recursively sorts object keys, uses compact separators and
 literal Unicode encoded as UTF-8. No Unicode normalization is applied; invalid
@@ -107,6 +110,22 @@ supported results may survive a withdrawn premise. Grouped premises, alternative
 support and sufficiency are not encoded in this first version.
 
 ## Storage and limits
+
+The browser creates a fresh random collection UUID and can append a contribution,
+one optional evidence reference, and one optional explicit relation in a single
+atomic batch. Corrections use a fresh contribution ID with `supersedes`.
+Authoring reuses the complete export validator: the existing header, entries and
+hashes stay unchanged, references must resolve to earlier records, and failure
+leaves the original journal intact. Appends target the full journal even while
+the reader displays a historical cutoff. Authored exports use canonical UTF-8
+JSON with one final newline, readable by the same Python validator.
+
+Browser work remains in tab memory until an explicit download. There is no
+automatic persistence or upload. Starting a new journal or successfully opening
+another file replaces the current workspace, including its active claim work;
+download the journal and any workflow packet first. Invalid imports preserve
+the current workspace. Browsing or appending within the same journal does not
+change an already selected claim snapshot; see the [workflow rules](research-workflow-v1.md).
 
 New store directories are explicitly created, never adopted over existing data.
 `journal.jsonl` and `.lock` must be regular files. Symlink paths, nonregular files

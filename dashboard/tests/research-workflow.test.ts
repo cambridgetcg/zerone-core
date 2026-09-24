@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { canonicalJSON, EXPORT_LIMIT, sha256 } from "../src/research-review-journal";
-import { appendWorkflowObservation, boundReasoning, prepareWorkflow, validateBoundHistory, validateResearchFile, validateWorkflow, workflowClaimId, WORKFLOW_LIMIT, type ResearchWorkflow, type WorkflowIntent } from "../src/research-workflow";
+import { appendWorkflowObservation, boundReasoning, prepareWorkflow, validateBoundHistory, validateResearchFile, validateWorkflow, workflowClaimId, workflowSubmissionSummary, WORKFLOW_LIMIT, type ResearchWorkflow, type WorkflowIntent } from "../src/research-workflow";
 
 const source = readFileSync(new URL("../public/research/review/fictional-journal.v1.json", import.meta.url), "utf8");
 const pythonRoot = fileURLToPath(new URL("../../tools/research-review/", import.meta.url));
@@ -108,6 +108,41 @@ describe("research/native workflow binding", () => {
     for (const change of [(p: ResearchWorkflow) => { p.submission!.receipt!.height = "0"; }, (p: ResearchWorkflow) => { p.submission!.receipt!.code = 1; }, (p: ResearchWorkflow) => { p.submission!.state = "started"; }]) {
       const packet = await submitted(); change(packet); await assert.rejects(validateWorkflow(stringify(packet)));
     }
+  });
+  it("gives specific guidance for every allowed submission state and reserves refresh-first resume for an unresolved start", async () => {
+    const cases: { state: "draft" | "started" | "observed"; status?: string; summary: string }[] = [
+      { state: "draft", summary: "Prepared claim intent; no submission is recorded in this packet. Use the explicit workflow adapter when ready to submit." },
+      { state: "started", summary: "Submission was started, but this packet has no client receipt. Refresh through the workflow adapter first; use resume only if the refreshed packet still has a started submission without a receipt." },
+      { state: "observed", status: "prepared", summary: "Client receipt reports prepared. Refresh through the workflow adapter and inspect the existing client receipt before taking another submission action." },
+      { state: "observed", status: "broadcasting", summary: "Client receipt reports broadcasting. Refresh through the workflow adapter to check the recorded outcome before taking another submission action." },
+      { state: "observed", status: "pending", summary: "Client receipt reports pending. Refresh through the workflow adapter to check for an updated transaction result." },
+      { state: "observed", status: "rejected", summary: "Client receipt reports rejected. Inspect the retained client receipt before deciding whether a new submission is appropriate." },
+      { state: "observed", status: "failed", summary: "Client receipt reports failed. Inspect the recorded transaction result before deciding whether a new submission is appropriate." },
+      { state: "observed", status: "committed-unresolved", summary: "Client receipt reports committed-unresolved; this packet does not yet identify a successful claim. Refresh through the workflow adapter to resolve the receipt before reading native claim history." },
+      { state: "observed", status: "committed", summary: `Submission receipt identifies claim ${claimId}. The receipt is a local record; read native history to compare the retained claim.` },
+    ];
+    for (const example of cases) {
+      const packet = example.state === "draft" ? await draft() : await submitted();
+      if (example.state === "started") packet.submission = { state: "started", receipt: null };
+      else if (example.state === "observed") packet.submission!.receipt!.status = example.status;
+      const checked = await validateWorkflow(stringify(packet));
+      const summary = workflowSubmissionSummary(checked.packet);
+      assert.equal(summary, example.summary, example.status ?? example.state);
+      assert.equal(summary.includes("resume"), example.state === "started");
+      if (example.state === "started") assert.match(summary, /Refresh.*first; use resume only if the refreshed packet/u);
+    }
+  });
+  it("does not describe a malformed committed receipt as a successful claim", async () => {
+    for (const change of [
+      (p: ResearchWorkflow) => { p.submission!.receipt!.height = "0"; },
+      (p: ResearchWorkflow) => { p.submission!.receipt!.code = 1; },
+      (p: ResearchWorkflow) => { delete p.submission!.receipt!.claim_id; },
+    ]) {
+      const packet = await submitted(); change(packet);
+      assert.throws(() => workflowSubmissionSummary(packet), /Successful receipt/u);
+    }
+    const malformedStart = await submitted(); malformedStart.submission!.state = "started";
+    assert.throws(() => workflowSubmissionSummary(malformedStart), /Invalid submission state/u);
   });
   it("refuses impossible funding allocations and settlement chronology", async () => {
     const packet = await submitted();

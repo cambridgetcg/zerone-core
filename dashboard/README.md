@@ -225,10 +225,15 @@ shared explanatory catalog for its HTML and existing `/understand/guide.json`;
 Module registration is source information, not a live availability check. Keep
 current responsibilities separate from the future consolidation plan.
 
-`/research/review/` opens either a `zerone-research-export/v1` journal (8 MiB)
+`/research/review/` starts local journals and appends contributions, explicit
+relationships and corrections while retaining earlier records. Download to keep
+the work; it is held only in tab memory. It also opens a `zerone-research-export/v1` journal (8 MiB)
 or a `zerone-research-workflow/v1` packet (16 MiB) through one local file input.
 It checks the complete file before replacing the current view; an invalid file
-leaves the existing journal and draft available. Record selection, evidence
+leaves the existing journal and draft available. Browsing and journal additions
+leave the active claim bound to its original complete snapshot. Explicit source
+selection changes the draft; edits and failed preparation preserve the last
+validated packet until a replacement is successfully prepared. Record selection, evidence
 and claim actions come first. History, relationships and journal comparison
 are expandable; the active cutoff and native observation status stay visible.
 The timeline, diagram, concerns and assessments share the same cutoff.
@@ -246,7 +251,8 @@ after the displayed cutoff.
 See [`tools/research-review`](../tools/research-review/README.md) for the local
 journal writer and evidence-lead scanner. `npm test` covers interoperability,
 format detection, tamper refusal and historical projections. Before publication,
-check both file types, failed and overlapping imports, cutoffs, retained
+check authoring and download/reimport, both file types, failed and overlapping
+operations, claim preservation while browsing, cutoffs, retained
 disagreements, recorded relation directions, keyboard focus and narrow mobile
 layout; also check the explanatory JavaScript-off fallback.
 

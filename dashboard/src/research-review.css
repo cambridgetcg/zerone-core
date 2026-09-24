@@ -23,6 +23,8 @@
 .import-panel { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem 2rem; padding: 1.5rem; border: 1px solid var(--line); background: var(--surface); }
 .import-panel p { color: var(--muted); font-size: .86rem; }
 .import-actions { display: grid; gap: .75rem; }
+.import-shortcuts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.review-page #new-journal { border-color: var(--violet); }
 #load-status, #load-error, #primary-file-hash, .import-panel noscript { grid-column: 1/-1; }
 #load-error, #comparison-error { border-left: 2px solid #ffb8a8; padding: .7rem 1rem; color: #ffb8a8; }
 .review-disclosure { margin-top: 1rem; padding: 1.15rem 1.3rem; border: 1px solid var(--line); background: var(--surface); }
@@ -36,6 +38,22 @@
 .comparison-files dt { color: var(--muted); margin-top: .45rem; }
 .comparison-files dd { margin: 0; overflow-wrap: anywhere; }
 .collection-header { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .7rem; margin: 1.5rem 0 1rem; }
+.journal-tools { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem 1.25rem; }
+.journal-tools > p { flex: 1 1 20rem; }
+.journal-editor { margin-bottom: 1.5rem; }
+#record-form { display: grid; gap: 1rem; margin-top: 1rem; }
+.record-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.journal-editor input, .journal-editor textarea { width: 100%; min-width: 0; color: var(--ink); background: #09090c; border: 1px solid var(--line); border-radius: 4px; font: inherit; font-size: .86rem; padding: .75rem; }
+.journal-editor input { min-height: 44px; }
+.journal-editor textarea { resize: vertical; min-height: 100px; }
+.record-extras { padding-block: .85rem; border-block: 1px solid var(--line); }
+.record-extras > summary { color: var(--violet); font-size: .86rem; }
+.record-extras[open] > summary { margin-bottom: 1rem; }
+.record-extras fieldset { display: grid; min-width: 0; gap: 1rem; margin: 1.25rem 0 0; padding: 1rem; border: 1px solid var(--line); }
+.record-extras legend { padding-inline: .4rem; color: var(--muted); font-size: .8rem; }
+.record-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem 1.25rem; }
+.record-actions > p { flex: 1 1 20rem; }
+#record-status[data-error=true], #journal-save-status[data-error=true] { color: #ffb8a8; }
 #collection-label { color: var(--acid); font-size: .8rem; }
 .mono, code { font-family: var(--mono); font-size: .75rem; overflow-wrap: anywhere; }
 .small { color: var(--muted); font-size: .78rem; line-height: 1.65; }
@@ -95,6 +113,7 @@
 .reader-notes p { margin-top: 1rem; color: var(--muted); font-size: .84rem; }
 .review-footer { padding-block: 1.5rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .8rem; }
 .workflow-panel > p, #workflow-next p { margin-block: .7rem; font-size: .84rem; color: var(--muted); }
+.workflow-source-picker { display: grid; justify-items: start; gap: .65rem; padding-block: .8rem; border-block: 1px solid var(--line); }
 #workflow-form { display: grid; gap: 1rem; margin-top: 1.4rem; }
 .workflow-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
 .workflow-panel textarea, .workflow-panel input[type=text] { width: 100%; min-width: 0; color: var(--ink); background: #09090c; border: 1px solid var(--line); border-radius: 4px; font: inherit; font-size: .86rem; padding: .75rem; }
@@ -110,5 +129,5 @@
 #workflow-status[data-error=true], #workflow-observation-status[data-error=true] { color: #ffb8a8; }
 @media(max-width: 1100px) { .review-core { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .workflow-fields { grid-template-columns: 1fr; } }
 @media(max-width: 900px) { .review-core { grid-template-columns: 1fr; } .review-layout { grid-template-columns: minmax(190px, .7fr) minmax(0, 1.6fr); } }
-@media(max-width: 680px) { .review-page, .review-header, .review-footer { width: calc(100% - 32px); } .review-header { align-items: flex-start; padding-block: 1.3rem; } .review-header nav { justify-content: flex-end; font-size: .72rem; } .review-intro { padding-block: 2rem 1.25rem; } .import-panel, .record-selection, .snapshot-controls, .review-layout, .review-ledger { grid-template-columns: 1fr; } .import-panel, .panel, .review-disclosure { padding: 1rem; } .timeline-panel { max-height: 430px; } .collection-header { flex-direction: column; } .detail-meta { grid-template-columns: 1fr; gap: .15rem; } .detail-meta dd { margin-bottom: .6rem; } .comparison-files { grid-template-columns: 1fr; } }
+@media(max-width: 680px) { .review-page, .review-header, .review-footer { width: calc(100% - 32px); } .review-header { align-items: flex-start; padding-block: 1.3rem; } .review-header nav { justify-content: flex-end; font-size: .72rem; } .review-intro { padding-block: 2rem 1.25rem; } .import-panel, .record-selection, .snapshot-controls, .review-layout, .review-ledger, .record-fields { grid-template-columns: 1fr; } .import-panel, .panel, .review-disclosure { padding: 1rem; } .timeline-panel { max-height: 430px; } .collection-header { flex-direction: column; } .detail-meta { grid-template-columns: 1fr; gap: .15rem; } .detail-meta dd { margin-bottom: .6rem; } .comparison-files { grid-template-columns: 1fr; } }
 @media(prefers-reduced-motion: reduce) { :root { scroll-behavior: auto; } }
