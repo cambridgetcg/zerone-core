@@ -3,7 +3,6 @@ package keeper
 import (
 	"bytes"
 	"context"
-	"fmt"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -99,8 +98,7 @@ func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.Msg
 	}
 
 	// 2b. Pending claims are fail-closed until their translation into
-	// x/knowledge is wired (ToK Plan 4). The reserved post-validation block
-	// below remains unreachable; accepting a bond before canonical knowledge
+	// x/knowledge is implemented. Accepting a bond before canonical knowledge
 	// provenance exists would trap the attestation until timeout and slashing.
 	if len(msg.Link.PendingClaims) > 0 {
 		return nil, types.ErrPendingClaimsNotSupported
@@ -189,7 +187,7 @@ func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.Msg
 		}
 	}
 
-	// Create attestation record (state: COMMITTED initially).
+	// Create a READY attestation; pending-claim submissions were rejected above.
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	attID := m.NextAttestationID(ctx)
 	att := &types.ExternalAttestation{
@@ -199,31 +197,9 @@ func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.Msg
 		Submitter:        msg.Submitter,
 		BondUzrn:         msg.BondUzrn,
 		Link:             msg.Link,
-		Status:           types.AttestationStatus_ATTESTATION_STATUS_COMMITTED,
+		Status:           types.AttestationStatus_ATTESTATION_STATUS_READY,
 		SubmittedAtBlock: uint64(sdkCtx.BlockHeight()),
 		CommittedAtBlock: uint64(sdkCtx.BlockHeight()),
-	}
-
-	// 7. Reserved pending-claim translation. Nonempty lists are rejected
-	// above, so this loop is unreachable until x/knowledge translation is
-	// deliberately implemented.
-	for _, pc := range msg.Link.PendingClaims {
-		claimID := fmt.Sprintf("%s::pending::%s", attID, types.PendingClaimCanonicalHash(pc))
-		// Knowledge keeper integration deferred (types differ); record the
-		// reverse-index link so BeginBlocker can match claim resolutions.
-		if m.knowledgeKeeper != nil {
-			// Translation deferred; just record the link.
-			_ = m.knowledgeKeeper
-		}
-		_ = m.LinkPendingClaim(ctx, claimID, attID)
-	}
-
-	// 8. Current accepted submissions are always READY. The conditional
-	// preserves the reserved state shape for a future translation path.
-	if len(msg.Link.PendingClaims) > 0 {
-		att.Status = types.AttestationStatus_ATTESTATION_STATUS_AWAITING_RESOLUTION
-	} else {
-		att.Status = types.AttestationStatus_ATTESTATION_STATUS_READY
 	}
 
 	if err := m.WriteAttestation(ctx, att); err != nil {
@@ -231,7 +207,7 @@ func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.Msg
 	}
 	m.SetSourceRef(ctx, msg.Link.AdapterId, msg.Link.Source.SourceId, attID)
 
-	// 9. Emit event with useful_work_commitment and mechanism tags.
+	// 7. Emit event with useful_work_commitment and mechanism tags.
 	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 		EventTypeExternalAttestationSubmitted,
 		sdk.NewAttribute("attestation_id", attID),

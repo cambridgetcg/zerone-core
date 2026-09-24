@@ -14,11 +14,11 @@ import (
 	storemetrics "cosmossdk.io/store/metrics"
 	storetypes "cosmossdk.io/store/types"
 
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 
 	"github.com/zerone-chain/zerone/x/qualification/keeper"
 	"github.com/zerone-chain/zerone/x/qualification/types"
@@ -87,22 +87,6 @@ func (m *mockBankKeeper) SendCoinsFromModuleToAccount(_ context.Context, senderM
 	return nil
 }
 
-type mockStakingKeeper struct {
-	validators map[string]bool
-}
-
-func newMockStakingKeeper() *mockStakingKeeper {
-	return &mockStakingKeeper{validators: make(map[string]bool)}
-}
-
-func (m *mockStakingKeeper) addValidator(addr string) {
-	m.validators[addr] = true
-}
-
-func (m *mockStakingKeeper) IsValidator(_ context.Context, addr string) bool {
-	return m.validators[addr]
-}
-
 type mockCaptureDefenseKeeper struct {
 	reputations map[string]*types.DomainReputation
 }
@@ -122,7 +106,7 @@ func (m *mockCaptureDefenseKeeper) GetDomainReputation(_ context.Context, valida
 
 // ---------- Setup Helpers ----------
 
-func setupKeeper(t *testing.T) (keeper.Keeper, sdk.Context, *mockBankKeeper, *mockStakingKeeper) {
+func setupKeeper(t *testing.T) (keeper.Keeper, sdk.Context, *mockBankKeeper) {
 	t.Helper()
 
 	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
@@ -137,26 +121,25 @@ func setupKeeper(t *testing.T) (keeper.Keeper, sdk.Context, *mockBankKeeper, *mo
 	cdc := codec.NewProtoCodec(registry)
 
 	mockBK := newMockBankKeeper()
-	mockSK := newMockStakingKeeper()
 
 	storeService := runtime.NewKVStoreService(storeKey)
-	k := keeper.NewKeeper(storeService, cdc, "zrn1authority", mockBK, mockSK)
+	k := keeper.NewKeeper(storeService, cdc, "zrn1authority", mockBK)
 
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 100, ChainID: "zerone-test-1"}, false, log.NewNopLogger())
 
-	return k, ctx, mockBK, mockSK
+	return k, ctx, mockBK
 }
 
-func setupMsgServer(t *testing.T) (types.MsgServer, keeper.Keeper, sdk.Context, *mockBankKeeper, *mockStakingKeeper) {
+func setupMsgServer(t *testing.T) (types.MsgServer, keeper.Keeper, sdk.Context, *mockBankKeeper) {
 	t.Helper()
-	k, ctx, bk, sk := setupKeeper(t)
-	return keeper.NewMsgServerImpl(k), k, ctx, bk, sk
+	k, ctx, bk := setupKeeper(t)
+	return keeper.NewMsgServerImpl(k), k, ctx, bk
 }
 
 // ---------- State CRUD Tests ----------
 
 func TestSetGetQualification(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	q := &types.DomainQualification{
 		Validator: testAddr("val1"),
@@ -185,7 +168,7 @@ func TestSetGetQualification(t *testing.T) {
 }
 
 func TestDeleteQualification(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	q := &types.DomainQualification{
 		Validator: testAddr("val1"),
@@ -204,7 +187,7 @@ func TestDeleteQualification(t *testing.T) {
 }
 
 func TestGetAllQualifications(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	for i := 0; i < 5; i++ {
 		q := &types.DomainQualification{
@@ -223,7 +206,7 @@ func TestGetAllQualifications(t *testing.T) {
 }
 
 func TestDomainValidatorIndex(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val1 := testAddr("val1")
 	val2 := testAddr("val2")
@@ -246,7 +229,7 @@ func TestDomainValidatorIndex(t *testing.T) {
 }
 
 func TestEndorsementCRUD(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val := testAddr("val1")
 	endorser := testAddr("endorser1")
@@ -294,7 +277,7 @@ func TestEndorsementCRUD(t *testing.T) {
 }
 
 func TestEndorsementCounter(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	id1 := k.GetNextEndorsementID(ctx)
 	id2 := k.GetNextEndorsementID(ctx)
@@ -308,7 +291,7 @@ func TestEndorsementCounter(t *testing.T) {
 // ---------- Params Tests ----------
 
 func TestParamsSetGet(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	params := types.DefaultParams()
 	params.MinStakeAmount = "999999"
@@ -323,7 +306,7 @@ func TestParamsSetGet(t *testing.T) {
 // ---------- Stake Pathway Tests ----------
 
 func TestQualifyByStakeHappyPath(t *testing.T) {
-	k, ctx, bk, _ := setupKeeper(t)
+	k, ctx, bk := setupKeeper(t)
 
 	val := testAddr("val1")
 	bk.setBalance(val, "uzrn", 200_000_000)
@@ -357,7 +340,7 @@ func TestQualifyByStakeHappyPath(t *testing.T) {
 }
 
 func TestQualifyByStakeInsufficientFunds(t *testing.T) {
-	k, ctx, bk, _ := setupKeeper(t)
+	k, ctx, bk := setupKeeper(t)
 
 	val := testAddr("val1")
 	bk.setBalance(val, "uzrn", 50_000_000) // less than minimum 100M
@@ -369,7 +352,7 @@ func TestQualifyByStakeInsufficientFunds(t *testing.T) {
 }
 
 func TestQualifyByStakeBelowMinimum(t *testing.T) {
-	k, ctx, bk, _ := setupKeeper(t)
+	k, ctx, bk := setupKeeper(t)
 
 	val := testAddr("val1")
 	bk.setBalance(val, "uzrn", 200_000_000)
@@ -381,7 +364,7 @@ func TestQualifyByStakeBelowMinimum(t *testing.T) {
 }
 
 func TestQualifyByStakeDuplicate(t *testing.T) {
-	k, ctx, bk, _ := setupKeeper(t)
+	k, ctx, bk := setupKeeper(t)
 
 	val := testAddr("val1")
 	bk.setBalance(val, "uzrn", 400_000_000)
@@ -400,7 +383,7 @@ func TestQualifyByStakeDuplicate(t *testing.T) {
 // ---------- Track Record Pathway Tests ----------
 
 func TestQualifyByTrackRecordInsufficientVerifications(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val := testAddr("val1")
 
@@ -414,7 +397,7 @@ func TestQualifyByTrackRecordInsufficientVerifications(t *testing.T) {
 // ---------- Cross-Reference Pathway Tests ----------
 
 func TestQualifyByCrossReferenceHappyPath(t *testing.T) {
-	k, ctx, bk, _ := setupKeeper(t)
+	k, ctx, bk := setupKeeper(t)
 
 	val := testAddr("val1")
 	bk.setBalance(val, "uzrn", 200_000_000)
@@ -448,7 +431,7 @@ func TestQualifyByCrossReferenceHappyPath(t *testing.T) {
 }
 
 func TestQualifyByCrossReferenceNoSourceQualification(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val := testAddr("val1")
 
@@ -459,7 +442,7 @@ func TestQualifyByCrossReferenceNoSourceQualification(t *testing.T) {
 }
 
 func TestQualifyByCrossReferenceWeightTooLow(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val := testAddr("val1")
 
@@ -480,7 +463,7 @@ func TestQualifyByCrossReferenceWeightTooLow(t *testing.T) {
 // ---------- Inheritance Pathway Tests ----------
 
 func TestQualifyByInheritanceHappyPath(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val := testAddr("val1")
 
@@ -516,7 +499,7 @@ func TestQualifyByInheritanceHappyPath(t *testing.T) {
 }
 
 func TestQualifyByInheritanceNoParent(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val := testAddr("val1")
 
@@ -529,7 +512,7 @@ func TestQualifyByInheritanceNoParent(t *testing.T) {
 // ---------- Status Transition Tests ----------
 
 func TestStatusTransitionExpiry(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val := testAddr("val1")
 
@@ -561,7 +544,7 @@ func TestStatusTransitionExpiry(t *testing.T) {
 }
 
 func TestStatusTransitionProbationToActive(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val := testAddr("val1")
 	params := k.GetParams(ctx)
@@ -579,7 +562,7 @@ func TestStatusTransitionProbationToActive(t *testing.T) {
 		Metrics: &types.QualificationMetrics{
 			TotalVerifications:   200,
 			CorrectVerifications: 180,
-			AccuracyBps:         900000,
+			AccuracyBps:          900000,
 		},
 	})
 
@@ -604,7 +587,7 @@ func TestStatusTransitionProbationToActive(t *testing.T) {
 }
 
 func TestStatusTransitionProbationToSuspended(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val := testAddr("val1")
 
@@ -620,7 +603,7 @@ func TestStatusTransitionProbationToSuspended(t *testing.T) {
 		Metrics: &types.QualificationMetrics{
 			TotalVerifications:   200,
 			CorrectVerifications: 100,
-			AccuracyBps:         500000, // Below min 800000
+			AccuracyBps:          500000, // Below min 800000
 		},
 	})
 
@@ -642,7 +625,7 @@ func TestStatusTransitionProbationToSuspended(t *testing.T) {
 // ---------- BeginBlocker Tests ----------
 
 func TestBeginBlockerEndorsementExpiry(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val := testAddr("val1")
 	endorser := testAddr("endorser1")
@@ -689,7 +672,7 @@ func TestBeginBlockerEndorsementExpiry(t *testing.T) {
 }
 
 func TestBeginBlockerStakeUnlockOnExpiry(t *testing.T) {
-	k, ctx, bk, _ := setupKeeper(t)
+	k, ctx, bk := setupKeeper(t)
 
 	val := testAddr("val1")
 	bk.moduleBalances[types.ModuleName] = map[string]int64{"uzrn": 100_000_000}
@@ -729,7 +712,7 @@ func TestBeginBlockerStakeUnlockOnExpiry(t *testing.T) {
 // ---------- Renewal Tests ----------
 
 func TestRenewQualificationHappyPath(t *testing.T) {
-	msgSrv, k, ctx, bk, _ := setupMsgServer(t)
+	msgSrv, k, ctx, bk := setupMsgServer(t)
 
 	val := testAddr("val1")
 	bk.setBalance(val, "uzrn", 200_000_000)
@@ -764,7 +747,7 @@ func TestRenewQualificationHappyPath(t *testing.T) {
 }
 
 func TestRenewQualificationTooEarly(t *testing.T) {
-	msgSrv, k, ctx, bk, _ := setupMsgServer(t)
+	msgSrv, k, ctx, bk := setupMsgServer(t)
 
 	val := testAddr("val1")
 	bk.setBalance(val, "uzrn", 200_000_000)
@@ -787,7 +770,7 @@ func TestRenewQualificationTooEarly(t *testing.T) {
 // ---------- Withdraw Tests ----------
 
 func TestWithdrawQualificationHappyPath(t *testing.T) {
-	msgSrv, k, ctx, bk, _ := setupMsgServer(t)
+	msgSrv, k, ctx, bk := setupMsgServer(t)
 
 	val := testAddr("val1")
 	bk.setBalance(val, "uzrn", 200_000_000)
@@ -824,7 +807,7 @@ func TestWithdrawQualificationHappyPath(t *testing.T) {
 }
 
 func TestWithdrawQualificationStakeLocked(t *testing.T) {
-	msgSrv, k, ctx, bk, _ := setupMsgServer(t)
+	msgSrv, k, ctx, bk := setupMsgServer(t)
 
 	val := testAddr("val1")
 	bk.setBalance(val, "uzrn", 200_000_000)
@@ -847,7 +830,7 @@ func TestWithdrawQualificationStakeLocked(t *testing.T) {
 // ---------- Cross-Module Interface Tests ----------
 
 func TestIsQualified(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val := testAddr("val1")
 
@@ -879,7 +862,7 @@ func TestIsQualified(t *testing.T) {
 }
 
 func TestGetQualificationWeight(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val := testAddr("val1")
 
@@ -900,7 +883,7 @@ func TestGetQualificationWeight(t *testing.T) {
 }
 
 func TestRecordVerificationOutcome(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val := testAddr("val1")
 
@@ -938,7 +921,7 @@ func TestRecordVerificationOutcome(t *testing.T) {
 }
 
 func TestRecordVerificationOutcomeNotFound(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	err := k.RecordVerificationOutcome(ctx, testAddr("val1"), "nonexistent", true)
 	if err == nil {
@@ -947,7 +930,7 @@ func TestRecordVerificationOutcomeNotFound(t *testing.T) {
 }
 
 func TestGetQualifiedValidators(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val1 := testAddr("val1")
 	val2 := testAddr("val2")
@@ -975,7 +958,7 @@ func TestGetQualifiedValidators(t *testing.T) {
 // ---------- MsgServer Tests ----------
 
 func TestMsgEndorseQualification(t *testing.T) {
-	msgSrv, k, ctx, _, _ := setupMsgServer(t)
+	msgSrv, k, ctx, _ := setupMsgServer(t)
 
 	val := testAddr("val1")
 	endorser := testAddr("endorser1")
@@ -1009,7 +992,7 @@ func TestMsgEndorseQualification(t *testing.T) {
 }
 
 func TestMsgEndorseSelfRejected(t *testing.T) {
-	msgSrv, k, ctx, _, _ := setupMsgServer(t)
+	msgSrv, k, ctx, _ := setupMsgServer(t)
 
 	val := testAddr("val1")
 
@@ -1032,7 +1015,7 @@ func TestMsgEndorseSelfRejected(t *testing.T) {
 }
 
 func TestMsgUpdateParams(t *testing.T) {
-	msgSrv, k, ctx, _, _ := setupMsgServer(t)
+	msgSrv, k, ctx, _ := setupMsgServer(t)
 
 	params := types.DefaultParams()
 	params.MinStakeAmount = "500000000"
@@ -1052,7 +1035,7 @@ func TestMsgUpdateParams(t *testing.T) {
 }
 
 func TestMsgUpdateParamsUnauthorized(t *testing.T) {
-	msgSrv, _, ctx, _, _ := setupMsgServer(t)
+	msgSrv, _, ctx, _ := setupMsgServer(t)
 
 	_, err := msgSrv.UpdateParams(ctx, &types.MsgUpdateParams{
 		Authority: testAddr("imposter"),
@@ -1066,7 +1049,7 @@ func TestMsgUpdateParamsUnauthorized(t *testing.T) {
 // ---------- QueryServer Tests ----------
 
 func TestQueryQualification(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 	qSrv := keeper.NewQueryServerImpl(k)
 
 	val := testAddr("val1")
@@ -1087,7 +1070,7 @@ func TestQueryQualification(t *testing.T) {
 }
 
 func TestQueryQualificationsByDomain(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 	qSrv := keeper.NewQueryServerImpl(k)
 
 	for i := 0; i < 3; i++ {
@@ -1108,7 +1091,7 @@ func TestQueryQualificationsByDomain(t *testing.T) {
 }
 
 func TestQueryParams(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 	qSrv := keeper.NewQueryServerImpl(k)
 
 	k.SetParams(ctx, types.DefaultParams())
@@ -1125,7 +1108,7 @@ func TestQueryParams(t *testing.T) {
 // ---------- Max Endorsements Test ----------
 
 func TestMaxEndorsementsExceeded(t *testing.T) {
-	msgSrv, k, ctx, _, _ := setupMsgServer(t)
+	msgSrv, k, ctx, _ := setupMsgServer(t)
 
 	val := testAddr("val1")
 
@@ -1173,7 +1156,7 @@ func TestMaxEndorsementsExceeded(t *testing.T) {
 // ---------- Revocation Status Test ----------
 
 func TestRevocationStatus(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val := testAddr("val1")
 
@@ -1208,7 +1191,7 @@ func TestRevocationStatus(t *testing.T) {
 // ---------- Max Qualifications Per Validator ----------
 
 func TestMultiDomainQualification(t *testing.T) {
-	k, ctx, bk, _ := setupKeeper(t)
+	k, ctx, bk := setupKeeper(t)
 
 	val := testAddr("val1")
 	bk.setBalance(val, "uzrn", 1_000_000_000)
@@ -1238,7 +1221,7 @@ func TestMultiDomainQualification(t *testing.T) {
 // ---------- Genesis Roundtrip ----------
 
 func TestGenesisRoundtrip(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	val := testAddr("val1")
 	endorser := testAddr("endorser1")
@@ -1289,7 +1272,7 @@ func TestGenesisRoundtrip(t *testing.T) {
 	}
 
 	// Create new keeper and import.
-	k2, ctx2, _, _ := setupKeeper(t)
+	k2, ctx2, _ := setupKeeper(t)
 	k2.InitGenesis(ctx2, &restored)
 
 	// Verify state restored.

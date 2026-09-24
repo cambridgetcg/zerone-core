@@ -29,7 +29,7 @@ func (m *mockOntologyKeeper) GetDepthForDomain(_ context.Context, domainName str
 }
 
 func TestCrossRefDiscountScalesWithDepthDiff(t *testing.T) {
-	k, ctx, bk, _ := setupKeeper(t)
+	k, ctx, bk := setupKeeper(t)
 
 	ok := newMockOntologyKeeper()
 	ok.setDepth("mathematics", 1)
@@ -70,7 +70,7 @@ func TestCrossRefDiscountScalesWithDepthDiff(t *testing.T) {
 }
 
 func TestInheritanceDiscountScalesWithDepthDiff(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	ok := newMockOntologyKeeper()
 	ok.setDepth("science", 1)
@@ -122,7 +122,7 @@ func TestInheritanceDiscountScalesWithDepthDiff(t *testing.T) {
 }
 
 func TestInheritanceBlockedAtDepthDiff4(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	ok := newMockOntologyKeeper()
 	ok.setDepth("root", 1)
@@ -146,7 +146,7 @@ func TestInheritanceBlockedAtDepthDiff4(t *testing.T) {
 }
 
 func TestInheritanceAllowedAtDepthDiff3(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	ok := newMockOntologyKeeper()
 	ok.setDepth("d1", 1)
@@ -170,7 +170,7 @@ func TestInheritanceAllowedAtDepthDiff3(t *testing.T) {
 }
 
 func TestCrossRefNoMaxDistanceLimit(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	ok := newMockOntologyKeeper()
 	ok.setDepth("shallow", 1)
@@ -199,7 +199,7 @@ func TestCrossRefNoMaxDistanceLimit(t *testing.T) {
 }
 
 func TestDepthDiffZeroMeansNoDiscount(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 
 	ok := newMockOntologyKeeper()
 	ok.setDepth("domainA", 2)

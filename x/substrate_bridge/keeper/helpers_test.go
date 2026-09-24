@@ -41,7 +41,7 @@ func setupSubstrateBridgeKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
 	types.RegisterInterfaces(registry)
 	cdc := codec.NewProtoCodec(registry)
 
-	k := keeper.NewKeeper(cdc, storeKey, "authority-addr", nil, nil, nil, nil, nil)
+	k := keeper.NewKeeper(cdc, storeKey, "authority-addr", nil, nil, nil, nil)
 
 	ctx := sdk.NewContext(cms, cmtproto.Header{Height: 1}, false, log.NewNopLogger())
 
@@ -58,9 +58,11 @@ func setupSubstrateBridgeKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
 type stubBankKeeper struct {
 	payments map[string]sdkmath.Int // recipient_addr → cumulative paid
 	burned   sdkmath.Int            // cumulative burned across modules
+	deposits int                    // account-to-module calls
 }
 
 func (s *stubBankKeeper) SendCoinsFromAccountToModule(ctx context.Context, from sdk.AccAddress, mod string, coins sdk.Coins) error {
+	s.deposits++
 	return nil
 }
 
@@ -143,7 +145,7 @@ func setupSubstrateBridgeKeeperFull(t *testing.T) (keeper.Keeper, sdk.Context, *
 
 	bk := &stubBankKeeper{}
 	vk := &stubVestingKeeper{}
-	k := keeper.NewKeeper(cdc, storeKey, "authority-addr", nil, nil, bk, nil, vk)
+	k := keeper.NewKeeper(cdc, storeKey, "authority-addr", nil, nil, bk, vk)
 
 	ctx := sdk.NewContext(cms, cmtproto.Header{Height: 1}, false, log.NewNopLogger())
 
@@ -173,7 +175,7 @@ func setupSubstrateBridgeKeeperWithBank(t *testing.T) (keeper.Keeper, sdk.Contex
 	cdc := codec.NewProtoCodec(registry)
 
 	bk := &stubBankKeeper{}
-	k := keeper.NewKeeper(cdc, storeKey, "authority-addr", nil, nil, bk, nil, nil)
+	k := keeper.NewKeeper(cdc, storeKey, "authority-addr", nil, nil, bk, nil)
 
 	ctx := sdk.NewContext(cms, cmtproto.Header{Height: 1}, false, log.NewNopLogger())
 

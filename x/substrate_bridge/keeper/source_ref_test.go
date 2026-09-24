@@ -38,7 +38,7 @@ func newUnarmedKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
 	types.RegisterInterfaces(registry)
 	cdc := codec.NewProtoCodec(registry)
 
-	k := keeper.NewKeeper(cdc, storeKey, "authority-addr", nil, nil, &stubBankKeeper{}, nil, nil)
+	k := keeper.NewKeeper(cdc, storeKey, "authority-addr", nil, nil, &stubBankKeeper{}, nil)
 	ctx := sdk.NewContext(cms, cmtproto.Header{Height: 1}, false, log.NewNopLogger())
 	require.NoError(t, k.SetParams(ctx, defaultSubstrateBridgeParams()))
 	return k, ctx
@@ -60,7 +60,7 @@ func newUnarmedKeeperFull(t *testing.T) (keeper.Keeper, sdk.Context, *stubBankKe
 
 	bk := &stubBankKeeper{}
 	vk := &stubVestingKeeper{}
-	k := keeper.NewKeeper(cdc, storeKey, "authority-addr", nil, nil, bk, nil, vk)
+	k := keeper.NewKeeper(cdc, storeKey, "authority-addr", nil, nil, bk, vk)
 	ctx := sdk.NewContext(cms, cmtproto.Header{Height: 1}, false, log.NewNopLogger())
 	require.NoError(t, k.SetParams(ctx, defaultSubstrateBridgeParams()))
 	return k, ctx, bk, vk

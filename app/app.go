@@ -917,16 +917,14 @@ func newZeroneApp(
 	app.ZeroneGovKeeper.SetVestingKeeper(&app.VestingRewardsKeeper)
 	app.ZeroneGovKeeper.SetParamRouter(NewGovParamRouter())
 
-	qualificationStakingAdapter := zeronestakingkeeper.NewQualificationStakingKeeperAdapter(app.ZeroneStakingKeeper)
 	app.QualificationKeeper = zeronequalificationkeeper.NewKeeper(
 		sdkruntime.NewKVStoreService(keys[zeronequalificationtypes.StoreKey]),
 		appCodec,
 		authtypes.NewModuleAddress(govtypes.ModuleName).String(),
 		app.BankKeeper,
-		qualificationStakingAdapter,
 	)
-	// TODO: wire CaptureDefenseKeeper when x/capture_defense is available:
-	// app.QualificationKeeper.SetCaptureDefenseKeeper(captureDefenseAdapter)
+	// Capture-defense reputation is not wired into qualification. Connecting it
+	// would change the legacy track-record admission check.
 	app.QualificationKeeper.SetOntologyKeeper(&app.ZeroneOntologyKeeper)
 	app.QualificationKeeper.SetReviewNeutralityPolicy(app.KnowledgeKeeper.ReviewNeutralityEnabled)
 
@@ -1055,7 +1053,6 @@ func newZeroneApp(
 		&app.KnowledgeKeeper,
 		zeronequalificationkeeper.NewSubstrateBridgeQualificationAdapter(app.QualificationKeeper),
 		app.BankKeeper,
-		app.AccountKeeper,
 		app.VestingRewardsKeeper,
 	)
 	// Post-init wire-back: knowledge calls OnClaimResolved on each completed round.
@@ -1073,14 +1070,11 @@ func newZeroneApp(
 		zeroneknowledgekeeper.NewCaptureDefenseKnowledgeAdapter(app.KnowledgeKeeper),
 	)
 
-	// alignment → capture_defense (read flagged domain count for security sensor)
-	app.AlignmentKeeper.SetCaptureDefenseKeeper(
-		zeronecdkeeper.NewAlignmentCaptureDefenseAdapter(app.CaptureDefenseKeeper),
-	)
-
 	// IBCRateLimitKeeper already created above (before TransferKeeper).
 
 	// ---- Alignment keeper (R7-2) ----
+	// Capture-defense flags are not wired into alignment's security sensor.
+	// Connecting them would change committed scores, pacing, and LIP timing.
 	alignmentKnowledgeAdapter := zeroneknowledgekeeper.NewAlignmentKnowledgeAdapter(app.KnowledgeKeeper)
 	alignmentStakingAdapter := zeronestakingkeeper.NewAlignmentStakingAdapter(app.ZeroneStakingKeeper)
 	alignmentOntologyAdapter := zeroneontologykeeper.NewAlignmentOntologyAdapter(app.ZeroneOntologyKeeper)
@@ -1100,8 +1094,8 @@ func newZeroneApp(
 	alignmentPacingAdapter := zeronealignmentkeeper.NewAlignmentPacingAdapter(app.AlignmentKeeper)
 	app.KnowledgeKeeper.SetPacingKeeper(alignmentPacingAdapter)
 	app.CaptureDefenseKeeper.SetPacingKeeper(alignmentPacingAdapter)
-	// Retain survival telemetry for vesting audits and the historical reward
-	// query surface. It does not drive automatic issuance in consensus v2.
+	// Knowledge supplies survival telemetry and the adjudication check used by
+	// FalsifyClaim. This connection does not drive automatic block issuance.
 	app.VestingRewardsKeeper.SetKnowledgeKeeper(zeroneknowledgekeeper.NewVestingRewardsKnowledgeAdapter(app.KnowledgeKeeper))
 
 	// ---- Claiming Pot keeper (R7-6) ----

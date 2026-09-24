@@ -146,7 +146,7 @@ describe("Authority Geometry v1", () => {
     assert.equal(geometry.nodes.length, 18);
     assert.equal(geometry.edges.length, 26);
     assert.equal(geometry.currentFindings.length, 7);
-    assert.equal(geometry.sourceAnchors.length, 17);
+    assert.equal(geometry.sourceAnchors.length, 18);
   });
 
   it("computes the current NO-GO assessment instead of promoting a green report", () => {
@@ -411,7 +411,7 @@ describe("Authority Geometry v1", () => {
       geometry,
       repositoryRoot,
     );
-    assert.equal(summary.sourceAnchorCount, 17);
+    assert.equal(summary.sourceAnchorCount, 18);
     assert.ok(summary.requiredSnippetCount >= 30);
     assert.equal(summary.forbiddenSnippetCount, 1);
 

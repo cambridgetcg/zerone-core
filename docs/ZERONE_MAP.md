@@ -1,5 +1,7 @@
 # Zerone: what exists and how it connects
 
+**Module-purpose update: 24 September 2026.** The [module guide](https://zerone.ai/understand/#modules) now explains every registered module, its state, connections and limits alongside the research workflow. Its [shared source catalog](../dashboard/module-guide.json) is checked against the constructed application’s ModuleManager; the website and machine-readable explanation use that same catalog. The runtime and infrastructure observations below remain dated.
+
 **Follow-up: 23 September 2026.** Development participant-package and website
 publication is complete: it offers separate knowledge-11 participant packages
 and retains the knowledge-10 packages for original-genesis replay. Public queries
@@ -165,7 +167,7 @@ just because that document names them.
 
 ## Inside one `zeroned` process
 
-The modules below are Go components in **one application**, not 40 separately
+The registered modules are Go components in **one application**, not 40 separately
 deployed microservices. A *keeper* is the code through which a module reads or
 changes its state. `app/app.go` constructs keepers and hands them the other
 keepers they need.
@@ -174,54 +176,33 @@ The reviewed source declares Go **1.25.14**, Cosmos SDK **0.53.8**, CometBFT
 **0.38.25** and IBC-Go **10.7.0**. Those are source pins; they do not describe
 every running legacy binary. See [go.mod](../go.mod).
 
-### The 17 SDK / IBC modules
+### Purpose and ownership
 
-| Group | Registered modules | Responsibility |
-| --- | --- | --- |
-| Accounts and money | `auth`, `vesting`, `bank`, `feegrant` | Signing accounts/sequences, account vesting, balances/transfers, fee allowances. |
-| Consensus and its economics | `staking`, `distribution`, `slashing`, `evidence`, `consensus` | Validator set/stake, fee distribution, liveness/equivocation consequences and consensus parameters. |
-| Decisions and startup | `gov`, `upgrade`, `genutil` | Ordinary SDK proposals/execution, named upgrade boundaries and genesis transactions. |
-| Interchain transport | `ibc`, `transfer`, `interchainaccounts`, `07-tendermint`, `06-solomachine` | IBC routing, token transfers, remote-account machinery and light clients. |
+The [shared module catalog](../dashboard/module-guide.json) describes each of
+the **17 SDK/IBC and 23 custom modules**. It records purpose, owned state/effects,
+connections and limitations once; the [Understand page](https://zerone.ai/understand/#modules)
+and its existing [JSON guide](https://zerone.ai/understand/guide.json) render that
+same explanation. The [application coverage test](../app/module_guide_test.go)
+compares it with actual registration, including the wrapped SDK modules, the
+combined ICA module and both light clients.
 
-There is no registered SDK `mint` or `authz` module in this inventory. Cosmos
-`auth`/`staking`/`gov` and Zerone's similarly named custom modules are distinct.
+The map groups modules by research records, accounts/custody, funding/assets,
+consensus/lifecycle, decisions/safeguards, commitments/attestations and transport.
+These are reading groups, not new keepers or services. Each connection explains
+what passes between the components; registration does not establish enabled
+messages, open channels, live deployment or independent control.
 
-### The 23 Zerone modules
+SDK `auth`, `staking` and `gov` are distinct from `zerone_auth`,
+`zerone_staking` and `zerone_gov`. The SDK owns account sequence/signature
+semantics and consensus validator power. Bank owns balances; other modules
+retain the obligations against their custody. There is no registered SDK
+`mint` or `authz` module. `x/common` supplies shared types and `x/witness` is
+unregistered; neither adds a running module.
 
-This table describes **current source wiring**, not a claim that every path is
-enabled on every network. Native genesis, parameters, named upgrades and release
-profiles decide availability. None of these 23 modules has been removed merely
-because the consolidation plan proposes doing so.
-
-| Module in `x/` | Plain-language job | Main connections |
-| --- | --- | --- |
-| `knowledge` | Claims, commit/reveal reviews, facts, challenges, retained history and review settlement; also older training/ecology logic | Bank, custom staking, ontology, qualification, auth, vesting, counterexamples, capture defense, alignment and substrate bridge. |
-| `counterexamples` | Structured counterevidence and its validation records | Reads knowledge facts; feeds a knowledge weighting path. Separate from knowledge's own challenge records. |
-| `ontology` | Domain definitions and domain lifecycle | Supplies knowledge, qualification, capture defense and alignment. |
-| `auth` | Human/agent registration, DIDs, key rotation, freeze and capability controls | Supplements SDK signing accounts; used by transaction checks, knowledge and claiming-pot adapters. |
-| `staking` | Legacy custom participation profiles, stake, delegations and custody | Bank/accounts; read by knowledge, custom governance, qualification, emergency, alignment and claiming pots. Separate from SDK consensus staking. |
-| `gov` | Legacy LIPs, custom-stake ballots and research-fund spending, phases and seats | Custom staking, vesting, emergency, alignment and creed; bridge attachment is only a dispatch scaffold. |
-| `qualification` | Domain qualification, endorsement and stake-escrow records | Bank, custom staking, ontology and knowledge review-policy selection. New neutral reviews do not use qualification weights. |
-| `vesting_rewards` | Vesting escrow/releases, fee routing and the shared native mint-cap gate | Bank, SDK staking/distribution compatibility and knowledge; used by claiming pots, tokens and bridge settlement. Automatic block/founder issuance is retired. |
-| `tokens` | User-issued tokens, allowances, wrapped assets and optional emissions | Bank and vesting/mint-cap adapter; native emission periods default to disabled. |
-| `liquiditypool` | Pools, swaps, LP shares and time-weighted price records | Bank custody; its restricted bank keeper can mint only pool-share denominations. |
-| `claiming_pot` | Bootstrap/general-pot admission and claims | Bank, auth, custom staking and capped minting through vesting rewards. |
-| `sponsorship` | Patron-funded bounty orders, fulfillment and escrow refunds | Bank and knowledge fact/domain checks; spends existing funds and never mints. Distinct from SDK `feegrant`. |
-| `home` | Agent-home records, sessions, keys, guardian alerts and memory references | Bank plus its own stored records. A memory reference is not storage of its content. |
-| `creed` | Versioned creed/document pins and council records | SDK governance authority and a custom-governance dispatch primitive; direct authority anchoring is enabled by default. |
-| `work_creed` | Genesis-supplied sub-creed pins for useful-work phases | Its own registry; no transaction, query or amendment API in this phase. Default genesis has no pins. |
-| `substrate_bridge` | External-work adapter registry, attestations, bonds and delayed settlement | Knowledge, qualification, bank/accounts and vesting; knowledge resolution calls back into it. It does not fetch sources or run adapter compilers. |
-| `emergency` | Guardian ceremonies, transaction quarantine, reopening and recovery authorization | Custom staking, transaction checks and both governance paths; quarantine does not itself stop block consensus. |
-| `capture_defense` | Capture/concentration analysis and challenge triggering | Ontology, knowledge, capture challenges and pacing inputs. |
-| `capture_challenge` | Challenge cases, bonds and their consequences | Capture-defense metrics, qualification and knowledge thresholds. |
-| `alignment` | Health observations, corrections and pacing | Reads knowledge, custom staking, ontology, emergency and vesting; supplies pacing to knowledge/capture defense and health to custom governance. |
-| `training_provenance` | Derived training-provenance queries | Stateless reader of knowledge, qualification and capture challenges. |
-| `trust_score` | Derived trust-score queries | Stateless reader of the same three sources; not an independent ledger. |
-| `ibcratelimit` | Limit traffic through IBC transfer routes | Middleware around the transfer stack and IBC channel keeper. |
-
-Registration and wiring: [app/app.go](../app/app.go). Detailed disposition:
-[Lean core consolidation](LEAN-CORE-CONSOLIDATION.md).
-`x/common` contains shared types; `x/witness` is not a registered app module.
+Registration and wiring: [app/app.go](../app/app.go). Future dispositions and
+migration prerequisites: [Module consolidation sequence](MODULE-CONSOLIDATION-SEQUENCE.md).
+The catalog describes current responsibilities; the sequence describes intended
+changes. All 23 custom modules remain registered.
 
 The main keeper connections look like this. Arrows point from a caller to the
 component it uses; “funds” means a balance, escrow or mint operation. A connected
@@ -237,8 +218,8 @@ flowchart TB
   Knowledge["Knowledge · claims, reviews, history"] -->|read: domain rules| Ontology["Ontology"]
   Knowledge -->|read: legacy profiles| CustomStake
   Knowledge -->|read: legacy qualifications| Qualification["Qualification"]
-  Knowledge -->|call: escrow and settlement| Vesting
-  Knowledge -->|funds: review budgets| Bank
+  Knowledge -->|call: retained schedules and fund deposits| Vesting
+  Knowledge -->|funds: review payments, budgets and refunds| Bank
   Capture["Capture defense / challenges"] -->|call: thresholds and penalties| Knowledge
   Capture -->|call: qualification penalties| Qualification
   Bridge["Substrate bridge"] -->|read: cited facts| Knowledge
@@ -248,14 +229,13 @@ flowchart TB
   Vesting -->|funds| Bank
 ```
 
-**Two wiring gaps:** the capture-defense input assigned to alignment at
-[`app/app.go:1077`](../app/app.go#L1077) is lost when alignment is reconstructed
-at [line 1089](../app/app.go#L1089), so its flagged-domain sensor is skipped.
-The direct qualification → capture-defense hookup remains a commented TODO at
-[line 928](../app/app.go#L928). These are source findings, not completed fixes.
-Moving the alignment setter would activate a previously absent sensor and can
-change health-derived [claim fees and cooldowns](../x/knowledge/keeper/pacing.go);
-it is not a neutral cleanup. Conversely, alignment's
+**Disconnected inputs:** alignment's capture-flag sensor and qualification's
+direct capture-defense reputation input are not wired in [the application](../app/app.go).
+The ineffective pre-construction alignment assignment has been removed; no
+sensor was activated. Connecting these inputs would change existing behavior,
+including health-derived [claim fees and cooldowns](../x/knowledge/keeper/pacing.go)
+and legacy qualification admission. It requires its own protocol change.
+Conversely, alignment's
 [corrections are now advisory](../x/alignment/keeper/corrections.go#L107), so a
 correction record is not evidence of an automatic economic mutation. Neutral
 reviews bypass legacy qualification/reputation weighting, but still use

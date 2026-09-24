@@ -1,0 +1,1115 @@
+{
+  "title": "What each module is for",
+  "intro": "These 40 modules are components of one zeroned application: 23 custom modules and 17 SDK/IBC modules. The map describes this source build, not the installed binary or enabled paths on every network.",
+  "groups": [
+    {
+      "id": "research",
+      "title": "Research records",
+      "intro": "Claims, domains, reviews, counterevidence and derived provenance."
+    },
+    {
+      "id": "accounts",
+      "title": "Accounts and custody",
+      "intro": "Signing accounts, balances, account locks and participant records."
+    },
+    {
+      "id": "funding",
+      "title": "Funding and assets",
+      "intro": "Explicit funding, settlement and the additional financial contracts."
+    },
+    {
+      "id": "consensus",
+      "title": "Consensus and lifecycle",
+      "intro": "Block agreement, validator consequences, genesis and upgrades."
+    },
+    {
+      "id": "decisions",
+      "title": "Decisions and safeguards",
+      "intro": "Current decision paths, recovery and the older feedback machinery."
+    },
+    {
+      "id": "provenance",
+      "title": "Commitments and attestations",
+      "intro": "Document pins and records of externally performed work."
+    },
+    {
+      "id": "transport",
+      "title": "Interchain transport",
+      "intro": "Remote proofs, packet routing, transfers and their limits."
+    }
+  ],
+  "modules": [
+    {
+      "id": "knowledge",
+      "label": "Knowledge",
+      "family": "custom",
+      "group": "research",
+      "purpose": "Keep assertions, reasoned reviews, facts and their corrections together.",
+      "owns": "Claims, commit/reveal rounds, retained reviews, fact relations, recorded funding terms and pending settlement; also older training and ecology state.",
+      "boundary": "A recorded verdict is not scientific truth. Neutral reviews bypass older score weights, but ontology ceilings and alignment pacing still apply.",
+      "sourcePath": "x/knowledge/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "bank",
+          "why": "Collect review funding and directly pay current reviewers, claim budgets and refunds."
+        },
+        {
+          "module": "vesting_rewards",
+          "why": "Create or settle retained vesting schedules and deposit research funds; current review payments use bank directly."
+        },
+        {
+          "module": "zerone_ontology",
+          "why": "Read domain rules and confidence ceilings; a separate knowledge domain registry still exists."
+        },
+        {
+          "module": "qualification",
+          "why": "Read legacy qualification; current neutral policy selects a different review path."
+        },
+        {
+          "module": "zerone_staking",
+          "why": "Read legacy participation profiles."
+        },
+        {
+          "module": "zerone_auth",
+          "why": "Read legacy role metadata."
+        },
+        {
+          "module": "counterexamples",
+          "why": "Read validated counterexamples for legacy weighting."
+        },
+        {
+          "module": "capture_defense",
+          "why": "Record and inspect capture-related review observations."
+        },
+        {
+          "module": "alignment",
+          "why": "Read claim pacing, cooldown and fee inputs."
+        },
+        {
+          "module": "substrate_bridge",
+          "why": "Notify the bridge when a claim round resolves."
+        }
+      ]
+    },
+    {
+      "id": "zerone_ontology",
+      "label": "Ontology",
+      "family": "custom",
+      "group": "research",
+      "purpose": "Give research domains names, structure and lifecycle rules.",
+      "owns": "Domain definitions, status and structure, strata, logic zones and confidence ceilings.",
+      "boundary": "The accepted target is one domain owner. Knowledge still maintains a second registry; reconciliation is unfinished.",
+      "sourcePath": "x/ontology/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "knowledge",
+          "why": "Supply domain rules; do not silently merge its separate registry."
+        },
+        {
+          "module": "qualification",
+          "why": "Supply domain-depth information for qualification inheritance."
+        },
+        {
+          "module": "capture_defense",
+          "why": "Supply domains for concentration analysis."
+        },
+        {
+          "module": "alignment",
+          "why": "Supply domain observations."
+        }
+      ]
+    },
+    {
+      "id": "counterexamples",
+      "label": "Counterexamples",
+      "family": "custom",
+      "group": "research",
+      "purpose": "Keep structured negative examples and their validation records.",
+      "owns": "Counterexample entries anchored to existing facts and separate validation votes.",
+      "boundary": "These records are distinct from a native knowledge contradiction or challenge; they also feed a legacy weighting path.",
+      "sourcePath": "x/counterexamples/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "knowledge",
+          "why": "Check that a cited fact exists and expose validated-example status."
+        }
+      ]
+    },
+    {
+      "id": "qualification",
+      "label": "Qualification",
+      "family": "custom",
+      "group": "research",
+      "purpose": "Record bounded evidence and credentials for work in a domain.",
+      "owns": "Qualifications, endorsements, legacy weights and stake escrow.",
+      "boundary": "Stake-based qualification still exists. Neutral review does not use its legacy weights; the direct capture-defense input is not wired.",
+      "sourcePath": "x/qualification/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "bank",
+          "why": "Hold and return qualification stake."
+        },
+        {
+          "module": "zerone_ontology",
+          "why": "Read domain-depth differences for qualification inheritance."
+        },
+        {
+          "module": "knowledge",
+          "why": "Select the current review-neutrality policy."
+        },
+        {
+          "module": "capture_challenge",
+          "why": "Receive consequences of upheld capture cases."
+        }
+      ]
+    },
+    {
+      "id": "training_provenance",
+      "label": "Training provenance",
+      "family": "custom",
+      "group": "research",
+      "purpose": "Assemble provenance views from the scientific and review records.",
+      "owns": "No separate ledger; derives certificates and query responses from other modules.",
+      "boundary": "A derived certificate describes recorded provenance; it does not prove an artifact was used in training.",
+      "sourcePath": "x/training_provenance/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "knowledge",
+          "why": "Read facts and review history."
+        },
+        {
+          "module": "qualification",
+          "why": "Read domain credentials."
+        },
+        {
+          "module": "capture_challenge",
+          "why": "Read related challenge outcomes."
+        }
+      ]
+    },
+    {
+      "id": "auth",
+      "label": "SDK accounts",
+      "family": "sdk-ibc",
+      "group": "accounts",
+      "purpose": "Represent accounts that can authorize transactions.",
+      "owns": "Public keys, account numbers, sequence numbers and module-account permissions.",
+      "boundary": "Private keys stay with the signer. Zerone auth adds metadata and controls; it does not replace SDK account semantics.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "bank",
+          "why": "Associate balances and module custody with accounts."
+        },
+        {
+          "module": "zerone_auth",
+          "why": "Complement account signing with participant metadata and controls."
+        }
+      ]
+    },
+    {
+      "id": "bank",
+      "label": "SDK bank",
+      "family": "sdk-ibc",
+      "group": "accounts",
+      "purpose": "Keep the canonical balances and supply of coins.",
+      "owns": "Transfers and permissioned module mint/burn operations; other modules keep the claims against their custody.",
+      "boundary": "A module balance alone does not identify its creditors or make money available to spend.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "auth",
+          "why": "Read account and module-account permissions."
+        },
+        {
+          "module": "staking",
+          "why": "Hold consensus-stake custody."
+        },
+        {
+          "module": "vesting_rewards",
+          "why": "Provide balances used by custom settlement and mint-cap callers."
+        },
+        {
+          "module": "transfer",
+          "why": "Back interchain escrow and vouchers."
+        }
+      ]
+    },
+    {
+      "id": "vesting",
+      "label": "SDK account vesting",
+      "family": "sdk-ibc",
+      "group": "accounts",
+      "purpose": "Apply time-based spending locks to vesting accounts.",
+      "owns": "SDK vesting-account behavior over account balances.",
+      "boundary": "This is separate from the schedules and reserves in vesting_rewards.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "auth",
+          "why": "Provide vesting account types."
+        },
+        {
+          "module": "bank",
+          "why": "Constrain spendable balances."
+        }
+      ]
+    },
+    {
+      "id": "zerone_auth",
+      "label": "Zerone auth",
+      "family": "custom",
+      "group": "accounts",
+      "purpose": "Bind participant metadata and controls to authenticated accounts.",
+      "owns": "Human/agent registration, DID and key bindings, rotations, freezes and capabilities.",
+      "boundary": "A DID or extra account does not establish one independent controller, expertise or consent to another action.",
+      "sourcePath": "x/auth/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "auth",
+          "why": "Supplement SDK account signatures and sequence checks."
+        },
+        {
+          "module": "knowledge",
+          "why": "Supply legacy role metadata."
+        },
+        {
+          "module": "claiming_pot",
+          "why": "Supply registration information for its admission rules."
+        }
+      ]
+    },
+    {
+      "id": "home",
+      "label": "Home",
+      "family": "custom",
+      "group": "accounts",
+      "purpose": "Keep agent-home, session and notification references.",
+      "owns": "Home ownership, sessions and keys, guardian alerts and memory references.",
+      "boundary": "A memory reference does not store its target content or establish an agent identity.",
+      "sourcePath": "x/home/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "bank",
+          "why": "Use bank-backed operations where the home contract requires them."
+        }
+      ]
+    },
+    {
+      "id": "distribution",
+      "label": "SDK distribution",
+      "family": "sdk-ibc",
+      "group": "funding",
+      "purpose": "Distribute consensus fees and rewards to validators and delegators.",
+      "owns": "Validator commission, delegator rewards and withdrawal addresses.",
+      "boundary": "Research review payments use separate funding and settlement records.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "staking",
+          "why": "Read consensus delegation and validator state."
+        },
+        {
+          "module": "bank",
+          "why": "Distribute the fee remainder after custom fee routing."
+        }
+      ]
+    },
+    {
+      "id": "feegrant",
+      "label": "SDK fee allowances",
+      "family": "sdk-ibc",
+      "group": "funding",
+      "purpose": "Let an account explicitly pay another account’s transaction fees.",
+      "owns": "Fee allowance grants and limits consumed by transaction admission.",
+      "boundary": "Fee sponsorship does not fund a research bounty or certify the transaction’s content.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "auth",
+          "why": "Identify granter and grantee accounts."
+        },
+        {
+          "module": "bank",
+          "why": "Pay transaction fees through the ante handler."
+        }
+      ]
+    },
+    {
+      "id": "vesting_rewards",
+      "label": "Vesting and settlement",
+      "family": "custom",
+      "group": "funding",
+      "purpose": "Keep explicit payment schedules, releases and shared funding controls.",
+      "owns": "Vesting escrow, reserves, fee routing, research funds and the mint-cap gate used by its callers.",
+      "boundary": "Automatic block/founder issuance is retired. A schedule or failed payment attempt is not a completed transfer.",
+      "sourcePath": "x/vesting_rewards/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "bank",
+          "why": "Hold reserves and execute releases."
+        },
+        {
+          "module": "knowledge",
+          "why": "Read survival telemetry and adjudicated disproof for FalsifyClaim; receive retained schedules and research-fund deposits."
+        },
+        {
+          "module": "distribution",
+          "why": "Route research/development fee slices before SDK distribution consumes the remainder."
+        },
+        {
+          "module": "claiming_pot",
+          "why": "Gate bootstrap mint requests."
+        },
+        {
+          "module": "tokens",
+          "why": "Gate optional native emission requests."
+        },
+        {
+          "module": "substrate_bridge",
+          "why": "Gate delayed bridge reward settlement."
+        }
+      ]
+    },
+    {
+      "id": "sponsorship",
+      "label": "Work sponsorship",
+      "family": "custom",
+      "group": "funding",
+      "purpose": "Fund specified work from a sponsor’s existing money.",
+      "owns": "Bounty orders, escrow, fulfillment, sponsor vetoes and refunds.",
+      "boundary": "This spends existing supply and never mints. It is separate from feegrant and from native review fees.",
+      "sourcePath": "x/sponsorship/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "bank",
+          "why": "Escrow, pay or refund the sponsor’s funds."
+        },
+        {
+          "module": "knowledge",
+          "why": "Read cited fact status, domain and submission time."
+        }
+      ]
+    },
+    {
+      "id": "claiming_pot",
+      "label": "Claiming pots",
+      "family": "custom",
+      "group": "funding",
+      "purpose": "Apply the existing bootstrap and general-pot admission rules.",
+      "owns": "Pot claims and their mint requests.",
+      "boundary": "A contribution alone does not create a claim on a pot. Existing claims need reconciliation before retirement.",
+      "sourcePath": "x/claiming_pot/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "zerone_auth",
+          "why": "Check participant registration."
+        },
+        {
+          "module": "zerone_staking",
+          "why": "Read custom stake profiles."
+        },
+        {
+          "module": "vesting_rewards",
+          "why": "Use capped minting."
+        },
+        {
+          "module": "bank",
+          "why": "Deliver the admitted amount."
+        }
+      ]
+    },
+    {
+      "id": "tokens",
+      "label": "Issued and wrapped tokens",
+      "family": "custom",
+      "group": "funding",
+      "purpose": "Manage additional issued assets and wrapping contracts.",
+      "owns": "Asset metadata, allowances, backing and optional emission periods.",
+      "boundary": "These are additional products; native bank balances do not depend on using them. Native emission periods default to disabled.",
+      "sourcePath": "x/tokens/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "bank",
+          "why": "Hold backing and transfer or mint permitted assets."
+        },
+        {
+          "module": "vesting_rewards",
+          "why": "Gate optional native emissions."
+        }
+      ]
+    },
+    {
+      "id": "liquiditypool",
+      "label": "Liquidity pools",
+      "family": "custom",
+      "group": "funding",
+      "purpose": "Run pools, swaps and their ownership accounting.",
+      "owns": "Pool reserves, LP shares, exits and time-weighted price records.",
+      "boundary": "Its bank adapter may mint only canonical pool-share denominations. Reserve and bearer claims must survive any retirement.",
+      "sourcePath": "x/liquiditypool/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "bank",
+          "why": "Hold reserves, settle swaps and issue restricted LP shares."
+        }
+      ]
+    },
+    {
+      "id": "genutil",
+      "label": "Genesis transactions",
+      "family": "sdk-ibc",
+      "group": "consensus",
+      "purpose": "Initialize the chain from accounts and genesis transactions.",
+      "owns": "Genesis transaction execution, including initial SDK validator setup.",
+      "boundary": "Genesis initialization is not an ongoing account-admission or validator-joining service.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "auth",
+          "why": "Read genesis accounts."
+        },
+        {
+          "module": "staking",
+          "why": "Apply initial validator and delegation transactions."
+        }
+      ]
+    },
+    {
+      "id": "staking",
+      "label": "SDK consensus staking",
+      "family": "sdk-ibc",
+      "group": "consensus",
+      "purpose": "Own the validator set and stake that determine consensus voting power.",
+      "owns": "Consensus validators, delegations, unbonding and validator updates.",
+      "boundary": "Custom zerone_staking is a separate application ledger and does not itself grant consensus power.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "bank",
+          "why": "Hold bonded and unbonding funds."
+        },
+        {
+          "module": "distribution",
+          "why": "Notify reward accounting through staking hooks."
+        },
+        {
+          "module": "slashing",
+          "why": "Notify consensus signing and penalty tracking."
+        }
+      ]
+    },
+    {
+      "id": "slashing",
+      "label": "Consensus slashing",
+      "family": "sdk-ibc",
+      "group": "consensus",
+      "purpose": "Apply consensus signing and liveness consequences.",
+      "owns": "Signing information, missed-block tracking and consensus-fault penalties.",
+      "boundary": "This concerns block production, not research judgment or capture-challenge outcomes.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "staking",
+          "why": "Jail or slash consensus validators where the protocol requires it."
+        }
+      ]
+    },
+    {
+      "id": "evidence",
+      "label": "Consensus evidence",
+      "family": "sdk-ibc",
+      "group": "consensus",
+      "purpose": "Process evidence of consensus misbehavior.",
+      "owns": "Consensus misbehavior evidence and its handling.",
+      "boundary": "This is not the evidence attached to a research claim or counterexample.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "staking",
+          "why": "Resolve the implicated consensus validator."
+        },
+        {
+          "module": "slashing",
+          "why": "Apply the appropriate consensus-fault consequences."
+        }
+      ]
+    },
+    {
+      "id": "consensus",
+      "label": "Consensus parameters",
+      "family": "sdk-ibc",
+      "group": "consensus",
+      "purpose": "Store the consensus parameters used by the application.",
+      "owns": "CometBFT consensus parameter state connected to BaseApp.",
+      "boundary": "Consensus on chain state does not decide whether a scientific proposition is true.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "gov",
+          "why": "Use application authority for permitted parameter updates."
+        }
+      ]
+    },
+    {
+      "id": "upgrade",
+      "label": "Upgrade lifecycle",
+      "family": "sdk-ibc",
+      "group": "consensus",
+      "purpose": "Apply named software and store migrations at explicit boundaries.",
+      "owns": "Scheduled upgrade plans, applied-plan records and module-version handoff.",
+      "boundary": "The application requires explicit cancellation before replacing an existing plan. A published binary alone does not activate an upgrade.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "gov",
+          "why": "Authorize scheduling and cancellation."
+        },
+        {
+          "module": "auth",
+          "why": "Run the ordered pre-block handoff before account processing."
+        }
+      ]
+    },
+    {
+      "id": "gov",
+      "label": "SDK governance",
+      "family": "sdk-ibc",
+      "group": "decisions",
+      "purpose": "Execute ordinary SDK proposals through the application’s authority.",
+      "owns": "SDK proposals, deposits, voting, tally and typed execution.",
+      "boundary": "Current SDK voting still uses stake, and custom governance remains alongside it. Accepted authority consolidation is unfinished.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "staking",
+          "why": "Read bonded voting stake."
+        },
+        {
+          "module": "bank",
+          "why": "Hold and settle proposal deposits."
+        },
+        {
+          "module": "emergency",
+          "why": "Apply quarantine and recovery restrictions."
+        },
+        {
+          "module": "upgrade",
+          "why": "Schedule or cancel named upgrades."
+        }
+      ]
+    },
+    {
+      "id": "zerone_gov",
+      "label": "Custom governance",
+      "family": "custom",
+      "group": "decisions",
+      "purpose": "Keep the older LIP and research-governance processes.",
+      "owns": "Custom proposals, stake ballots, phases, seats, deposits and research-fund spending.",
+      "boundary": "It coexists with SDK governance. Attachment of an adapter or dispatch primitive does not make every proposal category executable.",
+      "sourcePath": "x/gov/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "zerone_staking",
+          "why": "Read custom stake for ballots."
+        },
+        {
+          "module": "bank",
+          "why": "Hold deposits and settle authorized amounts."
+        },
+        {
+          "module": "vesting_rewards",
+          "why": "Access research-fund spending."
+        },
+        {
+          "module": "emergency",
+          "why": "Apply emergency restrictions."
+        },
+        {
+          "module": "alignment",
+          "why": "Read health for expedited-voting rules."
+        },
+        {
+          "module": "creed",
+          "why": "Use the attached creed dispatch primitive."
+        },
+        {
+          "module": "substrate_bridge",
+          "why": "Retain the adapter-registration attachment; category dispatch is scaffolded."
+        }
+      ]
+    },
+    {
+      "id": "zerone_staking",
+      "label": "Custom participation staking",
+      "family": "custom",
+      "group": "decisions",
+      "purpose": "Keep the older application participation and stake records.",
+      "owns": "Custom profiles, delegations, unbonding claims and separate stake custody.",
+      "boundary": "These records are distinct from SDK consensus validators. Preserve individual claims before consolidating or closing them.",
+      "sourcePath": "x/staking/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "auth",
+          "why": "Use SDK account records."
+        },
+        {
+          "module": "bank",
+          "why": "Hold custom delegation and exit custody."
+        },
+        {
+          "module": "knowledge",
+          "why": "Supply legacy participation profiles."
+        },
+        {
+          "module": "zerone_gov",
+          "why": "Supply custom ballot stake."
+        },
+        {
+          "module": "emergency",
+          "why": "Supply guardian eligibility inputs."
+        },
+        {
+          "module": "alignment",
+          "why": "Supply application stake observations."
+        },
+        {
+          "module": "claiming_pot",
+          "why": "Supply admission inputs."
+        }
+      ]
+    },
+    {
+      "id": "emergency",
+      "label": "Emergency recovery",
+      "family": "custom",
+      "group": "decisions",
+      "purpose": "Constrain transactions and coordinate explicit recovery procedures.",
+      "owns": "Guardian ceremonies, quarantine, reopening and recovery authorization records.",
+      "boundary": "Quarantine does not itself stop consensus. Recovery is not a second ordinary governance or treasury path.",
+      "sourcePath": "x/emergency/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "zerone_staking",
+          "why": "Read current guardian eligibility inputs."
+        },
+        {
+          "module": "gov",
+          "why": "Validate recovery proposals and restrict SDK governance execution."
+        },
+        {
+          "module": "zerone_gov",
+          "why": "Restrict custom governance execution."
+        },
+        {
+          "module": "upgrade",
+          "why": "Check exact upgrade targets for recovery authorization."
+        }
+      ]
+    },
+    {
+      "id": "capture_defense",
+      "label": "Capture observations",
+      "family": "custom",
+      "group": "decisions",
+      "purpose": "Track concentration and feed the existing capture-response rules.",
+      "owns": "Domain concentration metrics, reputation observations, flags and automatic challenge triggers.",
+      "boundary": "Address concentration does not prove independent controllers. Its effects remain part of consensus behavior.",
+      "sourcePath": "x/capture_defense/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "zerone_ontology",
+          "why": "Read the domain set."
+        },
+        {
+          "module": "knowledge",
+          "why": "Read review activity and receive review observations."
+        },
+        {
+          "module": "capture_challenge",
+          "why": "Open cases under the existing flag rules."
+        },
+        {
+          "module": "alignment",
+          "why": "Read pacing inputs."
+        }
+      ]
+    },
+    {
+      "id": "capture_challenge",
+      "label": "Capture disputes",
+      "family": "custom",
+      "group": "decisions",
+      "purpose": "Keep capture cases and settle their bounded consequences.",
+      "owns": "Cases, challenge bonds, refunds and outcomes. It requests qualification penalties and knowledge-threshold changes stored by those modules.",
+      "boundary": "A metric-driven case is not an independent finding about a person’s identity or worth.",
+      "sourcePath": "x/capture_challenge/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "bank",
+          "why": "Hold and settle challenge bonds."
+        },
+        {
+          "module": "capture_defense",
+          "why": "Read metrics and clear flags."
+        },
+        {
+          "module": "qualification",
+          "why": "Apply existing qualification consequences."
+        },
+        {
+          "module": "knowledge",
+          "why": "Apply existing verification-threshold consequences."
+        }
+      ]
+    },
+    {
+      "id": "alignment",
+      "label": "Health and pacing",
+      "family": "custom",
+      "group": "decisions",
+      "purpose": "Record application health and supply the existing pacing rules.",
+      "owns": "Health observations and advisory corrections; pacing affects claim cooldowns, minimum fees and capture processing.",
+      "boundary": "Its direct capture-flag sensor is disconnected. Corrections are advisory; restoring a missing input could still change pacing and voting behavior.",
+      "sourcePath": "x/alignment/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "knowledge",
+          "why": "Read activity and supply pacing."
+        },
+        {
+          "module": "zerone_staking",
+          "why": "Read custom stake observations."
+        },
+        {
+          "module": "zerone_ontology",
+          "why": "Read domain observations."
+        },
+        {
+          "module": "emergency",
+          "why": "Read emergency state."
+        },
+        {
+          "module": "vesting_rewards",
+          "why": "Read funding observations."
+        },
+        {
+          "module": "capture_defense",
+          "why": "Supply pacing; the reverse flagged-domain sensor is not wired."
+        },
+        {
+          "module": "zerone_gov",
+          "why": "Supply health inputs for expedited voting."
+        }
+      ]
+    },
+    {
+      "id": "trust_score",
+      "label": "Derived trust views",
+      "family": "custom",
+      "group": "decisions",
+      "purpose": "Offer optional derived views of recorded review and qualification history.",
+      "owns": "No separate ledger; combines observations from existing state.",
+      "boundary": "A derived score does not establish a person’s worth, identity or independent governing authority.",
+      "sourcePath": "x/trust_score/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "knowledge",
+          "why": "Read calibration history."
+        },
+        {
+          "module": "qualification",
+          "why": "Read metrics and penalties."
+        },
+        {
+          "module": "capture_challenge",
+          "why": "Read strike counts."
+        }
+      ]
+    },
+    {
+      "id": "creed",
+      "label": "Creed document pins",
+      "family": "custom",
+      "group": "provenance",
+      "purpose": "Keep versioned commitments to creed documents.",
+      "owns": "Append-only document pins and council records.",
+      "boundary": "A hash commits to bytes; it neither stores the document nor proves agreement. Direct authority anchoring differs from the incomplete amendment dispatch path.",
+      "sourcePath": "x/creed/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "gov",
+          "why": "Use the SDK governance module account as authority."
+        },
+        {
+          "module": "zerone_gov",
+          "why": "Expose the attached amendment dispatch primitive."
+        }
+      ]
+    },
+    {
+      "id": "work_creed",
+      "label": "Work-creed pins",
+      "family": "custom",
+      "group": "provenance",
+      "purpose": "Preserve sub-creed commitments supplied at genesis.",
+      "owns": "A registry of genesis-supplied artifact pins.",
+      "boundary": "There is no current transaction, query or amendment API; default genesis is empty.",
+      "sourcePath": "x/work_creed/keeper/keeper.go",
+      "connections": []
+    },
+    {
+      "id": "substrate_bridge",
+      "label": "External-work attestations",
+      "family": "custom",
+      "group": "provenance",
+      "purpose": "Bind externally performed work and adapter provenance to existing scientific records.",
+      "owns": "Adapter revisions, attestations, bonds, delayed settlement and retained legacy pending-claim links.",
+      "boundary": "It does not fetch evidence or execute adapter compilers. Cited facts must already exist; witness-only links are allowed and new pending claims are rejected.",
+      "sourcePath": "x/substrate_bridge/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "knowledge",
+          "why": "Read cited facts and receive callbacks for retained pending links."
+        },
+        {
+          "module": "qualification",
+          "why": "Check attestation submitter credentials against the adapter’s requirements."
+        },
+        {
+          "module": "bank",
+          "why": "Hold and settle attestation bonds."
+        },
+        {
+          "module": "vesting_rewards",
+          "why": "Use capped reward settlement."
+        }
+      ]
+    },
+    {
+      "id": "ibc",
+      "label": "IBC protocol",
+      "family": "sdk-ibc",
+      "group": "transport",
+      "purpose": "Verify and route interchain protocol packets.",
+      "owns": "Client, connection, channel and packet state.",
+      "boundary": "Registration does not establish enabled routes, open channels, independent peers or a funded connection.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "07-tendermint",
+          "why": "Verify remote CometBFT-chain proofs."
+        },
+        {
+          "module": "06-solomachine",
+          "why": "Verify solo-machine proofs."
+        },
+        {
+          "module": "transfer",
+          "why": "Route fungible-token packets."
+        },
+        {
+          "module": "interchainaccounts",
+          "why": "Route remote-account packets."
+        }
+      ]
+    },
+    {
+      "id": "transfer",
+      "label": "IBC token transfer",
+      "family": "sdk-ibc",
+      "group": "transport",
+      "purpose": "Move fungible assets through ICS-20 escrow and vouchers.",
+      "owns": "Transfer escrow and denomination/voucher tracking.",
+      "boundary": "Interchain transfer is separate from custom token issuance and LP-share policy.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "bank",
+          "why": "Escrow native assets and mint or burn transfer vouchers."
+        },
+        {
+          "module": "ibc",
+          "why": "Send and receive packets."
+        },
+        {
+          "module": "ibcratelimit",
+          "why": "Apply transfer traffic bounds."
+        }
+      ]
+    },
+    {
+      "id": "interchainaccounts",
+      "label": "IBC accounts",
+      "family": "sdk-ibc",
+      "group": "transport",
+      "purpose": "Support ICS-27 controller and host account execution across chains.",
+      "owns": "Remote-account controller and host protocol state under one registered module.",
+      "boundary": "This is not human identity or private-key custody. Available messages and routes depend on the network configuration.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "ibc",
+          "why": "Carry controller and host packets."
+        },
+        {
+          "module": "auth",
+          "why": "Use local accounts for permitted host execution."
+        }
+      ]
+    },
+    {
+      "id": "07-tendermint",
+      "label": "IBC Tendermint light client",
+      "family": "sdk-ibc",
+      "group": "transport",
+      "purpose": "Verify headers and proofs from a remote CometBFT chain.",
+      "owns": "Light-client consensus state and verification logic through IBC.",
+      "boundary": "A remote light client does not create a local consensus validator.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "ibc",
+          "why": "Provide remote-chain verification."
+        }
+      ]
+    },
+    {
+      "id": "06-solomachine",
+      "label": "IBC solo-machine light client",
+      "family": "sdk-ibc",
+      "group": "transport",
+      "purpose": "Verify signed state and proofs from an IBC solo machine.",
+      "owns": "Solo-machine client state and signature verification through IBC.",
+      "boundary": "This is a remote proof mechanism, not local block consensus or participant identity.",
+      "sourcePath": "app/app.go",
+      "connections": [
+        {
+          "module": "ibc",
+          "why": "Provide solo-machine verification."
+        }
+      ]
+    },
+    {
+      "id": "ibcratelimit",
+      "label": "IBC transfer limits",
+      "family": "custom",
+      "group": "transport",
+      "purpose": "Bound traffic through the IBC token-transfer path.",
+      "owns": "Rate-limit parameters and traffic accounting for transfer middleware.",
+      "boundary": "This protection wraps transfer; it is not a blanket claim that every IBC route is covered.",
+      "sourcePath": "x/ibcratelimit/keeper/keeper.go",
+      "connections": [
+        {
+          "module": "transfer",
+          "why": "Wrap inbound and outbound token-transfer processing."
+        },
+        {
+          "module": "ibc",
+          "why": "Use channel information."
+        }
+      ]
+    }
+  ],
+  "workflow": [
+    {
+      "id": "record",
+      "title": "Record",
+      "text": "Keep questions, methods, evidence and revisions in a local research journal. Choose what to publish; importing a file does not create chain state.",
+      "moduleIds": [],
+      "link": {
+        "label": "Open the research workbench",
+        "url": "https://zerone.ai/research/review/"
+      }
+    },
+    {
+      "id": "claim",
+      "title": "Claim",
+      "text": "Select one exact contribution and prepare its claim intent. Your pinned participant client signs explicit admission; knowledge records the assertion and funding terms.",
+      "moduleIds": [
+        "auth",
+        "knowledge",
+        "bank"
+      ],
+      "link": {
+        "label": "Use the development participant route",
+        "url": "https://zerone.ai/development/"
+      }
+    },
+    {
+      "id": "review",
+      "title": "Review",
+      "text": "Reviewers choose their own judgment, reason and evidence, then commit and reveal with their own keys. Current neutral policy counts admitted accounts equally; that does not establish independent controllers.",
+      "moduleIds": [
+        "knowledge",
+        "zerone_ontology"
+      ],
+      "link": {
+        "label": "Read the review process",
+        "path": "docs/SHARED-DEVELOPMENT.md"
+      }
+    },
+    {
+      "id": "correction",
+      "title": "Correction",
+      "text": "Keep journal corrections as new records. A native contradiction or challenge is a separate signed action naming an actual Fact; earlier claims and reviews remain in history. The counterexamples module keeps a separate structured-example record.",
+      "moduleIds": [
+        "knowledge",
+        "counterexamples"
+      ],
+      "link": {
+        "label": "Understand journal and native actions",
+        "path": "docs/MODULE-CONSOLIDATION-SEQUENCE.md#choose-the-record-before-admission"
+      }
+    },
+    {
+      "id": "funding",
+      "title": "Funding and settlement",
+      "text": "Inspect the recorded budget, review fees, pending obligations, completed payments and refunds separately. A schedule is not a payment; sponsorship is a separate funded-work contract.",
+      "moduleIds": [
+        "knowledge",
+        "bank",
+        "vesting_rewards",
+        "sponsorship"
+      ],
+      "link": {
+        "label": "Inspect the settlement rules",
+        "path": "docs/specs/knowledge-fund-settlement-v1.md"
+      }
+    }
+  ],
+  "boundaries": [
+    {
+      "title": "Keep the owner visible",
+      "text": "SDK bank owns coin balances; SDK staking owns consensus voting power. Custom staking and governance still coexist with SDK paths, and knowledge and ontology still have separate domain registries. The accepted single-owner migration is unfinished."
+    },
+    {
+      "title": "Trace effects before reconnecting",
+      "text": "Alignment pacing, capture challenges and older economic paths can affect fees, thresholds or money. A disconnected input is not permission to reactivate it as a cosmetic wiring fix."
+    },
+    {
+      "title": "Use the appropriate lane",
+      "text": "Local records stay in files. Shared development accepts explicit participant actions under its published rules. Legacy zerone-1 uses a different binary lineage; module registration alone does not establish live availability."
+    }
+  ],
+  "sharedUtilities": [
+    {
+      "label": "x/common",
+      "text": "Shared types and helpers; not another registered module.",
+      "sourcePath": "x/common",
+      "sourceKind": "tree"
+    },
+    {
+      "label": "x/witness",
+      "text": "An unregistered admission implementation; its presence in source does not add a running app module.",
+      "sourcePath": "x/witness",
+      "sourceKind": "tree"
+    },
+    {
+      "label": "Journal and participant tools",
+      "text": "Local file preparation and explicit signed-client use sit outside ModuleManager. They connect a chosen record to an admitted claim without turning every note into chain state.",
+      "sourcePath": "tools/research-review/README.md",
+      "sourceKind": "blob"
+    }
+  ]
+}

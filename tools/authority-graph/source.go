@@ -46,12 +46,11 @@ var expectedConstructors = []constructorExpectation{
 }
 
 var expectedAdapters = map[string]string{
-	"NewStakingKeeperAdapter":              "knowledge",
-	"NewGovStakingKeeperAdapter":           "gov",
-	"NewQualificationStakingKeeperAdapter": "qualification",
-	"NewEmergencyStakingAdapter":           "emergency",
-	"NewAlignmentStakingAdapter":           "alignment",
-	"NewClaimingPotStakingAdapter":         "claiming-pot",
+	"NewStakingKeeperAdapter":      "knowledge",
+	"NewGovStakingKeeperAdapter":   "gov",
+	"NewEmergencyStakingAdapter":   "emergency",
+	"NewAlignmentStakingAdapter":   "alignment",
+	"NewClaimingPotStakingAdapter": "claiming-pot",
 }
 
 func validateSource(root string, m manifest, issues *issueSet) (int, sourceDiscovery) {
@@ -365,7 +364,7 @@ func validateAdapterSet(counts map[string]int, issues *issueSet) {
 		}
 	}
 	if !valid {
-		issues.add("SOURCE_CUSTOM_STAKING_ADAPTER_SET_MISMATCH", fmt.Sprintf("custom staking adapters must match the reviewed six; discovered [%s]", strings.Join(names, ", ")))
+		issues.add("SOURCE_CUSTOM_STAKING_ADAPTER_SET_MISMATCH", fmt.Sprintf("custom staking adapters must match the reviewed five; discovered [%s]", strings.Join(names, ", ")))
 	}
 }
 

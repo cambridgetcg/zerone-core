@@ -9,14 +9,13 @@ import (
 )
 
 type Keeper struct {
-	cdc      codec.BinaryCodec
-	storeKey storetypes.StoreKey
+	cdc       codec.BinaryCodec
+	storeKey  storetypes.StoreKey
 	authority string
 
 	knowledgeKeeper      types.KnowledgeKeeper
 	qualificationKeeper  types.QualificationKeeper
 	bankKeeper           types.BankKeeper
-	accountKeeper        types.AccountKeeper
 	vestingRewardsKeeper types.VestingRewardsKeeper
 }
 
@@ -27,11 +26,10 @@ func NewKeeper(
 	kk types.KnowledgeKeeper,
 	qk types.QualificationKeeper,
 	bk types.BankKeeper,
-	ak types.AccountKeeper,
 	vrk types.VestingRewardsKeeper,
 ) Keeper {
 	return Keeper{cdc: cdc, storeKey: storeKey, authority: authority,
-		knowledgeKeeper: kk, qualificationKeeper: qk, bankKeeper: bk, accountKeeper: ak,
+		knowledgeKeeper: kk, qualificationKeeper: qk, bankKeeper: bk,
 		vestingRewardsKeeper: vrk}
 }
 
@@ -39,4 +37,3 @@ func (k Keeper) Authority() string { return k.authority }
 func (k Keeper) Logger(ctx interface{ Logger() log.Logger }) log.Logger {
 	return ctx.Logger().With("module", "x/"+types.ModuleName)
 }
-
