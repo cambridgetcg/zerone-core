@@ -324,12 +324,13 @@ a running evaluator service. See [ante checks](../app/ante.go),
 
 ### Preserve and share research
 
-`local journal + evidence artifacts → hash-linked JSON export → browser reader
+`local journal (browser or CLI) + evidence artifacts → hash-linked JSON export → browser reader
 or published static file → optional chain checkpoint`.
 
-The Research Review reader verifies the supplied journal structure and lets a
-reader inspect chronology, explicit dependencies and divergent continuations.
-It keeps imported files in page memory without uploading them. It does not submit
+Research Review can start a journal, append contributions, connect earlier work
+and retain explicit corrections. It verifies supplied journals and shows
+chronology, dependencies and divergent continuations. Browser work stays in tab
+memory until downloaded; imports and additions are not uploaded. It does not submit
 native claims or declare a canonical winning branch. An explicit DOI scan can
 fetch Crossref metadata into the local evidence store. The optional checkpoint
 records journal hashes in the memo of a signed `1uzrn` bank self-send on
@@ -341,7 +342,9 @@ See [journal tools](../tools/research-review/README.md),
 [public checkpoint](https://zerone.ai/research/checkpoints/).
 
 For deliberate native review, the [workflow adapter](../tools/research-review/workflow.py)
-binds the exact export, selected record and edited assertion. The browser prepares
+binds the exact export, selected record and edited assertion. Browsing and later
+journal additions leave that snapshot in place; changing it is an explicit draft
+action. The browser prepares
 or imports its local workflow file; explicit CLI submission uses the participant's
 existing pinned client and private home. Read-only refresh can recover a completed
 submission from client observations and retain claim, review, correction and

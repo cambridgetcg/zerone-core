@@ -1,7 +1,7 @@
-import { EXPORT_LIMIT, RELATION_TYPES, validateExport, compareJournals, selectSnapshot, orderedContributions, impact, type Journal, type JournalComparison, type Entry, type Snapshot, type Contribution, type Relation, type Concern, type Assessment } from "./research-review-journal";
+import { EXPORT_LIMIT, RELATION_TYPES, createJournal, appendJournalRecords, journalBytes, validateExport, compareJournals, selectSnapshot, orderedContributions, impact, type Journal, type JournalRecord, type JournalComparison, type Entry, type Snapshot, type Contribution, type Relation, type Concern, type Assessment } from "./research-review-journal";
 import { DEVELOPMENT_CHAIN } from "../development-profile";
 import { readClaimHistory, renderHistory, height, type DescriptorPins } from "./development-reader";
-import { WORKFLOW_LIMIT, MAX_OBSERVATIONS, prepareWorkflow, validateResearchFile, workflowClaimId, appendWorkflowObservation, type ValidatedResearchWorkflow } from "./research-workflow";
+import { WORKFLOW_LIMIT, MAX_OBSERVATIONS, prepareWorkflow, validateResearchFile, workflowClaimId, workflowSubmissionSummary, appendWorkflowObservation, type WorkflowIntent, type ValidatedResearchWorkflow } from "./research-workflow";
 
 const $ = <T extends Element = HTMLElement>(id: string): T => document.getElementById(id) as unknown as T;
 const make = <K extends keyof HTMLElementTagNameMap>(tag: K, content?: string, className?: string): HTMLElementTagNameMap[K] => {
@@ -19,9 +19,15 @@ const nodeSelect = $<HTMLSelectElement>("node-select"), impactButton = $<HTMLBut
 const comparisonFile = $<HTMLInputElement>("comparison-file");
 const workflowPrepare = $<HTMLButtonElement>("workflow-prepare"), workflowDownload = $<HTMLButtonElement>("workflow-download"), workflowRead = $<HTMLButtonElement>("workflow-read");
 const workflowFields = { content: $<HTMLTextAreaElement>("workflow-content"), reasoning: $<HTMLTextAreaElement>("workflow-reasoning"), domain: $<HTMLInputElement>("workflow-domain"), category: $<HTMLInputElement>("workflow-category"), method: $<HTMLInputElement>("workflow-method") };
+const workflowUseSelected = $<HTMLButtonElement>("workflow-use-selected");
+const newJournal = $<HTMLButtonElement>("new-journal"), journalDownload = $<HTMLButtonElement>("journal-download");
+const recordForm = $<HTMLFormElement>("record-form"), recordSubmit = $<HTMLButtonElement>("record-submit");
+const recordFields = { type: $<HTMLSelectElement>("record-type"), title: $<HTMLInputElement>("record-title"), summary: $<HTMLTextAreaElement>("record-summary"), attribution: $<HTMLInputElement>("record-attribution"), occurred: $<HTMLInputElement>("record-occurred"), doi: $<HTMLInputElement>("record-doi"), evidenceLabel: $<HTMLInputElement>("record-evidence-label"), evidenceUrl: $<HTMLInputElement>("record-evidence-url"), evidenceHash: $<HTMLInputElement>("record-evidence-hash"), supersedes: $<HTMLSelectElement>("record-supersedes"), relationType: $<HTMLSelectElement>("record-relation-type"), relationTarget: $<HTMLSelectElement>("record-relation-target") };
 const publication = document.getElementById("research-development-reader");
 const publishedPins: DescriptorPins | undefined = publication ? { descriptor: publication.dataset.descriptorSha256!, genesis: publication.dataset.genesisSha256!, rpcGenesis: publication.dataset.rpcGenesisSha256!, source: publication.dataset.runtimeSource!, binary: publication.dataset.binarySha256! } : undefined;
-let workflow: ValidatedResearchWorkflow | undefined, workflowSelection: string | undefined, workflowGeneration = 0;
+let workflow: ValidatedResearchWorkflow | undefined, workflowGeneration = 0, workflowPreparing = false;
+let claimSource: { utf8: string; hash: string; entry: Entry } | undefined;
+let recordGeneration = 0, recordPending: number | undefined;
 let workflowPending: AbortController | undefined;
 const graph = $<SVGSVGElement>("graph");
 const notice = (content: string): HTMLParagraphElement => make("p", content, "small");
@@ -87,6 +93,16 @@ function renderDetails(): void {
   }
   if (r.kind === "concern" || r.kind === "relation") container.append(make("h4", "Every assessment of this record in the snapshot"), allAssessments(r.id, "detail-assessment"));
   if (r.kind === "contribution") {
+    container.append(button("Write a correction of this record", `correct-${r.id}`, () => {
+      const attribution = recordFields.attribution.value;
+      resetRecordEditor(); recordFields.attribution.value = attribution; updateRecordChoices();
+      recordFields.supersedes.value = r.id; recordFields.type.value = r.contribution_type;
+      recordFields.title.value = r.title; recordFields.summary.value = r.summary;
+      recordGeneration++;
+      $<HTMLDetailsElement>("journal-editor").open = true;
+      $("record-status").textContent = `A new record will refer to ${r.id} as its earlier version. Describe your correction and its attribution; the earlier record stays intact.`;
+      recordFields.summary.focus();
+    }));
     container.append(make("h4", "Concerns about this contribution"));
     const concerns = snapshot!.concerns.filter(item => (item.record as Concern).target_id === r.id);
     if (!concerns.length) container.append(notice("No concerns about this contribution in this snapshot."));
@@ -154,7 +170,7 @@ function render(): void {
   if (!snapshot.contributions.some(e => e.record.id === selected)) selected = snapshot.contributions.at(-1)?.record.id ?? "";
   if (!snapshot.entries.some(e => e.record.id === inspected)) inspected = selected;
   cutoff.max = String(journal.entries.length); cutoff.value = String(through); $("cutoff-value").textContent = `${through} / ${journal.entries.length}`;
-  $("snapshot-mode").textContent = snapshot.historical ? "Historical snapshot · later entries excluded" : "Full imported collection";
+  $("snapshot-mode").textContent = snapshot.historical ? "Historical snapshot · later entries excluded" : "Full collection";
   $("snapshot-time").textContent = `Through ${snapshot.entries.at(-1)?.recorded_at ?? journal.header.created_at}`;
   $("snapshot-counts").textContent = `${snapshot.contributions.length} contributions · ${snapshot.relations.length} relations · ${snapshot.concerns.length} concerns · ${snapshot.assessments.length} assessments in this snapshot`;
   nodeSelect.replaceChildren(); for (const e of snapshot.contributions) { const option = make("option", `${e.record.title} · ${e.record.id}`); option.value = e.record.id; nodeSelect.append(option); } nodeSelect.value = selected;
@@ -252,6 +268,31 @@ async function compareFile(chosen: File): Promise<void> {
     $("comparison-error").textContent = `Comparison refused: ${error instanceof Error ? error.message : "invalid export"}.`;
   }
 }
+function updateRecordChoices(): void {
+  for (const [input, empty] of [[recordFields.supersedes, "New contribution; no earlier version"], [recordFields.relationTarget, "Choose an earlier contribution"]] as const) {
+    const previous = input.value, option = make("option", empty); option.value = "";
+    input.replaceChildren(option);
+    for (const entry of journal?.entries ?? []) if (entry.record.kind === "contribution") {
+      const choice = make("option", `${entry.record.title} · ${entry.record.id}`); choice.value = entry.record.id; input.append(choice);
+    }
+    input.value = [...input.options].some(value => value.value === previous) ? previous : "";
+  }
+  recordSubmit.disabled = !journal || Boolean(recordPending);
+  journalDownload.disabled = !primaryFile;
+}
+function resetRecordEditor(): void {
+  recordForm.reset(); recordGeneration++; recordPending = undefined;
+  $("record-status").textContent = "Add a contribution to the complete journal. Earlier records remain unchanged.";
+}
+function installJournal(next: Journal, source: { bytes: Uint8Array; hash: string; name: string }, label: string, recordId?: string): void {
+  primaryFile = source; journal = next; through = next.entries.length;
+  selected = recordId ?? next.entries.find(entry => entry.record.kind === "contribution")?.record.id ?? "";
+  inspected = selected; showImpact = false;
+  $("collection-label").textContent = label;
+  $("collection-identity").textContent = `Collection ${next.header.collection_id}`;
+  $("primary-file-hash").textContent = `Complete journal SHA256 ${source.hash}`; $("primary-file-hash").hidden = false;
+  clearComparison(); updateRecordChoices(); $("workspace").hidden = false; render();
+}
 async function load(read: () => Promise<Uint8Array>, name: string, fictional: boolean): Promise<void> {
   const number = ++loadNumber;
   $("load-error").hidden = true;
@@ -260,21 +301,15 @@ async function load(read: () => Promise<Uint8Array>, name: string, fictional: bo
     const bytes = await read(); if (number !== loadNumber) return;
     const checked = await validateResearchFile(bytes); if (number !== loadNumber) return;
     // Install only a complete validated file. An older read cannot replace a newer choice.
-    clearWorkflow(); workflowSelection = undefined;
-    primaryFile = { bytes: checked.bytes, hash: checked.hash, name: checked.workflow ? `${name} · embedded journal` : name };
-    journal = checked.journal; through = journal.entries.length;
-    selected = checked.workflow?.entry.record.id ?? journal.entries.find(e => e.record.kind === "contribution")?.record.id ?? "";
-    inspected = selected; showImpact = false;
-    $("collection-label").textContent = fictional ? "FICTIONAL EXAMPLE · illustrative records only" : `LOCAL IMPORT · ${name} · contents not independently authenticated`;
-    $("collection-identity").textContent = `Collection ${journal.header.collection_id}`;
-    $("load-status").textContent = `Internal consistency checked for all ${journal.entries.length} entries. No identity, external evidence or independent timestamp verified.`;
-    $("primary-file-hash").textContent = `Complete journal SHA256 ${checked.hash}`; $("primary-file-hash").hidden = false; clearComparison();
-    $("workspace").hidden = false; render();
+    clearWorkflow(); resetRecordEditor();
+    installJournal(checked.journal, { bytes: checked.bytes, hash: checked.hash, name: checked.workflow ? `${name} · embedded journal` : name }, fictional ? "FICTIONAL EXAMPLE · illustrative records only" : `LOCAL IMPORT · ${name} · contents not independently authenticated`, checked.workflow?.entry.record.id);
+    $("load-status").textContent = `Internal consistency checked for all ${checked.journal.entries.length} entries. No identity, external evidence or independent timestamp verified.`;
+    $("journal-save-status").textContent = "The complete journal is available to download. Changes you make here stay in this tab until downloaded.";
     if (checked.workflow) {
       workflow = checked.workflow;
       for (const [key, input] of Object.entries(workflowFields)) input.value = workflow.packet.intent[key as keyof typeof workflowFields];
       displayWorkflow();
-      workflowMessage("workflow-status", "Workflow opened locally. Editing creates a new draft without the saved receipt or observations.");
+      workflowMessage("workflow-status", "Workflow opened locally. Browsing keeps this packet in place. Edits are a separate draft until you prepare a replacement.");
     }
   } catch (error) {
     if (number !== loadNumber) return;
@@ -283,7 +318,7 @@ async function load(read: () => Promise<Uint8Array>, name: string, fictional: bo
     $("load-error").textContent = `Could not open ${name}: ${error instanceof Error ? error.message : "invalid research file"}.`;
   }
 }
-file.disabled = false; example.disabled = false; $("load-status").textContent = "Choose a journal or workflow file, or try the fictional example.";
+file.disabled = false; example.disabled = false; newJournal.disabled = false; $("load-status").textContent = "Start a journal, open a research file, or try the fictional example.";
 file.addEventListener("change", () => {
   const chosen = file.files?.[0];
   if (!chosen) return;
@@ -308,58 +343,156 @@ for (const type of RELATION_TYPES) {
 window.addEventListener("resize", revealSelection);
 $("journal-history").addEventListener("toggle", revealSelection);
 
+function downloadJSON(content: string | Uint8Array, name: string): void {
+  const url = URL.createObjectURL(new Blob([typeof content === "string" ? content : Uint8Array.from(content)], { type: "application/json" }));
+  const link = make("a"); link.href = url; link.download = name; link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+newJournal.addEventListener("click", () => { void (async () => {
+  const number = ++loadNumber; newJournal.disabled = true;
+  $("load-error").hidden = true;
+  try {
+    const next = await createJournal(), bytes = journalBytes(next), hash = await fileHash(bytes);
+    if (number !== loadNumber) return;
+    clearWorkflow(); resetRecordEditor();
+    installJournal(next, { bytes, hash, name: "local journal" }, "LOCAL JOURNAL · only in this tab until downloaded");
+    $("load-status").textContent = "New journal ready. Write a question, method, finding or other contribution.";
+    $("journal-save-status").textContent = "This journal is only in this tab. Download it to keep a copy.";
+    $<HTMLDetailsElement>("journal-editor").open = true; recordFields.title.focus();
+  } catch (error) {
+    if (number === loadNumber) { $("load-error").hidden = false; $("load-error").textContent = `Could not start a journal: ${error instanceof Error ? error.message : "unexpected error"}. Any previously opened work remains available.`; }
+  } finally { newJournal.disabled = false; }
+})(); });
+journalDownload.addEventListener("click", () => {
+  if (!primaryFile || !journal) return;
+  downloadJSON(primaryFile.bytes, "zerone-research-journal.json");
+  $("journal-save-status").textContent = `Download requested for all ${journal.entries.length} journal entries. Keep the file before closing this tab or opening another collection.`;
+});
+for (const input of Object.values(recordFields)) input.addEventListener("input", () => { recordGeneration++; });
+recordForm.addEventListener("submit", event => { event.preventDefault(); void appendRecord(); });
+async function appendRecord(): Promise<void> {
+  if (!journal || recordPending) return;
+  const base = journal, number = ++loadNumber, generation = recordGeneration;
+  recordPending = number; recordSubmit.disabled = true;
+  $("record-status").textContent = "Checking this contribution and its links before adding it…";
+  try {
+    const title = recordFields.title.value.trim(), summary = recordFields.summary.value.trim(), attributedTo = recordFields.attribution.value.trim();
+    if (!title || !summary || !attributedTo) throw new Error("Supply a title, record text and declared attribution");
+    const evidenceLabel = recordFields.evidenceLabel.value.trim(), evidenceUrl = recordFields.evidenceUrl.value.trim(), evidenceHash = recordFields.evidenceHash.value.trim();
+    const record: Contribution = {
+      id: `record:${crypto.randomUUID()}`, kind: "contribution", contribution_type: recordFields.type.value as Contribution["contribution_type"],
+      title, summary, attributed_to: attributedTo, occurred_on: recordFields.occurred.value || null,
+      doi: recordFields.doi.value.trim().toLowerCase() || null,
+      evidence: evidenceLabel || evidenceUrl || evidenceHash ? [{ label: evidenceLabel, url: evidenceUrl || null, sha256: evidenceHash || null }] : [],
+      ...(recordFields.supersedes.value ? { supersedes: recordFields.supersedes.value } : {}),
+    };
+    const records: JournalRecord[] = [record], relationType = recordFields.relationType.value, targetId = recordFields.relationTarget.value;
+    if (relationType || targetId) {
+      const target = base.entries.find(entry => entry.record.id === targetId)?.record;
+      if (!relationType || target?.kind !== "contribution") throw new Error("Choose both a relationship and an earlier contribution, or leave both empty");
+      records.push({ id: `relation:${crypto.randomUUID()}`, kind: "relation", title: `Recorded ${relationType} relationship`, summary: `“${title}” ${relationType} “${target.title}”.`, attributed_to: attributedTo, occurred_on: null, evidence: [], from_id: record.id, to_id: targetId, relation_type: relationType as Relation["relation_type"] });
+    }
+    const next = await appendJournalRecords(base, records), bytes = journalBytes(next), hash = await fileHash(bytes);
+    if (number !== loadNumber || journal !== base) return;
+    if (generation !== recordGeneration) { $("record-status").textContent = "Your form changed while this addition was being checked. Nothing was added; submit the current form when ready."; return; }
+    resetRecordEditor(); recordFields.attribution.value = attributedTo;
+    installJournal(next, { bytes, hash, name: "local continuation" }, "LOCAL CONTINUATION · earlier records retained · download to keep your additions", record.id);
+    $("load-status").textContent = `Journal now contains ${next.entries.length} entries. All earlier records and links are retained.`;
+    $("journal-save-status").textContent = "New entries are only in this tab. Download the updated journal to keep them.";
+    $("record-status").textContent = `${record.supersedes ? "Correction" : "Contribution"} added${records.length === 2 ? " with its explicit relationship" : ""}. ${claimSource?.hash !== hash ? "The claim draft still uses its earlier snapshot; choose Use selected contribution to bind this new record." : "You can keep recording or prepare a claim below."}`;
+  } catch (error) {
+    if (number === loadNumber && journal === base) $("record-status").textContent = `Nothing added: ${error instanceof Error ? error.message : "invalid record"}. Your form and existing journal remain available.`;
+  } finally {
+    if (recordPending === number) {
+      recordPending = undefined;
+      if (number !== loadNumber && journal === base) $("record-status").textContent = "A later choice cancelled this addition. Nothing was added; your record form is still available.";
+      updateRecordChoices();
+    }
+  }
+}
+
 function workflowMessage(id: string, message: string, error = false): void {
   const element = $(id); element.textContent = message; element.dataset.error = String(error);
 }
+function invalidateWorkflowWork(): void {
+  workflowGeneration++; workflowPending?.abort(); workflowPending = undefined; workflowPreparing = false;
+}
 function clearWorkflow(): void {
-  workflowGeneration++; workflowPending?.abort(); workflowPending = undefined; workflow = undefined;
+  invalidateWorkflowWork(); workflow = undefined; claimSource = undefined;
+  for (const input of Object.values(workflowFields)) { input.value = ""; input.disabled = true; }
   workflowDownload.disabled = true; workflowRead.disabled = true;
   $("workflow-summary").replaceChildren(); $("workflow-summary").hidden = true; $("workflow-next").hidden = true;
   $("workflow-history").replaceChildren();
   workflowMessage("workflow-observation-status", "Native history requires a validated successful submission receipt. A saved observation is dated endpoint state, not a live result or a proof of truth.");
 }
+function draftIntent(): WorkflowIntent {
+  return { content: workflowFields.content.value, reasoning: workflowFields.reasoning.value, domain: workflowFields.domain.value, category: workflowFields.category.value, method: workflowFields.method.value };
+}
+function packetMatchesDraft(): boolean {
+  return Boolean(workflow && claimSource && workflow.packet.journal.export_sha256 === claimSource.hash && workflow.packet.journal.entry_sha256 === claimSource.entry.sha256 && workflow.packet.journal.record_id === claimSource.entry.record.id && Object.entries(draftIntent()).every(([key, value]) => workflow!.packet.intent[key as keyof WorkflowIntent] === value));
+}
+function captureSelectedClaim(): void {
+  const entry = get(selected); if (!primaryFile || entry?.record.kind !== "contribution") return;
+  invalidateWorkflowWork();
+  claimSource = { utf8: new TextDecoder("utf-8", { fatal: true }).decode(primaryFile.bytes), hash: primaryFile.hash, entry };
+  for (const input of Object.values(workflowFields)) { input.value = ""; input.disabled = false; }
+  workflowFields.content.value = entry.record.summary;
+}
+function updateWorkflowControls(): void {
+  workflowPrepare.disabled = !claimSource || workflowPreparing;
+  workflowDownload.disabled = !workflow;
+  workflowDownload.textContent = workflow && !packetMatchesDraft() ? "Download previous packet" : "Download workflow packet";
+  workflowRead.disabled = !workflow || !canReadWorkflow(workflow) || workflow.packet.observations.length >= MAX_OBSERVATIONS || Boolean(workflowPending) || workflowPreparing;
+}
 function renderWorkflowSelection(): void {
-  const entry = get(selected), key = primaryFile && entry ? `${primaryFile.hash}:${entry.sha256}` : "";
+  const entry = get(selected);
   const available = entry?.record.kind === "contribution";
-  workflowPrepare.disabled = !available;
-  if (key === workflowSelection) return;
-  clearWorkflow(); workflowSelection = key;
-  for (const input of Object.values(workflowFields)) { input.value = ""; input.disabled = !available; }
-  if (available) workflowFields.content.value = entry.record.summary;
-  $("workflow-selection").textContent = available ? `Selected contribution: ${entry.record.title} · ${entry.record.id}. Original attribution: ${entry.record.attributed_to} (declared label).` : "Select a contribution in this snapshot.";
-  workflowMessage("workflow-status", available ? "Edit the claim and supply its reasoning, domain and category. Preparing a packet stays in this tab." : "Select a contribution to prepare a packet.");
+  if (!claimSource && available) {
+    captureSelectedClaim();
+    workflowMessage("workflow-status", "Edit the claim and supply its reasoning, domain and category. Preparing a packet stays in this tab.");
+  }
+  const sameSource = available && claimSource?.hash === primaryFile?.hash && claimSource?.entry.sha256 === entry.sha256;
+  workflowUseSelected.disabled = !available || Boolean(sameSource);
+  $("workflow-selection").textContent = claimSource ? `Claim source: ${claimSource.entry.record.title} · ${claimSource.entry.record.id}. Original attribution: ${claimSource.entry.record.attributed_to} (declared label).` : "Select a contribution to start a claim draft.";
+  $("workflow-source-status").textContent = !claimSource ? "Your claim draft will bind one contribution to the complete journal as it stands when chosen." : sameSource ? "This draft uses the selected contribution and this exact journal snapshot. Browsing other records leaves it in place." : `The reader has moved on; this draft keeps its original journal snapshot and contribution. Use selected contribution to start a different draft. Any previous packet stays available until you successfully prepare its replacement.`;
+  if (!claimSource) workflowMessage("workflow-status", "Select a contribution to prepare a packet.");
+  updateWorkflowControls();
 }
 function canReadWorkflow(value: ValidatedResearchWorkflow): boolean {
   const participant = value.packet.participant;
   return Boolean(publishedPins && workflowClaimId(value.packet) && participant && participant.local_test === false && participant.chain_id === DEVELOPMENT_CHAIN && [publishedPins.descriptor, publication?.dataset.predecessorDescriptorSha256].includes(participant.descriptor_sha256) && participant.genesis_sha256 === publishedPins.genesis);
 }
 function displayWorkflow(): void {
-  if (!workflow) return;
+  if (!workflow) { updateWorkflowControls(); return; }
   const { packet } = workflow, id = workflowClaimId(packet), summary = $("workflow-summary"); summary.replaceChildren(); summary.hidden = false;
-  summary.append(make("p", `Selected record ${packet.journal.record_id}`), make("p", `Intent SHA256 ${packet.intent_sha256}`, "mono"), make("p", `Complete journal SHA256 ${packet.journal.export_sha256}`, "mono"));
-  summary.append(make("p", id ? `Submission receipt identifies claim ${id}. The receipt is a local record; read native history to compare the retained claim.` : packet.submission ? "Submission has started without a successful observed receipt. Resume with the participant client; this page does not retry submission." : "Local draft: no participant or submission is attached."));
+  if (!packetMatchesDraft()) summary.append(notice("Previous packet retained below. It contains its original claim and snapshot; edits in the form are not included. Prepare successfully to replace it, or download it first."));
+  summary.append(make("p", `Packet record: ${workflow.entry.record.title} · ${packet.journal.record_id}`), make("p", `Intent SHA256 ${packet.intent_sha256}`, "mono"), make("p", `Complete journal SHA256 ${packet.journal.export_sha256}`, "mono"));
+  summary.append(make("p", workflowSubmissionSummary(packet)));
   if (packet.participant) summary.append(make("p", `Participant ${packet.participant.address} · ${packet.participant.chain_id}${packet.participant.local_test ? " · local test" : ""}. An address does not establish an independent controller.`));
-  workflowDownload.disabled = false; $("workflow-next").hidden = false;
-  workflowRead.disabled = !canReadWorkflow(workflow) || packet.observations.length >= MAX_OBSERVATIONS;
+  $("workflow-next").hidden = false; updateWorkflowControls();
   $("workflow-history").replaceChildren();
   if (workflow.history) {
     $("workflow-history").append(renderHistory(workflow.history));
-    workflowMessage("workflow-observation-status", `Saved endpoint observation: ${packet.participant!.chain_id} at block ${height(workflow.history.block_height)}, recorded ${packet.observations.at(-1)!.observed_at}. This is imported state, not a fresh read. No request was made by importing the packet.`);
-  } else workflowMessage("workflow-observation-status", id ? canReadWorkflow(workflow) ? "Use Read current native history to verify the published descriptor and observe this claim. The endpoint receives this public claim ID; the journal remains local." : "Live reads are unavailable for this packet: its participant must match the published public development network. Existing packet records remain local." : "No successful observed submission receipt is attached. Submit or resume through the participant client before reading native history here.");
+    workflowMessage("workflow-observation-status", `Saved endpoint observation: ${packet.participant!.chain_id} at block ${height(workflow.history.block_height)}, recorded ${packet.observations.at(-1)!.observed_at}. Displaying this retained snapshot makes no fresh request.`);
+  } else workflowMessage("workflow-observation-status", id ? canReadWorkflow(workflow) ? "Use Read current native history to verify the published descriptor and observe this claim. The endpoint receives this public claim ID; the journal remains local." : "Live reads are unavailable for this packet: its participant must match the published public development network. Existing packet records remain local." : "No successful observed submission receipt is attached. Follow the submission guidance above before reading native history here.");
   if (packet.observations.length >= MAX_OBSERVATIONS) workflowMessage("workflow-observation-status", `This packet retains ${MAX_OBSERVATIONS} dated observations, its maximum. Download it to preserve them; the participant guide explains further observation. No old observation was removed.`);
 }
 async function prepareSelectedWorkflow(): Promise<void> {
-  if (!primaryFile || !journal || !selected) return;
-  clearWorkflow(); const generation = workflowGeneration, fileBytes = primaryFile.bytes, id = selected;
-  workflowPrepare.disabled = true; workflowMessage("workflow-status", "Validating the chosen claim and binding it to this exact journal export…");
+  if (!claimSource || workflowPreparing) return;
+  if (packetMatchesDraft()) {
+    workflowMessage("workflow-status", "These fields already match the retained packet. Its submission and observations remain attached; no replacement was made.");
+    return;
+  }
+  invalidateWorkflowWork(); const generation = workflowGeneration, source = claimSource, intent = draftIntent();
+  workflowPreparing = true; updateWorkflowControls();
+  workflowMessage("workflow-status", "Validating the chosen claim against its original journal snapshot…");
   try {
-    const intent = { content: workflowFields.content.value, reasoning: workflowFields.reasoning.value, domain: workflowFields.domain.value, category: workflowFields.category.value, method: workflowFields.method.value };
-    const checked = await prepareWorkflow(new TextDecoder("utf-8", { fatal: true }).decode(fileBytes), id, intent);
+    const checked = await prepareWorkflow(source.utf8, source.entry.record.id, intent);
     if (generation !== workflowGeneration) return;
     workflow = checked; displayWorkflow();
     workflowMessage("workflow-status", "Local packet prepared. Download it and inspect it with your participant client before submitting.");
-  } catch (error) { if (generation === workflowGeneration) workflowMessage("workflow-status", `Draft not prepared: ${error instanceof Error ? error.message : "invalid draft"}.`, true); }
-  finally { if (generation === workflowGeneration) workflowPrepare.disabled = false; }
+  } catch (error) { if (generation === workflowGeneration) workflowMessage("workflow-status", `Draft not prepared: ${error instanceof Error ? error.message : "invalid draft"}. Any previous packet remains available.`, true); }
+  finally { if (generation === workflowGeneration) { workflowPreparing = false; updateWorkflowControls(); } }
 }
 async function readWorkflowHistory(): Promise<void> {
   const current = workflow, pins = publishedPins;
@@ -373,25 +506,32 @@ async function readWorkflowHistory(): Promise<void> {
     const observed = await readClaimHistory(id, pins, controller.signal);
     const checked = await appendWorkflowObservation(current.packet, observed.historyUtf8);
     if (controller.signal.aborted || generation !== workflowGeneration || workflow !== current) return;
+    const checkedAt = new Date().toISOString(), retainedAt = checked.packet.observations.at(-1)!.observed_at;
+    const unchanged = checked.packet.observations.length === current.packet.observations.length;
     workflow = checked; displayWorkflow();
-    workflowMessage("workflow-observation-status", `Endpoint observation: ${DEVELOPMENT_CHAIN} at block ${height(observed.history.block_height)}, read ${checked.packet.observations.at(-1)!.observed_at}. Matched to the packet’s submitted intent. This snapshot does not refresh automatically; download the packet to retain it. Endpoint state is not an independent proof of scientific truth or bank transfers.`);
+    workflowMessage("workflow-observation-status", `Endpoint checked ${checkedAt}: ${DEVELOPMENT_CHAIN} at block ${height(observed.history.block_height)}. ${unchanged ? `Identical history; snapshot originally retained ${retainedAt}.` : `New snapshot retained ${retainedAt}.`} Matched to the packet’s original submitted intent. Download the packet to keep its observations. Endpoint state is not an independent proof of scientific truth or bank transfers.`);
   } catch (error) {
     if (generation !== workflowGeneration || workflowPending !== controller) return;
     $("workflow-history").replaceChildren();
     workflowMessage("workflow-observation-status", `History unavailable: ${controller.signal.aborted ? "request timed out or was cancelled" : error instanceof Error ? error.message : "unexpected read failure"}. No previous snapshot is shown as current. Earlier saved observations remain in the downloadable packet.`, true);
   } finally {
     window.clearTimeout(timer);
-    if (generation === workflowGeneration && workflowPending === controller) { workflowPending = undefined; workflowRead.disabled = !workflow || !canReadWorkflow(workflow) || workflow.packet.observations.length >= MAX_OBSERVATIONS; }
+    if (generation === workflowGeneration && workflowPending === controller) { workflowPending = undefined; updateWorkflowControls(); }
   }
 }
 $("workflow-form").addEventListener("submit", event => { event.preventDefault(); void prepareSelectedWorkflow(); });
-for (const input of Object.values(workflowFields)) input.addEventListener("input", () => { clearWorkflow(); workflowPrepare.disabled = !selected; workflowMessage("workflow-status", "Draft changed. Prepare a new packet to bind these fields to the journal; the previous submission is not attached to this new draft."); });
+workflowUseSelected.addEventListener("click", () => {
+  captureSelectedClaim(); renderWorkflowSelection(); displayWorkflow();
+  workflowMessage("workflow-status", "Draft now uses the selected contribution and current complete journal. Prepare to bind your new fields; any previous packet is still available to download.");
+});
+for (const input of Object.values(workflowFields)) input.addEventListener("input", () => {
+  invalidateWorkflowWork(); displayWorkflow(); updateWorkflowControls();
+  workflowMessage("workflow-status", packetMatchesDraft() ? "Fields match the retained packet again. Its submission and observations are unchanged." : "Draft changed. Prepare to create a new packet; any previous packet and its submission remain available separately.");
+});
 workflowRead.addEventListener("click", () => { void readWorkflowHistory(); });
 workflowDownload.addEventListener("click", () => {
   if (!workflow) return;
   const content = JSON.stringify(workflow.packet);
   if (new TextEncoder().encode(content).length > WORKFLOW_LIMIT) { workflowMessage("workflow-status", "Packet exceeds the 16 MiB download limit.", true); return; }
-  const url = URL.createObjectURL(new Blob([content], { type: "application/json" }));
-  const link = make("a"); link.href = url; link.download = "zerone-research-workflow.json"; link.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  downloadJSON(content, "zerone-research-workflow.json");
 });

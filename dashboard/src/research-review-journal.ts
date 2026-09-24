@@ -197,6 +197,45 @@ export async function validateExport(bytes: Uint8Array): Promise<Journal> {
   }
   const journal = parsed as unknown as Journal; freeze(journal); verified.add(journal); return journal;
 }
+
+/** Canonical download bytes; never serialize an unverified or caller-mutated history. */
+export function journalBytes(journal: Journal): Uint8Array {
+  if (!verified.has(journal)) fail("Validate the complete export before serializing a journal");
+  return utf8.encode(canonicalJSON(journal) + "\n");
+}
+
+function currentTimestamp(): string { return timestamp(new Date().toISOString().replace(/Z$/u, "000Z")); }
+
+/** Start an empty local collection using the actual clock and a fresh random identity. */
+export async function createJournal(): Promise<Journal> {
+  return validateExport(utf8.encode(canonicalJSON({
+    schema: "zerone-research-export/v1",
+    header: { schema: "zerone-research-journal/v1", collection_id: crypto.randomUUID(), created_at: currentTimestamp() },
+    entries: [],
+  }) + "\n"));
+}
+
+/** Append one complete batch without changing the verified original or accepting caller timestamps. */
+export async function appendJournalRecords(journal: Journal, records: readonly JournalRecord[]): Promise<Journal> {
+  if (!verified.has(journal)) fail("Validate the complete export before appending records");
+  if (!Array.isArray(records) || !records.length) fail("Append requires a nonempty record batch");
+  if (journal.entries.length + records.length > ENTRY_LIMIT) fail("Journal would exceed 1000 entries");
+  // Capture nested caller data before hashing yields, then reuse the same record/reference validation.
+  const batch = parseStrictJSON(canonicalJSON(records)) as unknown[];
+  const prior = new Map(journal.entries.map(entry => [entry.record.id, entry.record]));
+  const additions = batch.map(value => { const next = record(value, prior); prior.set(next.id, next); return next; });
+  const recorded = currentTimestamp(), last = journal.entries.at(-1);
+  if (recorded < (last?.recorded_at ?? journal.header.created_at)) fail("Local clock moved backwards; append refused");
+  let previous = last?.sha256 ?? await sha256(canonicalJSON(journal.header));
+  const entries = [...journal.entries];
+  for (const next of additions) {
+    const row = { sequence: entries.length + 1, recorded_at: recorded, previous_sha256: previous, record: next };
+    previous = await sha256(canonicalJSON(row));
+    entries.push({ ...row, sha256: previous });
+  }
+  return validateExport(utf8.encode(canonicalJSON({ ...journal, entries }) + "\n"));
+}
+
 /** Compare complete validated histories, never selecting an authoritative branch. */
 export async function compareJournals(left: Journal, right: Journal): Promise<JournalComparison> {
   if (!verified.has(left) || !verified.has(right)) fail("Validate both complete exports before comparing histories");

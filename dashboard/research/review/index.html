@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#09090c" />
-    <meta name="description" content="Open a local research file, inspect a record, prepare a claim or continue its review." />
+    <meta name="description" content="Start a local research journal, connect observations, keep corrections and prepare a claim for review." />
     <link rel="canonical" href="https://zerone.ai/research/review/" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/src/research-review.css" />
@@ -14,17 +14,17 @@
     <a class="skip-link" href="#main-content">Skip to Research Review</a>
     <header class="review-header page-width">
       <a class="guide-brand" href="/">ZERONE</a>
-      <nav aria-label="Research navigation"><a href="/research/">Research library</a><a href="/research/checkpoints/">Research checkpoints</a></nav>
+      <nav aria-label="Research navigation"><a href="/research/">Research library</a><a href="/understand/#modules">How it connects</a><a href="/research/checkpoints/">Research checkpoints</a></nav>
     </header>
     <main id="main-content" class="page-width review-page">
       <section class="review-intro" aria-labelledby="title">
         <p class="eyebrow">Research Review</p>
-        <h1 id="title">Open a record.<br /><em>Work on a claim.</em></h1>
-        <p class="lede">Inspect a contribution, prepare a claim for your participant client, or open its returned packet to follow reviews, corrections and funding.</p>
+        <h1 id="title">Keep a record.<br /><em>Work on a claim.</em></h1>
+        <p class="lede">Start a local journal, connect observations and keep corrections. When a statement is ready for review, prepare a claim for your participant client.</p>
       </section>
       <section class="import-panel" aria-labelledby="import-title">
-        <div><h2 id="import-title">Open a research file</h2><p>A journal (up to 8 MiB) or workflow packet (up to 16 MiB). Files stay in this tab: no upload, browser storage, wallet or signature. Hash checks establish internal consistency, not authorship or scientific truth.</p></div>
-        <div class="import-actions"><label for="journal-file">Journal or workflow packet<input id="journal-file" data-testid="journal-file" type="file" accept=".json,application/json" disabled /></label><button type="button" id="load-example" disabled>Try the fictional example</button></div>
+        <div><h2 id="import-title">Start or open a journal</h2><p>Work stays in this tab until you download it: no upload, browser storage, wallet or signature. Open a journal (up to 8 MiB) or workflow packet (up to 16 MiB). Hash checks establish internal consistency, not authorship or scientific truth.</p></div>
+        <div class="import-actions"><div class="import-shortcuts"><button type="button" id="new-journal" disabled>Start a new journal</button><button type="button" id="load-example" disabled>Try the fictional example</button></div><label for="journal-file">Or open a journal or workflow packet<input id="journal-file" data-testid="journal-file" type="file" accept=".json,application/json" disabled /></label></div>
         <p id="load-status" role="status" aria-live="polite">JavaScript is required to validate and open a research file.</p>
         <p id="primary-file-hash" class="mono" hidden></p>
         <p id="load-error" role="alert" hidden></p>
@@ -32,6 +32,41 @@
       </section>
       <section id="workspace" hidden aria-label="Validated collection">
         <div class="collection-header"><p id="collection-label"></p><p id="collection-identity" class="mono"></p></div>
+        <div class="journal-tools"><button id="journal-download" type="button" disabled>Download journal</button><p id="journal-save-status" class="small" role="status" aria-live="polite">Download to keep the complete journal. Closing this tab discards changes that you have not downloaded.</p></div>
+        <details id="journal-editor" class="journal-editor review-disclosure">
+          <summary>Add a record or correction</summary>
+          <p class="small">Each addition keeps the earlier entries intact. A correction is a new record linked to an earlier version.</p>
+          <form id="record-form">
+            <label for="record-title">Name this record<input id="record-title" type="text" required /></label>
+            <label for="record-summary">What do you want to record?<textarea id="record-summary" rows="4" required></textarea></label>
+            <div class="record-fields">
+              <label for="record-attribution">Attributed to<input id="record-attribution" type="text" placeholder="Name or label you choose" required /></label>
+              <label for="record-type">Record type<select id="record-type"><option value="question">Question</option><option value="source">Source</option><option value="claim">Claim</option><option value="method">Method</option><option value="experiment">Experiment or observation</option><option value="finding">Finding</option><option value="review">Review</option></select></label>
+            </div>
+            <label for="record-supersedes">Correct an earlier record · optional<select id="record-supersedes"><option value="">New contribution; no earlier version</option></select></label>
+            <details class="record-extras">
+              <summary>Evidence, dates and connections</summary>
+              <div class="record-fields">
+                <label for="record-occurred">When it happened · optional<input id="record-occurred" type="date" /></label>
+                <label for="record-doi">DOI · optional<input id="record-doi" type="text" placeholder="10.…" /></label>
+              </div>
+              <fieldset class="record-evidence"><legend>Evidence reference · optional</legend>
+                <label for="record-evidence-label">Describe the evidence<input id="record-evidence-label" type="text" /></label>
+                <label for="record-evidence-url">Source link<input id="record-evidence-url" type="url" placeholder="https://…" /></label>
+                <label for="record-evidence-hash">File fingerprint (SHA-256) · optional<input id="record-evidence-hash" type="text" spellcheck="false" /></label>
+              </fieldset>
+              <fieldset class="record-connection"><legend>Connect to an earlier contribution · optional</legend>
+                <p class="small">This new record has the relationship below to the earlier contribution.</p>
+                <div class="record-fields">
+                  <label for="record-relation-type">This new record…<select id="record-relation-type"><option value="">No connection</option><option value="supports">supports</option><option value="requires">requires</option><option value="uses-input">uses as input</option><option value="inspired-by">was inspired by</option><option value="refines">refines</option><option value="cites">cites</option></select></label>
+                  <label for="record-relation-target">…this earlier contribution<select id="record-relation-target"><option value="">Choose an earlier contribution</option></select></label>
+                </div>
+              </fieldset>
+            </details>
+            <div class="record-actions"><button id="record-submit" type="submit" disabled>Add record</button><p class="small">Adds to the full journal in this tab. Nothing is submitted to the chain.</p></div>
+            <p id="record-status" class="small" role="status" aria-live="polite">Write a record, then add it to the journal.</p>
+          </form>
+        </details>
         <div class="record-selection">
           <label class="selection-label" for="node-select">Choose a contribution<select id="node-select" data-testid="node-select"></select></label>
           <div class="snapshot-summary"><p id="snapshot-mode" data-testid="snapshot-mode"></p><p id="snapshot-time" class="small"></p><button id="latest" type="button">Return to full collection</button></div>
@@ -42,6 +77,7 @@
           <section class="workflow-panel panel" aria-labelledby="workflow-title">
             <h2 id="workflow-title">Claim &amp; review</h2>
             <p id="workflow-selection" class="small"></p>
+            <div class="workflow-source-picker"><button id="workflow-use-selected" type="button" disabled>Use selected record for this claim</button><p id="workflow-source-status" class="small">Browsing keeps this draft. Using the selected record replaces it; download existing work first.</p></div>
             <p class="small">Choose the statement and checks you want reviewed. Editing this draft leaves the original journal record unchanged.</p>
             <form id="workflow-form">
               <label for="workflow-content">Claim to review · 20–1,000 UTF-8 bytes<textarea id="workflow-content" rows="4" required></textarea></label>
@@ -104,8 +140,8 @@ python3 tools/research-review/workflow.py refresh --packet ./zerone-research-wor
       </section>
       <details class="reader-notes review-disclosure">
         <summary id="limits-title">About the records and their limits</summary>
-        <p>The cutoff applies to all journal records before display. Earlier events discovered later remain absent from earlier snapshots. Unknown dates stay unknown; “full collection” means this imported file.</p>
-        <p>For a correction, add a new journal record using <code>supersedes</code> to retain the earlier version, then prepare its own claim. Earlier assessments do not transfer to it.</p>
+        <p>The reader cutoff changes which records you inspect. The editor’s earlier-record choices and additions use the complete current journal; downloads keep the complete journal. Earlier events discovered later remain absent from earlier reader snapshots. Unknown dates stay unknown.</p>
+        <p>For a correction, use “Add a record or correction” and choose the earlier record. Both versions remain in the journal. Earlier assessments do not transfer to the correction; a native claim needs its own explicit preparation and submission.</p>
         <p>Possible reassessment follows <code>supports</code> from evidence to claim, <code>requires</code> from prerequisite to dependent, and <code>uses-input</code> from input to activity. Shared input is labelled separately. Citation, inspiration and refinement do not propagate the highlight.</p>
         <p>Attributions are declared labels. The fictional example depicts no real research, people or on-chain state. Evidence links open only when you choose them; they are not verified here.</p>
         <p><a href="/research/checkpoints/">Download a dated research checkpoint</a> · <a href="/research/adagrad/">AdaGrad experiment</a> · <a href="https://github.com/cambridgetcg/zerone-core/tree/main/tools/research-review">Journal tools and format documentation</a> · <a href="/research/review/fictional-journal.v1.json" download>Download the fictional collection</a></p>

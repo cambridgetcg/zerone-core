@@ -1,9 +1,9 @@
 # Research workflow v1
 
-Status: **client integration, 23 September 2026**. A local workflow packet binds
-one journal contribution and an explicitly chosen assertion to the existing
-development participant client. It brings the resulting native review,
-correction and funding observations back into Research Review. It changes no
+Status: **client integration; browser authoring updated 25 September 2026**.
+A local workflow packet binds one journal contribution and an explicitly chosen
+assertion to the existing development participant client. It brings the resulting
+native review, correction and funding observations back into Research Review. It changes no
 consensus message, keeper, funding policy, participant package or journal schema.
 
 Use the [walkthrough](../../tools/research-review/README.md#carry-a-record-through-native-review)
@@ -108,7 +108,9 @@ limited to the participant client's tracked inventory; it is not a network
 search. A missing result stays unresolved instead of fabricating a receipt.
 
 The packet retains up to 32 distinct history observations. Equal history bytes
-are a no-op. Observation times use real UTC calendar timestamps with milliseconds
+are a no-op: the retained observation keeps its original timestamp, while the
+browser labels the latest current-read check time separately. Observation times
+use real UTC calendar timestamps with milliseconds
 (`YYYY-MM-DDTHH:mm:ss.sssZ`); times and observed block heights cannot regress.
 Funding allocations and settlement records receive the same structural checks
 as the development history reader, with no future settlement heights. The CLI
@@ -124,9 +126,28 @@ automatic packet rotation or truncation.
 
 ## Browser and authority boundaries
 
-Imports and preparation run locally without a wallet, browser persistence or
-network request. Explicit current-history reads first verify the published
-development descriptor, then request only the chosen claim's history. The
+Journal creation, append, imports and preparation run locally without a wallet,
+automatic browser persistence or network request. Work remains in tab memory
+until explicitly downloaded. Opening another file or starting a new journal
+replaces the current workspace; download the journal and any workflow packet
+first. Rejected imports leave the current workspace intact.
+
+The active claim source is an exact complete journal snapshot and selected
+contribution, independent of browsing, timeline cutoff and later journal
+appends. “Use selected record for this claim” explicitly changes the draft source.
+Editing fields or changing that source keeps the previous validated packet
+available until a new preparation succeeds; failed preparation preserves it.
+The download label distinguishes the previous packet from unsaved edits. Preparing an unchanged
+source and intent keeps its existing receipt and observations. Successful
+preparation of a changed intent creates a draft without inheriting them.
+
+The export's exact bytes are part of intent identity. Adding a journal entry
+or changing export whitespace creates a different intent even if the selected
+entry and authored assertion are identical. Continue an existing claim with its
+original packet; selecting a newer snapshot does not recover that earlier claim.
+
+Explicit current-history reads first verify the published development descriptor,
+then request only the chosen claim's history. The
 read URL and pins come from the website build, not from imported files. Public
 reads require the published chain/raw genesis and current or preserved original
 descriptor, with `local_test: false`. A participant's macOS binary hash is not
@@ -134,8 +155,7 @@ compared to the Linux node's binary hash. Test packets remain inspectable locall
 
 Both pages reuse the same bounded history fetcher and renderer. Saved state is
 labelled with its observation height/time; failed reads clear the current result
-while preserving earlier downloadable observations. Editing an intent creates
-a new draft without attaching the old receipt to the changed statement.
+while preserving earlier downloadable observations.
 
 The journal chain checks supplied bytes, not authorship or completeness. Packet
 bindings associate an assertion with those bytes; they do not authenticate a

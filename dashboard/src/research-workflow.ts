@@ -64,6 +64,25 @@ export function workflowClaimId(packet: ResearchWorkflow): string | null {
   publicReceipt(receipt);
   return queryClaimId(receipt.claim_id);
 }
+/** Describe the retained submission record without inferring a live outcome or payment. */
+export function workflowSubmissionSummary(packet: ResearchWorkflow): string {
+  const id = workflowClaimId(packet);
+  if (id) return `Submission receipt identifies claim ${id}. The receipt is a local record; read native history to compare the retained claim.`;
+  const submission = packet.submission;
+  if (submission === null) return "Prepared claim intent; no submission is recorded in this packet. Use the explicit workflow adapter when ready to submit.";
+  if (submission.state === "started" && submission.receipt === null) return "Submission was started, but this packet has no client receipt. Refresh through the workflow adapter first; use resume only if the refreshed packet still has a started submission without a receipt.";
+  require(submission.state === "observed", "Invalid submission state");
+  const receipt = publicReceipt(submission.receipt);
+  switch (receipt.status) {
+    case "prepared": return "Client receipt reports prepared. Refresh through the workflow adapter and inspect the existing client receipt before taking another submission action.";
+    case "broadcasting": return "Client receipt reports broadcasting. Refresh through the workflow adapter to check the recorded outcome before taking another submission action.";
+    case "pending": return "Client receipt reports pending. Refresh through the workflow adapter to check for an updated transaction result.";
+    case "rejected": return "Client receipt reports rejected. Inspect the retained client receipt before deciding whether a new submission is appropriate.";
+    case "failed": return "Client receipt reports failed. Inspect the recorded transaction result before deciding whether a new submission is appropriate.";
+    case "committed-unresolved": return "Client receipt reports committed-unresolved; this packet does not yet identify a successful claim. Refresh through the workflow adapter to resolve the receipt before reading native claim history.";
+    default: throw new Error("Unknown submission status");
+  }
+}
 export function validateBoundHistory(packet: ResearchWorkflow, value: unknown): Row {
   const id = workflowClaimId(packet);
   require(id && packet.participant, "A successful bound submission is required before recording native history");
