@@ -133,7 +133,22 @@ export async function validateWorkflow(raw: string): Promise<ValidatedResearchWo
   }
   return { packet, journal, entry, ...(latest ? { history: latest } : {}) };
 }
-export async function prepareWorkflow(journalUtf8: string, recordId: string, claim: WorkflowIntent): Promise<ResearchWorkflow> {
+/** Open either format while keeping the complete journal's exact bytes and hash. */
+export async function validateResearchFile(bytes: Uint8Array): Promise<{ journal: Journal; bytes: Uint8Array; hash: string; workflow?: ValidatedResearchWorkflow }> {
+  require(bytes.length > 0 && bytes.length <= WORKFLOW_LIMIT, "Research file must be nonempty and at most 16 MiB");
+  const raw = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+  const value = object(parseStrictJSON(raw), "research file");
+  if (value.schema === "zerone-research-export/v1") {
+    const [journal, hash] = await Promise.all([validateExport(bytes), sha256(raw)]);
+    return { journal, bytes, hash };
+  }
+  if (value.schema === "zerone-research-workflow/v1") {
+    const workflow = await validateWorkflow(raw);
+    return { journal: workflow.journal, bytes: utf8.encode(workflow.packet.journal.export_utf8), hash: workflow.packet.journal.export_sha256, workflow };
+  }
+  throw new Error("Unsupported research file schema");
+}
+export async function prepareWorkflow(journalUtf8: string, recordId: string, claim: WorkflowIntent): Promise<ValidatedResearchWorkflow> {
   const journal = await validateExport(utf8.encode(journalUtf8));
   const entry = journal.entries.find(row => row.record.id === recordId);
   require(entry?.record.kind === "contribution", "Select an existing contribution");
@@ -143,13 +158,14 @@ export async function prepareWorkflow(journalUtf8: string, recordId: string, cla
     intent: intent(claim), intent_sha256: "", participant: null, submission: null, observations: [],
   };
   packet.intent_sha256 = await intentHash(packet);
-  return (await validateWorkflow(JSON.stringify(packet))).packet;
+  return validateWorkflow(JSON.stringify(packet));
 }
-export async function appendWorkflowObservation(packet: ResearchWorkflow, historyUtf8: string, observedAt = new Date().toISOString()): Promise<ResearchWorkflow> {
-  const current = (await validateWorkflow(JSON.stringify(packet))).packet;
+export async function appendWorkflowObservation(packet: ResearchWorkflow, historyUtf8: string, observedAt = new Date().toISOString()): Promise<ValidatedResearchWorkflow> {
+  const checked = await validateWorkflow(JSON.stringify(packet));
+  const current = checked.packet;
   const historySha = await sha256(historyUtf8);
-  if (current.observations.some(row => row.history_sha256 === historySha)) return current;
+  if (current.observations.some(row => row.history_sha256 === historySha)) return checked;
   require(current.observations.length < MAX_OBSERVATIONS, "All 32 observations are retained; export this packet before starting another observation record");
   current.observations.push({ observed_at: observedAt, history_utf8: historyUtf8, history_sha256: historySha });
-  return (await validateWorkflow(JSON.stringify(current))).packet;
+  return validateWorkflow(JSON.stringify(current));
 }

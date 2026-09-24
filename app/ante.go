@@ -43,7 +43,7 @@ func NewAnteHandler(app *ZeroneApp) sdk.AnteHandler {
 
 		// --- ZRN Pre-Auth (gas meter available) ---
 		NewZRNGasDecorator(),
-		NewFeeRouterDecorator(app.BankKeeper),
+		NewFeeRouterDecorator(),
 
 		// --- Standard Cosmos SDK Decorators ---
 		ante.NewExtensionOptionsDecorator(nil),
