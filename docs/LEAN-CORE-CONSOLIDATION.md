@@ -24,7 +24,9 @@ touches CI and documentation, so it requires the full suite. Passing fewer
 unrelated jobs is not evidence that a protocol change is safe.
 The small [path classifier](../scripts/ci-scope.py) keeps shared standards,
 Functions and outside-dashboard documents on full checks; uncertain diffs also
-keep full checks. SDK/dashboard validation and chain-registry checks always run.
+keep full checks. SDK/dashboard validation, chain-registry checks and the
+containment/runtime image matrices always run. Skipping a matrix job before
+expansion leaves its required per-profile check names absent and blocks merging.
 
 The module dispositions below are **future work**. The original presentation
 release changed no keeper, transaction, consensus rule, balance, module

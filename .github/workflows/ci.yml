@@ -1217,8 +1217,8 @@ jobs:
           done
 
   containment-runtime:
-    needs: scope
-    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    # Required matrix checks must run: a job-level skip prevents expansion and
+    # leaves the concrete check names required by branch rules absent.
     name: "Containment clean runtime (${{ matrix.network }})"
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -1323,8 +1323,7 @@ jobs:
         run: scripts/validate-chain-registry.sh
 
   deployment-images:
-    needs: scope
-    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    # Keep every required profile check present, including website-only PRs.
     name: "Deployment image (${{ matrix.profile }})"
     runs-on: ubuntu-24.04
     timeout-minutes: 25
