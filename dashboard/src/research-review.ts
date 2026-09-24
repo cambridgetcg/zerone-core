@@ -21,7 +21,7 @@ const workflowPrepare = $<HTMLButtonElement>("workflow-prepare"), workflowDownlo
 const workflowFields = { content: $<HTMLTextAreaElement>("workflow-content"), reasoning: $<HTMLTextAreaElement>("workflow-reasoning"), domain: $<HTMLInputElement>("workflow-domain"), category: $<HTMLInputElement>("workflow-category"), method: $<HTMLInputElement>("workflow-method") };
 const publication = document.getElementById("research-development-reader");
 const publishedPins: DescriptorPins | undefined = publication ? { descriptor: publication.dataset.descriptorSha256!, genesis: publication.dataset.genesisSha256!, rpcGenesis: publication.dataset.rpcGenesisSha256!, source: publication.dataset.runtimeSource!, binary: publication.dataset.binarySha256! } : undefined;
-let workflow: ValidatedResearchWorkflow | undefined, workflowSelection = "", workflowGeneration = 0;
+let workflow: ValidatedResearchWorkflow | undefined, workflowSelection: string | undefined, workflowGeneration = 0;
 let workflowPending: AbortController | undefined;
 const graph = $<SVGSVGElement>("graph");
 const notice = (content: string): HTMLParagraphElement => make("p", content, "small");
@@ -260,7 +260,7 @@ async function load(read: () => Promise<Uint8Array>, name: string, fictional: bo
     const bytes = await read(); if (number !== loadNumber) return;
     const checked = await validateResearchFile(bytes); if (number !== loadNumber) return;
     // Install only a complete validated file. An older read cannot replace a newer choice.
-    clearWorkflow(); workflowSelection = "";
+    clearWorkflow(); workflowSelection = undefined;
     primaryFile = { bytes: checked.bytes, hash: checked.hash, name: checked.workflow ? `${name} · embedded journal` : name };
     journal = checked.journal; through = journal.entries.length;
     selected = checked.workflow?.entry.record.id ?? journal.entries.find(e => e.record.kind === "contribution")?.record.id ?? "";
