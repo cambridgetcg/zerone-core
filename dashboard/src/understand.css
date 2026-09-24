@@ -52,6 +52,38 @@
 .understand .explanation-source a { display: inline-block; padding-block: 0.4rem; overflow-wrap: anywhere; color: var(--violet); }
 .understand .explanation-source code { font-size: 0.78rem; }
 .understand summary:focus-visible { outline: 2px solid var(--acid); outline-offset: 3px; }
+.understand .module-workflow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); background: var(--line); }
+.understand .module-workflow > li { min-width: 0; padding: 1.25rem; background: var(--surface); }
+.understand .module-workflow h3 { margin: 0.8rem 0; font-size: 1.1rem; }
+.understand .module-workflow p { color: var(--muted); font-size: 0.9rem; }
+.understand .module-workflow .module-references { margin-top: 1rem; font-size: 0.8rem; }
+.understand .module-section a { overflow-wrap: anywhere; }
+.understand .module-section .related-links { margin-top: 1rem; font-size: 0.85rem; }
+.understand .module-boundaries { margin-top: 1.5rem; color: var(--muted); font-size: 0.9rem; }
+.understand .module-boundaries p + p { margin-top: 0.75rem; }
+.understand .module-boundaries strong, .understand .module-utilities strong { color: var(--ink); }
+.understand .module-group { margin-top: 1rem; }
+.understand .module-count { margin-left: 0.6rem; color: var(--muted); font-size: 0.75rem; font-weight: 400; white-space: nowrap; }
+.understand .module-group .details-body { padding: 0 1.5rem; }
+.understand .module-group-intro { padding-block: 1.25rem; }
+.understand .module-record { padding-block: 1.5rem; border-top: 1px solid var(--line); scroll-margin-top: 100px; }
+.understand .module-record:target { border-top-color: var(--acid); }
+.understand .module-record .card-label { margin-bottom: 0.4rem; }
+.understand .module-record header > code { display: inline-block; margin-top: 0.4rem; color: var(--violet); overflow-wrap: anywhere; }
+.understand .module-record .module-purpose { margin-top: 0.75rem; color: var(--ink); }
+.understand .module-record dl { margin: 1rem 0 0; font-size: 0.88rem; }
+.understand .module-record dl > div { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 0.5rem 1.25rem; }
+.understand .module-record dl > div + div { margin-top: 0.75rem; }
+.understand .module-record dt { color: var(--muted); }
+.understand .module-record dd { min-width: 0; }
+.understand .module-record ul { margin: 0; padding-left: 1.15rem; }
+.understand .module-record li + li { margin-top: 0.4rem; }
+.understand .module-utilities { margin-top: 1.5rem; color: var(--muted); font-size: 0.85rem; }
+.understand .module-utilities p + p { margin-top: 0.75rem; }
+
+@media (max-width: 1050px) {
+  .understand .module-workflow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 
 @media (max-width: 860px) {
   .understand .three-columns { grid-template-columns: minmax(0, 1fr); }
@@ -65,4 +97,9 @@
   .understand .explain-callout { padding-inline: 1rem; }
   .understand .question-trace { font-size: 0.8rem; }
   .understand .guide-nav a { font-size: 0.8rem; }
+  .understand .module-workflow { grid-template-columns: minmax(0, 1fr); }
+  .understand .module-workflow > li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 0.75rem; }
+  .understand .module-workflow h3 { margin-top: 0; }
+  .understand .module-group .details-body { padding-inline: 1.25rem; }
+  .understand .module-record dl > div { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; }
 }

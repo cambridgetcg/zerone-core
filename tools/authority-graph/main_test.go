@@ -24,14 +24,14 @@ func TestReportSucceedsWithDeclaredConflictsVisible(t *testing.T) {
 	if got.Status != "CURRENT_SOURCE_COMPLETELY_CLASSIFIED" {
 		t.Fatalf("status = %q", got.Status)
 	}
-	if got.ManifestSHA256 != canonicalManifestSHA256 || got.SourceAnchorsVerified != 17 {
+	if got.ManifestSHA256 != canonicalManifestSHA256 || got.SourceAnchorsVerified != 18 {
 		t.Fatalf("manifest/source seal not reported: %#v", got)
 	}
 	wantBlockers := expectedBlockerIDs()
 	if !reflect.DeepEqual(got.BlockerIDs, wantBlockers) {
 		t.Fatalf("blockers = %v, want %v", got.BlockerIDs, wantBlockers)
 	}
-	wantConsumers := []string{"alignment", "claiming-pot", "emergency", "gov", "knowledge", "qualification"}
+	wantConsumers := []string{"alignment", "claiming-pot", "emergency", "gov", "knowledge"}
 	if !reflect.DeepEqual(got.DiscoveredCustomStakeConsumers, wantConsumers) {
 		t.Fatalf("custom staking consumers = %v, want %v", got.DiscoveredCustomStakeConsumers, wantConsumers)
 	}

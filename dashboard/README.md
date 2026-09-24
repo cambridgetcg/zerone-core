@@ -10,7 +10,8 @@ authority observatory.
 
 `/understand/` introduces the purpose, an explicitly fictional contribution,
 participant roles, money and authority, publication choices, and current
-participation paths. Native disclosures keep the example usable without
+participation paths. Its module section connects the research workflow to each
+registered component's current purpose, state and dependencies. Native disclosures keep the example usable without
 JavaScript; the page has no application script, wallet, input form or API call.
 The existing research surfaces remain linked from its optional research index.
 
@@ -216,6 +217,13 @@ development. Production uses the Pages Functions in `functions/api/` so the
 HTTPS dashboard never makes mixed-content requests to the HTTP-only node.
 
 ## Node and agent participation guide
+
+`/understand/#modules` explains every registered module and follows the local
+record → claim → review → correction → funding path. `module-guide.json` is the
+shared explanatory catalog for its HTML and existing `/understand/guide.json`;
+`app/module_guide_test.go` checks coverage against the constructed application.
+Module registration is source information, not a live availability check. Keep
+current responsibilities separate from the future consolidation plan.
 
 `/research/review/` opens either a `zerone-research-export/v1` journal (8 MiB)
 or a `zerone-research-workflow/v1` packet (16 MiB) through one local file input.

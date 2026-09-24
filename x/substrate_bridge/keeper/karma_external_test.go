@@ -34,14 +34,6 @@ func (s *stubKarmaKnowledgeKeeper) GetFact(ctx context.Context, factID string) (
 	return f, ok
 }
 
-func (s *stubKarmaKnowledgeKeeper) GetClaim(ctx context.Context, claimID string) (*knowledgetypes.Claim, bool) {
-	return nil, false
-}
-
-func (s *stubKarmaKnowledgeKeeper) SetClaim(ctx context.Context, claim *knowledgetypes.Claim) error {
-	return nil
-}
-
 // setupKarmaExternalKeeper mirrors setupSubstrateBridgeKeeperFull but also
 // wires a stub knowledge keeper — the EXTERNAL_CITE path resolves cited
 // facts through it.
@@ -60,7 +52,7 @@ func setupKarmaExternalKeeper(t *testing.T, kk *stubKarmaKnowledgeKeeper) (keepe
 	types.RegisterInterfaces(registry)
 	cdc := codec.NewProtoCodec(registry)
 
-	k := keeper.NewKeeper(cdc, storeKey, "authority-addr", kk, nil, &stubBankKeeper{}, nil, &stubVestingKeeper{})
+	k := keeper.NewKeeper(cdc, storeKey, "authority-addr", kk, nil, &stubBankKeeper{}, &stubVestingKeeper{})
 
 	ctx := sdk.NewContext(cms, cmtproto.Header{Height: 1}, false, log.NewNopLogger())
 

@@ -2,7 +2,7 @@
 
 Status: **static source observatory; target gate intentionally closed**
 
-Date: 2026-08-11; source pins revised 2026-09-11 (manifest 1.0.5)
+Date: 2026-08-11; source map revised 2026-09-24 (manifest 1.0.7)
 
 Canonical machine artifact:
 `dashboard/public/standards/authority-geometry.v1.json`
@@ -142,7 +142,7 @@ The v1 artifact refuses to hide seven current-source findings:
    research-fund restriction is defined but not installed.
 6. Emergency, custom governance, and knowledge retain overlapping incident or
    pause authority.
-7. Knowledge, governance, qualification, emergency, alignment, and claiming
+7. Knowledge, governance, emergency, alignment, and claiming
    pot still consume custom staking authority.
 
 These are source findings, not claims that every path was exercised on the
@@ -188,10 +188,12 @@ influence merely to make a path disappear. The checker independently computes
 target reachability and requires the declared path count to remain zero.
 
 The current graph deliberately shows forbidden economic paths. This is why
-bonded wealth affecting SDK governance and custom stake affecting custom
-governance, qualification, knowledge selection, knowledge-triggered slashing,
-emergency authority, alignment signals, and claiming-pot eligibility remain
-visible in the observatory.
+bonded wealth affecting SDK governance, bank-funded qualification stake, and
+custom stake affecting custom governance, knowledge selection,
+knowledge-triggered slashing, emergency authority, alignment signals and
+claiming-pot eligibility remain visible in the observatory. Qualification
+escrows its own stake through bank; its removed custom-staking adapter had no
+runtime consumer.
 
 ## 8. Source-anchor verification
 
@@ -206,13 +208,14 @@ caller-supplied repository root. They reject:
 - present forbidden snippets; and
 - an anchor ID referenced by no graph fact.
 
-The seventeen v1 anchors cover the authoritative design, application keeper wiring,
+The eighteen v1 anchors cover the authoritative design, application keeper wiring,
 custom-governance terminal/dispatch ordering, custom research spending,
 knowledge fact and domain writers, knowledge pause writing, ontology domain
 writing, the defined research-fund restriction, custom-stake emergency power,
 the slash-capable knowledge staking adapter and its verdict callsites,
 alignment and claiming-pot custom-stake adapters and callsites, and both the
-application wrapper and keeper writer for the custom-governance emergency hold.
+application wrapper and keeper writer for the custom-governance emergency hold,
+plus qualification's bank-backed stake pathway.
 
 Static inspection has limits. It does not prove dynamic call reachability,
 database contents, bank solvency, a running binary's identity, or the absence

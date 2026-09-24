@@ -22,7 +22,6 @@ type Keeper struct {
 	authority    string
 
 	bankKeeper             types.BankKeeper
-	stakingKeeper          types.StakingKeeper
 	captureDefenseKeeper   types.CaptureDefenseKeeper // nil-safe, set post-init
 	ontologyKeeper         types.OntologyKeeper       // nil-safe, set post-init
 	reviewNeutralityPolicy func(context.Context) (bool, error)
@@ -34,14 +33,12 @@ func NewKeeper(
 	cdc codec.BinaryCodec,
 	authority string,
 	bk types.BankKeeper,
-	sk types.StakingKeeper,
 ) Keeper {
 	return Keeper{
-		storeService:  storeService,
-		cdc:           cdc,
-		authority:     authority,
-		bankKeeper:    bk,
-		stakingKeeper: sk,
+		storeService: storeService,
+		cdc:          cdc,
+		authority:    authority,
+		bankKeeper:   bk,
 	}
 }
 

@@ -30,7 +30,7 @@ func setupGenesisExportKeeper(t *testing.T) (Keeper, sdk.Context) {
 
 	registry := codectypes.NewInterfaceRegistry()
 	bridgetypes.RegisterInterfaces(registry)
-	k := NewKeeper(codec.NewProtoCodec(registry), storeKey, "authority-addr", nil, nil, nil, nil, nil)
+	k := NewKeeper(codec.NewProtoCodec(registry), storeKey, "authority-addr", nil, nil, nil, nil)
 	ctx := sdk.NewContext(cms, cmtproto.Header{Height: 1}, false, log.NewNopLogger())
 	require.NoError(t, k.SetParams(ctx, bridgetypes.DefaultParams()))
 

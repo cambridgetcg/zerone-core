@@ -11,13 +11,10 @@ import (
 )
 
 // KnowledgeKeeper is the subset of x/knowledge.Keeper used by
-// substrate_bridge. CitedFact existence checks use it today. PendingClaim
-// translation is reserved but public submission fails closed before using
-// that path. Implementations: x/knowledge/keeper.Keeper.
+// substrate_bridge for cited-fact validation and attribution.
+// Implementations: x/knowledge/keeper.Keeper.
 type KnowledgeKeeper interface {
 	GetFact(ctx context.Context, factID string) (*knowledgetypes.Fact, bool)
-	GetClaim(ctx context.Context, claimID string) (*knowledgetypes.Claim, bool)
-	SetClaim(ctx context.Context, claim *knowledgetypes.Claim) error
 }
 
 // QualificationKeeper is the subset of x/qualification.Keeper used
@@ -31,11 +28,6 @@ type BankKeeper interface {
 	SendCoinsFromAccountToModule(ctx context.Context, sender sdk.AccAddress, recipientModule string, coins sdk.Coins) error
 	SendCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipient sdk.AccAddress, coins sdk.Coins) error
 	BurnCoins(ctx context.Context, moduleName string, coins sdk.Coins) error
-}
-
-// AccountKeeper materializes the module account for bond escrow.
-type AccountKeeper interface {
-	GetModuleAddress(name string) sdk.AccAddress
 }
 
 // VestingRewardsKeeper is the chain's single cap-gated mint entry point.

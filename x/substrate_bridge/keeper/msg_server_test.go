@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -63,7 +64,7 @@ func TestMsgServer_SubmitExternalAttestation_LinkHashEnforced(t *testing.T) {
 // accepting it would strand the bond in an unresolvable AWAITING state and
 // slash it on timeout.
 func TestMsgServer_SubmitExternalAttestation_PendingClaimsFailClosed(t *testing.T) {
-	k, ctx := setupSubstrateBridgeKeeperWithKnowledge(t)
+	k, ctx, bank, _ := setupSubstrateBridgeKeeperFull(t)
 	require.NoError(t, k.WriteAdapter(ctx, &types.AdapterRegistration{
 		AdapterId: "wiki-v1", Status: types.AdapterStatus_ADAPTER_STATUS_ACTIVE,
 	}))
@@ -74,14 +75,18 @@ func TestMsgServer_SubmitExternalAttestation_PendingClaimsFailClosed(t *testing.
 		Source:        validExternalSource("wiki-v1"),
 	}
 	link.LinkHash = keeper.ComputeLinkHash(link)
+	before := k.ExportGenesis(ctx)
 
 	srv := keeper.NewMsgServerImpl(k)
 	_, err := srv.SubmitExternalAttestation(sdk.WrapSDKContext(ctx), &types.MsgSubmitExternalAttestation{
-		Submitter:   "zrn1sub",
+		Submitter:   testSubmitter("pending-claim-submit"),
 		AdapterId:   "wiki-v1",
 		WorkClassId: "translation",
 		Link:        link,
 		BondUzrn:    "2000000",
 	})
 	require.ErrorIs(t, err, types.ErrPendingClaimsNotSupported)
+	require.Zero(t, bank.deposits, "unsupported pending claims must not escrow a bond")
+	require.True(t, proto.Equal(before, k.ExportGenesis(ctx)),
+		"rejected admission must preserve records, pending indexes, replay state and ID counter")
 }

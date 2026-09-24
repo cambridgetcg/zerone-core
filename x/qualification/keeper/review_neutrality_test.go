@@ -14,7 +14,7 @@ import (
 )
 
 func TestReviewNeutralityFreezesQualificationFeedback(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 	params := k.GetParams(ctx)
 	params.DecayMinSamples = 1
 	params.DecayCheckIntervalBlocks = 1
@@ -52,7 +52,7 @@ func TestReviewNeutralityFreezesQualificationFeedback(t *testing.T) {
 }
 
 func TestReviewNeutralityQualificationPolicyErrorRefusesBeforeEffects(t *testing.T) {
-	k, ctx, _, _ := setupKeeper(t)
+	k, ctx, _ := setupKeeper(t)
 	k.SetQualification(ctx, &types.DomainQualification{Validator: testAddr("old"), Domain: "physics", Status: types.QualificationStatus_QUALIFICATION_STATUS_ACTIVE, ExpiresAt: 1})
 	before := k.ExportGenesis(ctx)
 	sentinel := errors.New("unreadable review policy")
@@ -69,7 +69,7 @@ func TestReviewNeutralityQualificationPolicyErrorRefusesBeforeEffects(t *testing
 func TestReviewNeutralityPreservesQualificationCustody(t *testing.T) {
 	for _, mode := range []string{"expiry", "withdrawal"} {
 		t.Run(mode, func(t *testing.T) {
-			k, ctx, bank, _ := setupKeeper(t)
+			k, ctx, bank := setupKeeper(t)
 			validator := testAddr(mode)
 			bank.setBalance(validator, "uzrn", 200_000_000)
 			require.NoError(t, k.QualifyByStake(ctx, validator, "physics", "100000000"))

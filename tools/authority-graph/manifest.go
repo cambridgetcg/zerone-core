@@ -16,7 +16,7 @@ const (
 	manifestPath            = "dashboard/public/standards/authority-geometry.v1.json"
 	manifestSchema          = "zerone.authority-geometry/v1"
 	checkerSchema           = "zerone.authority-graph-check/v1"
-	canonicalManifestSHA256 = "56836efc54a222cbf3383c7829ffe014f476be6d052c80f7b288fd05bd952ddc"
+	canonicalManifestSHA256 = "7d9a802de87ae4544109b344b418508b33f7544b704defc7ab5f491118605c38"
 	canonicalDesignSHA256   = "1ec84986d2e14b8f938e76d5187266c3e23a6881818d59bbba420ba663f5176a"
 )
 
@@ -239,7 +239,7 @@ var expectedAnchors = []expectedAnchor{
 			"app.ZeroneOntologyKeeper = zeroneontologykeeper.NewKeeper(",
 			"app.KnowledgeKeeper = zeroneknowledgekeeper.NewKeeper(",
 			"stakingAdapter := zeronestakingkeeper.NewStakingKeeperAdapter(app.ZeroneStakingKeeper)",
-			"qualificationStakingAdapter := zeronestakingkeeper.NewQualificationStakingKeeperAdapter(app.ZeroneStakingKeeper)",
+			"app.QualificationKeeper = zeronequalificationkeeper.NewKeeper(",
 			"emergencyStakingAdapter := zeronestakingkeeper.NewEmergencyStakingAdapter(app.ZeroneStakingKeeper)",
 			"alignmentStakingAdapter := zeronestakingkeeper.NewAlignmentStakingAdapter(app.ZeroneStakingKeeper)",
 			"cpotStakingAdapter := zeronestakingkeeper.NewClaimingPotStakingAdapter(app.ZeroneStakingKeeper)",
@@ -396,6 +396,17 @@ var expectedAnchors = []expectedAnchor{
 		},
 		Forbidden: []string{},
 	},
+	{
+		ID:   "qualification-stake-pathway",
+		Path: "x/qualification/keeper/pathways.go",
+		Required: []string{
+			"func (k Keeper) QualifyByStake(ctx context.Context, validator string, domain string, stakeAmount string) error",
+			"k.bankKeeper.SendCoinsFromAccountToModule(ctx, senderAddr, types.ModuleName, coins)",
+			"Pathway:      types.QualificationPathway_QUALIFICATION_PATHWAY_STAKE",
+			"StakedAmount: stakeAmount",
+		},
+		Forbidden: []string{},
+	},
 }
 
 type expectedCapability struct {
@@ -464,7 +475,7 @@ var expectedCurrentEdges = []expectedEdge{
 	{"current-custom-stake-to-custom-policy", "custom-staking", "custom-gov", "SUPPLIES_LIP_VOTING_POWER", "ECONOMIC_INFLUENCE", []string{"app-wiring", "custom-gov-resolution"}},
 	{"current-custom-stake-to-knowledge", "custom-staking", "knowledge", "SUPPLIES_SELECTION_INPUTS", "EPISTEMIC_INFLUENCE", []string{"app-wiring", "knowledge-staking-adapter"}},
 	{"current-knowledge-to-custom-stake-slash", "knowledge", "custom-staking", "EXECUTES_VERIFIER_SLASH_AND_COIN_ROUTE", "VALUE_WRITE", []string{"app-wiring", "knowledge-staking-adapter", "knowledge-slash-callsites"}},
-	{"current-custom-stake-to-qualification", "custom-staking", "qualification", "GRANTS_STAKE_PATHWAY", "EPISTEMIC_INFLUENCE", []string{"app-wiring"}},
+	{"current-liquid-to-qualification", "bank-balance", "qualification", "GRANTS_STAKE_PATHWAY", "EPISTEMIC_INFLUENCE", []string{"app-wiring", "qualification-stake-pathway"}},
 	{"current-custom-stake-to-emergency", "custom-staking", "emergency", "SUPPLIES_GUARDIAN_POWER", "CONTROL_INFLUENCE", []string{"app-wiring", "custom-emergency-electorate"}},
 	{"current-custom-stake-to-alignment", "custom-staking", "alignment", "SUPPLIES_ALIGNMENT_HEALTH_INPUTS", "SYSTEM_SIGNAL_INFLUENCE", []string{"app-wiring", "alignment-staking-adapter", "alignment-staking-callsites"}},
 	{"current-custom-stake-to-claiming-pot", "custom-staking", "claiming-pot", "GATES_CLAIM_ELIGIBILITY", "VALUE_INFLUENCE", []string{"app-wiring", "claiming-pot-staking-adapter", "claiming-pot-staking-callsite"}},
@@ -516,7 +527,7 @@ var expectedFindings = []expectedFinding{
 	{"direct-fact-adoption", "DIRECT_FACT_ADOPTION", []string{"sdk-gov", "knowledge"}, []string{"knowledge-writers", "app-wiring"}},
 	{"legacy-research-disbursement", "RESEARCH_DISBURSEMENT", []string{"custom-gov", "vesting-rewards"}, []string{"custom-research-spend", "research-router-restriction", "app-wiring"}},
 	{"alternate-quarantine-surfaces", "QUARANTINE_PAUSE", []string{"emergency", "custom-gov", "knowledge"}, []string{"custom-emergency-electorate", "custom-gov-quarantine-wrapper", "custom-gov-emergency-hold-writer", "knowledge-pause-writer", "app-wiring"}},
-	{"custom-staking-runtime-consumers", "CUSTOM_STAKING_RUNTIME", []string{"custom-staking", "custom-gov", "knowledge", "qualification", "emergency", "alignment", "claiming-pot"}, []string{"app-wiring", "knowledge-staking-adapter", "knowledge-slash-callsites", "alignment-staking-adapter", "alignment-staking-callsites", "claiming-pot-staking-adapter", "claiming-pot-staking-callsite"}},
+	{"custom-staking-runtime-consumers", "CUSTOM_STAKING_RUNTIME", []string{"custom-staking", "custom-gov", "knowledge", "emergency", "alignment", "claiming-pot"}, []string{"app-wiring", "knowledge-staking-adapter", "knowledge-slash-callsites", "alignment-staking-adapter", "alignment-staking-callsites", "claiming-pot-staking-adapter", "claiming-pot-staking-callsite"}},
 }
 
 var expectedSurfaces = []surfaceCheck{
@@ -621,10 +632,10 @@ func validateManifest(m manifest, issues *issueSet) {
 	if m.Schema != manifestSchema {
 		issues.add("MANIFEST_SCHEMA_INVALID", "schema must be zerone.authority-geometry/v1")
 	}
-	if m.Revision != "1.0.6" {
-		issues.add("MANIFEST_REVISION_INVALID", "revision must be 1.0.6")
+	if m.Revision != "1.0.7" {
+		issues.add("MANIFEST_REVISION_INVALID", "revision must be 1.0.7")
 	}
-	if m.SnapshotDate != "2026-09-13" {
+	if m.SnapshotDate != "2026-09-24" {
 		issues.add("MANIFEST_SNAPSHOT_INVALID", "snapshotDate must match the reviewed current-source binding date")
 	}
 	if m.Status != "SOURCE_OBSERVATORY_ONLY" {
@@ -958,7 +969,7 @@ func hasDirectedInfluencePath(adjacency map[string][]string, source, target stri
 
 func validateAnchorDeclarations(anchors []sourceAnchor, edges []authorityEdge, findings []currentFinding, issues *issueSet) {
 	if len(anchors) != len(expectedAnchors) {
-		issues.add("SOURCE_ANCHOR_SET_INVALID", "exactly seventeen ordered source anchors are required")
+		issues.add("SOURCE_ANCHOR_SET_INVALID", "exactly eighteen ordered source anchors are required")
 	}
 	used := make(map[string]bool)
 	for _, edge := range edges {

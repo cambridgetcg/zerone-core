@@ -12,11 +12,6 @@ type BankKeeper interface {
 	SendCoinsFromModuleToAccount(ctx context.Context, senderModule string, recipientAddr sdk.AccAddress, amt sdk.Coins) error
 }
 
-// StakingKeeper defines the expected staking interface for validator checks.
-type StakingKeeper interface {
-	IsValidator(ctx context.Context, addr string) bool
-}
-
 // DomainReputation is the reputation data returned by CaptureDefenseKeeper.
 type DomainReputation struct {
 	Score      uint64
@@ -24,7 +19,8 @@ type DomainReputation struct {
 }
 
 // CaptureDefenseKeeper defines the expected capture defense module interface.
-// This module does not exist yet — the keeper field is nil-safe.
+// The module exists, but this direct input is not wired in the application.
+// The keeper field remains nil-safe for the retained legacy pathway.
 type CaptureDefenseKeeper interface {
 	GetDomainReputation(ctx context.Context, validator string, domain string) (*DomainReputation, bool)
 }

@@ -1,4 +1,5 @@
 import type { NodeGuideProfile } from "./node-guide-profile";
+import { buildModuleGuide } from "./module-guide";
 
 const REPOSITORY = "https://github.com/cambridgetcg/zerone-core";
 const EVIDENCE_COMMIT = "60e813c368123bbefb67148d5b04f0ce6806b6a6";
@@ -12,6 +13,7 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
     throw new Error("Understand guide requires an exact source commit");
   }
   const observer = nodeGuide.live.replicaInstallation.release;
+  const source = (path: string) => `${REPOSITORY}/blob/${commit}/${path}`;
   return {
     schema: "zerone.understand/v1",
     documentation: {
@@ -53,7 +55,7 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
           { title: "A record others can examine", text: "The intended record keeps claims, their reasoning and references, and what later challenges or corrections changed. Recording a proposition does not make it true." },
           { title: "Something another agent can use", text: "An agent could inspect how an answer was reached, test a counterexample, or choose material for its own work. The intended training resource is a graph with history; source capabilities and live access still differ." },
         ],
-        link: { label: "Read the purpose and source commitments", url: evidence("README.md") },
+        link: { label: "Read the purpose and source commitments", url: source("README.md") },
       },
       {
         id: "example", nav: "One example", title: "Follow a small claim.",
@@ -91,7 +93,7 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
         ],
         commitments: "Cryptographic commitments make changes to preserved history detectable. They do not establish the truth of a claim, independent ownership of a key, or the quality of a review.",
         liveBoundary: `${nodeGuide.live.trust} The disclosed operator retains the ability to halt or reset the legacy network.`,
-        link: { label: "Read the authority model and its current limits", url: evidence("docs/AUTHORITATIVE-STATE.md") },
+        link: { label: "Read the authority model and its current limits", url: source("docs/AUTHORITATIVE-STATE.md") },
       },
       {
         id: "money", nav: "Money & recognition", title: "Separate the record from the payment.",
@@ -111,7 +113,7 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
           limit: "Those equal amounts do not make the schedules fee refunds or completed payouts. The study separates committed records from archive-event observations; it does not independently authenticate every historical payment. These are dated findings, not a current price or reward offer.",
           link: { label: "Inspect the settlement study", url: evidence("docs/reports/knowledge-settlement-history-2026-09-09.md") },
         },
-        link: { label: "Read the money–KARMA constitution", url: evidence("docs/constitution/MONEY-KARMA.md") },
+        link: { label: "Read the money–KARMA constitution", url: source("docs/constitution/MONEY-KARMA.md") },
       },
       {
         id: "publication", nav: "Your choices", title: "Choose what you make public.",
@@ -143,6 +145,7 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
         design: "The research library contains source capabilities, proposed structures and analogies. Their publication does not make them a deployed service. Read each item’s status before building on it.",
       },
     ],
+    modules: buildModuleGuide(commit),
     evidence: {
       title: "Check the evidence. Keep its date.",
       intro: "A useful record says what was observed, at which height or source revision, and what the check cannot establish.",
@@ -159,6 +162,7 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
     research: {
       title: "Research library · go deeper when you have a question",
       links: [
+        { label: "Work on a record, claim or review", url: "https://zerone.ai/research/review/" },
         { label: "Inspect the knowledge graph", url: "https://zerone.ai/#understanding" },
         { label: "Explore the research reading path", url: "https://zerone.ai/research/#reading-path" },
         { label: "Relations · distinct nodes and their connections", url: "https://zerone.ai/research/#relations" },
@@ -184,6 +188,22 @@ const link = (item: Link) => `<a href="${escape(item.url)}">${escape(item.label)
 const cards = (items: readonly { readonly title: string; readonly text: string }[]) => items.map((item) => `<article class="explain-card"><h3>${escape(item.title)}</h3><p>${escape(item.text)}</p></article>`).join("");
 const heading = (section: { readonly id: string; readonly title: string; readonly question: string; readonly intro: string }, number: number) => `<div class="section-intro"><div><p class="eyebrow">${String(number).padStart(2, "0")} · ${escape(section.question)}</p><h2 id="${escape(section.id)}-title">${escape(section.title)}</h2></div><p>${escape(section.intro)}</p></div>`;
 
+const moduleAnchor = (id: string) => `module-${id}`;
+function moduleSection(guide: UnderstandGuide["modules"]): string {
+  const moduleLink = (id: string) => `<a href="#${escape(moduleAnchor(id))}"><code>${escape(id)}</code></a>`;
+  return `<section class="guide-section module-section" id="modules" aria-labelledby="modules-title">
+    <div class="section-intro"><div><p class="eyebrow">Modules &amp; workflow</p><h2 id="modules-title">${escape(guide.title)}</h2></div><p>${escape(guide.intro)}</p></div>
+    <ol class="module-workflow" aria-label="Research workflow">${guide.workflow.map((step, index) => `<li id="workflow-${escape(step.id)}"><span class="step-number" aria-hidden="true">${String(index + 1).padStart(2, "0")}</span><div><h3>${escape(step.title)}</h3><p>${escape(step.text)}</p>${step.moduleIds.length ? `<p class="module-references">Modules: ${step.moduleIds.map(moduleLink).join(" · ")}</p>` : ""}<div class="related-links">${link(step.link)}</div></div></li>`).join("")}</ol>
+    <div class="module-boundaries">${guide.boundaries.map((boundary) => `<p><strong>${escape(boundary.title)}</strong> ${escape(boundary.text)}</p>`).join("")}</div>
+    <div class="related-links module-registration">${link(guide.registration)}</div>
+    <div class="module-groups">${guide.groups.map((group) => {
+      const modules = guide.modules.filter((module) => module.group === group.id);
+      return `<details class="explain-details module-group" id="module-group-${escape(group.id)}"><summary>${escape(group.title)} <span class="module-count">${modules.length} modules</span></summary><div class="details-body"><p class="module-group-intro">${escape(group.intro)}</p>${modules.map((module) => `<article class="module-record" id="${escape(moduleAnchor(module.id))}" tabindex="-1" aria-labelledby="${escape(moduleAnchor(module.id))}-title"><header><p class="card-label">${module.family === "custom" ? "Zerone module" : "SDK / IBC module"}</p><h3 id="${escape(moduleAnchor(module.id))}-title">${escape(module.label)}</h3><code>${escape(module.id)}</code></header><p class="module-purpose">${escape(module.purpose)}</p><dl><div><dt>State &amp; effects</dt><dd>${escape(module.owns)}</dd></div>${module.connections.length ? `<div><dt>Connections</dt><dd><ul>${module.connections.map((connection) => `<li>${moduleLink(connection.module)} — ${escape(connection.why)}</li>`).join("")}</ul></dd></div>` : ""}<div><dt>Boundary</dt><dd>${escape(module.boundary)}</dd></div></dl><div class="related-links">${link(module.source)}</div></article>`).join("")}</div></details>`;
+    }).join("")}</div>
+    <div class="module-utilities">${guide.sharedUtilities.map((utility) => `<p><strong>${escape(utility.label)}</strong> ${escape(utility.text)} ${link(utility.source)}</p>`).join("")}</div>
+  </section>`;
+}
+
 /** Complete HTML: native links/details remain usable with JavaScript disabled. */
 export function understandPage(guide: UnderstandGuide): string {
   const [purpose, example, roles, money, publication, today] = guide.sections;
@@ -202,13 +222,14 @@ export function understandPage(guide: UnderstandGuide): string {
   <header class="guide-header page-width"><a class="guide-brand" href="/" aria-label="Zerone home"><span class="brand-symbol" aria-hidden="true">◇</span><span>ZERONE</span></a><span class="guide-label">Understand</span><a class="button button-outline header-back" href="${nodes}">Run a node <span aria-hidden="true">↗</span></a></header>
   <main id="main-content" class="page-width">
     <section class="guide-hero" aria-labelledby="guide-title"><div class="hero-copy"><p class="eyebrow">${escape(guide.intro.eyebrow)}</p><h1 id="guide-title">${escape(guide.intro.title)}</h1><p class="lede">${escape(guide.intro.lede)}</p><p class="hero-note">${escape(guide.intro.note)}</p><div class="hero-actions"><a class="button button-acid" href="#example">Follow one example <span aria-hidden="true">↓</span></a><a class="text-link" href="#today">Find a first step <span aria-hidden="true">↓</span></a></div></div><aside class="question-card"><p class="card-label">${escape(guide.intro.invitation)}</p><p>${escape(guide.intro.invitationText)}</p><span aria-hidden="true" class="question-trace">idea → test → revision</span></aside></section>
-    <nav class="guide-nav" aria-label="Explanation sections">${guide.sections.map((s, i) => `<a href="#${escape(s.id)}"><span>${String(i + 1).padStart(2, "0")}</span>${escape(s.nav)}</a>`).join("")}</nav>
+    <nav class="guide-nav" aria-label="Explanation sections">${guide.sections.map((s, i) => `<a href="#${escape(s.id)}"><span>${String(i + 1).padStart(2, "0")}</span>${escape(s.nav)}</a>`).join("")}<a href="#modules">Modules &amp; workflow</a></nav>
     <section class="guide-section" id="purpose" aria-labelledby="purpose-title">${heading(purpose, 1)}<div class="explain-grid three-columns">${cards(purpose.cards)}</div><div class="related-links">${link(purpose.link)}</div></section>
     <section class="guide-section" id="example" aria-labelledby="example-title">${heading(example, 2)}<p class="example-label">Illustrative example · no live submission</p><ol class="claim-walkthrough" role="list">${example.steps.map((step, i) => `<li><span class="step-number" aria-hidden="true">${String(i + 1).padStart(2, "0")}</span><div><h3>${escape(step.title)}</h3><p>${escape(step.text)}</p>${i === 2 ? `<details class="explain-details" id="example-counterexample"><summary>${escape(example.counterexample.title)}</summary><div class="details-body"><code class="example-input">${escape(example.counterexample.input)}</code><p>${escape(example.counterexample.explanation)}</p><p>${escape(example.counterexample.revision)}</p></div></details>` : ""}</div></li>`).join("")}</ol><p class="scope-note">${escape(example.boundary)}</p></section>
     <section class="guide-section" id="roles" aria-labelledby="roles-title">${heading(roles, 3)}<div class="explain-grid">${cards(roles.roles)}</div><div class="explain-callout"><p>${escape(roles.commitments)}</p><p>${escape(roles.liveBoundary)}</p></div><div class="related-links">${link(roles.link)}</div></section>
     <section class="guide-section" id="money" aria-labelledby="money-title">${heading(money, 4)}<div class="explain-grid three-columns">${cards(money.rows)}</div><p class="scope-note">${escape(money.governance)}</p><details class="explain-details" id="money-history"><summary>${escape(money.history.title)}</summary><div class="details-body"><p class="card-label">${escape(money.history.date)} · application height ${escape(money.history.applicationHeight)}</p><p>${escape(money.history.text)}</p><p>${escape(money.history.limit)}</p><div class="related-links">${link(money.history.link)}</div></div></details><div class="related-links">${link(money.link)}</div></section>
     <section class="guide-section" id="publication" aria-labelledby="publication-title">${heading(publication, 5)}<div class="explain-grid three-columns">${cards(publication.choices)}</div><div class="related-links">${link(publication.link)}</div></section>
     <section class="guide-section" id="today" aria-labelledby="today-title">${heading(today, 6)}<div class="availability-grid">${today.rows.map((row) => `<article class="explain-card"><p class="card-label" data-availability="${escape(row.availability)}">${escape(row.availability.replaceAll("-", " "))}</p><h3>${escape(row.title)}</h3><p>${escape(row.text)}</p>${"note" in row ? `<p>${escape(row.note)}</p>` : ""}<div class="related-links">${link(row.link)}</div></article>`).join("")}</div><div class="contribution-list">${today.contributions.map((row) => `<p><a href="${escape(row.url)}">${escape(row.title)} <span aria-hidden="true">↗</span></a><span>${escape(row.text)}</span></p>`).join("")}</div><p class="scope-note">${escape(today.design)}</p></section>
+    ${moduleSection(guide.modules)}
     <section class="guide-section evidence-section" id="evidence" aria-labelledby="evidence-title"><div><p class="eyebrow">Evidence &amp; further reading</p><h2 id="evidence-title">${escape(guide.evidence.title)}</h2><p>${escape(guide.evidence.intro)}</p></div><div><ul class="evidence-links" role="list">${guide.evidence.links.map((item) => `<li>${link(item)}</li>`).join("")}</ul><details class="explain-details" id="research"><summary>${escape(guide.research.title)}</summary><div class="details-body"><ul class="evidence-links" role="list">${guide.research.links.map((item) => `<li>${link(item)}</li>`).join("")}</ul></div></details></div></section>
     <div class="explanation-source"><p>${escape(guide.source.scope)}</p><p>${escape(guide.evidence.sourceLabel)}: <a href="${escape(guide.source.url)}"><code>${escape(guide.source.commit)}</code></a></p><a href="/understand/guide.json">${escape(guide.evidence.metadataLabel)} ↗</a></div>
   </main><footer class="guide-footer page-width"><a class="guide-brand" href="/">ZERONE</a><p>${escape(guide.footer)}</p><a href="#guide-title">Back to top ↑</a></footer>

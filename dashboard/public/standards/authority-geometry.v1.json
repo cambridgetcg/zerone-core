@@ -1,7 +1,7 @@
 {
   "schema": "zerone.authority-geometry/v1",
-  "revision": "1.0.6",
-  "snapshotDate": "2026-09-13",
+  "revision": "1.0.7",
+  "snapshotDate": "2026-09-24",
   "status": "SOURCE_OBSERVATORY_ONLY",
   "title": "Authority Geometry",
   "summary": "A source-pinned map of Zerone authority, influence, challenge, repair, and exit. It reports the current split honestly and describes the accepted target without claiming that H4 or H5 is implemented or live.",
@@ -394,15 +394,15 @@
       }
     },
     {
-      "id": "current-custom-stake-to-qualification",
-      "from": "custom-staking",
+      "id": "current-liquid-to-qualification",
+      "from": "bank-balance",
       "to": "qualification",
       "relationship": "GRANTS_STAKE_PATHWAY",
       "scope": "CURRENT_SOURCE",
       "effect": "EPISTEMIC_INFLUENCE",
-      "evidence": ["app-wiring"],
+      "evidence": ["app-wiring", "qualification-stake-pathway"],
       "protections": {
-        "consentBoundary": "UNAVAILABLE: the legacy stake pathway conflates locked value with competence evidence.",
+        "consentBoundary": "The caller locks bank-held uzrn directly in qualification escrow; the legacy stake pathway still grants qualification from locked value rather than competence evidence.",
         "challengeRoute": "Legacy records remain history and must not become active target qualification without independent evidence.",
         "repairRoute": "Retire MsgQualifyByStake and require replay-protected evidence under a versioned policy.",
         "exitRoute": "Refund or claimant-bound legacy qualification claim, independently of competence status."
@@ -739,7 +739,7 @@
     {
       "id": "app-wiring",
       "path": "app/app.go",
-      "sha256": "4fdbe23b1b6c1e7d2b77eee8bb22becb712c69463c877309af62e093d3780aa6",
+      "sha256": "fddeafab3cb93425333552fe9ef639beb2fd1b6f7650c92530009922cbb3aacc",
       "requiredSnippets": [
         "app.StakingKeeper = stakingkeeper.NewKeeper(",
         "app.GovKeeper = govkeeper.NewKeeper(",
@@ -749,7 +749,7 @@
         "app.ZeroneOntologyKeeper = zeroneontologykeeper.NewKeeper(",
         "app.KnowledgeKeeper = zeroneknowledgekeeper.NewKeeper(",
         "stakingAdapter := zeronestakingkeeper.NewStakingKeeperAdapter(app.ZeroneStakingKeeper)",
-        "qualificationStakingAdapter := zeronestakingkeeper.NewQualificationStakingKeeperAdapter(app.ZeroneStakingKeeper)",
+        "app.QualificationKeeper = zeronequalificationkeeper.NewKeeper(",
         "emergencyStakingAdapter := zeronestakingkeeper.NewEmergencyStakingAdapter(app.ZeroneStakingKeeper)",
         "alignmentStakingAdapter := zeronestakingkeeper.NewAlignmentStakingAdapter(app.ZeroneStakingKeeper)",
         "cpotStakingAdapter := zeronestakingkeeper.NewClaimingPotStakingAdapter(app.ZeroneStakingKeeper)"
@@ -922,6 +922,18 @@
         "func (k Keeper) EnsureEmergencyTransitionHold("
       ],
       "forbiddenSnippets": []
+    },
+    {
+      "id": "qualification-stake-pathway",
+      "path": "x/qualification/keeper/pathways.go",
+      "sha256": "a039382feaa7da5e3e663f6f603252ce0a401031a2a7301b686bcdfa65f660c8",
+      "requiredSnippets": [
+        "func (k Keeper) QualifyByStake(ctx context.Context, validator string, domain string, stakeAmount string) error",
+        "k.bankKeeper.SendCoinsFromAccountToModule(ctx, senderAddr, types.ModuleName, coins)",
+        "Pathway:      types.QualificationPathway_QUALIFICATION_PATHWAY_STAKE",
+        "StakedAmount: stakeAmount"
+      ],
+      "forbiddenSnippets": []
     }
   ],
   "currentFindings": [
@@ -975,10 +987,10 @@
     },
     {
       "id": "custom-staking-runtime-consumers",
-      "label": "Knowledge, governance, qualification, emergency, alignment, and claiming-pot still consume custom staking authority",
+      "label": "Knowledge, governance, emergency, alignment, and claiming-pot still consume custom staking authority",
       "status": "OPEN",
       "releaseSurface": "CUSTOM_STAKING_RUNTIME",
-      "nodes": ["custom-staking", "custom-gov", "knowledge", "qualification", "emergency", "alignment", "claiming-pot"],
+      "nodes": ["custom-staking", "custom-gov", "knowledge", "emergency", "alignment", "claiming-pot"],
       "evidence": ["app-wiring", "knowledge-staking-adapter", "knowledge-slash-callsites", "alignment-staking-adapter", "alignment-staking-callsites", "claiming-pot-staking-adapter", "claiming-pot-staking-callsite"]
     }
   ],

@@ -98,28 +98,16 @@ The table accounts for all of them; it is not a count of active live services.
 `x/common` supplies shared types and `x/witness` is not another registered
 module. SDK/IBC modules are additional dependencies.
 
-| Custom modules | Direction | Concrete boundary and dependency |
-| --- | --- | --- |
-| `knowledge`, `counterexamples` | Keep the scientific record; consolidate overlap | Keep claim/evidence/review/correction data. Separate it from the training market and heuristic machinery in `knowledge/keeper/phases.go`, `training_economics.go` and `model_training*.go`. Counterexample validation feeds a knowledge weighting multiplier through `SetCounterexampleKeeper`; preserving counterevidence does not require preserving that multiplier. |
-| `ontology` | Keep as canonical domain owner | `ontology/keeper/state.go:SetDomain` and `knowledge/keeper/state.go:SetDomain` currently write separate registries. Replace the latter authority with the accepted ontology projection, preserving historical identifiers and conflicts. |
-| `auth` | Consolidate identity responsibilities | Preserve authenticated bindings and records; use the accepted controller/profile boundary instead of copied reputation or self-declared identity as governing authority. SDK accounts still own signing/account sequence semantics. |
-| `staking`, `gov` | Retire duplicate authority after consolidation | SDK staking/gov remain the target owners. Preserve custom delegation, unbonding, proposal and process history; reconcile claims before exit-only or read-only retirement. The September accounting repair is a correctness step, not this retirement. |
-| `qualification` | Consolidate bounded competence evidence | Retain challengeable, domain-scoped assessment where required by the accepted design. Retire wealth-based qualification, inherited authority and parallel custody only after locked claims are resolved. See `qualification/keeper/msg_server.go:QualifyByStake`. |
-| `vesting_rewards` | Keep explicit settlement; shrink policy | Preserve schedules, releases, reserves and authorized custody. Keep automatic block issuance retired in source v2. Do not turn pooled funding labels into invented payees or free funds. |
-| `training_provenance` | Keep a derived read interface | Already a stateless consumer of knowledge, qualification and capture challenges in `app/app.go`. Reuse that shape; it needs no new ledger or service fleet. |
-| `trust_score`, `alignment`, `capture_defense` | Move dispensable analysis outside consensus | `trust_score` is already stateless. `alignment/module.go` applies corrections; capture analysis can open challenges and change downstream rules. Preserve source observations and distinguish them from derived scores; remove effectful consumers through an explicit migration. No person leaderboard replaces them. |
-| `capture_challenge` | Consolidate dispute and custody handling | It consumes capture metrics and can alter qualification/knowledge thresholds. Preserve open cases, bonds, outcomes and refunds before retiring automatic metric-driven authority. Keep evidence-based challenge available. |
-| `tokens`, `liquiditypool` | Retirement candidates outside the minimal core | Wrapping/emissions, LP issuance, pools and oracle/TWAP maintenance need a demonstrated core use to remain. Inventory every asset, pool, pending exit and external dependency first. Native bank balances are not these optional products. |
-| `claiming_pot` | Retire special issuance after reconciliation | Preserve bootstrap/general-pot claims and identify every existing claim before closing admissions or mint paths. Another issuance/admission system is not needed merely to support contributions. |
-| `sponsorship` | Review the need for a separate funded-work ledger | It spends existing sponsor funds rather than minting. Preserve orders, escrows, fulfillment and refunds. Retain a narrow funded arrangement only where the core review funding path does not meet the need. |
-| `home` | Move agent session/notification state to clients where possible | `home/keeper/keeper.go` stores homes, sessions and alerts. Preserve recorded ownership and historical links; determine what any consensus consumer actually needs before removing writes. |
-| `creed`, `work_creed` | Consolidate artifact pins | Keep signed/versioned commitments and their historical references. Avoid separate permanent registries for every class of document; do not silently change a pinned commitment's meaning. |
-| `substrate_bridge` | Keep bounded attestation provenance; review economic extensions | `app/app.go` wires knowledge resolution, qualification, bank and vesting into this module. Preserve attestations, settled records, bonds and pending payouts; speculative issuance or economic policy is a retirement candidate, not the provenance itself. |
-| `emergency` | Keep a narrow recovery boundary | Retain the accepted circuit-breaker/recovery role, with explicit authority and expiry. Do not replace ordinary governance with an operator's catch-all repair path. |
-| `ibcratelimit` | Keep while its transport exists | IBC transfer/ICA are optional to the minimal product, but rate-limit protection cannot be removed while exposed routes depend on it. Assess transport, channels and escrow together. |
+The [shared module-purpose catalog](../dashboard/module-guide.json), rendered
+in [Understand Zerone](https://zerone.ai/understand/#modules), explains every
+registered module's current responsibility and connections. The
+[module consolidation sequence](MODULE-CONSOLIDATION-SEQUENCE.md#disposition-of-all-23-registered-custom-modules)
+keeps the full per-module future disposition and its required custody/migration
+boundary. Keeping current purpose separate from future retirement avoids
+presenting planned ownership as implemented behavior.
 
 The largest coupling is visible in
-[`KnowledgeKeeper`](../x/knowledge/keeper/keeper.go): bank and staking plus eight
+[`KnowledgeKeeper`](../x/knowledge/keeper/keeper.go): bank and staking plus
 post-initialization dependencies. Its
 [`BeginBlocker`](../x/knowledge/keeper/phases.go) advances rounds and survival
 rewards, but also runs fitness, competition, symbiosis, metabolism, bounties,

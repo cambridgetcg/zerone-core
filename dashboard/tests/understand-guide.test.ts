@@ -81,4 +81,48 @@ describe("shared explanatory guide", () => {
       assert.ok(homepage.includes(`id="${id}"`));
     }
   });
+
+  it("renders the same complete module catalog and workflow as the machine guide without JavaScript", () => {
+    const { guide } = build();
+    const html = understandPage(guide);
+    const machine = JSON.parse(JSON.stringify(guide)) as typeof guide;
+    assert.equal(guide.sections.length, 6);
+    assert.ok(html.includes('id="modules"'));
+    assert.ok(html.includes('href="#modules"'));
+    assert.ok(html.includes('href="https://zerone.ai/research/review/"'));
+    assert.doesNotMatch(html, /<(?:script|form|input|textarea|iframe)\b|\son[a-z]+\s*=/iu);
+    for (const group of machine.modules.groups) {
+      assert.ok(html.includes(`<details class="explain-details module-group" id="module-group-${group.id}">`));
+    }
+    for (const module of machine.modules.modules) {
+      assert.equal(html.split(`id="module-${module.id}"`).length - 1, 1, module.id);
+      assert.ok(html.includes(`href="${module.source.url}"`), module.id);
+    }
+    const anchors = new Set([...html.matchAll(/\bid="([^"]+)"/gu)].map((match) => match[1]));
+    for (const step of machine.modules.workflow) {
+      assert.ok(anchors.has(`workflow-${step.id}`));
+      assert.ok(html.includes(`href="${step.link.url}"`));
+    }
+    for (const match of html.matchAll(/href="#(module-[^"]+)"/gu)) {
+      assert.ok(anchors.has(match[1]), `Missing module connection ${match[1]}`);
+    }
+  });
+
+  it("escapes module explanations and distinguishes current-source links from dated evidence", () => {
+    const { guide } = build();
+    const prose = '<img src=x onerror="alert(1)"> & context';
+    const changed = {
+      ...guide,
+      modules: {
+        ...guide.modules,
+        modules: guide.modules.modules.map((module) => ({ ...module, purpose: prose, owns: prose, boundary: prose })),
+      },
+    };
+    const html = understandPage(changed);
+    assert.ok(html.includes("&lt;img src=x onerror=&quot;alert(1)&quot;&gt; &amp; context"));
+    assert.ok(!html.includes(prose));
+    assert.ok(guide.sections[0].link.url.includes(`/blob/${sourceCommit}/README.md`));
+    assert.ok(guide.sections[2].link.url.includes(`/blob/${sourceCommit}/docs/AUTHORITATIVE-STATE.md`));
+    assert.ok(guide.sections[3].history.link.url.includes(`/blob/${guide.source.evidenceCommit}/`));
+  });
 });

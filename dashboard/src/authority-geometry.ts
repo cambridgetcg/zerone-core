@@ -3,7 +3,7 @@
 export const AUTHORITY_GEOMETRY_ENDPOINT =
   "/standards/authority-geometry.v1.json";
 export const AUTHORITY_GEOMETRY_SHA256 =
-  "56836efc54a222cbf3383c7829ffe014f476be6d052c80f7b288fd05bd952ddc";
+  "7d9a802de87ae4544109b344b418508b33f7544b704defc7ab5f491118605c38";
 export const AUTHORITY_GEOMETRY_MAX_BYTES = 65_536;
 export const AUTHORITY_GEOMETRY_TIMEOUT_MS = 8_000;
 
@@ -122,7 +122,7 @@ const EDGE_IDS = [
   "current-custom-stake-to-custom-policy",
   "current-custom-stake-to-knowledge",
   "current-knowledge-to-custom-stake-slash",
-  "current-custom-stake-to-qualification",
+  "current-liquid-to-qualification",
   "current-custom-stake-to-emergency",
   "current-custom-stake-to-alignment",
   "current-custom-stake-to-claiming-pot",
@@ -197,6 +197,7 @@ export const AUTHORITY_GEOMETRY_SOURCE_ANCHOR_IDS = [
   "claiming-pot-staking-callsite",
   "custom-gov-quarantine-wrapper",
   "custom-gov-emergency-hold-writer",
+  "qualification-stake-pathway",
 ] as const;
 
 export const AUTHORITY_GEOMETRY_FINDING_IDS = [
@@ -420,7 +421,7 @@ export interface AuthorityGeometryReleaseAssessmentRecord {
 
 export interface AuthorityGeometry {
   schema: "zerone.authority-geometry/v1";
-  revision: "1.0.6";
+  revision: "1.0.7";
   snapshotDate: string;
   status: "SOURCE_OBSERVATORY_ONLY";
   title: string;
@@ -1265,7 +1266,7 @@ export function parseAuthorityGeometry(value: unknown): AuthorityGeometry {
   const root = asObject(value, "$");
   exactKeys(root, TOP_LEVEL_KEYS, "$");
   requireLiteral(root.schema, "zerone.authority-geometry/v1", "$.schema");
-  requireLiteral(root.revision, "1.0.6", "$.revision");
+  requireLiteral(root.revision, "1.0.7", "$.revision");
   requireLiteral(root.status, "SOURCE_OBSERVATORY_ONLY", "$.status");
 
   const sourceDesignSource = asObject(root.sourceDesign, "$.sourceDesign");
@@ -1511,7 +1512,7 @@ export function parseAuthorityGeometry(value: unknown): AuthorityGeometry {
 
   const geometry: AuthorityGeometry = {
     schema: "zerone.authority-geometry/v1",
-    revision: "1.0.6",
+    revision: "1.0.7",
     snapshotDate: asIsoDate(root.snapshotDate, "$.snapshotDate"),
     status: "SOURCE_OBSERVATORY_ONLY",
     title: asString(root.title, "$.title", 128),
