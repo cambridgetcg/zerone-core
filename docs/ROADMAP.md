@@ -1,8 +1,9 @@
-# Zerone development roadmap
+# Historical Zerone development roadmap
 
-> Current work plan (2026-09-10): [Lean core consolidation](LEAN-CORE-CONSOLIDATION.md).
-> It separates this pass's website trim from proposed protocol retirement.
-> The dated roadmap below is preserved as historical context.
+> For current development, start at [DEVELOPMENT.md](DEVELOPMENT.md), then the
+> [module consolidation sequence](MODULE-CONSOLIDATION-SEQUENCE.md) and
+> [lean-core direction](LEAN-CORE-CONSOLIDATION.md). The dated roadmap below is
+> preserved as historical context, not a current deployment or access claim.
 
 > Status snapshot: 2026-08-01. This is a dependency-ordered roadmap, not a
 > release promise.

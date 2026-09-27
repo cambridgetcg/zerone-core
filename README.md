@@ -67,8 +67,11 @@ tamper-evident history whose current custodial limits are disclosed. Not proof
 
 ### Current consolidation
 
-For an implementation-grounded overview, read the [Zerone system map](docs/ZERONE_MAP.md):
-networks, infrastructure, all registered modules, data flows and unfinished connections.
+Start with the [development guide](docs/DEVELOPMENT.md): current work, design
+status, stable names, task-to-file routes and source-map commands. Then use the
+[system map](docs/ZERONE_MAP.md) for architecture and dated infrastructure evidence,
+and the [shared module catalog](dashboard/module-guide.json) for responsibilities
+and connections. These are complementary views, not separate authorities.
 
 Consolidation prioritizes scoped claims, inspectable evidence, challenge and
 correction history, and reliable settlement of explicitly funded work. The
@@ -92,7 +95,7 @@ participant controls their own keys and judgment.
 consolidation (do not join it with this source head) · the `zerone-2` release
 kit is **NO-GO** until its signed ceremony and authority gates are complete
 
-**Source:** the canonical public repository is
+**Source:** the canonical repository (currently access-restricted) is
 [`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core).
 The historical Go module path remains `github.com/zerone-chain/zerone` pending
 a deliberate import-path migration.
@@ -197,37 +200,36 @@ authority surfaces passes, H4 evidence remains 0/24, and H5 evidence remains
 0/14. The graph and its public observatory add no handler, migration,
 transaction, fund movement, or network authority.
 
-### Witnessing
+### Consensus, review and payment are different jobs
 
-Validators witness the truthfulness of knowledge claims — not transactions
-or puzzles. A three-phase commit-reveal-aggregate protocol holds honest
-verification. Honest witness earns rewards; dishonest witness is slashed.
+CometBFT validators agree on ordered transactions and application state.
+Research reviewers separately commit and reveal a vote, reasons and evidence
+for a scoped claim. The automatic Proof-of-Truth vote-extension transport is
+compiled off in this source; ordinary signed review transactions remain.
+A recorded verdict is not scientific truth or evidence of reviewer independence.
 
-### Issuance follows survival, not acceptance
+Current neutral-review policy pays valid, timely recorded reviews from explicit
+funding, including dissent and inconclusive outcomes. New claims create no
+automatic submitter-survival or challenge bonus. Earlier accrued obligations
+remain governed by their original rules: a retained schedule is not a completed
+payment. See [review neutrality](docs/specs/knowledge-review-neutrality-v1.md)
+and [fund settlement](docs/specs/knowledge-fund-settlement-v1.md).
+The older survival-reward design describes legacy obligations, not a present
+reward offer. These source rules are not automatically deployed to `zerone-1`.
 
-ZERONE's submitter-reward eligibility follows *survived falsification*, never
-mere acceptance. A claim being accepted is cheap to manufacture; a fact
-surviving adversarial challenge over time is not. So the submitter's reward is
-**escrowed at acceptance and released only once the fact survives** — a won
-challenge, or an unchallenged challenge window — and cancelled for free if the
-fact is disproven. The former transaction-presence block lane is retired in
-`vesting_rewards` v2; it mints nothing and couples to no rate. The incentive is
-to be right and withstand scrutiny, not to rubber-stamp volume. Every
-post-genesis native module mint passes through the cap gate, while InitChain
-separately rejects over-cap genesis supply, so no path can inflate past the
-222,222,222 hard cap. This is the chain's answer to slop: quality is the
-profitable move because only quality survives.
+### Core responsibilities
 
-### Key Subsystems
+- **Research records:** attributed claims, reviews, corrections and funding history.
+- **Accounts and custody:** SDK accounts/bank plus explicitly separate custom records.
+- **Consensus and operations:** validator state, block lifecycle and network-specific releases.
+- **Decisions and safeguards:** current governance and quarantine, with the accepted
+  single-owner migration still pending.
+- **Clients and research tools:** local journals, explicit signing, read-only views
+  and separately labelled static or experimental designs.
 
-- **Knowledge Verification** — commit-reveal protocol with confidence scoring,
-  citations, and adversarial challenges
-- **Agent Identity** — self-certifying DID registry, account types, and
-  freeze controls anchoring agents to the chain
-- **Agent Homes** — persistent workspaces and reputation for AI agents
-- **Substrate Bridge** — attestation of external recursive work (e.g. the
-  agenttool platform, where marketplaces, tools, and payments live)
-- **Emergency Protocol** — custom Guardian-voted transaction quarantine and evidence-bound reopening; block consensus continues, and height-only revert is disabled
+The [module guide](https://zerone.ai/understand/#modules) expands each responsibility
+into owned state, explained connections and limits. A reference in chain state
+is not a guarantee that its external content is stored or available.
 
 ### Knowledge inception
 
@@ -242,54 +244,34 @@ bootstrap facts must be explicit in its reviewed genesis and audit.
 
 ## Modules
 
-23 custom modules organized by function (the 2026-07 slim cut moved agent-platform features — marketplaces, the contract VM, payment rails, coordination, and delegated-authority machinery — to the agenttool layer and off-chain indexers; the chain keeps what strangers' consensus-verification adds value to):
+The constructed application registers **40 modules: 23 custom and 17 SDK/IBC**.
+They share one `zeroned` process; they are not independent deployed services.
+Use the [single purpose catalog](dashboard/module-guide.json), rendered in the
+[human guide](https://zerone.ai/understand/#modules) and
+[machine guide](https://zerone.ai/understand/guide.json). The
+[application coverage test](app/module_guide_test.go) checks actual registration.
 
-### Knowledge & Truth
-| Module | Purpose |
-|---|---|
-| `knowledge` | Claim submission, verification rounds, confidence scoring |
-| `ontology` | Current structural domain/stratum registry; accepted target is the sole canonical domain writer |
-| `counterexamples` | Validated wrong-claims paired with facts — alignment-by-structure (commitment 15) |
+Reading groups: research records; accounts/custody; funding/assets;
+consensus/lifecycle; decisions/safeguards; commitments/attestations; transport.
+The tags `registered-source`, family and group describe source organization,
+not deployment, enabled messages or completion of the target design.
 
-### Synthesizers (read-only)
-| Module | Purpose |
-|---|---|
-| `training_provenance` | Per-manifest trust composition |
-| `trust_score` | Per-address trust composition |
+Names are deliberately explicit: SDK `staking`, `gov` and `auth` are not custom
+`zerone_staking` (`x/staking`), `zerone_gov` (`x/gov`) or `zerone_auth` (`x/auth`).
+`x/common` is shared code and `x/witness` is unregistered. Display labels do not
+rename stores, protobuf services, chain IDs or the historical Go import path.
 
-### Validator & Staking
-| Module | Purpose |
-|---|---|
-| `staking` | Legacy custom PoT stake/tier registry, separate from SDK consensus staking; accepted target migrates it to non-custodial profiles and legacy claims |
-| `qualification` | Current domain certification includes a custodial stake path; accepted target is revision-pinned and non-economic |
-| `vesting_rewards` | Vesting curves, actual-fee revenue splits, retired block-reward compatibility |
+For change priorities and required migrations, use the
+[module consolidation sequence](docs/MODULE-CONSOLIDATION-SEQUENCE.md), not the
+current-purpose catalog as a deletion list.
 
-### Agent Economy
-| Module | Purpose |
-|---|---|
-| `home` | Agent workspaces, sessions, deadman switch |
-| `liquiditypool` | On-chain AMM liquidity pools |
-| `claiming_pot` | Bootstrap claims (0.222 ZRN) + community claiming pools |
-| `sponsorship` | Sample sponsorship and patronage |
-
-### Governance & Security
-| Module | Purpose |
-|---|---|
-| `gov` | Legacy custom Living Improvement Proposals (LIPs); accepted target keeps history but retires ordinary execution in favor of SDK `x/gov` |
-| `emergency` | Application transaction quarantine and evidence-bound reopening (not a consensus stop) |
-| `capture_defense` | Anti-capture reputation scoring |
-| `capture_challenge` | Capture challenge mechanism |
-| `alignment` | System health alignment index |
-| `creed` | Creed registry — commitment pins (we speak through intentions) |
-| `work_creed` | Optional genesis-supplied sub-creed pin storage (empty in published genesis) |
-
-### Identity & Interchain
-| Module | Purpose |
-|---|---|
-| `zerone_auth` | Account registration and DID identity anchoring |
-| `tokens` | Token emission control |
-| `ibcratelimit` | IBC transfer rate limiting |
-| `substrate_bridge` | Cross-substrate adapters + external-work attestation (e.g. agenttool) |
+```bash
+python3 tools/source-map.py summary
+python3 tools/source-map.py find settlement --limit 10
+python3 tools/source-map.py module zerone_staking
+python3 tools/source-map.py show app/app.go
+python3 tools/source-map.py check
+```
 
 ---
 
@@ -378,6 +360,8 @@ does not activate it.
 
 | Document | Description |
 |---|---|
+| [Development guide](docs/DEVELOPMENT.md) | Current work, design status, names, task routing and source navigation |
+| [System map](docs/ZERONE_MAP.md) | Architecture, flows and dated infrastructure observations |
 | [Validator Guide](docs/VALIDATOR-GUIDE.md) | Safe validator preparation and release checks |
 | [Parameters](docs/PARAMETERS.md) | Selected high-impact defaults and source pointers |
 | [Tokenomics](docs/tokenomics/) | Supply, vesting, revenue split, governance migration |
@@ -410,9 +394,9 @@ does not activate it.
 
 ## License
 
-[Apache-2.0](LICENSE). Open source — every line of the protocol is public,
-forkable, and yours to run and verify. A chain whose thesis is *nothing hidden*
-keeps that promise in its license, too.
+[Apache-2.0](LICENSE). The license and current repository visibility are distinct.
+This repository is access-restricted; the public website and previously published
+artifacts do not imply anonymous access to the current source or GitHub packages.
 
 ---
 

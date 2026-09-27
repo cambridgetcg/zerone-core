@@ -1,4 +1,4 @@
-# Zerone mainnet dashboard
+# Zerone website and research workspace
 
 The production frontend for `zerone.ai`: an introduction to Zerone's purpose
 and participation paths alongside the live `zerone-1` explorer. It includes
@@ -14,6 +14,16 @@ participation paths. Its module section connects the research workflow to each
 registered component's current purpose, state and dependencies. Native disclosures keep the example usable without
 JavaScript; the page has no application script, wallet, input form or API call.
 The existing research surfaces remain linked from its optional research index.
+The development/design section uses the same `module-guide.json` input and
+separates implementation, network publication, accepted pending design and release
+gates. Module tags expose source registration, family and reading group, never
+live activation. Source links require repository access; public guide availability
+does not promise anonymous access to source or participant packages.
+
+For source navigation and current work, start at [DEVELOPMENT.md](../docs/DEVELOPMENT.md).
+The repository-only `tools/source-map.py` reuses this module catalog rather than
+maintaining another module inventory; its complete file census is not a public
+website asset.
 
 The Vite build renders the page and `/understand/guide.json` from the same
 `understand-guide.ts` model. Its source commit and participation declarations

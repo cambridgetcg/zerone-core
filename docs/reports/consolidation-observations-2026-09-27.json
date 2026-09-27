@@ -1,0 +1,288 @@
+{
+  "schema": "zerone.consolidation-observations/v1",
+  "scope": "Dated read-only public endpoint observations and hosting-access checks. No light-client or independent application-state proof, signing, transaction, activation or custody change. Response hashes identify fetched raw bodies; the summaries below select fields.",
+  "source_baseline": "9caaf36bca0b7d76a6b8206c2ffe595edb6593e8",
+  "observations": {
+    "status": {
+      "url": "https://zerone-dev-1.fly.dev/status",
+      "observed_at": "2026-09-27T10:51:29.073753+00:00",
+      "status": 200,
+      "response_sha256": "052e32807543bcbb5bfec007092eb6443d4507b80c6d892981b19826b8a242af",
+      "selected_response": {
+        "chain_id": "zerone-dev-1",
+        "height": "1257935",
+        "latest_block_time": "2026-09-27T10:51:27.945982658Z",
+        "catching_up": false
+      }
+    },
+    "legacy-status": {
+      "url": "https://zerone-rpc.fly.dev/rpc/status",
+      "observed_at": "2026-09-27T10:51:32.383255+00:00",
+      "status": 200,
+      "response_sha256": "f8f41f0c1a5d059c4c7b2d258808d645bd257720619e0853b2a407dd20e62356",
+      "selected_response": {
+        "chain_id": "zerone-1",
+        "height": "1312797",
+        "latest_block_time": "2026-09-27T10:51:01.231435893Z",
+        "catching_up": false
+      }
+    },
+    "network": {
+      "url": "https://zerone-dev-1.fly.dev/network.json",
+      "observed_at": "2026-09-27T10:51:29.075939+00:00",
+      "status": 200,
+      "response_sha256": "768d7dd7b389d844670fa7f4ac7b34b41c7b9ac4994f88526369f7726dd993e1",
+      "selected_response": {
+        "chain_id": "zerone-dev-1",
+        "source_commit": "5542b221864ca0080e143fa82abbef4cd2064f71",
+        "knowledge_version": 11,
+        "genesis_sha256": "f8b4570b37fd41d5b63c02fbae1f89225c197c75315e8629650716f6e5f79256",
+        "runtime_binary_sha256": "6cbafddf0d1c8dda3e6ab9f8a5d87d49992f7b699f746ee2d7632e494115a2c6"
+      }
+    },
+    "abci-info": {
+      "url": "https://zerone-dev-1.fly.dev/abci_info",
+      "observed_at": "2026-09-27T10:51:29.076307+00:00",
+      "status": 200,
+      "response_sha256": "d00ad0ad3c3951c0aa9011c19e49e7af8b94a1f43835d3bd6ea547070940bf02",
+      "selected_response": {
+        "data": "zeroned",
+        "version": "dev-1-5542b221864c",
+        "app_version": "1",
+        "last_block_height": "1257934",
+        "last_block_app_hash": "es7TWObJzaAc1NCuGqzg5A6GkYCYUp3AFKLiBZDKG7s="
+      }
+    },
+    "module-versions": {
+      "url": "https://zerone-dev-1.fly.dev/abci_query?path=%22%2Fcosmos.upgrade.v1beta1.Query%2FModuleVersions%22&data=0x",
+      "observed_at": "2026-09-27T10:51:29.076642+00:00",
+      "status": 200,
+      "response_sha256": "49c705c26131cd3a56d0a72d7d0e90934a8f5ec21671466e9a02b4723dfa9078",
+      "selected_response": {
+        "code": 0,
+        "log": "",
+        "info": "",
+        "index": "0",
+        "key": null,
+        "value": "ChAKDjA2LXNvbG9tYWNoaW5lCg8KDTA3LXRlbmRlcm1pbnQKDQoJYWxpZ25tZW50EAEKCAoEYXV0aBAFCggKBGJhbmsQBAoVChFjYXB0dXJlX2NoYWxsZW5nZRABChMKD2NhcHR1cmVfZGVmZW5zZRABChAKDGNsYWltaW5nX3BvdBACCg0KCWNvbnNlbnN1cxABChMKD2NvdW50ZXJleGFtcGxlcxABCgkKBWNyZWVkEAEKEAoMZGlzdHJpYnV0aW9uEAMKDQoJZW1lcmdlbmN5EAIKDAoIZXZpZGVuY2UQAQoMCghmZWVncmFudBACCgsKB2dlbnV0aWwQAQoHCgNnb3YQBQoICgRob21lEAEKBwoDaWJjEAgKEAoMaWJjcmF0ZWxpbWl0EAEKFgoSaW50ZXJjaGFpbmFjY291bnRzEAMKDQoJa25vd2xlZGdlEAsKEQoNbGlxdWlkaXR5cG9vbBAFChEKDXF1YWxpZmljYXRpb24QAQoMCghzbGFzaGluZxAECg8KC3Nwb25zb3JzaGlwEAEKCwoHc3Rha2luZxAFChQKEHN1YnN0cmF0ZV9icmlkZ2UQAQoKCgZ0b2tlbnMQAQoXChN0cmFpbmluZ19wcm92ZW5hbmNlEAEKDAoIdHJhbnNmZXIQBgoPCgt0cnVzdF9zY29yZRABCgsKB3VwZ3JhZGUQAgoLCgd2ZXN0aW5nEAEKEwoPdmVzdGluZ19yZXdhcmRzEAMKDgoKd29ya19jcmVlZBABCg8KC3plcm9uZV9hdXRoEAEKDgoKemVyb25lX2dvdhADChMKD3plcm9uZV9vbnRvbG9neRABChIKDnplcm9uZV9zdGFraW5nEAI=",
+        "proofOps": null,
+        "height": "1257935",
+        "codespace": ""
+      }
+    },
+    "applied": {
+      "url": "https://zerone-dev-1.fly.dev/abci_query?path=%22%2Fcosmos.upgrade.v1beta1.Query%2FAppliedPlan%22&data=0x0a1c6b6e6f776c656467652d66756e642d736574746c656d656e742d7631",
+      "observed_at": "2026-09-27T10:51:29.077182+00:00",
+      "status": 200,
+      "response_sha256": "1d16780fc9420d75bd7d5a43017e63533da52b9d98c434f0bdb88358f5361fe0",
+      "selected_response": {
+        "code": 0,
+        "log": "",
+        "info": "",
+        "index": "0",
+        "key": null,
+        "value": "COCnEg==",
+        "proofOps": null,
+        "height": "1257934",
+        "codespace": ""
+      }
+    },
+    "website-guide": {
+      "url": "https://zerone.ai/understand/guide.json",
+      "observed_at": "2026-09-27T10:51:31.265457+00:00",
+      "status": 200,
+      "response_sha256": "2be89698d81f7bd322297afeb3e61a9d43310d60bfc9bc23efda6e19d9ac8762",
+      "selected_response": {
+        "commit": "9caaf36bca0b7d76a6b8206c2ffe595edb6593e8",
+        "url": "https://github.com/cambridgetcg/zerone-core/tree/9caaf36bca0b7d76a6b8206c2ffe595edb6593e8",
+        "evidenceCommit": "60e813c368123bbefb67148d5b04f0ce6806b6a6",
+        "scope": "Build-time explanation and declared availability; dated evidence is identified separately. This is not a fresh network check."
+      }
+    }
+  },
+  "decoded_module_versions": [
+    {
+      "name": "06-solomachine",
+      "version": 0
+    },
+    {
+      "name": "07-tendermint",
+      "version": 0
+    },
+    {
+      "name": "alignment",
+      "version": 1
+    },
+    {
+      "name": "auth",
+      "version": 5
+    },
+    {
+      "name": "bank",
+      "version": 4
+    },
+    {
+      "name": "capture_challenge",
+      "version": 1
+    },
+    {
+      "name": "capture_defense",
+      "version": 1
+    },
+    {
+      "name": "claiming_pot",
+      "version": 2
+    },
+    {
+      "name": "consensus",
+      "version": 1
+    },
+    {
+      "name": "counterexamples",
+      "version": 1
+    },
+    {
+      "name": "creed",
+      "version": 1
+    },
+    {
+      "name": "distribution",
+      "version": 3
+    },
+    {
+      "name": "emergency",
+      "version": 2
+    },
+    {
+      "name": "evidence",
+      "version": 1
+    },
+    {
+      "name": "feegrant",
+      "version": 2
+    },
+    {
+      "name": "genutil",
+      "version": 1
+    },
+    {
+      "name": "gov",
+      "version": 5
+    },
+    {
+      "name": "home",
+      "version": 1
+    },
+    {
+      "name": "ibc",
+      "version": 8
+    },
+    {
+      "name": "ibcratelimit",
+      "version": 1
+    },
+    {
+      "name": "interchainaccounts",
+      "version": 3
+    },
+    {
+      "name": "knowledge",
+      "version": 11
+    },
+    {
+      "name": "liquiditypool",
+      "version": 5
+    },
+    {
+      "name": "qualification",
+      "version": 1
+    },
+    {
+      "name": "slashing",
+      "version": 4
+    },
+    {
+      "name": "sponsorship",
+      "version": 1
+    },
+    {
+      "name": "staking",
+      "version": 5
+    },
+    {
+      "name": "substrate_bridge",
+      "version": 1
+    },
+    {
+      "name": "tokens",
+      "version": 1
+    },
+    {
+      "name": "training_provenance",
+      "version": 1
+    },
+    {
+      "name": "transfer",
+      "version": 6
+    },
+    {
+      "name": "trust_score",
+      "version": 1
+    },
+    {
+      "name": "upgrade",
+      "version": 2
+    },
+    {
+      "name": "vesting",
+      "version": 1
+    },
+    {
+      "name": "vesting_rewards",
+      "version": 3
+    },
+    {
+      "name": "work_creed",
+      "version": 1
+    },
+    {
+      "name": "zerone_auth",
+      "version": 1
+    },
+    {
+      "name": "zerone_gov",
+      "version": 3
+    },
+    {
+      "name": "zerone_ontology",
+      "version": 1
+    },
+    {
+      "name": "zerone_staking",
+      "version": 2
+    }
+  ],
+  "applied_plan": {
+    "name": "knowledge-fund-settlement-v1",
+    "height": "300000",
+    "query_height": "1257934",
+    "proof_ops": null
+  },
+  "access": {
+    "checked_at": "2026-09-27T10:54:11Z",
+    "repository_visibility": "PRIVATE",
+    "authenticated_metadata_command": "gh repo view cambridgetcg/zerone-core --json visibility,defaultBranchRef,url",
+    "method": "anonymous HEAD",
+    "checks": [
+      {
+        "url": "https://github.com/cambridgetcg/zerone-core/releases/download/zerone-dev-1-5542b221864c-participants-v1/zerone-dev-1-5542b221864c-participants-v1-darwin-arm64.tar.gz",
+        "status": 404
+      },
+      {
+        "url": "https://raw.githubusercontent.com/cambridgetcg/zerone-core/9caaf36bca0b7d76a6b8206c2ffe595edb6593e8/deploy/networks/zerone-dev-1/release.json",
+        "status": 404
+      }
+    ],
+    "consequence": "Public guides and history readers remain reachable; GitHub source/package URLs require repository access. This is not a runtime outage and does not authorize republishing private material."
+  }
+}

@@ -1,5 +1,16 @@
 # Zerone: what exists and how it connects
 
+**Navigation update: 27 September 2026.** [Current development](DEVELOPMENT.md)
+connects this architecture to design status, stable names, task routes and the
+read-only source-map CLI. The [public development map](https://zerone.ai/understand/#development-map)
+shares the existing module catalog; source tags are not deployment claims.
+The canonical GitHub repository is now access-restricted. Historical references
+to public source or packages below do not promise current anonymous access.
+The [27 September observations](reports/consolidation-observations-2026-09-27.json)
+confirm matching development pins and knowledge 11, while anonymous package and
+checksum-record requests return 404. Runtime availability and package access
+are separate observations.
+
 **Module-purpose update: 24 September 2026.** The [module guide](https://zerone.ai/understand/#modules) now explains every registered module, its state, connections and limits alongside the research workflow. Its [shared source catalog](../dashboard/module-guide.json) is checked against the constructed application’s ModuleManager; the website and machine-readable explanation use that same catalog. The runtime and infrastructure observations below remain dated.
 
 **Follow-up: 23 September 2026.** Development participant-package and website
@@ -430,7 +441,9 @@ or named governance upgrade → verify the actual running chain and version.
 **Research artifact:** validated source file → explicit publication → static
 reader; optional checkpoint anchoring is a separate signed chain action.
 
-GitHub `main` requires a PR and named CI checks. CI includes module tests,
+Repository access and branch enforcement can change; verify current hosting policy
+rather than treating this dated map as a permissions check. The release path
+requires review and exact-source CI before publication. CI includes module tests,
 build/lint, generated SDK/API consistency, integrity hashes, deployment images,
 consensus rehearsals and upgrade/accounting checks. Production component signing
 is a separate protected/manual lane; a green PR does not automatically upgrade

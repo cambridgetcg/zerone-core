@@ -1,6 +1,57 @@
 {
   "title": "What each module is for",
   "intro": "These 40 modules are components of one zeroned application: 23 custom modules and 17 SDK/IBC modules. The map describes this source build, not the installed binary or enabled paths on every network.",
+  "development": {
+    "title": "Development and design",
+    "scope": "A source-build map, not a live health check. Implementation, network publication and accepted design are separate states; none of these labels authorizes activation.",
+    "tracks": [
+      {
+        "id": "research-workflow",
+        "title": "Research workspace",
+        "status": "implemented-source",
+        "purpose": "Keep local contributions, evidence, revisions and divergent continuations; deliberately bind one selected assertion to a native review workflow.",
+        "next": "Exercise the published handoff with a willing independently controlled reviewer and retain corrections and payment observations.",
+        "boundary": "Browser journals stay local until downloaded or deliberately shared. Preparing a workflow file does not sign or submit a claim.",
+        "link": { "label": "Use Research Review", "url": "https://zerone.ai/research/review/" }
+      },
+      {
+        "id": "shared-development",
+        "title": "Shared development ledger",
+        "status": "network-specific-publication",
+        "purpose": "Run explicit signed claims, reasoned reviews and prefunded settlement on zerone-dev-1, separately from the legacy ledger.",
+        "next": "Use the published participant package and verify its exact network pins before acting; retain the predecessor package for original-genesis replay.",
+        "boundary": "The 23 September publication records knowledge version 11 at source 5542b221. GitHub-hosted participant files require repository access. This build does not recheck that runtime. Development funds have no monetary value and one operator initially produces blocks.",
+        "link": { "label": "Inspect the development lane", "url": "https://zerone.ai/development/" }
+      },
+      {
+        "id": "authority",
+        "title": "One owner for each authoritative state",
+        "status": "accepted-design-implementation-pending",
+        "purpose": "Consolidate consensus stake in SDK staking, ordinary execution in SDK governance, and domain identity in ontology.",
+        "next": "Reconcile custody and obligations, then implement and rehearse H4-F, H4 and H5 in their accepted dependency order.",
+        "boundary": "Custom stake/governance and duplicate domain writers still exist. A name change or a single writer does not establish independent control or non-economic governance.",
+        "link": { "label": "Inspect the current authority gap", "url": "https://zerone.ai/#authority" }
+      },
+      {
+        "id": "optional-machinery",
+        "title": "Retained machinery and research designs",
+        "status": "mixed-source-and-research",
+        "purpose": "Distinguish custody-bearing modules and existing block work from optional adapters, static diagrams and offline experiments.",
+        "next": "Trace each consumer, callback and liability before moving analysis to clients or retiring a financial path. Use the module boundaries below.",
+        "boundary": "Not all older machinery is inert: alignment pacing and ontology ceilings still affect knowledge. Static research publication does not activate rewards, authority or an external integration.",
+        "link": { "label": "Read the consolidation sequence (repository access)", "path": "docs/MODULE-CONSOLIDATION-SEQUENCE.md" }
+      },
+      {
+        "id": "successor",
+        "title": "Legacy preservation and successor release",
+        "status": "separate-release-gates",
+        "purpose": "Preserve the legacy zerone-1 history while keeping its observer, shared development and the unactivated zerone-2 release kit distinct.",
+        "next": "Use each network's compatible build and complete the separate custody, recovery and signed release gates before a successor activation.",
+        "boundary": "Current main is not the legacy runtime. The zerone-2 kit remains NO-GO; website deployment changes neither validator software nor consensus authority.",
+        "link": { "label": "Choose a network and node role", "url": "https://zerone.ai/nodes/" }
+      }
+    ]
+  },
   "groups": [
     {
       "id": "research",

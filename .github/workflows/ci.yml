@@ -52,6 +52,12 @@ jobs:
           fetch-depth: 0
       - name: Test conservative change classification
         run: python3 scripts/ci-scope_test.py
+      - name: Source navigation coverage and boundary tests
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: |
+          python3 -B tools/test_source_map.py
+          python3 -B tools/source-map.py check
       - name: Select checks from the exact PR diff
         id: classify
         env:
