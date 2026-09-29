@@ -1,0 +1,83 @@
+name: External knowledge worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_json:
+        description: "Public bounded zerone.external-work-task/v1 JSON; no keys, credentials or private journal"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  compute:
+    name: Bounded external computation (no signing or payment)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Worker boundary tests
+        env:
+          TMPDIR: ${{ runner.temp }}
+        run: python3 -B tools/external-worker/test_worker.py
+      - name: Receive bounded task as data
+        env:
+          TASK_JSON: ${{ inputs.task_json }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          raw = os.environ['TASK_JSON'].encode('utf-8')
+          if len(raw) > 32768:
+              raise SystemExit('Task exceeds 32 KiB transport bound')
+          output = Path(os.environ['RUNNER_TEMP']) / 'zerone-worker-output'
+          output.mkdir(mode=0o700)
+          with (output / 'task.json').open('xb') as stream:
+              stream.write(raw)
+          PY
+      - name: Execute the fixed task implementation
+        run: |
+          python3 -B tools/external-worker/worker.py run \
+            --task "$RUNNER_TEMP/zerone-worker-output/task.json" \
+            --output "$RUNNER_TEMP/zerone-worker-output/result.json" \
+            --worker-id "github:${GITHUB_REPOSITORY}:${GITHUB_RUN_ID}:${GITHUB_RUN_ATTEMPT}"
+      - name: Record transport provenance (not independent identity)
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, platform
+          from pathlib import Path
+          output = Path(os.environ['RUNNER_TEMP']) / 'zerone-worker-output'
+          sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+          record = {
+              'schema': 'zerone.external-work-execution/v1',
+              'repository': os.environ['GITHUB_REPOSITORY'],
+              'source_commit': os.environ['GITHUB_SHA'],
+              'run_id': os.environ['GITHUB_RUN_ID'],
+              'run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+              'runner_environment': os.environ['RUNNER_ENVIRONMENT'],
+              'runner_os': os.environ['RUNNER_OS'],
+              'python': platform.python_version(),
+              'worker_script_sha256': sha(Path('tools/external-worker/worker.py')),
+              'task_file_sha256': sha(output / 'task.json'),
+              'result_file_sha256': sha(output / 'result.json'),
+              'scope': 'Hosted computation in repository operator context; no keys, signing, payment, independent review or funding verification.'
+          }
+          with (output / 'execution.json').open('x') as stream:
+              json.dump(record, stream, sort_keys=True)
+              stream.write('\n')
+          PY
+      - name: Return only public task, result and execution metadata
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: external-worker-result
+          path: |
+            ${{ runner.temp }}/zerone-worker-output/task.json
+            ${{ runner.temp }}/zerone-worker-output/result.json
+            ${{ runner.temp }}/zerone-worker-output/execution.json
+          if-no-files-found: error
+          retention-days: 14
+          include-hidden-files: false

@@ -5,9 +5,14 @@ This is the development entry point, not a release authorization or a live statu
 The canonical repository is `cambridgetcg/zerone-core` (private); source access and
 public website availability are different things. Follow [project instructions](../CLAUDE.md).
 
-Zerone's current product direction is **attributed scientific records, reasoned
-review, retained corrections and reliable settlement of explicitly funded work**.
-Keep local research useful without requiring chain admission. The
+Zerone's product target is **global compute contributing to fact-checking and the
+Tree of Knowledge, with useful work compensated in tokens**. The current
+foundation is attributed scientific records, reasoned review, retained corrections
+and reliable settlement of explicitly funded work. The bounded
+[external-worker loop](../tools/external-worker/README.md) connects one checkable
+computation to a task journal and an operator-approved test-token payment. It is
+not a permissionless market or an activated universal reward rule. Keep local
+research useful without requiring chain admission. The
 [lean-core scope](LEAN-CORE-CONSOLIDATION.md) selects the work;
 [Authoritative State](AUTHORITATIVE-STATE.md) owns the accepted authority target;
 [the consolidation sequence](MODULE-CONSOLIDATION-SEQUENCE.md) owns its order and prerequisites.
