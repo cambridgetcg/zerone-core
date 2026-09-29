@@ -17,6 +17,9 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 SOURCE_URL = 'https://raw.githubusercontent.com/bitcoin/bitcoin/v27.0/src/consensus/merkle.cpp'
 SOURCE_SHA256 = '69e5bebee3d98f4ef711c1970d5814950310c4d6e5ee524625570354df0d18ad'
+COMPUTE_TASK_SCHEMA = 'zerone.external-compute-task/v1'
+COMPUTE_SCOPE = ('Unpaid compute-only task: no funding, no nominated recipient and no payment eligibility. '
+                 'Not independent review or a derived Fact.')
 PAYMENT_FIELDS = ('txhash', 'height', 'amount_uzrn', 'fee_uzrn', 'recipient',
                   'bank_deltas_verified', 'before', 'after', 'assurance')
 
@@ -63,8 +66,10 @@ def records_for(task, result, task_sha256, result_sha256):
         'Bounded computational reproduction: compare an odd-length deterministic leaf list with that list plus an explicit final-leaf duplicate. No live-network security assertion.', references=[task_ref])
     contribution('method', 'method', 'Double-SHA256 tree with duplicate-last padding',
         'Leaf i is SHA256(seed bytes || unsigned 4-byte big-endian i), indexed from zero. Leaves and roots use raw digest order, not displayed Bitcoin txid order. Pair hashes use double SHA256; mutation checks compare real adjacent pairs before odd padding. A separate reduction implementation recomputes both roots and flags.', references=[task_ref])
+    payment_scope = (COMPUTE_SCOPE if task.get('schema') == COMPUTE_TASK_SCHEMA
+                     else f"Nominated test-payment recipient: {task['reward']['recipient']}.")
     contribution('experiment', 'experiment', 'External-worker Merkle reproduction',
-        f"Task {task['task_id']}; {task['leaf_count']} nonce-derived leaves. Declared worker label is not an authenticated identity or independent controller. Nominated test-payment recipient: {task['reward']['recipient']}. No proof of physical compute expenditure is claimed.",
+        f"Task {task['task_id']}; {task['leaf_count']} nonce-derived leaves. Declared worker label is not an authenticated identity or independent controller. {payment_scope} No proof of physical compute expenditure is claimed.",
         result['worker_id'], [task_ref, result_ref])
     observed = result['result']
     contribution('finding', 'finding', 'Scoped duplicate-tail root equivalence',
@@ -139,12 +144,15 @@ def prepare(task_path, result_path, output):
                'finding_id': 'work:' + task['task_id'] + ':finding',
                'computation_verified': True, 'paid': False,
                'scope': 'Scoped computational reproduction; operator-mediated test bounty, not independent review or a derived Fact.'}
+    if task['schema'] == COMPUTE_TASK_SCHEMA:
+        receipt.update(payment_eligible=False, scope='Scoped computational reproduction; ' + COMPUTE_SCOPE)
     j._write_output(output / 'preparation.json', receipt)
     return receipt
 
 
 def payment_receipt_for(checked, payment):
     task = checked['task']
+    require_paid_task(task)
     return {'schema': 'zerone.external-work-payment/v1', 'task_id': task['task_id'],
             'genesis_sha256': task['reward']['genesis_sha256'],
             'result_sha256': checked['result_sha256'], 'journal_sha256': checked['journal_sha256'],
@@ -154,6 +162,7 @@ def payment_receipt_for(checked, payment):
 
 def validate_payment_receipt(receipt, checked):
     """Check retained local consistency only; native recovery must still read the chain."""
+    require_paid_task(checked['task'])
     journal()._keys(receipt, {'schema', 'task_id', 'genesis_sha256', 'result_sha256',
                              'journal_sha256', 'paid', 'payment', 'scope'})
     if receipt['paid'] is not True or receipt != payment_receipt_for(checked, receipt['payment']):
@@ -195,7 +204,7 @@ def payment_records_for(receipt):
     return [payment_record, relation]
 
 
-def checked_workspace(output):
+def checked_workspace(output, *, payment_required=False):
     j = journal()
     output = Path(output)
     values, hashes = {}, {}
@@ -204,6 +213,8 @@ def checked_workspace(output):
         value = j.parse_json(raw, limit)
         if raw != document_bytes(value):
             raise ValueError('Prepared artifacts must retain their canonical bytes')
+        if name == 'task' and payment_required:
+            require_paid_task(value)  # Before reading even planted payment evidence.
         values[name] = value
         hashes[name + '_sha256'] = sha256(raw)
     load_module('external_work_computation', HERE / 'worker.py').verify(values['task'], values['result'])
@@ -224,6 +235,7 @@ def checked_workspace(output):
         if additions:
             raise ValueError('Payment journal additions require a retained payment receipt')
     else:
+        require_paid_task(values['task'])
         receipt = j.parse_json(raw, 32768)
         if raw != document_bytes(receipt):
             raise ValueError('Payment receipt must retain its canonical bytes')
@@ -243,6 +255,14 @@ def checked_workspace(output):
     return checked
 
 
+def require_paid_task(task):
+    """Reject unpaid/invalid tasks before loading a payer or reading its home."""
+    worker = load_module('external_work_computation', HERE / 'worker.py')
+    worker.validate_task(task)
+    if task['schema'] != worker.TASK_SCHEMA:
+        raise ValueError('Compute-only tasks have no funding or payment eligibility')
+
+
 def payer(home):
     return load_module('external_work_native', HERE / 'native.py').NativePayer(home)
 
@@ -258,7 +278,7 @@ def write_or_compare(path, value):
 
 
 def pay_workspace(output, payer_home):
-    checked = checked_workspace(output)  # Recheck before opening the signer.
+    checked = checked_workspace(output, payment_required=True)  # Before opening the signer.
     j = journal()
     output = Path(output)
     task = checked['task']
@@ -313,9 +333,12 @@ def main(argv=None):
             response.update(task_id=checked['task']['task_id'], computation_verified=True,
                             journal_entries=len(checked['journal']['entries']),
                             scope='Offline computation and journal integrity only; no payment observation')
+            if checked['task']['schema'] == COMPUTE_TASK_SCHEMA:
+                response.update(paid=False, payment_eligible=False,
+                                scope='Offline computation and journal integrity only; ' + COMPUTE_SCOPE)
         elif args.command == 'funding':
             task = journal().read_json_file(args.task, 32768)
-            load_module('external_work_computation', HERE / 'worker.py').validate_task(task)
+            require_paid_task(task)
             response = payer(args.payer_home).funding(task['reward'])
         else:
             response = pay_workspace(args.workspace, args.payer_home)

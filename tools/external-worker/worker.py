@@ -7,17 +7,18 @@ Leaf i is SHA256(seed bytes || i encoded as four big-endian bytes), starting at
 zero. Internal nodes use double SHA256. Mutation checks precede odd padding at
 EVERY level. This reproduces a documented property, not a new vulnerability.
 
-The six public protocol functions are canonical, digest, make_task,
-validate_task, compute and verify. Invalid protocol values raise ValueError;
-inputs are not repaired or normalized. A task ID hashes the canonical task
+The public protocol functions are canonical, digest, make_task,
+make_compute_task, validate_task, compute and verify. Invalid protocol values
+raise ValueError; inputs are not repaired or normalized. A task ID hashes the canonical task
 without task_id; receipt hashes cover the entire canonical task/result, without
 file-format trailing newlines. Worker labels are self-declared, not identities.
 
 CLI (POSIX): make-task --seed-hex HEX --leaf-count N --reward PATH --output PATH;
+make-compute-task --seed-hex HEX --leaf-count N --output PATH (explicitly unpaid);
 run --task PATH --output PATH --worker-id LABEL; verify --task PATH --result PATH.
 Inputs are UTF-8 JSON regular files of at most 32768 bytes. No path component may
 be a symlink. Outputs are exclusively created, mode 0600, never overwritten;
-make-task/run are silent and verify prints canonical JSON plus a newline.
+make-task/make-compute-task/run are silent; verify prints canonical JSON plus a newline.
 Malformed input or I/O errors exit 2 with stderr only. No network, signing,
 funding check, payment, code execution from inputs, or import-time work occurs.
 """
@@ -31,10 +32,12 @@ import stat
 import sys
 
 TASK_SCHEMA = "zerone.external-work-task/v1"
+COMPUTE_TASK_SCHEMA = "zerone.external-compute-task/v1"
 RESULT_SCHEMA = "zerone.external-work-result/v1"
 KIND = "bitcoin-merkle-duplicate-v1"
 MAX_INPUT_BYTES = 32768
 TASK_KEYS = {"schema", "task_id", "kind", "seed_hex", "leaf_count", "reward"}
+COMPUTE_TASK_KEYS = {"schema", "task_id", "kind", "seed_hex", "leaf_count"}
 REWARD_KEYS = {"chain_id", "genesis_sha256", "recipient", "amount_uzrn", "funding_txhash"}
 RESULT_KEYS = {"schema", "task_id", "worker_id", "result"}
 DETAIL_KEYS = {"root_hex", "extended_root_hex", "original_mutated", "extended_mutated",
@@ -120,9 +123,10 @@ def _validate_reward(reward: dict) -> None:
 
 def validate_task(task: dict) -> None:
     """Reject malformed tasks or IDs not bound to the entire unsigned task."""
-    _keys(task, TASK_KEYS, "task")
-    if type(task["schema"]) is not str or task["schema"] != TASK_SCHEMA:
+    if (type(task) is not dict or type(task.get("schema")) is not str
+            or task["schema"] not in (TASK_SCHEMA, COMPUTE_TASK_SCHEMA)):
         raise ValueError("unsupported task schema")
+    _keys(task, TASK_KEYS if task["schema"] == TASK_SCHEMA else COMPUTE_TASK_KEYS, "task")
     if type(task["kind"]) is not str or task["kind"] != KIND:
         raise ValueError("unsupported task kind")
     _matches(task["seed_hex"], r"[0-9a-f]{64}", "seed_hex")
@@ -130,7 +134,8 @@ def validate_task(task: dict) -> None:
     if type(count) is not int or not 3 <= count <= 4095 or count % 2 != 1:
         raise ValueError("leaf_count must be an odd integer in 3..4095")
     _matches(task["task_id"], r"[0-9a-f]{64}", "task_id")
-    _validate_reward(task["reward"])
+    if task["schema"] == TASK_SCHEMA:
+        _validate_reward(task["reward"])
     unsigned = {key: value for key, value in task.items() if key != "task_id"}
     if task["task_id"] != digest(canonical(unsigned)):
         raise ValueError("task_id does not match the canonical unsigned task")
@@ -141,6 +146,15 @@ def make_task(seed_hex: str, leaf_count: int, reward_dict: dict) -> dict:
     _validate_reward(reward_dict)
     task = {"schema": TASK_SCHEMA, "kind": KIND,
             "seed_hex": seed_hex, "leaf_count": leaf_count, "reward": dict(reward_dict)}
+    task["task_id"] = digest(canonical(task))
+    validate_task(task)
+    return task
+
+
+def make_compute_task(seed_hex: str, leaf_count: int) -> dict:
+    """Create an explicitly unpaid task, with no reward or payment eligibility."""
+    task = {"schema": COMPUTE_TASK_SCHEMA, "kind": KIND,
+            "seed_hex": seed_hex, "leaf_count": leaf_count}
     task["task_id"] = digest(canonical(task))
     validate_task(task)
     return task
@@ -338,6 +352,10 @@ def main(argv=None) -> int:
     make.add_argument("--leaf-count", required=True, type=int)
     make.add_argument("--reward", required=True)
     make.add_argument("--output", required=True)
+    make_compute = commands.add_parser("make-compute-task", allow_abbrev=False)
+    make_compute.add_argument("--seed-hex", required=True)
+    make_compute.add_argument("--leaf-count", required=True, type=int)
+    make_compute.add_argument("--output", required=True)
     run = commands.add_parser("run", allow_abbrev=False)
     run.add_argument("--task", required=True)
     run.add_argument("--output", required=True)
@@ -350,6 +368,8 @@ def main(argv=None) -> int:
         if args.command == "make-task":
             task = make_task(args.seed_hex, args.leaf_count, _read_json(args.reward))
             _write_json(args.output, task)
+        elif args.command == "make-compute-task":
+            _write_json(args.output, make_compute_task(args.seed_hex, args.leaf_count))
         elif args.command == "run":
             result = compute(_read_json(args.task), args.worker_id)
             _write_json(args.output, result)

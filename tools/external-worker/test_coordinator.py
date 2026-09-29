@@ -4,6 +4,7 @@ import copy
 import hashlib
 import importlib.util
 import io
+import os
 from pathlib import Path
 import unittest
 import json
@@ -124,6 +125,252 @@ class JournalIntegrationTests(unittest.TestCase):
         self.assertTrue(any(e['sha256'] == 'e' * 64 for e in findings[0]['evidence']))
         self.assertTrue(any(r.get('relation_type') == 'uses-input' and r['from_id'] == findings[0]['id'] for r in records))
         self.assertFalse(any('accepted' in r.get('contribution_type', '') for r in records))
+
+
+class ComputeOnlyTests(unittest.TestCase):
+    def setUp(self):
+        import coordinator as c
+        self.c = c
+        self.w = c.load_module('fixture_external_worker', HERE / 'worker.py')
+        self.task = self.w.make_compute_task('ab' * 32, 3)
+        self.result = self.w.compute(self.task, 'unpaid-journal-fixture')
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.task_path, self.result_path = self.root / 'task.json', self.root / 'result.json'
+        self.task_path.write_bytes(c.document_bytes(self.task))
+        self.result_path.write_bytes(c.document_bytes(self.result))
+        self.output = self.root / 'prepared'
+
+    def cli(self, *args):
+        return subprocess.run([sys.executable, '-B', str(HERE / 'coordinator.py'), *map(str, args)],
+                              capture_output=True, text=True, timeout=10)
+
+    @contextlib.contextmanager
+    def no_financial_io(self, payer_home=None):
+        load = self.c.load_module
+        def safe_load(name, path):
+            self.assertIn(Path(path).name, ('worker.py', 'journal.py'), 'payer import forbidden')
+            return load(name, path)
+        with contextlib.ExitStack() as stack:
+            if payer_home is not None:
+                def protect_path(function):
+                    def guarded(path, *args, **kwargs):
+                        if isinstance(path, (str, bytes, os.PathLike)):
+                            self.assertFalse(os.fsdecode(path).startswith(str(payer_home)),
+                                             'payer-home access forbidden')
+                        return function(path, *args, **kwargs)
+                    return guarded
+                import builtins
+                for module, name in ((builtins, 'open'), (io, 'open'), (os, 'open'),
+                                     (os, 'stat'), (os, 'lstat'), (os, 'listdir'), (os, 'scandir')):
+                    stack.enter_context(mock.patch.object(module, name,
+                        side_effect=protect_path(getattr(module, name))))
+            stack.enter_context(mock.patch.object(self.c, 'load_module', side_effect=safe_load))
+            guards = [stack.enter_context(mock.patch.object(self.c, 'payer',
+                side_effect=AssertionError('payer construction forbidden')))]
+            for target in ('socket.socket', 'socket.create_connection', 'socket.getaddrinfo',
+                           'subprocess.Popen', 'os.system'):
+                guards.append(stack.enter_context(mock.patch(target,
+                    side_effect=AssertionError('financial network/process I/O forbidden'))))
+            yield
+            for guard in guards:
+                guard.assert_not_called()
+
+    def refused_main(self, args):
+        out, err = io.StringIO(), io.StringIO()
+        home = Path(args[args.index('--payer-home') + 1])
+        with self.no_financial_io(home), contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            try:
+                code = self.c.main(list(map(str, args)))
+            except KeyError as error:
+                self.fail('uncontrolled KeyError: ' + str(error))
+        self.assertEqual((code, out.getvalue()), (1, ''))
+        self.assertIn('compute-only', err.getvalue().lower())
+        self.assertNotIn('Traceback', err.getvalue())
+
+    def test_funding_rejects_compute_only_before_payer_access(self):
+        for exists in (False, True):
+            with self.subTest(payer_home_exists=exists):
+                home = self.root / ('existing-home' if exists else 'absent-home')
+                if exists:
+                    home.mkdir()
+                    (home / 'untouched').write_bytes(b'synthetic sentinel, not a credential')
+                args = ['funding', '--task', self.task_path, '--payer-home', home]
+                self.refused_main(args)
+                completed = self.cli(*args)
+                self.assertEqual((completed.returncode, completed.stdout), (1, ''))
+                self.assertIn('compute-only', completed.stderr.lower())
+                self.assertNotIn('Traceback', completed.stderr)
+                if exists:
+                    self.assertEqual([p.name for p in home.iterdir()], ['untouched'])
+                    self.assertEqual((home / 'untouched').read_bytes(), b'synthetic sentinel, not a credential')
+                else:
+                    self.assertFalse(home.exists())
+
+    def test_pay_rejects_compute_only_before_payer_or_planted_payment_evidence(self):
+        self.c.prepare(self.task_path, self.result_path, self.output)
+        planted = {'schema': 'zerone.external-work-payment/v1', 'task_id': self.task['task_id'],
+                   'genesis_sha256': '0' * 64, 'result_sha256': '0' * 64,
+                   'journal_sha256': '0' * 64, 'paid': True, 'payment': {}, 'scope': 'planted fixture'}
+        home = self.root / 'payer-home'
+        for exists in (False, True):
+            if exists:
+                home.mkdir()
+                (home / 'untouched').write_bytes(b'synthetic sentinel, not a credential')
+            for raw in (None, b'{', b'null\n', self.c.document_bytes(planted)):
+                with self.subTest(payer_home_exists=exists, payment=raw):
+                    path = self.output / 'payment.json'
+                    if raw is None:
+                        path.unlink(missing_ok=True)
+                    else:
+                        path.write_bytes(raw)
+                    before = {str(p.relative_to(self.output)): p.read_bytes()
+                              for p in self.output.rglob('*') if p.is_file()}
+                    with self.no_financial_io(home):
+                        try:
+                            with self.assertRaisesRegex(ValueError, '[Cc]ompute-only'):
+                                self.c.pay_workspace(self.output, home)
+                        except KeyError as error:
+                            self.fail('uncontrolled KeyError: ' + str(error))
+                    args = ['pay', '--workspace', self.output, '--payer-home', home,
+                            '--confirm-test-token-payment']
+                    self.refused_main(args)
+                    completed = self.cli(*args)
+                    self.assertEqual((completed.returncode, completed.stdout), (1, ''))
+                    self.assertIn('compute-only', completed.stderr.lower())
+                    self.assertNotIn('Traceback', completed.stderr)
+                    self.assertEqual({str(p.relative_to(self.output)): p.read_bytes()
+                                      for p in self.output.rglob('*') if p.is_file()}, before)
+                    if exists:
+                        self.assertEqual([p.name for p in home.iterdir()], ['untouched'])
+                        self.assertEqual((home / 'untouched').read_bytes(), b'synthetic sentinel, not a credential')
+                    else:
+                        self.assertFalse(home.exists())
+
+    def test_compute_only_payment_helpers_and_inspect_refuse_retained_evidence_safely(self):
+        self.c.prepare(self.task_path, self.result_path, self.output)
+        checked = self.c.checked_workspace(self.output)
+        planted = {'schema': 'zerone.external-work-payment/v1', 'task_id': self.task['task_id'],
+                   'genesis_sha256': '0' * 64, 'result_sha256': checked['result_sha256'],
+                   'journal_sha256': checked['journal_sha256'], 'paid': True, 'payment': {},
+                   'scope': 'planted fixture'}
+        with self.no_financial_io():
+            for label, call in (
+                    ('format', lambda: self.c.payment_receipt_for(checked, {})),
+                    ('validate', lambda: self.c.validate_payment_receipt(planted, checked)),
+                    ('validate-null', lambda: self.c.validate_payment_receipt(None, checked))):
+                with self.subTest(helper=label):
+                    try:
+                        with self.assertRaisesRegex(ValueError, '[Cc]ompute-only'):
+                            call()
+                    except KeyError as error:
+                        self.fail('uncontrolled KeyError: ' + str(error))
+        for raw in (b'{', b'null\n', self.c.document_bytes(planted)):
+            with self.subTest(retained_payment=raw):
+                (self.output / 'payment.json').write_bytes(raw)
+                completed = self.cli('inspect', '--workspace', self.output)
+                self.assertEqual((completed.returncode, completed.stdout), (1, ''))
+                self.assertIn('compute-only', completed.stderr.lower())
+                self.assertNotIn('Traceback', completed.stderr)
+                self.assertEqual((self.output / 'payment.json').read_bytes(), raw)
+                self.assertFalse((self.output / 'paid-journal.json').exists())
+
+    def test_compute_only_preparation_inherits_verification_and_filesystem_boundaries(self):
+        with self.no_financial_io():
+            self.c.prepare(self.task_path, self.result_path, self.output)
+            self.c.checked_workspace(self.output)
+        before = {str(p.relative_to(self.output)): p.read_bytes()
+                  for p in self.output.rglob('*') if p.is_file()}
+        with self.assertRaises((ValueError, OSError)):
+            self.c.prepare(self.task_path, self.result_path, self.output)
+        self.assertEqual({str(p.relative_to(self.output)): p.read_bytes()
+                          for p in self.output.rglob('*') if p.is_file()}, before)
+        (self.root / 'task-link').symlink_to(self.task_path)
+        (self.root / 'result-link').symlink_to(self.result_path)
+        (self.root / 'output-link').symlink_to(self.output, target_is_directory=True)
+        (self.root / 'parent-link').symlink_to(self.root, target_is_directory=True)
+        for task_path, result_path, output in (
+                (self.root / 'task-link', self.result_path, self.root / 'rejected'),
+                (self.task_path, self.root / 'result-link', self.root / 'rejected'),
+                (self.task_path, self.result_path, self.root / 'output-link'),
+                (self.task_path, self.result_path, self.root / 'parent-link' / 'rejected')):
+            with self.subTest(task=task_path, result=result_path, output=output):
+                with self.assertRaises((ValueError, OSError)):
+                    self.c.prepare(task_path, result_path, output)
+                self.assertFalse((self.root / 'rejected').exists())
+        with self.assertRaises((ValueError, OSError)):
+            self.c.checked_workspace(self.root / 'output-link')
+        changed = copy.deepcopy(self.result)
+        changed['result']['extended_mutated'] = False
+        self.result_path.write_bytes(self.c.document_bytes(changed))
+        with self.assertRaises(ValueError):
+            self.c.prepare(self.task_path, self.result_path, self.root / 'rejected')
+        self.assertFalse((self.root / 'rejected').exists())
+        (self.output / 'result.json').write_bytes(self.c.document_bytes(changed))
+        with self.assertRaises(ValueError):
+            self.c.checked_workspace(self.output)
+
+    def test_mutated_compute_tasks_fail_before_financial_io(self):
+        from test_worker import synthetic_reward
+        self.c.prepare(self.task_path, self.result_path, self.output)
+        home = self.root / 'absent-payer-home'
+        changes = ({'reward': None}, {'reward': synthetic_reward()}, {'unknown': True},
+                   {'leaf_count': True}, {'schema': 'zerone.external-work-task/v1'})
+        candidates = [{**self.task, **change} for change in changes]
+        for task in candidates:
+            task['task_id'] = self.w.digest(self.w.canonical({k: v for k, v in task.items() if k != 'task_id'}))
+        candidates += [{**self.task, 'task_id': '0' * 64},
+                       {**self.task, 'schema': 'zerone.external-work-task/v1', 'reward': synthetic_reward()}]
+        for task in candidates:
+            self.task_path.write_bytes(self.c.document_bytes(task))
+            (self.output / 'task.json').write_bytes(self.c.document_bytes(task))
+            for args in (['funding', '--task', self.task_path, '--payer-home', home],
+                         ['pay', '--workspace', self.output, '--payer-home', home, '--confirm-test-token-payment']):
+                with self.subTest(task=task, command=args[0]):
+                    out, err = io.StringIO(), io.StringIO()
+                    with self.no_financial_io(home), contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                        code = self.c.main(list(map(str, args)))
+                    self.assertEqual((code, out.getvalue()), (1, ''))
+                    self.assertIn('external-worker refused:', err.getvalue())
+                    self.assertNotIn('Traceback', err.getvalue())
+                    self.assertFalse(home.exists())
+
+    def test_prepare_and_inspect_retain_an_explicitly_unpaid_journal(self):
+        made = self.cli('prepare', '--task', self.task_path, '--result', self.result_path,
+                        '--output', self.output)
+        self.assertEqual(made.returncode, 0, made.stderr)
+        self.assertEqual(made.stderr, '')
+        receipt = json.loads(made.stdout)
+        self.assertIs(receipt['computation_verified'], True)
+        self.assertIs(receipt['paid'], False)
+        self.assertIs(receipt['payment_eligible'], False)
+        self.assertIn('no funding, no nominated recipient and no payment eligibility', receipt['scope'])
+        checked = self.c.checked_workspace(self.output)
+        self.assertEqual(checked['task'], self.task)
+        self.assertEqual(checked['result'], self.result)
+        self.assertNotIn('payment_receipt', checked)
+        self.assertEqual(checked['journal_sha256'], receipt['journal_sha256'])
+        records = [entry['record'] for entry in checked['journal']['entries']]
+        self.assertEqual(records, self.c.records_for(self.task, self.result,
+            checked['task_sha256'], checked['result_sha256']))
+        self.assertEqual(len(records), 12)
+        experiment = next(row for row in records if row['id'].endswith(':experiment'))
+        self.assertIn('no funding, no nominated recipient and no payment eligibility', experiment['summary'])
+        self.assertFalse(any(row['id'].endswith((':payment', ':payment-finding')) for row in records))
+        before = {str(p.relative_to(self.output)): p.read_bytes()
+                  for p in self.output.rglob('*') if p.is_file()}
+        inspected = self.cli('inspect', '--workspace', self.output)
+        self.assertEqual(inspected.returncode, 0, inspected.stderr)
+        self.assertEqual(inspected.stderr, '')
+        response = json.loads(inspected.stdout)
+        self.assertIs(response['paid'], False)
+        self.assertIs(response['payment_eligible'], False)
+        self.assertEqual(response['task_id'], self.task['task_id'])
+        self.assertIn('no funding, no nominated recipient and no payment eligibility', response['scope'])
+        self.assertEqual({str(p.relative_to(self.output)): p.read_bytes()
+                          for p in self.output.rglob('*') if p.is_file()}, before)
+        self.assertFalse((self.output / 'paid-journal.json').exists())
 
 
 class RetainedPaymentTests(unittest.TestCase):

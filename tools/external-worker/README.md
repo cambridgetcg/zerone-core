@@ -1,7 +1,8 @@
 # External knowledge worker
 
-An operator-mediated, **test-token-only** path connecting a bounded external
-computation to Zerone's existing contribution journal and SDK bank. It does not
+A bounded external computation connected to Zerone's existing contribution
+journal: either **explicitly unpaid compute-only** work or an operator-mediated,
+**test-token-only bounty** using the SDK bank. It does not
 change consensus, mint tokens, activate a useful-work module, or treat a payment
 as scientific acceptance. Actual execution receipts belong outside this checkout.
 
@@ -25,15 +26,16 @@ not the reversed display convention of transaction IDs. No paper-provided code,
 network requests, arbitrary task code or model judgments execute in the worker.
 
 This is bounded, small computation. It demonstrates transport, checking,
-attribution and settlement—not GPU throughput, novel discovery, cheap verification
+attribution and optional test settlement—not GPU throughput, novel discovery, cheap verification
 of arbitrary research or proof that physical compute was expended. Verification
 recomputes this work. Copied correct outputs cannot establish who performed it.
 
 ## Responsibility and trust boundaries
 
 - `worker.py`: stdlib-only task validation, fixed computation, separate verifier
-  and CLI. The hash-bound task includes recipient, amount, funding transaction and
-  genesis. These are declared terms; the worker does not verify funding.
+  and CLI. The paid-v1 task includes recipient, amount, funding transaction and
+  genesis; compute-only tasks have no reward. The schema and complete unsigned
+  task are hash-bound. Declared reward terms are not verified funding.
 - `coordinator.py`: verifies before creating a new task journal; retains source,
   question, method, experiment, finding and review with typed relations. It
   rechecks the complete task/result/journal before opening a payer. Input JSON is
@@ -52,7 +54,7 @@ recomputes this work. Copied correct outputs cannot establish who performed it.
   keys or payments, fixed time limit and an allowlisted output artifact. Its
   environment metadata is not proof of independent worker control.
 
-Funds are **prefunded sponsor balances**, not protocol-locked task escrow.
+For bounty tasks, funds are **prefunded sponsor balances**, not protocol-locked task escrow.
 The sponsor still controls acceptance and payment. Native neutral-review fees
 are a different mechanism: valid timely reveals are payable irrespective of a
 computation's quality. This tool does not rewrite that policy or fabricate
@@ -65,7 +67,7 @@ on-chain task-consumption registry. A pending, failed or ambiguous attempt block
 new signing; inspect/reconcile the exact retained transaction through the existing
 participant client. Never compensate uncertainty by signing another payment.
 
-The compute process receives no wallet keys. The task nominates a recipient;
+The compute process receives no wallet keys. A bounty task nominates a recipient;
 that nomination and a worker label do not prove control of the recipient key.
 A GitHub-hosted run under the sponsor's repository remains one operator control
 context even though computation occurs on another machine. Independent operator
@@ -73,7 +75,44 @@ participation, safe open admission, artifact storage guarantees and trustless
 settlement remain separate milestones. Endpoint observations are not independent
 inclusion proofs, and development balances have no promised value.
 
-## Run the bounded loop
+## Run without funding (compute-only)
+
+Use Python 3.11+ and set `SEED_HEX` to 64 lowercase hexadecimal characters
+(32 bytes). Leaf counts are odd integers from 3 through 4095. No node,
+signer home, recipient or synthetic funding values are needed.
+
+```sh
+python3 -B tools/external-worker/worker.py make-compute-task \
+  --seed-hex "$SEED_HEX" --leaf-count 4095 --output /ABSOLUTE/task.json
+python3 -B tools/external-worker/worker.py run \
+  --task /ABSOLUTE/task.json --output /ABSOLUTE/result.json \
+  --worker-id 'DECLARED_PUBLIC_WORKER_LABEL'
+python3 -B tools/external-worker/worker.py verify \
+  --task /ABSOLUTE/task.json --result /ABSOLUTE/result.json
+python3 -B tools/external-worker/coordinator.py prepare \
+  --task /ABSOLUTE/task.json --result /ABSOLUTE/result.json \
+  --output /ABSOLUTE/new-task-workspace
+python3 -B tools/external-worker/coordinator.py inspect \
+  --workspace /ABSOLUTE/new-task-workspace
+```
+
+The Python API is `make_compute_task(seed_hex, leaf_count)`. Its closed
+`zerone.external-compute-task/v1` schema has exactly `schema`, `task_id`, `kind`,
+`seed_hex` and `leaf_count`; `reward` is forbidden, even `null`. It uses the same
+result, independent verifier and public hosted-task transport as the bounty path.
+Task IDs bind the schema too: stripping a paid task's reward or swapping its
+schema does not preserve a valid task ID. `make-task --reward` and
+`make_task(seed_hex, leaf_count, reward_dict)` remain the explicit paid-v1 path;
+missing reward never means unpaid work.
+
+`prepare` retains the scoped journal with no funding, nominated recipient or
+payment eligibility. Its receipt and `inspect` report `paid: false` and
+`payment_eligible: false`. `funding` and `pay` refuse compute-only tasks before
+loading a payer or accessing its home, even with `--confirm-test-token-payment`.
+Files and the new workspace cannot overwrite existing outputs or follow symlinks.
+The loop ends at the verified local journal, not payment or scientific acceptance.
+
+## Run the test-token bounty loop
 
 Use Python 3.11+ and an explicitly authorized fresh isolated runtime from
 [the existing runtime guide](../../deploy/networks/zerone-dev-1/README.md).
@@ -163,9 +202,10 @@ actionlint .github/workflows/external-worker.yml
 ```
 
 Unit tests use explicitly synthetic bank observations to fault-inject signing
-boundaries; they are not payment evidence. A completed external loop additionally
-requires a real provider run, actual returned result, a journal readback and a
-committed native transfer with matched bank deltas. Preserve those exact artifacts
+boundaries; they are not payment evidence. A completed external compute-only loop
+requires a real provider run, actual returned result and a verified journal readback.
+The bounty loop additionally requires a committed native transfer with matched bank
+deltas. Preserve those exact artifacts
 and distinguish task execution, scientific scope, custody, and payment in reports.
 
 ## Sources

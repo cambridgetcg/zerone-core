@@ -85,6 +85,74 @@ class SyntheticWorkerTests(unittest.TestCase):
             with self.subTest(bad=repr(bad)), self.assertRaises(ValueError):
                 self.worker.digest(bad)
 
+    def test_compute_only_api_roundtrip_binds_the_complete_unpaid_task(self):
+        self.assertTrue(callable(getattr(self.worker, "make_compute_task", None)),
+                        "explicit make_compute_task API missing")
+        for count in (3, 4095):
+            with self.subTest(count=count):
+                unsigned = {"schema": "zerone.external-compute-task/v1",
+                            "kind": "bitcoin-merkle-duplicate-v1", "seed_hex": "00" * 32,
+                            "leaf_count": count}
+                expected = {**unsigned, "task_id": task_hash(unsigned)}
+                task = self.worker.make_compute_task("00" * 32, count)
+                self.assertEqual(task, expected)
+                self.assertIsNone(self.worker.validate_task(task))
+                result = self.worker.compute(task, "unpaid-compute-fixture")
+                paid = self.worker.make_task("00" * 32, count, synthetic_reward())
+                self.assertNotEqual(task["task_id"], paid["task_id"])
+                self.assertEqual(result["result"], self.worker.compute(paid, "paid-fixture")["result"])
+                with mock.patch.object(self.worker, "_worker_tree", side_effect=AssertionError("shared reducer")), \
+                        mock.patch.object(self.worker, "compute", side_effect=AssertionError("shared compute")):
+                    receipt = self.worker.verify(task, result)
+                self.assertEqual(receipt, {
+                    "schema": "zerone.external-work-verification/v1",
+                    "assurance": "specified-computation-only", "task_id": task["task_id"],
+                    "task_sha256": task_hash(task), "result_sha256": task_hash(result),
+                    "result": result["result"],
+                })
+                self.assertEqual(task, expected)
+
+    def test_compute_only_schema_is_closed_and_never_an_implicit_paid_conversion(self):
+        good = self.worker.make_compute_task("12" * 32, 3)
+        result = self.worker.compute(good, "unpaid-mutations")
+        invalid = {
+            "schema": [None, [], True, "zerone.external-compute-task/v2", "zerone.external-work-task/v1"],
+            "kind": [None, False, "bitcoin-merkle-duplicate-v2"],
+            "seed_hex": [None, 0, [], "AB" * 32, "0" * 63, "0" * 65, "g" * 64, "12" * 32 + "\n"],
+            "leaf_count": [True, False, None, "3", 3.0, 0, 1, 2, 4, -3, 4096, 4097, 10**100],
+            "reward": [None, {}, synthetic_reward()],
+            "unknown": [None],
+        }
+        for field, values in invalid.items():
+            for value in values:
+                bad = {**good, field: value}
+                bad["task_id"] = task_hash({k: v for k, v in bad.items() if k != "task_id"})
+                with self.subTest(field=field, value=value):
+                    for call in (lambda: self.worker.validate_task(bad),
+                                 lambda: self.worker.compute(bad, "unpaid"),
+                                 lambda: self.worker.verify(bad, result)):
+                        with self.assertRaises(ValueError):
+                            call()
+                    if field in ("seed_hex", "leaf_count"):
+                        with self.assertRaises(ValueError):
+                            self.worker.make_compute_task(bad["seed_hex"], bad["leaf_count"])
+        for key in good:
+            with self.subTest(missing=key), self.assertRaises(ValueError):
+                self.worker.validate_task({k: v for k, v in good.items() if k != key})
+        for task_id in (None, True, "AA" * 32, "0" * 63, "0" * 64):
+            with self.subTest(task_id=task_id), self.assertRaises(ValueError):
+                self.worker.validate_task({**good, "task_id": task_id})
+        paid = self.worker.make_task("12" * 32, 3, synthetic_reward())
+        for stripped in ({k: v for k, v in paid.items() if k != "reward"}, {**paid, "reward": None}):
+            stripped["task_id"] = task_hash({k: v for k, v in stripped.items() if k != "task_id"})
+            with self.assertRaises(ValueError):
+                self.worker.validate_task(stripped)
+        for source, target in ((good, paid), (paid, good)):
+            with self.assertRaisesRegex(ValueError, "task_id"):
+                self.worker.validate_task({**target, "task_id": source["task_id"]})
+            with self.assertRaisesRegex(ValueError, "task_id"):
+                self.worker.verify(target, self.worker.compute(source, "original-schema"))
+
     def test_make_task_binds_exact_unsigned_canonical_task(self):
         self.assertTrue(callable(getattr(self.worker, "make_task", None)), "make_task API missing")
         reward = synthetic_reward()
@@ -299,6 +367,80 @@ class SyntheticWorkerTests(unittest.TestCase):
                               cwd=cwd, capture_output=True, text=True, timeout=10, umask=umask,
                               env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"})
 
+    def test_compute_only_cli_roundtrip_needs_no_reward(self):
+        with self.scratch() as directory:
+            root = Path(directory)
+            task_path, result_path = root / "task.json", root / "result.json"
+            made = self.cli("make-compute-task", "--seed-hex", "42" * 32,
+                            "--leaf-count", "17", "--output", task_path, cwd=root)
+            self.assertEqual(made.returncode, 0, made.stderr)
+            task = self.worker.make_compute_task("42" * 32, 17)
+            self.assertEqual(task_path.read_bytes(), self.worker.canonical(task) + b"\n")
+            self.assertEqual((made.stdout, made.stderr), ("", ""))
+            computed = self.cli("run", "--task", task_path, "--output", result_path,
+                                "--worker-id", "unpaid-cli-fixture", cwd=root)
+            self.assertEqual(computed.returncode, 0, computed.stderr)
+            self.assertEqual((computed.stdout, computed.stderr), ("", ""))
+            result = self.worker.compute(task, "unpaid-cli-fixture")
+            self.assertEqual(result_path.read_bytes(), self.worker.canonical(result) + b"\n")
+            before = {p.name: p.read_bytes() for p in root.iterdir()}
+            verified = self.cli("verify", "--task", task_path, "--result", result_path, cwd=root)
+            self.assertEqual(verified.returncode, 0, verified.stderr)
+            self.assertEqual(verified.stdout.encode(), self.worker.canonical(self.worker.verify(task, result)) + b"\n")
+            self.assertEqual(verified.stderr, "")
+            self.assertEqual({p.name: p.read_bytes() for p in root.iterdir()}, before)
+            for path in (task_path, result_path):
+                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+
+    def test_compute_only_cli_rejects_injected_data_and_implicit_conversion(self):
+        with self.scratch() as directory:
+            root = Path(directory)
+            task = self.worker.make_compute_task("12" * 32, 3)
+            task_path, result_path, output = root / "task", root / "result", root / "out"
+            result_path.write_bytes(self.worker.canonical(self.worker.compute(task, "unpaid-cli")))
+            for mutation in ({"reward": None}, {"reward": synthetic_reward()}, {"unknown": 1},
+                             {"schema": "zerone.external-work-task/v1"}, {"leaf_count": True}):
+                changed = {**task, **mutation}
+                changed["task_id"] = task_hash({k: v for k, v in changed.items() if k != "task_id"})
+                task_path.write_bytes(self.worker.canonical(changed))
+                for args in (["run", "--task", task_path, "--output", output, "--worker-id", "unpaid"],
+                             ["verify", "--task", task_path, "--result", result_path]):
+                    with self.subTest(mutation=mutation, command=args[0]):
+                        completed = self.cli(*args, cwd=root)
+                        self.assertEqual(completed.returncode, 2)
+                        self.assertEqual(completed.stdout, "")
+                        self.assertNotIn("Traceback", completed.stderr)
+                        self.assertFalse(output.exists())
+            for command, extra, diagnostic in (("make-task", [], "--reward"),
+                    ("make-compute-task", ["--reward", "NEVER_READ"], "unrecognized arguments")):
+                completed = self.cli(command, "--seed-hex", "12" * 32, "--leaf-count", "3",
+                                     "--output", output, *extra, cwd=root)
+                self.assertEqual(completed.returncode, 2)
+                self.assertEqual(completed.stdout, "")
+                self.assertIn(diagnostic, completed.stderr)
+                self.assertFalse(output.exists())
+
+    def test_compute_only_cli_inherits_no_symlink_inputs(self):
+        with self.scratch() as directory:
+            root = Path(directory)
+            real = root / "real"
+            real.mkdir()
+            task = self.worker.make_compute_task("12" * 32, 3)
+            (real / "task").write_bytes(self.worker.canonical(task))
+            (real / "result").write_bytes(self.worker.canonical(self.worker.compute(task, "unpaid")))
+            (root / "link").symlink_to(real / "task")
+            (root / "parent-link").symlink_to(real, target_is_directory=True)
+            for path in (root / "link", root / "parent-link" / "task",
+                         root / "parent-link" / ".." / "real" / "task"):
+                for args in (["run", "--task", path, "--worker-id", "unpaid", "--output", root / "out"],
+                             ["verify", "--task", path, "--result", real / "result"]):
+                    with self.subTest(path=path, command=args[0]):
+                        completed = self.cli(*args, cwd=root)
+                        self.assertEqual(completed.returncode, 2)
+                        self.assertEqual(completed.stdout, "")
+                        self.assertNotIn("Traceback", completed.stderr)
+                        self.assertFalse((root / "out").exists())
+
     def test_cli_make_task_creates_private_canonical_task(self):
         with self.scratch() as directory:
             root = Path(directory)
@@ -472,6 +614,7 @@ class SyntheticWorkerTests(unittest.TestCase):
             commands = [
                 ["run", "--task", root / "task", "--worker-id", "synthetic"],
                 ["make-task", "--seed-hex", "00" * 32, "--leaf-count", "3", "--reward", root / "reward"],
+                ["make-compute-task", "--seed-hex", "00" * 32, "--leaf-count", "3"],
             ]
             for command in commands:
                 targets = [root / name for name in ("protected", "hardlink", "link", "dangling", "pipe",
