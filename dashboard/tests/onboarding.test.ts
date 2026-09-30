@@ -74,13 +74,26 @@ describe("production onboarding surface", () => {
     );
   });
 
+  it("routes no-account visitors straight to local journal authoring", () => {
+    const explore = onboarding.match(/<li data-path="explore">([\s\S]*?)<\/li>/u)?.[1];
+    assert.ok(explore, "the no-account path must remain in the static onboarding HTML");
+    assert.match(explore, /<a\b[^>]*href="\/research\/review\/"[^>]*>\s*Start a local journal\s*<\/a>/u);
+    assert.match(explore, /href="#activity"/u);
+    assert.match(explore, /href="\/research\/#reading-path"/u);
+    const text = visibleText(explore);
+    assert.match(text, /without a wallet or account/u);
+    assert.match(text, /stays in this tab until you download it/u);
+    assert.match(text, /No upload or chain submission/u);
+    assert.doesNotMatch(explore, /<button\b|\son[a-z]+\s*=|wallet-connect/u);
+  });
+
   it("offers public reads, local node setup, an optional wallet, and an honest admission pause", () => {
     const text = visibleText(onboarding);
     assert.match(text, /Explore without joining/u);
     assert.match(onboarding, /href="\/nodes\/"/u);
     assert.match(text, /Run your own local node/u);
     assert.match(text, /zerone-local-1/u);
-    assert.match(text, /Completion: you reach the dashboard with zero credentials requested/u);
+    assert.match(text, /without a wallet or account/u);
     assert.match(text, /Bring an existing account/u);
     assert.match(
       text,
