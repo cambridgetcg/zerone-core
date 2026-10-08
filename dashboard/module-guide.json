@@ -774,7 +774,7 @@
       "connections": [
         {
           "module": "zerone_ontology",
-          "why": "Read the domain set."
+          "why": "Read domain depth for the existing HHI threshold."
         },
         {
           "module": "knowledge",
@@ -786,7 +786,7 @@
         },
         {
           "module": "alignment",
-          "why": "Read pacing inputs."
+          "why": "Read analysis pacing; capture flags are not wired back into alignment's security sensor."
         }
       ]
     },
@@ -806,7 +806,7 @@
         },
         {
           "module": "capture_defense",
-          "why": "Read metrics and clear flags."
+          "why": "Receive metrics/evidence pushed into automatic challenges and clear flags on rejection. RunRiskAnalysis is a no-op; the challenge adapter's GetCaptureMetrics accessor has no production caller."
         },
         {
           "module": "qualification",

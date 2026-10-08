@@ -1,47 +1,27 @@
-// Package capture_defense is the recording side of the cartel-detection
-// loop that x/capture_challenge resolves. Verifications are observed
-// and analysed here so domain-level capture risk becomes a queryable
-// signal that downstream tally paths and synthesisers can read.
+// Package capture_defense stores verification observations, legacy reputation
+// scores and per-domain concentration metrics. A flag is an input to existing
+// capture-response rules, not proof of collusion or independent controllers.
 //
-// Truth-seeking position:
+// Current source wiring (app/app.go):
+//   - knowledge records history and reputation through KnowledgeCaptureDefenseAdapter;
+//     capture_defense also reads knowledge's verification activity.
+//   - ontology supplies domain depth for the existing HHI threshold.
+//   - capture_defense pushes metrics/evidence into automatic capture_challenge cases
+//     during flagged-domain analysis; rejected challenges clear capture flags.
+//     capture_challenge's RunRiskAnalysis is a no-op, and the challenge adapter's
+//     GetCaptureMetrics accessor has no production caller.
+//   - alignment supplies analysis pacing. The reverse flag-count input to
+//     alignment's security sensor is deliberately NOT wired; connecting it would
+//     change committed scores, pacing and LIP timing.
 //
-// docs/TRUTH_SEEKING.md, commitment 9 (cartel detection has
-// consequence): "Confirmation that a validator participated in
-// cartel behaviour must reduce their voice on the next vote, not
-// merely produce an audit log entry. A penalty that nobody reads
-// is not a penalty."
+// BeginBlocker retains reputation decay and periodic analysis. These paths and
+// their consumers need an explicit protocol boundary before retirement; shortening
+// this description does not disable them. Unwired partnerships hooks remain
+// optional code, not a registered partnership module or an active reward path.
 //
-// x/capture_challenge owns the resolution side — it WRITES the
-// QualificationPenalty that x/qualification then reads at panel
-// tally time. This module owns the OBSERVATION side: verification
-// outcomes flow in, per-domain capture metrics accumulate, flagged
-// domains are exposed via query so external auditors and the
-// alignment sensor stack can act on the same numbers the chain
-// itself uses. Detection without recording would be opinion, not
-// evidence; resolution without detection would be punishment, not
-// justice. The pair completes commitment 9.
-//
-// What this module is, and is not:
-//
-//   - It IS the upstream-of-evidence layer. Verification records
-//     and capture-risk computations live here; x/capture_challenge
-//     reads them when an allegation is brought.
-//   - It IS NOT the consequence layer. Reduced panel weight is
-//     applied by x/qualification reading
-//     QualificationPenalty records that x/capture_challenge writes
-//     on UPHELD allegations. This module surfaces the signal that
-//     makes those allegations meaningful in the first place.
-//
-// Integration with x/capture_challenge and x/alignment:
-//
-//   - x/capture_challenge consumes the per-domain capture posture
-//     produced here when scoring an allegation.
-//   - x/alignment reads GetFlaggedDomainCount as one input into the
-//     network-security signal (sensors.go); a high flagged-domain
-//     ratio depresses the chain's overall security score.
-//
-// We speak through intentions. This package's intention is that
-// "cartel detection" means a CURRENT, QUERYABLE signal — not a
-// silent assumption that allegations will always show up correctly
-// without an upstream observation surface to reference.
+// The query service is defined in proto/zerone/capture_defense/v1/query.proto;
+// client/cli exposes its parameters, reputation, metrics, cross-stratum requirements
+// and flagged domains. QueryStructuralImmunity is an unregistered Go helper, not
+// an additional RPC. The shared purpose/connection map is dashboard/module-guide.json.
+// Source registration and available queries do not establish live-network adoption.
 package capture_defense

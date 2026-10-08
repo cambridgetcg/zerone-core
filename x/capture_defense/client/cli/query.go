@@ -24,6 +24,7 @@ func NewQueryCmd() *cobra.Command {
 		NewQueryParamsCmd(),
 		NewQueryReputationCmd(),
 		NewQueryCaptureMetricsCmd(),
+		NewQueryCrossStratumRequirementsCmd(),
 		NewQueryFlaggedDomainsCmd(),
 	)
 
@@ -42,8 +43,8 @@ func NewQueryParamsCmd() *cobra.Command {
 			}
 
 			req := &types.QueryParamsRequest{}
-			resp := &types.QueryParamsResponse{}
-			if err := clientCtx.Invoke(cmd.Context(), "/zerone.capture_defense.v1.Query/Params", req, resp); err != nil {
+			resp, err := types.NewQueryClient(clientCtx).Params(cmd.Context(), req)
+			if err != nil {
 				return fmt.Errorf("failed to query params: %w", err)
 			}
 
@@ -70,8 +71,8 @@ func NewQueryReputationCmd() *cobra.Command {
 			if len(args) > 1 {
 				req.Domain = args[1]
 			}
-			resp := &types.QueryReputationResponse{}
-			if err := clientCtx.Invoke(cmd.Context(), "/zerone.capture_defense.v1.Query/Reputation", req, resp); err != nil {
+			resp, err := types.NewQueryClient(clientCtx).Reputation(cmd.Context(), req)
+			if err != nil {
 				return fmt.Errorf("failed to query reputation: %w", err)
 			}
 
@@ -79,6 +80,28 @@ func NewQueryReputationCmd() *cobra.Command {
 		},
 	}
 
+	flags.AddQueryFlagsToCmd(cmd)
+	return cmd
+}
+
+func NewQueryCrossStratumRequirementsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "cross-stratum-requirements",
+		Short: "Query configured cross-stratum verification requirements",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			resp, err := types.NewQueryClient(clientCtx).CrossStratumRequirements(cmd.Context(), &types.QueryCrossStratumRequirementsRequest{})
+			if err != nil {
+				return fmt.Errorf("failed to query cross-stratum requirements: %w", err)
+			}
+			return clientCtx.PrintObjectLegacy(resp)
+		},
+	}
 	flags.AddQueryFlagsToCmd(cmd)
 	return cmd
 }
@@ -95,8 +118,8 @@ func NewQueryFlaggedDomainsCmd() *cobra.Command {
 			}
 
 			req := &types.QueryFlaggedDomainsRequest{}
-			resp := &types.QueryFlaggedDomainsResponse{}
-			if err := clientCtx.Invoke(cmd.Context(), "/zerone.capture_defense.v1.Query/FlaggedDomains", req, resp); err != nil {
+			resp, err := types.NewQueryClient(clientCtx).FlaggedDomains(cmd.Context(), req)
+			if err != nil {
 				return fmt.Errorf("failed to query flagged domains: %w", err)
 			}
 
@@ -120,8 +143,8 @@ func NewQueryCaptureMetricsCmd() *cobra.Command {
 			}
 
 			req := &types.QueryCaptureMetricsRequest{Domain: args[0]}
-			resp := &types.QueryCaptureMetricsResponse{}
-			if err := clientCtx.Invoke(cmd.Context(), "/zerone.capture_defense.v1.Query/CaptureMetrics", req, resp); err != nil {
+			resp, err := types.NewQueryClient(clientCtx).CaptureMetrics(cmd.Context(), req)
+			if err != nil {
 				return fmt.Errorf("failed to query capture metrics: %w", err)
 			}
 

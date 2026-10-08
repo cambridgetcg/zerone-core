@@ -6,6 +6,19 @@ import (
 	"github.com/zerone-chain/zerone/x/capture_defense/types"
 )
 
+// nextReputationScore preserves the legacy update rule shared by all layers.
+func nextReputationScore(score uint64, approved bool) uint64 {
+	if approved {
+		delta := max((types.BPSScale-score)/100, 1000)
+		return min(score+delta, types.BPSScale)
+	}
+	delta := max(score/50, 1000)
+	if score > delta {
+		return score - delta
+	}
+	return 0
+}
+
 // UpdateReputation updates all three reputation layers for a validator in a domain.
 func (k Keeper) UpdateReputation(ctx sdk.Context, validator string, domain string, stratum string, approved bool) {
 	height := uint64(ctx.BlockHeight())
@@ -20,28 +33,7 @@ func (k Keeper) UpdateReputation(ctx sdk.Context, validator string, domain strin
 		}
 	}
 	global.TotalVerifications++
-	if approved {
-		// Increase score: move 1% toward max
-		delta := (types.BPSScale - global.Score) / 100
-		if delta < 1000 {
-			delta = 1000
-		}
-		global.Score += delta
-		if global.Score > types.BPSScale {
-			global.Score = types.BPSScale
-		}
-	} else {
-		// Decrease: move 2% toward zero
-		delta := global.Score / 50
-		if delta < 1000 {
-			delta = 1000
-		}
-		if global.Score > delta {
-			global.Score -= delta
-		} else {
-			global.Score = 0
-		}
-	}
+	global.Score = nextReputationScore(global.Score, approved)
 	global.LastUpdatedBlock = height
 	k.SetGlobalReputation(ctx, global)
 
@@ -57,26 +49,7 @@ func (k Keeper) UpdateReputation(ctx sdk.Context, validator string, domain strin
 			}
 		}
 		sr.Verifications++
-		if approved {
-			delta := (types.BPSScale - sr.Score) / 100
-			if delta < 1000 {
-				delta = 1000
-			}
-			sr.Score += delta
-			if sr.Score > types.BPSScale {
-				sr.Score = types.BPSScale
-			}
-		} else {
-			delta := sr.Score / 50
-			if delta < 1000 {
-				delta = 1000
-			}
-			if sr.Score > delta {
-				sr.Score -= delta
-			} else {
-				sr.Score = 0
-			}
-		}
+		sr.Score = nextReputationScore(sr.Score, approved)
 		sr.LastUpdatedBlock = height
 		k.SetStratumReputation(ctx, sr)
 	}
@@ -93,26 +66,7 @@ func (k Keeper) UpdateReputation(ctx sdk.Context, validator string, domain strin
 			}
 		}
 		dr.Verifications++
-		if approved {
-			delta := (types.BPSScale - dr.Score) / 100
-			if delta < 1000 {
-				delta = 1000
-			}
-			dr.Score += delta
-			if dr.Score > types.BPSScale {
-				dr.Score = types.BPSScale
-			}
-		} else {
-			delta := dr.Score / 50
-			if delta < 1000 {
-				delta = 1000
-			}
-			if dr.Score > delta {
-				dr.Score -= delta
-			} else {
-				dr.Score = 0
-			}
-		}
+		dr.Score = nextReputationScore(dr.Score, approved)
 		dr.LastUpdatedBlock = height
 		k.SetDomainReputation(ctx, dr)
 	}
