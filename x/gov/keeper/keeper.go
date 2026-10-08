@@ -74,9 +74,8 @@ func (k Keeper) GetCreedKeeper() types.CreedKeeper {
 	return k.creedKeeper
 }
 
-// SetSubstrateBridgeKeeper sets the substrate_bridge keeper (post-init to
-// break circular deps). Required for the CategoryAdapterRegistration LIP
-// class to dispatch WriteAdapterFromGov on pass (commitment 20).
+// SetSubstrateBridgeKeeper retains the substrate_bridge attachment. Neither
+// tally path dispatches adapter registration; attachment is not activation.
 func (k *Keeper) SetSubstrateBridgeKeeper(sbk types.SubstrateBridgeKeeper) {
 	k.substrateBridgeKeeper = sbk
 }

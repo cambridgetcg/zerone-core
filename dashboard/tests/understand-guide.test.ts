@@ -108,6 +108,31 @@ describe("shared explanatory guide", () => {
     }
   });
 
+  it("uses the catalog's display names for every module and workflow connection", () => {
+    const { guide } = build();
+    const html = understandPage(guide);
+    const references = [
+      ...guide.modules.workflow.flatMap((step) => step.moduleIds),
+      ...guide.modules.modules.flatMap((module) => module.connections.map((connection) => connection.module)),
+    ];
+    for (const id of references) {
+      const target = guide.modules.modules.find((module) => module.id === id);
+      assert.ok(target, `Unknown module reference ${id}`);
+      assert.ok(html.includes(`<a href="#module-${id}">${target.label}</a>`), `Missing named connection to ${id}`);
+    }
+    for (const id of ["gov", "zerone_gov", "staking", "zerone_staking", "auth", "zerone_auth"]) {
+      assert.ok(html.includes(`id="module-${id}"`), `Stable module ID ${id}`);
+    }
+  });
+
+  it("rejects missing module targets instead of rendering misleading connections", () => {
+    const { guide } = build();
+    for (const id of ["auth", "zerone_staking"]) {
+      const missing = { ...guide, modules: { ...guide.modules, modules: guide.modules.modules.filter((module) => module.id !== id) } };
+      assert.throws(() => understandPage(missing), new RegExp(`Unknown module reference: ${id}`));
+    }
+  });
+
   it("escapes module explanations and distinguishes current-source links from dated evidence", () => {
     const { guide } = build();
     const prose = '<img src=x onerror="alert(1)"> & context';
@@ -115,12 +140,13 @@ describe("shared explanatory guide", () => {
       ...guide,
       modules: {
         ...guide.modules,
-        modules: guide.modules.modules.map((module) => ({ ...module, purpose: prose, owns: prose, boundary: prose })),
+        modules: guide.modules.modules.map((module) => ({ ...module, label: prose, purpose: prose, owns: prose, boundary: prose })),
       },
     };
     const html = understandPage(changed);
     assert.ok(html.includes("&lt;img src=x onerror=&quot;alert(1)&quot;&gt; &amp; context"));
     assert.ok(!html.includes(prose));
+    assert.ok(html.includes('<a href="#module-auth">&lt;img src=x onerror=&quot;alert(1)&quot;&gt; &amp; context</a>'));
     assert.ok(guide.sections[0].link.url.includes(`/blob/${sourceCommit}/README.md`));
     assert.ok(guide.sections[2].link.url.includes(`/blob/${sourceCommit}/docs/AUTHORITATIVE-STATE.md`));
     assert.ok(guide.sections[3].history.link.url.includes(`/blob/${guide.source.evidenceCommit}/`));

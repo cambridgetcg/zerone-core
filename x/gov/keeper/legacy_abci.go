@@ -81,29 +81,10 @@ func (k Keeper) tallyAndResolveLegacy(ctx sdk.Context, lip *types.LIP, params *t
 				}
 			}
 		case types.CategoryAdapterRegistration:
-			// Commitment 20 (issuance follows participation): on pass,
-			// dispatch to x/substrate_bridge.WriteAdapterFromGov with
-			// the adapter spec that was attached to the LIP body.
-			//
-			// TODO(Phase-1): retrieve the adapter payload attached to
-			// this LIP (analogous to GetCreedAmendmentPin for
-			// CategoryCreedAmendment), then call:
-			//
-			//   sbk := k.GetSubstrateBridgeKeeper()
-			//   if sbk != nil {
-			//       adapterBytes := <retrieve from LIP attachment store>
-			//       if err := sbk.WriteAdapterFromGov(ctx, lip.Id, adapterBytes); err != nil {
-			//           k.Logger(ctx).Error(...)
-			//       }
-			//   }
-			//
-			// The attachment mechanism (MsgAttachAdapterRegistration +
-			// SetAdapterRegistrationPayload/GetAdapterRegistrationPayload)
-			// mirrors the creed-amendment pin pattern and will be wired
-			// in the follow-up plan task when the generic LIP-dispatch
-			// mechanism stabilises. Until then, the governance weight
-			// and vocabulary are established: a passed LIP of this class
-			// is recorded on-chain at the correct quorum bar.
+			// Preserve historical passed-but-inert decisions. This branch never
+			// registers an adapter; do not add dispatch or replay old passes here.
+			// The accounting-safety tally instead refuses this category; see
+			// executeApprovedLIP.
 			k.Logger(ctx).Info("adapter_registration LIP passed; dispatch to substrate_bridge pending Phase-1 wiring",
 				"lip_id", lip.Id,
 			)

@@ -11,8 +11,10 @@ authority observatory.
 `/understand/` introduces the purpose, an explicitly fictional contribution,
 participant roles, money and authority, publication choices, and current
 participation paths. Its module section connects the research workflow to each
-registered component's current purpose, state and dependencies. Native disclosures keep the example usable without
-JavaScript; the page has no application script, wallet, input form or API call.
+registered component's current purpose, state and dependencies. Connections reuse
+the destination's catalog label; module IDs and fragment links stay stable.
+Missing targets fail the build. Native disclosures work without JavaScript;
+the page has no application script, wallet, input form or API call.
 The existing research surfaces remain linked from its optional research index.
 The development/design section uses the same `module-guide.json` input and
 separates implementation, network publication, accepted pending design and release

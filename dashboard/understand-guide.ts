@@ -192,7 +192,11 @@ const heading = (section: { readonly id: string; readonly title: string; readonl
 
 const moduleAnchor = (id: string) => `module-${id}`;
 function moduleSection(guide: UnderstandGuide["modules"]): string {
-  const moduleLink = (id: string) => `<a href="#${escape(moduleAnchor(id))}"><code>${escape(id)}</code></a>`;
+  const moduleLink = (id: string) => {
+    const target = guide.modules.find((module) => module.id === id);
+    if (!target) throw new Error(`Unknown module reference: ${id}`);
+    return `<a href="#${escape(moduleAnchor(id))}">${escape(target.label)}</a>`;
+  };
   return `<section class="guide-section module-section" id="modules" aria-labelledby="modules-title">
     <div class="section-intro"><div><p class="eyebrow">Modules &amp; workflow</p><h2 id="modules-title">${escape(guide.title)}</h2></div><p>${escape(guide.intro)}</p></div>
     <ol class="module-workflow" aria-label="Research workflow">${guide.workflow.map((step, index) => `<li id="workflow-${escape(step.id)}"><span class="step-number" aria-hidden="true">${String(index + 1).padStart(2, "0")}</span><div><h3>${escape(step.title)}</h3><p>${escape(step.text)}</p>${step.moduleIds.length ? `<p class="module-references">Modules: ${step.moduleIds.map(moduleLink).join(" · ")}</p>` : ""}<div class="related-links">${link(step.link)}</div></div></li>`).join("")}</ol>

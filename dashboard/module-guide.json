@@ -628,7 +628,7 @@
       "family": "sdk-ibc",
       "group": "decisions",
       "purpose": "Execute ordinary SDK proposals through the application’s authority.",
-      "owns": "SDK proposals, deposits, voting, tally and typed execution.",
+      "owns": "SDK proposals, deposits, stake-weighted tally and typed execution, including software upgrades.",
       "boundary": "Current SDK voting still uses stake, and custom governance remains alongside it. Accepted authority consolidation is unfinished.",
       "sourcePath": "app/app.go",
       "connections": [
@@ -652,12 +652,12 @@
     },
     {
       "id": "zerone_gov",
-      "label": "Custom governance",
+      "label": "Custom LIP governance",
       "family": "custom",
       "group": "decisions",
-      "purpose": "Keep the older LIP and research-governance processes.",
+      "purpose": "Manage custom LIP proposals and separate research-fund decisions.",
       "owns": "Custom proposals, stake ballots, phases, seats, deposits and research-fund spending.",
-      "boundary": "It coexists with SDK governance. Attachment of an adapter or dispatch primitive does not make every proposal category executable.",
+      "boundary": "Separate from SDK governance, which alone schedules upgrades. The app's parameter router has no registered handlers; creed amendment and adapter-registration paths are incomplete.",
       "sourcePath": "x/gov/keeper/keeper.go",
       "connections": [
         {
@@ -682,11 +682,11 @@
         },
         {
           "module": "creed",
-          "why": "Use the attached creed dispatch primitive."
+          "why": "Attached amendment primitive; category configuration and two-pool tally remain incomplete."
         },
         {
           "module": "substrate_bridge",
-          "why": "Retain the adapter-registration attachment; category dispatch is scaffolded."
+          "why": "Attachment only: legacy tally records an inert pass; accounting-safety tally refuses adapter registration."
         }
       ]
     },
@@ -894,7 +894,7 @@
         },
         {
           "module": "zerone_gov",
-          "why": "Expose the attached amendment dispatch primitive."
+          "why": "Expose the amendment primitive, not a complete custom-governance amendment workflow."
         }
       ]
     },
@@ -919,6 +919,10 @@
       "boundary": "It does not fetch evidence or execute adapter compilers. Cited facts must already exist; witness-only links are allowed and new pending claims are rejected.",
       "sourcePath": "x/substrate_bridge/keeper/keeper.go",
       "connections": [
+        {
+          "module": "gov",
+          "why": "Use SDK governance authority for adapter-management messages."
+        },
         {
           "module": "knowledge",
           "why": "Read cited facts and receive callbacks for retained pending links."
