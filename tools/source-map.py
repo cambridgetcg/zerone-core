@@ -383,6 +383,7 @@ def export(root):
     guide = read_catalog(root, entries)
     validate_catalog(guide, entries)
     modules = [{**module, "aliases": module_aliases(module), "purpose_basis": "reviewed-catalog",
+                "tags": ["registered-source", module["family"], module["group"]],
                 "purpose_source": {"path": CATALOG, "module_id": module["id"]}}
                for module in sorted(guide["modules"], key=lambda module: module["id"])]
     files = [associate(label(entry), modules, guide["sharedUtilities"]) for entry in entries]

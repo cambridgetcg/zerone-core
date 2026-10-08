@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { it } from "node:test";
+import { fileURLToPath } from "node:url";
 import { buildDevelopmentProfile, type DevelopmentPublication } from "../development-profile";
 import { developmentPage } from "../development-page";
 import publication from "../development-publication.json";
@@ -22,6 +24,22 @@ it("discloses package access restrictions separately from dated runtime publicat
 const sourceCommit = "a1".repeat(20);
 const guide = () => buildUnderstandGuide(buildNodeGuideProfile({ sourceCommit, helperSha256: "b2".repeat(32) }));
 
+it("keeps public guide and repository navigator module metadata consistent", () => {
+  const census = JSON.parse(execFileSync("python3", [
+    "-B", fileURLToPath(new URL("../../tools/source-map.py", import.meta.url)), "export",
+  ], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 })) as { modules: Record<string, unknown>[] };
+  const sourceModules = new Map(census.modules.map((module) => [module.id, module]));
+  const modules = guide().modules.modules;
+  assert.deepEqual(new Set(sourceModules.keys()), new Set(modules.map((module) => module.id)));
+  for (const module of modules) {
+    const source = sourceModules.get(module.id)!;
+    for (const key of ["id", "label", "family", "group", "purpose", "owns", "boundary", "connections", "tags"] as const) {
+      assert.deepEqual(source[key], module[key], `${module.id}.${key}`);
+    }
+    assert.equal(source.sourcePath, module.source.path);
+  }
+});
+
 it("connects source modules and development status in the same static human and machine guide", () => {
   const value = guide();
   assert.ok(value.modules.development, "one shared development map is missing");
@@ -38,6 +56,20 @@ it("connects source modules and development status in the same static human and 
   }
   assert.doesNotMatch(html, /<(?:script|form|input|textarea|iframe)\b|\son[a-z]+\s*=/iu);
   assert.ok(Object.values(value.effects).every((effect) => effect === false));
+});
+
+it("keeps current staking, governance holds and deposit custody distinct", () => {
+  const byId = new Map(guide().modules.modules.map((module) => [module.id, module]));
+  const connection = (from: string, to: string) => byId.get(from)?.connections.find((edge) => edge.module === to);
+  assert.ok(connection("staking", "gov"), "SDK stake supplies current SDK voting weight");
+  assert.ok(connection("gov", "staking"));
+  assert.match(connection("gov", "zerone_gov")?.why ?? "", /post-incident hold/u);
+  assert.ok(connection("zerone_gov", "zerone_staking"));
+  assert.match(byId.get("zerone_gov")?.boundary ?? "", /LIP resolution does not refund deposits/u);
+  assert.doesNotMatch(connection("zerone_gov", "bank")?.why ?? "", /settle/u);
+  assert.match(connection("zerone_gov", "bank")?.why ?? "", /custody|balances/u);
+  assert.ok(connection("zerone_gov", "vesting_rewards"));
+  assert.equal(connection("zerone_staking", "auth"), undefined, "unused constructor attachment is not account access");
 });
 
 it("tags modules without renaming runtime IDs and discloses restricted source access", () => {

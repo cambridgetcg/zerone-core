@@ -126,6 +126,17 @@ class SourceMapTests(unittest.TestCase):
         self.assertEqual(result["sharedUtilities"], guide["sharedUtilities"])
         self.assertEqual(result["catalog"], CATALOG)
 
+    def test_module_tags_match_the_shared_guide_classification(self):
+        guide = self.install_guide()
+        exported = {module["id"]: module for module in self.result("export")["modules"]}
+        for module in guide["modules"]:
+            with self.subTest(module=module["id"]):
+                expected = ["registered-source", module["family"], module["group"]]
+                self.assertEqual(exported[module["id"]].get("tags"), expected)
+                self.assertEqual(self.result("module", module["id"]).get("tags"), expected)
+        self.assertEqual(self.result("module", "x/staking")["tags"],
+                         self.result("module", "zerone_staking")["tags"])
+
     def install_guide(self):
         guide = {
             "groups": [{"id": "consensus", "title": "Consensus"}],

@@ -23,9 +23,9 @@ live activation. Source links require repository access; public guide availabili
 does not promise anonymous access to source or participant packages.
 
 For source navigation and current work, start at [DEVELOPMENT.md](../docs/DEVELOPMENT.md).
-The repository-only `tools/source-map.py` reuses this module catalog rather than
-maintaining another module inventory; its complete file census is not a public
-website asset.
+The repository-only `tools/source-map.py` reuses the same module purposes,
+connections and tags; its complete file census is not a public website asset.
+`app/module_guide_test.go` checks catalog coverage against the constructed application.
 
 The Vite build renders the page and `/understand/guide.json` from the same
 `understand-guide.ts` model. Its source commit and participation declarations
@@ -229,13 +229,6 @@ development. Production uses the Pages Functions in `functions/api/` so the
 HTTPS dashboard never makes mixed-content requests to the HTTP-only node.
 
 ## Node and agent participation guide
-
-`/understand/#modules` explains every registered module and follows the local
-record → claim → review → correction → funding path. `module-guide.json` is the
-shared explanatory catalog for its HTML and existing `/understand/guide.json`;
-`app/module_guide_test.go` checks coverage against the constructed application.
-Module registration is source information, not a live availability check. Keep
-current responsibilities separate from the future consolidation plan.
 
 `/research/review/` starts local journals and appends contributions, explicit
 relationships and corrections while retaining earlier records. Download to keep

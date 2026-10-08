@@ -541,6 +541,10 @@
           "why": "Hold bonded and unbonding funds."
         },
         {
+          "module": "gov",
+          "why": "Supply bonded voting weight to current SDK governance."
+        },
+        {
           "module": "distribution",
           "why": "Notify reward accounting through staking hooks."
         },
@@ -645,6 +649,10 @@
           "why": "Apply quarantine and recovery restrictions."
         },
         {
+          "module": "zerone_gov",
+          "why": "Read the post-incident hold that restricts ordinary SDK governance after quarantine ends; not a shared stake ledger or executor."
+        },
+        {
           "module": "upgrade",
           "why": "Schedule or cancel named upgrades."
         }
@@ -657,7 +665,7 @@
       "group": "decisions",
       "purpose": "Manage custom LIP proposals and separate research-fund decisions.",
       "owns": "Custom proposals, stake ballots, phases, seats, deposits and research-fund spending.",
-      "boundary": "Separate from SDK governance, which alone schedules upgrades. The app's parameter router has no registered handlers; creed amendment and adapter-registration paths are incomplete.",
+      "boundary": "Separate from SDK governance, which alone schedules upgrades. The app's parameter router has no registered handlers; creed amendment and adapter-registration paths are incomplete. LIP resolution does not refund deposits: aggregate escrow lacks individual contributor records.",
       "sourcePath": "x/gov/keeper/keeper.go",
       "connections": [
         {
@@ -666,7 +674,7 @@
         },
         {
           "module": "bank",
-          "why": "Hold deposits and settle authorized amounts."
+          "why": "Hold LIP deposits in custody and read research-fund balances."
         },
         {
           "module": "vesting_rewards",
@@ -700,10 +708,6 @@
       "boundary": "These records are distinct from SDK consensus validators. Preserve individual claims before consolidating or closing them.",
       "sourcePath": "x/staking/keeper/keeper.go",
       "connections": [
-        {
-          "module": "auth",
-          "why": "Use SDK account records."
-        },
         {
           "module": "bank",
           "why": "Hold custom delegation and exit custody."
