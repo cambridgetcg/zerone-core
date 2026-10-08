@@ -9,8 +9,9 @@
 //   - keeper/msg_server.go gates direct anchoring on the SDK gov authority and
 //     direct_anchor_enabled. That parameter defaults to true.
 //   - The custom x/gov module can call AnchorPinFromBytes for an attached creed
-//     amendment. This dispatch primitive and the council registry do not establish
-//     an enabled amendment category or separate human/AI quorum.
+//     amendment (commitment 19: governance-gated creed). This dispatch primitive
+//     and the council registry do not establish an enabled amendment category
+//     or separate human/AI quorum.
 //   - x/work_creed owns genesis-supplied pins for other lifecycle phases. It rejects
 //     Knowledge-phase pins; that phase retains this module's optional registry.
 //
