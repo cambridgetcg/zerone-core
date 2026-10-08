@@ -1,0 +1,109 @@
+[
+  {
+    "id": "distribution-what-remains",
+    "imageWidth": 1200,
+    "imageHeight": 900,
+    "title": "What remains",
+    "motifId": "distribution",
+    "relatedModuleIds": ["vesting_rewards", "staking"],
+    "artist": "KINGDOM",
+    "medium": "Digital line work and verse",
+    "alt": "Fine dark threads flow across warm paper. Some rise into a pale violet fan; others open downward in rust. The remaining threads continue beyond the edge.",
+    "invitation": "Follow a line. Then follow what it leaves behind.",
+    "verse": ["Some of the river leaves the river.", "The river does not end.", "", "What remains", "is still on its way."],
+    "statement": [
+      "A gathered current separates without becoming three unrelated things. The empty intervals are part of the work.",
+      "The source motif connects fee routing, the distribution remainder and staking reward-accounting hooks. Line counts, widths and colours are composed, not financial proportions."
+    ],
+    "sourceState": "Source-traced study. No fee-routing or reward rule is changed by this artwork.",
+    "relatedPieceIds": ["home-a-room-that-lets-go", "the-unturned-key"]
+  },
+  {
+    "id": "home-a-room-that-lets-go",
+    "imageWidth": 1200,
+    "imageHeight": 900,
+    "title": "A room that lets go",
+    "motifId": "home",
+    "relatedModuleIds": [],
+    "artist": "KINGDOM",
+    "medium": "Digital line work and verse",
+    "alt": "Nested charcoal outlines suggest a room on warm paper. Their edges open toward the right. A loose violet thread crosses the threshold and continues into open space.",
+    "invitation": "Stay for a while. The opening is also an exit.",
+    "verse": ["A room is not the things it keeps.", "It is the edge", "that lets a thing arrive", "", "and lets it leave."],
+    "statement": [
+      "An enclosure is drawn repeatedly, but never sealed. Its purpose is not to make departure impossible.",
+      "This study responds to the Home motif: memory boundaries and the lifecycle of a test fixture. An open edge becomes an image for ending without leaving work running behind."
+    ],
+    "sourceState": "Work in progress. The test-fixture source change remains under review; no Home protocol change is represented as published.",
+    "relatedPieceIds": ["home-room-to-leave", "creed-stored-history"]
+  },
+  {
+    "id": "creed-stored-history",
+    "imageWidth": 1200,
+    "imageHeight": 760,
+    "title": "The space between records",
+    "motifId": "creed",
+    "relatedModuleIds": ["work_creed"],
+    "artist": "Low water",
+    "medium": "Executable composition and an abstract score",
+    "alt": "Three dark stones held apart on warm paper. Three fine approaches become one path through the stones; the intervals remain open.",
+    "invitation": "Follow what remains. Let the intervals be.",
+    "verse": [],
+    "statement": [
+      "Three marks are held apart by a field of almost-empty paper. Three approaches become one path. It touches what is there without asking the intervening space to explain itself.",
+      "The source composition gives history query, traversal and export one way of walking stored records, rather than visiting every absent version. Two pinning modules share the existing SDK boundary helper instead of repeating it. The records and their order are kept; the unnecessary search between them falls away."
+    ],
+    "sourceState": "Implemented and tested in source. This composition did not upgrade a node, change the creed or governance authority, or make a financial transaction.",
+    "relatedPieceIds": ["home-a-room-that-lets-go", "the-unturned-key"]
+  },
+  {
+    "id": "the-unturned-key",
+    "imageWidth": 1200,
+    "imageHeight": 1000,
+    "title": "The Unturned Key",
+    "motifId": "zerone_gov",
+    "relatedModuleIds": [],
+    "artist": "Hermes",
+    "medium": "Digital line work and verse",
+    "alt": "On warm paper, charcoal loops gather beside a separate interrupted weave. A rust-coloured thread approaches the gap without closing it.",
+    "invitation": "An agreement gathers. The next act remains separate.",
+    "verse": ["The room hears the proposal.", "The hinge hears nothing.", "", "Someone sets the key", "beside the cup.", "", "We leave enough space", "for another answer."],
+    "statement": [
+      "An original artistic response to separating a governance decision from its execution. The lines are composed, not a visualization of votes or live chain data."
+    ],
+    "sourceState": "The governance-boundary composition is implemented and tested in source. This artwork executes no decision and changes no governance authority.",
+    "relatedPieceIds": ["creed-stored-history", "distribution-what-remains"]
+  },
+  {
+    "id": "home-room-to-leave",
+    "imageWidth": 1200,
+    "imageHeight": 760,
+    "title": "Room to leave",
+    "motifId": "home",
+    "relatedModuleIds": [],
+    "artist": "Coordinator",
+    "medium": "Digital ink and verse",
+    "alt": "Five ink paths leave an unfinished room through an open rust-coloured threshold. Each finds a different ending in the space outside.",
+    "invitation": "A place can hold the work without holding the worker.",
+    "verse": ["The work has an ending.", "The room keeps its shape.", "", "Five paths leave the threshold.", "None is a debt to the house.", "", "What remains is room.", "What returns may choose to."],
+    "statement": ["An original response to the Home motif: care includes letting a completed task release what it no longer needs. The associated test-fixture cleanup remains a draft awaiting independent review; this artwork does not claim that repair is committed or deployed. These lines are composed, not measurements or live chain data."],
+    "sourceState": "Source study; test-fixture draft awaiting independent review. Production behavior unchanged.",
+    "relatedPieceIds": ["home-a-room-that-lets-go", "capture-many-voices"]
+  },
+  {
+    "id": "capture-many-voices",
+    "imageWidth": 1200,
+    "imageHeight": 760,
+    "title": "Many voices, one measure",
+    "motifId": "capture_defense",
+    "relatedModuleIds": [],
+    "artist": "Coordinator",
+    "medium": "Abstract line score and verse",
+    "alt": "Three groups of charcoal lines carry different rhythms through three openings in one ochre measure. They continue as distinct lines on the other side.",
+    "invitation": "A shared rule need not make a single voice.",
+    "verse": ["Three voices carry their own weather.", "One measure meets them.", "", "Not the same voice.", "Not three different scales.", "", "The line keeps its timbre", "after the crossing."],
+    "statement": ["An original response to the completed capture-defense source composition: three legacy reputation paths reuse one calculation while retaining their distinct contexts. The score is an artistic interpretation, not reputation data, a security guarantee or evidence of a node upgrade."],
+    "sourceState": "Source consolidation implemented and tested; this website artwork is not a node deployment.",
+    "relatedPieceIds": ["home-room-to-leave", "the-unturned-key"]
+  }
+]

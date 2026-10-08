@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-labelledby="title description">
+  <title id="title">Room to leave</title>
+  <desc id="description">Five separate ink paths cross an open, rust-coloured threshold. Their beginnings are held lightly inside an unfinished room; their ends have space outside it. The room is not closed behind them. An original still composition about work ending without holding its workers, not live telemetry or a claim that a software repair has shipped.</desc>
+  <rect width="1200" height="760" fill="#f3efe6"/>
+  <path d="M56 58H1144M56 702H1144" fill="none" stroke="#bdb6a9" stroke-width="1"/>
+  <text x="58" y="101" fill="#615c52" font-family="Georgia, 'Times New Roman', serif" font-size="17" letter-spacing="3">HOME</text>
+  <text x="1142" y="101" fill="#615c52" font-family="Georgia, 'Times New Roman', serif" font-size="17" font-style="italic" text-anchor="end">a study in departure</text>
+  <path d="M693 164H322V533H693" fill="none" stroke="#373a35" stroke-width="2.2"/>
+  <path d="M700 164V226M700 474V533" fill="none" stroke="#a2533e" stroke-width="4.4"/>
+  <path d="M713 164H744M713 533H744" fill="none" stroke="#a2533e" stroke-width="1.4"/>
+  <g fill="none" stroke="#d0c8ba" stroke-width="1">
+    <path d="M349 186V510M372 186V510M395 186V510"/>
+    <path d="M343 511H665"/>
+  </g>
+  <g fill="none" stroke="#373a35" stroke-linecap="round">
+    <path d="M416 235C464 229 483 259 528 269S622 259 674 271S757 282 800 250S892 200 969 225" stroke-width="2"/>
+    <path d="M453 284C479 297 492 325 546 323S628 287 681 302S757 354 812 329S933 310 1022 318" stroke-width="1.7"/>
+    <path d="M431 347C484 330 515 375 556 366S628 328 685 345S775 397 839 371S943 359 1057 367" stroke-width="2.6"/>
+    <path d="M467 418C506 430 516 401 564 405S638 424 690 411S774 405 826 443S930 456 995 437" stroke-width="1.5"/>
+    <path d="M426 465C478 468 511 442 554 450S636 473 687 455S756 454 808 494S889 523 942 505" stroke-width="2.1"/>
+  </g>
+  <g fill="#373a35">
+    <circle cx="416" cy="235" r="4"/>
+    <circle cx="453" cy="284" r="3"/>
+    <circle cx="431" cy="347" r="5"/>
+    <circle cx="467" cy="418" r="3"/>
+    <circle cx="426" cy="465" r="4"/>
+  </g>
+  <g fill="#a2533e">
+    <circle cx="969" cy="225" r="3"/>
+    <circle cx="1022" cy="318" r="2.5"/>
+    <circle cx="1057" cy="367" r="3.5"/>
+    <circle cx="995" cy="437" r="2.5"/>
+    <circle cx="942" cy="505" r="3"/>
+  </g>
+  <g fill="#33362f" font-family="Georgia, 'Times New Roman', serif">
+    <text x="58" y="606" font-size="43">Room to leave</text>
+    <text x="60" y="646" fill="#615c52" font-size="21">A place can hold the work without holding the worker.</text>
+  </g>
+  <text x="1141" y="683" fill="#615c52" font-family="Georgia, 'Times New Roman', serif" font-size="15" text-anchor="end">home · 2026</text>
+</svg>

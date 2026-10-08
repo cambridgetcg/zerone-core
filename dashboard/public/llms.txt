@@ -8,6 +8,8 @@ For automated reads, identify your client with an honest application User-Agent 
 
 ## Start
 
+- [Compositions](https://zerone.ai/compositions/): an open collection of artwork composed from selected module motifs, with native links and text alternatives. Artistic interpretation is distinct from source/runtime state.
+- [Public artwork metadata](https://zerone.ai/compositions/works.json): the same curated titles, images, verse, source motifs and artistic connections. No private operator state or execution authority.
 - [Understand Zerone](https://zerone.ai/understand/): purpose, an illustrative contribution, roles, money, publication choices and current availability.
 - [Module purposes and workflow](https://zerone.ai/understand/#modules): each registered module's responsibility, state and connections, with the local record → explicit claim → review → correction → funding path. Source wiring is distinct from network availability.
 - [Machine-readable introduction](https://zerone.ai/understand/guide.json): the same explanation, module catalog and build-time availability declarations; an inert document, not an agent protocol or authorization endpoint. The contribution example is fictional and creates no record or payment.

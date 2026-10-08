@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-labelledby="title description">
+  <title id="title">Many voices, one measure</title>
+  <desc id="description">Three groups of charcoal lines arrive with different rhythms. Each passes a small opening along one ochre measure, then continues as its own line. The measure is shared, not the voice. An original abstract score responding to consolidation in capture defense, not a graph of reputations, votes or live network data.</desc>
+  <rect width="1200" height="760" fill="#f3efe6"/>
+  <path d="M56 58H1144M56 702H1144" fill="none" stroke="#bdb6a9" stroke-width="1"/>
+  <text x="58" y="101" fill="#615c52" font-family="Georgia, 'Times New Roman', serif" font-size="17" letter-spacing="3">CAPTURE DEFENSE</text>
+  <text x="1142" y="101" fill="#615c52" font-family="Georgia, 'Times New Roman', serif" font-size="17" font-style="italic" text-anchor="end">a score for separate voices</text>
+  <path d="M592 155V529" fill="none" stroke="#bd9857" stroke-width="2.3"/>
+  <g fill="none" stroke="#bd9857" stroke-width="1.25">
+    <path d="M579 164H605M585 185H599M585 206H599M579 227H605M585 248H599M585 269H599M579 290H605M585 311H599M585 332H599M579 353H605M585 374H599M585 395H599M579 416H605M585 437H599M585 458H599M579 479H605M585 500H599M579 521H605"/>
+  </g>
+  <g fill="none" stroke="#373a35" stroke-linecap="round">
+    <path d="M102 190C163 169 171 221 229 196S316 161 376 210S496 241 584 225" stroke-width="1.7"/>
+    <path d="M102 218C165 244 207 181 263 220S355 245 407 215S507 218 584 225" stroke-width="1.2"/>
+    <path d="M102 251C171 255 186 214 242 250S351 209 411 234S509 242 584 225" stroke-width="1.2"/>
+    <path d="M600 225C660 208 699 240 751 218S841 186 895 218S997 249 1090 220" stroke-width="2.7"/>
+    <path d="M102 328L162 354L225 328L282 342L347 320L415 354L471 337L526 351L584 344" stroke-width="1.5"/>
+    <path d="M102 352L167 322L225 361L282 334L347 362L414 328L470 351L526 336L584 344" stroke-width="1.2"/>
+    <path d="M600 344L656 328L716 354L783 330L853 358L920 340L983 362L1090 338" stroke-width="2.4"/>
+    <path d="M102 453C133 404 171 504 199 453S260 404 288 453S350 504 379 453S440 404 469 453S533 488 584 462" stroke-width="1.4"/>
+    <path d="M102 474C135 493 169 437 203 466S263 494 294 465S351 439 383 467S447 489 479 469S539 441 584 462" stroke-width="1.2"/>
+    <path d="M600 462C642 504 676 414 719 456S797 498 840 458S917 421 961 463S1034 486 1090 455" stroke-width="2.5"/>
+  </g>
+  <g fill="#f3efe6" stroke="#a2533e" stroke-width="2.2">
+    <circle cx="592" cy="225" r="8"/>
+    <circle cx="592" cy="344" r="8"/>
+    <circle cx="592" cy="462" r="8"/>
+  </g>
+  <g fill="#33362f" font-family="Georgia, 'Times New Roman', serif">
+    <text x="58" y="606" font-size="43">Many voices, one measure</text>
+    <text x="60" y="646" fill="#615c52" font-size="21">A shared rule need not make a single voice.</text>
+  </g>
+  <text x="1141" y="683" fill="#615c52" font-family="Georgia, 'Times New Roman', serif" font-size="15" text-anchor="end">capture_defense · 2026</text>
+</svg>

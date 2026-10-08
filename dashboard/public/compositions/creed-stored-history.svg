@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" role="img" aria-labelledby="title description">
+  <title id="title">The space between records</title>
+  <desc id="description">An abstract score for the creed composition. Three irregular dark stones rest far apart on a warm paper field. Three fine lines become one path, touching the stones without filling the spaces between them. The space is part of the work, not missing content. This is an artistic interpretation of recorded history, not a chart of a live blockchain.</desc>
+  <rect width="1200" height="760" fill="#f4f0e9"/>
+  <path d="M56 58H1144M56 702H1144" fill="none" stroke="#bcb7ae" stroke-width="1"/>
+  <g fill="#504c46" font-family="Georgia, 'Times New Roman', serif">
+    <text x="58" y="101" font-size="17" letter-spacing="3">CREED</text>
+    <text x="1142" y="101" font-size="17" text-anchor="end" font-style="italic">a composition in memory and intervals</text>
+  </g>
+  <g fill="none" stroke="#cac5bc" stroke-width="1">
+    <path d="M103 209l8 3m43 49l12-2m41-76l7 6m38 64l9-2m36-36l11 4m46 53l8-5m48-65l10 3m34 48l10-3m45-75l8 5m47 63l11-2m38-23l8 6m52-63l10 4m39 53l8-5m44-35l11 2m36 76l10-4m43-44l9 5m38-72l11 2m50 64l8-3m37-35l11 5m32 57l9-4m42-73l10 3"/>
+    <path d="M95 412l11-3m44 68l9 4m40-43l12-2m44 64l9-4m38-49l11 4m46 53l9-2m36-60l10 5m45 32l8-5m42 42l11 3m44-66l8-2m42 59l11-4m43-38l9 5m34 56l12-2m47-45l8 4m38 34l10-3m42-54l9 5m46 29l11-4m37 44l9 3m35-52l11-3m42 39l8 5"/>
+  </g>
+  <g fill="none" stroke="#8f897f" stroke-width="1.35" stroke-linecap="round">
+    <path d="M60 300C104 290 135 330 194 343"/>
+    <path d="M60 338C103 334 143 351 194 343"/>
+    <path d="M60 379C105 390 154 349 194 343"/>
+  </g>
+  <path d="M194 343C302 339 359 448 469 414S607 282 732 312S914 397 1015 291" fill="none" stroke="#393a34" stroke-width="2.4" stroke-linecap="round"/>
+  <g fill="none" stroke="#d5cbb6" stroke-width="1.1">
+    <path d="M202 318C229 315 244 334 237 353S207 375 184 363"/>
+    <path d="M718 280C750 274 776 295 769 323S734 356 708 339"/>
+    <path d="M997 259C1024 248 1053 267 1050 294S1020 333 991 314"/>
+  </g>
+  <path d="M177 329C185 315 205 317 215 326C226 337 223 353 211 361C196 370 179 362 173 350C168 342 171 337 177 329Z" fill="#393a34"/>
+  <path d="M709 298C717 279 741 281 753 293C766 307 760 329 744 336C728 343 707 333 705 319C703 311 705 305 709 298Z" fill="#393a34"/>
+  <path d="M991 278C1000 259 1025 259 1036 273C1049 289 1040 311 1022 317C1005 322 987 309 986 295C985 288 988 283 991 278Z" fill="#393a34"/>
+  <g fill="#f4f0e9">
+    <circle cx="196" cy="343" r="3.3"/>
+    <circle cx="733" cy="310" r="3.3"/>
+    <circle cx="1015" cy="291" r="3.3"/>
+  </g>
+  <path d="M212 335l9-4M750 300l11-5M1030 279l9-5" fill="none" stroke="#c09752" stroke-width="2" stroke-linecap="round"/>
+  <g fill="#504c46" font-family="Georgia, 'Times New Roman', serif" font-size="18" font-style="italic">
+    <text x="194" y="397" text-anchor="middle">a mark</text>
+    <text x="733" y="373" text-anchor="middle">a memory</text>
+    <text x="1015" y="354" text-anchor="middle">a return</text>
+  </g>
+  <g fill="#302f2a" font-family="Georgia, 'Times New Roman', serif">
+    <text x="58" y="602" font-size="43">The space between records</text>
+    <text x="60" y="642" font-size="21" fill="#625d54">Follow what remains. Let the intervals be.</text>
+  </g>
+  <text x="1141" y="684" fill="#625d54" font-family="Georgia, 'Times New Roman', serif" font-size="15" text-anchor="end">creed / work_creed · 2026</text>
+</svg>
