@@ -39,27 +39,18 @@ func (q *queryServer) PinHistory(ctx context.Context, req *types.QueryPinHistory
 	if limit == 0 || limit > 100 {
 		limit = 50
 	}
-	cur := q.keeper.GetCurrentVersion(ctx)
-	startBefore := req.StartBeforeVersion
-	if startBefore == 0 || startBefore > cur {
-		startBefore = cur + 1
-	}
-
 	pins := []*types.PinnedCreed{}
 	var nextStart uint32
-	count := uint32(0)
-	for v := startBefore - 1; v > 0; v-- {
-		if count >= limit {
-			nextStart = v + 1
-			break
-		}
-		p, ok := q.keeper.GetPin(ctx, v)
-		if !ok {
-			continue
-		}
+	q.keeper.iteratePinsDescending(ctx, req.StartBeforeVersion, func(p *types.PinnedCreed) bool {
 		pins = append(pins, p)
-		count++
-	}
+		if uint32(len(pins)) < limit {
+			return false
+		}
+		if p.Version > 1 {
+			nextStart = p.Version
+		}
+		return true
+	})
 	return &types.QueryPinHistoryResponse{
 		Pins:                   pins,
 		NextStartBeforeVersion: nextStart,

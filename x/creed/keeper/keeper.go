@@ -8,6 +8,7 @@ import (
 
 	"cosmossdk.io/core/store"
 	"cosmossdk.io/log"
+	storetypes "cosmossdk.io/store/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -149,16 +150,37 @@ func (k Keeper) GetCurrentPin(ctx context.Context) (*types.PinnedCreed, bool) {
 	return k.GetPin(ctx, v)
 }
 
-// IteratePinsDescending walks pinned versions from newest to
-// oldest, calling cb for each. Stops if cb returns true.
+// IteratePinsDescending walks stored pins from newest to oldest, stopping when
+// cb returns true. The callback must not write to the store during iteration.
 func (k Keeper) IteratePinsDescending(ctx context.Context, cb func(*types.PinnedCreed) bool) {
+	k.iteratePinsDescending(ctx, 0, cb)
+}
+
+// iteratePinsDescending seeks to an exclusive version cursor (0 means newest).
+// Walk stored keys, not version numbers: valid imported histories can have gaps.
+func (k Keeper) iteratePinsDescending(ctx context.Context, before uint32, cb func(*types.PinnedCreed) bool) {
 	cur := k.GetCurrentVersion(ctx)
-	for v := cur; v > 0; v-- {
-		p, ok := k.GetPin(ctx, v)
-		if !ok {
+	if cur == 0 || before == 1 {
+		return
+	}
+	end := storetypes.PrefixEndBytes(pinKey(cur))
+	if before != 0 && before <= cur {
+		end = pinKey(before)
+	}
+	iter, err := k.storeService.OpenKVStore(ctx).ReverseIterator(pinKey(1), end)
+	if err != nil {
+		return
+	}
+	defer iter.Close()
+	for ; iter.Valid(); iter.Next() {
+		if len(iter.Key()) != len(types.PinPrefix)+4 {
 			continue
 		}
-		if cb(p) {
+		var pin types.PinnedCreed
+		if err := k.cdc.Unmarshal(iter.Value(), &pin); err != nil {
+			continue
+		}
+		if cb(&pin) {
 			return
 		}
 	}
@@ -299,7 +321,7 @@ func (k Keeper) IsActiveCouncilMember(ctx context.Context, address string) bool 
 // order. cb receiving true stops iteration.
 func (k Keeper) IterateCouncilMembers(ctx context.Context, cb func(*types.CreedCouncilMember) bool) {
 	store := k.storeService.OpenKVStore(ctx)
-	iter, err := store.Iterator(types.CouncilMemberPrefix, prefixEnd(types.CouncilMemberPrefix))
+	iter, err := store.Iterator(types.CouncilMemberPrefix, storetypes.PrefixEndBytes(types.CouncilMemberPrefix))
 	if err != nil {
 		return
 	}
@@ -327,19 +349,4 @@ func (k Keeper) CouncilTotalActiveWeight(ctx context.Context) uint64 {
 		return false
 	})
 	return total
-}
-
-// prefixEnd returns the smallest key strictly greater than the
-// given prefix, suitable as the exclusive end of an iterator
-// range.
-func prefixEnd(prefix []byte) []byte {
-	end := make([]byte, len(prefix))
-	copy(end, prefix)
-	for i := len(end) - 1; i >= 0; i-- {
-		if end[i] < 0xFF {
-			end[i]++
-			return end[:i+1]
-		}
-	}
-	return nil
 }

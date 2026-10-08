@@ -8,6 +8,7 @@ import (
 	"cosmossdk.io/core/store"
 	"cosmossdk.io/errors"
 	"cosmossdk.io/log"
+	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -60,20 +61,6 @@ func latestPinKey(phase uint32) []byte {
 	return append(types.LatestSubCreedPinKey, buf...)
 }
 
-// prefixEnd returns the smallest key strictly greater than the given
-// prefix, suitable as the exclusive end of an iterator range.
-func prefixEnd(prefix []byte) []byte {
-	end := make([]byte, len(prefix))
-	copy(end, prefix)
-	for i := len(end) - 1; i >= 0; i-- {
-		if end[i] < 0xFF {
-			end[i]++
-			return end[:i+1]
-		}
-	}
-	return nil
-}
-
 // GetLatestSubCreedPin returns the latest pin for a phase, or
 // (nil, false) if none.
 func (k Keeper) GetLatestSubCreedPin(ctx context.Context, phase uint32) (*types.PinnedSubCreed, bool) {
@@ -109,7 +96,7 @@ func (k Keeper) SetSubCreedPin(ctx context.Context, p *types.PinnedSubCreed) err
 // has one. Iteration order is by phase number ascending.
 func (k Keeper) IterateSubCreedPins(ctx context.Context, fn func(p *types.PinnedSubCreed) (stop bool)) {
 	kvStore := k.storeService.OpenKVStore(ctx)
-	iter, err := kvStore.Iterator(types.LatestSubCreedPinKey, prefixEnd(types.LatestSubCreedPinKey))
+	iter, err := kvStore.Iterator(types.LatestSubCreedPinKey, storetypes.PrefixEndBytes(types.LatestSubCreedPinKey))
 	if err != nil {
 		return
 	}

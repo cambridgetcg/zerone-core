@@ -1,28 +1,17 @@
-// Package work_creed manages on-chain pin records for the per-phase
-// sub-creeds of the useful-work doctrine (docs/USEFUL_WORK.md).
+// Package work_creed stores genesis-supplied sub-creed pins for useful-work phases.
+// Its keeper holds the latest pin per phase and supports get/set, ascending
+// iteration and genesis import/export. Default genesis is empty; there are no
+// current transaction, query or post-genesis amendment/history APIs.
 //
-// Each non-Knowledge lifecycle phase has its own sub-creed under
-// docs/sub_creeds/<phase>.md; this module's Keeper.SubCreedPin records
-// pin the canonical hash of that doc at a specific version. Phase 0 stores
-// inception pins only; post-genesis amendment/history APIs are future work.
+// The source documents live at docs/sub_creeds/<phase>.md, under the useful-work
+// doctrine in docs/USEFUL_WORK.md. Pins commit to document bytes, not truth or
+// agreement, and source registration does not demonstrate runtime adoption.
 //
-// The Knowledge phase delegates its source doctrine to
-// docs/TRUTH_SEEKING.md and the optional x/creed pin registry.
-// Published genesis has no such pin. x/work_creed never holds a Knowledge
-// pin; SetSubCreedPin rejects phase=1.
+// Knowledge is deliberately excluded: SetSubCreedPin rejects phase=1. Its source
+// doctrine is docs/TRUTH_SEEKING.md and its optional pin registry belongs to
+// x/creed. That ownership boundary is not a call into creed or an automatic pin.
 //
-// Phase 0 ships:
-//   - PinnedSubCreed + GenesisState protobuf types
-//   - Keeper with Get/Set/Iterate + Init/ExportGenesis
-//   - Module skeleton wired into app.go
-//
-// Not implemented in Phase 0; a future phase may add:
-//   - MsgAnchorSubCreedPin (gov-only) for sub-creed amendment LIPs
-//   - QueryPinAtVersion for historical pin retrieval
-//   - SubCreedAmended event with creed_commitment="UW", mechanism="M3"
-//
-// References:
-//   - docs/superpowers/specs/2026-05-10-recursive-useful-work-merged-design.md §10.1
-//   - docs/USEFUL_WORK.md
-//   - x/creed (sibling pattern for the truth-seeking + UW creeds)
+// See dashboard/module-guide.json for the shared module catalog. Proposed
+// amendment/history APIs remain design in
+// docs/superpowers/specs/2026-05-10-recursive-useful-work-merged-design.md, section 10.1.
 package work_creed
