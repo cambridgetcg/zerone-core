@@ -55,6 +55,20 @@ it("ships real accessible artwork through the existing static build", async () =
   assert.ok(read("public/llms.txt").includes('/compositions/works.json'), "existing agent entrance discovers public artwork metadata");
 });
 
+it("keeps Home functional source progress distinct from live-node activation", async () => {
+  const { buildCompositions, compositionsPage } = await import("../compositions");
+  const exhibition = buildCompositions();
+  const home = exhibition.pieces.filter((piece) => piece.motif.id === "home");
+  assert.equal(home.length, 2, "both original Home responses remain");
+  const html = compositionsPage(exhibition);
+  for (const piece of home) {
+    assert.doesNotMatch([piece.sourceState, ...piece.statement].join(" "), /awaiting independent review|remains under review/u);
+    assert.match(piece.sourceState, /Source-level regression coverage/u);
+    assert.match(piece.sourceState, /No live-node upgrade/u);
+    assert.ok(html.includes(piece.sourceState), "native disclosure retains the source/runtime boundary");
+  }
+});
+
 it("refuses unsafe or ambiguous piece identities before generating public links", async () => {
   const { buildCompositions } = await import("../compositions");
   const records = (await import("../composition-pieces.json")).default;

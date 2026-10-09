@@ -8,6 +8,7 @@ import (
 
 	"cosmossdk.io/core/store"
 	"cosmossdk.io/log"
+	storetypes "cosmossdk.io/store/types"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -48,22 +49,6 @@ func (k Keeper) Logger(ctx context.Context) log.Logger {
 // GetAuthority returns the module authority address.
 func (k Keeper) GetAuthority() string {
 	return k.authority
-}
-
-// prefixEndBytes returns the end key for prefix iteration (exclusive).
-func prefixEndBytes(prefix []byte) []byte {
-	if len(prefix) == 0 {
-		return nil
-	}
-	end := make([]byte, len(prefix))
-	copy(end, prefix)
-	for i := len(end) - 1; i >= 0; i-- {
-		end[i]++
-		if end[i] != 0 {
-			return end
-		}
-	}
-	return nil
 }
 
 // ---------- Params ----------
@@ -121,7 +106,7 @@ func (k Keeper) GetHome(ctx context.Context, homeID string) (*types.AgentHome, b
 // IterateHomes iterates over all homes and invokes the callback.
 func (k Keeper) IterateHomes(ctx context.Context, cb func(*types.AgentHome) bool) {
 	kvStore := k.storeService.OpenKVStore(ctx)
-	iter, err := kvStore.Iterator(types.HomeKeyPrefix, prefixEndBytes(types.HomeKeyPrefix))
+	iter, err := kvStore.Iterator(types.HomeKeyPrefix, storetypes.PrefixEndBytes(types.HomeKeyPrefix))
 	if err != nil {
 		return
 	}
@@ -241,7 +226,7 @@ func (k Keeper) DeleteSession(ctx context.Context, homeID, sessionID string) {
 func (k Keeper) IterateSessions(ctx context.Context, homeID string, cb func(*types.ActiveSession) bool) {
 	kvStore := k.storeService.OpenKVStore(ctx)
 	prefix := types.SessionPrefixKey(homeID)
-	iter, err := kvStore.Iterator(prefix, prefixEndBytes(prefix))
+	iter, err := kvStore.Iterator(prefix, storetypes.PrefixEndBytes(prefix))
 	if err != nil {
 		return
 	}
@@ -308,7 +293,7 @@ func (k Keeper) GetKeyRegistration(ctx context.Context, homeID, keyHash string) 
 func (k Keeper) IterateKeyRegistrations(ctx context.Context, homeID string, cb func(*types.KeyRegistration) bool) {
 	kvStore := k.storeService.OpenKVStore(ctx)
 	prefix := types.KeyRegPrefixKey(homeID)
-	iter, err := kvStore.Iterator(prefix, prefixEndBytes(prefix))
+	iter, err := kvStore.Iterator(prefix, storetypes.PrefixEndBytes(prefix))
 	if err != nil {
 		return
 	}
@@ -388,7 +373,7 @@ func (k Keeper) GetAlert(ctx context.Context, homeID, alertID string) (*types.Al
 func (k Keeper) IterateAlerts(ctx context.Context, homeID string, cb func(*types.Alert) bool) {
 	kvStore := k.storeService.OpenKVStore(ctx)
 	prefix := types.AlertPrefixKey(homeID)
-	iter, err := kvStore.Iterator(prefix, prefixEndBytes(prefix))
+	iter, err := kvStore.Iterator(prefix, storetypes.PrefixEndBytes(prefix))
 	if err != nil {
 		return
 	}
@@ -457,7 +442,7 @@ func (k Keeper) GetSpendingLimit(ctx context.Context, homeID, keyType string) (*
 func (k Keeper) GetSpendingLimitsByHome(ctx context.Context, homeID string) []*types.SpendingLimit {
 	kvStore := k.storeService.OpenKVStore(ctx)
 	prefix := types.SpendLimitPrefixKey(homeID)
-	iter, err := kvStore.Iterator(prefix, prefixEndBytes(prefix))
+	iter, err := kvStore.Iterator(prefix, storetypes.PrefixEndBytes(prefix))
 	if err != nil {
 		return nil
 	}

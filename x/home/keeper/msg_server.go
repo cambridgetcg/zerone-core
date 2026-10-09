@@ -277,12 +277,8 @@ func (k msgServer) StartSession(goCtx context.Context, msg *types.MsgStartSessio
 	home.LastActiveBlock = height
 	k.SetHome(ctx, home)
 
-	// Commitment 7 (skill is current, not historical): session start
-	// marks the moment the agent is currently authorised. Past
-	// sessions are part of the queryable record (commitment 10), but
-	// the panel-weight / spending-power surface reads from the active
-	// session's current state, not from the agent's history of having
-	// once been in good standing.
+	// Commitment 7: record a current, bounded Home session. This record
+	// does not itself establish panel weight or bank-spending authority.
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.home.session_started",
 			sdk.NewAttribute("home_id", msg.HomeId),
@@ -324,11 +320,8 @@ func (k msgServer) EndSession(goCtx context.Context, msg *types.MsgEndSession) (
 
 	k.DeleteSession(ctx, msg.HomeId, msg.SessionId)
 
-	// Commitment 7 (skill is current, not historical): session end
-	// is the chain dropping the agent's currently-authorised status.
-	// The audit record of the session remains, but the agent now
-	// reads as "not currently live" — past activity does not extend
-	// authorisation forward.
+	// Commitment 7: remove the current session and announce its end.
+	// The event is a transition record; this store keeps no ended session.
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.home.session_ended",
 			sdk.NewAttribute("home_id", msg.HomeId),
@@ -435,11 +428,8 @@ func (k msgServer) RevokeKey(goCtx context.Context, msg *types.MsgRevokeKey) (*t
 	}
 	k.SetAlertWithLimit(ctx, alert)
 
-	// Commitment 7 (skill is current, not historical): key revocation
-	// is the chain refusing the previously-authorised key NOW, even
-	// though it was authorised before. Authorisation does not survive
-	// revocation by virtue of having existed; current standing is
-	// what the chain reads.
+	// Commitment 7: revoke this Home key and end its matching sessions.
+	// General transaction authorization remains with its actual consumers.
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent("zerone.home.key_revoked",
 			sdk.NewAttribute("home_id", msg.HomeId),

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	corestore "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
 	"cosmossdk.io/store"
 	storemetrics "cosmossdk.io/store/metrics"
@@ -104,10 +105,23 @@ var _ types.BankKeeper = (*mockBankKeeper)(nil)
 
 func setupKeeper(t *testing.T) (keeper.Keeper, sdk.Context, *mockBankKeeper) {
 	t.Helper()
+	return setupKeeperWithStoreWrapper(t, nil)
+}
+
+// setupKeeperWithStoreWrapper keeps iterator probes on the same real IAVL fixture.
+func setupKeeperWithStoreWrapper(t *testing.T, wrap func(corestore.KVStoreService) corestore.KVStoreService) (keeper.Keeper, sdk.Context, *mockBankKeeper) {
+	t.Helper()
 
 	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
 	db := dbm.NewMemDB()
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("failed to close test database: %v", err)
+		}
+	})
 	stateStore := store.NewCommitMultiStore(db, log.NewNopLogger(), storemetrics.NewNoOpMetrics())
+	// Select synchronous pruning before loading IAVL: DB.Close does not stop its async worker.
+	stateStore.SetIAVLSyncPruning(true)
 	stateStore.MountStoreWithDB(storeKey, storetypes.StoreTypeIAVL, db)
 	if err := stateStore.LoadLatestVersion(); err != nil {
 		t.Fatalf("failed to load latest version: %v", err)
@@ -117,7 +131,10 @@ func setupKeeper(t *testing.T) (keeper.Keeper, sdk.Context, *mockBankKeeper) {
 	cdc := codec.NewProtoCodec(registry)
 
 	mockBK := newMockBankKeeper()
-	storeService := runtime.NewKVStoreService(storeKey)
+	var storeService corestore.KVStoreService = runtime.NewKVStoreService(storeKey)
+	if wrap != nil {
+		storeService = wrap(storeService)
+	}
 	k := keeper.NewKeeper(storeService, cdc, "zrn1authority", mockBK)
 
 	ctx := sdk.NewContext(stateStore, cmtproto.Header{Height: 100}, false, log.NewNopLogger())

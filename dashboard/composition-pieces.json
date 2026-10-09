@@ -34,7 +34,7 @@
       "An enclosure is drawn repeatedly, but never sealed. Its purpose is not to make departure impossible.",
       "This study responds to the Home motif: memory boundaries and the lifecycle of a test fixture. An open edge becomes an image for ending without leaving work running behind."
     ],
-    "sourceState": "Work in progress. The test-fixture source change remains under review; no Home protocol change is represented as published.",
+    "sourceState": "Source-level regression coverage now checks the Home fixture lifecycle and five collection boundaries. No live-node upgrade is claimed.",
     "relatedPieceIds": ["home-room-to-leave", "creed-stored-history"]
   },
   {
@@ -86,8 +86,8 @@
     "alt": "Five ink paths leave an unfinished room through an open rust-coloured threshold. Each finds a different ending in the space outside.",
     "invitation": "A place can hold the work without holding the worker.",
     "verse": ["The work has an ending.", "The room keeps its shape.", "", "Five paths leave the threshold.", "None is a debt to the house.", "", "What remains is room.", "What returns may choose to."],
-    "statement": ["An original response to the Home motif: care includes letting a completed task release what it no longer needs. The associated test-fixture cleanup remains a draft awaiting independent review; this artwork does not claim that repair is committed or deployed. These lines are composed, not measurements or live chain data."],
-    "sourceState": "Source study; test-fixture draft awaiting independent review. Production behavior unchanged.",
+    "statement": ["An original response to the Home motif: care includes letting a completed task release what it no longer needs. Its functional companion keeps each collection inside its own boundary, reusing the SDK rather than maintaining a second prefix calculation. Sessions can end without removing a neighboring home's records. These lines are composed, not measurements or live chain data."],
+    "sourceState": "Source-level regression coverage binds keeper reads, session exit, key revocation and expiry to the same Home boundary. No live-node upgrade is claimed.",
     "relatedPieceIds": ["home-a-room-that-lets-go", "capture-many-voices"]
   },
   {
