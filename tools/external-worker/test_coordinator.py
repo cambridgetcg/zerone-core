@@ -150,7 +150,8 @@ class ComputeOnlyTests(unittest.TestCase):
     def no_financial_io(self, payer_home=None):
         load = self.c.load_module
         def safe_load(name, path):
-            self.assertIn(Path(path).name, ('worker.py', 'journal.py'), 'payer import forbidden')
+            self.assertIn(Path(path).name, ('worker.py', 'journal.py', 'contribution.py'),
+                          'payer import forbidden; only computation, journal and pure projection allowed')
             return load(name, path)
         with contextlib.ExitStack() as stack:
             if payer_home is not None:

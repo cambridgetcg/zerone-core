@@ -12,6 +12,39 @@ direction: attributed scientific records, reproducible inspection, correction
 and explicit funded settlement. A sole writer for a kind of state is a
 consistency boundary; it does not establish independent operator control.
 
+## Modular development boundary
+
+Prefer a modular application over a service per module. Self-sufficient means a
+component can be understood, changed and tested through its own small contract;
+it does not require duplicating dependencies or running a separate process.
+Keep existing module IDs, wire formats, state ownership and migration gates.
+
+For each bounded change, use the existing owner and its README/docstring to name:
+
+- **Purpose and non-goals:** one coherent responsibility, owned state and effects.
+- **Contract:** exact inputs/outputs, units, validation and failure behavior.
+- **Dependencies:** explicit required ports and genuinely optional adapters;
+  no hidden signer, storage, network or import-time initialization in pure logic.
+- **Composition:** callers use the contract, not another owner's private state;
+  necessary ordering and lossy translations remain explicit. Rearrange only
+  where those invariants allow it, not arbitrary block hooks or custody writes.
+- **Verification:** a standalone test with optional components absent, a real
+  producer-to-consumer test, and compatibility fixtures for retained records.
+- **Growth and reduction:** bounded work and state, a smallest useful setup and
+  an honest scaling limit. Replicate stateless work separately from serialized
+  storage/signing; removing an adapter must preserve records and obligations.
+
+Human CLI/browser views and agent APIs/JSON should project the same contracts,
+not duplicate business rules. Audience labels do not grant access or execution
+authority. Add an adapter only for a real crossing; do not introduce a universal
+registry, plugin framework or scheduler merely to demonstrate modularity.
+
+The [external worker's composition boundary](../tools/external-worker/README.md#compose-without-storage-or-payment)
+is one implemented example: computation and its separate verification reduction,
+pure research-record projection, optional journal persistence, and explicit
+local-test payment are distinct responsibilities. This is not completion of the
+chain-wide consolidation sequence below, nor a new live worker fleet.
+
 ## Choose the record before admission
 
 | Need | Existing path | Consequence |

@@ -36,8 +36,11 @@ recomputes this work. Copied correct outputs cannot establish who performed it.
   and CLI. The paid-v1 task includes recipient, amount, funding transaction and
   genesis; compute-only tasks have no reward. The schema and complete unsigned
   task are hash-bound. Declared reward terms are not verified funding.
-- `coordinator.py`: verifies before creating a new task journal; retains source,
-  question, method, experiment, finding and review with typed relations. It
+- `contribution.py`: pure projection of already verified task/result data into
+  the existing research records. Owns research wording and attribution; no
+  imports, storage, payer, repository-root dependency or protocol authority.
+- `coordinator.py`: composes verification, the contribution projection and the
+  existing journal store. It verifies before creating a new task journal and
   rechecks the complete task/result/journal before opening a payer. Input JSON is
   data. The existing private literature collection is never imported or uploaded.
 - `native.py`: uses an existing pinned participant home's signing implementation.
@@ -74,6 +77,55 @@ context even though computation occurs on another machine. Independent operator
 participation, safe open admission, artifact storage guarantees and trustless
 settlement remain separate milestones. Endpoint observations are not independent
 inclusion proofs, and development balances have no promised value.
+
+## Compose without storage or payment
+
+The smallest useful setup is `worker.py` alone. To format checked research
+records, add only `contribution.py` beside it; neither requires the repository,
+node, journal store, credentials or payer. From that directory, this Python API
+example performs one explicitly unpaid in-memory reproduction:
+
+```python
+import worker
+import contribution
+
+task = worker.make_compute_task('ab' * 32, 3)  # deterministic example, not a new discovery
+result = worker.compute(task, 'DECLARED_PUBLIC_WORKER_LABEL')
+verification = worker.verify(task, result)  # must succeed before formatting
+records = contribution.records_for(
+    task, result,
+    worker.digest(worker.canonical(task) + b'\n'),
+    worker.digest(worker.canonical(result) + b'\n'),
+)
+```
+
+`records_for(task, result, task_sha256, result_sha256)` owns only the projection:
+source, question, method, experiment, scoped finding, operator review and their
+relations. Inputs are already verified JSON objects; the two supplied hashes
+identify the canonical artifact files **including their trailing newline**.
+They differ from the verifier's protocol hashes, which omit it. The function
+returns fresh ordinary records without mutating inputs or doing I/O. It does
+not validate, verify, authenticate or store anything, and is not an admission
+or payment API. Calling it directly without verification can format false claims.
+
+The coordinator is the composition boundary: it verifies first, uses this same
+projection, then validates each record through the existing journal owner before
+writing. `coordinator.records_for` remains a compatibility wrapper. `prepare`
+and `inspect` retain their existing commands and artifact bytes. The journal
+library still owns persistence, locks and record validity; the native adapter
+still owns explicit test-token signing/recovery. No alternative store or signer
+is introduced, and compute-only work cannot become payable by attaching one.
+
+Stateless compute/verification/projection calls can be run separately or in
+parallel with bounded tasks. This change adds no worker pool, queue, throughput
+claim or global duplicate-work/payment registry. Scale down by omitting storage
+and payment; scale up computation separately while retaining the journal's locks
+and the payer's single-home reservation/recovery discipline. Do not clone payer
+homes to distribute signing or increase task bounds silently.
+
+The tests exercise an isolated two-file copy with side-effect tripwires and
+compare both paid-v1 and unpaid-v1 prepared files with pre-extraction fixtures.
+The normal CI discovery runs these alongside existing refusal/recovery checks.
 
 ## Run without funding (compute-only)
 
