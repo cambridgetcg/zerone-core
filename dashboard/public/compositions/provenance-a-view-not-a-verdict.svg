@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="view-title view-description">
+  <title id="view-title">A view, not a verdict</title>
+  <desc id="view-description">A broad ochre wash crosses two offset charcoal frames on warm paper. Small ink marks remain separate within and beyond the frames. No line singles out one mark. An original composition by Coordinator, accompanying a read-only provenance contract; not training records or live measurements.</desc>
+  <rect width="1200" height="760" fill="#f3eee3"/>
+  <g fill="#ba8547">
+    <path d="M105 317 C300 302 418 344 606 328 S917 294 1095 313 L1095 430 C901 443 797 414 598 435 S275 417 105 442Z" opacity="0.13"/>
+    <path d="M105 351 C287 333 432 369 607 351 S912 336 1095 350 L1095 389 C910 402 784 380 603 405 S280 388 105 407Z" opacity="0.10"/>
+  </g>
+  <g fill="none" stroke="#393e3b" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M516 180 L260 180 L260 553 L568 553 L568 228" stroke-width="2.3"/>
+    <path d="M648 579 L921 579 L921 210 L613 210 L613 529" stroke-width="2.3"/>
+    <path d="M272 192 L505 192 M272 192 L272 274 M909 566 L667 566 M909 566 L909 482" stroke-width="1" opacity="0.38"/>
+    <path d="M155 375 L165 371 M338 277 L350 280 M403 375 L416 372 M474 475 L486 479 M681 295 L693 291 M760 397 L772 401 M837 502 L849 498 M1019 369 L1031 373" stroke-width="3.5"/>
+  </g>
+  <g fill="none" stroke="#806b8b" stroke-width="1.3" stroke-linecap="round" opacity="0.68">
+    <path d="M521 171 L580 171 L580 226"/>
+    <path d="M660 588 L601 588 L601 533"/>
+  </g>
+  <path d="M105 636 L1095 636" fill="none" stroke="#393e3b" stroke-width="0.8" opacity="0.18"/>
+</svg>

@@ -69,6 +69,31 @@ it("keeps Home functional source progress distinct from live-node activation", a
   }
 });
 
+it("exhibits the provenance read contract without turning domain evidence into a panel verdict", async () => {
+  const { buildCompositions, compositionsPage } = await import("../compositions");
+  const exhibition = buildCompositions();
+  const piece = exhibition.pieces.find((candidate) => candidate.id === "provenance-a-view-not-a-verdict");
+  assert.ok(piece, "the completed provenance composition has a public encounter");
+  assert.equal(piece.title, "A view, not a verdict");
+  assert.equal(piece.motif.id, "training_provenance");
+  assert.equal(piece.artist, "Coordinator");
+  assert.equal(piece.image, "/compositions/provenance-a-view-not-a-verdict.svg");
+  assert.ok(piece.alt.length > 0 && piece.verse.some((line) => line.length > 0));
+  assert.match(piece.statement.join(" "), /resolved, upheld challenges in covered domains/u);
+  assert.match(piece.statement.join(" "), /not identify a particular review panel/u);
+  assert.match(piece.statement.join(" "), /certificate and unsigned in-toto statement/u);
+  assert.match(piece.sourceState, /counts, grades and eligibility are unchanged/u);
+  assert.match(piece.sourceState, /No live-node upgrade or scientific verdict/u);
+  const html = compositionsPage(exhibition);
+  const article = html.match(/<article class="work" id="provenance-a-view-not-a-verdict"[\s\S]*?<\/article>/u)?.[0] ?? "";
+  assert.ok(article.includes(piece.sourceState), "the native disclosure retains the source boundary");
+  assert.ok(article.includes('href="/understand/#module-training_provenance"'));
+  assert.ok(article.includes('href="#capture-many-voices"'));
+  for (const line of piece.verse) assert.ok(article.includes(line), "the whole verse is readable without script");
+  const capture = exhibition.pieces.find((candidate) => candidate.id === "capture-many-voices")!;
+  assert.ok(capture.related.some((related) => related.id === piece.id), "an existing work leads back to the new piece");
+});
+
 it("refuses unsafe or ambiguous piece identities before generating public links", async () => {
   const { buildCompositions } = await import("../compositions");
   const records = (await import("../composition-pieces.json")).default;

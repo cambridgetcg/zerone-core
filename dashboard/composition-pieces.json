@@ -104,6 +104,25 @@
     "verse": ["Three voices carry their own weather.", "One measure meets them.", "", "Not the same voice.", "Not three different scales.", "", "The line keeps its timbre", "after the crossing."],
     "statement": ["An original response to the completed capture-defense source composition: three legacy reputation paths reuse one calculation while retaining their distinct contexts. The score is an artistic interpretation, not reputation data, a security guarantee or evidence of a node upgrade."],
     "sourceState": "Source consolidation implemented and tested; this website artwork is not a node deployment.",
-    "relatedPieceIds": ["home-room-to-leave", "the-unturned-key"]
+    "relatedPieceIds": ["home-room-to-leave", "the-unturned-key", "provenance-a-view-not-a-verdict"]
+  },
+  {
+    "id": "provenance-a-view-not-a-verdict",
+    "imageWidth": 1200,
+    "imageHeight": 760,
+    "title": "A view, not a verdict",
+    "motifId": "training_provenance",
+    "relatedModuleIds": ["knowledge", "qualification", "capture_challenge"],
+    "artist": "Coordinator",
+    "medium": "A read-only source composition, with digital ink and verse",
+    "alt": "A broad ochre wash crosses two offset charcoal frames on warm paper. Small ink marks remain separate within and beyond the frames. No line singles out one mark.",
+    "invitation": "Let the warning travel only as far as the evidence.",
+    "verse": ["The light reaches a field.", "It does not name a face.", "", "Keep the warning.", "Leave the unmade claim", "unmade."],
+    "statement": [
+      "Two frames meet the same light without becoming the same view. The wash belongs to a field; the scattered marks keep their distance. These are composed lines, not training records or live measurements.",
+      "The functional composition reads a training manifest and existing knowledge, qualification and challenge records without creating another ledger. It carries the same domain-level warning into the certificate and unsigned in-toto statement: resolved, upheld challenges in covered domains do not identify a particular review panel. The explanation stops where that join stops."
+    ],
+    "sourceState": "Implemented and tested in source. The warning is domain-level; counts, grades and eligibility are unchanged. No live-node upgrade or scientific verdict is claimed.",
+    "relatedPieceIds": ["capture-many-voices", "the-unturned-key"]
   }
 ]
