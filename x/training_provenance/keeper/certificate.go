@@ -206,7 +206,7 @@ func validateManifestMerkleRoot(manifestID string, manifest *knowledgetypes.Trai
 
 func computeTrustGrade(privileged, incidents, cartel uint32) (string, string) {
 	if cartel > 0 {
-		return "F", fmt.Sprintf("cartel_resolutions=%d in covered domains; this manifest's adjudication panel was demonstrably compromised", cartel)
+		return "F", fmt.Sprintf("cartel_resolutions=%d in covered domains; domain-level warning only, not evidence about this manifest's specific adjudication panel", cartel)
 	}
 	if privileged == 0 && incidents == 0 {
 		return "A", "no privileged actions touched the manifest's facts; no incidents touched the knowledge module; no cartel resolutions in covered domains"
