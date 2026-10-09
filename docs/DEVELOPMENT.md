@@ -101,6 +101,12 @@ The [research journal boundary](../tools/research-review/README.md#module-bounda
 puts this into practice: a storage-free model owns record/history/graph rules;
 the existing file adapter owns locks, clock, identity generation and persistence.
 Scanner, checkpoint and native-workflow adapters retain their separate effects.
+Two complementary examples follow the same rule: the
+[worker projection](../tools/external-worker/README.md#compose-without-storage-or-payment)
+formats verified work into these research records while its coordinator owns
+storage/payment; the [trust-score calculation](../x/trust_score/README.md)
+accepts plain observations while its keeper selects chain records and builds the
+query response. These cores can be exercised without their stateful adapters.
 This does not split the chain into services, migrate custody, or activate the
 pending H4-F → H4 → H5 authority consolidation.
 
