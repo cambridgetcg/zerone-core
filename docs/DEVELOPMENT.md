@@ -67,6 +67,43 @@ These are responsibility boundaries, not new packages or deployments.
 | **Operations** | Exact builds, network identity, gateway exposure, state retention, upgrades and recovery evidence. | [shared development runtime](../deploy/networks/zerone-dev-1/README.md), [legacy observer](../deploy/legacy-observer/README.md), [upgrade/incident operations](UPGRADE_AND_INCIDENT_OPERATIONS.md). Use the compatible network-specific release, not moving `main` on a legacy node. |
 | **Design** | Accepted invariants, scope, migration prerequisites and explicitly exploratory proposals. | [authority decision](AUTHORITATIVE-STATE.md), [sequence](MODULE-CONSOLIDATION-SEQUENCE.md), [specifications](specs/), [dated reports](reports/), [foundational texts](../canon/). Documents do not register handlers, move money or prove activation. |
 
+## Modular design: useful alone, complementary together
+
+This is the development direction, not a claim that every current module is
+already interchangeable. Prefer a modular application to a service per feature.
+A module is self-sufficient when its responsibility can be understood, exercised
+and changed without booting unrelated parts—not when it has no dependencies.
+
+For each boundary being changed:
+
+- **Purpose and scope:** name one coherent responsibility and its non-goals at
+  the existing owner. Reuse the shared catalog; do not create another registry.
+- **Contract:** make inputs, outputs, errors, resource bounds and compatibility
+  explicit. Preserve identifiers and wire formats unless an actual migration is
+  separately designed, reviewed and authorized.
+- **Ownership:** give mutable state one writer/owner. Pass values through public
+  operations rather than reaching into another module's files or internal state.
+- **Composition:** keep deterministic rules independent of storage, network,
+  presentation and orchestration. Adapters depend on the rules, not the reverse.
+  Use a small explicit handoff; a graph of hidden callbacks is not modularity.
+- **Optionality:** leave unused capabilities unloaded and inactive. A local
+  journal must remain useful without a scanner, signing client, node or payer.
+  Removing an adapter must not secretly start another service or widen authority.
+- **Scale:** make work units and capacity limits visible. Start small; compose
+  independent bounded units where useful. Do not silently truncate history or
+  describe an importable module as horizontally scalable. Shared durable state,
+  distributed locking, retries and custody each need their own proven contract.
+- **Proof:** test both standalone use and the real composed caller, including
+  refusal and recovery. A file move, catalog link or matching name is not proof
+  that the modules work together.
+
+The [research journal boundary](../tools/research-review/README.md#module-boundaries)
+puts this into practice: a storage-free model owns record/history/graph rules;
+the existing file adapter owns locks, clock, identity generation and persistence.
+Scanner, checkpoint and native-workflow adapters retain their separate effects.
+This does not split the chain into services, migrate custody, or activate the
+pending H4-F → H4 → H5 authority consolidation.
+
 ## Follow the actual record transition
 
 ```text
@@ -121,6 +158,7 @@ suite has been run for your change. Follow each boundary into its integration te
 | Task | Edit / trace first | Existing tests |
 | --- | --- | --- |
 | Browser journal authoring, corrections and claim workspace | [research-review-journal.ts](../dashboard/src/research-review-journal.ts), [research-review.ts](../dashboard/src/research-review.ts), [research-workflow.ts](../dashboard/src/research-workflow.ts) | [research-authoring.test.ts](../dashboard/tests/research-authoring.test.ts), [research-workflow-ui.test.ts](../dashboard/tests/research-workflow-ui.test.ts) |
+| Local journal model, validation and history without storage | [journal_core.py](../tools/research-review/journal_core.py); [module boundary](../tools/research-review/README.md#module-boundaries) | [test_journal_core.py](../tools/research-review/test_journal_core.py), [test_journal.py](../tools/research-review/test_journal.py), [test_branches.py](../tools/research-review/test_branches.py) |
 | Local journal → explicitly signed native claim | [journal.py](../tools/research-review/journal.py), [workflow.py](../tools/research-review/workflow.py), [shared-claims.py](../scripts/shared-claims.py) | [test_workflow.py](../tools/research-review/test_workflow.py), [test_shared_claims.py](../scripts/test_shared_claims.py); opt-in native [test_workflow_native.py](../tools/research-review/test_workflow_native.py) |
 | Development reader, network pins and truthful history | [development-reader.ts](../dashboard/src/development-reader.ts), [development-profile.ts](../dashboard/development-profile.ts) | [development.test.ts](../dashboard/tests/development.test.ts), [research-workflow.test.ts](../dashboard/tests/research-workflow.test.ts) |
 | Claim admission, review outcome and correction history | [msg_server.go](../x/knowledge/keeper/msg_server.go), [rounds.go](../x/knowledge/keeper/rounds.go), [query_claim_history.go](../x/knowledge/keeper/query_claim_history.go) | [review_neutrality_test.go](../x/knowledge/keeper/review_neutrality_test.go), [query_claim_history_test.go](../x/knowledge/keeper/query_claim_history_test.go), [app/claim_records_test.go](../app/claim_records_test.go) |

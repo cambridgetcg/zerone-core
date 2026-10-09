@@ -236,9 +236,9 @@ class JournalTests(unittest.TestCase):
             j.make_export([contribution("a" + str(n), summary="x" * 8192) for n in range(1000)])
         export = fixture([contribution("a"), contribution("b"), contribution("c"),
                           relation("ab", "a", "b"), relation("bc", "b", "c")])
-        with patch.object(j, "MAX_IMPACT_PATHS", 1), self.assertRaises(j.JournalError):
+        with patch.object(j.core, "MAX_IMPACT_PATHS", 1), self.assertRaises(j.JournalError):
             j.impact(export, "a")
-        with patch.object(j, "MAX_IMPACT_DEPTH", 1), self.assertRaises(j.JournalError):
+        with patch.object(j.core, "MAX_IMPACT_DEPTH", 1), self.assertRaises(j.JournalError):
             j.impact(export, "a")
 
     def test_concurrent_process_appends_have_no_lost_rows(self):

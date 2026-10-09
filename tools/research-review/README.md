@@ -16,6 +16,54 @@ directory: stores and file paths containing symlinks are refused. On macOS,
 `/tmp` and `/var` are system symlinks; use a physical path or a directory under
 your home instead. Windows locking is not supported in this version.
 
+## Module boundaries
+
+Keep the small model usable alone; compose only the effects a caller needs:
+
+| Owner | Purpose and contract | Effects / dependencies |
+| --- | --- | --- |
+| [journal_core.py](journal_core.py) | Parse and validate the existing bounded record/export formats; construct explicitly supplied history, select a prefix, compare branches and trace recorded impact. | Standard library and supplied values only. No journal files, POSIX locks, clock, generated identity, network, signing or adapter imports. |
+| [journal.py](journal.py) | Existing CLI/import facade plus private append-only file storage. Re-exports model operations; its compatibility constructor supplies default time/UUID. | Owns path/link checks, locks, live acquisition time, private permissions and atomic persistence. Still macOS/Linux; keep the core sibling when relocating this adapter. |
+| [scan.py](scan.py) | Explicit bounded Crossref intake into the file adapter. | Owns provider requests and retained artifacts; not loaded by the model or journal. |
+| [checkpoint.py](checkpoint.py) | Prepare/compare an exact exported-file digest and memo. | Uses the file adapter for bounded reads; does not itself sign or prove chain inclusion. |
+| [workflow.py](workflow.py) | Bind a selected contribution and explicit assertion to the existing participant-client workflow. | Preparation/inspection stay local; explicit submit/resume may sign through the client. No automatic graph-edge promotion. |
+
+Existing callers, including [external-worker preparation](../external-worker/coordinator.py),
+continue through `journal.py`; there is one Python model implementation, not a
+second validator that can drift. The independent browser implementation retains
+its existing format/fixture checks. No schema or on-disk format changes here.
+
+### Use the model without a store
+
+Put `journal_core.py` beside a Python 3.10+ consumer, or import it from this
+directory. It needs no repository layout or third-party packages. This minimal
+example constructs fictional data, not an acquired observation:
+
+```python
+import journal_core as core
+
+export = core.make_export(
+    [],
+    collection_id="12345678-1234-4234-8234-123456789abc",
+    created_at="2026-09-15T12:00:00.000000Z",
+)
+validated = core.validate_export(core.parse_json(core.canonical(export)))
+assert core.select_snapshot(validated, 0)["entries"] == []
+assert validated == export
+```
+
+For received bytes, call `parse_json` and `validate_export` before using their
+records. `select_snapshot`, `compare_exports` and `impact` validate the complete
+supplied exports themselves. Contract refusals raise `core.JournalError`; callers
+own their transport, storage and error presentation. The core constructor requires
+`collection_id` and `created_at`; it never invents provenance or consults a clock.
+Use the file adapter's `append_records` for persistent live acquisition.
+
+Capacity limits still apply; see [Integrity and history](#integrity-and-history).
+Independent collections can reuse this model without a shared service. This is
+not a distributed store, merge protocol, throughput benchmark or automatic
+sharding scheme. Reaching capacity refuses rather than dropping history.
+
 ## Start a collection
 
 In the browser, start a new journal and add a contribution with its type, title,
