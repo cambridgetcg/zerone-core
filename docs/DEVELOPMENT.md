@@ -131,6 +131,27 @@ not claim admission, evidence storage or a review round.
 equally and pays valid timely reviews, including dissent; this is not proof of
 independent controllers or external-world truth. A later correction/counterclaim is
 retained separately; a native challenge needs an actual Fact ID.
+
+The [correction admission regression](../tests/cross_stack/correction_admission_test.go)
+characterizes the current retained, neutral, funded path—not a proposed merger of
+its two operations. It creates the original and its dependent through admission
+and commit/reveal before exercising accepted and rejected corrections:
+
+- `ChallengeFact` retains `provisional_fact_id`. Acceptance disproves the original
+  and contests its direct dependent, but does not synthesize a `CONTRADICTS` edge.
+  `ClaimHistory` retains the challenge and its resulting Fact; a cascade bundle
+  can retain the disproof and dependent without selecting that resulting Fact.
+- `SubmitContradiction` retains `relations.contradicts`. Acceptance materializes
+  that edge but leaves the original contested; it does not invoke challenge
+  disproval. Ordinary subtree extraction excludes contradiction edges.
+- Rejection retains the correction review without creating a new Fact and
+  restores the target through the operation's existing restoration rule.
+
+These are direct message/query and phase-driver tests with synthetic bank funds,
+not signed transaction transport, independent scientific review or live-network
+observations. Retained correction history and extracted graph topology are
+complementary views, not interchangeable completeness guarantees.
+
 [Funding terms and retries](specs/knowledge-fund-settlement-v1.md) distinguish unpaid
 obligations from completed transfers. A vesting schedule is not a payment, and a
 reported paid marker is not by itself an independently verified bank transfer.
