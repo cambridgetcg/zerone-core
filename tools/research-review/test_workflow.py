@@ -1,17 +1,20 @@
 """Offline adapter contract and crash-boundary tests; no accounts or network."""
 
+import contextlib
 import copy
+import io
 import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
 
 import journal as j
 import workflow as w
-from test_journal import contribution, fixture
+from test_journal import assessment, concern, contribution, fixture, relation
 
 
 ADDRESS = "zrn1" + "q" * 38
@@ -140,11 +143,16 @@ class WorkflowTests(unittest.TestCase):
 
     def test_submit_passes_exact_bound_text_as_argv_and_persists_started_first(self):
         calls = []
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(w.main(["inspect", "--packet", str(self.path)]), 0)
+        previewed_payload = json.loads(output.getvalue())["prepared_payload"]
         def runner(home, client, command, arguments):
             calls.append(command)
             pending = self.load()
             self.assertEqual(pending["submission"], {"state": "started", "receipt": None})
             flags = dict(argument.split("=", 1) for argument in arguments)
+            self.assertEqual(flags, {"--" + key: value for key, value in previewed_payload.items()})
             self.assertEqual(flags["--content"], INTENT["content"])
             self.assertEqual(flags["--reasoning"], w.bound_reasoning(pending))
             self.assertEqual(flags["--method"], "")
@@ -373,6 +381,164 @@ class WorkflowTests(unittest.TestCase):
         self.write_marker()
         with self.assertRaisesRegex(w.Error, "differs"):
             w.resume(self.path, self.home, self.client, lambda *_: self.fail("client executed"))
+
+    def test_inspect_previews_exact_payload_and_local_correction_without_admission(self):
+        before = self.path.read_bytes()
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(w.main(["inspect", "--packet", str(self.path)]), 0)
+        summary = json.loads(output.getvalue())
+        self.assertEqual(summary["prepared_payload"],
+                         dict(INTENT, reasoning=w.bound_reasoning(self.packet)))
+        self.assertIn("admission_preview", summary)
+        preview = summary["admission_preview"]
+        self.assertEqual(preview["scope"], "complete_embedded_journal")
+        self.assertEqual(preview["journal_entry_count"], 2)
+        self.assertEqual(preview["local_only"]["supersessions"],
+                         [{"id": "correction", "kind": "contribution", "supersedes": "original"}])
+        self.assertFalse(preview["network_checked"])
+        self.assertEqual(preview["evidence_availability"], "not_checked")
+        self.assertIsNone(summary["submission"])
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_inspect_inventories_all_local_graph_and_evidence_without_translation(self):
+        url_only = {"label": "Unfetched URL", "url": "https://example.org/source", "sha256": None}
+        hash_only = {"label": "Unavailable artifact", "url": None, "sha256": "a" * 64}
+        both = dict(url_only, sha256="b" * 64)
+        records = [contribution("original", evidence=[url_only, hash_only]),
+                   contribution("source", evidence=[both]),
+                   contribution("correction", supersedes="original"),
+                   relation("supports", "original", "source", evidence=[hash_only]),
+                   relation("cites", "original", "source", "cites"),
+                   relation("revised-link", "correction", "source", "requires", supersedes="supports"),
+                   dict(concern("concern", "original"), evidence=[url_only]),
+                   dict(concern("revised-concern", "correction"), supersedes="concern"),
+                   dict(assessment("assessment", "supports"), evidence=[both]),
+                   assessment("disagreement", "supports", "disputed"),
+                   dict(assessment("revised-assessment", "concern", "addressed"), supersedes="assessment")]
+        raw = j.canonical(fixture(records)) + b"\n"
+        packet = w.prepare(raw, "original", INTENT)
+        self.path.write_bytes(j.canonical(packet) + b"\n")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(w.main(["inspect", "--packet", str(self.path)]), 0)
+        summary = json.loads(output.getvalue())
+        preview = summary["admission_preview"]
+        local = preview["local_only"]
+        self.assertEqual(preview["journal_entry_count"], len(records))
+        self.assertEqual(set(local), {"relations", "supersessions", "concerns", "assessments", "evidence_references"})
+        for kind, fields in (("relation", ("id", "from_id", "to_id", "relation_type")),
+                             ("concern", ("id", "target_id", "category", "attributed_to")),
+                             ("assessment", ("id", "target_id", "disposition", "attributed_to"))):
+            self.assertEqual(local[kind + "s"], [{key: record[key] for key in fields}
+                                                  for record in records if record["kind"] == kind])
+        self.assertEqual(local["supersessions"], [{key: record[key] for key in ("id", "kind", "supersedes")}
+                                                  for record in records if "supersedes" in record])
+        self.assertEqual(local["evidence_references"], [{"record_id": record["id"], "references": record["evidence"]}
+                                                       for record in records if record["evidence"]])
+        # Unselected and corrected records remain visible; no endpoint-pair deduplication.
+        self.assertEqual([row["id"] for row in local["relations"]], ["supports", "cites", "revised-link"])
+        self.assertEqual(summary["prepared_payload"], dict(INTENT, reasoning=w.bound_reasoning(packet)))
+        self.assertNotIn(url_only["url"], summary["prepared_payload"]["reasoning"])
+        self.assertEqual(self.load(), packet)
+
+    def test_inspect_reports_limits_and_never_refreshes_a_saved_receipt(self):
+        packet = self.submitted()
+        before = {path.relative_to(self.root): path.read_bytes()
+                  for path in self.root.rglob("*") if path.is_file()}
+        output = io.StringIO()
+        with contextlib.ExitStack() as stack:
+            for name in ("participant_binding", "run_client", "submit", "resume", "refresh", "packet_lock", "save_packet"):
+                stack.enter_context(patch.object(w, name, side_effect=AssertionError("inspect reached " + name)))
+            stack.enter_context(patch("socket.socket", side_effect=AssertionError("inspect reached network")))
+            stack.enter_context(patch.object(w.subprocess, "run", side_effect=AssertionError("inspect launched a process")))
+            reads = stack.enter_context(patch.object(w, "read_bytes", wraps=w.read_bytes))
+            stack.enter_context(contextlib.redirect_stdout(output))
+            self.assertEqual(w.main(["inspect", "--packet", str(self.path)]), 0)
+            reads.assert_called_once_with(str(self.path), w.MAX_PACKET_BYTES)
+        summary = json.loads(output.getvalue())
+        self.assertEqual(summary["submission"], packet["submission"])
+        self.assertEqual(summary["observation_count"], 0)
+        preview = summary["admission_preview"]
+        self.assertIn("limitations", preview)
+        limits = " ".join(preview["limitations"])
+        self.assertIn("not uploaded", limits)
+        self.assertIn("not translated", limits)
+        self.assertIn("no source is fetched", limits)
+        self.assertIn("does not check network admission", limits)
+        self.assertIn("does not refresh saved observations", limits)
+        self.assertFalse(preview["network_checked"])
+        self.assertEqual(preview["evidence_availability"], "not_checked")
+        self.assertEqual(before, {path.relative_to(self.root): path.read_bytes()
+                                  for path in self.root.rglob("*") if path.is_file()})
+
+    def test_inspect_refuses_invalid_packets_before_emitting_any_preview(self):
+        mutations = [lambda p: p["intent"].update(content="A different but well-formed assertion."),
+                     lambda p: p["journal"].update(export_utf8=p["journal"]["export_utf8"] + " "),
+                     lambda p: p["journal"].update(record_id="missing"),
+                     lambda p: p.update(observations=[{}])]
+        candidates = [b"{", b'{"schema":"x","schema":"y"}', b"[]"]
+        for mutate in mutations:
+            candidate = copy.deepcopy(self.packet)
+            mutate(candidate)
+            candidates.append(j.canonical(candidate))
+        for raw in candidates:
+            self.path.write_bytes(raw)
+            output, errors = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(output), contextlib.redirect_stderr(errors), \
+                    patch.object(w, "_admission_preview", side_effect=AssertionError("invalid packet reached preview")):
+                self.assertEqual(w.main(["inspect", "--packet", str(self.path)]), 1)
+            self.assertEqual(output.getvalue(), "")
+            self.assertIn("research workflow refused:", errors.getvalue())
+            self.assertEqual(self.path.read_bytes(), raw)
+
+    def test_inspect_cli_is_repeatable_without_a_participant_or_file_changes(self):
+        # The actual CLI runs without our synthetic participant/client fixtures.
+        root = self.root / "offline"
+        root.mkdir()
+        packet = root / "packet.json"
+        packet.write_bytes(j.canonical(self.packet) + b"\n")
+        before = packet.read_bytes()
+        outputs = []
+        for _ in range(2):
+            result = subprocess.run([sys.executable, "-B", str(Path(w.__file__).resolve()),
+                                     "inspect", "--packet", str(packet)], cwd=root,
+                                    capture_output=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stderr, b"")
+            outputs.append(result.stdout)
+            self.assertEqual(set(root.iterdir()), {packet})
+            self.assertEqual(packet.read_bytes(), before)
+        self.assertEqual(outputs[0], outputs[1])
+        preview = json.loads(outputs[0])["admission_preview"]
+        self.assertEqual(preview["local_only"]["evidence_references"], [])
+        self.assertEqual(preview["local_only"]["relations"], [])
+        self.assertEqual(preview["local_only"]["concerns"], [])
+        self.assertEqual(preview["local_only"]["assessments"], [])
+        linked = root / "linked.json"
+        linked.symlink_to(packet)
+        result = subprocess.run([sys.executable, "-B", str(Path(w.__file__).resolve()),
+                                 "inspect", "--packet", str(linked)], cwd=root,
+                                capture_output=True, check=False)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout, b"")
+        self.assertEqual(packet.read_bytes(), before)
+
+    def test_inspect_full_capacity_has_no_hidden_cutoff_or_input_mutation(self):
+        records = [contribution("item-" + str(n)) for n in range(j.MAX_ENTRIES)]
+        export = j.make_export(records, collection_id=self.export["header"]["collection_id"],
+                               created_at=self.export["header"]["created_at"],
+                               recorded_at=[self.export["header"]["created_at"]] * len(records))
+        packet = w.prepare(j.canonical(export), records[-1]["id"], INTENT)
+        self.path.write_bytes(j.canonical(packet) + b"\n")
+        before = self.path.read_bytes()
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(w.main(["inspect", "--packet", str(self.path)]), 0)
+        summary = json.loads(output.getvalue())
+        self.assertEqual(summary["record_id"], records[-1]["id"])
+        self.assertEqual(summary["admission_preview"]["journal_entry_count"], j.MAX_ENTRIES)
+        self.assertEqual(self.path.read_bytes(), before)
 
     def test_offline_cli_prepare_and_inspect_require_new_output(self):
         export_file = self.root / "journal-export.json"

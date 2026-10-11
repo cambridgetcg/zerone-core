@@ -303,10 +303,32 @@ python3 -B tools/research-review/workflow.py inspect \
 ```
 
 Inspect the `prepared_payload`, including the exact hash binding appended to
-the reasoning. Content must be 20–1,000 UTF-8 bytes; the full bound reasoning
-must fit 8,192 bytes. Select a domain/category supported by the network. No claim
-opens until explicit submission. The packet includes entries beyond any
-historical browser cutoff: check the full file before sharing it.
+the reasoning. The same offline command also returns `admission_preview`:
+
+- `local_only` inventories relations, supersessions of every record kind,
+  concerns, attributed assessments and evidence references from the **complete
+  embedded journal**, not just the selected contribution. It preserves recorded
+  order and disagreements; it neither follows a browser cutoff nor selects a
+  winning correction.
+- None of those structured records is translated into native graph state.
+  Evidence references are not automatically inserted into the assertion. If
+  you deliberately include a reference in your claim text, that text is visible
+  in `prepared_payload`; the adapter still does not upload the source artifact.
+- `evidence_availability: "not_checked"` and `network_checked: false` mean
+  exactly that. A URL or digest is not proof that a reviewer can retrieve the
+  evidence. Inspection fetches nothing, reads no participant home, creates no
+  lock, writes no packet and does not refresh a saved receipt. It does not check
+  native eligibility, funding or fees.
+
+This is a CLI inspection projection, not a new packet field or browser feature.
+The complete records remain in the packet; the inventory is not their substitute.
+Sharing inspection output now also shares local journal metadata and source
+references. Sharing the packet shares its full journal, including entries beyond
+any historical browser cutoff. Check both before sharing.
+
+Content must be 20–1,000 UTF-8 bytes; the full bound reasoning must fit 8,192
+bytes. Select a domain/category supported by the network. No claim opens until
+explicit submission.
 
 Initialize, fund and register your own participant using the verified
 [development package](../../docs/SHARED-DEVELOPMENT.md). Existing homes keep

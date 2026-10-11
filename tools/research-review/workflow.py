@@ -576,6 +576,31 @@ def apply_observation(packet, match):
                                            "history_sha256": hash_value})
 
 
+def _admission_preview(packet):
+    """Project an already validated packet; inspect owns validation and file I/O."""
+    export = j.parse_json(packet["journal"]["export_utf8"].encode("utf-8"))
+    records = [entry["record"] for entry in export["entries"]]
+    local = {}
+    for kind, fields in (("relation", ("id", "from_id", "to_id", "relation_type")),
+                         ("concern", ("id", "target_id", "category", "attributed_to")),
+                         ("assessment", ("id", "target_id", "disposition", "attributed_to"))):
+        local[kind + "s"] = [{key: record[key] for key in fields}
+                             for record in records if record["kind"] == kind]
+    local["supersessions"] = [{key: record[key] for key in ("id", "kind", "supersedes")}
+                             for record in records if "supersedes" in record]
+    local["evidence_references"] = [{"record_id": record["id"], "references": record["evidence"]}
+                                    for record in records if record["evidence"]]
+    return {"scope": "complete_embedded_journal", "journal_entry_count": len(records),
+            "network_checked": False, "evidence_availability": "not_checked", "local_only": local,
+            "limitations": [
+                "Only prepared_payload is handed to the participant client; the embedded journal is not uploaded.",
+                "Local graph records are not translated into native relations, corrections or verdicts.",
+                "Evidence references are not added to the payload automatically; no source is fetched, uploaded or availability-checked.",
+                "This offline inspection does not check network admission, fees or participant readiness, and does not refresh saved observations.",
+                "Sharing this output reveals local journal metadata; sharing the packet reveals its complete embedded journal.",
+            ]}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -611,6 +636,7 @@ def main(argv=None):
                    "scope": "Local association and participant-client observations; no inclusion or scientific truth proof."}
         if args.command == "inspect":
             summary["prepared_payload"] = {**result["intent"], "reasoning": bound_reasoning(result)}
+            summary["admission_preview"] = _admission_preview(result)
         print(j.canonical(summary).decode())
         return 0
     except (Error, OSError, ValueError, KeyError, TypeError) as exc:

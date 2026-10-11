@@ -83,6 +83,34 @@ strings. Status distinguishes `prepared`, `broadcasting`, `pending`, `rejected`,
 `committed`, `committed-unresolved` and `failed`. Only `committed` with positive
 height, code zero and a claim ID permits history attachment.
 
+## Offline admission preview
+
+The CLI's existing `inspect --packet FILE` retains its summary and exact
+`prepared_payload`, adding an `admission_preview` projection. This is not stored
+in `zerone-research-workflow/v1` and changes neither packet hashes nor submission.
+The complete packet is validated before anything is emitted.
+
+`scope: "complete_embedded_journal"` and `journal_entry_count` describe the exact
+embedded export, independent of selected contribution, a browser cutoff or a
+newer journal file. `local_only` contains ordered `relations` (ID, endpoints and
+type), `supersessions` (ID, kind and previous ID), `concerns` (ID, target, category
+and attribution), `assessments` (ID, target, disposition and attribution), and
+`evidence_references` (record ID and unchanged reference list). Empty inventories
+are arrays. Superseded records, repeated endpoint pairs and conflicting
+assessments remain visible; no graph translation, deduplication or verdict is
+inferred. This compact inventory does not replace the full journal records.
+
+`network_checked: false`, `evidence_availability: "not_checked"` and the emitted
+limitations distinguish a recorded URL/digest from retrievable evidence. No
+source is fetched or uploaded, and no evidence reference is automatically added
+to the payload. A reference deliberately authored in the assertion remains part
+of that text. Inspection reads only the supplied packet, without participant-home
+access, locks, writes or client invocation. It checks no admission eligibility,
+fees or funding and does not refresh retained observations. These claims apply
+to the inspection operation, not to the history of an already submitted packet.
+Inspection output exposes local metadata; sharing the packet exposes the entire
+embedded journal. The browser and participant client are unchanged.
+
 ## Recovery and retained observations
 
 Commands lock one packet and write complete validated replacements with private
