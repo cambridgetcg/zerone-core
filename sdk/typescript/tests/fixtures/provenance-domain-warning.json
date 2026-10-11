@@ -1,0 +1,35 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "zerone://provenance-origin/training-corpus/domain-warning",
+      "digest": {
+        "sha256": "247e02a7b7c4e496262f5ccb9d3b30f33515b50ab949717139204b2e1f5e7a19"
+      }
+    }
+  ],
+  "predicateType": "https://github.com/cambridgetcg/zerone-core/blob/394bbef01df1b131223b1e874d554932d8dcd87c/docs/specs/attestations/training-provenance-v1.md",
+  "predicate": {
+    "sourceChainId": "provenance-origin",
+    "observedOnChainId": "provenance-observer",
+    "certificate": {
+      "manifestId": "domain-warning",
+      "pipelineId": "synthetic-pipeline",
+      "merkleRoot": "247e02a7b7c4e496262f5ccb9d3b30f33515b50ab949717139204b2e1f5e7a19",
+      "factCount": "1",
+      "finalizedAtBlock": "12",
+      "status": "MANIFEST_STATUS_FINALIZED",
+      "domains": [
+        {
+          "domain": "mathematics",
+          "factCount": "1"
+        }
+      ],
+      "cartelResolutionCount": 1,
+      "trustGrade": "F",
+      "trustExplanation": "cartel_resolutions=1 in covered domains; domain-level warning only, not evidence about this manifest's specific adjudication panel",
+      "computedAtBlock": "77",
+      "sourceChainId": "provenance-origin"
+    }
+  }
+}

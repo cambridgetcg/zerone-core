@@ -30,6 +30,10 @@ const claimHistoryFixture = JSON.parse(readFileSync(
   join(packageRoot, "tests/fixtures/claim-history-response.json"), "utf8",
 ));
 
+const domainWarningFixture = readFileSync(
+  join(packageRoot, "tests/fixtures/provenance-domain-warning.json"), "utf8",
+);
+
 const consumerSource = `
 import * as root from "@zerone-chain/sdk";
 import * as caip from "@zerone-chain/sdk/caip";
@@ -139,6 +143,25 @@ const parsedProvenance = provenance.parseUnsignedZeroneInTotoStatement(
     sourceChainId: "zerone-origin-1",
   },
 );
+
+for (const parser of [
+  root.parseUnsignedZeroneInTotoStatement,
+  provenance.parseUnsignedZeroneInTotoStatement,
+]) {
+  const domainWarning = parser(${JSON.stringify(domainWarningFixture)}, {
+    manifestId: "domain-warning",
+    observedOnChainId: "provenance-observer",
+    sourceChainId: "provenance-origin",
+  });
+  assert(
+    domainWarning.statement.predicate.certificate.trustGrade === "F" &&
+      domainWarning.statement.predicate.certificate.trustExplanation ===
+        ${JSON.stringify(JSON.parse(domainWarningFixture).predicate.certificate.trustExplanation)} &&
+      domainWarning.assurance.authenticated === false &&
+      domainWarning.assurance.signatureVerified === false,
+    "packed provenance domain warning lost its meaning or unsigned boundary",
+  );
+}
 
 assert(root.cosmosChainId("zerone-1") === "cosmos:zerone-1", "root export failed");
 const history = await root.queryClaimHistory({

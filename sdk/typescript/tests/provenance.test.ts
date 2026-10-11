@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   IN_TOTO_STATEMENT_V1_TYPE,
@@ -82,6 +83,116 @@ function certificate(value: Record<string, unknown>): Record<string, unknown> {
 }
 
 describe("unsigned Zerone in-toto provenance", () => {
+  it("accepts the shared Go-produced domain warning without authenticating it", () => {
+    // Also checked against the real app query in
+    // TestTrainingProvenanceDomainWarningComposition; not a live response.
+    const json = readFileSync(
+      new URL("./fixtures/provenance-domain-warning.json", import.meta.url),
+      "utf8",
+    );
+    const parsed = parseUnsignedZeroneInTotoStatement(json, {
+      manifestId: "domain-warning",
+      observedOnChainId: "provenance-observer",
+      sourceChainId: "provenance-origin",
+    });
+    const cert = parsed.statement.predicate.certificate;
+    assert.equal(cert.cartelResolutionCount, 1);
+    assert.equal(cert.trustGrade, "F");
+    assert.equal(cert.trustExplanation,
+      JSON.parse(json).predicate.certificate.trustExplanation);
+    assert.deepEqual(parsed.assurance, {
+      authenticated: false,
+      signatureVerified: false,
+      currentStateProjection: true,
+      subjectDigestScope: "included-id-set",
+    });
+  });
+
+  it("preserves legacy and current F explanations with exact positive counts", () => {
+    for (const count of [1, 2, 4_294_967_295]) {
+      for (const suffix of [
+        "this manifest's adjudication panel was demonstrably compromised",
+        "domain-level warning only, not evidence about this manifest's specific adjudication panel",
+      ]) {
+        const value = fixture();
+        const cert = certificate(value);
+        cert.privilegedActionCount = 3;
+        cert.incidentCount = 4;
+        cert.cartelResolutionCount = count;
+        cert.trustGrade = "F";
+        cert.trustExplanation = `cartel_resolutions=${count} in covered domains; ${suffix}`;
+        const parsed = parse(value);
+        assert.equal(parsed.statement.predicate.certificate.trustGrade, "F");
+        assert.equal(parsed.statement.predicate.certificate.trustExplanation,
+          cert.trustExplanation);
+        assert.equal(parsed.assurance.authenticated, false);
+        assert.equal(parsed.assurance.signatureVerified, false);
+      }
+    }
+  });
+
+  it("keeps F explanation compatibility count-bound and rejects altered wording", () => {
+    for (const suffix of [
+      "this manifest's adjudication panel was demonstrably compromised",
+      "domain-level warning only, not evidence about this manifest's specific adjudication panel",
+    ]) {
+      for (const explanation of [
+        `cartel_resolutions=2 in covered domains; ${suffix}`,
+        `cartel_resolutions=01 in covered domains; ${suffix}`,
+        `cartel_resolutions=1 in covered domains; ${suffix} `,
+        "signature verified; facts independently proven",
+      ]) {
+        const value = fixture();
+        Object.assign(certificate(value), {
+          cartelResolutionCount: 1, trustGrade: "F", trustExplanation: explanation,
+        });
+        assertParseError(() => parse(value), "INVALID_SHAPE",
+          "$.predicate.certificate.trustExplanation");
+      }
+      const zero = fixture();
+      certificate(zero).trustExplanation = `cartel_resolutions=0 in covered domains; ${suffix}`;
+      assertParseError(() => parse(zero), "INVALID_SHAPE",
+        "$.predicate.certificate.trustExplanation");
+    }
+  });
+
+  it("does not let a recognized F explanation bypass numeric or grade checks", () => {
+    const value = fixture();
+    const cert = certificate(value);
+    cert.trustExplanation = "cartel_resolutions=1 in covered domains; domain-level warning only, not evidence about this manifest's specific adjudication panel";
+    cert.trustGrade = "F";
+    for (const invalid of [-1, 1.5, 4_294_967_296, "1", null]) {
+      cert.cartelResolutionCount = invalid;
+      assertParseError(() => parse(value), "INVALID_SHAPE",
+        "$.predicate.certificate.cartelResolutionCount");
+    }
+    cert.cartelResolutionCount = 1;
+    for (const grade of ["A", "B", "C"]) {
+      cert.trustGrade = grade;
+      assertParseError(() => parse(value), "INVALID_SHAPE",
+        "$.predicate.certificate.trustGrade");
+    }
+  });
+
+  it("retains exact A, B and C explanations and grade precedence", () => {
+    for (const [privileged, incidents, grade, explanation] of [
+      [0, 0, "A", "no privileged actions touched the manifest's facts; no incidents touched the knowledge module; no cartel resolutions in covered domains"],
+      [1, 0, "B", "privileged_action_count=1 affecting manifest facts; manifest is largely unintervened"],
+      [2, 0, "B", "privileged_action_count=2 affecting manifest facts; manifest is largely unintervened"],
+      [3, 0, "C", "privileged_action_count=3, incident_count=0, cartel_resolution_count=0 — yellow flags accumulating; downstream consumer should review the audit trail before relying on this manifest"],
+      [0, 1, "C", "privileged_action_count=0, incident_count=1, cartel_resolution_count=0 — yellow flags accumulating; downstream consumer should review the audit trail before relying on this manifest"],
+    ]) {
+      const value = fixture();
+      Object.assign(certificate(value), {
+        privilegedActionCount: privileged, incidentCount: incidents,
+        trustGrade: grade, trustExplanation: explanation,
+      });
+      const parsed = parse(value).statement.predicate.certificate;
+      assert.equal(parsed.trustGrade, grade);
+      assert.equal(parsed.trustExplanation, explanation);
+    }
+  });
+
   it("pins the predicate profile to an immutable specification revision", () => {
     assert.equal(
       ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE,

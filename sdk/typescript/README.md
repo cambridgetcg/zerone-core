@@ -518,6 +518,19 @@ explicitly unsigned: `authenticated` and `signatureVerified` remain `false`.
 The parser does not fetch URLs, verify Sigstore material, or turn a current
 state projection into historical proof.
 
+For positive `cartelResolutionCount`, the parser accepts both the corrected
+**domain-level warning** and the exact legacy v1 wording, with a matching count.
+It preserves the received explanation verbatim; accepting older wording does
+not establish that this manifest's specific adjudication panel was compromised.
+Domain overlap alone cannot establish that link. Count, grade, bounds and
+caller-pin checks remain strict; the predicate URI and unsigned assurance do
+not change.
+
+The shared `tests/fixtures/provenance-domain-warning.json` is synthetic output
+from the application's real query method, checked by
+`TestTrainingProvenanceDomainWarningComposition` and the SDK source/packed-export
+tests. It is not a live response or independent review evidence.
+
 ## Retained claim history
 
 `queryClaimHistory` reads the bounded `zerone.knowledge.v1.Query/ClaimHistory`

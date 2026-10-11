@@ -64,7 +64,7 @@ import {
   ZERONE_PROVENANCE_LIMITS,
   ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE,
   parseUnsignedZeroneInTotoStatement
-} from "./chunk-FKXK63RS.js";
+} from "./chunk-FK6AK4X5.js";
 import {
   createZeroneRegistry,
   registerZeroneMessages,

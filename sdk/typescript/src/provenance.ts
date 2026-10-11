@@ -275,7 +275,7 @@ function expectedTrustExplanation(
   cartelResolutionCount: number,
 ): string {
   if (cartelResolutionCount > 0) {
-    return `cartel_resolutions=${cartelResolutionCount} in covered domains; this manifest's adjudication panel was demonstrably compromised`;
+    return `cartel_resolutions=${cartelResolutionCount} in covered domains; domain-level warning only, not evidence about this manifest's specific adjudication panel`;
   }
   if (privilegedActionCount === 0 && incidentCount === 0) {
     return "no privileged actions touched the manifest's facts; no incidents touched the knowledge module; no cartel resolutions in covered domains";
@@ -448,13 +448,21 @@ function parseCertificate(
     `${path}.trustExplanation`,
     ZERONE_PROVENANCE_LIMITS.maxTrustExplanationBytes,
   );
+  // Older v1 producers overstated what domain overlap establishes. Preserve
+  // received historical wording, not its claim about a specific panel. Accept
+  // only that exact count-bound legacy form alongside the corrected producer.
+  const matchesLegacyCartelExplanation =
+    cartelResolutionCount > 0 &&
+    trustExplanation ===
+      `cartel_resolutions=${cartelResolutionCount} in covered domains; this manifest's adjudication panel was demonstrably compromised`;
   if (
     trustExplanation !==
     expectedTrustExplanation(
       privilegedActionCount,
       incidentCount,
       cartelResolutionCount,
-    )
+    ) &&
+    !matchesLegacyCartelExplanation
   ) {
     fail(
       "INVALID_SHAPE",

@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	"cosmossdk.io/log"
@@ -10,6 +11,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
 	challengetypes "github.com/zerone-chain/zerone/x/capture_challenge/types"
@@ -100,6 +102,16 @@ func TestTrainingProvenanceDomainWarningComposition(t *testing.T) {
 			require.Equal(t, "provenance-origin", statement.Predicate.SourceChainId)
 			require.Equal(t, "provenance-observer", statement.Predicate.ObservedOnChainId)
 			require.Equal(t, manifest.MerkleRoot, statement.Subject[0].Digest["sha256"])
+
+			if tc.count == 1 {
+				// The SDK consumes this same synthetic wire fixture. Keep its
+				// JSON shape and explanation bound to the real query producer.
+				wire, err := protojson.Marshal(statement)
+				require.NoError(t, err)
+				fixture, err := os.ReadFile("../sdk/typescript/tests/fixtures/provenance-domain-warning.json")
+				require.NoError(t, err)
+				require.JSONEq(t, string(fixture), string(wire))
+			}
 
 			// Queries do not rewrite the producer records they describe.
 			gotManifest, ok := application.KnowledgeKeeper.GetTrainingManifest(ctx, manifest.ManifestId)

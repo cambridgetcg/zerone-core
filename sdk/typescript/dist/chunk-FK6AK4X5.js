@@ -139,7 +139,7 @@ function expectedGrade(privilegedActionCount, incidentCount, cartelResolutionCou
 }
 function expectedTrustExplanation(privilegedActionCount, incidentCount, cartelResolutionCount) {
   if (cartelResolutionCount > 0) {
-    return `cartel_resolutions=${cartelResolutionCount} in covered domains; this manifest's adjudication panel was demonstrably compromised`;
+    return `cartel_resolutions=${cartelResolutionCount} in covered domains; domain-level warning only, not evidence about this manifest's specific adjudication panel`;
   }
   if (privilegedActionCount === 0 && incidentCount === 0) {
     return "no privileged actions touched the manifest's facts; no incidents touched the knowledge module; no cartel resolutions in covered domains";
@@ -294,11 +294,12 @@ function parseCertificate(value, sourceChainId, manifestId, subjectSha256) {
     `${path}.trustExplanation`,
     ZERONE_PROVENANCE_LIMITS.maxTrustExplanationBytes
   );
+  const matchesLegacyCartelExplanation = cartelResolutionCount > 0 && trustExplanation === `cartel_resolutions=${cartelResolutionCount} in covered domains; this manifest's adjudication panel was demonstrably compromised`;
   if (trustExplanation !== expectedTrustExplanation(
     privilegedActionCount,
     incidentCount,
     cartelResolutionCount
-  )) {
+  ) && !matchesLegacyCartelExplanation) {
     fail(
       "INVALID_SHAPE",
       `${path}.trustExplanation`,
