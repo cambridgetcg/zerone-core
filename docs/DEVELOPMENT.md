@@ -157,6 +157,53 @@ obligations from completed transfers. A vesting schedule is not a payment, and a
 reported paid marker is not by itself an independently verified bank transfer.
 Historical claims retain their applicable policy rather than being repriced.
 
+## Canonical relation seams before wider graph intake
+
+**Characterized predecessor behavior, knowledge 11; not a repair or live-state
+census.** [The keeper fixtures](../x/knowledge/keeper/relation_contract_test.go)
+exercise actual in-memory admission, scheme-2 commit/reveal, phase advancement,
+ClaimHistory, ToK assembly and strict export. They deliberately retain the
+following mismatches so a future activation cannot silently rewrite its
+predecessor's behavior:
+
+- **Claim proposals are not a canonical multigraph.** Admission accepts repeated
+  exact targets up to the existing 16-entry limit. Materialization writes the
+  ordered list to source/target-pair keys: the last type and metadata survive
+  in both mirrored indexes. ClaimHistory retains the complete submitted list,
+  but its canonical adjacency and the ToK ancestor cone expose only the surviving
+  pairs. Both input orders and same-type/different-strength inputs are covered;
+  distinct-target and over-limit controls distinguish multiplicity from bounds.
+- **Augmentation IDs are not Fact IDs.** A passing retained ballot can still
+  write a `REFORMULATES` edge from its augmentation ID after new augmentation
+  admission is retired. Missing Fact endpoints make strict relation export fail
+  and full genesis export panic. A colliding existing Fact ID instead overwrites
+  that genuine pair and passes export: endpoint existence alone is not a repair.
+  Volunteer and bounty-backed EQUIVALENT/SUPERIOR cases, a DRIFT control, retained
+  ballot snapshots and the separate augmentation query are exercised.
+
+The financial fixture is a tracking bank, not actual SDK custody. Its payout
+calls and remaining-escrow assertions do not prove balance conservation or a
+complete financial genesis round-trip. The in-memory retirement selection is
+not a signed transaction, two-binary upgrade or evidence of affected live state.
+Passing characterization means these limitations remain reproducible.
+
+The bounded **proposed** repair is target-unique *new* claim admission before any
+fee/state/event effects, and omission of augmentation's canonical Fact-edge
+write—not a ban on genuine Fact-to-Fact `REFORMULATES`. Preserve stored claims,
+ballots, augmentation history, payouts, vetoes, refunds, keys and strict export.
+Both execution changes require their own reviewed successor activation;
+existing release handlers must retain their frozen rules. Previously admitted
+ambiguous claims still need their retained settlement path, and existing bad
+edges need an explicit historical disposition or verified clean prestate, not
+silent filtering, fabricated Facts or reconstruction from proposals. This
+characterization selects no new version, handler or live upgrade.
+
+Run from repository root (Go 1.25.14 as pinned by CI):
+
+```sh
+go test ./x/knowledge/keeper -run '^TestRelationContract' -count=1 -v
+```
+
 ## Names: improve labels, preserve identifiers
 
 Use descriptive display names to disambiguate existing components. Module IDs,
