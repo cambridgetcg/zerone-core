@@ -248,9 +248,10 @@ and LP mismatch fixtures. Explicitly invoking the liquidity module's registered
 does not make it an automatic application checkpoint. Aggregate liabilities
 matter: the deficit fixture still has enough `uzrn` to cover either pool alone.
 The tests bind all imported bank balances/supply and the LP projection before
-block hooks, then verify custody audit outcomes after commit and preserved
-pool identities, indexes, counter and balances on re-export. Their passing
-result characterizes this admission gap; it does not endorse underbacking.
+block hooks, then verify custody audit outcomes, pool identities and indexes
+after commit. Re-export checks cover LP validation/counter and creator/module
+balances, not complete bank/LP export-byte equivalence. Their passing result
+characterizes this admission gap; it does not endorse underbacking.
 
 The [cache boundary fixtures](../tests/cross_stack/liquidity_cache_boundary_test.go)
 exercise the installed app keeper and real SDK bank across nine late-error
@@ -276,9 +277,11 @@ and recreation still requires a fresh admission and a distinct ID/LP denom.
 
 Emergency/quarantine and holder-freeze policy is exercised through its actual
 ante decorators with real app keepers and unsigned SDK transaction objects;
-raw-handler controls deliberately bypass those gates. This verifies the owner
-policy after the signature precondition, not signature authentication, full
-ante/BaseApp processing, governance/emergency ceremonies or transport. Cache
+raw-handler controls deliberately bypass those gates. The account decorator
+assumes authenticated signers; the emergency decorator precedes signature
+verification in the actual ante chain. These fixtures verify isolated owner
+policy, not signature authentication, full ante/BaseApp processing,
+governance/emergency ceremonies or transport. Cache
 snapshots do not assert gas or successful ante fee/sequence rollback. All funds
 and mutations in these fixtures are synthetic and in-memory.
 
