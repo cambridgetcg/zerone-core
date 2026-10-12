@@ -231,6 +231,67 @@ Run from repository root (Go 1.25.14 as pinned by CI):
 go test ./x/knowledge/keeper -run '^TestRelationContract' -count=1 -v
 ```
 
+## Liquidity custody checkpoints
+
+**Characterized predecessor behavior, liquiditypool 5; not a custody repair,
+activation or live-state census.** The
+[real-bank genesis fixture](../tests/cross_stack/liquidity_genesis_boundary_test.go)
+creates two pools sharing `uzrn` through the actual message server and SDK bank,
+commits the source, and uses full application export → `InitChain` →
+`FinalizeBlock` → `Commit` → re-export at the continuation height. It preserves
+bank-supply consistency while separately exercising a shared-reserve deficit,
+LP-supply shortage/excess, healthy backing and permitted underlying surplus.
+
+Current initialization and normal export accept the structurally valid deficit
+and LP mismatch fixtures. Explicitly invoking the liquidity module's registered
+`state-consistency` invariant detects them; calling that registration in a test
+does not make it an automatic application checkpoint. Aggregate liabilities
+matter: the deficit fixture still has enough `uzrn` to cover either pool alone.
+The tests bind all imported bank balances/supply and the LP projection before
+block hooks, then verify custody audit outcomes after commit and preserved
+pool identities, indexes, counter and balances on re-export. Their passing
+result characterizes this admission gap; it does not endorse underbacking.
+
+The [cache boundary fixtures](../tests/cross_stack/liquidity_cache_boundary_test.go)
+exercise the installed app keeper and real SDK bank across nine late-error
+prestates, each with discarded-cache and raw-handler controls, plus four
+successful cache writes. Missing module permissions, blocked synthetic module
+recipients and deliberately missing backing expose actual preceding deposits,
+LP mint/burn, TWAP and even a partial multi-denom SDK debit. Full bank/auth/LP
+store bytes and ordered events remain unchanged in the parent when the failed
+cache is discarded; raw handlers are not self-atomic. A missing Burner permission
+panics after collection and leaves the dirty context locked. These are damaged
+fixtures, not ordinary externally signable transactions or live insolvency.
+Discard preserves the pre-existing state; it does not repair a pre-existing gap.
+
+The [bearer boundary fixtures](../tests/cross_stack/liquidity_bearer_boundary_test.go)
+transfer LP through real SDK `MsgSend` to a noncreator, then exercise partial and
+final redemption in all three open statuses. Creator metadata is not a claim
+on transferred-away shares. Valid default-minimum asymmetric pools expose
+zero-rounded exits without lowering admission guards; one demonstrated residual
+can exit after the majority holder, not unconditionally before it. Public
+send-disable flags refuse ordinary transfers but do not block module redemption
+of already-held shares. `EXIT_ONLY` is authority-reversible; `CLOSED` is not,
+and recreation still requires a fresh admission and a distinct ID/LP denom.
+
+Emergency/quarantine and holder-freeze policy is exercised through its actual
+ante decorators with real app keepers and unsigned SDK transaction objects;
+raw-handler controls deliberately bypass those gates. This verifies the owner
+policy after the signature precondition, not signature authentication, full
+ante/BaseApp processing, governance/emergency ceremonies or transport. Cache
+snapshots do not assert gas or successful ante fee/sequence rollback. All funds
+and mutations in these fixtures are synthetic and in-memory.
+
+Use the existing [liquidity safety contract](LIQUIDITYPOOL-SAFETY-V2.md) for the
+separate release/custody gates. A fail-closed import or automatic invariant hook
+would change execution/admission and needs its own reviewed boundary and
+historical-state disposition; do not introduce it as test cleanup. No pool
+pricing, fees, stores, protobufs or activation are changed here.
+
+```sh
+go test ./tests/cross_stack -run '^TestLiquidity(Genesis|Cache|Bearer)' -count=1 -v
+```
+
 ## Names: improve labels, preserve identifiers
 
 Use descriptive display names to disambiguate existing components. Module IDs,
