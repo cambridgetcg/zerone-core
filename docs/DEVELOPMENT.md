@@ -157,6 +157,33 @@ obligations from completed transfers. A vesting schedule is not a payment, and a
 reported paid marker is not by itself an independently verified bank transfer.
 Historical claims retain their applicable policy rather than being repriced.
 
+### Sponsorship fulfillment: one cached payment batch
+
+`FulfillBounty` checks both storage writes and commits the SDK bank transfer,
+order update, fulfillment record and events through one local SDK cache. A
+returned bank/write error leaves those effects unchanged for direct callers and
+inside a caller-owned transaction cache; a retry can then settle once. Gas and
+ante effects are not part of that rollback. Prices, fact eligibility, recipient
+selection, protobuf/store bytes and module version are unchanged.
+
+The [actual-bank fixtures](../app/sponsorship_settlement_test.go) inject failures
+before/after each record write and after a real in-memory bank transfer. They
+cover retry/replay and caller-cache isolation, and pin successful response,
+event, raw-store-delta and gas observations from `7a68ca51`. Facts and funding are
+synthetic; this is not signed transport, crash-durable commit or live loss proof.
+The pinned SDK runtime store adapter normally returns nil after `Set`; injected
+returned errors exercise the keeper's dependency contract, not a demonstrated
+production disk-error path. Create/cancel, expiry/import, unchecked reads and
+historical reconciliation remain outside this bounded repair. Existing callers
+of the now error-returning setters must explicitly check errors when adopting
+this payment contract; their other call sites retain predecessor behavior.
+This source change does not deploy a node, migrate records or adopt the separate
+unmerged sponsorship-v2 design.
+
+```sh
+go test -mod=readonly ./app -run '^TestSponsorshipSettlement' -count=1 -v
+```
+
 ## Canonical relation seams before wider graph intake
 
 **Characterized predecessor behavior, knowledge 11; not a repair or live-state

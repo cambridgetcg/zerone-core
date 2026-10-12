@@ -148,6 +148,9 @@ func (m msgServer) FulfillBounty(goCtx context.Context, msg *types.MsgFulfillBou
 	if err != nil {
 		return nil, fmt.Errorf("invalid fact submitter address: %w", err)
 	}
+	// Keep the bank send, escrow update, replay record and events in one cache.
+	// A returned dependency error must leave even a direct keeper caller unchanged.
+	ctx, write := ctx.CacheContext()
 	coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(price)))
 	if err := m.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, workerAddr, coins); err != nil {
 		return nil, fmt.Errorf("payout: %w", err)
@@ -163,16 +166,20 @@ func (m msgServer) FulfillBounty(goCtx context.Context, msg *types.MsgFulfillBou
 	if bountyNowFulfilled {
 		order.Status = types.BountyStatus_BOUNTY_STATUS_FULFILLED
 	}
-	m.SetBountyOrder(ctx, order)
+	if err := m.SetBountyOrder(ctx, order); err != nil {
+		return nil, fmt.Errorf("update bounty: %w", err)
+	}
 
 	// Record fulfillment.
-	m.SetFulfillment(ctx, &types.BountyFulfillment{
+	if err := m.SetFulfillment(ctx, &types.BountyFulfillment{
 		BountyId:         order.Id,
 		FactId:           msg.FactId,
 		Worker:           fact.Submitter,
 		AmountPaid:       price.String(),
 		FulfilledAtBlock: currentBlock,
-	})
+	}); err != nil {
+		return nil, fmt.Errorf("record fulfillment: %w", err)
+	}
 
 	ctx.EventManager().EmitEvent(
 		sdk.NewEvent(
@@ -187,6 +194,7 @@ func (m msgServer) FulfillBounty(goCtx context.Context, msg *types.MsgFulfillBou
 		),
 	)
 
+	write()
 	return &types.MsgFulfillBountyResponse{
 		Worker:             fact.Submitter,
 		AmountPaid:         price.String(),

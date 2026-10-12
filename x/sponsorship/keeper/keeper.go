@@ -82,13 +82,13 @@ func (k Keeper) nextBountyID(ctx context.Context) uint64 {
 
 // ---------- BountyOrder CRUD ----------
 
-func (k Keeper) SetBountyOrder(ctx context.Context, o *types.BountyOrder) {
+func (k Keeper) SetBountyOrder(ctx context.Context, o *types.BountyOrder) error {
 	kv := k.storeService.OpenKVStore(ctx)
 	bz, err := proto.Marshal(o)
 	if err != nil {
 		panic(fmt.Sprintf("marshal bounty: %v", err))
 	}
-	_ = kv.Set(types.BountyOrderKey(o.Id), bz)
+	return kv.Set(types.BountyOrderKey(o.Id), bz)
 }
 
 func (k Keeper) GetBountyOrder(ctx context.Context, id string) (*types.BountyOrder, bool) {
@@ -144,13 +144,13 @@ func (k Keeper) CountActiveBountiesBySponsor(ctx context.Context, sponsor string
 
 // ---------- Fulfillment CRUD ----------
 
-func (k Keeper) SetFulfillment(ctx context.Context, f *types.BountyFulfillment) {
+func (k Keeper) SetFulfillment(ctx context.Context, f *types.BountyFulfillment) error {
 	kv := k.storeService.OpenKVStore(ctx)
 	bz, err := proto.Marshal(f)
 	if err != nil {
 		panic(fmt.Sprintf("marshal fulfillment: %v", err))
 	}
-	_ = kv.Set(types.FulfillmentKey(f.BountyId, f.FactId), bz)
+	return kv.Set(types.FulfillmentKey(f.BountyId, f.FactId), bz)
 }
 
 func (k Keeper) GetFulfillment(ctx context.Context, bountyID, factID string) (*types.BountyFulfillment, bool) {
