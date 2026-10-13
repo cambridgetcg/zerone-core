@@ -1,5 +1,11 @@
 # ZERONE Production Infrastructure
 
+> **Superseded: February 2026 plan, kept as a dated record.** This multi-provider
+> design (2026-02-24) does not describe running infrastructure. Hetzner was retired
+> 2026-10-13, and current ZERONE hosting is Fly.io. See
+> [Networks and infrastructure](../ZERONE_MAP.md#networks-and-infrastructure) for
+> what is established. Do not provision from this document.
+
 ## Overview
 
 Multi-provider cloud architecture for ZERONE mainnet. Designed for resilience, cost efficiency, and progressive scaling from testnet to production.
