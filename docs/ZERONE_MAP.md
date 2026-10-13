@@ -172,9 +172,10 @@ was not verified. See the [current edge](../deploy/RPC_EDGE.md) and
 [successor runtime](../deploy/networks/zerone-2/runtime/README.md).
 
 The February [multi-provider production stack](infrastructure/PRODUCTION-STACK.md)
-is explicitly a **plan**: Hetzner/OVH validators, AWS sentries/RPCs, Hermes
-relayers, Grafana and a snapshot storage box are not established deployments
-just because that document names them.
+is a **superseded plan**, kept as a dated record: Hetzner/OVH validators, AWS
+sentries/RPCs, Hermes relayers, Grafana and a snapshot storage box are not
+established deployments just because that document names them. Hetzner was
+retired 2026-10-13; current hosting is Fly.io, as described above.
 
 ## Inside one `zeroned` process
 
