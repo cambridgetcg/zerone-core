@@ -272,10 +272,11 @@ class SharedWorkflow(core.Workflow):
             raise Error("Local signing key differs from the saved participant identity.")
         return address
 
-    def send(self, action, actor, arguments, context=None):
+    def send(self, action, actor, arguments, context=None, *, fee_quote=None, resubmit_after=None, max_review_fee_uzrn=None):
         if actor not in (ACTOR, "user", "challenger"):
             raise Error("No other participant's signer may be selected.")
-        return super().send(action, ACTOR, arguments, context)
+        return super().send(action, ACTOR, arguments, context, fee_quote=fee_quote,
+                            resubmit_after=resubmit_after, max_review_fee_uzrn=max_review_fee_uzrn)
 
     def broadcast(self, path, attempt, signed_path):
         self.validate_record(attempt)
@@ -350,6 +351,8 @@ def parser():
             command.add_argument("--reasoning", required=True)
             command.add_argument("--domain", default="physics")
             command.add_argument("--category", default="empirical")
+            command.add_argument("--resubmit-after", help="Explicitly replace this retained terminal submit hash once; not an exact-byte retry.")
+            command.add_argument("--max-review-fee-uzrn", help="Positive review-fee ceiling for that replacement; the transaction fee is additional.")
             command.add_argument("--method", default="")
         if name in ("commit", "reveal", "history", "watch"):
             command.add_argument("--claim", required=True)

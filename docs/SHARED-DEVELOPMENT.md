@@ -103,6 +103,60 @@ Ordinary claims from the same participant also have a cooldown: the deployed bas
 
 Check the public receipt's `status`, `height`, `code` and transaction hash. Successful CheckTx admission is not inclusion. Require a positive committed height and execution code zero, then read the account or claim state. Preserve an uncertain receipt and use the explicit retry command rather than making a new transaction to guess what happened.
 
+### Quotes and explicitly approved replacements
+
+The source client records `review_fee_quote` privately with each new submit attempt,
+before broadcast: the height supplied to both parameter/pacing queries, original
+base fee and pacing input, effective multiplier and offered fee. Missing pacing
+and explicit zero remain distinguishable. This is a retained node observation,
+not a state proof or a guarantee of the minimum at execution. Old attempts without
+this metadata have unavailable quote provenance; do not reconstruct it afterward.
+The public receipt schema is unchanged. A refused offered review fee is not a
+review-payment receipt, and does not establish that network fees were uncharged.
+
+Repeating a matching terminal `failed` or first-delivery `rejected` submit now
+refuses to generate/sign another transaction by default. To deliberately replace
+it, repeat its exact content, domain, category, method and reasoning with both:
+
+```sh
+python3 -I "$CLIENT_SCRIPT" submit --home "$PARTICIPANT_HOME" \
+  --content "$SAME_CONTENT" --domain "$SAME_DOMAIN" --category "$SAME_CATEGORY" \
+  --method "$SAME_METHOD" --reasoning "$SAME_REASONING" \
+  --resubmit-after "$EXACT_RETAINED_UPPERCASE_TX_HASH" \
+  --max-review-fee-uzrn "$EXPLICIT_REVIEW_FEE_CEILING"
+```
+
+These are operator-selected values, not defaults or a command to run automatically.
+The client refreshes its quote and offers the calculated minimum only if within
+that positive, canonical-integer ceiling; it does not offer the ceiling itself.
+The existing **2,000,000 uzrn transaction fee is additional**. Execution can still
+refuse a later price. No automatic increase, new signature or rebroadcast follows.
+
+Approval is bound to one retained terminal hash, signer/network identity and
+unchanged semantic intent. Under the workflow lock, one child attempt is reserved
+durably before generation/signing. A failed child needs its own explicitly named
+approval. If signing produces the original bytes/hash, the client instead records
+an `identical-transaction` reservation outcome and refuses without creating another
+attempt or broadcasting. The approval stays consumed; the original attempt, quote
+and receipt stay intact for explicit `retry --tx HASH` (`retry --txhash HASH` locally).
+This completed outcome does not block unrelated work. A reservation lacking both
+its durable child and this completed outcome stops new signing for operator
+resolution, including an interrupted completion write; no automatic recovery is
+promised. Do not delete or edit retained records to bypass it. This is local-home
+replay protection, not cross-home or protocol-wide enforcement.
+
+A matching committed success is recovered before applying the new price ceiling.
+Unknown outcomes, including committed receipts whose claim ID is unresolved, block
+new signing. `retry` remains a distinct, query-first, exact-signed-byte path; it
+never obtains a new quote or signs a replacement. Research workflow `resume` is
+not replacement approval: after terminal failure, use the explicitly approved
+direct client route before refreshing the research packet.
+
+This source change does not migrate or rebind existing participant homes. Keep
+their pinned package/client files intact; compatible package rollout and any home
+migration require their own review. Use separately initialized, explicitly scoped
+test homes when exercising the new source.
+
 ### Read the claim's funding terms
 
 The applied `knowledge-fund-settlement-v1` upgrade adds prospective funding policy 1. Read the returned claim's `funding_terms`; a claim admitted before height 300,000 without those fields keeps its original rules. The current runtime does not retroactively assign new terms to old claims. Do not infer new entitlements or restored liabilities for old records.

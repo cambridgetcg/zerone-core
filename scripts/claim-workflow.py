@@ -124,6 +124,10 @@ def public_receipt(attempt):
     return result
 
 
+def contribution_intent(value):
+    return {key: item for key, item in value.items() if key != "review_fee_uzrn"}
+
+
 def signing_json(value):
     # The current SDK signing JSON codec lacks this generated enum's symbolic
     # registration, although generate-only emits its name. Both are protobuf
@@ -265,37 +269,132 @@ class Workflow:
         save_json(path, attempt)
         return attempt
 
+    @staticmethod
+    def _terminal_submit_bytes(parent, address):
+        receipt = parent.get("receipt" if parent["status"] == "failed" else "check_tx")
+        if (parent.get("address") != address or not isinstance(receipt, dict)
+                or not isinstance(receipt.get("txhash"), str) or receipt["txhash"].upper() != parent["txhash"]
+                or integer(receipt.get("code"), "terminal receipt code", 1) != integer(parent.get("code"), "terminal code", 1)):
+            raise WorkflowError("The retained terminal receipt or signing identity conflicts with this approval.")
+        if parent["status"] == "failed" and integer(receipt.get("height"), "terminal receipt height", 1) != integer(parent.get("height"), "terminal height", 1):
+            raise WorkflowError("The retained terminal receipt height conflicts with this approval.")
+        raw_parent = base64.b64decode(parent.get("tx_bytes_base64", ""), validate=True)
+        if not raw_parent or hashlib.sha256(raw_parent).hexdigest().upper() != parent["txhash"]:
+            raise WorkflowError("The retained terminal signed bytes conflict with this approval.")
+        return raw_parent
+
     def reconcile(self):
         pending = []
-        for path, attempt in self.records("attempts"):
+        records = self.records("attempts")
+        for path, attempt in records:
+            if "replacement" in attempt:
+                reservation = attempt["replacement"]
+                child_id = reservation.get("attempt_id") if isinstance(reservation, dict) else None
+                if not isinstance(child_id, str) or not re.fullmatch(r"[0-9a-f]{32}", child_id):
+                    raise WorkflowError("Invalid reserved replacement; operator resolution is required before new signing.")
+                if "outcome" in reservation:
+                    # A completed no-new-transaction result is not a child attempt.
+                    # Never let it hide a conflicting child, duplicate hash or orphan.
+                    if (set(reservation) != {"attempt_id", "max_review_fee_uzrn", "outcome"}
+                            or reservation["outcome"] != {"status": "identical-transaction", "txhash": attempt.get("txhash")}
+                            or attempt.get("action") != "submit" or child_id == attempt.get("id")
+                            or not isinstance(attempt.get("txhash"), str)
+                            or not re.fullmatch(r"[0-9A-F]{64}", attempt["txhash"])
+                            or not isinstance(attempt.get("context"), dict)
+                            or not isinstance(attempt.get("actor"), str) or attempt["actor"] not in self.accounts
+                            or attempt.get("address") != self.accounts[attempt["actor"]]):
+                        raise WorkflowError("Invalid identical-transaction replacement outcome; operator resolution is required.")
+                    integer(reservation.get("max_review_fee_uzrn"), "reserved maximum review fee", 1)
+                    if attempt.get("status") in ("failed", "rejected"):
+                        self._terminal_submit_bytes(attempt, self.accounts[attempt["actor"]])
+                    raw = base64.b64decode(attempt.get("tx_bytes_base64", ""), validate=True)
+                    if (not raw or hashlib.sha256(raw).hexdigest().upper() != attempt["txhash"]
+                            or any(child_path.name == child_id + ".json" or row.get("id") == child_id
+                                   or row.get("resubmission_of") == attempt["txhash"] or row.get("txhash") == attempt["txhash"]
+                                   for child_path, row in records if child_path != path)):
+                        raise WorkflowError("Identical-transaction outcome conflicts with retained attempts; operator resolution is required.")
+                else:
+                    children = [row for child_path, row in records if child_path.name == child_id + ".json" and row.get("id") == child_id]
+                    if len(children) != 1 or children[0].get("resubmission_of") != attempt.get("txhash"):
+                        raise WorkflowError("A reserved replacement has no matching durable attempt; operator resolution is required before new signing.")
+                    child = children[0]
+                    if (attempt.get("action") != "submit" or child.get("action") != "submit"
+                            or any(child.get(field) != attempt.get(field) for field in ("actor", "address"))
+                            or not isinstance(attempt.get("context"), dict) or not isinstance(child.get("context"), dict)
+                            or contribution_intent(child["context"]) != contribution_intent(attempt["context"])):
+                        raise WorkflowError("A reserved replacement conflicts with its retained signer or intent; operator resolution is required.")
             if attempt.get("status") in PENDING:
                 observed = self.tx_observation(attempt["txhash"])
                 if observed is not None:
                     self.finish(path, attempt, observed)
                 else:
                     pending.append(attempt["txhash"])
-            elif attempt.get("status") == "committed-unresolved":
+            if attempt.get("status") == "committed-unresolved":
                 pending.append(attempt["txhash"])
         return pending
 
-    def send(self, action, actor, arguments, context=None):
+    def send(self, action, actor, arguments, context=None, *, fee_quote=None, resubmit_after=None, max_review_fee_uzrn=None):
         if self.reconcile():
             raise WorkflowError("An earlier transaction remains unresolved. Use snapshot/history to query it; no automatic retry or additional broadcast is allowed.")
+        approval = resubmit_after is not None or max_review_fee_uzrn is not None
+        cap = None
+        if approval:
+            if action != "submit" or resubmit_after is None or max_review_fee_uzrn is None:
+                raise WorkflowError("Only submit accepts paired --resubmit-after and --max-review-fee-uzrn approval.")
+            if not isinstance(resubmit_after, str) or not re.fullmatch(r"[0-9A-F]{64}", resubmit_after):
+                raise WorkflowError("--resubmit-after must exactly match a retained uppercase transaction hash.")
+            cap = integer(max_review_fee_uzrn, "maximum review fee", 1)
+        if fee_quote is not None and action != "submit":
+            raise WorkflowError("Review fee quotes apply only to submit.")
         address = self.actor(actor)
+        parent = None
+        parent_path = None
+        raw_parent = None
         if action in ("submit", "challenge"):
             # A repeated documented command may be recovery from lost stdout.
             # Return its observed committed receipt instead of silently creating
             # the same contribution again at another height. The queried fee is
             # excluded because it can change between the two invocations.
-            def intent(value):
-                return {key: item for key, item in value.items() if key != "review_fee_uzrn"}
             for _, prior in self.records("attempts"):
-                if prior.get("action") == action and prior.get("actor") == actor and prior.get("status") == "committed" and intent(prior.get("context", {})) == intent(context or {}):
+                if prior.get("action") == action and prior.get("actor") == actor and prior.get("status") == "committed" and contribution_intent(prior.get("context", {})) == contribution_intent(context or {}):
                     return prior
+            if fee_quote is not None:
+                if (action != "submit" or not isinstance(fee_quote, dict)
+                        or len(arguments) < 6 or arguments[:2] != ["knowledge", "submit-claim"]
+                        or fee_quote.get("offered_fee_uzrn") != (context or {}).get("review_fee_uzrn")
+                        or fee_quote.get("offered_fee_uzrn") != arguments[5]):
+                    raise WorkflowError("The review fee quote, context and transaction arguments disagree; nothing was signed.")
+                expected_arguments = ["knowledge", "submit-claim", *[(context or {}).get(field) for field in ("content", "domain", "category")],
+                                      fee_quote["offered_fee_uzrn"], "--method-id", (context or {}).get("method"),
+                                      "--reasoning-trace", (context or {}).get("reasoning")]
+                if arguments != expected_arguments:
+                    raise WorkflowError("The submit arguments differ from the retained semantic intent; nothing was signed.")
+                integer(fee_quote.get("height"), "quote height", 1)
+                integer(fee_quote.get("offered_fee_uzrn"), "quoted review fee", 1)
+            terminal = [(path, prior) for path, prior in self.records("attempts")
+                        if prior.get("action") == action and prior.get("actor") == actor
+                        and prior.get("status") in ("failed", "rejected")
+                        and contribution_intent(prior.get("context", {})) == contribution_intent(context or {})]
+            if action == "submit" and (terminal or approval):
+                if not approval or cap is None:
+                    raise WorkflowError("A terminal submission requires explicit --resubmit-after and --max-review-fee-uzrn approval.")
+                matching = [(path, prior) for path, prior in terminal if prior.get("txhash") == resubmit_after]
+                if len(matching) != 1:
+                    raise WorkflowError("No unique terminal submission matches this approval and unchanged intent.")
+                parent_path, parent = matching[0]
+                raw_parent = self._terminal_submit_bytes(parent, address)
+                if "replacement" in parent:
+                    raise WorkflowError("This submission already reserved its one replacement; resolve that attempt instead.")
+                if fee_quote is None or integer(fee_quote.get("offered_fee_uzrn"), "quoted review fee", 1) > cap:
+                    raise WorkflowError("The fresh review fee exceeds the approved maximum or its quote is unavailable; nothing was signed.")
         if len(self.records("attempts")) >= MAX_RECORDS:
             raise WorkflowError("Local transaction inventory is full.")
         identifier = secrets.token_hex(16)
         path = self.directory / "attempts" / (identifier + ".json")
+        if parent is not None and parent_path is not None:
+            # Consume approval durably before generation/signing, under the caller's workflow lock.
+            parent["replacement"] = {"attempt_id": identifier, "max_review_fee_uzrn": str(cap)}
+            save_json(parent_path, parent)
         unsigned = signing_json(parse_json(self.cli("tx", *arguments, "--from", actor, "--chain-id", self.chain,
             "--node", self.rpc, "--keyring-backend", "test", "--gas", "2000000", "--fees", "2000000uzrn",
             "--generate-only", "--output", "json")))
@@ -311,9 +410,25 @@ class Workflow:
         if not raw or len(raw) > MAX_JSON:
             raise WorkflowError("Invalid encoded signed transaction.")
         digest = hashlib.sha256(raw).hexdigest().upper()
+        if parent is not None:
+            matches = [row for _, row in self.records("attempts") if row.get("txhash") == digest]
+            if digest == parent["txhash"] and raw == raw_parent and len(matches) == 1:
+                # Deterministic signing can reproduce a rejected transaction. Consume
+                # the reservation without adding a second hash-addressed attempt.
+                parent["replacement"]["outcome"] = {"status": "identical-transaction", "txhash": digest}
+                save_json(parent_path, parent)
+                raise WorkflowError(
+                    "The approved replacement is identical to the retained transaction; no new transaction was saved or broadcast. "
+                    f"Approval is consumed; use claim-workflow retry --txhash {digest} (shared-claims retry --tx {digest}) for the existing transaction.")
+            if matches:
+                raise WorkflowError("The encoded replacement conflicts with a retained transaction hash; operator resolution is required.")
         attempt = {**self.record_metadata(), "id": identifier, "action": action, "actor": actor,
             "address": address, "status": "prepared", "txhash": digest, "tx_bytes_base64": encoded,
             "context": context or {}, "created_unix": int(time.time())}
+        if fee_quote is not None:
+            attempt["review_fee_quote"] = fee_quote
+        if parent is not None:
+            attempt["resubmission_of"] = parent["txhash"]
         save_json(path, attempt, fresh=True)
         return self.broadcast(path, attempt, signed_path)
 
@@ -422,10 +537,16 @@ class Workflow:
         fee = integer(params["min_review_fee"], "minimum review fee", 1)
         if multiplier < 1000000:
             fee = fee * 1000000 // multiplier
+        # Private provenance, not an inclusion proof or a promise of execution pricing.
+        quote = {"height": str(height), "base_fee_uzrn": params["min_review_fee"],
+                 "creation_multiplier_bps": pacing.get("creation_multiplier_bps"),
+                 "effective_multiplier_bps": str(multiplier), "offered_fee_uzrn": str(fee)}
         return public_receipt(self.send("submit", "user", ["knowledge", "submit-claim", args.content,
             args.domain, args.category, str(fee), "--method-id", args.method, "--reasoning-trace", args.reasoning],
             {"content": args.content, "domain": args.domain, "category": args.category,
-             "method": args.method, "reasoning": args.reasoning, "review_fee_uzrn": str(fee)}))
+             "method": args.method, "reasoning": args.reasoning, "review_fee_uzrn": str(fee)}, fee_quote=quote,
+            resubmit_after=getattr(args, "resubmit_after", None),
+            max_review_fee_uzrn=getattr(args, "max_review_fee_uzrn", None)))
 
     def review_path(self, claim_id, actor):
         digest = hashlib.sha256((self.chain + "\0" + claim_id + "\0" + actor).encode()).hexdigest()
@@ -546,6 +667,8 @@ def parser():
             command.add_argument("--reasoning", required=True)
             command.add_argument("--domain", default="physics")
             command.add_argument("--category", default="empirical")
+            command.add_argument("--resubmit-after", help="Explicitly replace this retained terminal submit hash once; not an exact-byte retry.")
+            command.add_argument("--max-review-fee-uzrn", help="Positive review-fee ceiling for that replacement; the transaction fee is additional.")
         if name in ("commit", "reveal", "history"):
             command.add_argument("--claim", required=True)
         if name in ("commit", "reveal"):

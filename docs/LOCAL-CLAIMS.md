@@ -173,6 +173,19 @@ explicit `retry --txhash HASH --home HOME` command checks its current result,
 then can rebroadcast only the exact retained signed bytes. It never signs a
 replacement transaction or changes a saved review.
 
+New submit attempts also retain their original `review_fee_quote` privately before
+broadcast; the public receipt is unchanged. A quote is an observation, not a fixed
+execution price, and old missing quotes are not backfilled. Repeating a terminal
+failed/rejected submit is not approval to sign again. An intentional replacement
+requires the same submit inputs plus `--resubmit-after` with the exact retained
+uppercase hash and `--max-review-fee-uzrn` with an explicit positive review-fee
+ceiling. The client refreshes the quote, never offers more than that ceiling, and
+reserves one child before signing. The transaction fee remains additional.
+A missing child after reservation requires operator resolution, not another send.
+See the [shared replacement contract](SHARED-DEVELOPMENT.md#quotes-and-explicitly-approved-replacements)
+for recovery, crash and existing-home boundaries; the local `retry` spelling above
+still replays only retained bytes.
+
 Each transaction currently uses an explicit development gas limit of 2,000,000
 and fee of 2,000,000 uzrn. These generous fixed fees are separate from the
 queried claim review fee or the contradiction deposit (11,000,000 uzrn by
