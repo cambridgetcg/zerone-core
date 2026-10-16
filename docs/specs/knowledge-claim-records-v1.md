@@ -45,10 +45,23 @@ The read-only `zerone.knowledge.v1.Query/ClaimHistory` method and REST route
   recorded payment plans within those rounds.
 - Full current incoming/outgoing canonical relation metadata and recorded
   status transitions for each included Fact.
-- One hop of related Claims whose stored `provisional_fact_id` targets a root
-  Fact, whose `challenged_claim_id` equals the root Claim ID, or whose
-  `CONTRADICTS` input relation targets a root Fact. Each link names the literal
-  field that matched. Their retained rounds and derived Facts are included too.
+- One hop of related Claims. Each link names the literal field that matched;
+  a Claim matching several fields carries one link per field. Their retained
+  rounds and derived Facts are included too. A related Claim links by:
+  - `provisional_fact_id`: it targets a root Fact (`target_id` is that Fact);
+  - `challenged_claim_id`: it equals the root Claim ID;
+  - `relations.contradicts`: a `CONTRADICTS` input relation targets a root
+    Fact (`target_id` is that Fact);
+  - `content_hash`: it equals the root Claim's `content_hash`, as for a
+    resubmission or a contradiction carrying the same text and domain;
+  - `canonical_hash`: it equals the root Claim's `canonical_hash`;
+  - `structure.object`: it is exactly `zrn-content:` followed by the root
+    Claim's `content_hash`, as for an attribution naming the root proposition.
+
+  For the last three, `target_id` is the root Claim ID. They compare against
+  the retained root Claim only: an empty root hash matches nothing, and an
+  absent root Claim yields none of these links. Matching is exact string
+  equality, with no case folding or normalisation.
 
 Primary Claim, Round and Fact namespaces are scanned once under a shared
 budget. Active and selected-round indexes are not treated as an inventory of
