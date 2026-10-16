@@ -2,7 +2,8 @@
 
 ## Git Workflow
 - Never push to `main`. Work on a branch named `<agent>/<topic>`, push the branch, and open a pull request.
-- Merge a pull request only after its CI has finished green. A run still in progress is not a pass.
+- Merge a pull request only after its CI has finished green (a run still in progress is not a pass), and
+  answer its open review comments first.
 - GitHub cannot enforce this here: branch protection is unavailable for this private repository on the
   current plan, so the rule holds only because every agent follows it. `AGENTS.md` carries the same rule
   for agents that read it instead of this file.
