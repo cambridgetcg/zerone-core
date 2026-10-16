@@ -165,20 +165,42 @@ func (m *msgServer) submitClaim(ctx context.Context, msg *types.MsgSubmitClaim, 
 	if canonicalForm == "" && msg.Structure != nil {
 		canonicalForm = types.BuildCanonicalForm(msg.ClaimType, msg.Structure, msg.Domain)
 	}
+	// With claim integrity on, an index entry blocks only while the record it
+	// names is live or standing (plan §5.4).
+	integrity, err := m.keeper.ClaimIntegrityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 	var canonicalHash string
 	if canonicalForm != "" {
 		canonicalForm = types.NormalizeCanonicalForm(canonicalForm)
 		canonicalHash = types.HashCanonicalForm(canonicalForm)
 
 		// Dedup against canonical hash (stronger than content_hash)
-		if existingID, exists := m.keeper.GetClaimByCanonicalHash(ctx, canonicalHash); exists {
+		if integrity {
+			blocker, err := m.keeper.blockingDuplicate(ctx, types.CanonicalHashKey(canonicalHash))
+			if err != nil {
+				return nil, err
+			}
+			if blocker != nil {
+				return nil, fmt.Errorf("canonical duplicate: matches existing claim %s", blocker)
+			}
+		} else if existingID, exists := m.keeper.GetClaimByCanonicalHash(ctx, canonicalHash); exists {
 			return nil, fmt.Errorf("canonical duplicate: matches existing claim %s", existingID)
 		}
 	}
 
 	// Check content hash dedup
 	contentHash := ComputeClaimContentHash(msg.FactContent, msg.Domain)
-	if existingID, exists := m.keeper.GetClaimByContentHash(ctx, contentHash); exists {
+	if integrity {
+		blocker, err := m.keeper.blockingDuplicate(ctx, types.ContentHashKey(contentHash))
+		if err != nil {
+			return nil, err
+		}
+		if blocker != nil {
+			return nil, fmt.Errorf("duplicate claim: content hash matches existing claim %s", blocker)
+		}
+	} else if existingID, exists := m.keeper.GetClaimByContentHash(ctx, contentHash); exists {
 		return nil, fmt.Errorf("duplicate claim: content hash matches existing claim %s", existingID)
 	}
 

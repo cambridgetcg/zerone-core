@@ -694,6 +694,23 @@ Conventions that apply to every task:
     - `SetCanonicalHash` at acceptance runs only if the entry is absent or equals `claim.Id`.
   - Leave the legacy path unchanged.
 - Acceptance: the tests above pass, and the Task 2 digest is unchanged.
+- Done in Task 8:
+  - `dedupEntryBlocks` also returns the status that decided, so the refusal names it
+    without extra reads. `blockingDuplicate` returns that record (or nil). The refusal keeps
+    its prefix and appends `(status <STATUS>)`. For an ACCEPTED claim it appends
+    `(status CLAIM_STATUS_ACCEPTED; fact <id> <FACT_STATUS>)`, or `… fact <id> missing`,
+    `… round <id> missing` or `… no round` when it fails closed.
+  - One addition: an empty entry value is treated as corrupt and refuses the tx.
+  - The acceptance-time guard is `acceptedFactMayTakeCanonicalEntry`.
+  - Observation on the inferred defect: with the marker off, the acceptance re-save does
+    point 0x34 back at the claim ID, but `FactByCanonical` still returns the fact. It finds
+    it through its fallback scan of every fact (`grpc_query.go`), not through the index.
+    With the marker on, the index names the fact directly.
+  - As the §5.4 table implies, a 0x34 entry naming a deleted fact names nothing and does
+    not block. The 0x09 entry of the same accepted claim does block (fact missing).
+  - Until Task 10, a contradiction's first save still takes a live claim's 0x09 entry
+    (P1ext).
+  - `msg_server.go` and `rounds.go` anchors re-pinned as described in Task 6.
 
 **Task 9 — Canonical form v2 (P2)** · consensus: yes; the query part is not
 - Files:

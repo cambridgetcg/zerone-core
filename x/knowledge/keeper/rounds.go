@@ -796,8 +796,14 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 
 	// Index fact by canonical hash
 	if fact.CanonicalHash != "" {
-		if err := k.SetCanonicalHash(ctx, fact.CanonicalHash, fact.Id); err != nil {
-			return "", fmt.Errorf("failed to index fact by canonical hash: %w", err)
+		take, err := k.acceptedFactMayTakeCanonicalEntry(ctx, fact.CanonicalHash, claim.Id)
+		if err != nil {
+			return "", err
+		}
+		if take {
+			if err := k.SetCanonicalHash(ctx, fact.CanonicalHash, fact.Id); err != nil {
+				return "", fmt.Errorf("failed to index fact by canonical hash: %w", err)
+			}
 		}
 	}
 
