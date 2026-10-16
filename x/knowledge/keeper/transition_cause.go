@@ -9,7 +9,11 @@ import (
 // Exact causes for challenge-driven status changes (knowledge v12, plan §5.2).
 // Each is recorded with the challenge claim's ID as cause_id. Status writes
 // that no caller tags keep the inferred cause of inferStatusTransitionCause.
+// causeVerification is the same string that inference already records for a
+// VERIFIED creation; v12 also tags a conjecture's PROVISIONAL creation with it
+// and the accepted claim's ID (§5.2 row 1).
 const (
+	causeVerification          = "verification"
 	causeChallengeOpened       = "challenge_opened"
 	causeChallengeSurvived     = "challenge_survived"
 	causeChallengeInconclusive = "challenge_inconclusive"

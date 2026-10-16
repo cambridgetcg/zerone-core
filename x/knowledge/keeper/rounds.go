@@ -754,7 +754,17 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 		))
 	}
 
-	if err := k.SetFact(ctx, fact); err != nil {
+	// Plan §5.2 row 1: with claim integrity on, a conjecture's creation
+	// (UNSPECIFIED→PROVISIONAL) records verification/<claim id>, which
+	// inference already gives a VERIFIED creation. Marker off: unchanged.
+	createCtx := ctx
+	if isConjecture {
+		var err error
+		if createCtx, err = k.claimIntegrityTransitionCause(ctx, factID, causeVerification, claim.Id); err != nil {
+			return "", err
+		}
+	}
+	if err := k.SetFact(createCtx, fact); err != nil {
 		return "", err
 	}
 

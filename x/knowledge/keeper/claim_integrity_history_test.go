@@ -105,15 +105,16 @@ func requireDependantsUntouched(t *testing.T, f *v11Fixture, s challengeCauseSce
 	}, f.transitions(s.counterFact))
 }
 
-// conjectureChallengeTransitions returns the rows after the conjecture's
-// creation. Creation is not a challenge transition and this slice leaves it
-// inferred: SetFact(PROVISIONAL) records "unknown" with no ID in both
-// selections. That is an observation, not an approval.
-func conjectureChallengeTransitions(t *testing.T, f *v11Fixture, s challengeCauseScenario) []v11Transition {
+// conjectureChallengeTransitions checks the conjecture's creation row and
+// returns the rows after it. With the marker on, creation records
+// verification/<claim id> (plan §5.2 row 1), as a VERIFIED fact's creation
+// already does by inference. With it off, knowledge 11 infers "unknown" with
+// no ID for PROVISIONAL, and that is kept byte for byte.
+func conjectureChallengeTransitions(t *testing.T, f *v11Fixture, s challengeCauseScenario, created v11Transition) []v11Transition {
 	t.Helper()
 	all := f.transitions(s.conjFact)
 	require.Len(t, all, 3)
-	require.Equal(t, v11Transition{causeUnspecified, causeProvisional, "unknown", ""}, all[0])
+	require.Equal(t, created, all[0], "conjecture creation")
 	return all[1:]
 }
 
@@ -134,7 +135,7 @@ func TestClaimIntegrity_ChallengeTransitionsRecordExactCauses(t *testing.T) {
 	require.Equal(t, []v11Transition{
 		{causeProvisional, causeChallenged, "challenge_opened", s.provisional},
 		{causeChallenged, causeProvisional, "challenge_inconclusive", s.provisional},
-	}, conjectureChallengeTransitions(t, f, s))
+	}, conjectureChallengeTransitions(t, f, s, v11Transition{causeUnspecified, causeProvisional, "verification", s.conjClaim}))
 	requireDependantsUntouched(t, f, s)
 }
 
@@ -157,7 +158,7 @@ func TestClaimIntegrity_ChallengeTransitionsMarkerOffKeepInferredCauses(t *testi
 	require.Equal(t, []v11Transition{
 		{causeProvisional, causeChallenged, "unknown", ""},
 		{causeChallenged, causeProvisional, "unknown", ""},
-	}, conjectureChallengeTransitions(t, f, s))
+	}, conjectureChallengeTransitions(t, f, s, v11Transition{causeUnspecified, causeProvisional, "unknown", ""}))
 	requireDependantsUntouched(t, f, s)
 }
 

@@ -377,7 +377,7 @@ that limit is disclosed.
 ### 5.2 Fact state machine (each row records a cause; P6)
 | From | To | Trigger | `cause_event_type / cause_id` |
 |---|---|---|---|
-| — | VERIFIED (PROVISIONAL for a conjecture) | claim ACCEPTED | `verification / <claim id>` (unchanged) |
+| — | VERIFIED (PROVISIONAL for a conjecture) | claim ACCEPTED | `verification / <claim id>` (unchanged for VERIFIED; new for PROVISIONAL, which knowledge 11 recorded as `unknown`) |
 | VERIFIED, ACTIVE | CONTESTED | a claim carrying CONTRADICTS→F is **ACCEPTED** | `contradiction_accepted / <counter-claim id>` |
 | VERIFIED, ACTIVE, AT_RISK | CONTESTED | a fact F depends on is DISPROVEN (existing cascade) | `cascade / <disproven fact id>` (unchanged) |
 | CONTESTED | VERIFIED | a contradiction ends non-accepted (REJECT, MALFORMED, INCONCLUSIVE, starved) **and** no contest reason remains | `contradiction_reversed / <claim id>` |
@@ -467,6 +467,8 @@ verdict does not prove truth or reviewer independence (`docs/specs/knowledge-cla
   at admission.
 - Before H, a transition recorded as `verification` right after CONTESTED, with the fact's own
   claim ID, was a contradiction reversal.
+- Before H, a conjecture's creation (UNSPECIFIED→PROVISIONAL) was recorded as `unknown` with an
+  empty `cause_id`. Its claim is the fact's own `claim_id`.
 - Two VERIFIED facts joined by CONTRADICTS are legacy laundering, as in probe P3. Treat them as an
   unresolved dispute. Either side can now be challenged.
 
@@ -728,9 +730,22 @@ Conventions that apply to every task:
     `factID` scoping directly. The scenario alone cannot check it, because cascade
     descendants are written with an explicit transition and `SetFactSkipTransition`.
   - The MALFORMED arm is covered by a `MsgChallengeProvisionalFact` round on a conjecture.
-  - Not changed: a conjecture's creation transition (UNSPECIFIED→PROVISIONAL) is still
-    inferred as `unknown` with no ID. §5.2 row 1 does not hold for conjectures.
+  - Not changed in Task 7: a conjecture's creation transition (UNSPECIFIED→PROVISIONAL) was
+    still inferred as `unknown` with no ID, so §5.2 row 1 did not hold for conjectures. The
+    follow-up below fixes this.
   - `msg_server.go` and `rounds.go` anchors re-pinned as described in Task 6.
+- Follow-up to Task 7 (review finding): §5.2 row 1 now holds for conjectures.
+  - With the marker on, `createFactFromClaim` attaches `verification/<claim id>` to the
+    conjecture's creation `SetFact` only, through `claimIntegrityTransitionCause`. A VERIFIED
+    creation already gets the same cause by inference.
+  - With the marker off, the context is unchanged and `unknown` with no ID is recorded as
+    before. The only difference is one read of the 0x87 marker, on the BeginBlocker path.
+  - Test: in `claim_integrity_history_test.go`, `conjectureChallengeTransitions` now takes the
+    expected creation row. The marker-on test expects `verification` with the conjecture's
+    claim ID and the marker-off twin expects `unknown` with no ID.
+  - The Task 2 golden digest has no conjecture in it, so it cannot see this path. The
+    marker-off twin is the guard: a mutant that attaches the cause whatever the marker fails
+    it.
 
 **Task 8 — Duplicate checks that look at status (P1)** · consensus: yes
 - Files:
