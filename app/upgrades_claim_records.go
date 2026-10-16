@@ -27,10 +27,10 @@ func claimRecordsTargetVersionMap() module.VersionMap {
 func requireClaimRecordsTransitionOwner(name string, fromVM, targetVM module.VersionMap) error {
 	from, fromOK := fromVM["knowledge"]
 	target, targetOK := targetVM["knowledge"]
-	if !fromOK || !targetOK || from < 6 || from > 11 || target < 6 || target > 11 {
+	if !fromOK || !targetOK || from < 6 || from > 12 || target < 6 || target > 12 {
 		return fmt.Errorf("claim records requires complete known knowledge versions")
 	}
-	if from == 10 && target == 11 {
+	if (from == 10 && target == 11) || (from == 11 && target == 12) {
 		return requireFundSettlementTransitionOwner(name, fromVM, targetVM)
 	}
 	if from == target || (from < 10 && target < 10) {

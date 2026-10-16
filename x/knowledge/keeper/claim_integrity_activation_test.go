@@ -23,8 +23,9 @@ import (
 )
 
 // Claim-integrity activation (knowledge v12; plan §3.1-§3.3). The 0x87 marker
-// only selects semantics: no behaviour reads it until Tasks 7-14. Module
-// registration and the ConsensusVersion bump are Task 6.
+// only selects semantics: no behaviour reads it until Tasks 7-14. Task 6
+// registers Migrate11to12 and bumps ConsensusVersion to 12; the app-level
+// handler tests are in app/upgrades_claim_integrity_test.go.
 
 const claimIntegrityReceipt = "migration_v12_complete"
 

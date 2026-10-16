@@ -589,6 +589,31 @@ Conventions that apply to every task:
     `app/upgrades_record_integrity.go`
   - any existing `app/upgrades_*_test.go` that asserts the compiled target is v11 (for example
     `upgrades_fund_settlement_test.go:36,49`)
+  - Done in Task 6 (found by running the suites): `upgrades_fund_settlement_test.go` now freezes
+    its compiled target at knowledge 11, as the claim-records test already does at 10, and
+    restarts or imports through `LoadLatestVersion` on the frozen app. Three test files outside
+    the list also needed one line each:
+    - `tests/cross_stack/upgrade_e2e_test.go` asserted knowledge ConsensusVersion 11;
+    - `tools/fork-genesis/main_test.go` adds `claim_integrity_enabled=true` next to its other
+      explicit native selections;
+    - the header comment of `claim_integrity_activation_test.go` said registration was still
+      pending.
+  - Done in Task 6 (`make test` → `tools/authority-graph`): editing `app/app.go` changes the
+    source anchor `app-wiring` in `dashboard/public/standards/authority-geometry.v1.json`. The
+    anchor was re-pinned, and so was the manifest digest that four places pin:
+    `tools/authority-graph/manifest.go`, `dashboard/src/authority-geometry.ts`,
+    `.specs-and-plans-hashes` (`authority-geometry-v1-manifest`) and `.recursion-manifest-hash`.
+    The revision and snapshot date were left unchanged, as in `97aa0044`. Tasks 7–14 edit two
+    more anchors, `msg_server.go` (`knowledge-writers`) and `rounds.go`
+    (`knowledge-slash-callsites`), so each of those tasks must re-pin the same way.
+  - Test note: `TestClaimIntegrityRejectsWrongSourceAndPrematureActivation` runs every refusal
+    through `UpgradeKeeper.ApplyUpgrade` and checks the exact error text. It does not use
+    `RunUpgradeHandlerWithInfoForTests`. That helper has no dedicated branch for this plan, so it
+    falls to the generic preflight `requireCompletedPreSDKTransitionVersions`, which requires
+    knowledge 6. A throwaway probe showed the helper refusing an unmodified, valid
+    fund-settlement source with `require knowledge=6, got 10` before the handler ran. The
+    fund-settlement rejection test therefore proves less than its scenario names suggest. That
+    test is left unchanged here.
 - Failing tests, mirroring `upgrades_fund_settlement_test.go`:
   - the handler owns exactly the 11→12 boundary, and every older plan name is refused for 11→12;
   - the migration preserves every byte except 0x87 and the marker (full store diff);

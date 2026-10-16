@@ -739,7 +739,7 @@
     {
       "id": "app-wiring",
       "path": "app/app.go",
-      "sha256": "fddeafab3cb93425333552fe9ef639beb2fd1b6f7650c92530009922cbb3aacc",
+      "sha256": "91b10eed2e0a95740edbf381e370fea485f1e6b987731bc890970b20168172e5",
       "requiredSnippets": [
         "app.StakingKeeper = stakingkeeper.NewKeeper(",
         "app.GovKeeper = govkeeper.NewKeeper(",
