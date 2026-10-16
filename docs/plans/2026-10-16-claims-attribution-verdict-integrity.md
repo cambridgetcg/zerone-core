@@ -742,8 +742,9 @@ Conventions that apply to every task:
   - new `keeper/claim_integrity_canonical_test.go`.
 - The v2 form:
   - `"zrn.cf.v2/" + type.String() + "(domain=" + q(domain) + ",subject=" + q(subject) + ",predicate=" + q(predicate) + ",object=" + q(object) + ",scope=" + q(scope) + ",temporal_scope=" + q(temporal_scope) + ")"`
-  - `q(v) = strconv.Quote(collapse(TrimSpace(NFC(v))))`, where `collapse` turns each run of
-    `unicode.IsSpace` into a single U+0020.
+  - `q(v) = strconv.QuoteToASCII(collapse(TrimSpace(NFC(v))))`, where `collapse` turns each
+    run of `unicode.IsSpace` into a single U+0020. (Planned as `strconv.Quote`; changed in
+    Task 9, see "Done in Task 9".)
   - Each field is quoted on its own, with no post-processing, no lowercasing, and no tags or
     `negatable`.
   - The result is `""` when the structure is nil or the trimmed subject is empty.
@@ -766,6 +767,28 @@ Conventions that apply to every task:
     - with the marker off, the v1 collision still occurs.
   - Query: `FactByCanonical` with a v2 form.
 - Acceptance: the tests above pass, and the Task 2 digest is unchanged.
+- Done in Task 9:
+  - `q` uses `strconv.QuoteToASCII`, not `strconv.Quote`, so every v2 form is ASCII. With
+    `strconv.Quote` the idempotence test failed on a valid field: ZWSP then U+0307 quotes as
+    `\u200b` + U+0307, and NFC composes the escape's `b` with the mark, so the lookup
+    normaliser changed a form the chain built. Which runes `strconv.Quote` leaves unescaped
+    also follows the Go toolchain's Unicode tables, so a newly assigned code point could change
+    a form (and a dedup decision) between binaries. The §4.3 example form is ASCII and is
+    unchanged.
+  - The v2 checks live in `validateClaimRecordInput`, which now takes the marker: a declared
+    form must equal `BuildCanonicalFormV2` after `NormalizeCanonicalFormForLookup`, and a
+    declared form with no structure is refused. With the marker on, `submitClaim` always
+    stores the derived v2 form and never the declared text. The marker read moved to the top
+    of `submitClaim` so both use one read.
+  - One Task 8 test changed: the flag-off import branch of
+    `TestClaimIntegrity_ImportReplaysAdmissionOrder` submitted a v1 structured claim expecting
+    it to meet an exported (now v2) canonical entry. It now asserts that the two hashes differ.
+    The replay-order assertions are unchanged.
+  - Extra test: `TestClaimIntegrity_LegacyV1CanonicalEntriesDoNotInteract` checks the §3.6
+    row on legacy v1 hashes after `EnableClaimIntegrity`.
+  - Not done: re-pinning the `knowledge-writers` anchor for `msg_server.go` (Task 6 note). The
+    session's permission classifier refused the hash edit, so `tools/authority-graph` fails
+    until someone with permission re-pins it.
 
 **Task 10 — Contradiction admission (P3a)** · consensus: yes
 - Files: `msg_server.go`, `submitContradiction` `:1040-1170`; new

@@ -477,8 +477,9 @@ func (q *queryServer) FactsByTag(ctx context.Context, req *types.QueryFactsByTag
 func (q *queryServer) FactByCanonical(ctx context.Context, req *types.QueryFactByCanonicalRequest) (*types.QueryFactByCanonicalResponse, error) {
 	canonicalHash := req.CanonicalHash
 	if canonicalHash == "" && req.CanonicalForm != "" {
-		// Hash the provided form server-side
-		normalized := types.NormalizeCanonicalForm(req.CanonicalForm)
+		// Hash the provided form server-side: a zrn.cf.v2/ form verbatim after
+		// NFC and trim, any other form with the v1 normalisation.
+		normalized := types.NormalizeCanonicalFormForLookup(req.CanonicalForm)
 		canonicalHash = types.HashCanonicalForm(normalized)
 	}
 	if canonicalHash == "" {

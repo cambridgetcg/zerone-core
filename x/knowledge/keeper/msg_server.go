@@ -56,8 +56,15 @@ func (m *msgServer) submitClaim(ctx context.Context, msg *types.MsgSubmitClaim, 
 	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
+	// With claim integrity on, an index entry blocks only while the record it
+	// names is live or standing (plan §5.4), and the canonical form is v2,
+	// derived from the structure alone (plan Task 9).
+	integrity, err := m.keeper.ClaimIntegrityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if recordIntegrityEnabled {
-		if err := m.keeper.validateClaimRecordInput(ctx, msg); err != nil {
+		if err := m.keeper.validateClaimRecordInput(ctx, msg, integrity); err != nil {
 			return nil, err
 		}
 	}
@@ -160,20 +167,23 @@ func (m *msgServer) submitClaim(ctx context.Context, msg *types.MsgSubmitClaim, 
 		}
 	}
 
-	// Auto-derive or normalize canonical form
+	// Auto-derive or normalize canonical form. With claim integrity on it is
+	// always the v2 form of the structure: validateClaimRecordInput has refused
+	// a declared form that differs from it or has no structure to derive from.
 	canonicalForm := msg.CanonicalForm
-	if canonicalForm == "" && msg.Structure != nil {
+	if integrity {
+		canonicalForm = ""
+		if msg.Structure != nil {
+			canonicalForm = types.BuildCanonicalFormV2(msg.ClaimType, msg.Structure, msg.Domain)
+		}
+	} else if canonicalForm == "" && msg.Structure != nil {
 		canonicalForm = types.BuildCanonicalForm(msg.ClaimType, msg.Structure, msg.Domain)
-	}
-	// With claim integrity on, an index entry blocks only while the record it
-	// names is live or standing (plan §5.4).
-	integrity, err := m.keeper.ClaimIntegrityEnabled(ctx)
-	if err != nil {
-		return nil, err
 	}
 	var canonicalHash string
 	if canonicalForm != "" {
-		canonicalForm = types.NormalizeCanonicalForm(canonicalForm)
+		if !integrity {
+			canonicalForm = types.NormalizeCanonicalForm(canonicalForm)
+		}
 		canonicalHash = types.HashCanonicalForm(canonicalForm)
 
 		// Dedup against canonical hash (stronger than content_hash)

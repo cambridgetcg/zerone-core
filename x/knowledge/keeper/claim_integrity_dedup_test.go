@@ -23,7 +23,10 @@ import (
 // Reviewers and challengers are never parties, no scenario submits a
 // contradiction or an explicit canonical form, and canonical hashes are read
 // from the stored claim instead of being spelled out. Later v12 tasks (9-14)
-// therefore do not change what these tests observe.
+// therefore do not change what these tests observe, with one exception: once
+// Task 9 made marker-on hashes v2, the flag-off import branch of
+// TestClaimIntegrity_ImportReplaysAdmissionOrder can no longer submit a v1
+// claim that meets an exported v2 canonical entry.
 
 const (
 	dedupDomain = "physics"
@@ -606,8 +609,12 @@ func TestClaimIntegrity_ImportReplaysAdmissionOrder(t *testing.T) {
 						require.Equal(t, last, g.entry(canonicalKey))
 						g.requireSubmitRefused(t, v11Addr("v12-ei-copy"), text, nil,
 							"duplicate claim: content hash matches existing claim "+last)
-						g.requireSubmitRefused(t, v11Addr("v12-ei-lab-b"), other, structured,
-							"canonical duplicate: matches existing claim "+last)
+						// The exported claims carry v2 canonical hashes (Task 9),
+						// and a marker-off admission derives the v1 form, so no
+						// new submission can meet the 0x34 entry checked above.
+						v1 := &types.MsgSubmitClaim{}
+						structured(v1)
+						require.NotEqual(t, claimX.CanonicalHash, types.HashCanonicalForm(types.BuildCanonicalForm(v1.ClaimType, v1.Structure, dedupDomain)))
 						return
 					}
 					require.Equal(t, y, g.entry(contentKey), "the latest admission takes the entry whatever the file order")

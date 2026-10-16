@@ -202,7 +202,7 @@ func NewSubmitClaimCmd() *cobra.Command {
 	cmd.Flags().String("temporal-scope", "", "Time bounds (structured, optional)")
 	cmd.Flags().Bool("negatable", true, "Mark claim as negatable (default true)")
 	cmd.Flags().String("tags", "", "Comma-separated tags")
-	cmd.Flags().String("canonical", "", "Explicit canonical form (auto-derived from structure if omitted)")
+	cmd.Flags().String("canonical", "", "Canonical form: derived from structure; omit (claim-integrity chains refuse a form without --subject/--predicate or one that differs from the derived zrn.cf.v2/ form)")
 	cmd.Flags().Bool("sponsored", false, "Request bootstrap fund sponsorship (fund pays review fee)")
 	cmd.Flags().String("method-id", "", "Registered methodology ID (requires record-integrity activation)")
 	cmd.Flags().String("reasoning-trace", "", "Exact reasoning or method description to retain with the claim")
