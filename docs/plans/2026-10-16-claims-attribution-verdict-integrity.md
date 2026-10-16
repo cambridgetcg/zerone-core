@@ -1232,6 +1232,74 @@ Conventions that apply to every task:
   - refuse with `ErrUnqualifiedVerifier.Wrapf("reviewer %s is a party to claim %s (%s)")`;
   - reveals are not guarded.
 - Acceptance: the tests above pass, and the Task 2 digest is unchanged.
+- Done in Task 14:
+  - `claim_integrity_review.go` holds `refuseConflictedReviewer`, `conflictedParties`,
+    `disputedFactID` and `sameActor`. `StoreCommitmentInRound` reads the marker once, after the
+    phase and scheme checks and before the duplicate and equivocation lookup, and runs the check
+    only when the marker is on. A party's new commitment after activation is therefore refused
+    as a party, not as equivocation.
+  - Refusal text: `reviewer <r> is a party to claim <id> (submitter)` or
+    `(defender of fact <F>)`, followed by `: verifier not qualified for domain`, the registered
+    text of `ErrUnqualifiedVerifier`.
+  - `sameActor` treats two empty strings as different actors, and bech32 data of length zero
+    as no key.
+  - The tx path refuses an operator (valoper) address before this check, at the balance gate.
+    A scheme-2 round refuses one at `CanonicalReviewAddress`. Only a legacy-scheme round, the
+    kind the vote-extension writer reaches, gets as far as the party check with such an
+    address.
+  - Failure choices the plan left open:
+    - an unreadable claim, an unreadable disputed fact or a malformed marker refuses the
+      commitment (`read claim <id> of round <id>: …`, `read disputed fact <F> of claim <id>: …`);
+    - an absent record names no party, the same way `getClaimRecordChecked` treats an absent
+      historical claim. Three cases:
+      - a legacy round may have no claim; the `abci_test.go` `StoreCommitmentInRound` tests
+        commit to such a round under `DefaultGenesis` (marker on), and they are unchanged;
+      - a neutral round without its claim is already refused when the round is saved;
+      - facts are never deleted on chain, so an absent disputed fact means store damage. In
+        that case the submitter is still refused.
+  - Vote-extension path. The release latch keeps `ProcessVoteExtInjection` closed, so the test
+    cannot reach the loop. `app/abci.go`'s per-commitment store-and-log block therefore moved,
+    unchanged, into `storeInjectedCommitment`, which the app test drives directly. A party
+    refusal is skipped and logged at the existing Debug level (`skipped commitment from vote
+    extension`, with the refusal text as `reason`).
+  - Tests beyond the list:
+    - `claim_integrity_review_test.go`:
+      - the challenger is also refused on a `ChallengeFact` round;
+      - the defender is refused on a `MsgChallengeProvisionalFact` round (the conjecture's
+        proposer);
+      - a `SubmitClaim` with a single CONTRADICTS relation (a REVIEW_FEE claim) recuses no
+        defender;
+      - upper-case and foreign-prefix encodings of the submitter's key are refused;
+      - a pre-activation self-commit settles both after an in-place upgrade and after an
+        import, and the submitter is paid;
+      - three faults, and the absent-fact case.
+    - The app test is `app/claim_integrity_review_test.go` (`package app`).
+    - `claim_integrity_review_internal_test.go` (package `keeper`, outside the file list):
+      `TestSameActor` and `TestDisputedFactID`, written after the implementation. The second
+      pins shapes that no message creates.
+  - Mutants: 17 were run on a /tmp copy, and each fails at least one test. They were:
+    - the marker ignored;
+    - the check never run;
+    - string-only `sameActor`;
+    - no defender;
+    - the funding kind ignored;
+    - an unreadable fact read as no party;
+    - an unreadable claim read as no party;
+    - the check moved after the equivocation lookup;
+    - the marker read error ignored;
+    - empty strings read as the same actor;
+    - the empty-data guard dropped;
+    - `ProvisionalFactId` ignored;
+    - any relation type accepted;
+    - the relation count ignored;
+    - the nil-relation guard dropped;
+    - an absent fact refused;
+    - an absent claim refused.
+  - Cost with the marker off: one 0x87 read per commitment, on both paths. Nothing is written.
+    The Task 2 digest is unchanged (`f849e099…`), and no existing test changed.
+  - `state.go` and `app/abci.go` are not authority-geometry anchors, so nothing new needs
+    re-pinning. The `knowledge-writers` and `knowledge-slash-callsites` re-pin is still deferred
+    to the separate reviewed pinning step.
 
 ### Phase D — documentation and verification
 

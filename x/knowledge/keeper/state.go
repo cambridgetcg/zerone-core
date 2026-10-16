@@ -680,6 +680,17 @@ func (k Keeper) StoreCommitmentInRound(ctx context.Context, roundID string, comm
 	default:
 		return fmt.Errorf("unsupported commitment scheme %d", round.CommitmentScheme)
 	}
+	// Knowledge v12 (claim integrity, plan Task 14): a party to the claim may
+	// not commit. With the marker off the only difference is this read.
+	integrity, err := k.ClaimIntegrityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if integrity {
+		if err := k.refuseConflictedReviewer(ctx, round, commit.Verifier); err != nil {
+			return err
+		}
+	}
 
 	existing := findCommitByVerifier(round.Commits, commit.Verifier)
 	if existing != nil {
