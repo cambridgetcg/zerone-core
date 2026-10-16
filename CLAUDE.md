@@ -1,7 +1,10 @@
 # CLAUDE.md — Project Instructions
 
 ## Git Workflow
-- Commit directly to `main`. Do not create feature branches.
+- Never push to `main`. Work on a branch named `<agent>/<topic>`, push the branch, and open a pull request.
+- Merge a pull request only after its CI has finished green. A run still in progress is not a pass.
+- GitHub cannot enforce this here: branch protection is unavailable for this private repository on the
+  current plan, so the rule holds only because every agent follows it.
 - Write clear, descriptive commit messages.
 - Commit frequently at logical checkpoints (e.g., after each batch/task).
 
