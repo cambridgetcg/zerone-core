@@ -653,6 +653,17 @@ Conventions that apply to every task:
   - Callers attach a cause only when the marker is on.
   - Compute the challenge claim ID before the CHALLENGED write.
 - Acceptance: the tests above pass, and the Task 2 digest is unchanged.
+- Done in Task 7:
+  - Each caller attaches the cause to a derived context used only for its own `SetFact`
+    call, through `claimIntegrityTransitionCause`, which reads the marker and returns any
+    read error.
+  - One extra test file, `transition_cause_test.go` (package `keeper`), checks the
+    `factID` scoping directly. The scenario alone cannot check it, because cascade
+    descendants are written with an explicit transition and `SetFactSkipTransition`.
+  - The MALFORMED arm is covered by a `MsgChallengeProvisionalFact` round on a conjecture.
+  - Not changed: a conjecture's creation transition (UNSPECIFIED→PROVISIONAL) is still
+    inferred as `unknown` with no ID. §5.2 row 1 does not hold for conjectures.
+  - `msg_server.go` and `rounds.go` anchors re-pinned as described in Task 6.
 
 **Task 8 — Duplicate checks that look at status (P1)** · consensus: yes
 - Files:

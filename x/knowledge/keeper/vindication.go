@@ -227,7 +227,11 @@ func (k Keeper) handleChallengeDisproven(ctx context.Context, challengeClaim *ty
 
 	// Transition to DISPROVEN
 	originalFact.Status = types.FactStatus_FACT_STATUS_DISPROVEN
-	if err = k.SetFact(ctx, originalFact); err != nil {
+	causeCtx, err := k.claimIntegrityTransitionCause(ctx, originalFact.Id, causeChallengeDisproven, challengeClaim.Id)
+	if err != nil {
+		return err
+	}
+	if err = k.SetFact(causeCtx, originalFact); err != nil {
 		return err
 	}
 

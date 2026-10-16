@@ -1211,7 +1211,11 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 	// standing it never earned.
 	originalFact.Status = RestoredStatusFor(originalFact)
 	originalFact.AtRiskSinceEpoch = 0
-	if err = k.SetFact(ctx, originalFact); err != nil && policy == 1 {
+	causeCtx, err := k.claimIntegrityTransitionCause(ctx, originalFact.Id, causeChallengeSurvived, challengeClaim.Id)
+	if err != nil {
+		return err
+	}
+	if err = k.SetFact(causeCtx, originalFact); err != nil && policy == 1 {
 		return err
 	}
 
@@ -1283,7 +1287,11 @@ func (k Keeper) restoreChallengedFactOnInconclusive(ctx context.Context, challen
 	}
 	fact.Status = RestoredStatusFor(fact)
 	fact.AtRiskSinceEpoch = 0
-	if err := k.SetFact(ctx, fact); err != nil {
+	causeCtx, err := k.claimIntegrityTransitionCause(ctx, fact.Id, causeChallengeInconclusive, challengeClaim.Id)
+	if err != nil {
+		return err
+	}
+	if err := k.SetFact(causeCtx, fact); err != nil {
 		return err
 	}
 	sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent(

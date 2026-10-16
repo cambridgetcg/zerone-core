@@ -803,14 +803,21 @@ func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFa
 		}
 	}
 
+	// The challenge claim ID is known before the CHALLENGED write so that,
+	// with claim integrity on, the transition names it as its cause.
+	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
+
 	// Mark fact as challenged
 	fact.Status = types.FactStatus_FACT_STATUS_CHALLENGED
-	if err := m.keeper.SetFact(ctx, fact); err != nil {
+	causeCtx, err := m.keeper.claimIntegrityTransitionCause(ctx, fact.Id, causeChallengeOpened, challengeClaimID)
+	if err != nil {
+		return nil, err
+	}
+	if err := m.keeper.SetFact(causeCtx, fact); err != nil {
 		return nil, err
 	}
 
 	// Create a challenge claim and round
-	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
 	challengeClaim := &types.Claim{
 		ReviewPolicyVersion: reviewPolicy,
 		Id:                  challengeClaimID,
@@ -955,12 +962,16 @@ func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.Msg
 		}
 	}
 
+	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
 	fact.Status = types.FactStatus_FACT_STATUS_CHALLENGED
-	if err := m.keeper.SetFact(ctx, fact); err != nil && enabled {
+	causeCtx, err := m.keeper.claimIntegrityTransitionCause(ctx, fact.Id, causeChallengeOpened, challengeClaimID)
+	if err != nil {
+		return nil, err
+	}
+	if err := m.keeper.SetFact(causeCtx, fact); err != nil && enabled {
 		return nil, err
 	}
 
-	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
 	challengeClaim := &types.Claim{
 		ReviewPolicyVersion: reviewPolicy,
 		Id:                  challengeClaimID,
