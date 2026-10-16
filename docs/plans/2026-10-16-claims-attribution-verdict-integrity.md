@@ -381,7 +381,7 @@ that limit is disclosed.
 | From | To | Trigger | `cause_event_type / cause_id` |
 |---|---|---|---|
 | — | VERIFIED (PROVISIONAL for a conjecture) | claim ACCEPTED | `verification / <claim id>` (unchanged for VERIFIED; new for PROVISIONAL, which knowledge 11 recorded as `unknown`) |
-| VERIFIED, ACTIVE | CONTESTED | a claim carrying CONTRADICTS→F is **ACCEPTED** | `contradiction_accepted / <counter-claim id>` |
+| VERIFIED, ACTIVE | CONTESTED | a claim carrying CONTRADICTS→F is **ACCEPTED** and the edge stored from its counter-fact K to F is CONTRADICTS, the edge R1 reads (one edge per pair; the last relation written wins, so `[CONTRADICTS F, CITES F]` stores CITES and contests nothing) | `contradiction_accepted / <counter-claim id>` |
 | VERIFIED, ACTIVE, AT_RISK | CONTESTED | a fact F depends on is DISPROVEN (existing cascade) | `cascade / <disproven fact id>` (unchanged) |
 | CONTESTED | VERIFIED | a contradiction ends non-accepted (REJECT, MALFORMED, INCONCLUSIVE, starved) **and** no contest reason remains | `contradiction_reversed / <claim id>` |
 | CONTESTED | VERIFIED | counter-fact K becomes DISPROVEN and no contest reason remains | `counterfact_disproven / <K>` |
@@ -1051,6 +1051,42 @@ Conventions that apply to every task:
   - Not done: re-pinning the `knowledge-writers` (`msg_server.go`) and
     `knowledge-slash-callsites` (`rounds.go`) anchors. That is deferred to the separate
     reviewed pinning step, so `tools/authority-graph` fails until then.
+- Task 12 review (must_fix and should_fix, addressed):
+  - Laundering through a twice-named target. The relation store keeps one edge per
+    (source, target) pair, and the last write wins. A claim with `[CONTRADICTS F, CITES F]`
+    therefore stored K→F as CITES, but acceptance still contested F from the claim's relation
+    list. R1 found no CONTRADICTS edge, so a later starved contradiction released F while K
+    stood. Fix: `contestAcceptedTargets` contests F only when the stored edge K→F is
+    CONTRADICTS (`storedContradiction`). It reads the reverse-index entry, the same record R1
+    scans. An absent edge contests nothing; an unreadable edge is returned as an error, so the
+    round does not complete. This is marker-on code only, and it also covers claims admitted
+    before activation. §5.2 row 2 now says this.
+    `TestClaimIntegrity_AcceptedContestFollowsStoredEdge` covers both orders and has marker-off
+    twins: knowledge 11 flips F at admission and launders it in either order.
+  - Not done: refusing a claim that names a CONTRADICTS target twice. With the fix, acceptance
+    and R1 agree, so a duplicate cannot launder. Refusing it would be a new admission rule, and
+    the review marked it optional.
+  - New tests in `claim_integrity_contest_predicate_test.go` (package `keeper`):
+    - `TestContestAcceptedTargets`: every fact status, and only VERIFIED and ACTIVE become
+      CONTESTED. It also covers the stored-edge cases: CITES, absent, reverse direction,
+      unreadable, wrong pair, and an injected read error.
+    - `TestSettleContradictionTargetsSinceLastSurvival`: settle uses F's last
+      `challenge_survived` height.
+    - `TestCompleteRoundRefusesMalformedClaimIntegrityMarker`: a malformed 0x87 is an error
+      before any write, and the round is not completed.
+  - `TestClaimIntegrity_LegacyPolicyStarvedContradictionSettles` has a new `malformed marker`
+    case. The phases.go starved branch leaves F CONTESTED, emits no event, and BeginBlock
+    does not halt.
+  - Mutants, each of which now fails at least one test:
+    - settle with `survivedAt` set to 0;
+    - the contest filter narrowed to VERIFIED;
+    - the filter widened to every standing status except CONTESTED;
+    - the marker read error ignored in `completeRound`;
+    - the marker read error ignored in phases.go;
+    - the stored edge type ignored;
+    - the stored edge read error ignored.
+  - An explicit source/target check in `storedContradiction` survived its mutant, because
+    `validateToKStoredRecord` already rebuilds the key from the payload. It was removed.
 
 **Task 13 — Participants decide the target; reversal follows the latest finding (P3c)** · consensus: yes
 - Files: `msg_server.go:770-773`, `rounds.go:1212` and `:1284`, `vindication.go`

@@ -335,3 +335,182 @@ func TestContestReasonFailsTowardContested(t *testing.T) {
 		})
 	}
 }
+
+// contestEventsOf returns the attributes of every event of eventType on ctx.
+func contestEventsOf(ctx sdk.Context, eventType string) []map[string]string {
+	var out []map[string]string
+	for _, event := range ctx.EventManager().Events() {
+		if event.Type != eventType {
+			continue
+		}
+		attrs := map[string]string{}
+		for _, attr := range event.Attributes {
+			attrs[attr.Key] = attr.Value
+		}
+		out = append(out, attrs)
+	}
+	return out
+}
+
+// requireLastTransition checks F's newest recorded transition.
+func (f *contestPredicateFixture) requireLastTransition(prior, next types.FactStatus, cause, causeID string) {
+	f.t.Helper()
+	history := f.k.GetStatusHistory(f.ctx, contestF)
+	require.NotEmpty(f.t, history)
+	last := history[len(history)-1]
+	require.Equal(f.t, []any{prior, next, cause, causeID}, []any{last.PriorStatus, last.NewStatus, last.CauseEventType, last.CauseId})
+}
+
+// contestAcceptedTargets (§5.2 row 2) on hand-built state. Counter-fact
+// counter-k was created from counter-claim, whose relations name
+// CONTRADICTS→F. F becomes CONTESTED, with cause
+// contradiction_accepted/counter-claim and one contradiction_accepted event,
+// only when F is VERIFIED or ACTIVE and the stored edge counter-k→F is
+// CONTRADICTS: the edge R1 reads. Otherwise nothing is written or emitted.
+// A stored edge that cannot be read is an error, and nothing is written.
+func TestContestAcceptedTargets(t *testing.T) {
+	counterClaim := &types.Claim{Id: "counter-claim", Relations: []*types.ClaimRelation{
+		{Relation: types.RelationType_RELATION_TYPE_CONTRADICTS, TargetFactId: contestF},
+	}}
+	contest := func(f *contestPredicateFixture) (sdk.Context, error) {
+		ctx := f.ctx.WithEventManager(sdk.NewEventManager())
+		return ctx, f.k.contestAcceptedTargets(ctx, counterClaim, "counter-k")
+	}
+	contestable := map[types.FactStatus]bool{
+		types.FactStatus_FACT_STATUS_VERIFIED: true,
+		types.FactStatus_FACT_STATUS_ACTIVE:   true,
+	}
+	for _, status := range sortedFactStatuses() {
+		t.Run(status.String(), func(t *testing.T) {
+			f := newContestPredicateFixture(t)
+			f.putFact(contestF, status)
+			f.putFact("counter-k", types.FactStatus_FACT_STATUS_VERIFIED)
+			f.putRelation("counter-k", contestF, types.RelationType_RELATION_TYPE_CONTRADICTS)
+			before := f.snapshot(t)
+			ctx, err := contest(f)
+			require.NoError(t, err)
+			if !contestable[status] {
+				require.Equal(t, before, f.snapshot(t), "a %s target is left as it is", status)
+				require.Empty(t, ctx.EventManager().Events())
+				return
+			}
+			require.Equal(t, types.FactStatus_FACT_STATUS_CONTESTED, f.factF().Status)
+			f.requireLastTransition(status, types.FactStatus_FACT_STATUS_CONTESTED, causeContradictionAccepted, "counter-claim")
+			require.Equal(t, []map[string]string{{"fact_id": contestF, "counter_claim_id": "counter-claim", "counter_fact_id": "counter-k"}},
+				contestEventsOf(ctx, "zerone.knowledge.contradiction_accepted"))
+		})
+	}
+	for _, tc := range []struct {
+		name   string
+		inject func(*contestPredicateFixture)
+		err    string
+	}{
+		{"stored edge is CITES", func(f *contestPredicateFixture) {
+			f.putRelation("counter-k", contestF, types.RelationType_RELATION_TYPE_CITES)
+		}, ""},
+		{"no stored edge", func(*contestPredicateFixture) {}, ""},
+		{"stored edge is the reverse direction", func(f *contestPredicateFixture) {
+			f.putRelation(contestF, "counter-k", types.RelationType_RELATION_TYPE_CONTRADICTS)
+		}, ""},
+		{"unreadable stored edge", func(f *contestPredicateFixture) {
+			f.ctx.KVStore(f.keys[0]).Set(types.FactRelationReverseKey(contestF, "counter-k"), []byte{0xff})
+		}, "counter-fact edge"},
+		{"stored edge names another source", func(f *contestPredicateFixture) {
+			bz, err := proto.Marshal(&types.FactRelation{SourceFactId: "elsewhere", TargetFactId: contestF, Relation: types.RelationType_RELATION_TYPE_CONTRADICTS})
+			require.NoError(f.t, err)
+			f.ctx.KVStore(f.keys[0]).Set(types.FactRelationReverseKey(contestF, "counter-k"), bz)
+		}, "counter-fact edge"},
+		{"read error on stored edge", func(f *contestPredicateFixture) {
+			f.kFault.op, f.kFault.prefix = "get", types.FactRelationReverseKey(contestF, "counter-k")
+		}, "injected read failure"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newContestPredicateFixture(t)
+			f.putFact(contestF, types.FactStatus_FACT_STATUS_VERIFIED)
+			f.putFact("counter-k", types.FactStatus_FACT_STATUS_VERIFIED)
+			tc.inject(f)
+			before := f.snapshot(t)
+			ctx, err := contest(f)
+			*f.kFault = handoffFault{}
+			if tc.err == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, tc.err)
+			}
+			require.Equal(t, before, f.snapshot(t), "F stays VERIFIED and nothing is written")
+			require.Empty(t, ctx.EventManager().Events())
+		})
+	}
+}
+
+// settleContradictionTargets (§5.2 row 4) reads F's last challenge_survived
+// height. A dependency refuted before that survival no longer holds F, one
+// refuted after it still does, and with no survival any refuted dependency
+// holds F. A release records contradiction_reversed/<claim>.
+func TestSettleContradictionTargetsSinceLastSurvival(t *testing.T) {
+	claim := &types.Claim{Id: "contra-claim", Relations: []*types.ClaimRelation{
+		{Relation: types.RelationType_RELATION_TYPE_CONTRADICTS, TargetFactId: contestF},
+	}}
+	for _, tc := range []struct {
+		name     string
+		fall     uint64
+		survived bool
+		released bool
+	}{
+		{"refuted before the last survival", 50, true, true},
+		{"refuted after the last survival", 70, true, false},
+		{"never survived", 50, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newContestPredicateFixture(t)
+			f.disprove("dependency-d", tc.fall)
+			f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
+			if tc.survived {
+				f.survive(60)
+			}
+			before := f.snapshot(t)
+			ctx := f.ctx.WithEventManager(sdk.NewEventManager())
+			require.NoError(t, f.k.endContradiction(ctx, claim, true))
+			require.Empty(t, contestEventsOf(ctx, "zerone.knowledge.contest_check_incomplete"))
+			if !tc.released {
+				require.Equal(t, before, f.snapshot(t), "R2 holds F")
+				require.Empty(t, ctx.EventManager().Events())
+				return
+			}
+			require.Equal(t, types.FactStatus_FACT_STATUS_VERIFIED, f.factF().Status)
+			f.requireLastTransition(types.FactStatus_FACT_STATUS_CONTESTED, types.FactStatus_FACT_STATUS_VERIFIED, causeContradictionReversed, "contra-claim")
+			require.Equal(t, []map[string]string{{"fact_id": contestF, "reverted_by_claim": "contra-claim"}},
+				contestEventsOf(ctx, "zerone.knowledge.contradiction_reversed"))
+		})
+	}
+}
+
+// completeRound reads the claim-integrity marker before any write (plan
+// §3.1). A malformed marker is an error, never knowledge 11: the round is not
+// completed, nothing is written, and a CONTESTED target stays CONTESTED.
+func TestCompleteRoundRefusesMalformedClaimIntegrityMarker(t *testing.T) {
+	for _, verdict := range []types.Verdict{
+		types.Verdict_VERDICT_ACCEPT,
+		types.Verdict_VERDICT_REJECT,
+		types.Verdict_VERDICT_MALFORMED,
+		types.Verdict_VERDICT_INCONCLUSIVE,
+	} {
+		t.Run(verdict.String(), func(t *testing.T) {
+			f := newContestPredicateFixture(t)
+			claim := &types.Claim{
+				Id: "contra-claim", Submitter: "contra-author", Status: types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION,
+				Relations: []*types.ClaimRelation{{Relation: types.RelationType_RELATION_TYPE_CONTRADICTS, TargetFactId: contestF}},
+			}
+			require.NoError(t, f.k.SetClaim(f.ctx, claim))
+			f.ctx.KVStore(f.keys[0]).Set([]byte(ClaimIntegrityEnabledStoreKey), []byte{2})
+			round := &types.VerificationRound{Id: "contra-round", ClaimId: claim.Id, Phase: types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION}
+			want := proto.Clone(round)
+			before := f.snapshot(t)
+			err := f.k.completeRound(f.ctx, round, &VerificationResult{Verdict: verdict}, true)
+			require.ErrorContains(t, err, "malformed claim integrity marker")
+			require.True(t, proto.Equal(want, round), "the round is not completed")
+			require.Equal(t, before, f.snapshot(t), "nothing is written")
+			require.Equal(t, types.FactStatus_FACT_STATUS_CONTESTED, f.factF().Status)
+		})
+	}
+}

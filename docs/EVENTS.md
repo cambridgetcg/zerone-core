@@ -1418,7 +1418,7 @@ Target fact restored from CONTESTED to VERIFIED (PROVISIONAL for a conjecture) a
 - `reverted_by_claim` -- rejected/malformed/inconclusive claim whose side-effect was reversed
 
 ### zerone.knowledge.contradiction_accepted
-Claim integrity (knowledge v12): a claim carrying a CONTRADICTS relation, through `MsgSubmitContradiction` or `MsgSubmitClaim`, was accepted, and its VERIFIED or ACTIVE target moved to CONTESTED. Admission alone changes no fact. The counter-fact stays VERIFIED. The target's transition records `contradiction_accepted` with the counter-claim ID.
+Claim integrity (knowledge v12): a claim carrying a CONTRADICTS relation, through `MsgSubmitContradiction` or `MsgSubmitClaim`, was accepted, and its VERIFIED or ACTIVE target moved to CONTESTED. The target is contested only when the edge stored from the counter-fact to it is CONTRADICTS, the edge that later holds it CONTESTED; a claim that names the same target twice stores one edge, the last relation written. Admission alone changes no fact. The counter-fact stays VERIFIED. The target's transition records `contradiction_accepted` with the counter-claim ID.
 - `fact_id` -- target fact now CONTESTED
 - `counter_claim_id` -- the accepted contradicting claim
 - `counter_fact_id` -- the fact created from it, which carries the CONTRADICTS edge

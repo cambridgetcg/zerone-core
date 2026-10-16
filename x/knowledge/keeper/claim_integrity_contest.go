@@ -296,11 +296,34 @@ func (k Keeper) contestReasonRemainsSinceLastSurvival(ctx context.Context, fact 
 	return k.contestReasonOrIncomplete(ctx, fact, func(s *contestScan) (uint64, error) { return s.lastSurvivedAt(fact.Id) })
 }
 
+// storedContradiction reports whether the stored edge counterFactID→targetID
+// is CONTRADICTS. It reads the reverse-index entry, the record R1 scans. The
+// store keeps one edge per (source, target) pair and the last relation
+// written wins, so a claim that names a target twice may store another type.
+// An absent edge is not a contradiction. An unreadable one, or one whose
+// payload names another pair (validateToKStoredRecord rebuilds the key from
+// the payload), is an error.
+func (k Keeper) storedContradiction(ctx context.Context, counterFactID, targetID string) (bool, error) {
+	key := types.FactRelationReverseKey(targetID, counterFactID)
+	bz, err := k.storeService.OpenKVStore(ctx).Get(key)
+	if err != nil || bz == nil {
+		return false, err
+	}
+	rel, err := decodeContestRelation(key, bz)
+	if err != nil {
+		return false, err
+	}
+	return rel.Relation == types.RelationType_RELATION_TYPE_CONTRADICTS, nil
+}
+
 // contestAcceptedTargets runs when claim is accepted and counterFactID was
 // created from it (§5.2 row 2). Each VERIFIED or ACTIVE target of its
 // CONTRADICTS relations becomes CONTESTED, with cause
-// contradiction_accepted/<claim ID>. The counter-fact stays VERIFIED (§9 D2).
-// Errors are returned; completeRound runs in a cache that an error discards.
+// contradiction_accepted/<claim ID>, when the stored edge counterFactID→target
+// is CONTRADICTS: acceptance and R1 read the same edge, so a target is never
+// contested without the edge that holds it. The counter-fact stays VERIFIED
+// (§9 D2). Errors are returned; completeRound runs in a cache that an error
+// discards.
 func (k Keeper) contestAcceptedTargets(ctx context.Context, claim *types.Claim, counterFactID string) error {
 	for _, rel := range claim.Relations {
 		if rel.Relation != types.RelationType_RELATION_TYPE_CONTRADICTS {
@@ -311,6 +334,13 @@ func (k Keeper) contestAcceptedTargets(ctx context.Context, claim *types.Claim, 
 			return err
 		}
 		if !found || (target.Status != types.FactStatus_FACT_STATUS_VERIFIED && target.Status != types.FactStatus_FACT_STATUS_ACTIVE) {
+			continue
+		}
+		contradicts, err := k.storedContradiction(ctx, counterFactID, target.Id)
+		if err != nil {
+			return fmt.Errorf("counter-fact edge %s→%s: %w", counterFactID, target.Id, err)
+		}
+		if !contradicts {
 			continue
 		}
 		target.Status = types.FactStatus_FACT_STATUS_CONTESTED
