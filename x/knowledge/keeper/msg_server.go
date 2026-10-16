@@ -310,14 +310,18 @@ func (m *msgServer) submitClaim(ctx context.Context, msg *types.MsgSubmitClaim, 
 	// Record last claim height for adaptive cooldown (R29-6)
 	m.keeper.SetLastClaimHeight(ctx, msg.Submitter, height)
 
-	// Contradiction detection: auto-mark target facts as CONTESTED
-	for _, rel := range msg.Relations {
-		if rel.Relation == types.RelationType_RELATION_TYPE_CONTRADICTS {
-			targetFact, found := m.keeper.GetFact(ctx, rel.TargetFactId)
-			if found && (targetFact.Status == types.FactStatus_FACT_STATUS_VERIFIED ||
-				targetFact.Status == types.FactStatus_FACT_STATUS_ACTIVE) {
-				targetFact.Status = types.FactStatus_FACT_STATUS_CONTESTED
-				_ = m.keeper.SetFact(ctx, targetFact)
+	// Contradiction detection: auto-mark target facts as CONTESTED. With claim
+	// integrity on, admission changes no fact: the targets are contested only
+	// once this claim is accepted (plan §5.2, Task 12; contestAcceptedTargets).
+	if !integrity {
+		for _, rel := range msg.Relations {
+			if rel.Relation == types.RelationType_RELATION_TYPE_CONTRADICTS {
+				targetFact, found := m.keeper.GetFact(ctx, rel.TargetFactId)
+				if found && (targetFact.Status == types.FactStatus_FACT_STATUS_VERIFIED ||
+					targetFact.Status == types.FactStatus_FACT_STATUS_ACTIVE) {
+					targetFact.Status = types.FactStatus_FACT_STATUS_CONTESTED
+					_ = m.keeper.SetFact(ctx, targetFact)
+				}
 			}
 		}
 	}
@@ -1200,9 +1204,11 @@ func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmi
 	// can be contested (mirrors SubmitClaim), so an unestablished target is not
 	// flipped. When the round resolves REJECT/MALFORMED/INCONCLUSIVE (including
 	// a starved panel), reverseContradictionsFromClaim restores it via the
-	// relation recorded above.
-	if targetFact.Status == types.FactStatus_FACT_STATUS_VERIFIED ||
-		targetFact.Status == types.FactStatus_FACT_STATUS_ACTIVE {
+	// relation recorded above. With claim integrity on, admission changes no
+	// fact: the target is contested only once this counter-claim is accepted
+	// (plan §5.2, Task 12; contestAcceptedTargets).
+	if !integrity && (targetFact.Status == types.FactStatus_FACT_STATUS_VERIFIED ||
+		targetFact.Status == types.FactStatus_FACT_STATUS_ACTIVE) {
 		targetFact.Status = types.FactStatus_FACT_STATUS_CONTESTED
 		if err := m.keeper.SetFact(ctx, targetFact); err != nil && retainRecord {
 			return nil, err
@@ -1232,13 +1238,7 @@ func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmi
 //     in its domain (§5.4), so a contradiction cannot take a live claim's
 //     0x09 entry.
 func (m *msgServer) claimIntegrityContradictionAdmission(ctx context.Context, msg *types.MsgSubmitContradiction, target *types.Fact, contentHash string) error {
-	switch target.Status {
-	case types.FactStatus_FACT_STATUS_VERIFIED,
-		types.FactStatus_FACT_STATUS_ACTIVE,
-		types.FactStatus_FACT_STATUS_CONTESTED,
-		types.FactStatus_FACT_STATUS_CHALLENGED,
-		types.FactStatus_FACT_STATUS_AT_RISK:
-	default:
+	if !factStands(target.Status) {
 		return fmt.Errorf("fact %s is not standing (status: %s); only a verified, active, contested, challenged or at-risk fact can be contradicted",
 			msg.FactId, target.Status)
 	}

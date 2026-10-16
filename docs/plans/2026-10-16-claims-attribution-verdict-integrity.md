@@ -17,6 +17,9 @@ How certain each claim is:
 - **Verified by reading code (this synthesis)**: every `file:line` cited in §3–§6.
 - **Inferred, not probed**:
   - A starved contradiction can launder a cascade-CONTESTED fact.
+    Settled in Task 12: true on knowledge 11 (the marker-off twin of
+    `TestClaimIntegrity_CascadeContestedTargetStaysContested` restores the fact to VERIFIED).
+    With the marker on, R2 keeps it CONTESTED.
   - FactByCanonical misses accepted structured claims. `rounds.go:299` re-saves the claim after
     `rounds.go:799` pointed 0x34 at the fact, and that re-save points it back at the claim ID.
   - Genesis import order decides which duplicate the 0x09 index points to.
@@ -986,6 +989,68 @@ Conventions that apply to every task:
   - `SetFact` errors are returned where `completeRound` already returns errors. They are logged
     in the starved branch for legacy-policy rounds.
 - Acceptance: the tests above pass, and the Task 2 digest is unchanged.
+- Done in Task 12:
+  - `claim_integrity_contest.go` holds the predicate and both arms. `completeRound` reads the
+    marker once, at its top and before any write. The ACCEPT arm calls `contestAcceptedTargets`; the
+    three non-accepted arms call `endContradiction`, which runs `settleContradictionTargets`
+    with the marker on and the unchanged `reverseContradictionsFromClaim` with it off. In
+    `phases.go` the legacy-policy starved branch reads the marker and calls the same helper. A
+    marker read error or a write error there is logged and leaves every target unchanged; it
+    is never read as the legacy path.
+  - Predicate: `contestReasonRemains(ctx, F, survivedAt)` and
+    `contestReasonRemainsSinceLastSurvival(ctx, F)`. Task 13 needs both forms. The scan
+    charges every entry it reads (relation, fact, transition) against one budget: 100k records
+    and 64 MiB per check. Records are validated with `validateToKStoredRecord`. An edge naming a
+    missing fact counts as malformed, so the reason remains. R1 stops at the first standing
+    counter-fact. `lastSurvivedAt` counts only `challenge_survived` (Task 7). A knowledge-11
+    survival, recorded as `unknown`, therefore clears nothing. `survivedAt` is read only when
+    a DISPROVEN dependency makes it matter.
+  - Failure handling choices the plan left open:
+    - in `settleContradictionTargets`, a target record that cannot be read is left as it is and
+      reported with `contest_check_incomplete` (reason `target: …`), so an ending round still
+      completes;
+    - `contestAcceptedTargets` returns read and write errors, and the round cache discards them;
+    - the settle writes run in their own cache, so an error leaves every target unchanged on
+      the logged path too.
+  - Conjectures follow the plan text: the predicate applies, and a released conjecture returns
+    to PROVISIONAL. With the marker on, a conjecture cannot be contradicted or contested by an
+    acceptance, so only legacy records reach this.
+  - The legacy-policy starved branch runs only when no aggregation ran between the reveal and
+    aggregation deadlines, as in `TestSubmitContradiction_StarvedDoesNotLockFact`. Otherwise
+    such a round ends through `completeRound`, like a neutral one.
+  - Task 10's standing check now calls `factStands`, the same five statuses. Its behaviour and
+    messages are unchanged.
+  - Tests beyond the list:
+    - all three non-accepted endings, through both admission paths;
+    - the pre-activation release, and the P3 state before activation (R1 holds), each upgraded
+      in place and imported;
+    - the legacy-policy starved branch;
+    - a second file, `claim_integrity_contest_predicate_test.go` (package `keeper`). It checks
+      R1 for every fact status, R2 for every relation type and every survival order,
+      `lastSurvivedAt`, and eleven faults. The faults include an injected read error, both
+      bounds and malformed records. Each fault yields exactly one `contest_check_incomplete`
+      and no write.
+  - Mutants that each fail at least one test:
+    - settle ignores the predicate;
+    - an incomplete check is read as no reason;
+    - a survival is matched by status rather than cause;
+    - `>=` in place of `>`;
+    - acceptance does not contest;
+    - R1 narrowed to VERIFIED/ACTIVE;
+    - `phases.go` keeps the legacy reversal;
+    - `submitClaim` still flips at admission.
+  - Outside the file list:
+    - `docs/EVENTS.md` documents `contradiction_accepted` and `contest_check_incomplete` and
+      the v12 meaning of `contradiction_reversed`. `TestEventAudit_DocumentationCompleteness`
+      and `TestTruthSeeking_VoiceLayerDocMirror` require this.
+    - `tests/cross_stack/correction_admission_test.go` characterizes the knowledge-11 flip at
+      admission on its contradiction route. That route now deletes 0x87 with a comment, as the
+      §6 conventions prescribe. No assertion changed.
+  - Cost with the marker off: one 0x87 read in `completeRound`, and one in the starved branch.
+    Nothing is written, and the Task 2 digest is unchanged (`f849e099…`).
+  - Not done: re-pinning the `knowledge-writers` (`msg_server.go`) and
+    `knowledge-slash-callsites` (`rounds.go`) anchors. That is deferred to the separate
+    reviewed pinning step, so `tools/authority-graph` fails until then.
 
 **Task 13 — Participants decide the target; reversal follows the latest finding (P3c)** · consensus: yes
 - Files: `msg_server.go:770-773`, `rounds.go:1212` and `:1284`, `vindication.go`

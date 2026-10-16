@@ -1413,9 +1413,20 @@ Domain energy and capacity boosted by a mentorship graduation (R31-5 Water→Woo
 - `graduations` -- cumulative graduation count
 
 ### zerone.knowledge.contradiction_reversed
-Target fact restored from CONTESTED to VERIFIED after the contradicting claim failed and no other live contradictions remain.
+Target fact restored from CONTESTED to VERIFIED (PROVISIONAL for a conjecture) after the contradicting claim failed. Before claim integrity (knowledge v12): when no other live contradiction remains. With claim integrity on: when no contest reason remains (no standing accepted counter-fact, and no dependency refuted since the fact's last survived challenge); other pending contradictions are not reasons, and the transition records `contradiction_reversed` with this claim ID.
 - `fact_id` -- fact whose status was restored
 - `reverted_by_claim` -- rejected/malformed/inconclusive claim whose side-effect was reversed
+
+### zerone.knowledge.contradiction_accepted
+Claim integrity (knowledge v12): a claim carrying a CONTRADICTS relation, through `MsgSubmitContradiction` or `MsgSubmitClaim`, was accepted, and its VERIFIED or ACTIVE target moved to CONTESTED. Admission alone changes no fact. The counter-fact stays VERIFIED. The target's transition records `contradiction_accepted` with the counter-claim ID.
+- `fact_id` -- target fact now CONTESTED
+- `counter_claim_id` -- the accepted contradicting claim
+- `counter_fact_id` -- the fact created from it, which carries the CONTRADICTS edge
+
+### zerone.knowledge.contest_check_incomplete
+Claim integrity (knowledge v12): the check for whether a CONTESTED fact may be released could not finish, so the fact stays CONTESTED. Causes: an unreadable or malformed relation, fact or transition record, a relation naming a missing fact, or the scan bound (100,000 records / 64 MiB per check).
+- `fact_id` -- fact kept CONTESTED
+- `reason` -- why the check could not finish
 
 ### zerone.knowledge.confidence_clamped_to_floor
 On fact creation, the new fact's confidence was capped to its `dependency_confidence_floor` (ToK Wave 2). Emitted when a proof chain inherits a weaker ceiling than its own verification would give it.

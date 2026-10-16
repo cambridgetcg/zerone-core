@@ -196,6 +196,13 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 	if err != nil {
 		return err
 	}
+	// Claim integrity decides what a contradiction's verdict does to its
+	// targets (plan §5.2, Task 12). Read once, before any write; an error is
+	// never read as legacy.
+	integrity, err := k.ClaimIntegrityEnabled(ctx)
+	if err != nil {
+		return err
+	}
 
 	claim, found := k.GetClaim(ctx, round.ClaimId)
 	if !found {
@@ -246,6 +253,13 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 		}
 		// Review fee already distributed at submission time — no refund.
 		claim.Status = types.ClaimStatus_CLAIM_STATUS_ACCEPTED
+		// With claim integrity on, an accepted contradiction contests its
+		// targets; admission no longer does.
+		if integrity {
+			if err := k.contestAcceptedTargets(ctx, claim, factId); err != nil {
+				return err
+			}
+		}
 
 	case types.Verdict_VERDICT_REJECT:
 		// Review fee already distributed at submission time — the fee IS the cost of rejection.
@@ -261,12 +275,17 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 			}
 		}
 		// Contradicting claim was rejected — undo its CONTESTED side-effect on target facts (T-i4).
-		k.reverseContradictionsFromClaim(ctx, claim)
+		// With claim integrity on, a target is released only when no contest reason remains.
+		if err := k.endContradiction(ctx, claim, integrity); err != nil {
+			return err
+		}
 
 	case types.Verdict_VERDICT_MALFORMED:
 		// Review fee already distributed at submission time — no additional slashing needed.
 		claim.Status = types.ClaimStatus_CLAIM_STATUS_MALFORMED
-		k.reverseContradictionsFromClaim(ctx, claim)
+		if err := k.endContradiction(ctx, claim, integrity); err != nil {
+			return err
+		}
 		if scoringRetired {
 			if err := k.restoreChallengedFactOnInconclusive(ctx, claim, round.Id); err != nil {
 				return err
@@ -276,7 +295,9 @@ func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRoun
 	case types.Verdict_VERDICT_INCONCLUSIVE:
 		// Review fee is non-refundable — verifiers still did work even if inconclusive.
 		claim.Status = types.ClaimStatus_CLAIM_STATUS_INSUFFICIENT
-		k.reverseContradictionsFromClaim(ctx, claim)
+		if err := k.endContradiction(ctx, claim, integrity); err != nil {
+			return err
+		}
 		if scoringRetired {
 			if err := k.restoreChallengedFactOnInconclusive(ctx, claim, round.Id); err != nil {
 				return err
@@ -952,7 +973,8 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 // reverseContradictionsFromClaim restores any target facts this claim flipped to
 // CONTESTED via its CONTRADICTS relations, when the claim itself is not accepted.
 // Only restores when no other live claim (PENDING / IN_VERIFICATION) still
-// contradicts the same target fact (T-i4).
+// contradicts the same target fact (T-i4). Knowledge 11 only: with claim
+// integrity on, settleContradictionTargets runs instead (endContradiction).
 func (k Keeper) reverseContradictionsFromClaim(ctx context.Context, claim *types.Claim) {
 	for _, rel := range claim.Relations {
 		if rel.Relation != types.RelationType_RELATION_TYPE_CONTRADICTS {
