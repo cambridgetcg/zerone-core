@@ -215,6 +215,7 @@ func TestRecordIntegritySubmissionSplitFailureRollsBackFeeAndSponsorship(t *test
 				// Explicit predecessor fixture: sponsorship is retired for
 				// newly admitted neutral-policy claims. This case tests the
 				// existing sponsored fee batch's rollback, not new admission.
+				ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.ClaimIntegrityEnabledStoreKey)) // No pre-v12 store has 0x87.
 				ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.FundSettlementEnabledStoreKey))
 				ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey))
 			}

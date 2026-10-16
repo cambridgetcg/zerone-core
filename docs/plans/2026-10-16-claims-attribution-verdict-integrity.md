@@ -557,6 +557,14 @@ Conventions that apply to every task:
   - Fixtures: `helpers_test.go` (3 sites), `record_genesis_test.go`,
     `relation_contract_test.go`, `types/fund_settlement_test.go`, plus the Task 2 fixture. Add
     `ClaimIntegrityEnabled=false` wherever `FundSettlementEnabled=false`.
+  - Done in Task 5 (the same rule, found by running the suites): every app or cross-stack
+    fixture that deletes marker 0x86 to model a pre-v11 store also deletes 0x87, since no
+    pre-v12 store has it. Otherwise `ExportGenesis` panics with "claim integrity requires fund
+    settlement". Sites: `app/upgrades_{record_integrity,review_neutrality,claim_records,fund_settlement,survival_handoff}_test.go`
+    fixtures, `app/claim_records_test.go`, `app/review_neutrality_settlement_test.go`,
+    `app/verifier_settlement_integration_test.go`, and
+    `tests/cross_stack/legacy_review_fixture_test.go`. The `ClaimHistoryLink` comment also
+    regenerates `docs/swagger-ui/swagger.json`, which `make proto-check` requires to be committed.
 - Failing tests (`claim_integrity_activation_test.go`):
   - the marker reads absent, `{1}`, and malformed values `{0}`, `{1,1}`, `{2}` correctly;
   - Enable refuses each missing predecessor;

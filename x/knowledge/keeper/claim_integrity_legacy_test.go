@@ -57,6 +57,7 @@ func setupV11SemanticsTest(t *testing.T) *v11Fixture {
 	gs.ReviewNeutralityEnabled = true
 	gs.ClaimRecordsEnabled = true
 	gs.FundSettlementEnabled = true
+	gs.ClaimIntegrityEnabled = false // knowledge 11 has no claim-integrity marker.
 
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })

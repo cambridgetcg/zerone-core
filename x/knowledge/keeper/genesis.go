@@ -272,6 +272,11 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 			return err
 		}
 	}
+	if gs.ClaimIntegrityEnabled {
+		if err := k.EnableClaimIntegrity(ctx); err != nil {
+			return err
+		}
+	}
 	for _, claim := range gs.PendingClaims {
 		if claim == nil {
 			continue
@@ -380,6 +385,10 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	if err != nil {
 		panic(err)
 	}
+	claimIntegrity, err := k.ClaimIntegrityEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 	transitions, cascades, historyCounters, err := k.ExportKnowledgeHistory(ctx)
 	if err != nil {
 		panic(fmt.Errorf("export knowledge history: %w", err))
@@ -396,7 +405,7 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 			rounds = append(rounds, round)
 		}
 	}
-	if err := types.ValidateGenesisRounds(&types.GenesisState{PendingClaims: claims, ActiveRounds: rounds, CompletedRounds: completedRounds, RecordIntegrityEnabled: enabled, ReviewNeutralityEnabled: neutral, ClaimRecordsEnabled: claimRecords, FundSettlementEnabled: fundSettlement}); err != nil {
+	if err := types.ValidateGenesisRounds(&types.GenesisState{PendingClaims: claims, ActiveRounds: rounds, CompletedRounds: completedRounds, RecordIntegrityEnabled: enabled, ReviewNeutralityEnabled: neutral, ClaimRecordsEnabled: claimRecords, FundSettlementEnabled: fundSettlement, ClaimIntegrityEnabled: claimIntegrity}); err != nil {
 		panic(fmt.Errorf("export knowledge round references: %w", err))
 	}
 
@@ -525,6 +534,7 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		ReviewNeutralityEnabled:   neutral,
 		ClaimRecordsEnabled:       claimRecords,
 		FundSettlementEnabled:     fundSettlement,
+		ClaimIntegrityEnabled:     claimIntegrity,
 		CompletedRounds:           completedRounds,
 		StatusTransitions:         transitions,
 		CascadeEvents:             cascades,
