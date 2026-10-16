@@ -531,6 +531,22 @@ Conventions that apply to every task:
 - Change: tests only. Record the digest constant with a comment naming `a4272bfa`.
 - Acceptance: green on a4272bf. Task 5 adds `ClaimIntegrityEnabled=false` to the fixture; nothing
   else in this file may change afterwards.
+- Follow-up to Task 2 (review finding): the golden digest cannot detect a marker-off leak of
+  Task 8's first-save-only index write. Task 8 (`e6dc3cee`) already guards it with the marker-off
+  twins in `claim_integrity_dedup_test.go`, so no test was added and this file is unchanged.
+  Mutants were run on a /tmp copy of `ab151287`:
+  - `SetClaim` writes 0x09/0x34 only on a first save, whatever the marker. The digest stays
+    green, and three marker-off subtests fail: `ResaveDoesNotMoveIndex` (0x09 and 0x34 after a
+    direct re-save), and `StandingFactBlocksAndDisprovenReleases` and
+    `AcceptedFactKeepsCanonicalEntry` (0x34 names the claim after the acceptance re-save at
+    `rounds.go:299`).
+  - Only the 0x34 write made first-save-only: the same three fail. Only the 0x09 write:
+    `ResaveDoesNotMoveIndex` fails.
+  - `InitGenesis` sorts claims whatever the flag: `ImportReplaysAdmissionOrder` fails
+    (flag=false).
+  - `acceptedFactMayTakeCanonicalEntry` ignores the marker: nothing fails. With the marker off,
+    the re-save at `rounds.go:299` points 0x34 back at the claim, so the end state is the same.
+    The only difference is one extra read.
 
 **Task 3 — ClaimHistory discovery links** · consensus: no (query only)
 - Files: `x/knowledge/keeper/query_claim_history.go` (`claimHistoryLinks` `:198-226` and its
