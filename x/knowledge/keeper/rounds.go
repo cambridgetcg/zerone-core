@@ -1247,11 +1247,19 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 	// is no longer reachable by MsgChallengeProvisionalFact. The conjecture
 	// keeps its corroboration credit and its energy; it does not acquire
 	// standing it never earned.
-	originalFact.Status = RestoredStatusFor(originalFact)
-	originalFact.AtRiskSinceEpoch = 0
-	causeCtx, err := k.claimIntegrityTransitionCause(ctx, originalFact.Id, causeChallengeSurvived, challengeClaim.Id)
+	//
+	// With claim integrity on, surviving clears only dependencies refuted at
+	// or before this height, never a standing counter-fact: an established
+	// fact with a contest reason left returns to CONTESTED (Task 13).
+	integrity, err := k.ClaimIntegrityEnabled(ctx)
 	if err != nil {
 		return err
+	}
+	originalFact.Status = k.challengeEndStatus(ctx, originalFact, integrity, true)
+	originalFact.AtRiskSinceEpoch = 0
+	causeCtx := ctx
+	if integrity {
+		causeCtx = withTransitionCause(ctx, originalFact.Id, causeChallengeSurvived, challengeClaim.Id)
 	}
 	if err = k.SetFact(causeCtx, originalFact); err != nil && policy == 1 {
 		return err
@@ -1323,11 +1331,18 @@ func (k Keeper) restoreChallengedFactOnInconclusive(ctx context.Context, challen
 	if other {
 		return nil
 	}
-	fact.Status = RestoredStatusFor(fact)
-	fact.AtRiskSinceEpoch = 0
-	causeCtx, err := k.claimIntegrityTransitionCause(ctx, fact.Id, causeChallengeInconclusive, challengeClaim.Id)
+	// With claim integrity on, a nondecisive ending clears nothing: an
+	// established fact with a contest reason left since its last survived
+	// challenge returns to CONTESTED (Task 13).
+	integrity, err := k.ClaimIntegrityEnabled(ctx)
 	if err != nil {
 		return err
+	}
+	fact.Status = k.challengeEndStatus(ctx, fact, integrity, false)
+	fact.AtRiskSinceEpoch = 0
+	causeCtx := ctx
+	if integrity {
+		causeCtx = withTransitionCause(ctx, fact.Id, causeChallengeInconclusive, challengeClaim.Id)
 	}
 	if err := k.SetFact(causeCtx, fact); err != nil {
 		return err

@@ -1118,6 +1118,93 @@ Conventions that apply to every task:
   4. After K is disproven, settle each outgoing CONTRADICTS target of K, inside the same cache.
   - The survival reward is still released on REJECT, as today. No economic change.
 - Acceptance: the tests above pass, and the Task 2 digest is unchanged.
+- Done in Task 13:
+  - The helpers live in `claim_integrity_contest.go`, next to the predicate:
+    - `challengeEndStatus` implements rules 2 and 3;
+    - `settleCounterFactTargets` implements rule 4;
+    - `releaseContested` is the release step, now shared with Task 12's
+      `settleContradictionTargets`. That settle behaves exactly as before.
+  - Gate. `challengeFact` reads the marker only when the target is not VERIFIED or ACTIVE.
+    With the marker off the refusal text is unchanged. With it on, other statuses are refused
+    with `… (commitment 4: only verified, active or contested facts accept probes; …)`.
+  - Survival and nondecisive endings:
+    - each reads the marker once, in place of the Task 7 `claimIntegrityTransitionCause`
+      call at that site (`handleChallengeDisproven` too), so the read count is unchanged with
+      the marker off;
+    - a survival is judged with `survivedAt` = the current height. Every other ending is
+      judged since `lastSurvivedAt`;
+    - a check that cannot finish returns the fact to CONTESTED and emits
+      `contest_check_incomplete`. This applies to any challenged fact, including one that
+      was VERIFIED before the challenge.
+  - Consequence of §5.2, now pinned by a test: a fact laundered before activation (VERIFIED
+    while K stands, §3.6) returns to CONTESTED when a challenge ends without refuting it, after
+    an in-place upgrade or an import. The marker-off twin returns it to ACTIVE.
+  - Counter-fact settle:
+    - It lists K's stored CONTRADICTS edges (the forward index) within the contest-scan
+      budget. Only CONTESTED targets are re-evaluated.
+    - A released target becomes VERIFIED (PROVISIONAL for a conjecture) with cause
+      `counterfact_disproven/<K>`.
+    - The plan named only the event attribute. The event reuses
+      `zerone.knowledge.contradiction_reversed`, with `fact_id` and `reverted_by_fact=<K>`
+      in place of `reverted_by_claim`.
+  - Failure choices the plan left open:
+    - if K's relations cannot be listed (unreadable, mismatched or past the bound), no target
+      settles and one `contest_check_incomplete` names K;
+    - a target that cannot be read is reported and left as it is, and the other targets
+      still settle;
+    - the disproval stands in both cases;
+    - a write error is returned, so the round's cache discards it, like the other errors in
+      `handleChallengeDisproven`.
+  - Conjectures: a challenge ending always returns one to PROVISIONAL (rules 2 and 3). The
+    counter-fact settle applies the predicate as Task 12's settle does, so another standing
+    counter-fact keeps a conjecture CONTESTED. `ChallengeFact` accepts a CONTESTED conjecture
+    at the unscaled minimum, since its confidence is 0; that is the same minimum
+    `ChallengeProvisionalFact` uses. Only legacy records reach any of these paths.
+  - Tests beyond the list:
+    - `claim_integrity_verdict_test.go`:
+      - every fact status at the gate, with the marker on and off;
+      - a stake one uzrn below the minimum on a CONTESTED target;
+      - MALFORMED as well as REJECT, ACCEPT and starved;
+      - a second dependency refuted after a survival, which re-contests F until a new
+        survival;
+      - a counter-fact falling while a refuted dependency still holds F (the cascade skipped
+        F);
+      - the laundered legacy fact;
+      - conjecture exemptions;
+      - five fault cases.
+    - `claim_integrity_contest_predicate_test.go` (package `keeper`, outside the list):
+      - `TestSettleCounterFactTargets` covers every target status, every edge type, a
+        conjecture, three held cases and a missing target;
+      - `TestSettleCounterFactTargetsFailsTowardContested` covers six faults and a write
+        error.
+  - Mutants: 20 were run on a /tmp copy, and each fails at least one test. They were:
+    - the gate ignores the marker;
+    - the gate refuses CONTESTED;
+    - survival judged since the last survival;
+    - an inconclusive ending judged at the current height;
+    - the conjecture exemption dropped;
+    - settle not called;
+    - settle run before the DISPROVEN write;
+    - release ignores the predicate;
+    - every edge type settled;
+    - any status released;
+    - a listing error returned;
+    - targets collected before a listing error settled;
+    - a target read error returned;
+    - a target read error made silent;
+    - reasons ignored at a challenge's end;
+    - each of the three causes attached with the marker off;
+    - the marker ignored on either ending path.
+  - Outside the file list: `docs/EVENTS.md`. It documents `reverted_by_fact`, the challenge of
+    a CONTESTED fact, the CONTESTED return in `challenge_inconclusive_restored`, and
+    `contest_check_incomplete` naming K.
+  - Cost with the marker off: one 0x87 read in `ChallengeFact`, only on its refusal path.
+    Nothing is written. The Task 2 digest is unchanged (`f849e099…`), and no existing test
+    changed.
+  - Not done: re-pinning the `knowledge-writers` (`msg_server.go`) and
+    `knowledge-slash-callsites` (`rounds.go`) anchors. That is deferred to the separate reviewed
+    pinning step, so `tools/authority-graph` fails until then. `vindication.go` is not an
+    anchor.
 
 **Task 14 — Exclude conflicted reviewers (P5)** · consensus: yes
 - Files: `state.go`, `StoreCommitmentInRound` `:634-694`; new

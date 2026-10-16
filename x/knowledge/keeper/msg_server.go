@@ -802,10 +802,21 @@ func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFa
 		return nil, fmt.Errorf("fact %s not found", msg.FactId)
 	}
 
-	// Fact must be in a challengeable state
+	// Fact must be in a challengeable state. With claim integrity on, a
+	// CONTESTED fact is challengeable too, so a panel decides it (plan §5.2,
+	// Task 13). The marker is read only off the VERIFIED/ACTIVE path.
 	if fact.Status != types.FactStatus_FACT_STATUS_VERIFIED &&
 		fact.Status != types.FactStatus_FACT_STATUS_ACTIVE {
-		return nil, fmt.Errorf("fact %s is not in a challengeable state (status: %s) (commitment 4: only verified or active facts accept probes; degraded facts are already moving)", msg.FactId, fact.Status)
+		integrity, err := m.keeper.ClaimIntegrityEnabled(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if !integrity {
+			return nil, fmt.Errorf("fact %s is not in a challengeable state (status: %s) (commitment 4: only verified or active facts accept probes; degraded facts are already moving)", msg.FactId, fact.Status)
+		}
+		if fact.Status != types.FactStatus_FACT_STATUS_CONTESTED {
+			return nil, fmt.Errorf("fact %s is not in a challengeable state (status: %s) (commitment 4: only verified, active or contested facts accept probes; degraded facts are already moving)", msg.FactId, fact.Status)
+		}
 	}
 
 	// Risk-scaled stake check (T12): higher-confidence facts require more stake

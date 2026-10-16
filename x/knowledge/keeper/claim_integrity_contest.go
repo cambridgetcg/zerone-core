@@ -22,10 +22,15 @@ import (
 // from other pending claims, and a check that cannot finish keeps the fact
 // CONTESTED. With the marker off none of this runs: knowledge 11 flips at
 // admission and reverseContradictionsFromClaim restores.
+//
+// Task 13 (P3c) adds the decision paths out of CONTESTED: a challenge of the
+// fact itself (challengeEndStatus) and the fall of a counter-fact
+// (settleCounterFactTargets). Both use the same predicate.
 
 const (
 	causeContradictionAccepted = "contradiction_accepted"
 	causeContradictionReversed = "contradiction_reversed"
+	causeCounterfactDisproven  = "counterfact_disproven"
 )
 
 // errContestReasonFound ends a scan as soon as a reason is known.
@@ -357,6 +362,23 @@ func (k Keeper) contestAcceptedTargets(ctx context.Context, claim *types.Claim, 
 	return nil
 }
 
+// releaseContested returns a CONTESTED target to VERIFIED (PROVISIONAL for a
+// conjecture), with cause eventType/causeID, when no contest reason remains
+// since its last survived challenge. It reports whether it wrote.
+func (k Keeper) releaseContested(ctx context.Context, target *types.Fact, eventType, causeID string) (bool, error) {
+	if k.contestReasonRemainsSinceLastSurvival(ctx, target) {
+		return false, nil
+	}
+	target.Status = types.FactStatus_FACT_STATUS_VERIFIED
+	if IsConjecture(target) {
+		target.Status = types.FactStatus_FACT_STATUS_PROVISIONAL
+	}
+	if err := k.SetFact(withTransitionCause(ctx, target.Id, eventType, causeID), target); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // settleContradictionTargets runs when claim ends without acceptance (REJECT,
 // MALFORMED, INCONCLUSIVE or starved; §5.2 row 4). Each CONTESTED target of
 // its CONTRADICTS relations returns to VERIFIED (PROVISIONAL for a
@@ -378,15 +400,12 @@ func (k Keeper) settleContradictionTargets(ctx context.Context, claim *types.Cla
 		if !found || target.Status != types.FactStatus_FACT_STATUS_CONTESTED {
 			continue
 		}
-		if k.contestReasonRemainsSinceLastSurvival(cached, target) {
-			continue
-		}
-		target.Status = types.FactStatus_FACT_STATUS_VERIFIED
-		if IsConjecture(target) {
-			target.Status = types.FactStatus_FACT_STATUS_PROVISIONAL
-		}
-		if err := k.SetFact(withTransitionCause(cached, target.Id, causeContradictionReversed, claim.Id), target); err != nil {
+		released, err := k.releaseContested(cached, target, causeContradictionReversed, claim.Id)
+		if err != nil {
 			return err
+		}
+		if !released {
+			continue
 		}
 		cached.EventManager().EmitEvent(sdk.NewEvent(
 			"zerone.knowledge.contradiction_reversed",
@@ -407,4 +426,80 @@ func (k Keeper) endContradiction(ctx context.Context, claim *types.Claim, integr
 		return nil
 	}
 	return k.settleContradictionTargets(ctx, claim)
+}
+
+// challengeEndStatus is the status a challenged fact takes when its challenge
+// ends without refuting it (§5.2 rows 7 and 8): RestoredStatusFor, except
+// that with claim integrity on an established fact returns to CONTESTED while
+// a contest reason remains. A conjecture is exempt and returns to
+// PROVISIONAL. A survival (REJECT) clears dependencies refuted at or before
+// its own height, the current one; any other ending clears nothing, so the
+// reasons are judged since the fact's last survived challenge. A standing
+// counter-fact is never cleared by a survival (§9 D2). A check that cannot
+// finish returns CONTESTED.
+func (k Keeper) challengeEndStatus(ctx context.Context, fact *types.Fact, integrity, survived bool) types.FactStatus {
+	if !integrity || IsConjecture(fact) {
+		return RestoredStatusFor(fact)
+	}
+	var remains bool
+	if survived {
+		remains = k.contestReasonRemains(ctx, fact, uint64(sdk.UnwrapSDKContext(ctx).BlockHeight()))
+	} else {
+		remains = k.contestReasonRemainsSinceLastSurvival(ctx, fact)
+	}
+	if remains {
+		return types.FactStatus_FACT_STATUS_CONTESTED
+	}
+	return RestoredStatusFor(fact)
+}
+
+// settleCounterFactTargets runs when counter-fact K has just been disproven,
+// in handleChallengeDisproven's cache and after its DISPROVEN write and
+// cascade (§5.2 row 5). Each CONTESTED target of K's stored CONTRADICTS
+// edges, the edges R1 reads, returns to VERIFIED (PROVISIONAL for a
+// conjecture), with cause counterfact_disproven/<K>, when no contest reason
+// remains since its last survived challenge. Another standing counter-fact,
+// or a dependency refuted since then (K itself included), keeps it CONTESTED.
+// A check that cannot finish never releases: if K's relations cannot be
+// listed no target settles and contest_check_incomplete names K; a target
+// that cannot be read is reported and left as it is. Neither undoes the
+// disproval. Write errors are returned.
+func (k Keeper) settleCounterFactTargets(ctx context.Context, counterFactID string) error {
+	var targets []string
+	err := k.newContestScan(ctx).each(types.FactRelationsBySourcePrefix(counterFactID), func(key, value []byte) error {
+		rel, err := decodeContestRelation(key, value)
+		if err != nil {
+			return err
+		}
+		if rel.Relation == types.RelationType_RELATION_TYPE_CONTRADICTS {
+			targets = append(targets, rel.TargetFactId)
+		}
+		return nil
+	})
+	if err != nil {
+		emitContestCheckIncomplete(ctx, counterFactID, fmt.Errorf("counter-fact relations: %w", err))
+		return nil
+	}
+	for _, id := range targets {
+		target, found, err := k.getFactChecked(ctx, id)
+		if err != nil {
+			emitContestCheckIncomplete(ctx, id, fmt.Errorf("target: %w", err))
+			continue
+		}
+		if !found || target.Status != types.FactStatus_FACT_STATUS_CONTESTED {
+			continue
+		}
+		released, err := k.releaseContested(ctx, target, causeCounterfactDisproven, counterFactID)
+		if err != nil {
+			return err
+		}
+		if released {
+			sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent(
+				"zerone.knowledge.contradiction_reversed",
+				sdk.NewAttribute("fact_id", target.Id),
+				sdk.NewAttribute("reverted_by_fact", counterFactID),
+			))
+		}
+	}
+	return nil
 }

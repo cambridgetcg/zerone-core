@@ -1030,7 +1030,7 @@ Extended parameter update.
 - `authority` -- governance address
 
 ### zerone.knowledge.challenge_fact
-Verified fact challenged, new verification round created.
+Verified fact challenged, new verification round created. With claim integrity (knowledge v12) a CONTESTED fact can also be challenged, at the same confidence-scaled minimum stake, so a panel decides it.
 - `fact_id` -- fact identifier
 - `challenger` -- challenger address
 - `round_id` -- new verification round ID
@@ -1413,9 +1413,10 @@ Domain energy and capacity boosted by a mentorship graduation (R31-5 Water→Woo
 - `graduations` -- cumulative graduation count
 
 ### zerone.knowledge.contradiction_reversed
-Target fact restored from CONTESTED to VERIFIED (PROVISIONAL for a conjecture) after the contradicting claim failed. Before claim integrity (knowledge v12): when no other live contradiction remains. With claim integrity on: when no contest reason remains (no standing accepted counter-fact, and no dependency refuted since the fact's last survived challenge); other pending contradictions are not reasons, and the transition records `contradiction_reversed` with this claim ID.
+Target fact restored from CONTESTED to VERIFIED (PROVISIONAL for a conjecture) after the contradicting claim failed. Before claim integrity (knowledge v12): when no other live contradiction remains. With claim integrity on: when no contest reason remains (no standing accepted counter-fact, and no dependency refuted since the fact's last survived challenge); other pending contradictions are not reasons, and the transition records `contradiction_reversed` with this claim ID. With claim integrity on it is also emitted when an accepted counter-fact is disproven and no contest reason remains for a fact its CONTRADICTS edge held; that transition records `counterfact_disproven` with the counter-fact ID, and the event carries `reverted_by_fact` instead of `reverted_by_claim`.
 - `fact_id` -- fact whose status was restored
-- `reverted_by_claim` -- rejected/malformed/inconclusive claim whose side-effect was reversed
+- `reverted_by_claim` -- rejected/malformed/inconclusive claim whose side-effect was reversed (absent when `reverted_by_fact` is set)
+- `reverted_by_fact` -- claim integrity: the counter-fact whose disproval released the fact
 
 ### zerone.knowledge.contradiction_accepted
 Claim integrity (knowledge v12): a claim carrying a CONTRADICTS relation, through `MsgSubmitContradiction` or `MsgSubmitClaim`, was accepted, and its VERIFIED or ACTIVE target moved to CONTESTED. The target is contested only when the edge stored from the counter-fact to it is CONTRADICTS, the edge that later holds it CONTESTED; a claim that names the same target twice stores one edge, the last relation written. Admission alone changes no fact. The counter-fact stays VERIFIED. The target's transition records `contradiction_accepted` with the counter-claim ID.
@@ -1424,8 +1425,8 @@ Claim integrity (knowledge v12): a claim carrying a CONTRADICTS relation, throug
 - `counter_fact_id` -- the fact created from it, which carries the CONTRADICTS edge
 
 ### zerone.knowledge.contest_check_incomplete
-Claim integrity (knowledge v12): the check for whether a CONTESTED fact may be released could not finish, so the fact stays CONTESTED. Causes: an unreadable or malformed relation, fact or transition record, a relation naming a missing fact, or the scan bound (100,000 records / 64 MiB per check).
-- `fact_id` -- fact kept CONTESTED
+Claim integrity (knowledge v12): the check for whether a CONTESTED fact may be released could not finish, so the fact stays CONTESTED. Causes: an unreadable or malformed relation, fact or transition record, a relation naming a missing fact, or the scan bound (100,000 records / 64 MiB per check). The same check decides how a challenge that does not refute a fact ends; if it cannot finish, the fact returns to CONTESTED. When a disproven counter-fact's own relations cannot be listed, the event names the counter-fact and none of its targets is released; the disproval stands.
+- `fact_id` -- fact kept CONTESTED (or the disproven counter-fact whose relations could not be listed)
 - `reason` -- why the check could not finish
 
 ### zerone.knowledge.confidence_clamped_to_floor
@@ -1451,7 +1452,7 @@ Popperian survival counter incremented: a fact withstood a falsification attempt
 - `creed_commitment` -- "3"
 
 ### zerone.knowledge.challenge_inconclusive_restored
-A challenge closed without a decisive scientific result. Historical starvation used the EXPIRED path; after review-neutrality activation, INCONCLUSIVE and MALFORMED completions use the same restoration event. The target leaves CHALLENGED without survival, energy or calibration credit, while another active challenge keeps it locked. Established facts regain their type-appropriate status and conjectures remain PROVISIONAL. Checked failures roll back completion; the active-review scan uses the existing 100,000-record / 64 MiB inventory bounds.
+A challenge closed without a decisive scientific result. Historical starvation used the EXPIRED path; after review-neutrality activation, INCONCLUSIVE and MALFORMED completions use the same restoration event. The target leaves CHALLENGED without survival, energy or calibration credit, while another active challenge keeps it locked. Established facts regain their type-appropriate status and conjectures remain PROVISIONAL. With claim integrity (knowledge v12) an established fact returns to CONTESTED instead while a contest reason remains since its last survived challenge, and the transition records `challenge_inconclusive` with the challenge claim ID. Checked failures roll back completion; the active-review scan uses the existing 100,000-record / 64 MiB inventory bounds.
 - `fact_id` -- fact restored from CHALLENGED to its type-appropriate standing
 - `challenge_claim_id` -- the nondecisive challenge claim
 

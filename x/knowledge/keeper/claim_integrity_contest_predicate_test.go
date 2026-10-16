@@ -514,3 +514,180 @@ func TestCompleteRoundRefusesMalformedClaimIntegrityMarker(t *testing.T) {
 		})
 	}
 }
+
+// settleCounterFactTargets (§5.2 row 5, Task 13) on hand-built state. Counter-
+// fact counter-k has just been disproven. F is released to VERIFIED, with
+// cause counterfact_disproven/counter-k and a contradiction_reversed event
+// naming counter-k, only when F is CONTESTED, the stored edge counter-k→F is
+// CONTRADICTS and no contest reason remains. A conjecture is released to
+// PROVISIONAL. Otherwise nothing is written or emitted.
+func TestSettleCounterFactTargets(t *testing.T) {
+	settle := func(f *contestPredicateFixture) (sdk.Context, error) {
+		ctx := f.ctx.WithEventManager(sdk.NewEventManager())
+		return ctx, f.k.settleCounterFactTargets(ctx, "counter-k")
+	}
+	base := func(t *testing.T) *contestPredicateFixture {
+		f := newContestPredicateFixture(t)
+		f.disprove("counter-k", 70)
+		return f
+	}
+	requireReleased := func(t *testing.T, f *contestPredicateFixture, ctx sdk.Context, next types.FactStatus) {
+		require.Equal(t, next, f.factF().Status)
+		f.requireLastTransition(types.FactStatus_FACT_STATUS_CONTESTED, next, causeCounterfactDisproven, "counter-k")
+		require.Equal(t, []map[string]string{{"fact_id": contestF, "reverted_by_fact": "counter-k"}},
+			contestEventsOf(ctx, "zerone.knowledge.contradiction_reversed"))
+		require.Len(t, ctx.EventManager().Events(), 1)
+	}
+	for _, status := range sortedFactStatuses() {
+		t.Run("target "+status.String(), func(t *testing.T) {
+			f := base(t)
+			f.putFact(contestF, status)
+			f.putRelation("counter-k", contestF, types.RelationType_RELATION_TYPE_CONTRADICTS)
+			before := f.snapshot(t)
+			ctx, err := settle(f)
+			require.NoError(t, err)
+			if status != types.FactStatus_FACT_STATUS_CONTESTED {
+				require.Equal(t, before, f.snapshot(t), "a %s target is left as it is", status)
+				require.Empty(t, ctx.EventManager().Events())
+				return
+			}
+			requireReleased(t, f, ctx, types.FactStatus_FACT_STATUS_VERIFIED)
+		})
+	}
+	for _, relation := range sortedRelationTypes() {
+		t.Run("edge "+relation.String(), func(t *testing.T) {
+			f := base(t)
+			f.putRelation("counter-k", contestF, relation)
+			before := f.snapshot(t)
+			ctx, err := settle(f)
+			require.NoError(t, err)
+			if relation != types.RelationType_RELATION_TYPE_CONTRADICTS {
+				require.Equal(t, before, f.snapshot(t), "only a stored CONTRADICTS edge names a target")
+				require.Empty(t, ctx.EventManager().Events())
+				return
+			}
+			requireReleased(t, f, ctx, types.FactStatus_FACT_STATUS_VERIFIED)
+		})
+	}
+	t.Run("conjecture target", func(t *testing.T) {
+		f := base(t)
+		require.NoError(t, f.k.SetFactSkipTransition(f.ctx, &types.Fact{Id: contestF, ClaimId: contestF + "-claim", ClaimType: types.ClaimType_CLAIM_TYPE_CONJECTURE, Status: types.FactStatus_FACT_STATUS_CONTESTED}))
+		f.putRelation("counter-k", contestF, types.RelationType_RELATION_TYPE_CONTRADICTS)
+		ctx, err := settle(f)
+		require.NoError(t, err)
+		requireReleased(t, f, ctx, types.FactStatus_FACT_STATUS_PROVISIONAL)
+	})
+	for _, tc := range []struct {
+		name   string
+		inject func(*contestPredicateFixture)
+	}{
+		{"another counter-fact stands", func(f *contestPredicateFixture) {
+			f.putFact("counter-k2", types.FactStatus_FACT_STATUS_VERIFIED)
+			f.putRelation("counter-k2", contestF, types.RelationType_RELATION_TYPE_CONTRADICTS)
+		}},
+		{"a dependency fell after the last survival", func(f *contestPredicateFixture) {
+			f.survive(60)
+			f.disprove("dependency-d", 65)
+			f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
+		}},
+		{"the fallen counter-fact is also a dependency", func(f *contestPredicateFixture) {
+			f.survive(60)
+			f.putRelation(contestF, "counter-k", types.RelationType_RELATION_TYPE_CITES)
+		}},
+	} {
+		t.Run("held: "+tc.name, func(t *testing.T) {
+			f := base(t)
+			f.putRelation("counter-k", contestF, types.RelationType_RELATION_TYPE_CONTRADICTS)
+			tc.inject(f)
+			before := f.snapshot(t)
+			ctx, err := settle(f)
+			require.NoError(t, err)
+			require.Equal(t, before, f.snapshot(t), "a contest reason remains")
+			require.Empty(t, ctx.EventManager().Events())
+		})
+	}
+	t.Run("missing target", func(t *testing.T) {
+		f := base(t)
+		f.putRelation("counter-k", "ghost-f", types.RelationType_RELATION_TYPE_CONTRADICTS)
+		before := f.snapshot(t)
+		ctx, err := settle(f)
+		require.NoError(t, err)
+		require.Equal(t, before, f.snapshot(t))
+		require.Empty(t, ctx.EventManager().Events())
+	})
+}
+
+// settleCounterFactTargets never releases on a check that cannot finish. If
+// the fallen counter-fact's relations cannot be listed, no target is released
+// and one contest_check_incomplete names the counter-fact. A target that
+// cannot be read, or whose own check fails, is reported and left as it is,
+// and the other targets still settle. A write error is returned.
+func TestSettleCounterFactTargetsFailsTowardContested(t *testing.T) {
+	putRaw := func(f *contestPredicateFixture, key, value []byte) { f.ctx.KVStore(f.keys[0]).Set(key, value) }
+	for _, tc := range []struct {
+		name     string
+		inject   func(*contestPredicateFixture)
+		named    string
+		reason   string
+		released bool // the second target, contest-g, still settles
+	}{
+		{"unreadable counter-fact relation", func(f *contestPredicateFixture) {
+			putRaw(f, types.FactRelationKey("counter-k", "garbled"), []byte{0xff})
+		}, "counter-k", "counter-fact relations", false},
+		{"counter-fact relation stored under another key", func(f *contestPredicateFixture) {
+			bz, err := proto.Marshal(&types.FactRelation{SourceFactId: "elsewhere", TargetFactId: contestF, Relation: types.RelationType_RELATION_TYPE_CONTRADICTS})
+			require.NoError(f.t, err)
+			putRaw(f, types.FactRelationKey("counter-k", "listed"), bz)
+		}, "counter-k", "key/payload mismatch", false},
+		{"counter-fact relations past the byte bound", func(f *contestPredicateFixture) {
+			putRaw(f, types.FactRelationKey("counter-k", "oversized"), make([]byte, recordInventoryMaxBytes))
+		}, "counter-k", "contest scan exceeds byte bound", false},
+		{"unreadable target", func(f *contestPredicateFixture) {
+			putRaw(f, types.FactKey(contestF), []byte{0xff})
+		}, contestF, "target", true},
+		{"read error on target", func(f *contestPredicateFixture) {
+			f.kFault.op, f.kFault.prefix = "get", types.FactKey(contestF)
+		}, contestF, "injected read failure", true},
+		{"target check incomplete", func(f *contestPredicateFixture) {
+			putRaw(f, types.FactRelationReverseKey(contestF, "garbled"), []byte{0xff})
+		}, contestF, "incoming relation", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newContestPredicateFixture(t)
+			f.disprove("counter-k", 70)
+			f.putRelation("counter-k", contestF, types.RelationType_RELATION_TYPE_CONTRADICTS)
+			f.putFact("contest-g", types.FactStatus_FACT_STATUS_CONTESTED)
+			f.putRelation("counter-k", "contest-g", types.RelationType_RELATION_TYPE_CONTRADICTS)
+			tc.inject(f)
+			fBefore := f.ctx.KVStore(f.keys[0]).Get(types.FactKey(contestF))
+			ctx := f.ctx.WithEventManager(sdk.NewEventManager())
+			require.NoError(t, f.k.settleCounterFactTargets(ctx, "counter-k"))
+			*f.kFault = handoffFault{}
+			require.Equal(t, fBefore, f.ctx.KVStore(f.keys[0]).Get(types.FactKey(contestF)), "F is left as it is")
+			incomplete := contestEventsOf(ctx, "zerone.knowledge.contest_check_incomplete")
+			require.Len(t, incomplete, 1)
+			require.Equal(t, tc.named, incomplete[0]["fact_id"])
+			require.Contains(t, incomplete[0]["reason"], tc.reason)
+			g, found, err := f.k.getFactChecked(f.ctx, "contest-g")
+			require.NoError(t, err)
+			require.True(t, found)
+			if tc.released {
+				require.Equal(t, types.FactStatus_FACT_STATUS_VERIFIED, g.Status, "the other target still settles")
+				require.Equal(t, []map[string]string{{"fact_id": "contest-g", "reverted_by_fact": "counter-k"}},
+					contestEventsOf(ctx, "zerone.knowledge.contradiction_reversed"))
+			} else {
+				require.Equal(t, types.FactStatus_FACT_STATUS_CONTESTED, g.Status, "no target is released")
+				require.Empty(t, contestEventsOf(ctx, "zerone.knowledge.contradiction_reversed"))
+			}
+		})
+	}
+	t.Run("write error", func(t *testing.T) {
+		f := newContestPredicateFixture(t)
+		f.disprove("counter-k", 70)
+		f.putRelation("counter-k", contestF, types.RelationType_RELATION_TYPE_CONTRADICTS)
+		*f.kFault = handoffFault{op: "set", prefix: types.FactKey(contestF)}
+		err := f.k.settleCounterFactTargets(f.ctx, "counter-k")
+		*f.kFault = handoffFault{}
+		require.ErrorContains(t, err, "injected set failure")
+	})
+}
