@@ -104,7 +104,9 @@ export async function queryClaimHistory(
   validateRecord(response.record);
   requireValue(response.record.claimId === claimId, "requested root claim identity mismatch");
   const relatedIds = new Set([claimId]);
-  const linkFields = new Set(["provisional_fact_id", "challenged_claim_id", "relations.contradicts"]);
+  // knowledge v12 adds content_hash, canonical_hash and structure.object (target: the root claim).
+  const linkFields = new Set(["provisional_fact_id", "challenged_claim_id", "relations.contradicts",
+    "content_hash", "canonical_hash", "structure.object"]);
   for (const related of response.relatedClaims) {
     validateRecord(related.record);
     requireValue(!relatedIds.has(related.record.claimId), "duplicate related claim identity");

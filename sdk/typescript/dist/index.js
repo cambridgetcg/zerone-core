@@ -499,7 +499,14 @@ async function queryClaimHistory(rpc, claimId, options = {}) {
   validateRecord(response.record);
   requireValue(response.record.claimId === claimId, "requested root claim identity mismatch");
   const relatedIds = /* @__PURE__ */ new Set([claimId]);
-  const linkFields = /* @__PURE__ */ new Set(["provisional_fact_id", "challenged_claim_id", "relations.contradicts"]);
+  const linkFields = /* @__PURE__ */ new Set([
+    "provisional_fact_id",
+    "challenged_claim_id",
+    "relations.contradicts",
+    "content_hash",
+    "canonical_hash",
+    "structure.object"
+  ]);
   for (const related of response.relatedClaims) {
     validateRecord(related.record);
     requireValue(!relatedIds.has(related.record.claimId), "duplicate related claim identity");

@@ -534,6 +534,21 @@ Conventions that apply to every task:
   and keep the existing sort. Do not expand neighbours.
 - Acceptance: the new tests pass. The existing 65,536-read and 8 MiB refusal tests are unchanged.
   The proto comment on `ClaimHistoryLink.field` is updated in Task 5, which already regenerates.
+- Follow-up to Task 3 (review finding): three repo clients refused any link field outside the
+  old closed set, so a history with a resubmission, canonical twin or attribution (the §5.5
+  "who said P" read) threw. Their sets now also accept `content_hash`, `canonical_hash` and
+  `structure.object`, and still refuse anything else (exact match, no case folding):
+  - `sdk/typescript/src/claim-history.ts` (`queryClaimHistory`), with `dist/index.js` rebuilt
+    by `npm run build`; only that set changes and the dist digest files stay as they are;
+  - `dashboard/src/development-reader.ts` (`validateHistory`, also used by the research
+    workflow);
+  - `tools/research-review/workflow.py` (`validate_history`).
+  New red tests feed each new field and four near-miss names. `scripts/claim-workflow.py`,
+  `claim-workflow-view.py`, `shared-claims.py` and the dev-1 gateway pass links through
+  without a closed set, so they need no change. Not done here: the SDK's generated codecs
+  have been stale since Task 5's proto edits (`npm run check:generated` fails). Fixing that
+  needs `npm run generate`, which re-pins `src/generated/{SOURCE,GENERATED}_SHA256`, so it
+  is left for the separate reviewed pinning step.
 
 **Task 4 — Attribution encoder and quote guard in `claim-workflow`** · consensus: no (client)
 - Files: `scripts/claim-workflow.py`, which gets:
