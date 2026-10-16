@@ -34,7 +34,9 @@ import (
 // (SEC-5); and a check that cannot finish at a challenge's end changes
 // nothing (SEC-6). R2 is read before R1, and a reason either finds is
 // conclusive, so a heavily cited fact cannot hide a refuted dependency
-// behind the scan bound (second pass).
+// behind the scan bound (second pass). An entry under a fact's prefix whose
+// payload names another fact, such as the edge of an augmentation whose ID
+// extends the fact's, is skipped rather than failing the check (third pass).
 
 const (
 	causeContradictionAccepted = "contradiction_accepted"
@@ -264,11 +266,26 @@ func (s *contestScan) lastSurvivedAt(factID string) (uint64, error) {
 // A reason found by either rule is conclusive: it is returned with no error,
 // whatever the other rule could read. Only when neither finds one does a
 // failed read make the check incomplete, and the error then names every
-// failed read. R2 is read first: F's outgoing edges are written with F, from
-// its own claim (at most types.MaxRelationsPerClaim), while R1 reads every
-// incoming edge of every type, which other facts add. So no number of facts
-// citing F can hide a refuted dependency behind the scan bound (review G1,
-// second pass). Both rules share one scan budget.
+// failed read. Both rules share one scan budget, and R2 is read first (review
+// G1, second pass): R1 reads every incoming edge of every type, which any
+// later fact can add, so with R1 first enough facts citing F hid a refuted
+// dependency behind the bound.
+//
+// R2 reads F's forward prefix. F's own entries there are its claim's edges (at
+// most types.MaxRelationsPerClaim), genesis edges, and the edge of an
+// augmentation whose ID is F's, if one passed. The prefix can also hold
+// entries whose payload names another source (third pass): a passing
+// augmentation writes a REFORMULATES edge whose source is its user-chosen ID
+// (ApplyFinalizedAugmentationVerdict), so an ID "<F>/x" lands under F's
+// prefix. validateToKStoredRecord rebuilds the key from the payload, so the
+// payload names the edge's owner, and such an entry is skipped rather than
+// failing the check; treating it as an error let it hide a refuted dependency
+// through the SEC-6 fallback. R1 skips an entry under F's reverse prefix that
+// names another target the same way. A skipped entry is still read and
+// charged, so a refuted dependency can now hide behind the bound only if F's
+// forward prefix nears the 100k-record bound by itself. Review neutrality
+// refuses new augmentations, so that would take about 100k passing
+// augmentations admitted before it.
 func (k Keeper) contestReason(ctx context.Context, fact *types.Fact, survivedAt func(*contestScan) (uint64, error)) (bool, error) {
 	s := k.newContestScan(ctx)
 	refuted, dependencyErr := s.refutedDependency(fact.Id, survivedAt)
@@ -302,7 +319,7 @@ func (s *contestScan) refutedDependency(factID string, survivedAt func(*contestS
 			return fmt.Errorf("outgoing relation: %w", err)
 		}
 		if rel.SourceFactId != factID {
-			return fmt.Errorf("outgoing relation names source %s", rel.SourceFactId)
+			return nil // another source's edge (see contestReason)
 		}
 		if isCascadeRelation(rel.Relation) {
 			dependencies = append(dependencies, rel.TargetFactId)
@@ -355,7 +372,7 @@ func (s *contestScan) standingCounterFact(factID string) (bool, error) {
 			return fmt.Errorf("incoming relation: %w", err)
 		}
 		if rel.TargetFactId != factID {
-			return fmt.Errorf("incoming relation names target %s", rel.TargetFactId)
+			return nil // another target's edge (see contestReason)
 		}
 		if rel.Relation != types.RelationType_RELATION_TYPE_CONTRADICTS {
 			return nil
@@ -560,10 +577,12 @@ func (k Keeper) endContradiction(ctx context.Context, claim *types.Claim, integr
 // one starved, refunded challenge would freeze CONTESTED a fact whose check
 // finds no refuted dependency and is too large to finish, such as one with
 // more than 100k incoming relations. A refuted dependency is read first, so it
-// is never lost this way; only R1 is (a counter-fact accepted while the fact
-// was CHALLENGED, or a fact laundered before activation). If the status
-// before the challenge cannot be read (a challenge opened before activation
-// recorded no challenge_opened transition) the fact returns to CONTESTED.
+// is lost this way only if the fact's forward prefix alone exceeds the bound
+// (see contestReason); otherwise only R1 is lost (a counter-fact accepted
+// while the fact was CHALLENGED, or a fact laundered before activation). If
+// the status before the challenge cannot be read (a challenge opened before
+// activation recorded no challenge_opened transition) the fact returns to
+// CONTESTED.
 func (k Keeper) challengeEndStatus(ctx context.Context, fact *types.Fact, challenge *types.Claim, integrity, survived bool) types.FactStatus {
 	if !integrity || IsConjecture(fact) {
 		return RestoredStatusFor(fact)

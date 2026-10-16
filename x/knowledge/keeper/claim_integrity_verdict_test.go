@@ -681,6 +681,60 @@ func TestClaimIntegrity_SurvivalClearsNothingRefutedWhileTheChallengeWasOpen(t *
 	}
 }
 
+// vdShieldChallenge runs the SEC-1 shield challenge on F, which REQUIRES D. D
+// is challenged, and F one block later; D is refuted while F is CHALLENGED, so
+// the cascade skips F, and F's challenge then ends as ending says (reject,
+// malformed or starve). With the marker on, R2 finds D and F returns to
+// CONTESTED with a complete check. With it off F returns to ACTIVE, as
+// knowledge 11 does.
+func (f *v11Fixture) vdShieldChallenge(t *testing.T, integrity bool, tag, ending, claimF, factF, factD string) {
+	t.Helper()
+	cd := f.challenge(t, v11Addr("v12-vd-"+tag+"-cd"), factD)
+	f.nextBlock(t)
+	cf := f.challenge(t, v11Addr("v12-vd-"+tag+"-cf"), factF)
+	f.vdCommit(t, cd, "accept")
+	if ending != "starve" {
+		f.vdCommit(t, cf, ending)
+	}
+	rd, rf := f.roundOf(t, cd), f.roundOf(t, cf)
+	require.Equal(t, rd.CommitDeadline+1, rf.CommitDeadline, "D's round runs one block ahead of F's")
+	f.advanceTo(t, rd.CommitDeadline)
+	f.beginBlock(t)
+	f.vdReveal(t, cd, "accept")
+	f.advanceTo(t, rf.CommitDeadline)
+	f.beginBlock(t)
+	require.Equal(t, csDisproven, f.fact(t, factD).Status)
+	require.Equal(t, vdChallenged, f.fact(t, factF).Status, "the cascade skips a CHALLENGED fact")
+
+	f.freshEvents()
+	cause := "challenge_inconclusive"
+	if ending == "starve" {
+		f.starve(t, cf)
+	} else {
+		f.vdReveal(t, cf, ending)
+		f.advanceTo(t, rf.CommitDeadline+1)
+		f.beginBlock(t)
+		verdict := types.Verdict_VERDICT_MALFORMED
+		if ending == "reject" {
+			verdict, cause = types.Verdict_VERDICT_REJECT, "challenge_survived"
+		}
+		require.Equal(t, verdict, f.roundOf(t, cf).Verdict)
+	}
+	want := []v11Transition{{csUnspecified, csVerified, "verification", claimF}}
+	if !integrity {
+		require.Equal(t, vdActive, f.fact(t, factF).Status, "knowledge 11 restores F")
+		require.Equal(t, append(want, v11Transition{csVerified, vdChallenged, "unknown", ""}, v11Transition{vdChallenged, vdActive, "unknown", ""}), f.transitions(factF))
+		f.requireNoLiveRounds(t)
+		return
+	}
+	require.Equal(t, csContested, f.fact(t, factF).Status, "R2 finds the refuted dependency")
+	require.Equal(t, append(want,
+		v11Transition{csVerified, vdChallenged, "challenge_opened", cf},
+		v11Transition{vdChallenged, csContested, cause, cf}), f.transitions(factF))
+	require.Empty(t, v11Event(f.ctx, csIncompleteEvent), "the check finished")
+	f.requireNoLiveRounds(t)
+}
+
 // SEC-1 on a heavily cited fact (review G1, second pass). F REQUIRES D, and
 // more facts cite F than one contest check may read (the bound is lowered to 8
 // records). D is refuted while a challenge of F is open, so the cascade skips
@@ -700,50 +754,45 @@ func TestClaimIntegrity_ShieldChallengeOfHeavilyCitedFactLaundersNothing(t *test
 						SourceFactId: fmt.Sprintf("v12-vd-hub-citing-%02d", i), TargetFactId: factF, Relation: types.RelationType_RELATION_TYPE_CITES,
 					}))
 				}
-				cd := f.challenge(t, v11Addr("v12-vd-hub-cd"), factD)
-				f.nextBlock(t)
-				cf := f.challenge(t, v11Addr("v12-vd-hub-cf"), factF)
-				f.vdCommit(t, cd, "accept")
-				if ending != "starve" {
-					f.vdCommit(t, cf, ending)
-				}
-				rd, rf := f.roundOf(t, cd), f.roundOf(t, cf)
-				require.Equal(t, rd.CommitDeadline+1, rf.CommitDeadline, "D's round runs one block ahead of F's")
-				f.advanceTo(t, rd.CommitDeadline)
-				f.beginBlock(t)
-				f.vdReveal(t, cd, "accept")
-				f.advanceTo(t, rf.CommitDeadline)
-				f.beginBlock(t)
-				require.Equal(t, csDisproven, f.fact(t, factD).Status)
-				require.Equal(t, vdChallenged, f.fact(t, factF).Status, "the cascade skips a CHALLENGED fact")
+				f.vdShieldChallenge(t, sel.integrity, "hub", ending, claimF, factF, factD)
+			})
+		}
+	}
+}
 
-				f.freshEvents()
-				cause := "challenge_inconclusive"
-				if ending == "starve" {
-					f.starve(t, cf)
-				} else {
-					f.vdReveal(t, cf, ending)
-					f.advanceTo(t, rf.CommitDeadline+1)
-					f.beginBlock(t)
-					verdict := types.Verdict_VERDICT_MALFORMED
-					if ending == "reject" {
-						verdict, cause = types.Verdict_VERDICT_REJECT, "challenge_survived"
-					}
-					require.Equal(t, verdict, f.roundOf(t, cf).Verdict)
+// SEC-1 behind an augmentation edge (review G1, third pass). F REQUIRES D.
+// Augmentation IDs are chosen by their submitter, and a passing verdict
+// (ApplyFinalizedAugmentationVerdict) writes a REFORMULATES edge whose source
+// is the augmentation's ID. An augmentation named "<F>/0" therefore puts its
+// edge under F's forward-index prefix, next to F's own edges. With the marker
+// on new augmentations are refused, but one admitted before review neutrality
+// can still pass, so this one is written directly and only its verdict runs.
+// That entry is another source's edge: R2 skips it and still finds D, so the
+// shield challenge leaves F CONTESTED and the check complete. Before the fix
+// R2 failed on it, and the SEC-6 fallback returned F to ACTIVE. With the
+// marker off F returns to ACTIVE, as knowledge 11 does.
+func TestClaimIntegrity_ShieldChallengeBehindAugmentationEdgeLaundersNothing(t *testing.T) {
+	for _, sel := range dedupSelections {
+		for _, ending := range []string{"reject", "malformed", "starve"} {
+			t.Run(sel.name+"/"+ending, func(t *testing.T) {
+				f := sel.setup(t)
+				claimF, factF, factD := f.vdDependent(t, "aug")
+				augID := factF + "/0"
+				require.NoError(t, f.k.SetAugmentation(f.ctx, &types.Augmentation{
+					Id: augID, OriginalFactId: factD, VariantContent: "Synthetic v12 review G1: a variant of fact D whose ID extends fact F's.",
+				}))
+				require.NoError(t, f.k.ApplyFinalizedAugmentationVerdict(f.ctx, augID, types.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT))
+				outgoing, err := f.k.GetFactRelations(f.ctx, factF)
+				require.NoError(t, err)
+				var listed [][3]string
+				for _, rel := range outgoing {
+					listed = append(listed, [3]string{rel.SourceFactId, rel.TargetFactId, rel.Relation.String()})
 				}
-				want := []v11Transition{{csUnspecified, csVerified, "verification", claimF}}
-				if !sel.integrity {
-					require.Equal(t, vdActive, f.fact(t, factF).Status, "knowledge 11 restores F")
-					require.Equal(t, append(want, v11Transition{csVerified, vdChallenged, "unknown", ""}, v11Transition{vdChallenged, vdActive, "unknown", ""}), f.transitions(factF))
-					f.requireNoLiveRounds(t)
-					return
-				}
-				require.Equal(t, csContested, f.fact(t, factF).Status, "a refuted dependency is found before the bound")
-				require.Equal(t, append(want,
-					v11Transition{csVerified, vdChallenged, "challenge_opened", cf},
-					v11Transition{vdChallenged, csContested, cause, cf}), f.transitions(factF))
-				require.Empty(t, v11Event(f.ctx, csIncompleteEvent), "the check finished")
-				f.requireNoLiveRounds(t)
+				require.ElementsMatch(t, [][3]string{
+					{factF, factD, types.RelationType_RELATION_TYPE_REQUIRES.String()},
+					{augID, factD, types.RelationType_RELATION_TYPE_REFORMULATES.String()},
+				}, listed, "the augmentation's edge lies under F's prefix")
+				f.vdShieldChallenge(t, sel.integrity, "aug", ending, claimF, factF, factD)
 			})
 		}
 	}

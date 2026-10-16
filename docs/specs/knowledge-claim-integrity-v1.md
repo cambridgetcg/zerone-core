@@ -681,12 +681,25 @@ never returns an error and writes nothing.
   `TestClaimIntegrity_SurvivalClearsNothingRefutedWhileTheChallengeWasOpen`,
   `TestChallengeEndStatus`.
 - **Order.** R2 is read first, then R1, within one budget. A reason found by
-  either rule is conclusive, whatever the other could read. F's outgoing edges
-  are written with F, from its own claim, while R1 reads every incoming edge of
-  every type, so no number of facts citing F can hide a refuted dependency
-  behind the bound.
+  either rule is conclusive, whatever the other could read. R1 reads every
+  incoming edge of every type, which any later fact can add, so no number of
+  facts citing F can hide a refuted dependency behind the bound.
   Tests: `TestContestReasonFindingIsConclusive`,
   `TestClaimIntegrity_ShieldChallengeOfHeavilyCitedFactLaundersNothing`.
+- **Entries naming another fact.** F's forward-index prefix holds F's own
+  edges (from its claim, from genesis, and from an augmentation whose ID is
+  F's), and it can also hold edges whose source is another ID that starts
+  with `<F>/`. A passing augmentation writes a REFORMULATES edge whose source
+  is its user-chosen ID, so an augmentation named `<F>/0` puts one there. The
+  stored key is checked against the payload, and the payload names the edge's
+  owner. R2 skips an entry whose source is not F, and R1 skips an entry whose
+  target is not F; neither makes the check incomplete. A skipped entry still
+  counts toward the bound, so a refuted dependency can hide behind the bound
+  only if F's forward prefix nears it by itself, which would take about 100,000
+  passing augmentations admitted before review neutrality, which refuses new
+  ones.
+  Tests: `TestContestReasonSkipsForeignEdgesUnderTheFactsPrefix`,
+  `TestClaimIntegrity_ShieldChallengeBehindAugmentationEdgeLaundersNothing`.
 - **Failure handling.** When neither rule finds a reason, a read error, a
   malformed record, an edge naming a missing fact, or more than 100,000 records
   or 64 MiB read in one check all mean the reason remains, so no CONTESTED fact
@@ -785,10 +798,12 @@ tests above.
   `contest_check_incomplete` names it once. So one refunded, starved challenge
   cannot freeze CONTESTED a fact that has no refuted dependency and whose check
   is too large to finish, and an incomplete check releases nothing. A refuted
-  dependency is read before the incoming edges (§6.3), so it is never lost this
-  way. The cost is limited to R1: a fact against which a counter-fact was
-  accepted while it was CHALLENGED, or a fact laundered before activation,
-  returns to ACTIVE if its check also cannot finish. The residual: a fact
+  dependency is read before the incoming edges, and entries naming another
+  fact are skipped (§6.3), so it is lost this way only if F's forward prefix
+  alone exceeds the bound. Otherwise the cost is limited to R1: a fact against
+  which a counter-fact was accepted while it was CHALLENGED, or a fact
+  laundered before activation, returns to ACTIVE if its check also cannot
+  finish. The residual: a fact
   whose check is too large to finish, once CONTESTED, never returns to
   VERIFIED or ACTIVE, even after surviving a challenge opened after its
   refutation, because every release check reads the incoming edges; only a

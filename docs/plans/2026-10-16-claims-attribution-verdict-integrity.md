@@ -430,11 +430,22 @@ DISPROVEN can only come from a direct challenge on that fact.
     check use the same cutoff and the same comparison, so a survival never clears something
     that a later starved challenge would re-contest, nor the reverse.
 - **Order and conclusiveness.** R2 is read first, then R1, within one budget. A reason found by
-  either rule is conclusive, whatever the other could read. F's outgoing edges are written with
-  F from its own claim (at most `MaxRelationsPerClaim`), while R1 reads every incoming edge of
-  every type, so no number of facts citing F can hide a refuted dependency behind the bound
-  (review G1, second pass: with R1 first, a heavily cited fact's shield challenge laundered it
-  through the SEC-6 fallback).
+  either rule is conclusive, whatever the other could read. R1 reads every incoming edge of
+  every type, which any later fact can add, so with R1 first a heavily cited fact's shield
+  challenge laundered it through the SEC-6 fallback (review G1, second pass). F's own entries
+  under its forward prefix are its claim's edges (at most `MaxRelationsPerClaim`), genesis
+  edges, and the edge of an augmentation whose ID is F's, if one passed.
+- **Entries naming another fact are skipped.** The forward prefix `<F>/` can also hold edges
+  whose source is not F. A passing augmentation writes a REFORMULATES edge whose source is its
+  user-chosen ID (`ApplyFinalizedAugmentationVerdict`), so an ID `<F>/x` lands under F's prefix.
+  `validateToKStoredRecord` rebuilds the key from the payload, so the payload names the edge's
+  owner. R2 skips an entry whose source is not F, and R1 skips an entry whose target is not F,
+  instead of failing the check (review G1, third pass: treating it as an error made the check
+  incomplete before R2 reached F's refuted dependency, and the SEC-6 fallback returned F to
+  ACTIVE). A skipped entry is still read and counted toward the bound. A refuted dependency can
+  therefore hide behind the bound only if F's forward prefix nears the 100k-record bound by
+  itself. Review neutrality, a predecessor of 0x87, refuses new augmentations, so that would
+  take about 100k passing augmentations admitted before it.
 - **Failure handling.** When neither rule finds a reason, a read error, a malformed record, or
   exceeding the 100k-record / 64 MiB bound (the same bound as `hasOtherActiveChallenge`) all
   mean the reason remains (`true`). The predicate also emits
@@ -442,11 +453,12 @@ DISPROVEN can only come from a direct challenge on that fact.
   read. At a challenge's end the caller (`challengeEndStatus`) instead keeps F's standing from
   before the challenge (§5.2; review fix SEC-6), so one refunded, starved challenge cannot
   freeze CONTESTED a fact that has no refuted dependency and whose check is too large to finish
-  (more than 100k incoming relations of any type). The cost is limited to R1: a counter-fact
-  accepted while F was CHALLENGED, or a fact laundered before activation, is lost if the check
-  also cannot finish, and F returns to ACTIVE. The residual: once such a fact is CONTESTED, no
-  path returns it to VERIFIED or ACTIVE, because every release check reaches R1 and cannot
-  finish; only a challenge that refutes it moves it. Bounding R1 needs an index of CONTRADICTS
+  (more than 100k incoming relations of any type). The cost is limited to R1, apart from the
+  forward-prefix bound above: a counter-fact accepted while F was CHALLENGED, or a fact
+  laundered before activation, is lost if the check also cannot finish, and F returns to
+  ACTIVE. The residual: once such a fact is CONTESTED, no path returns it to VERIFIED or
+  ACTIVE, because every release check reaches R1 and cannot finish; only a challenge that
+  refutes it moves it. Bounding R1 needs an index of CONTRADICTS
   edges alone, which is a follow-up (§8).
 - **Pending contradictions are not reasons.**
 
@@ -1297,6 +1309,21 @@ Conventions that apply to every task:
     CONTESTED but now emit no `contest_check_incomplete` (D is found first). Four mutants
     (R1 first; an R2 error stops before R1; only the first error reported; an R2 error
     releases) each fail at least two tests.
+  - Third pass (review of `87557ceb`, must-fix): the second pass claimed that F's outgoing edges
+    come only from its own claim, so a refuted dependency is never lost to the SEC-6 fallback.
+    That was false. A passing augmentation writes a REFORMULATES edge whose source is its
+    user-chosen ID, so an augmentation named `<F>/0` puts an edge under F's forward prefix.
+    `refutedDependency` treated an entry whose source is not F as an error, the check was
+    incomplete before it reached D, and the SEC-6 fallback returned a shielded F to ACTIVE (the
+    error predates the second pass; G1's SEC-6 fallback made it laundering). Such an entry is
+    now skipped, and still charged. `standingCounterFact` skips an entry whose target is not F
+    the same way. Reachable with the marker on through an augmentation admitted before review
+    neutrality whose ballot finalizes afterwards, or one that passed before it. Tests:
+    `TestClaimIntegrity_ShieldChallengeBehindAugmentationEdgeLaundersNothing` (through
+    `ApplyFinalizedAugmentationVerdict`; reject, malformed, starved; marker-off twin) and
+    `TestContestReasonSkipsForeignEdgesUnderTheFactsPrefix`. The shield scenario is shared with
+    the heavily cited case (`vdShieldChallenge`). An augmentation whose ID equals a fact's ID is
+    a separate, pre-existing relation-graph defect, routed to §8.
 
 **Task 14 — Exclude conflicted reviewers (P5)** · consensus: yes
 - Files: `state.go`, `StoreCommitmentInRound` `:634-694`; new
@@ -1499,6 +1526,17 @@ Setup:
 - **A bounded R1.** An index of CONTRADICTS edges alone (a new store key), so that a fact with
   more than 100k incoming relations can leave CONTESTED once its reasons are gone (the residual
   of review fix SEC-6, §5.3).
+- **Relation-graph integrity for augmentation edges.** A passing augmentation writes a
+  REFORMULATES edge from its user-chosen ID to the augmented fact (`training_economics.go:772-783`),
+  and `SubmitAugmentation` checks that ID only against other augmentations. An augmentation
+  whose ID equals fact F's, augmenting D, writes to the same forward and reverse keys as F's own
+  edge to D. The store keeps one edge per pair, so it overwrites that edge, and D stops being a
+  cascade dependency of F, with the marker on or off (inferred from code, not probed). IDs that
+  extend F's (`<F>/x`) land under F's prefix; the contest check skips them (§5.3), but other
+  prefix readers such as `GetFactRelations` return them among F's outgoing relations (tested). Options: namespace augmentation edge
+  sources, or refuse augmentation IDs in the fact ID space. This is pre-existing, and review
+  neutrality already refuses new augmentations, but augmentations admitted before it can still
+  pass.
 - **Exempting attribution facts** from niche competition or metabolism.
 - **Making AT_RISK, EXPIRED or PRUNED facts challengeable.**
 - **Canonical form housekeeping:** cross-dedup between v1 and v2 forms, and repairing legacy

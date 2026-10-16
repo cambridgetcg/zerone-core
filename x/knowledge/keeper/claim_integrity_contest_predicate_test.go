@@ -449,6 +449,53 @@ func TestContestReasonFindingIsConclusive(t *testing.T) {
 	})
 }
 
+// An entry under F's prefix that names another fact is not one of F's edges
+// (review G1, third pass). validateToKStoredRecord rebuilds the key from the
+// payload, so such an entry's source (or target, in the reverse index) starts
+// with "<F>/": a passing augmentation whose user-chosen ID extends F's writes
+// one (ApplyFinalizedAugmentationVerdict). Both rules skip it, so it neither
+// hides a refuted dependency nor becomes a reason. It is still read, so it
+// still counts toward the bound.
+func TestContestReasonSkipsForeignEdgesUnderTheFactsPrefix(t *testing.T) {
+	foreign := contestF + "/0"
+	t.Run("foreign source before a refuted dependency", func(t *testing.T) {
+		f := newContestPredicateFixture(t)
+		f.disprove("dependency-d", 50)
+		f.putRelation(foreign, "dependency-d", types.RelationType_RELATION_TYPE_REFORMULATES)
+		f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
+		for _, survivedAt := range []uint64{0, 50} {
+			require.True(t, f.remainsAt(survivedAt), "survivedAt %d", survivedAt)
+		}
+		require.False(t, f.remainsAt(51), "cleared by a later survival")
+		require.True(t, f.remainsSinceLastSurvival(), "never survived")
+	})
+	t.Run("foreign dependency edge is not F's", func(t *testing.T) {
+		f := newContestPredicateFixture(t)
+		f.disprove("dependency-x", 50)
+		f.putRelation(foreign, "dependency-x", types.RelationType_RELATION_TYPE_REQUIRES)
+		require.False(t, f.remainsAt(0))
+		require.False(t, f.remainsSinceLastSurvival())
+	})
+	t.Run("foreign target under the reverse prefix", func(t *testing.T) {
+		f := newContestPredicateFixture(t)
+		f.putFact("counter-k", types.FactStatus_FACT_STATUS_VERIFIED)
+		f.putRelation("counter-k", foreign, types.RelationType_RELATION_TYPE_CONTRADICTS)
+		require.False(t, f.remainsSinceLastSurvival())
+	})
+	t.Run("foreign entries count toward the bound", func(t *testing.T) {
+		const bound = 8
+		f := newContestPredicateFixture(t)
+		SetContestScanMaxRecordsForTest(t, bound)
+		for i := 0; i <= bound; i++ {
+			f.putRelation(fmt.Sprintf("%s/%02d", contestF, i), "dependency-x", types.RelationType_RELATION_TYPE_REFORMULATES)
+		}
+		remains, incomplete := f.check(f.k.contestReasonRemainsSinceLastSurvival)
+		require.True(t, remains, "with no reason found, the bound still means the reason remains")
+		require.Len(t, incomplete, 1)
+		require.Contains(t, incomplete[0]["reason"], "contest scan exceeds record bound")
+	})
+}
+
 // contestEventsOf returns the attributes of every event of eventType on ctx.
 func contestEventsOf(ctx sdk.Context, eventType string) []map[string]string {
 	var out []map[string]string
