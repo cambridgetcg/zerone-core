@@ -17,7 +17,9 @@ import (
 //   - Frozen fee-granter enforcement before fee deduction
 //   - DID resolution and validation
 //   - Frozen account enforcement + LastActiveBlock tracking
-//   - Account capability enforcement
+//   - Account capability enforcement (with knowledge claim integrity on,
+//     MsgSubmitContradiction and MsgChallengeProvisionalFact are gated like
+//     MsgChallengeFact)
 //   - Funding-correlation telemetry (observational; never applied to vote weight)
 func NewAnteHandler(app *ZeroneApp) sdk.AnteHandler {
 	return sdk.ChainAnteDecorators(
@@ -66,6 +68,7 @@ func NewAnteHandler(app *ZeroneApp) sdk.AnteHandler {
 		// --- Zerone Post-Auth (signer authenticated) ---
 		NewZeroneDIDDecorator(app.ZeroneAuthKeeper),
 		NewZeroneAccountDecorator(app.ZeroneAuthKeeper),
-		NewZeroneCapabilityDecorator(app.ZeroneAuthKeeper),
+		NewZeroneCapabilityDecorator(app.ZeroneAuthKeeper).
+			WithClaimIntegrityGate(app.KnowledgeKeeper.ClaimIntegrityEnabled),
 	)
 }

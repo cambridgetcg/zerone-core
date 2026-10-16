@@ -930,6 +930,28 @@ Conventions that apply to every task:
   - Wire it as `app.KnowledgeKeeper.ClaimIntegrityEnabled`.
   - `MsgPostConjecture` is deliberately not gated (§8).
 - Acceptance: `go test ./app/...` is green.
+- Done in Task 11:
+  - `isClaimIntegrityDisputeMsg` names the two messages. They stay out of
+    `isZeroneSpecificMsg`, so without the gate they keep the legacy default-allow.
+    `WithClaimIntegrityGate` returns a copy of the decorator. A decorator built without it
+    (a nil gate) never reads anything and behaves as before; only `NewAnteHandler` wires it.
+  - The gate is read whenever a tx carries a dispute message, once per tx whatever the number
+    of signers and messages, before the account lookup, even when the signer would be allowed
+    either way. A read error refuses the tx as
+    `read claim integrity gate for dispute message: <cause>`. Simulation skips the decorator,
+    as before, so it never reads the gate.
+  - Cost with the marker off: one 0x87 read (gas) in the ante of a tx that carries a dispute
+    message. Nothing is written, so the Task 2 digest is unaffected.
+  - Tests beyond the list: `TestAnteIntegration_ClaimIntegrityGateWiredToKnowledgeMarker`
+    runs the complete `NewAnteHandler` chain with a signed tx on a `DefaultGenesis` app. An
+    unregistered signer is refused with the onboard hint, admitted once 0x87 is deleted, and
+    refused when 0x87 is `{2}`; `MsgPostConjecture` is admitted with the marker on. With the
+    gate on, each refusal has exactly `MsgChallengeFact`'s text. The spy test also checks that
+    ten other message types give the legacy decision for unregistered, contract and human
+    signers. Mutants (gate ignored for registered accounts, gate read for every message, no
+    memo, read error treated as off) each fail at least one test.
+  - No existing test changed. The ante files are not authority-geometry anchors, so nothing new
+    needs re-pinning.
 
 **Task 12 — Contradictions contest only when accepted; contest-reason predicate (P3b)** · consensus: yes
 - Files:
