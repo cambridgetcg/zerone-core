@@ -20,6 +20,9 @@ How certain each claim is:
   - FactByCanonical misses accepted structured claims. `rounds.go:299` re-saves the claim after
     `rounds.go:799` pointed 0x34 at the fact, and that re-save points it back at the claim ID.
   - Genesis import order decides which duplicate the 0x09 index points to.
+    Settled in Task 8 (review): true, and with status-aware checks it let a duplicate in after
+    export and import. With the flag on, `InitGenesis` now replays claims in admission order;
+    `TestClaimIntegrity_ImportReplaysAdmissionOrder` covers it.
   - An attribution niche can be pruned once it holds more than 10 facts.
 
 Each inferred item has either a test that settles it or a note that it is out of scope.
@@ -711,6 +714,21 @@ Conventions that apply to every task:
   - Until Task 10, a contradiction's first save still takes a live claim's 0x09 entry
     (P1ext).
   - `msg_server.go` and `rounds.go` anchors re-pinned as described in Task 6.
+  - Review fix, outside the file list: `genesis.go`. A genesis file lists claims in claim-ID
+    order, and `InitGenesis` replays each claim's first save, so the claim listed last took
+    0x09/0x34 even when it was an old terminal claim. A third copy was then admitted while the
+    resubmission was live or its fact stood. With `gs.ClaimIntegrityEnabled`, `InitGenesis`
+    now replays a copy of the claims stably sorted by (`SubmittedAtBlock`, ID). With the flag
+    off the file order is kept, so the Task 2 digest does not change.
+    `TestClaimIntegrity_ImportReplaysAdmissionOrder` imports the file in its exported order and
+    reversed, with the flag on and off.
+  - After import, 0x34 for an accepted claim names the claim, not its fact. Both decide the
+    same way: the claim resolves to the same fact through its round, and `DeleteFact` has no
+    caller outside tests.
+    `FactByCanonical` still returns the fact through its fallback scan.
+  - Residual: two same-hash claims admitted in one block are ordered by ID, not tx order. With
+    the marker on this needs the P1ext contradiction path, which Task 10 closes.
+  - Review nit: tests now cover an ACCEPTED claim with no round and an unreadable round record.
 
 **Task 9 — Canonical form v2 (P2)** · consensus: yes; the query part is not
 - Files:

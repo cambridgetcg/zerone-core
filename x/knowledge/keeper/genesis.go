@@ -1,8 +1,10 @@
 package keeper
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -277,7 +279,15 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 			return err
 		}
 	}
-	for _, claim := range gs.PendingClaims {
+	claims := gs.PendingClaims
+	if gs.ClaimIntegrityEnabled {
+		// Each claim's first save below takes its dedup entries, and the file
+		// lists claims in ID order. Replay them in admission order so every
+		// entry names the latest admitted record again (plan §5.4). With the
+		// flag off the file order is kept, as on knowledge 11.
+		claims = claimsInAdmissionOrder(gs.PendingClaims)
+	}
+	for _, claim := range claims {
 		if claim == nil {
 			continue
 		}
@@ -293,6 +303,24 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	}
 
 	return nil
+}
+
+// claimsInAdmissionOrder returns the non-nil claims stably sorted by
+// SubmittedAtBlock, then ID. The input slice is not modified.
+func claimsInAdmissionOrder(claims []*types.Claim) []*types.Claim {
+	ordered := make([]*types.Claim, 0, len(claims))
+	for _, claim := range claims {
+		if claim != nil {
+			ordered = append(ordered, claim)
+		}
+	}
+	slices.SortStableFunc(ordered, func(a, b *types.Claim) int {
+		if c := cmp.Compare(a.SubmittedAtBlock, b.SubmittedAtBlock); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Id, b.Id)
+	})
+	return ordered
 }
 
 // ensureGenesisFundBalance brings a module account up to its declared genesis

@@ -1,10 +1,13 @@
 package keeper_test
 
 import (
+	"fmt"
+	"slices"
 	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
@@ -309,6 +312,31 @@ func TestClaimIntegrity_ClaimStatusDecidesWhetherEntryBlocks(t *testing.T) {
 		require.EqualError(t, err, "duplicate claim: content hash matches existing claim "+x+
 			" (status CLAIM_STATUS_ACCEPTED; round "+round.Id+" missing)")
 	})
+	// So does an ACCEPTED claim that names no round at all. SetClaim never
+	// clears a funded claim's round, so the record is planted directly.
+	f.inCache(func() {
+		claim := f.claim(t, x)
+		claim.Status = types.ClaimStatus_CLAIM_STATUS_ACCEPTED
+		claim.VerificationRoundId = ""
+		bz, err := proto.Marshal(claim)
+		require.NoError(t, err)
+		f.ctx.KVStore(f.key).Set(types.ClaimKey(x), bz)
+		_, err = f.submitClaim(v11Addr("v12-dd-probe"), text, dedupDomain, nil)
+		require.EqualError(t, err, "duplicate claim: content hash matches existing claim "+x+
+			" (status CLAIM_STATUS_ACCEPTED; no round)")
+	})
+	// An unreadable round record is returned to the tx and writes nothing.
+	f.inCache(func() {
+		claim := f.claim(t, x)
+		claim.Status = types.ClaimStatus_CLAIM_STATUS_ACCEPTED
+		require.NoError(t, f.k.SetClaim(f.ctx, claim))
+		f.ctx.KVStore(f.key).Set(types.RoundKey(round.Id), []byte{0xff, 0xff, 0xff})
+		before, _ := f.storeDigest(t)
+		_, err := f.submitClaim(v11Addr("v12-dd-probe"), text, dedupDomain, nil)
+		require.ErrorContains(t, err, "dedup index entry "+x+": read round "+round.Id+": ")
+		after, _ := f.storeDigest(t)
+		require.Equal(t, before, after)
+	})
 	f.starve(t, x)
 	f.requireNoLiveRounds(t)
 }
@@ -508,5 +536,93 @@ func TestClaimIntegrity_ConjectureDedupParity(t *testing.T) {
 			f.starve(t, y)
 			f.requireNoLiveRounds(t)
 		})
+	}
+}
+
+// Export then import keeps the §5.4 rule that a dedup entry names the latest
+// admitted record. A genesis file lists claims in claim-ID order and
+// InitGenesis replays each claim's first save. With the flag on it replays
+// them in admission order (SubmittedAtBlock, then ID), so whatever order the
+// file lists them in, a starved claim never takes the entries back from its
+// resubmission, and a third copy is still refused while the resubmission is
+// live or its fact stands. With the flag off the file order still decides
+// (knowledge 11) and every entry blocks. After import 0x34 names the accepted
+// claim rather than its fact: it decides the same way, and FactByCanonical
+// still returns the fact.
+func TestClaimIntegrity_ImportReplaysAdmissionOrder(t *testing.T) {
+	f := setupClaimIntegrityTest(t)
+	const (
+		text  = "Synthetic v12 probe P1: statement E, starved, resubmitted, exported and imported."
+		other = "Synthetic v12 probe P1: a second lab words statement E differently after import."
+	)
+	structured := dedupStructured("import probe sample E")
+	x := f.mustSubmitClaim(t, v11Addr("v12-ei-author"), text, dedupDomain, structured)
+	claimX := f.claim(t, x)
+	contentKey, canonicalKey := types.ContentHashKey(claimX.ContentHash), types.CanonicalHashKey(claimX.CanonicalHash)
+	f.starve(t, x)
+	y := f.mustSubmitClaim(t, v11Addr("v12-ei-resubmit"), text, dedupDomain, structured)
+	require.Greater(t, f.claim(t, y).SubmittedAtBlock, claimX.SubmittedAtBlock)
+	require.Equal(t, y, f.entry(contentKey))
+	require.Equal(t, y, f.entry(canonicalKey))
+	live, liveHeight := f.k.ExportGenesis(f.ctx), f.ctx.BlockHeight()
+	factF := f.accept(t, y, v11Reviewers()...)
+	require.Equal(t, factF, f.entry(canonicalKey))
+	accepted, acceptedHeight := f.k.ExportGenesis(f.ctx), f.ctx.BlockHeight()
+	f.requireNoLiveRounds(t)
+
+	for _, export := range []struct {
+		name   string
+		gs     *types.GenesisState
+		height int64
+		status string
+	}{
+		{"resubmission live", live, liveHeight, "CLAIM_STATUS_IN_VERIFICATION"},
+		{"resubmission accepted", accepted, acceptedHeight, "CLAIM_STATUS_ACCEPTED; fact " + factF + " FACT_STATUS_VERIFIED"},
+	} {
+		for _, on := range []bool{true, false} {
+			for _, reversed := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/flag=%t/reversed=%t", export.name, on, reversed), func(t *testing.T) {
+					gs := proto.Clone(export.gs).(*types.GenesisState)
+					require.True(t, gs.ClaimIntegrityEnabled)
+					gs.ClaimIntegrityEnabled = on
+					if reversed {
+						slices.Reverse(gs.PendingClaims)
+					}
+					var listed []string
+					for _, claim := range gs.PendingClaims {
+						listed = append(listed, claim.Id)
+					}
+					require.ElementsMatch(t, []string{x, y}, listed)
+					g := newClaimIntegrityGenesisFixture(t, "claim-integrity-dedup-import", gs)
+					for i, claim := range gs.PendingClaims {
+						require.Equal(t, listed[i], claim.Id, "InitGenesis does not reorder the caller's file")
+					}
+					g.advanceTo(t, uint64(export.height))
+					require.Equal(t, on, g.claimIntegrityEnabled(t))
+
+					if !on {
+						last := listed[len(listed)-1]
+						require.Equal(t, last, g.entry(contentKey), "the file order decides (knowledge 11)")
+						require.Equal(t, last, g.entry(canonicalKey))
+						g.requireSubmitRefused(t, v11Addr("v12-ei-copy"), text, nil,
+							"duplicate claim: content hash matches existing claim "+last)
+						g.requireSubmitRefused(t, v11Addr("v12-ei-lab-b"), other, structured,
+							"canonical duplicate: matches existing claim "+last)
+						return
+					}
+					require.Equal(t, y, g.entry(contentKey), "the latest admission takes the entry whatever the file order")
+					require.Equal(t, y, g.entry(canonicalKey))
+					g.requireSubmitRefused(t, v11Addr("v12-ei-copy"), text, nil,
+						"duplicate claim: content hash matches existing claim "+y+" (status "+export.status+")")
+					g.requireSubmitRefused(t, v11Addr("v12-ei-lab-b"), other, structured,
+						"canonical duplicate: matches existing claim "+y+" (status "+export.status+")")
+					if export.gs == accepted {
+						response, err := keeper.NewQueryServerImpl(g.k).FactByCanonical(g.ctx, &types.QueryFactByCanonicalRequest{CanonicalHash: claimX.CanonicalHash})
+						require.NoError(t, err)
+						require.Equal(t, factF, response.Fact.Id)
+					}
+				})
+			}
+		}
 	}
 }
