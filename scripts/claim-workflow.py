@@ -212,12 +212,29 @@ def excerpt_digest(excerpt):
     return "sha256:" + hashlib.sha256(unicodedata.normalize("NFC", excerpt).encode("utf-8")).hexdigest()
 
 
+# Unicode Default_Ignorable_Code_Point (DerivedCoreProperties.txt); its reserved
+# ranges are fixed by Unicode's stability policy. Python's unicodedata lacks it.
+DEFAULT_IGNORABLE = frozenset(code for low, high in (
+    (0x00AD, 0x00AD), (0x034F, 0x034F), (0x061C, 0x061C), (0x115F, 0x1160), (0x17B4, 0x17B5),
+    (0x180B, 0x180F), (0x200B, 0x200F), (0x202A, 0x202E), (0x2060, 0x206F), (0x3164, 0x3164),
+    (0xFE00, 0xFE0F), (0xFEFF, 0xFEFF), (0xFFA0, 0xFFA0), (0xFFF0, 0xFFF8), (0x1BCA0, 0x1BCA3),
+    (0x1D173, 0x1D17A), (0xE0000, 0xE0FFF)) for code in range(low, high + 1))
+
+
 def guard_tokens(text):
-    # NFKC, casefold, every character outside Unicode letters (L*) and decimal
-    # digits (Nd) becomes a space, then split on whitespace.
-    folded = unicodedata.normalize("NFKC", text).casefold()
-    return "".join(ch if unicodedata.category(ch)[0] == "L" or unicodedata.category(ch) == "Nd" else " "
-                   for ch in folded).split()
+    # NFKD, casefold, NFKD. Then delete every combining mark (M*), format
+    # character (Cf) and default-ignorable code point, so none can split a word.
+    # Every other character outside letters (L*) and decimal digits (Nd) becomes
+    # a space; split on whitespace. NFKD never recomposes, so a deletion cannot
+    # create a new composition, and excerpt and field fold to the same base letters.
+    folded = unicodedata.normalize("NFKD", unicodedata.normalize("NFKD", text).casefold())
+    kept = []
+    for ch in folded:
+        category = unicodedata.category(ch)
+        if category[0] == "M" or category == "Cf" or ord(ch) in DEFAULT_IGNORABLE:
+            continue
+        kept.append(ch if category[0] == "L" or category == "Nd" else " ")
+    return "".join(kept).split()
 
 
 def quote_guard(excerpt, fields):
@@ -987,7 +1004,9 @@ def parser():
     command.add_argument("--excerpt-file", help=EXCERPT_HELP + " Required with --broadcast; must match excerpt_sha256.")
     command.add_argument("--method", default="M-HISTORICAL", help="Registered methodology (default M-HISTORICAL).")
     command.add_argument("--category", default="empirical", choices=CLAIM_CATEGORIES)
-    command.add_argument("--broadcast", action="store_true", help="Sign and broadcast through the submit path (needs --home).")
+    mode = command.add_mutually_exclusive_group()
+    mode.add_argument("--dry-run", action="store_true", help="Explicit form of the default: sign, save and broadcast nothing.")
+    mode.add_argument("--broadcast", action="store_true", help="Sign and broadcast through the submit path (needs --home).")
     command.add_argument("--home", help="claims-v1 local home; used only with --broadcast.")
     command.add_argument("--wait", type=int, default=30, help="Seconds to observe a single broadcast (1–120).")
     command.add_argument("--resubmit-after", help="With --broadcast: replace this retained terminal submit hash once.")

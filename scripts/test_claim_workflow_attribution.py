@@ -14,6 +14,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import unicodedata
 import unittest
 from unittest import mock
 
@@ -230,6 +231,79 @@ class QuoteGuardTests(unittest.TestCase):
             self.assertNotIn(word, message.lower() if word.islower() else message)
         self.assertIn("fact_content", message)
 
+    # Review of Task 4: a format character used to become a space, so it split a
+    # word and a verbatim quote slipped under the 8-token window.
+    def test_soft_hyphen_in_a_field_does_not_hide_a_quote(self):
+        field = "Note: THE puri\u00adfied com\u00adpound Z, was ob\u00adserved to BOIL in that study."
+        self.assertIn("purified", workflow.guard_tokens(field))
+        with self.assertRaisesRegex(workflow.WorkflowError, "8 consecutive excerpt tokens"):
+            workflow.quote_guard(EXCERPT, [("fact_content", field)])
+
+    def test_soft_hyphen_in_the_excerpt_does_not_hide_a_quote(self):
+        excerpt = EXCERPT.replace("purified", "puri\u00adfied").replace("observed", "ob\u00adserved")
+        self.assertEqual(workflow.guard_tokens(excerpt), workflow.guard_tokens(EXCERPT))
+        with self.assertRaisesRegex(workflow.WorkflowError, "8 consecutive excerpt tokens"):
+            workflow.quote_guard(excerpt, [("fact_content", EIGHT)])
+
+    def test_zero_width_and_other_default_ignorables_are_deleted(self):
+        # Every format character (Cf), including ones that are not default-ignorable
+        # (U+0600, U+FFF9), and every Default_Ignorable_Code_Point: Mn variation
+        # selectors and CGJ, Lo Hangul fillers, reserved Cn ones, and tags.
+        hidden = ("\u200b", "\u200c", "\u200d", "\u2060", "\ufeff", "\u180e", "\u061c", "\u202e", "\u2066",
+                  "\u2065", "\u0600", "\ufff9", "\U0001d173", "\U000e0001", "\U000e0020", "\U000e0100",
+                  "\ufe0f", "\u034f", "\u180b", "\u17b4", "\u115f", "\u1160", "\u3164", "\uffa0", "\ufff0")
+        for ch in hidden:
+            with self.subTest(code_point=f"U+{ord(ch):04X}"):
+                self.assertEqual(workflow.guard_tokens(f"puri{ch}fied{ch} com{ch}pound"), ["purified", "compound"])
+                field = f"Note: THE puri{ch}fied compound Z, was ob{ch}served to BOIL in that study."
+                with self.assertRaisesRegex(workflow.WorkflowError, "8 consecutive excerpt tokens"):
+                    workflow.quote_guard(EXCERPT, [("fact_content", field)])
+                excerpt = EXCERPT.replace("compound", f"com{ch}pound")
+                with self.assertRaisesRegex(workflow.WorkflowError, "8 consecutive excerpt tokens"):
+                    workflow.quote_guard(excerpt, [("fact_content", EIGHT)])
+
+    def test_combining_marks_left_after_nfkc_are_deleted(self):
+        # These marks have no precomposed form, so NFKC keeps them (U+0332 low
+        # line, U+0336 long stroke overlay, U+20DD enclosing circle, U+0489).
+        for mark in ("\u0332", "\u0336", "\u20dd", "\u0489"):
+            with self.subTest(code_point=f"U+{ord(mark):04X}"):
+                self.assertIn(mark, unicodedata.normalize("NFKC", "p" + mark))
+                field = f"Note: THE p{mark}urified compound Z{mark}, was obs{mark}erved to BOIL in that study."
+                self.assertIn("purified", workflow.guard_tokens(field))
+                with self.assertRaisesRegex(workflow.WorkflowError, "8 consecutive excerpt tokens"):
+                    workflow.quote_guard(EXCERPT, [("fact_content", field)])
+                excerpt = EXCERPT.replace("compound", f"co{mark}mpound")
+                with self.assertRaisesRegex(workflow.WorkflowError, "8 consecutive excerpt tokens"):
+                    workflow.quote_guard(excerpt, [("fact_content", EIGHT)])
+        # Marks that do compose are folded the same way, whatever their order or a
+        # soft hyphen between base and mark: the guard compares base letters.
+        for variant in ("bo\u0308il", "böil", "bo\u00ad\u0308il", "bo\u0308\u0332il", "bo\u0332\u0308il"):
+            with self.subTest(variant=variant):
+                self.assertEqual(workflow.guard_tokens(variant), ["boil"])
+        accented = "Le composé pur a été observé à bouillir à 78,4 degrés."
+        for field in (accented, unicodedata.normalize("NFD", accented),
+                      "Le compose pur a ete observe a bouillir a 78,4 degres."):
+            with self.subTest(field=field), self.assertRaisesRegex(workflow.WorkflowError, "8 consecutive"):
+                workflow.quote_guard(accented, [("review reason", field)])
+
+    def test_marks_inside_words_keep_scripts_whole_and_normalisation_is_idempotent(self):
+        # Vowel signs and viramas (Mc/Mn) no longer cut words into fragments.
+        self.assertEqual(len(workflow.guard_tokens("ह\u093fन\u094dद\u0940 भ\u093eष\u093e")), 2)
+        hangul = "한국어 문장"
+        jamo = unicodedata.normalize("NFD", hangul)
+        self.assertEqual(workflow.guard_tokens(jamo[:1] + "\u00ad\u0332" + jamo[1:]), workflow.guard_tokens(hangul))
+        corpus = (EXCERPT, EIGHT, PROPOSITION, "Ⅷ ½ ① ﬁne Åßİstanbul",
+                  "puri\u00adfied \u200bzero\u2060width\ufeff", "p\u0332u\u0336r\u20ddi\u0308féied",
+                  "ह\u093fन\u094dद\u0940", hangul, "ᾼ\u0345 Σσς")
+        for text in corpus:
+            with self.subTest(text=text):
+                tokens = workflow.guard_tokens(text)
+                self.assertTrue(tokens)
+                self.assertEqual(workflow.guard_tokens(" ".join(tokens)), tokens)
+                for token in tokens:
+                    self.assertTrue(all(unicodedata.category(ch)[0] == "L" or unicodedata.category(ch) == "Nd"
+                                        for ch in token), token)
+
 
 class AttributionWorkflowTests(unittest.TestCase):
     def setUp(self):
@@ -372,6 +446,8 @@ class AttributionWorkflowTests(unittest.TestCase):
                 self.assertEqual(args.excerpt_file, "e.txt")
         args = parser.parse_args(["attribute", "--record", "r.json"])
         self.assertEqual((args.broadcast, args.method, args.category, args.home), (False, "M-HISTORICAL", "empirical", None))
+        self.assertIs(args.dry_run, False)
+        self.assertIs(parser.parse_args(["attribute", "--dry-run", "--record", "r.json"]).dry_run, True)
 
 
 class AttributionCommandTests(unittest.TestCase):
@@ -406,6 +482,21 @@ class AttributionCommandTests(unittest.TestCase):
         unguarded = self.run_script("--record", self.record_path)
         self.assertEqual(unguarded.returncode, 0, unguarded.stderr)
         self.assertIsNone(json.loads(unguarded.stdout)["quote_guard"])
+
+    def test_explicit_dry_run_flag_is_a_no_op_and_conflicts_with_broadcast(self):
+        # Plan §7 #16 spells the dry run `attribute --dry-run`; it is the default.
+        default = self.run_script("--record", self.record_path, "--excerpt-file", self.excerpt_path)
+        explicit = self.run_script("--dry-run", "--record", self.record_path, "--excerpt-file", self.excerpt_path)
+        self.assertEqual(explicit.returncode, 0, explicit.stderr)
+        self.assertEqual(explicit.stdout, default.stdout)
+        self.assertIs(json.loads(explicit.stdout)["dry_run"], True)
+        missing_home = self.root / "no-such-home"
+        both = self.run_script("--dry-run", "--broadcast", "--record", self.record_path,
+                               "--excerpt-file", self.excerpt_path, "--home", missing_home)
+        self.assertEqual(both.returncode, 2)
+        self.assertIn("--dry-run", both.stderr)
+        self.assertEqual(both.stdout, "")
+        self.assertFalse(missing_home.exists())
 
     def test_eight_excerpt_words_in_a_field_are_refused_before_signing(self):
         smuggled = record(source_version__work="doi:10.1000/the-purified-compound-z-was-observed-to-boil")

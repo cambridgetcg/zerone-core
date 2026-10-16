@@ -337,8 +337,17 @@ same algorithm.
   challenge or review reason) is refused if, after normalisation, it contains:
   - any window of **8 consecutive excerpt tokens**; or
   - the whole excerpt, when the excerpt has fewer than 8 tokens.
-  Normalisation is NFKC, casefold, every non-letter/non-digit replaced by a space, then split on
-  whitespace.
+  Normalisation is applied identically to the excerpt and to each field: NFKD, casefold, NFKD;
+  then **delete** every combining mark (M\*), every format character (Cf) and every
+  Default_Ignorable_Code_Point (soft hyphen, ZWSP/ZWJ/ZWNJ, word joiner, BOM, bidi controls,
+  variation selectors, Hangul fillers, tags); then every remaining character that is not a
+  letter (L\*) or decimal digit (Nd) becomes a space; then split on whitespace. Deleting, rather
+  than spacing, means a hidden character cannot split a word. Folding to base letters means a
+  composed, decomposed or unaccented copy of a quote matches the same window. (Changed after
+  the Task 4 review; it was NFKC with every non-letter/non-digit spaced, so a soft hyphen hid
+  a quote. See "Follow-up to Task 4".) Category data comes from the running Python's
+  `unicodedata` (Unicode 14 on 3.11); a code point assigned in a later Unicode version can
+  tokenize differently between runtimes.
 - Receipts record only the guard version and the excerpt's sha256.
 
 Reviewers back this up on chain by voting MALFORMED. A third-party client can skip the guard;
@@ -544,6 +553,18 @@ Conventions that apply to every task:
   category `empirical`. Never send `--canonical`.
 - Acceptance: the new and existing `scripts/test_claim_workflow*.py` are green. Tests use no
   network.
+- Follow-up to Task 4 (review finding):
+  - The guard turned format characters into spaces, so a verbatim quote with soft hyphens
+    (or ZWSP, U+2060, U+FEFF) split its words and passed the 8-token window. §4.7 now
+    deletes marks, format characters and default-ignorable code points after NFKD, the same
+    way for excerpt and field. The default-ignorable table matches one derived from Go's
+    Unicode 15 tables. New red tests cover a soft hyphen in the excerpt and in a field, ZWSP
+    and the other default-ignorables, combining marks that NFKC keeps, accent folding,
+    whole Devanagari/Hangul words, and idempotence.
+  - `QUOTE_GUARD_VERSION` stays `zerone.quote-guard/v1`: v1 has not left this branch, so
+    it is redefined before merge rather than bumped.
+  - `attribute --dry-run` is accepted as an explicit no-op (a dry run is the default), as §7
+    #16 spells it. With `--broadcast` it is a usage error (exit 2).
 
 ### Phase B — activation (consensus)
 
@@ -966,7 +987,7 @@ Setup:
 | 13 | P5: reviewer1 submits T and commits on it (`p5-T-round`) | commit accepted and paid | reviewer1's commit is refused with "is a party to claim". reviewers 2–4 complete the round, and only non-parties are paid. On the challenge-of-F round, F's submitter's commit is refused. |
 | 14 | P6: F history (`p3-F-history-after-B-expiry`) | `cascade` with an empty cause_id; `verification` carrying F's own claim ID | Each transition has the exact cause and ID from §5.2. No empty cause_id on any contradiction or challenge transition. |
 | 15 | P4: a DOI in `references` (`p4-refs-doi-r1`) | refused | Unchanged (refused). A DOI in structure or tags is still accepted. |
-| 16 | Attribution round trip | — | `claim-workflow attribute --dry-run` prints the §4.2 fields. Broadcast proposition P and attribution A1. `ClaimHistory(P)` lists A1 under `structure.object`. A variant carrying 8 excerpt words is refused before signing, and the excerpt does not appear in any artifact. |
+| 16 | Attribution round trip | — | `claim-workflow attribute --dry-run` (the default; the flag is an explicit no-op) prints the §4.2 fields. Broadcast proposition P and attribution A1. `ClaimHistory(P)` lists A1 under `structure.object`. A variant carrying 8 excerpt words is refused before signing, and the excerpt does not appear in any artifact. |
 | 17 | Export and import | — | `zeroned export` on the stopped sandbox shows the flag as true. Import into a fresh home starts, and has no `migration_v12_complete` (no invented receipt). |
 | 18 | Upgrade rehearsal (required before any dev-1 scheduling; recommended for this branch) | — | Start a v11 sandbox from an a4272bf binary. Pass a gov plan `knowledge-claim-integrity-v1` at H with empty info. The chain halts at H. Swap in the branch binary. At H: `0x87=01` and `migration_v12_complete=true`, and the export diff against H−1 shows only those keys plus the version map and heights. The branch binary refuses a v11 home that is not at H−1. Repeat from a 5542b22 sandbox if local-node supports it; otherwise record BLOCKED. |
 | 19 | Isolation | `version` wrote `$HOME/.zeroned` | `stat` of the real `~/.zeroned` and `~/.zerone-nodes` is unchanged. The fake HOME has no `.zeroned` from the version probe. |
