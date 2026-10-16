@@ -20,6 +20,7 @@ import socket
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 import tomllib
 import urllib.error
@@ -179,6 +180,17 @@ def public_info(home: Path, manifest: dict) -> dict:
                if manifest.get("knowledge_profile") else {})}
 
 
+def source_version(source: Path) -> str:
+    # The SDK root command creates its home even for `version`; without an
+    # explicit throwaway home it writes the operator's real ~/.zeroned.
+    with tempfile.TemporaryDirectory(prefix="zerone-version-probe-") as probe:
+        version = subprocess.run([str(source), "version", "--long", "--home", probe], text=True,
+                                 capture_output=True, timeout=30, env={**os.environ, "HOME": probe})
+    if version.returncode or not re.search(r"(?m)^cosmos_sdk_version:\s*v0\.53\.", version.stdout):
+        raise LocalNodeError("Use the source-built SDK 0.53 Zerone binary for this local sandbox, not a legacy network executable.")
+    return version.stdout
+
+
 def initialize(args) -> None:
     home = home_path(args.home)
     if getattr(args, "fast_review", False) and not getattr(args, "knowledge_profile", False):
@@ -192,10 +204,7 @@ def initialize(args) -> None:
     regular(source)
     if not os.access(source, os.X_OK):
         raise LocalNodeError("--binary is not executable.")
-    version = subprocess.run([str(source), "version", "--long"], text=True,
-                             capture_output=True, timeout=30)
-    if version.returncode or not re.search(r"(?m)^cosmos_sdk_version:\s*v0\.53\.", version.stdout):
-        raise LocalNodeError("Use the source-built SDK 0.53 Zerone binary for this local sandbox, not a legacy network executable.")
+    version_output = source_version(source)
     home.mkdir(mode=0o700)
     home.chmod(0o700)
     with locked(home):
@@ -262,7 +271,7 @@ def initialize(args) -> None:
             raise LocalNodeError("Generated node identity is invalid.")
         manifest = {"schema": SCHEMA, "local_only": True, "chain_id": args.chain_id,
                     "owner_uid": os.getuid(), "binary_sha256": binary_hash,
-                    "source_binary": str(source), "version_output_sha256": hashlib.sha256(version.stdout.encode()).hexdigest(),
+                    "source_binary": str(source), "version_output_sha256": hashlib.sha256(version_output.encode()).hexdigest(),
                     "darwin_acl_helper_sha256": auxiliary_hash, "node_id": node_id,
                     "rpc_port": args.rpc_port, "p2p_port": args.p2p_port,
                     "validator_address": addresses["validator"], "user_address": addresses["user"],

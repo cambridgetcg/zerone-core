@@ -181,6 +181,46 @@ class SafetyTests(unittest.TestCase):
         self.assertNotIn("ZERONED_PRIV_VALIDATOR_LADDR", result)
         self.assertEqual(result["PATH"], "/test")
 
+    def fake_version_binary(self, name, sdk_version):
+        # Mimics the SDK root command: it creates its home directory, which
+        # defaults to $HOME/.zeroned unless --home names another one.
+        record = self.root / (name + ".json")
+        binary = self.root / name
+        binary.write_text(f"#!{sys.executable} -I\n" + "\n".join((
+            "import json, os, sys",
+            "argv = sys.argv[1:]",
+            "home = argv[argv.index('--home') + 1] if '--home' in argv else os.path.join(os.environ['HOME'], '.zeroned')",
+            "os.makedirs(os.path.join(home, 'config'), exist_ok=True)",
+            f"open({str(record)!r}, 'w').write(json.dumps({{'argv': argv, 'HOME': os.environ.get('HOME')}}))",
+            f"print('cosmos_sdk_version: {sdk_version}')", "")))
+        binary.chmod(0o700)
+        return binary, record
+
+    def test_source_version_probe_is_isolated(self):
+        real_home = self.root / "real-home"
+        real_home.mkdir()
+        binary, record = self.fake_version_binary("fake-zeroned", "v0.53.0")
+        with mock.patch.dict(os.environ, {"HOME": str(real_home)}):
+            output = local.source_version(binary)
+        self.assertRegex(output, r"(?m)^cosmos_sdk_version: v0\.53\.0$")
+        seen = json.loads(record.read_text())
+        probe_home = seen["HOME"]
+        self.assertTrue(probe_home)
+        self.assertNotEqual(Path(probe_home), real_home)
+        self.assertEqual(seen["argv"][:2], ["version", "--long"])
+        self.assertIn("--home", seen["argv"])
+        self.assertEqual(seen["argv"][seen["argv"].index("--home") + 1], probe_home)
+        self.assertFalse(Path(probe_home).exists(), "temporary probe home was not removed")
+        self.assertFalse((real_home / ".zeroned").exists())
+        self.assertEqual(list(real_home.iterdir()), [])
+        # The SDK 0.53 requirement still applies, and a refusal also cleans up.
+        legacy, legacy_record = self.fake_version_binary("legacy-zeroned", "v0.47.0")
+        with mock.patch.dict(os.environ, {"HOME": str(real_home)}):
+            with self.assertRaisesRegex(local.LocalNodeError, "SDK 0.53"):
+                local.source_version(legacy)
+        self.assertFalse(Path(json.loads(legacy_record.read_text())["HOME"]).exists())
+        self.assertEqual(list(real_home.iterdir()), [])
+
     def test_key_command_failure_never_exposes_captured_seed(self):
         result = subprocess.CompletedProcess([], 1, "private seed stdout", "private seed stderr")
         with mock.patch.object(local.subprocess, "run", return_value=result):
