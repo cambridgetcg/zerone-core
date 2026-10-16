@@ -116,6 +116,11 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		_, analysisPacing := k.pacingKeeper.GetGlobalPacingMultiplier(ctx)
 		if analysisPacing > 0 && analysisPacing != 1_000_000 {
 			effectiveInterval = params.RiskAnalysisInterval * 1_000_000 / analysisPacing
+			// Faster pacing (Critical health) must not round an enabled interval down
+			// to 0, which the guard below reads as "never analyse": run every block.
+			if effectiveInterval == 0 && params.RiskAnalysisInterval > 0 {
+				effectiveInterval = 1
+			}
 		}
 	}
 	if height > 0 && effectiveInterval > 0 && height%effectiveInterval == 0 {

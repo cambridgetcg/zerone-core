@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"math"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -72,7 +73,13 @@ func (k Keeper) GetEffectiveObservationInterval(ctx context.Context) uint64 {
 	confidence := k.GetCorrectionConfidence(ctx)
 
 	if confidence > 800_000 {
-		return baseInterval * 3 / 2 // 150%
+		// 150%: b + b/2 equals b*3/2 wherever that does not overflow; above that,
+		// b*3 wraps (to 0 for b = 0xAAAAAAAAAAAAAAAB), so saturate instead.
+		lengthened := baseInterval + baseInterval/2
+		if lengthened < baseInterval {
+			lengthened = math.MaxUint64
+		}
+		return lengthened
 	} else if confidence < 300_000 {
 		shortened := baseInterval * 2 / 3 // 67%
 		// Integer 67% of a 1-block interval is 0, and EndBlock takes

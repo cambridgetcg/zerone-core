@@ -1021,6 +1021,37 @@ func TestEffectiveObservationIntervalNeverZero(t *testing.T) {
 	})
 }
 
+// --- Test: High confidence never wraps a huge interval to zero ---
+
+func TestEffectiveObservationIntervalNoOverflow(t *testing.T) {
+	k, _, ctx := setupKeeper(t)
+
+	// 0xAAAAAAAAAAAAAAAB * 3 wraps to 1 in uint64, so a plain b*3/2 yields 0.
+	params := k.GetParams(ctx)
+	params.ObservationIntervalBlocks = 0xAAAAAAAAAAAAAAAB
+	k.SetParams(ctx, params)
+
+	for i := uint64(0); i < 10; i++ {
+		k.SetCorrectionOutcome(ctx, &types.CorrectionOutcome{
+			Height: 100 + i*100, Dimension: types.DimKnowledgeQuality,
+			ScoreBefore: 300_000, ScoreAfter: 400_000, Successful: true,
+		})
+	}
+	require.Greater(t, k.GetCorrectionConfidence(ctx), uint64(800_000))
+
+	if interval := k.GetEffectiveObservationInterval(ctx); interval == 0 {
+		t.Fatal("expected a non-zero interval, got 0")
+	}
+
+	ctx = ctx.WithBlockHeight(7)
+	am := alignment.NewAppModule(nil, k)
+	require.NotPanics(t, func() {
+		if err := am.EndBlock(ctx); err != nil {
+			t.Fatalf("EndBlock failed: %v", err)
+		}
+	})
+}
+
 // --- Test: Correction confidence full lifecycle ---
 
 func TestCorrectionConfidenceFullLifecycle(t *testing.T) {

@@ -149,6 +149,30 @@ func TestPacingCritical_AnalysisBps2000000(t *testing.T) {
 	}
 }
 
+func TestPacingCritical_IntervalOneStillAnalyses(t *testing.T) {
+	k, ctx := setupKeeper(t)
+	authority := k.GetAuthority()
+	srv := keeper.NewMsgServerImpl(k)
+
+	params := types.DefaultParams()
+	params.RiskAnalysisInterval = 1 // 1 * 1_000_000 / 2_000_000 rounds down to 0
+	params.DecayEpochBlocks = 100000
+	k.SetParams(ctx, params)
+
+	_, _ = srv.RecordVerification(ctx, &types.MsgRecordVerification{
+		Authority: authority, Domain: "test-critical-one", RoundId: "r1",
+		Validators: []string{testAddr(1)}, Verdicts: []bool{true},
+	})
+	k.SetPacingKeeper(&mockPacingKeeper{creationBps: 1_000_000, analysisBps: 2_000_000})
+
+	// Critical health asks for MORE frequent analysis; it must not stop it.
+	ctx7 := ctx.WithBlockHeight(7)
+	_ = k.BeginBlocker(ctx7)
+	if _, found := k.GetCaptureMetrics(ctx7, "test-critical-one"); !found {
+		t.Error("expected capture metrics at block 7 (interval 1 under critical pacing runs every block)")
+	}
+}
+
 func TestPacingNeutral_AnalysisBps1000000(t *testing.T) {
 	k, ctx := setupKeeper(t)
 	authority := k.GetAuthority()
