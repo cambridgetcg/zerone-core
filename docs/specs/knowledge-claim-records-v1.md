@@ -28,6 +28,13 @@ an identical submission by the same account in the same block cannot overwrite
 the retained reason, evidence or target and lock stake again. This keeps the
 existing identifier algorithm and scientific adjudication rules.
 
+After [claim integrity](knowledge-claim-integrity-v1.md) (knowledge 12),
+admission no longer changes the target's status, so there is no target status
+write at admission. The target becomes CONTESTED only if the contradiction is
+accepted. Admission also requires a standing target, a stake of at least the
+minimum for challenging it, and text that no live or standing record in its
+domain already holds.
+
 Older contradictions are unchanged. An empty historical `argument_text` or
 `evidence_ids` cannot establish that the submitter supplied no reason or
 evidence: the predecessor dropped those fields. A transaction archive may

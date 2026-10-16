@@ -1310,6 +1310,39 @@ Conventions that apply to every task:
   admission no longer flips the target.
 - Failing test: none (documentation).
 - Acceptance: every behaviour claim in the spec cites a test name from Tasks 3–14.
+- Done in Task 15:
+  - `docs/specs/knowledge-claim-integrity-v1.md` covers §3–§5, the cause vocabulary, the
+    events, the reviewer rubric, the quote guard and §11. Each behaviour statement ends with
+    a `Tests:` line. Statements the tests do not check are labelled *Not tested here*, with
+    the reason (read from code, or a convention the chain does not enforce).
+  - `docs/specs/knowledge-claim-records-v1.md` has a paragraph after the admission rules: with
+    knowledge 12, admission writes no target status, the target becomes CONTESTED only if
+    the contradiction is accepted, and the Task 10 admission checks apply.
+  - The acceptance check was an uncommitted script under `/tmp`. Before the spec existed it
+    failed. It now passes, and it checks three things:
+    - every backticked test name in the spec (131) is defined in a tracked test file, and
+      the two quoted TypeScript test titles exist;
+    - every Go and Python test function in the Task 3–14 test files is cited at least once;
+    - the Task 3 and Task 11 tests, which live in shared files, are cited too.
+  - The spec also cites Task 2 and pre-existing tests (`TestV11_*`,
+    `TestSubmitContradiction_StarvedDoesNotLockFact`, `TestSubmitClaim_ContradictionAutoContests`,
+    `TestEventAudit_DocumentationCompleteness`), always next to a Task 3–14 test.
+  - Gaps in the tests, labelled in the spec:
+    - no test ends one contradiction while another is still pending, so "pending
+      contradictions are not reasons" is read from code;
+    - `settleContradictionTargets` has no test for an unreadable target or for a write error
+      (the counter-fact path has both);
+    - the resubmission fee, cooldown and `--resubmit-after` flow are checked only by the §7
+      sandbox run.
+  - The spec words §11's "a starved dispute changes no status" more precisely: a starved
+    contradiction changes no fact, and a starved challenge clears no contest reason. (A
+    starved challenge still moves a fact out of CHALLENGED.) §11 here is unchanged.
+  - Not done, deferred to the separate reviewed pinning step:
+    - `knowledge-claim-records-v1.md` is pinned in `.specs-and-plans-hashes`. Its pin has
+      not matched since Task 3 (`52bb3848`), and this edit changes the file again, so
+      `scripts/check_specs_and_plans_hashes.sh` (`make creed-check`) fails until the re-pin.
+    - The new spec is not added to `.specs-and-plans-hashes`, where the sibling knowledge
+      specs are pinned.
 
 **Task 16 — End-to-end probe re-run and upgrade rehearsal** · consensus: no (verification)
 - Files: nothing tracked. Artifacts go under `/tmp/zerone-sandbox-<date>-v12/`.
