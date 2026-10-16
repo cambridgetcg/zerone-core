@@ -1248,14 +1248,15 @@ func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *typ
 	// keeps its corroboration credit and its energy; it does not acquire
 	// standing it never earned.
 	//
-	// With claim integrity on, surviving clears only dependencies refuted at
-	// or before this height, never a standing counter-fact: an established
-	// fact with a contest reason left returns to CONTESTED (Task 13).
+	// With claim integrity on, surviving clears only dependencies refuted
+	// before this challenge opened, never a standing counter-fact: an
+	// established fact with a contest reason left returns to CONTESTED (Task
+	// 13; review fix SEC-1).
 	integrity, err := k.ClaimIntegrityEnabled(ctx)
 	if err != nil {
 		return err
 	}
-	originalFact.Status = k.challengeEndStatus(ctx, originalFact, integrity, true)
+	originalFact.Status = k.challengeEndStatus(ctx, originalFact, challengeClaim, integrity, true)
 	originalFact.AtRiskSinceEpoch = 0
 	causeCtx := ctx
 	if integrity {
@@ -1338,7 +1339,7 @@ func (k Keeper) restoreChallengedFactOnInconclusive(ctx context.Context, challen
 	if err != nil {
 		return err
 	}
-	fact.Status = k.challengeEndStatus(ctx, fact, integrity, false)
+	fact.Status = k.challengeEndStatus(ctx, fact, challengeClaim, integrity, false)
 	fact.AtRiskSinceEpoch = 0
 	causeCtx := ctx
 	if integrity {

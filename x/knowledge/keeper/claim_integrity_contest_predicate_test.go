@@ -58,9 +58,22 @@ func (f *contestPredicateFixture) disprove(id string, height uint64) {
 	f.putTransition(id, types.FactStatus_FACT_STATUS_CHALLENGED, types.FactStatus_FACT_STATUS_DISPROVEN, causeChallengeDisproven, height)
 }
 
-func (f *contestPredicateFixture) survive(height uint64) {
+// survive records that F survived, at survived, a challenge opened at opened:
+// the challenge claim, its challenge_opened transition and its
+// challenge_survived transition.
+func (f *contestPredicateFixture) survive(opened, survived uint64) {
 	f.t.Helper()
-	f.putTransition(contestF, types.FactStatus_FACT_STATUS_CHALLENGED, types.FactStatus_FACT_STATUS_ACTIVE, causeChallengeSurvived, height)
+	id := fmt.Sprintf("challenge-opened-%d", opened)
+	require.NoError(f.t, f.k.SetClaim(f.ctx, &types.Claim{Id: id, Submitter: "challenger", ProvisionalFactId: contestF, SubmittedAtBlock: opened}))
+	f.putCausedTransition(types.FactStatus_FACT_STATUS_ACTIVE, types.FactStatus_FACT_STATUS_CHALLENGED, causeChallengeOpened, id, opened)
+	f.putCausedTransition(types.FactStatus_FACT_STATUS_CHALLENGED, types.FactStatus_FACT_STATUS_ACTIVE, causeChallengeSurvived, id, survived)
+}
+
+func (f *contestPredicateFixture) putCausedTransition(prior, next types.FactStatus, cause, causeID string, height uint64) {
+	f.t.Helper()
+	require.NoError(f.t, f.k.recordStatusTransitionChecked(f.ctx, &types.StatusTransition{
+		FactId: contestF, PriorStatus: prior, NewStatus: next, CauseEventType: cause, CauseId: causeID, BlockHeight: height,
+	}))
 }
 
 func (f *contestPredicateFixture) factF() *types.Fact {
@@ -136,9 +149,10 @@ var cascadeRelationTypes = map[types.RelationType]bool{
 	types.RelationType_RELATION_TYPE_CITES:       true,
 }
 
-// R1: an incoming CONTRADICTS edge whose source stands (VERIFIED, ACTIVE,
-// CONTESTED, CHALLENGED or AT_RISK). Other incoming types, and F's own
-// outgoing CONTRADICTS edges, are not reasons.
+// R1: an incoming CONTRADICTS edge whose source has not fallen (VERIFIED,
+// ACTIVE, CONTESTED, CHALLENGED, AT_RISK or EXPIRED; an EXPIRED fact can be
+// revived, decision (b)). Other incoming types, and F's own outgoing
+// CONTRADICTS edges, are not reasons.
 func TestContestReasonStandingCounterFact(t *testing.T) {
 	standing := map[types.FactStatus]bool{
 		types.FactStatus_FACT_STATUS_VERIFIED:   true,
@@ -146,6 +160,7 @@ func TestContestReasonStandingCounterFact(t *testing.T) {
 		types.FactStatus_FACT_STATUS_CONTESTED:  true,
 		types.FactStatus_FACT_STATUS_CHALLENGED: true,
 		types.FactStatus_FACT_STATUS_AT_RISK:    true,
+		types.FactStatus_FACT_STATUS_EXPIRED:    true,
 	}
 	for _, status := range sortedFactStatuses() {
 		t.Run(status.String(), func(t *testing.T) {
@@ -179,8 +194,10 @@ func TestContestReasonStandingCounterFact(t *testing.T) {
 }
 
 // R2: an outgoing dependency edge (the cascade set) to a DISPROVEN fact D,
-// unless F survived a direct challenge at or after D's latest transition to
-// DISPROVEN. A D with no recorded fall is cleared by any survival.
+// unless F survived a direct challenge that opened after D's latest
+// transition to DISPROVEN. survivedAt is that opening height; a fall at the
+// same height counts against F (F1: heights cannot order two events of one
+// block). A D with no recorded fall is cleared by any survival.
 func TestContestReasonRefutedDependencyIsOrderedBySurvival(t *testing.T) {
 	for _, relation := range sortedRelationTypes() {
 		t.Run(relation.String(), func(t *testing.T) {
@@ -191,7 +208,7 @@ func TestContestReasonRefutedDependencyIsOrderedBySurvival(t *testing.T) {
 				require.False(t, f.remainsAt(0), "only dependency edges carry a refutation")
 				return
 			}
-			for survivedAt, remains := range map[uint64]bool{0: true, 49: true, 50: false, 51: false} {
+			for survivedAt, remains := range map[uint64]bool{0: true, 49: true, 50: true, 51: false} {
 				require.Equal(t, remains, f.remainsAt(survivedAt), "survivedAt %d", survivedAt)
 			}
 		})
@@ -221,7 +238,8 @@ func TestContestReasonRefutedDependencyIsOrderedBySurvival(t *testing.T) {
 		f.putTransition("dependency-d", types.FactStatus_FACT_STATUS_CONTESTED, types.FactStatus_FACT_STATUS_DISPROVEN, causeChallengeDisproven, 70)
 		f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_CITES)
 		require.True(t, f.remainsAt(50))
-		require.False(t, f.remainsAt(70))
+		require.True(t, f.remainsAt(70))
+		require.False(t, f.remainsAt(71))
 	})
 	t.Run("one uncleared dependency is enough", func(t *testing.T) {
 		f := newContestPredicateFixture(t)
@@ -230,22 +248,26 @@ func TestContestReasonRefutedDependencyIsOrderedBySurvival(t *testing.T) {
 		f.putRelation(contestF, "dependency-a", types.RelationType_RELATION_TYPE_REQUIRES)
 		f.putRelation(contestF, "dependency-b", types.RelationType_RELATION_TYPE_SUPPORTS)
 		require.True(t, f.remainsAt(50))
-		require.False(t, f.remainsAt(80))
+		require.True(t, f.remainsAt(80))
+		require.False(t, f.remainsAt(81))
 	})
 }
 
-// Without a supplied height, survivedAt is the height of F's latest
-// challenge_survived transition. An inconclusive challenge or a knowledge-11
-// survival (recorded as "unknown") clears nothing.
+// Without a supplied height, survivedAt is the opening height of the
+// challenge behind F's latest challenge_survived transition: its challenge
+// claim's SubmittedAtBlock (SEC-1). A refutation while that challenge was
+// open (65), at its survival (70), or at its opening height (60, F1) is not
+// cleared. An inconclusive challenge or a knowledge-11 survival (recorded as
+// "unknown") clears nothing.
 func TestContestReasonSinceLastSurvival(t *testing.T) {
 	for _, tc := range []struct {
 		fall    uint64
 		remains bool
-	}{{55, false}, {60, false}, {65, true}, {85, true}} {
+	}{{55, false}, {59, false}, {60, true}, {65, true}, {70, true}, {85, true}} {
 		t.Run(fmt.Sprintf("fall at %d", tc.fall), func(t *testing.T) {
 			f := newContestPredicateFixture(t)
-			f.survive(40)
-			f.survive(60)
+			f.survive(40, 45)
+			f.survive(60, 70)
 			f.putTransition(contestF, types.FactStatus_FACT_STATUS_CHALLENGED, types.FactStatus_FACT_STATUS_ACTIVE, causeChallengeInconclusive, 80)
 			f.putTransition(contestF, types.FactStatus_FACT_STATUS_CHALLENGED, types.FactStatus_FACT_STATUS_ACTIVE, "unknown", 90)
 			f.disprove("dependency-d", tc.fall)
@@ -305,6 +327,24 @@ func TestContestReasonFailsTowardContested(t *testing.T) {
 		{"unreadable survival history", func(f *contestPredicateFixture) {
 			putRaw(f, types.StatusTransitionKey(contestF, 1), []byte{0xff})
 		}, "survival history"},
+		{"survival challenge claim missing", func(f *contestPredicateFixture) {
+			f.ctx.KVStore(f.keys[0]).Delete(types.ClaimKey("challenge-opened-60"))
+		}, "survival challenge claim challenge-opened-60 is missing"},
+		{"unreadable survival challenge claim", func(f *contestPredicateFixture) {
+			putRaw(f, types.ClaimKey("challenge-opened-60"), []byte{0xff})
+		}, "survival challenge claim challenge-opened-60"},
+		{"survival challenge claim names another fact", func(f *contestPredicateFixture) {
+			require.NoError(f.t, f.k.SetClaim(f.ctx, &types.Claim{Id: "challenge-opened-60", Submitter: "challenger", ProvisionalFactId: "elsewhere", SubmittedAtBlock: 60}))
+		}, "survival challenge claim challenge-opened-60 challenged elsewhere"},
+		{"survival challenge claim opened after the survival", func(f *contestPredicateFixture) {
+			require.NoError(f.t, f.k.SetClaim(f.ctx, &types.Claim{Id: "challenge-opened-60", Submitter: "challenger", ProvisionalFactId: contestF, SubmittedAtBlock: 66}))
+		}, "survival challenge claim challenge-opened-60 opened at 66"},
+		{"survival with no challenge claim ID", func(f *contestPredicateFixture) {
+			f.putCausedTransition(types.FactStatus_FACT_STATUS_CHALLENGED, types.FactStatus_FACT_STATUS_ACTIVE, causeChallengeSurvived, "", 90)
+		}, "survival at 90 names no challenge claim"},
+		{"read error on survival challenge claim", func(f *contestPredicateFixture) {
+			f.kFault.op, f.kFault.prefix = "get", types.ClaimKey("challenge-opened-60")
+		}, "injected read failure"},
 		{"record bound", func(f *contestPredicateFixture) {
 			for i := 0; i <= recordInventoryMaxRecords; i++ {
 				f.putRelation(fmt.Sprintf("bound-%06d", i), contestF, types.RelationType_RELATION_TYPE_CITES)
@@ -322,7 +362,7 @@ func TestContestReasonFailsTowardContested(t *testing.T) {
 			f.putRelation("refuted-k", contestF, types.RelationType_RELATION_TYPE_CONTRADICTS)
 			f.disprove("dependency-d", 50)
 			f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
-			f.survive(60)
+			f.survive(60, 65)
 			require.False(t, f.remainsSinceLastSurvival(), "the base state has no contest reason")
 
 			tc.inject(f)
@@ -466,7 +506,7 @@ func TestSettleContradictionTargetsSinceLastSurvival(t *testing.T) {
 			f.disprove("dependency-d", tc.fall)
 			f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
 			if tc.survived {
-				f.survive(60)
+				f.survive(55, 60)
 			}
 			before := f.snapshot(t)
 			ctx := f.ctx.WithEventManager(sdk.NewEventManager())
@@ -586,12 +626,12 @@ func TestSettleCounterFactTargets(t *testing.T) {
 			f.putRelation("counter-k2", contestF, types.RelationType_RELATION_TYPE_CONTRADICTS)
 		}},
 		{"a dependency fell after the last survival", func(f *contestPredicateFixture) {
-			f.survive(60)
+			f.survive(55, 60)
 			f.disprove("dependency-d", 65)
 			f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
 		}},
 		{"the fallen counter-fact is also a dependency", func(f *contestPredicateFixture) {
-			f.survive(60)
+			f.survive(55, 60)
 			f.putRelation(contestF, "counter-k", types.RelationType_RELATION_TYPE_CITES)
 		}},
 	} {
@@ -690,4 +730,105 @@ func TestSettleCounterFactTargetsFailsTowardContested(t *testing.T) {
 		*f.kFault = handoffFault{}
 		require.ErrorContains(t, err, "injected set failure")
 	})
+}
+
+// challengeEndStatus (§5.2 rows 7 and 8; review fixes SEC-1, F1, SEC-6) on
+// hand-built state. F is CHALLENGED by challenge claim "challenge-c", opened
+// at 50 from priorStatus. Dependency D fell at 50.
+func TestChallengeEndStatus(t *testing.T) {
+	const challengeID = "challenge-c"
+	challenge := &types.Claim{Id: challengeID, Submitter: "challenger", ProvisionalFactId: contestF, SubmittedAtBlock: 50}
+	base := func(t *testing.T, prior types.FactStatus) *contestPredicateFixture {
+		f := newContestPredicateFixture(t)
+		f.putFact(contestF, types.FactStatus_FACT_STATUS_CHALLENGED)
+		require.NoError(t, f.k.SetClaim(f.ctx, challenge))
+		f.putCausedTransition(prior, types.FactStatus_FACT_STATUS_CHALLENGED, causeChallengeOpened, challengeID, 50)
+		f.disprove("dependency-d", 50)
+		f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
+		return f
+	}
+	end := func(f *contestPredicateFixture, c *types.Claim, integrity, survived bool) (types.FactStatus, []map[string]string) {
+		f.t.Helper()
+		var status types.FactStatus
+		_, incomplete := f.check(func(ctx context.Context, fact *types.Fact) bool {
+			status = f.k.challengeEndStatus(ctx, fact, c, integrity, survived)
+			return false
+		})
+		return status, incomplete
+	}
+	active, contested := types.FactStatus_FACT_STATUS_ACTIVE, types.FactStatus_FACT_STATUS_CONTESTED
+
+	t.Run("a survival is judged from the height its challenge opened", func(t *testing.T) {
+		for opened, want := range map[uint64]types.FactStatus{0: contested, 49: contested, 50: contested, 51: active} {
+			f := base(t, types.FactStatus_FACT_STATUS_ACTIVE)
+			c := proto.Clone(challenge).(*types.Claim)
+			c.SubmittedAtBlock = opened
+			status, incomplete := end(f, c, true, true)
+			require.Equal(t, want, status, "opened at %d", opened)
+			require.Empty(t, incomplete)
+		}
+	})
+	t.Run("any other ending is judged since the last survival", func(t *testing.T) {
+		f := base(t, types.FactStatus_FACT_STATUS_CONTESTED)
+		status, _ := end(f, challenge, true, false)
+		require.Equal(t, contested, status, "never survived")
+		f.survive(51, 60)
+		status, incomplete := end(f, challenge, true, false)
+		require.Equal(t, active, status, "D fell before the survived challenge opened")
+		require.Empty(t, incomplete)
+	})
+	t.Run("marker off and conjectures restore", func(t *testing.T) {
+		f := base(t, types.FactStatus_FACT_STATUS_CONTESTED)
+		for _, survived := range []bool{true, false} {
+			status, incomplete := end(f, challenge, false, survived)
+			require.Equal(t, active, status)
+			require.Empty(t, incomplete)
+		}
+		require.NoError(t, f.k.SetFactSkipTransition(f.ctx, &types.Fact{Id: contestF, ClaimId: contestF + "-claim", ClaimType: types.ClaimType_CLAIM_TYPE_CONJECTURE, Status: types.FactStatus_FACT_STATUS_CHALLENGED}))
+		status, incomplete := end(f, challenge, true, false)
+		require.Equal(t, types.FactStatus_FACT_STATUS_PROVISIONAL, status)
+		require.Empty(t, incomplete)
+	})
+
+	// An incomplete check changes nothing: the standing before the challenge
+	// decides, and one event names F.
+	for _, tc := range []struct {
+		name   string
+		prior  types.FactStatus
+		setup  func(*contestPredicateFixture)
+		want   types.FactStatus
+		reason string
+	}{
+		{"VERIFIED before", types.FactStatus_FACT_STATUS_VERIFIED, nil, active, "contest scan exceeds record bound"},
+		{"ACTIVE before", types.FactStatus_FACT_STATUS_ACTIVE, nil, active, "contest scan exceeds record bound"},
+		{"CONTESTED before", types.FactStatus_FACT_STATUS_CONTESTED, nil, contested, "contest scan exceeds record bound"},
+		{"CONTESTED at an earlier challenge only", types.FactStatus_FACT_STATUS_ACTIVE, func(f *contestPredicateFixture) {
+			f.putCausedTransition(types.FactStatus_FACT_STATUS_CONTESTED, types.FactStatus_FACT_STATUS_CHALLENGED, causeChallengeOpened, "challenge-earlier", 20)
+		}, active, "contest scan exceeds record bound"},
+		{"no challenge_opened transition names the challenge", types.FactStatus_FACT_STATUS_ACTIVE, func(f *contestPredicateFixture) {
+			f.ctx.KVStore(f.keys[0]).Delete(types.StatusTransitionKey(contestF, 1))
+		}, contested, "status before the challenge: no challenge_opened transition names challenge-c"},
+		{"unreadable history", types.FactStatus_FACT_STATUS_ACTIVE, func(f *contestPredicateFixture) {
+			f.ctx.KVStore(f.keys[0]).Set(types.StatusTransitionKey(contestF, 1), []byte{0xff})
+		}, contested, "status before the challenge"},
+	} {
+		for _, survived := range []bool{true, false} {
+			t.Run(fmt.Sprintf("incomplete check, %s, survived %t", tc.name, survived), func(t *testing.T) {
+				f := base(t, tc.prior)
+				if tc.setup != nil {
+					tc.setup(f)
+				}
+				for i := 0; i < 4; i++ {
+					f.putRelation(fmt.Sprintf("citing-%d", i), contestF, types.RelationType_RELATION_TYPE_CITES)
+				}
+				SetContestScanMaxRecordsForTest(t, 3)
+				status, incomplete := end(f, challenge, true, survived)
+				require.Equal(t, tc.want, status)
+				require.Len(t, incomplete, 1)
+				require.Equal(t, contestF, incomplete[0]["fact_id"])
+				require.Contains(t, incomplete[0]["reason"], "contest scan exceeds record bound")
+				require.Contains(t, incomplete[0]["reason"], tc.reason)
+			})
+		}
+	}
 }

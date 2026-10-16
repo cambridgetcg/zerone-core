@@ -6,6 +6,7 @@ import (
 	"sort"
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
@@ -478,38 +479,54 @@ func TestClaimIntegrity_ConjectureChallengeEndsProvisional(t *testing.T) {
 }
 
 // Plan §5.3 failure handling on the new paths: a check that cannot finish
-// never releases. A challenged fact whose check fails returns to CONTESTED
-// however its challenge ends without refuting it; a target whose check fails
-// stays CONTESTED when its counter-fact falls; and if the fallen
-// counter-fact's own relations cannot be listed, no target is released and
-// the event names the counter-fact. The disproval itself stands.
+// never releases. A challenged fact whose check fails returns to its standing
+// before the challenge however the challenge ends without refuting it:
+// CONTESTED if it was CONTESTED, ACTIVE otherwise (review fix SEC-6; an
+// incomplete check changes nothing). A target whose check fails stays
+// CONTESTED when its counter-fact falls; and if the fallen counter-fact's own
+// relations cannot be listed, no target is released and the event names the
+// counter-fact. The disproval itself stands.
 func TestClaimIntegrity_IncompleteCheckOnVerdictPathsFailsTowardContested(t *testing.T) {
 	unreadableIncoming := func(f *v11Fixture, factID string) {
 		f.ctx.KVStore(f.key).Set(types.FactRelationReverseKey(factID, "unreadable-source"), []byte{0xff})
 	}
-	for _, ending := range contestEndings {
-		t.Run("challenge of F "+ending.name, func(t *testing.T) {
-			f := setupClaimIntegrityTest(t)
-			_, factF, _ := f.contraTarget(t, "v12-vd-ic-f", "Synthetic v12 probe P3c: fact F, whose contest check cannot finish.")
-			unreadableIncoming(f, factF)
-			history := f.transitions(factF)
-			c := f.challenge(t, v11Addr("v12-vd-ic-ch"), factF)
-			f.freshEvents()
-			ending.end(t, f, c)
-			cause := "challenge_inconclusive"
-			if ending.name == "rejected" {
-				cause = "challenge_survived"
-			}
-			require.Equal(t, csContested, f.fact(t, factF).Status, "an incomplete check never restores")
-			require.Equal(t, append(history,
-				v11Transition{csVerified, vdChallenged, "challenge_opened", c},
-				v11Transition{vdChallenged, csContested, cause, c}), f.transitions(factF))
-			incomplete := v11Event(f.ctx, csIncompleteEvent)
-			require.Len(t, incomplete, 1)
-			require.Equal(t, factF, incomplete[0]["fact_id"])
-			require.Contains(t, incomplete[0]["reason"], "incoming relation")
-			f.requireNoLiveRounds(t)
-		})
+	for _, before := range []types.FactStatus{csVerified, csContested} {
+		for _, ending := range contestEndings {
+			t.Run("challenge of "+before.String()+" F "+ending.name, func(t *testing.T) {
+				f := setupClaimIntegrityTest(t)
+				var factF string
+				if before == csContested {
+					var factD string
+					_, factF, factD = f.vdDependent(t, "ic")
+					f.vdDisprove(t, v11Addr("v12-vd-ic-cd"), factD)
+					f.nextBlock(t)
+				} else {
+					_, factF, _ = f.contraTarget(t, "v12-vd-ic-f", "Synthetic v12 probe P3c: fact F, whose contest check cannot finish.")
+				}
+				unreadableIncoming(f, factF)
+				history := f.transitions(factF)
+				c := f.challenge(t, v11Addr("v12-vd-ic-ch"), factF)
+				f.freshEvents()
+				ending.end(t, f, c)
+				cause := "challenge_inconclusive"
+				if ending.name == "rejected" {
+					cause = "challenge_survived"
+				}
+				next := vdActive
+				if before == csContested {
+					next = csContested
+				}
+				require.Equal(t, next, f.fact(t, factF).Status, "an incomplete check neither contests nor releases")
+				require.Equal(t, append(history,
+					v11Transition{before, vdChallenged, "challenge_opened", c},
+					v11Transition{vdChallenged, next, cause, c}), f.transitions(factF))
+				incomplete := v11Event(f.ctx, csIncompleteEvent)
+				require.Len(t, incomplete, 1)
+				require.Equal(t, factF, incomplete[0]["fact_id"])
+				require.Contains(t, incomplete[0]["reason"], "incoming relation")
+				f.requireNoLiveRounds(t)
+			})
+		}
 	}
 	for _, tc := range []struct {
 		name   string
@@ -537,6 +554,325 @@ func TestClaimIntegrity_IncompleteCheckOnVerdictPathsFailsTowardContested(t *tes
 			require.Len(t, incomplete, 1)
 			require.Equal(t, tc.named(factF, factK), incomplete[0]["fact_id"])
 			require.Contains(t, incomplete[0]["reason"], tc.reason)
+			f.requireNoLiveRounds(t)
+		})
+	}
+}
+
+// ─── Review fixes, group G1: the contest predicate at a challenge's end ──────
+
+var vdAttestation = &types.ReviewAttestation{Reason: "Synthetic v12 review of the stated record only."}
+
+func vdSalt(i int) []byte { return []byte(fmt.Sprintf("v12-vd-review-salt-%02d", i)) }
+
+// vdCommit seats the three reviewers on claimID's round, each committing vote.
+// Unlike decide it stops there, so two rounds can be interleaved.
+func (f *v11Fixture) vdCommit(t *testing.T, claimID, vote string) {
+	t.Helper()
+	round := f.roundOf(t, claimID)
+	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_COMMIT, round.Phase)
+	for i, reviewer := range v11Reviewers() {
+		f.bank.balances[reviewer] = sdk.NewCoins(sdk.NewInt64Coin("uzrn", 100_000_000))
+		hash, err := types.ComputeReviewCommitmentV2(round.CommitmentChainId, round.Id, reviewer, vote, v11Confidence, vdSalt(i), vdAttestation)
+		require.NoError(t, err)
+		_, err = f.server.SubmitCommitment(f.ctx, &types.MsgSubmitCommitment{Verifier: reviewer, RoundId: round.Id, CommitHash: hash})
+		require.NoError(t, err)
+	}
+}
+
+// vdReveal reveals the votes vdCommit committed.
+func (f *v11Fixture) vdReveal(t *testing.T, claimID, vote string) {
+	t.Helper()
+	round := f.roundOf(t, claimID)
+	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_REVEAL, round.Phase)
+	for i, reviewer := range v11Reviewers() {
+		_, err := f.server.SubmitReveal(f.ctx, &types.MsgSubmitReveal{
+			Verifier: reviewer, RoundId: round.Id, Vote: vote, Confidence: v11Confidence, Salt: vdSalt(i), Attestation: vdAttestation,
+		})
+		require.NoError(t, err)
+	}
+}
+
+// vdDependent accepts fact D and then fact F, which REQUIRES D.
+func (f *v11Fixture) vdDependent(t *testing.T, tag string) (claimF, factF, factD string) {
+	t.Helper()
+	_, factD, _ = f.contraTarget(t, "v12-vd-"+tag+"-d", "Synthetic v12 review G1 ("+tag+"): fact D, on which fact F depends.")
+	claimF = f.mustSubmitClaim(t, v11Addr("v12-vd-"+tag+"-f"), "Synthetic v12 review G1 ("+tag+"): fact F, which requires fact D to hold.", dedupDomain,
+		func(m *types.MsgSubmitClaim) {
+			m.Relations = []*types.ClaimRelation{{Relation: types.RelationType_RELATION_TYPE_REQUIRES, TargetFactId: factD}}
+		})
+	factF = f.accept(t, claimF, v11Reviewers()...)
+	return claimF, factF, factD
+}
+
+// SEC-1, the shield challenge. F REQUIRES D. F is challenged, and D is
+// refuted while that challenge is open; the cascade skips F because it is
+// CHALLENGED. F then survives. A panel judges the evidence of the challenge
+// it was given, so its survival clears only refutations from before the
+// challenge opened: F returns to CONTESTED. A later challenge, opened after D
+// fell, that F survives clears D. With the marker off F returns to ACTIVE, as
+// knowledge 11 does.
+func TestClaimIntegrity_SurvivalClearsNothingRefutedWhileTheChallengeWasOpen(t *testing.T) {
+	for _, sel := range dedupSelections {
+		t.Run(sel.name, func(t *testing.T) {
+			f := sel.setup(t)
+			claimF, factF, factD := f.vdDependent(t, "sh")
+			cd := f.challenge(t, v11Addr("v12-vd-sh-cd"), factD)
+			f.nextBlock(t)
+			opened := f.ctx.BlockHeight()
+			cf := f.challenge(t, v11Addr("v12-vd-sh-cf"), factF)
+			f.vdCommit(t, cd, "accept")
+			f.vdCommit(t, cf, "reject")
+			rd, rf := f.roundOf(t, cd), f.roundOf(t, cf)
+			require.Equal(t, rd.CommitDeadline+1, rf.CommitDeadline, "D's round runs one block ahead of F's")
+
+			f.advanceTo(t, rd.CommitDeadline)
+			f.beginBlock(t)
+			f.vdReveal(t, cd, "accept")
+			f.advanceTo(t, rf.CommitDeadline)
+			f.beginBlock(t)
+			require.Equal(t, csDisproven, f.fact(t, factD).Status)
+			refuted := f.ctx.BlockHeight()
+			require.Greater(t, refuted, opened, "D fell while F's challenge was open")
+			require.Equal(t, vdChallenged, f.fact(t, factF).Status, "the cascade skips a CHALLENGED fact")
+
+			f.vdReveal(t, cf, "reject")
+			f.advanceTo(t, rf.CommitDeadline+1)
+			f.freshEvents()
+			f.beginBlock(t)
+			require.Equal(t, types.Verdict_VERDICT_REJECT, f.roundOf(t, cf).Verdict)
+			require.Greater(t, f.ctx.BlockHeight(), refuted, "F survived after D fell")
+			want := []v11Transition{{csUnspecified, csVerified, "verification", claimF}}
+			if !sel.integrity {
+				require.Equal(t, vdActive, f.fact(t, factF).Status, "knowledge 11 restores F")
+				require.Equal(t, append(want, v11Transition{csVerified, vdChallenged, "unknown", ""}, v11Transition{vdChallenged, vdActive, "unknown", ""}), f.transitions(factF))
+				f.requireNoLiveRounds(t)
+				return
+			}
+			require.Equal(t, csContested, f.fact(t, factF).Status, "a survival never clears a refutation from after its challenge opened")
+			want = append(want, v11Transition{csVerified, vdChallenged, "challenge_opened", cf}, v11Transition{vdChallenged, csContested, "challenge_survived", cf})
+			require.Equal(t, want, f.transitions(factF))
+			require.Empty(t, v11Event(f.ctx, csIncompleteEvent))
+
+			// Starving a later challenge clears nothing; surviving one opened
+			// after D fell clears D.
+			f.nextBlock(t)
+			starved := f.challenge(t, v11Addr("v12-vd-sh-c2"), factF)
+			f.starve(t, starved)
+			require.Equal(t, csContested, f.fact(t, factF).Status)
+			f.nextBlock(t)
+			c3 := f.challenge(t, v11Addr("v12-vd-sh-c3"), factF)
+			require.Equal(t, types.Verdict_VERDICT_REJECT, f.decide(t, c3, "reject", v11Reviewers()...).Verdict)
+			require.Equal(t, vdActive, f.fact(t, factF).Status)
+			want = append(want,
+				v11Transition{csContested, vdChallenged, "challenge_opened", starved}, v11Transition{vdChallenged, csContested, "challenge_inconclusive", starved},
+				v11Transition{csContested, vdChallenged, "challenge_opened", c3}, v11Transition{vdChallenged, vdActive, "challenge_survived", c3})
+			require.Equal(t, want, f.transitions(factF))
+			require.Empty(t, v11Event(f.ctx, csIncompleteEvent))
+			f.requireNoLiveRounds(t)
+		})
+	}
+}
+
+// F1 and CI-REVIEW-2, the same-block tie. F's challenge and D's challenge end
+// in the same BeginBlock, F's round first: F survives, and only then is D
+// refuted and the cascade contests F. Heights cannot order two events of one
+// block, so a refutation at the height a survival is judged from counts
+// against it. A starved challenge of F afterwards leaves F CONTESTED. With the
+// marker off F is CONTESTED and cannot be challenged.
+func TestClaimIntegrity_SameBlockRefutationAfterSurvivalIsNotCleared(t *testing.T) {
+	for _, sel := range dedupSelections {
+		t.Run(sel.name, func(t *testing.T) {
+			f := sel.setup(t)
+			claimF, factF, factD := f.vdDependent(t, "sb")
+			height := uint64(f.ctx.BlockHeight())
+			cfAddr := v11Addr("v12-vd-sb-cf")
+			roundF := keeper.GenerateRoundID(keeper.GenerateClaimID(cfAddr, factF, height), height)
+			// Rounds complete in round-ID order. Pick D's challenger so that
+			// F's round completes first.
+			cdAddr := ""
+			for i := 0; i < 32 && cdAddr == ""; i++ {
+				candidate := v11Addr(fmt.Sprintf("v12-vd-sb-cd%02d", i))
+				if keeper.GenerateRoundID(keeper.GenerateClaimID(candidate, factD, height), height) > roundF {
+					cdAddr = candidate
+				}
+			}
+			require.NotEmpty(t, cdAddr)
+			cf := f.challenge(t, cfAddr, factF)
+			cd := f.challenge(t, cdAddr, factD)
+			require.Equal(t, roundF, f.roundOf(t, cf).Id)
+			f.vdCommit(t, cf, "reject")
+			f.vdCommit(t, cd, "accept")
+			round := f.roundOf(t, cf)
+			require.Equal(t, round.CommitDeadline, f.roundOf(t, cd).CommitDeadline)
+			f.advanceTo(t, round.CommitDeadline)
+			f.beginBlock(t)
+			f.vdReveal(t, cf, "reject")
+			f.vdReveal(t, cd, "accept")
+			f.advanceTo(t, round.CommitDeadline+1)
+			f.beginBlock(t)
+			require.Equal(t, types.Verdict_VERDICT_REJECT, f.roundOf(t, cf).Verdict)
+			require.Equal(t, csDisproven, f.fact(t, factD).Status)
+			require.Equal(t, csContested, f.fact(t, factF).Status, "D fell after F survived, in the same block")
+			opened, survived := "unknown", "unknown"
+			openedID, survivedID := "", ""
+			if sel.integrity {
+				opened, survived, openedID, survivedID = "challenge_opened", "challenge_survived", cf, cf
+			}
+			want := []v11Transition{
+				{csUnspecified, csVerified, "verification", claimF},
+				{csVerified, vdChallenged, opened, openedID},
+				{vdChallenged, vdActive, survived, survivedID},
+				{vdActive, csContested, "cascade", factD},
+			}
+			require.Equal(t, want, f.transitions(factF))
+			if !sel.integrity {
+				f.requireChallengeRefused(t, v11Addr("v12-vd-sb-c2"), factF, f.vdMinimum(t, factF).String(), vdNotChallengeable(factF, csContested, false))
+				f.requireNoLiveRounds(t)
+				return
+			}
+
+			f.nextBlock(t)
+			starved := f.challenge(t, v11Addr("v12-vd-sb-c2"), factF)
+			f.freshEvents()
+			f.starve(t, starved)
+			require.Equal(t, csContested, f.fact(t, factF).Status, "a starved challenge launders nothing")
+			require.Equal(t, append(want,
+				v11Transition{csContested, vdChallenged, "challenge_opened", starved},
+				v11Transition{vdChallenged, csContested, "challenge_inconclusive", starved}), f.transitions(factF))
+			require.Empty(t, v11Event(f.ctx, csIncompleteEvent))
+			f.requireNoLiveRounds(t)
+		})
+	}
+}
+
+// SEC-5 and decision (b): an EXPIRED counter-fact can be revived by patronage
+// or metabolism, so it has not fallen and still holds F (R1). Neither a
+// contradiction ending nor any non-refuting ending of a challenge of F
+// releases F while K is EXPIRED. With the marker off, knowledge 11 restores F
+// when the contradiction starves, whatever K's status.
+func TestClaimIntegrity_ExpiredCounterFactStillHoldsTarget(t *testing.T) {
+	expire := func(t *testing.T, f *v11Fixture, factID string) {
+		t.Helper()
+		k := f.fact(t, factID)
+		k.Status = types.FactStatus_FACT_STATUS_EXPIRED
+		require.NoError(t, f.k.SetFact(f.ctx, k))
+	}
+	for _, sel := range dedupSelections {
+		t.Run(sel.name+"/contradiction starves", func(t *testing.T) {
+			f := sel.setup(t)
+			_, factF, _, factK := f.vdContested(t, "ex")
+			expire(t, f, factK)
+			history := f.transitions(factF)
+			f.nextBlock(t)
+			b := f.mustContradict(t, v11Addr("v12-vd-ex-b"), factF, "Synthetic v12 review SEC-5: a contradiction of fact F that starves while K is expired.", f.vdMinimum(t, factF).String())
+			f.freshEvents()
+			f.starve(t, b)
+			if !sel.integrity {
+				require.Equal(t, csVerified, f.fact(t, factF).Status, "knowledge 11 restores F")
+				return
+			}
+			require.Equal(t, csContested, f.fact(t, factF).Status, "an EXPIRED counter-fact still stands")
+			require.Equal(t, history, f.transitions(factF))
+			require.Empty(t, v11Event(f.ctx, csReversedEvent))
+			require.Empty(t, v11Event(f.ctx, csIncompleteEvent))
+			f.requireNoLiveRounds(t)
+		})
+	}
+	for _, ending := range contestEndings {
+		t.Run("marker on/challenge "+ending.name, func(t *testing.T) {
+			f := setupClaimIntegrityTest(t)
+			_, factF, _, factK := f.vdContested(t, "ex")
+			expire(t, f, factK)
+			history := f.transitions(factF)
+			c := f.challenge(t, v11Addr("v12-vd-ex-ch"), factF)
+			ending.end(t, f, c)
+			cause := "challenge_inconclusive"
+			if ending.name == "rejected" {
+				cause = "challenge_survived"
+			}
+			require.Equal(t, csContested, f.fact(t, factF).Status, "an EXPIRED counter-fact still stands")
+			require.Equal(t, append(history,
+				v11Transition{csContested, vdChallenged, "challenge_opened", c},
+				v11Transition{vdChallenged, csContested, cause, c}), f.transitions(factF))
+			f.requireNoLiveRounds(t)
+		})
+	}
+}
+
+// SEC-6. A heavily cited fact makes every contest check reach the scan bound
+// (lowered here to 8 records). An incomplete check at a challenge's end
+// changes nothing: a fact that was not CONTESTED before the challenge returns
+// to ACTIVE, as if no reason were found, and one that was CONTESTED stays
+// CONTESTED. Either way contest_check_incomplete names the fact once. So one
+// starved, refunded challenge cannot freeze a popular fact CONTESTED, and an
+// incomplete check releases nothing. With the marker off nothing is checked.
+func TestClaimIntegrity_IncompleteCheckAtChallengeEndKeepsPriorStanding(t *testing.T) {
+	const bound = 8
+	cite := func(t *testing.T, f *v11Fixture, factID string) {
+		t.Helper()
+		for i := 0; i <= bound; i++ {
+			require.NoError(t, f.k.SetFactRelation(f.ctx, &types.FactRelation{
+				SourceFactId: fmt.Sprintf("v12-vd-citing-%02d", i), TargetFactId: factID, Relation: types.RelationType_RELATION_TYPE_CITES,
+			}))
+		}
+	}
+	for _, sel := range dedupSelections {
+		for _, ending := range contestEndings {
+			t.Run(sel.name+"/not contested before/"+ending.name, func(t *testing.T) {
+				f := sel.setup(t)
+				keeper.SetContestScanMaxRecordsForTest(t, bound)
+				_, factF, _ := f.contraTarget(t, "v12-vd-cb-f", "Synthetic v12 review SEC-6: fact F, which many facts cite.")
+				cite(t, f, factF)
+				history := f.transitions(factF)
+				c := f.challenge(t, v11Addr("v12-vd-cb-ch"), factF)
+				f.freshEvents()
+				ending.end(t, f, c)
+				require.Equal(t, vdActive, f.fact(t, factF).Status, "an incomplete check never contests")
+				if !sel.integrity {
+					require.Empty(t, v11Event(f.ctx, csIncompleteEvent))
+					return
+				}
+				cause := "challenge_inconclusive"
+				if ending.name == "rejected" {
+					cause = "challenge_survived"
+				}
+				require.Equal(t, append(history,
+					v11Transition{csVerified, vdChallenged, "challenge_opened", c},
+					v11Transition{vdChallenged, vdActive, cause, c}), f.transitions(factF))
+				incomplete := v11Event(f.ctx, csIncompleteEvent)
+				require.Len(t, incomplete, 1)
+				require.Equal(t, factF, incomplete[0]["fact_id"])
+				require.Contains(t, incomplete[0]["reason"], "contest scan exceeds record bound")
+				f.requireNoLiveRounds(t)
+			})
+		}
+	}
+	for _, ending := range contestEndings {
+		t.Run("marker on/contested before/"+ending.name, func(t *testing.T) {
+			f := setupClaimIntegrityTest(t)
+			keeper.SetContestScanMaxRecordsForTest(t, bound)
+			_, factF, factD := f.vdDependent(t, "cc")
+			cite(t, f, factF)
+			f.vdDisprove(t, v11Addr("v12-vd-cc-cd"), factD)
+			require.Equal(t, csContested, f.fact(t, factF).Status)
+			history := f.transitions(factF)
+			f.nextBlock(t)
+			c := f.challenge(t, v11Addr("v12-vd-cc-ch"), factF)
+			f.freshEvents()
+			ending.end(t, f, c)
+			cause := "challenge_inconclusive"
+			if ending.name == "rejected" {
+				cause = "challenge_survived"
+			}
+			require.Equal(t, csContested, f.fact(t, factF).Status, "an incomplete check never releases")
+			require.Equal(t, append(history,
+				v11Transition{csContested, vdChallenged, "challenge_opened", c},
+				v11Transition{vdChallenged, csContested, cause, c}), f.transitions(factF))
+			incomplete := v11Event(f.ctx, csIncompleteEvent)
+			require.Len(t, incomplete, 1)
+			require.Equal(t, factF, incomplete[0]["fact_id"])
+			require.Contains(t, incomplete[0]["reason"], "contest scan exceeds record bound")
 			f.requireNoLiveRounds(t)
 		})
 	}

@@ -583,8 +583,8 @@ Each row records the cause shown (§6.2).
 | VERIFIED, ACTIVE, **CONTESTED** | CHALLENGED | `MsgChallengeFact` | `challenge_opened` / challenge claim ID | `TestClaimIntegrity_ChallengeFactAdmitsContestedTarget` |
 | PROVISIONAL | CHALLENGED | `MsgChallengeProvisionalFact` | `challenge_opened` / challenge claim ID | `TestClaimIntegrity_ChallengeTransitionsRecordExactCauses` |
 | CHALLENGED | DISPROVEN | the challenge is ACCEPTED | `challenge_disproven` / challenge claim ID | `TestClaimIntegrity_ContestedFactChallengeWhileCounterFactStands` |
-| CHALLENGED | ACTIVE, or CONTESTED while a contest reason remains | the challenge is REJECTED (survived) | `challenge_survived` / challenge claim ID | `TestClaimIntegrity_SurvivalClearsOnlyDependenciesRefutedBeforeIt`, `TestClaimIntegrity_ContestedFactChallengeWhileCounterFactStands` |
-| CHALLENGED | ACTIVE, or CONTESTED while a contest reason remains | the challenge is INCONCLUSIVE, MALFORMED or starved | `challenge_inconclusive` / challenge claim ID | `TestClaimIntegrity_SurvivalClearsOnlyDependenciesRefutedBeforeIt`, `TestClaimIntegrity_ContestedFactChallengeWhileCounterFactStands` |
+| CHALLENGED | ACTIVE, or CONTESTED while a contest reason remains | the challenge is REJECTED (survived) | `challenge_survived` / challenge claim ID | `TestClaimIntegrity_SurvivalClearsOnlyDependenciesRefutedBeforeIt`, `TestClaimIntegrity_ContestedFactChallengeWhileCounterFactStands`, `TestClaimIntegrity_SurvivalClearsNothingRefutedWhileTheChallengeWasOpen` |
+| CHALLENGED | ACTIVE, or CONTESTED while a contest reason remains | the challenge is INCONCLUSIVE, MALFORMED or starved | `challenge_inconclusive` / challenge claim ID | `TestClaimIntegrity_SurvivalClearsOnlyDependenciesRefutedBeforeIt`, `TestClaimIntegrity_ContestedFactChallengeWhileCounterFactStands`, `TestClaimIntegrity_SameBlockRefutationAfterSurvivalIsNotCleared` |
 | CHALLENGED (conjecture) | PROVISIONAL | any ending except ACCEPT | `challenge_survived` or `challenge_inconclusive` / challenge claim ID | `TestClaimIntegrity_ConjectureChallengeEndsProvisional`, `TestClaimIntegrity_ChallengeTransitionsRecordExactCauses` |
 | metabolic statuses | — | unchanged | inferred, as in knowledge 11 | *Not tested here* |
 
@@ -649,27 +649,43 @@ Tests: `TestClaimIntegrity_ChallengeTransitionsRecordExactCauses`,
 never returns an error and writes nothing.
 
 - **R1, standing conflict.** Some incoming edge to F is CONTRADICTS, and its
-  source fact is VERIFIED, ACTIVE, CONTESTED, CHALLENGED or AT_RISK. Other
-  incoming types, and F's own outgoing CONTRADICTS edges, are not reasons.
-  Tests: `TestContestReasonStandingCounterFact`.
+  source fact has not fallen: it is VERIFIED, ACTIVE, CONTESTED, CHALLENGED,
+  AT_RISK or EXPIRED. An EXPIRED counter-fact counts because patronage or
+  metabolism can revive it; only SUPERSEDED, DISPROVEN, REVOKED and PRUNED
+  have fallen. Other incoming types, and F's own outgoing CONTRADICTS edges,
+  are not reasons.
+  Tests: `TestContestReasonStandingCounterFact`,
+  `TestClaimIntegrity_ExpiredCounterFactStillHoldsTarget`.
 - **R2, refuted dependency.** Some outgoing edge from F is SUPPORTS, REQUIRES,
   REFINES, GENERALIZES or CITES (the cascade set), its target D is DISPROVEN,
-  and `survivedAt == 0` or D's latest transition to DISPROVEN is later than
-  `survivedAt`. A D with no recorded fall is cleared by any survival.
-  Tests: `TestContestReasonRefutedDependencyIsOrderedBySurvival`.
-- **`survivedAt`.** When a release is considered, it is the height of F's latest
-  `challenge_survived` transition, or 0. A knowledge-11 survival was recorded
-  as `unknown`, so it clears nothing. When a challenge of F is REJECTED, it is
-  the current height. When a challenge ends any other way, it is F's latest
-  survival, so an inconclusive or starved challenge clears nothing.
+  and `survivedAt == 0` or D's latest transition to DISPROVEN is at or after
+  `survivedAt`. A fall at that height counts against F: heights cannot order
+  two events of one block. A D with no recorded fall is cleared by any
+  survival.
+  Tests: `TestContestReasonRefutedDependencyIsOrderedBySurvival`,
+  `TestClaimIntegrity_SameBlockRefutationAfterSurvivalIsNotCleared`.
+- **`survivedAt`.** It is the evidence cutoff of F's last survival: the height
+  the surviving challenge opened, its challenge claim's `SubmittedAtBlock`, not
+  the height it ended. A refutation while that challenge was open is therefore
+  never cleared by it. When a challenge of F is REJECTED, it is that
+  challenge's `SubmittedAtBlock`. Otherwise (a release, or a challenge that ends
+  any other way) it is read from the challenge claim that F's latest
+  `challenge_survived` transition names, or 0 if there is none, so an
+  inconclusive or starved challenge clears nothing. A knowledge-11 survival was
+  recorded as `unknown`, so it clears nothing. A survival whose challenge claim
+  is missing, unreadable, names another fact or opened after the survival makes
+  the check incomplete.
   Tests: `TestContestReasonSinceLastSurvival`,
   `TestSettleContradictionTargetsSinceLastSurvival`,
-  `TestClaimIntegrity_SurvivalClearsOnlyDependenciesRefutedBeforeIt`.
+  `TestClaimIntegrity_SurvivalClearsOnlyDependenciesRefutedBeforeIt`,
+  `TestClaimIntegrity_SurvivalClearsNothingRefutedWhileTheChallengeWasOpen`,
+  `TestChallengeEndStatus`.
 - **Failure handling.** A read error, a malformed record, an edge naming a
   missing fact, or more than 100,000 records or 64 MiB read in one check all
-  mean the reason remains. The check emits
+  mean the reason remains, so no CONTESTED fact is released. The check emits
   `zerone.knowledge.contest_check_incomplete{fact_id, reason}`, exactly once per
-  failed check.
+  failed check. The bound counts every incoming edge, of any type. At a
+  challenge's end an incomplete check changes nothing (§6.5).
   Tests: `TestContestReasonFailsTowardContested`,
   `TestClaimIntegrity_IncompleteContestCheckKeepsTargetContested`,
   `TestClaimIntegrity_IncompleteCheckOnVerdictPathsFailsTowardContested`.
@@ -735,9 +751,12 @@ tests above.
 - **Ending a challenge of F.** ACCEPT makes F DISPROVEN. Any other ending returns
   F to ACTIVE, or to CONTESTED while a contest reason remains (`survivedAt` as in
   §6.3). A survival never clears a standing counter-fact, so the counter-fact
-  must itself be refuted. A starved challenge launders nothing.
+  must itself be refuted, and never clears a dependency refuted while it was
+  open. A starved challenge launders nothing.
   Tests: `TestClaimIntegrity_ContestedFactChallengeWhileCounterFactStands`,
   `TestClaimIntegrity_SurvivalClearsOnlyDependenciesRefutedBeforeIt`,
+  `TestClaimIntegrity_SurvivalClearsNothingRefutedWhileTheChallengeWasOpen`,
+  `TestClaimIntegrity_SameBlockRefutationAfterSurvivalIsNotCleared`,
   `TestClaimIntegrity_LaunderedFactChallengeFollowsStandingCounterFact`.
 - **A counter-fact falls.** When K becomes DISPROVEN, in the same cache and
   after the DISPROVEN write and the cascade, each CONTESTED target of K's stored
@@ -750,11 +769,21 @@ tests above.
   `TestClaimIntegrity_DisprovenCounterFactLeavesRefutedDependencyHolding`,
   `TestSettleCounterFactTargets`.
 - **Failures on these paths never release.** A challenged fact whose check fails
-  returns to CONTESTED. If K's edges cannot be listed, no target is released and
-  `contest_check_incomplete` names K. A target that cannot be read is reported
-  and left as it is, while the other targets still settle. The disproval stands
-  in every case. A write error is returned, and the round's cache discards it.
+  keeps its standing from before the challenge: it returns to CONTESTED if its
+  `challenge_opened` transition for this challenge has prior status CONTESTED,
+  or if that transition is absent or unreadable, and to ACTIVE otherwise.
+  `contest_check_incomplete` names it once. So one refunded, starved challenge
+  cannot freeze CONTESTED a fact whose every check is too large to finish, and
+  an incomplete check releases nothing. The cost: a fact that gained a reason
+  while it was CHALLENGED (the cascade skips it), or a fact laundered before
+  activation, returns to ACTIVE if its check also cannot finish. If K's edges
+  cannot be listed, no target is released and `contest_check_incomplete` names
+  K. A target that cannot be read is reported and left as it is, while the
+  other targets still settle. The disproval stands in every case. A write error
+  is returned, and the round's cache discards it.
   Tests: `TestClaimIntegrity_IncompleteCheckOnVerdictPathsFailsTowardContested`,
+  `TestClaimIntegrity_IncompleteCheckAtChallengeEndKeepsPriorStanding`,
+  `TestChallengeEndStatus`,
   `TestSettleCounterFactTargetsFailsTowardContested`.
 - **Conjectures.** A challenge ending that does not refute a conjecture returns
   it to PROVISIONAL, never ACTIVE or CONTESTED. A CONTESTED conjecture left by a
@@ -829,7 +858,7 @@ checked by `TestEventAudit_DocumentationCompleteness`.
 | `zerone.knowledge.contradiction_accepted{fact_id, counter_claim_id, counter_fact_id}` | New. An accepted contradiction contested `fact_id` (§6.4). | `TestContestAcceptedTargets` |
 | `zerone.knowledge.contradiction_reversed{fact_id, reverted_by_claim}` | `fact_id` was released when that contradiction ended without acceptance and no contest reason remained. It is not emitted while a reason remains. | `TestClaimIntegrity_PreActivationContestSettlesThroughPredicate`, `TestClaimIntegrity_ContradictionContestsOnlyWhenAccepted` |
 | `zerone.knowledge.contradiction_reversed{fact_id, reverted_by_fact}` | New form. `fact_id` was released when counter-fact `reverted_by_fact` fell. | `TestClaimIntegrity_DisprovenCounterFactReleasesTarget`, `TestSettleCounterFactTargets` |
-| `zerone.knowledge.contest_check_incomplete{fact_id, reason}` | New. A contest check could not finish, so the fact stays (or returns to) CONTESTED. `fact_id` is that fact, or a fallen counter-fact whose edges could not be listed. | `TestContestReasonFailsTowardContested`, `TestSettleCounterFactTargetsFailsTowardContested` |
+| `zerone.knowledge.contest_check_incomplete{fact_id, reason}` | New. A contest check could not finish, so no CONTESTED fact is released; at a challenge's end the fact keeps its standing from before the challenge (§6.5). `fact_id` is that fact, or a fallen counter-fact whose edges could not be listed. | `TestContestReasonFailsTowardContested`, `TestSettleCounterFactTargetsFailsTowardContested`, `TestClaimIntegrity_IncompleteCheckAtChallengeEndKeepsPriorStanding` |
 | `zerone.knowledge.challenge_fact` | Unchanged attributes. A CONTESTED fact can now be challenged, so `fact_id` may name one. | `TestClaimIntegrity_ChallengeFactAdmitsContestedTarget` |
 | `zerone.knowledge.challenge_inconclusive_restored{fact_id, challenge_claim_id}` | The fact may return to CONTESTED rather than ACTIVE. | `TestClaimIntegrity_ContestedFactChallengeWhileCounterFactStands` |
 

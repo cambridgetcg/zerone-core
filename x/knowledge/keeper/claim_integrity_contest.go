@@ -26,6 +26,13 @@ import (
 // Task 13 (P3c) adds the decision paths out of CONTESTED: a challenge of the
 // fact itself (challengeEndStatus) and the fall of a counter-fact
 // (settleCounterFactTargets). Both use the same predicate.
+//
+// Review fixes (group G1): a survival is judged from the height its challenge
+// opened, never from the height it ended, so a refutation while the challenge
+// was open is not cleared by it (SEC-1); a refutation at that height counts
+// against the fact (F1); an EXPIRED counter-fact still holds its target
+// (SEC-5); and a check that cannot finish at a challenge's end changes
+// nothing (SEC-6).
 
 const (
 	causeContradictionAccepted = "contradiction_accepted"
@@ -51,6 +58,14 @@ func factStands(status types.FactStatus) bool {
 	return false
 }
 
+// counterFactStands reports whether a contradicting fact still holds its
+// target (R1): it stands, or it is EXPIRED. Patronage or metabolism can
+// revive an EXPIRED fact, so it has not fallen (decision (b), SEC-5); only
+// SUPERSEDED, DISPROVEN, REVOKED and PRUNED have. Admission keeps factStands.
+func counterFactStands(status types.FactStatus) bool {
+	return factStands(status) || status == types.FactStatus_FACT_STATUS_EXPIRED
+}
+
 // isCascadeRelation names the dependency edges a refutation cascades along,
 // the same set as cascadeFalsificationChecked.
 func isCascadeRelation(relation types.RelationType) bool {
@@ -66,12 +81,17 @@ func isCascadeRelation(relation types.RelationType) bool {
 }
 
 // contestScan bounds one contest-reason check. Every KV entry it reads
-// (relation, fact or transition) counts toward the ceilings that
+// (relation, fact, claim or transition) counts toward the ceilings that
 // hasOtherActiveChallenge uses: 100k records and 64 MiB in total.
 type contestScan struct {
 	store          corestore.KVStore
 	records, bytes int
 }
+
+// contestScanMaxRecords is the record ceiling of one contest check:
+// recordInventoryMaxRecords. Only tests change it, to reach the bound without
+// writing 100k records.
+var contestScanMaxRecords = recordInventoryMaxRecords
 
 func (k Keeper) newContestScan(ctx context.Context) *contestScan {
 	return &contestScan{store: k.storeService.OpenKVStore(ctx)}
@@ -79,7 +99,7 @@ func (k Keeper) newContestScan(ctx context.Context) *contestScan {
 
 func (s *contestScan) charge(size int) error {
 	s.records++
-	if s.records > recordInventoryMaxRecords {
+	if s.records > contestScanMaxRecords {
 		return fmt.Errorf("contest scan exceeds record bound")
 	}
 	if size > recordInventoryMaxBytes-s.bytes {
@@ -139,10 +159,33 @@ func decodeContestRelation(key, value []byte) (*types.FactRelation, error) {
 	return rel, nil
 }
 
-// latestTransitionAt is the block height of factID's latest recorded
-// transition that match accepts, or 0 when none is recorded.
-func (s *contestScan) latestTransitionAt(factID string, match func(*types.StatusTransition) bool) (uint64, error) {
-	var at uint64
+// claim reads and validates one claim record. It is nil when absent.
+func (s *contestScan) claim(id string) (*types.Claim, error) {
+	key := types.ClaimKey(id)
+	bz, err := s.store.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	if err = s.charge(len(key) + len(bz)); err != nil || bz == nil {
+		return nil, err
+	}
+	if err = validateRawClaimRecord(bz); err != nil {
+		return nil, err
+	}
+	claim := &types.Claim{}
+	if err = proto.Unmarshal(bz, claim); err != nil {
+		return nil, err
+	}
+	if claim.Id != id || hasUnknownRecordFields(claim.ProtoReflect()) {
+		return nil, fmt.Errorf("claim identity or fields are invalid")
+	}
+	return claim, nil
+}
+
+// latestTransition is factID's latest recorded transition that match
+// accepts, or nil when none is recorded.
+func (s *contestScan) latestTransition(factID string, match func(*types.StatusTransition) bool) (*types.StatusTransition, error) {
+	var latest *types.StatusTransition
 	err := s.each(types.StatusTransitionPrefixForFact(factID), func(key, value []byte) error {
 		if err := validateToKStoredRecord(key, value); err != nil {
 			return err
@@ -155,33 +198,67 @@ func (s *contestScan) latestTransitionAt(factID string, match func(*types.Status
 			return fmt.Errorf("status history key/payload mismatch")
 		}
 		if match(t) {
-			at = t.BlockHeight
+			latest = t
 		}
 		return nil
 	})
-	return at, err
+	if err != nil {
+		return nil, err
+	}
+	return latest, nil
 }
 
 // disprovenAt is the height of the fact's latest transition to DISPROVEN, or
 // 0 if none is recorded.
 func (s *contestScan) disprovenAt(factID string) (uint64, error) {
-	return s.latestTransitionAt(factID, func(t *types.StatusTransition) bool {
+	t, err := s.latestTransition(factID, func(t *types.StatusTransition) bool {
 		return t.NewStatus == types.FactStatus_FACT_STATUS_DISPROVEN
 	})
+	if err != nil || t == nil {
+		return 0, err
+	}
+	return t.BlockHeight, nil
 }
 
-// lastSurvivedAt is the height of the fact's latest challenge_survived
-// transition, or 0 if none is recorded. Knowledge 11 recorded survivals as
-// "unknown", so they clear nothing.
+// lastSurvivedAt is the evidence cutoff of the fact's latest survival: the
+// height its challenge opened, the SubmittedAtBlock of the challenge claim
+// that the latest challenge_survived transition names (SEC-1). It is the
+// cutoff challengeEndStatus judged that survival with, so a refutation while
+// that challenge was open is never cleared by it. It is 0 when no survival is
+// recorded; knowledge 11 recorded survivals as "unknown", so they clear
+// nothing. A survival whose challenge claim is missing, unreadable, names
+// another fact or opened after the survival is an error.
 func (s *contestScan) lastSurvivedAt(factID string) (uint64, error) {
-	return s.latestTransitionAt(factID, func(t *types.StatusTransition) bool {
+	survival, err := s.latestTransition(factID, func(t *types.StatusTransition) bool {
 		return t.CauseEventType == causeChallengeSurvived
 	})
+	if err != nil || survival == nil {
+		return 0, err
+	}
+	id := survival.CauseId
+	if id == "" {
+		return 0, fmt.Errorf("survival at %d names no challenge claim", survival.BlockHeight)
+	}
+	challenge, err := s.claim(id)
+	if err != nil {
+		return 0, fmt.Errorf("survival challenge claim %s: %w", id, err)
+	}
+	if challenge == nil {
+		return 0, fmt.Errorf("survival challenge claim %s is missing", id)
+	}
+	if challenge.ProvisionalFactId != factID {
+		return 0, fmt.Errorf("survival challenge claim %s challenged %s", id, challenge.ProvisionalFactId)
+	}
+	if challenge.SubmittedAtBlock == 0 || challenge.SubmittedAtBlock > survival.BlockHeight {
+		return 0, fmt.Errorf("survival challenge claim %s opened at %d, survived at %d", id, challenge.SubmittedAtBlock, survival.BlockHeight)
+	}
+	return challenge.SubmittedAtBlock, nil
 }
 
-// contestReason decides R1 and R2 (plan §5.3). survivedAt is called at most
-// once, and only when a refuted dependency makes it matter. Any error means
-// the check could not finish.
+// contestReason decides R1 and R2 (plan §5.3). survivedAt, the evidence
+// cutoff of the fact's last survival (0 if none), is called at most once, and
+// only when a refuted dependency makes it matter. Any error means the check
+// could not finish.
 func (k Keeper) contestReason(ctx context.Context, fact *types.Fact, survivedAt func(*contestScan) (uint64, error)) (bool, error) {
 	s := k.newContestScan(ctx)
 
@@ -204,7 +281,7 @@ func (k Keeper) contestReason(ctx context.Context, fact *types.Fact, survivedAt 
 		if !found {
 			return fmt.Errorf("contradicting fact %s is missing", rel.SourceFactId)
 		}
-		if factStands(source.Status) {
+		if counterFactStands(source.Status) {
 			return errContestReasonFound
 		}
 		return nil
@@ -216,7 +293,9 @@ func (k Keeper) contestReason(ctx context.Context, fact *types.Fact, survivedAt 
 		return true, err
 	}
 
-	// R2: a dependency refuted after the fact's last survived challenge.
+	// R2: a dependency refuted at or after the opening of the fact's last
+	// survived challenge. A refutation at the opening height counts: heights
+	// cannot order two events of one block (F1).
 	var dependencies []string
 	err = s.each(types.FactRelationsBySourcePrefix(fact.Id), func(key, value []byte) error {
 		rel, err := decodeContestRelation(key, value)
@@ -260,7 +339,7 @@ func (k Keeper) contestReason(ctx context.Context, fact *types.Fact, survivedAt 
 		if err != nil {
 			return true, fmt.Errorf("dependency %s history: %w", id, err)
 		}
-		if at > survived {
+		if at >= survived {
 			return true, nil
 		}
 	}
@@ -285,18 +364,20 @@ func (k Keeper) contestReasonOrIncomplete(ctx context.Context, fact *types.Fact,
 }
 
 // contestReasonRemains reports whether fact must stay CONTESTED (plan §5.3):
-// R1, an incoming CONTRADICTS edge from a standing fact; or R2, an outgoing
-// dependency edge to a DISPROVEN fact that fell after survivedAt (or any
-// such fall when survivedAt is 0). Pending contradictions are not reasons. It
-// never returns an error: a read error, a malformed record or the scan bound
-// means the reason remains, and contest_check_incomplete says why. It writes
-// nothing.
+// R1, an incoming CONTRADICTS edge from a fact that has not fallen
+// (counterFactStands); or R2, an outgoing dependency edge to a DISPROVEN fact
+// that fell at or after survivedAt (or any such fall when survivedAt is 0).
+// survivedAt is the opening height of a survived challenge. Pending
+// contradictions are not reasons. It never returns an error: a read error, a
+// malformed record or the scan bound means the reason remains, and
+// contest_check_incomplete says why. It writes nothing.
 func (k Keeper) contestReasonRemains(ctx context.Context, fact *types.Fact, survivedAt uint64) bool {
 	return k.contestReasonOrIncomplete(ctx, fact, func(*contestScan) (uint64, error) { return survivedAt, nil })
 }
 
 // contestReasonRemainsSinceLastSurvival is contestReasonRemains with
-// survivedAt read from the fact's history (lastSurvivedAt).
+// survivedAt read from the fact's history and its last survival's challenge
+// claim (lastSurvivedAt).
 func (k Keeper) contestReasonRemainsSinceLastSurvival(ctx context.Context, fact *types.Fact) bool {
 	return k.contestReasonOrIncomplete(ctx, fact, func(s *contestScan) (uint64, error) { return s.lastSurvivedAt(fact.Id) })
 }
@@ -428,29 +509,67 @@ func (k Keeper) endContradiction(ctx context.Context, claim *types.Claim, integr
 	return k.settleContradictionTargets(ctx, claim)
 }
 
-// challengeEndStatus is the status a challenged fact takes when its challenge
+// challengeEndStatus is the status a challenged fact takes when challenge
 // ends without refuting it (§5.2 rows 7 and 8): RestoredStatusFor, except
 // that with claim integrity on an established fact returns to CONTESTED while
 // a contest reason remains. A conjecture is exempt and returns to
-// PROVISIONAL. A survival (REJECT) clears dependencies refuted at or before
-// its own height, the current one; any other ending clears nothing, so the
-// reasons are judged since the fact's last survived challenge. A standing
-// counter-fact is never cleared by a survival (§9 D2). A check that cannot
-// finish returns CONTESTED.
-func (k Keeper) challengeEndStatus(ctx context.Context, fact *types.Fact, integrity, survived bool) types.FactStatus {
+// PROVISIONAL.
+//
+// A survival (REJECT) clears only dependencies refuted before this challenge
+// opened (its SubmittedAtBlock, the evidence the panel was given; SEC-1), and
+// lastSurvivedAt later reads the same height. Any other ending clears
+// nothing, so the reasons are judged since the fact's last survival. A
+// standing counter-fact is never cleared by a survival (§9 D2).
+//
+// A check that cannot finish changes nothing (SEC-6): the fact returns to
+// CONTESTED if it was CONTESTED when this challenge opened, and otherwise as
+// if no reason remained. contest_check_incomplete says why, once. Otherwise
+// one starved, refunded challenge would freeze CONTESTED a fact that every
+// check is too large to finish, such as one with more than 100k incoming
+// relations. If the status before the challenge cannot be read (a challenge
+// opened before activation recorded no challenge_opened transition) the fact
+// returns to CONTESTED.
+func (k Keeper) challengeEndStatus(ctx context.Context, fact *types.Fact, challenge *types.Claim, integrity, survived bool) types.FactStatus {
 	if !integrity || IsConjecture(fact) {
 		return RestoredStatusFor(fact)
 	}
-	var remains bool
+	cutoff := func(s *contestScan) (uint64, error) { return s.lastSurvivedAt(fact.Id) }
 	if survived {
-		remains = k.contestReasonRemains(ctx, fact, uint64(sdk.UnwrapSDKContext(ctx).BlockHeight()))
-	} else {
-		remains = k.contestReasonRemainsSinceLastSurvival(ctx, fact)
+		cutoff = func(*contestScan) (uint64, error) { return challenge.SubmittedAtBlock, nil }
 	}
-	if remains {
+	remains, err := k.contestReason(ctx, fact, cutoff)
+	if err == nil {
+		if remains {
+			return types.FactStatus_FACT_STATUS_CONTESTED
+		}
+		return RestoredStatusFor(fact)
+	}
+	contested, priorErr := k.contestedWhenChallengeOpened(ctx, fact.Id, challenge.Id)
+	if priorErr != nil {
+		err = fmt.Errorf("%w; status before the challenge: %v", err, priorErr)
+	}
+	emitContestCheckIncomplete(ctx, fact.Id, err)
+	if priorErr != nil || contested {
 		return types.FactStatus_FACT_STATUS_CONTESTED
 	}
 	return RestoredStatusFor(fact)
+}
+
+// contestedWhenChallengeOpened reports whether factID was CONTESTED when
+// challenge challengeID opened: the prior status of the latest
+// challenge_opened transition naming it. It reads within its own contest-scan
+// budget. No such transition is an error.
+func (k Keeper) contestedWhenChallengeOpened(ctx context.Context, factID, challengeID string) (bool, error) {
+	opened, err := k.newContestScan(ctx).latestTransition(factID, func(t *types.StatusTransition) bool {
+		return t.CauseEventType == causeChallengeOpened && t.CauseId == challengeID
+	})
+	if err != nil {
+		return false, err
+	}
+	if opened == nil {
+		return false, fmt.Errorf("no challenge_opened transition names %s", challengeID)
+	}
+	return opened.PriorStatus == types.FactStatus_FACT_STATUS_CONTESTED, nil
 }
 
 // settleCounterFactTargets runs when counter-fact K has just been disproven,

@@ -62,11 +62,13 @@ it highest. It is changed in these ways:
   This avoids D2's `CascadeEventByDescendant` gap: the cascade skips descendants that are
   already CONTESTED or CHALLENGED (`vindication.go:619-627`).
 - **D2's survival rule, made order-aware.** Surviving a direct challenge (verdict REJECT) clears
-  R2 only for dependencies refuted at or before that survival. An inconclusive or starved
-  challenge clears nothing, which closes judge 2's laundering path.
+  R2 only for dependencies refuted before that challenge opened (review fix SEC-1: not before it
+  ended, so a refutation while the challenge was open is never cleared by it). An inconclusive
+  or starved challenge clears nothing, which closes judge 2's laundering path.
 - **The scan never errors toward VERIFIED.** If the contest-reason scan errors or hits its bound,
-  the fact stays CONTESTED and an event is emitted. A BeginBlock path never receives an error and
-  never restores status.
+  no CONTESTED fact is released and an event is emitted. At a challenge's end an incomplete
+  check changes nothing: the fact returns to CONTESTED only if it was CONTESTED when the
+  challenge opened (review fix SEC-6). A BeginBlock path never receives an error.
 - **D3's index rule, which needs no extra reads.** With the marker on, `SetClaim` writes the 0x09
   and 0x34 index entries only on the claim's first save. It already reads `previousBytes`
   (`state.go:189-195`). Admission of a new claim therefore overwrites the index; re-saves never
@@ -387,8 +389,12 @@ that limit is disclosed.
 | CONTESTED | VERIFIED | counter-fact K becomes DISPROVEN and no contest reason remains | `counterfact_disproven / <K>` |
 | VERIFIED, ACTIVE, **CONTESTED** | CHALLENGED | `MsgChallengeFact` | `challenge_opened / <challenge claim id>` |
 | CHALLENGED | DISPROVEN | challenge ACCEPT | `challenge_disproven / <challenge claim id>` |
-| CHALLENGED | ACTIVE or CONTESTED | challenge REJECT (survived). CONTESTED iff R1 holds, or R2 holds for a dependency refuted after this survival (not possible at that instant). | `challenge_survived / <challenge claim id>` |
+| CHALLENGED | ACTIVE or CONTESTED | challenge REJECT (survived). CONTESTED iff R1 holds, or R2 holds for a dependency refuted at or after the height this challenge opened (`survivedAt` = its claim's `SubmittedAtBlock`; review fix SEC-1). | `challenge_survived / <challenge claim id>` |
 | CHALLENGED | ACTIVE or CONTESTED | challenge INCONCLUSIVE, MALFORMED or starved. CONTESTED iff R1 or R2 holds. Nothing is cleared. | `challenge_inconclusive / <challenge claim id>` |
+
+A check that cannot finish at a challenge's end returns F to CONTESTED only if F was CONTESTED
+when the challenge opened (the prior status of its `challenge_opened` transition), otherwise to
+ACTIVE, and emits `contest_check_incomplete` either way (review fix SEC-6).
 | metabolic statuses | — | unchanged | inferred, as today |
 
 Rules that do **not** change any fact:
@@ -401,17 +407,30 @@ DISPROVEN can only come from a direct challenge on that fact.
 
 ### 5.3 Contest reasons (`contestReasonRemains(ctx, F, survivedAt) bool`; it never returns an error)
 - **R1 — standing conflict.** Some incoming relation to F has type `CONTRADICTS`, and its source
-  fact's status is one of VERIFIED, ACTIVE, CONTESTED, CHALLENGED or AT_RISK.
+  fact's status is one of VERIFIED, ACTIVE, CONTESTED, CHALLENGED, AT_RISK or EXPIRED. EXPIRED
+  counts because patronage or metabolism can revive it (decision (b), review fix SEC-5); only
+  SUPERSEDED, DISPROVEN, REVOKED and PRUNED have fallen.
 - **R2 — refuted dependency.** Some outgoing relation from F has type SUPPORTS, REQUIRES, REFINES,
   GENERALIZES or CITES (the cascade set). Its target D is DISPROVEN, and
-  `survivedAt == 0 || disprovenAt(D) > survivedAt`, where:
+  `survivedAt == 0 || disprovenAt(D) >= survivedAt`, where:
   - `disprovenAt(D)` is the block height of D's latest transition to DISPROVEN, or 0 if none is
     recorded;
-  - `survivedAt` is passed in, or else is the height of F's latest `challenge_survived`
-    transition (0 if none).
+  - `survivedAt` is the evidence cutoff of F's last survival: the height its challenge opened.
+    It is passed in (the surviving challenge's `SubmittedAtBlock`), or else read from the
+    challenge claim that F's latest `challenge_survived` transition names (0 if there is none).
+    A survival whose claim is missing, unreadable, names another fact or opened after the
+    survival makes the check incomplete. Review fix SEC-1: judging from the survival's own
+    height cleared a dependency refuted while the challenge was open.
+  - A fall at the cutoff height counts (`>=`; review fixes F1, CI-REVIEW-2). Heights cannot
+    order two events of one block, so a tie goes to CONTESTED. The survival and every later
+    check use the same cutoff and the same comparison, so a survival never clears something
+    that a later starved challenge would re-contest, nor the reverse.
 - **Failure handling.** A read error, a malformed record, or exceeding the 100k-record / 64 MiB
   bound (the same bound as `hasOtherActiveChallenge`) all mean the reason remains (`true`). The
-  predicate also emits `zerone.knowledge.contest_check_incomplete{fact_id, reason}`.
+  predicate also emits `zerone.knowledge.contest_check_incomplete{fact_id, reason}`. At a
+  challenge's end the caller (`challengeEndStatus`) instead keeps F's standing from before the
+  challenge (§5.2; review fix SEC-6), so one refunded, starved challenge cannot freeze a fact
+  whose every check is too large to finish (more than 100k incoming relations of any type).
 - **Pending contradictions are not reasons.**
 
 ### 5.4 Duplicate checks and resubmission (P1, P2)
@@ -1034,7 +1053,7 @@ Conventions that apply to every task:
     - settle ignores the predicate;
     - an incomplete check is read as no reason;
     - a survival is matched by status rather than cause;
-    - `>=` in place of `>`;
+    - `>=` in place of `>` (since review fix F1 the predicate uses `>=`; the mutant is now `>`);
     - acceptance does not contest;
     - R1 narrowed to VERIFIED/ACTIVE;
     - `phases.go` keeps the legacy reversal;
@@ -1112,7 +1131,8 @@ Conventions that apply to every task:
   1. The status gate also admits CONTESTED. The minimum stake still uses the target's confidence.
   2. On survival, the status is `RestoredStatusFor(F)` unless
      `!IsConjecture(F) && contestReasonRemains(F, survivedAt = current height)`, in which case it
-     is CONTESTED.
+     is CONTESTED. (Review fix SEC-1: `survivedAt` is the height the challenge opened, its
+     claim's `SubmittedAtBlock`, not the current height.)
   3. On an inconclusive, malformed or starved challenge, the same rule applies with
      `survivedAt = lastSurvivedAt(F)`.
   4. After K is disproven, settle each outgoing CONTRADICTS target of K, inside the same cache.
@@ -1132,10 +1152,12 @@ Conventions that apply to every task:
       call at that site (`handleChallengeDisproven` too), so the read count is unchanged with
       the marker off;
     - a survival is judged with `survivedAt` = the current height. Every other ending is
-      judged since `lastSurvivedAt`;
+      judged since `lastSurvivedAt`. (Superseded by review fix SEC-1: a survival is judged
+      from the height its challenge opened, and `lastSurvivedAt` returns that height.)
     - a check that cannot finish returns the fact to CONTESTED and emits
       `contest_check_incomplete`. This applies to any challenged fact, including one that
-      was VERIFIED before the challenge.
+      was VERIFIED before the challenge. (Superseded by review fix SEC-6: only a fact that was
+      CONTESTED when the challenge opened returns to CONTESTED; any other returns to ACTIVE.)
   - Consequence of §5.2, now pinned by a test: a fact laundered before activation (VERIFIED
     while K stands, §3.6) returns to CONTESTED when a challenge ends without refuting it, after
     an in-place upgrade or an import. The marker-off twin returns it to ACTIVE.
@@ -1205,6 +1227,37 @@ Conventions that apply to every task:
     `knowledge-slash-callsites` (`rounds.go`) anchors. That is deferred to the separate reviewed
     pinning step, so `tools/authority-graph` fails until then. `vindication.go` is not an
     anchor.
+
+- Review fixes, group G1 (2026-10-17; marker-gated; marker off unchanged and the Task 2 digest
+  unchanged):
+  - SEC-1: `challengeEndStatus` takes the challenge claim. A survival is judged with
+    `survivedAt` = its `SubmittedAtBlock`. `lastSurvivedAt` returns the `SubmittedAtBlock` of
+    the challenge claim that the latest `challenge_survived` transition names, read and
+    validated within the scan budget. The claim, not the `challenge_opened` row, is the single
+    source, so the survival and every later check read the same height, including for a
+    challenge opened before activation (whose opening was recorded as `unknown`).
+  - F1, CI-REVIEW-2: R2 counts a dependency refuted at the cutoff height (`>=`). The review
+    asked for strict `>` "only where the survival instant itself is judged"; after SEC-1 no
+    path judges against the survival's own height, and both paths must use one comparison, so
+    `>=` is used throughout.
+  - SEC-5: R1 uses `counterFactStands`, `factStands` plus EXPIRED (decision (b)). Contradiction
+    admission keeps `factStands`.
+  - SEC-6: when the check at a challenge's end cannot finish, the fact returns to CONTESTED
+    only if the latest `challenge_opened` transition naming this challenge has prior status
+    CONTESTED, and otherwise to ACTIVE. If that transition cannot be read or is absent, it
+    returns to CONTESTED. One `contest_check_incomplete` carries both reasons. Chosen over
+    narrowing the bound to CONTRADICTS edges, because the reverse index cannot be filtered by
+    type without reading every edge. The cost: a fact that was not CONTESTED but has a reason
+    (refuted dependency or accepted counter-fact while it was CHALLENGED, or a pre-activation
+    laundered fact), and whose check also cannot finish, returns to ACTIVE.
+  - Tests: `TestClaimIntegrity_SurvivalClearsNothingRefutedWhileTheChallengeWasOpen`,
+    `TestClaimIntegrity_SameBlockRefutationAfterSurvivalIsNotCleared`,
+    `TestClaimIntegrity_ExpiredCounterFactStillHoldsTarget`,
+    `TestClaimIntegrity_IncompleteCheckAtChallengeEndKeepsPriorStanding` (each with a marker-off
+    twin), `TestChallengeEndStatus`, and updated `TestContestReason*` and
+    `TestClaimIntegrity_IncompleteCheckOnVerdictPathsFailsTowardContested`. A test-only hook
+    (`export_test.go`) lowers the contest-scan record ceiling. Nine mutants, one per rule
+    above, each fail at least one test.
 
 **Task 14 — Exclude conflicted reviewers (P5)** · consensus: yes
 - Files: `state.go`, `StoreCommitmentInRound` `:634-694`; new
@@ -1431,6 +1484,11 @@ Each has a default the plan implements. Changing one alters only the named tasks
   - Default: **asymmetric**. The target becomes CONTESTED; the counter-fact stays VERIFIED.
   - Default: a target that survives a direct challenge **stays CONTESTED** while the counter-fact
     stands. The counter-fact must itself be refuted.
+  - Decision (b), taken by Claude on 2026-10-16 and reversible: an EXPIRED counter-fact still
+    stands for R1, because patronage or metabolism can revive it. Only SUPERSEDED, DISPROVEN,
+    REVOKED and PRUNED counter-facts have fallen (review fix SEC-5). The same decision makes an
+    EXPIRED fact block dedup (D3 below); that half is implemented separately from the contest
+    predicate.
   - Alternatives: symmetric CONTESTED, which freezes the counter-fact out of fitness; or letting
     survival clear R1.
 - **D3. What releases text for resubmission.**
