@@ -74,7 +74,13 @@ func (k Keeper) GetEffectiveObservationInterval(ctx context.Context) uint64 {
 	if confidence > 800_000 {
 		return baseInterval * 3 / 2 // 150%
 	} else if confidence < 300_000 {
-		return baseInterval * 2 / 3 // 67%
+		shortened := baseInterval * 2 / 3 // 67%
+		// Integer 67% of a 1-block interval is 0, and EndBlock takes
+		// height % interval: never shorten an enabled interval below 1.
+		if shortened == 0 && baseInterval > 0 {
+			shortened = 1
+		}
+		return shortened
 	}
 
 	return baseInterval
