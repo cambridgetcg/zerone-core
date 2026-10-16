@@ -68,7 +68,9 @@ it highest. It is changed in these ways:
 - **The scan never errors toward VERIFIED.** If the contest-reason scan errors or hits its bound,
   no CONTESTED fact is released and an event is emitted. At a challenge's end an incomplete
   check changes nothing: the fact returns to CONTESTED only if it was CONTESTED when the
-  challenge opened (review fix SEC-6). A BeginBlock path never receives an error.
+  challenge opened (review fix SEC-6). R2 is read before R1 and a reason either finds is
+  conclusive, so the bound never hides a refuted dependency. A BeginBlock path never receives
+  an error.
 - **D3's index rule, which needs no extra reads.** With the marker on, `SetClaim` writes the 0x09
   and 0x34 index entries only on the claim's first save. It already reads `previousBytes`
   (`state.go:189-195`). Admission of a new claim therefore overwrites the index; re-saves never
@@ -391,11 +393,13 @@ that limit is disclosed.
 | CHALLENGED | DISPROVEN | challenge ACCEPT | `challenge_disproven / <challenge claim id>` |
 | CHALLENGED | ACTIVE or CONTESTED | challenge REJECT (survived). CONTESTED iff R1 holds, or R2 holds for a dependency refuted at or after the height this challenge opened (`survivedAt` = its claim's `SubmittedAtBlock`; review fix SEC-1). | `challenge_survived / <challenge claim id>` |
 | CHALLENGED | ACTIVE or CONTESTED | challenge INCONCLUSIVE, MALFORMED or starved. CONTESTED iff R1 or R2 holds. Nothing is cleared. | `challenge_inconclusive / <challenge claim id>` |
+| metabolic statuses | — | unchanged | inferred, as today |
 
 A check that cannot finish at a challenge's end returns F to CONTESTED only if F was CONTESTED
 when the challenge opened (the prior status of its `challenge_opened` transition), otherwise to
-ACTIVE, and emits `contest_check_incomplete` either way (review fix SEC-6).
-| metabolic statuses | — | unchanged | inferred, as today |
+ACTIVE, and emits `contest_check_incomplete` either way (review fix SEC-6). A reason found
+before the check stops is conclusive, and R2 is read first (§5.3), so this fallback never hides
+a refuted dependency.
 
 Rules that do **not** change any fact:
 - Admitting a contradiction.
@@ -425,12 +429,25 @@ DISPROVEN can only come from a direct challenge on that fact.
     order two events of one block, so a tie goes to CONTESTED. The survival and every later
     check use the same cutoff and the same comparison, so a survival never clears something
     that a later starved challenge would re-contest, nor the reverse.
-- **Failure handling.** A read error, a malformed record, or exceeding the 100k-record / 64 MiB
-  bound (the same bound as `hasOtherActiveChallenge`) all mean the reason remains (`true`). The
-  predicate also emits `zerone.knowledge.contest_check_incomplete{fact_id, reason}`. At a
-  challenge's end the caller (`challengeEndStatus`) instead keeps F's standing from before the
-  challenge (§5.2; review fix SEC-6), so one refunded, starved challenge cannot freeze a fact
-  whose every check is too large to finish (more than 100k incoming relations of any type).
+- **Order and conclusiveness.** R2 is read first, then R1, within one budget. A reason found by
+  either rule is conclusive, whatever the other could read. F's outgoing edges are written with
+  F from its own claim (at most `MaxRelationsPerClaim`), while R1 reads every incoming edge of
+  every type, so no number of facts citing F can hide a refuted dependency behind the bound
+  (review G1, second pass: with R1 first, a heavily cited fact's shield challenge laundered it
+  through the SEC-6 fallback).
+- **Failure handling.** When neither rule finds a reason, a read error, a malformed record, or
+  exceeding the 100k-record / 64 MiB bound (the same bound as `hasOtherActiveChallenge`) all
+  mean the reason remains (`true`). The predicate also emits
+  `zerone.knowledge.contest_check_incomplete{fact_id, reason}`, whose reason names every failed
+  read. At a challenge's end the caller (`challengeEndStatus`) instead keeps F's standing from
+  before the challenge (§5.2; review fix SEC-6), so one refunded, starved challenge cannot
+  freeze CONTESTED a fact that has no refuted dependency and whose check is too large to finish
+  (more than 100k incoming relations of any type). The cost is limited to R1: a counter-fact
+  accepted while F was CHALLENGED, or a fact laundered before activation, is lost if the check
+  also cannot finish, and F returns to ACTIVE. The residual: once such a fact is CONTESTED, no
+  path returns it to VERIFIED or ACTIVE, because every release check reaches R1 and cannot
+  finish; only a challenge that refutes it moves it. Bounding R1 needs an index of CONTRADICTS
+  edges alone, which is a follow-up (§8).
 - **Pending contradictions are not reasons.**
 
 ### 5.4 Duplicate checks and resubmission (P1, P2)
@@ -1247,17 +1264,39 @@ Conventions that apply to every task:
     CONTESTED, and otherwise to ACTIVE. If that transition cannot be read or is absent, it
     returns to CONTESTED. One `contest_check_incomplete` carries both reasons. Chosen over
     narrowing the bound to CONTRADICTS edges, because the reverse index cannot be filtered by
-    type without reading every edge. The cost: a fact that was not CONTESTED but has a reason
-    (refuted dependency or accepted counter-fact while it was CHALLENGED, or a pre-activation
-    laundered fact), and whose check also cannot finish, returns to ACTIVE.
+    type without reading every edge. The cost (narrowed by the second pass below): a fact that
+    was not CONTESTED but has an R1 reason (a counter-fact accepted while it was CHALLENGED, or
+    a pre-activation laundered fact), and whose check also cannot finish, returns to ACTIVE.
+    The residual: a fact over the bound that is once CONTESTED is never returned to VERIFIED or
+    ACTIVE, even by a challenge it survives that opened after its refutation, since every
+    release check reaches R1 and cannot finish. The longer-term fix, an index of CONTRADICTS
+    edges alone so that R1 is bounded, is a follow-up outside G1.
   - Tests: `TestClaimIntegrity_SurvivalClearsNothingRefutedWhileTheChallengeWasOpen`,
     `TestClaimIntegrity_SameBlockRefutationAfterSurvivalIsNotCleared`,
     `TestClaimIntegrity_ExpiredCounterFactStillHoldsTarget`,
     `TestClaimIntegrity_IncompleteCheckAtChallengeEndKeepsPriorStanding` (each with a marker-off
     twin), `TestChallengeEndStatus`, and updated `TestContestReason*` and
-    `TestClaimIntegrity_IncompleteCheckOnVerdictPathsFailsTowardContested`. A test-only hook
+    `TestClaimIntegrity_IncompleteCheckOnVerdictPathsNeverReleases` (renamed from
+    `…FailsTowardContested`: a VERIFIED-before fact now ends ACTIVE). A test-only hook
     (`export_test.go`) lowers the contest-scan record ceiling. Nine mutants, one per rule
     above, each fail at least one test.
+  - Second pass (review of `fecf1407`, must-fix): R1 read every incoming edge before R2, and
+    both shared one budget, so a heavily cited F hit the bound before R2 saw its refuted
+    dependency, and the SEC-6 fallback returned F to ACTIVE: the SEC-1 shield challenge still
+    laundered F, even through a starved, refunded challenge. `contestReason` now reads R2
+    (`refutedDependency`) before R1 (`standingCounterFact`). A reason found by either is
+    conclusive and returned with no error; only when neither finds one does a failed read make
+    the check incomplete, and the error then names every failed read. A complete R2 finding is
+    therefore never masked by R1's bound, and a complete R1 finding is not masked by an
+    unreadable dependency. Tests: `TestClaimIntegrity_ShieldChallengeOfHeavilyCitedFactLaundersNothing`
+    (reject, malformed, starved; marker-off twin), `TestContestReasonFindingIsConclusive`, and
+    the "refuted dependency past the bound" cases of `TestChallengeEndStatus`. Updated: the
+    `TestChallengeEndStatus` incomplete cases drop D; the contested-before
+    malformed/starved cases of `TestClaimIntegrity_IncompleteCheckOnVerdictPathsNeverReleases`
+    and `TestClaimIntegrity_IncompleteCheckAtChallengeEndKeepsPriorStanding` still end
+    CONTESTED but now emit no `contest_check_incomplete` (D is found first). Four mutants
+    (R1 first; an R2 error stops before R1; only the first error reported; an R2 error
+    releases) each fail at least two tests.
 
 **Task 14 — Exclude conflicted reviewers (P5)** · consensus: yes
 - Files: `state.go`, `StoreCommitmentInRound` `:634-694`; new
@@ -1457,6 +1496,9 @@ Setup:
 - **Metabolic re-checks.** Re-deriving CONTESTED when an AT_RISK target is revived, or when a
   counter-fact decays through metabolism instead of being disproven. The exit is a direct
   challenge.
+- **A bounded R1.** An index of CONTRADICTS edges alone (a new store key), so that a fact with
+  more than 100k incoming relations can leave CONTESTED once its reasons are gone (the residual
+  of review fix SEC-6, §5.3).
 - **Exempting attribution facts** from niche competition or metabolism.
 - **Making AT_RISK, EXPIRED or PRUNED facts challengeable.**
 - **Canonical form housekeeping:** cross-dedup between v1 and v2 forms, and repairing legacy

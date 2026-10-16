@@ -376,6 +376,79 @@ func TestContestReasonFailsTowardContested(t *testing.T) {
 	}
 }
 
+// A reason found by either rule is conclusive, whatever the other rule could
+// read (review G1, second pass). R2 is read first, so a refuted dependency is
+// found even when F has more incoming relations than one check may read (the
+// heavily cited fact behind a shield challenge), and a standing counter-fact is
+// still found when F's dependencies cannot be read. Only when neither rule
+// finds a reason does a failed read make the check incomplete, and then one
+// event carries every failed read.
+func TestContestReasonFindingIsConclusive(t *testing.T) {
+	const bound = 8
+	cited := func(t *testing.T) *contestPredicateFixture {
+		f := newContestPredicateFixture(t)
+		SetContestScanMaxRecordsForTest(t, bound)
+		for i := 0; i <= bound; i++ {
+			f.putRelation(fmt.Sprintf("citing-%02d", i), contestF, types.RelationType_RELATION_TYPE_CITES)
+		}
+		return f
+	}
+	t.Run("refuted dependency past the bound", func(t *testing.T) {
+		f := cited(t)
+		f.disprove("dependency-d", 50)
+		f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
+		for _, survivedAt := range []uint64{0, 49, 50} {
+			require.True(t, f.remainsAt(survivedAt), "survivedAt %d", survivedAt)
+		}
+		require.True(t, f.remainsSinceLastSurvival(), "never survived")
+	})
+	t.Run("cleared dependency past the bound", func(t *testing.T) {
+		f := cited(t)
+		f.disprove("dependency-d", 50)
+		f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
+		remains, incomplete := f.check(func(ctx context.Context, fact *types.Fact) bool {
+			return f.k.contestReasonRemains(ctx, fact, 51)
+		})
+		require.True(t, remains, "with no reason found, the bound still means the reason remains")
+		require.Len(t, incomplete, 1)
+		require.Contains(t, incomplete[0]["reason"], "contest scan exceeds record bound")
+	})
+	for _, tc := range []struct {
+		name   string
+		inject func(*contestPredicateFixture)
+	}{
+		{"unreadable outgoing relation", func(f *contestPredicateFixture) {
+			f.ctx.KVStore(f.keys[0]).Set(types.FactRelationKey(contestF, "garbled"), []byte{0xff})
+		}},
+		{"missing dependency", func(f *contestPredicateFixture) {
+			f.putRelation(contestF, "ghost-d", types.RelationType_RELATION_TYPE_REQUIRES)
+		}},
+		{"unreadable survival history", func(f *contestPredicateFixture) {
+			f.disprove("dependency-d", 50)
+			f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
+			f.ctx.KVStore(f.keys[0]).Set(types.StatusTransitionKey(contestF, 1), []byte{0xff})
+		}},
+	} {
+		t.Run("standing counter-fact past "+tc.name, func(t *testing.T) {
+			f := newContestPredicateFixture(t)
+			f.putFact("counter-k", types.FactStatus_FACT_STATUS_VERIFIED)
+			f.putRelation("counter-k", contestF, types.RelationType_RELATION_TYPE_CONTRADICTS)
+			tc.inject(f)
+			require.True(t, f.remainsSinceLastSurvival())
+		})
+	}
+	t.Run("neither rule finishes", func(t *testing.T) {
+		f := newContestPredicateFixture(t)
+		f.ctx.KVStore(f.keys[0]).Set(types.FactRelationKey(contestF, "garbled"), []byte{0xff})
+		f.ctx.KVStore(f.keys[0]).Set(types.FactRelationReverseKey(contestF, "garbled"), []byte{0xff})
+		remains, incomplete := f.check(f.k.contestReasonRemainsSinceLastSurvival)
+		require.True(t, remains)
+		require.Len(t, incomplete, 1)
+		require.Contains(t, incomplete[0]["reason"], "outgoing relation")
+		require.Contains(t, incomplete[0]["reason"], "incoming relation")
+	})
+}
+
 // contestEventsOf returns the attributes of every event of eventType on ctx.
 func contestEventsOf(ctx sdk.Context, eventType string) []map[string]string {
 	var out []map[string]string
@@ -734,18 +807,29 @@ func TestSettleCounterFactTargetsFailsTowardContested(t *testing.T) {
 
 // challengeEndStatus (§5.2 rows 7 and 8; review fixes SEC-1, F1, SEC-6) on
 // hand-built state. F is CHALLENGED by challenge claim "challenge-c", opened
-// at 50 from priorStatus. Dependency D fell at 50.
+// at 50 from priorStatus. Dependency D fell at 50, except in the incomplete
+// cases, where F depends on nothing.
 func TestChallengeEndStatus(t *testing.T) {
 	const challengeID = "challenge-c"
 	challenge := &types.Claim{Id: challengeID, Submitter: "challenger", ProvisionalFactId: contestF, SubmittedAtBlock: 50}
-	base := func(t *testing.T, prior types.FactStatus) *contestPredicateFixture {
+	opened := func(t *testing.T, prior types.FactStatus) *contestPredicateFixture {
 		f := newContestPredicateFixture(t)
 		f.putFact(contestF, types.FactStatus_FACT_STATUS_CHALLENGED)
 		require.NoError(t, f.k.SetClaim(f.ctx, challenge))
 		f.putCausedTransition(prior, types.FactStatus_FACT_STATUS_CHALLENGED, causeChallengeOpened, challengeID, 50)
+		return f
+	}
+	base := func(t *testing.T, prior types.FactStatus) *contestPredicateFixture {
+		f := opened(t, prior)
 		f.disprove("dependency-d", 50)
 		f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
 		return f
+	}
+	overBound := func(f *contestPredicateFixture) {
+		for i := 0; i < 4; i++ {
+			f.putRelation(fmt.Sprintf("citing-%d", i), contestF, types.RelationType_RELATION_TYPE_CITES)
+		}
+		SetContestScanMaxRecordsForTest(f.t, 3)
 	}
 	end := func(f *contestPredicateFixture, c *types.Claim, integrity, survived bool) (types.FactStatus, []map[string]string) {
 		f.t.Helper()
@@ -790,6 +874,21 @@ func TestChallengeEndStatus(t *testing.T) {
 		require.Empty(t, incomplete)
 	})
 
+	// R2 is read before R1, so a dependency refuted while the challenge was
+	// open is found however many facts cite F: the check finishes and F is
+	// CONTESTED, whatever its standing before (review G1, second pass).
+	for _, prior := range []types.FactStatus{types.FactStatus_FACT_STATUS_VERIFIED, types.FactStatus_FACT_STATUS_ACTIVE, types.FactStatus_FACT_STATUS_CONTESTED} {
+		for _, survived := range []bool{true, false} {
+			t.Run(fmt.Sprintf("refuted dependency past the bound, %s before, survived %t", prior, survived), func(t *testing.T) {
+				f := base(t, prior)
+				overBound(f)
+				status, incomplete := end(f, challenge, true, survived)
+				require.Equal(t, contested, status)
+				require.Empty(t, incomplete)
+			})
+		}
+	}
+
 	// An incomplete check changes nothing: the standing before the challenge
 	// decides, and one event names F.
 	for _, tc := range []struct {
@@ -814,14 +913,11 @@ func TestChallengeEndStatus(t *testing.T) {
 	} {
 		for _, survived := range []bool{true, false} {
 			t.Run(fmt.Sprintf("incomplete check, %s, survived %t", tc.name, survived), func(t *testing.T) {
-				f := base(t, tc.prior)
+				f := opened(t, tc.prior)
 				if tc.setup != nil {
 					tc.setup(f)
 				}
-				for i := 0; i < 4; i++ {
-					f.putRelation(fmt.Sprintf("citing-%d", i), contestF, types.RelationType_RELATION_TYPE_CITES)
-				}
-				SetContestScanMaxRecordsForTest(t, 3)
+				overBound(f)
 				status, incomplete := end(f, challenge, true, survived)
 				require.Equal(t, tc.want, status)
 				require.Len(t, incomplete, 1)

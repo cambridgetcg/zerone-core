@@ -680,15 +680,24 @@ never returns an error and writes nothing.
   `TestClaimIntegrity_SurvivalClearsOnlyDependenciesRefutedBeforeIt`,
   `TestClaimIntegrity_SurvivalClearsNothingRefutedWhileTheChallengeWasOpen`,
   `TestChallengeEndStatus`.
-- **Failure handling.** A read error, a malformed record, an edge naming a
-  missing fact, or more than 100,000 records or 64 MiB read in one check all
-  mean the reason remains, so no CONTESTED fact is released. The check emits
+- **Order.** R2 is read first, then R1, within one budget. A reason found by
+  either rule is conclusive, whatever the other could read. F's outgoing edges
+  are written with F, from its own claim, while R1 reads every incoming edge of
+  every type, so no number of facts citing F can hide a refuted dependency
+  behind the bound.
+  Tests: `TestContestReasonFindingIsConclusive`,
+  `TestClaimIntegrity_ShieldChallengeOfHeavilyCitedFactLaundersNothing`.
+- **Failure handling.** When neither rule finds a reason, a read error, a
+  malformed record, an edge naming a missing fact, or more than 100,000 records
+  or 64 MiB read in one check all mean the reason remains, so no CONTESTED fact
+  is released. The check emits
   `zerone.knowledge.contest_check_incomplete{fact_id, reason}`, exactly once per
-  failed check. The bound counts every incoming edge, of any type. At a
-  challenge's end an incomplete check changes nothing (§6.5).
+  failed check; the reason names every failed read. The bound counts every
+  incoming edge, of any type. At a challenge's end an incomplete check changes
+  nothing (§6.5).
   Tests: `TestContestReasonFailsTowardContested`,
   `TestClaimIntegrity_IncompleteContestCheckKeepsTargetContested`,
-  `TestClaimIntegrity_IncompleteCheckOnVerdictPathsFailsTowardContested`.
+  `TestClaimIntegrity_IncompleteCheckOnVerdictPathsNeverReleases`.
 - **Pending contradictions are not reasons.** A contradiction has no fact, and
   so no stored edge, until it is accepted. *Not tested here* as a separate
   case: no test ends one contradiction while another is still pending. Read
@@ -752,10 +761,11 @@ tests above.
   F to ACTIVE, or to CONTESTED while a contest reason remains (`survivedAt` as in
   §6.3). A survival never clears a standing counter-fact, so the counter-fact
   must itself be refuted, and never clears a dependency refuted while it was
-  open. A starved challenge launders nothing.
+  open. A starved challenge launders nothing, however many facts cite F.
   Tests: `TestClaimIntegrity_ContestedFactChallengeWhileCounterFactStands`,
   `TestClaimIntegrity_SurvivalClearsOnlyDependenciesRefutedBeforeIt`,
   `TestClaimIntegrity_SurvivalClearsNothingRefutedWhileTheChallengeWasOpen`,
+  `TestClaimIntegrity_ShieldChallengeOfHeavilyCitedFactLaundersNothing`,
   `TestClaimIntegrity_SameBlockRefutationAfterSurvivalIsNotCleared`,
   `TestClaimIntegrity_LaunderedFactChallengeFollowsStandingCounterFact`.
 - **A counter-fact falls.** When K becomes DISPROVEN, in the same cache and
@@ -773,15 +783,21 @@ tests above.
   `challenge_opened` transition for this challenge has prior status CONTESTED,
   or if that transition is absent or unreadable, and to ACTIVE otherwise.
   `contest_check_incomplete` names it once. So one refunded, starved challenge
-  cannot freeze CONTESTED a fact whose every check is too large to finish, and
-  an incomplete check releases nothing. The cost: a fact that gained a reason
-  while it was CHALLENGED (the cascade skips it), or a fact laundered before
-  activation, returns to ACTIVE if its check also cannot finish. If K's edges
+  cannot freeze CONTESTED a fact that has no refuted dependency and whose check
+  is too large to finish, and an incomplete check releases nothing. A refuted
+  dependency is read before the incoming edges (§6.3), so it is never lost this
+  way. The cost is limited to R1: a fact against which a counter-fact was
+  accepted while it was CHALLENGED, or a fact laundered before activation,
+  returns to ACTIVE if its check also cannot finish. The residual: a fact
+  whose check is too large to finish, once CONTESTED, never returns to
+  VERIFIED or ACTIVE, even after surviving a challenge opened after its
+  refutation, because every release check reads the incoming edges; only a
+  challenge that refutes it moves it. If K's edges
   cannot be listed, no target is released and `contest_check_incomplete` names
   K. A target that cannot be read is reported and left as it is, while the
   other targets still settle. The disproval stands in every case. A write error
   is returned, and the round's cache discards it.
-  Tests: `TestClaimIntegrity_IncompleteCheckOnVerdictPathsFailsTowardContested`,
+  Tests: `TestClaimIntegrity_IncompleteCheckOnVerdictPathsNeverReleases`,
   `TestClaimIntegrity_IncompleteCheckAtChallengeEndKeepsPriorStanding`,
   `TestChallengeEndStatus`,
   `TestSettleCounterFactTargetsFailsTowardContested`.

@@ -20,10 +20,10 @@ import (
 //   - a challenge that ends without refuting its target (REJECT, MALFORMED,
 //     INCONCLUSIVE or a starved panel) returns it to ACTIVE (PROVISIONAL for a
 //     conjecture), except that an established fact returns to CONTESTED while
-//     a contest reason remains. A survival (REJECT) clears dependencies
-//     refuted at or before its own height; any other ending clears nothing,
-//     so reasons are judged since the fact's last survived challenge. A
-//     standing counter-fact is never cleared by a survival;
+//     a contest reason remains. A survival (REJECT) clears only dependencies
+//     refuted before its challenge opened (review fix SEC-1); any other ending
+//     clears nothing, so reasons are judged since the fact's last survived
+//     challenge. A standing counter-fact is never cleared by a survival;
 //   - when a counter-fact K is disproven, each CONTESTED target of its stored
 //     CONTRADICTS edges returns to VERIFIED, with cause counterfact_disproven/K,
 //     once no contest reason remains.
@@ -482,11 +482,13 @@ func TestClaimIntegrity_ConjectureChallengeEndsProvisional(t *testing.T) {
 // never releases. A challenged fact whose check fails returns to its standing
 // before the challenge however the challenge ends without refuting it:
 // CONTESTED if it was CONTESTED, ACTIVE otherwise (review fix SEC-6; an
-// incomplete check changes nothing). A target whose check fails stays
-// CONTESTED when its counter-fact falls; and if the fallen counter-fact's own
-// relations cannot be listed, no target is released and the event names the
-// counter-fact. The disproval itself stands.
-func TestClaimIntegrity_IncompleteCheckOnVerdictPathsFailsTowardContested(t *testing.T) {
+// incomplete check changes nothing). The CONTESTED F here depends on a refuted
+// D; R2 is read before the unreadable incoming edge, so unless F survives a
+// challenge opened after D fell, D is found and the check finishes. A target
+// whose check fails stays CONTESTED when its counter-fact falls; and if the
+// fallen counter-fact's own relations cannot be listed, no target is released
+// and the event names the counter-fact. The disproval itself stands.
+func TestClaimIntegrity_IncompleteCheckOnVerdictPathsNeverReleases(t *testing.T) {
 	unreadableIncoming := func(f *v11Fixture, factID string) {
 		f.ctx.KVStore(f.key).Set(types.FactRelationReverseKey(factID, "unreadable-source"), []byte{0xff})
 	}
@@ -521,6 +523,11 @@ func TestClaimIntegrity_IncompleteCheckOnVerdictPathsFailsTowardContested(t *tes
 					v11Transition{before, vdChallenged, "challenge_opened", c},
 					v11Transition{vdChallenged, next, cause, c}), f.transitions(factF))
 				incomplete := v11Event(f.ctx, csIncompleteEvent)
+				if before == csContested && ending.name != "rejected" {
+					require.Empty(t, incomplete, "refuted D is found first and was never cleared")
+					f.requireNoLiveRounds(t)
+					return
+				}
 				require.Len(t, incomplete, 1)
 				require.Equal(t, factF, incomplete[0]["fact_id"])
 				require.Contains(t, incomplete[0]["reason"], "incoming relation")
@@ -674,6 +681,74 @@ func TestClaimIntegrity_SurvivalClearsNothingRefutedWhileTheChallengeWasOpen(t *
 	}
 }
 
+// SEC-1 on a heavily cited fact (review G1, second pass). F REQUIRES D, and
+// more facts cite F than one contest check may read (the bound is lowered to 8
+// records). D is refuted while a challenge of F is open, so the cascade skips
+// F. However that challenge ends without refuting F, R2 is read before R1 and
+// finds D before the bound is reached: F returns to CONTESTED, and the check
+// is complete. With the marker off F returns to ACTIVE, as knowledge 11 does.
+func TestClaimIntegrity_ShieldChallengeOfHeavilyCitedFactLaundersNothing(t *testing.T) {
+	const bound = 8
+	for _, sel := range dedupSelections {
+		for _, ending := range []string{"reject", "malformed", "starve"} {
+			t.Run(sel.name+"/"+ending, func(t *testing.T) {
+				f := sel.setup(t)
+				keeper.SetContestScanMaxRecordsForTest(t, bound)
+				claimF, factF, factD := f.vdDependent(t, "hub")
+				for i := 0; i <= bound; i++ {
+					require.NoError(t, f.k.SetFactRelation(f.ctx, &types.FactRelation{
+						SourceFactId: fmt.Sprintf("v12-vd-hub-citing-%02d", i), TargetFactId: factF, Relation: types.RelationType_RELATION_TYPE_CITES,
+					}))
+				}
+				cd := f.challenge(t, v11Addr("v12-vd-hub-cd"), factD)
+				f.nextBlock(t)
+				cf := f.challenge(t, v11Addr("v12-vd-hub-cf"), factF)
+				f.vdCommit(t, cd, "accept")
+				if ending != "starve" {
+					f.vdCommit(t, cf, ending)
+				}
+				rd, rf := f.roundOf(t, cd), f.roundOf(t, cf)
+				require.Equal(t, rd.CommitDeadline+1, rf.CommitDeadline, "D's round runs one block ahead of F's")
+				f.advanceTo(t, rd.CommitDeadline)
+				f.beginBlock(t)
+				f.vdReveal(t, cd, "accept")
+				f.advanceTo(t, rf.CommitDeadline)
+				f.beginBlock(t)
+				require.Equal(t, csDisproven, f.fact(t, factD).Status)
+				require.Equal(t, vdChallenged, f.fact(t, factF).Status, "the cascade skips a CHALLENGED fact")
+
+				f.freshEvents()
+				cause := "challenge_inconclusive"
+				if ending == "starve" {
+					f.starve(t, cf)
+				} else {
+					f.vdReveal(t, cf, ending)
+					f.advanceTo(t, rf.CommitDeadline+1)
+					f.beginBlock(t)
+					verdict := types.Verdict_VERDICT_MALFORMED
+					if ending == "reject" {
+						verdict, cause = types.Verdict_VERDICT_REJECT, "challenge_survived"
+					}
+					require.Equal(t, verdict, f.roundOf(t, cf).Verdict)
+				}
+				want := []v11Transition{{csUnspecified, csVerified, "verification", claimF}}
+				if !sel.integrity {
+					require.Equal(t, vdActive, f.fact(t, factF).Status, "knowledge 11 restores F")
+					require.Equal(t, append(want, v11Transition{csVerified, vdChallenged, "unknown", ""}, v11Transition{vdChallenged, vdActive, "unknown", ""}), f.transitions(factF))
+					f.requireNoLiveRounds(t)
+					return
+				}
+				require.Equal(t, csContested, f.fact(t, factF).Status, "a refuted dependency is found before the bound")
+				require.Equal(t, append(want,
+					v11Transition{csVerified, vdChallenged, "challenge_opened", cf},
+					v11Transition{vdChallenged, csContested, cause, cf}), f.transitions(factF))
+				require.Empty(t, v11Event(f.ctx, csIncompleteEvent), "the check finished")
+				f.requireNoLiveRounds(t)
+			})
+		}
+	}
+}
+
 // F1 and CI-REVIEW-2, the same-block tie. F's challenge and D's challenge end
 // in the same BeginBlock, F's round first: F survives, and only then is D
 // refuted and the cascade contests F. Heights cannot order two events of one
@@ -800,13 +875,17 @@ func TestClaimIntegrity_ExpiredCounterFactStillHoldsTarget(t *testing.T) {
 	}
 }
 
-// SEC-6. A heavily cited fact makes every contest check reach the scan bound
-// (lowered here to 8 records). An incomplete check at a challenge's end
-// changes nothing: a fact that was not CONTESTED before the challenge returns
-// to ACTIVE, as if no reason were found, and one that was CONTESTED stays
-// CONTESTED. Either way contest_check_incomplete names the fact once. So one
-// starved, refunded challenge cannot freeze a popular fact CONTESTED, and an
-// incomplete check releases nothing. With the marker off nothing is checked.
+// SEC-6. A heavily cited fact makes every contest check that finds no reason
+// in F's dependencies reach the scan bound (lowered here to 8 records). An
+// incomplete check at a challenge's end changes nothing: a fact that was not
+// CONTESTED before the challenge returns to ACTIVE, as if no reason were
+// found, and one that was CONTESTED stays CONTESTED. Either way
+// contest_check_incomplete names the fact once. So one starved, refunded
+// challenge cannot freeze a popular fact CONTESTED, and an incomplete check
+// releases nothing. In the contested-before cases F depends on a refuted D:
+// only a survival of a challenge opened after D fell clears D and so reaches
+// the bound; any other ending finds D first and finishes. With the marker off
+// nothing is checked.
 func TestClaimIntegrity_IncompleteCheckAtChallengeEndKeepsPriorStanding(t *testing.T) {
 	const bound = 8
 	cite := func(t *testing.T, f *v11Fixture, factID string) {
@@ -870,6 +949,11 @@ func TestClaimIntegrity_IncompleteCheckAtChallengeEndKeepsPriorStanding(t *testi
 				v11Transition{csContested, vdChallenged, "challenge_opened", c},
 				v11Transition{vdChallenged, csContested, cause, c}), f.transitions(factF))
 			incomplete := v11Event(f.ctx, csIncompleteEvent)
+			if ending.name != "rejected" {
+				require.Empty(t, incomplete, "refuted D is found before the bound and was never cleared")
+				f.requireNoLiveRounds(t)
+				return
+			}
 			require.Len(t, incomplete, 1)
 			require.Equal(t, factF, incomplete[0]["fact_id"])
 			require.Contains(t, incomplete[0]["reason"], "contest scan exceeds record bound")
