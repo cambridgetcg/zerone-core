@@ -175,11 +175,81 @@ class SafetyTests(unittest.TestCase):
             popen.assert_not_called()
 
     def test_operator_environment_cannot_override_local_config(self):
-        with mock.patch.dict(os.environ, {"ZERONED_P2P_SEEDS": "live-peer", "ZERONED_PRIV_VALIDATOR_LADDR": "remote", "PATH": "/test"}):
-            result = local.node_environment()
+        home = self.root / "sandbox"
+        home.mkdir(mode=0o700)
+        with mock.patch.dict(os.environ, {"ZERONED_P2P_SEEDS": "live-peer", "ZERONED_PRIV_VALIDATOR_LADDR": "remote",
+                                          "PATH": "/test", "HOME": str(self.root / "real-home")}):
+            result = local.node_environment(home)
         self.assertNotIn("ZERONED_P2P_SEEDS", result)
         self.assertNotIn("ZERONED_PRIV_VALIDATOR_LADDR", result)
         self.assertEqual(result["PATH"], "/test")
+        self.assertEqual(result["HOME"], str(home / local.CLI_HOME))
+
+    def fake_node_binary(self, path, record):
+        # Mimics every SDK root command: even with --home, the temporary app
+        # creates DefaultNodeHome/data, and DefaultNodeHome is $HOME/.zeroned.
+        path.write_text(f"#!{sys.executable} -I\n" + "\n".join((
+            "import json, os, sys",
+            "os.makedirs(os.path.join(os.environ['HOME'], '.zeroned', 'data'), exist_ok=True)",
+            f"open({str(record)!r}, 'a').write(json.dumps({{'argv': sys.argv[1:], 'HOME': os.environ.get('HOME')}}) + '\\n')",
+            "print('ok')", "")))
+        path.chmod(0o700)
+
+    def assert_only_sandbox_home(self, record, home, real_home):
+        self.assertEqual(list(real_home.iterdir()), [], "a zeroned call wrote the operator's HOME")
+        calls = [json.loads(line) for line in record.read_text().splitlines()]
+        self.assertTrue(calls)
+        for call in calls:
+            self.assertEqual(call["HOME"], str(home / local.CLI_HOME))
+        self.assertTrue((home / local.CLI_HOME / ".zeroned/data").is_dir())
+        self.assertEqual((home / local.CLI_HOME).stat().st_mode & 0o077, 0)
+        return calls
+
+    def test_cli_runs_zeroned_with_sandbox_private_home(self):
+        real_home = self.root / "real-home"
+        real_home.mkdir()
+        home = self.root / "sandbox"
+        home.mkdir(mode=0o700)
+        binary, record = self.root / "fake-zeroned", self.root / "cli-calls.jsonl"
+        self.fake_node_binary(binary, record)
+        with mock.patch.dict(os.environ, {"HOME": str(real_home)}):
+            self.assertEqual(local.cli(binary, home, "keys", "list", "--keyring-backend", "test"), "ok")
+            local.cli(binary, home, "comet", "show-node-id")
+        calls = self.assert_only_sandbox_home(record, home, real_home)
+        self.assertEqual([call["argv"][-2:] for call in calls], [["--home", str(home)]] * 2)
+
+    def test_start_runs_zeroned_with_sandbox_private_home(self):
+        real_home = self.root / "real-home"
+        real_home.mkdir()
+        record = self.root / "start-calls.jsonl"
+        home, _ = self.fixture()
+        self.fake_node_binary(home / "bin/zeroned", record)
+        manifest = json.loads((home / local.MARKER).read_text())
+        manifest["binary_sha256"] = local.sha256(home / "bin/zeroned")
+        (home / local.MARKER).write_text(json.dumps(manifest))
+        def exited(_manifest, _seconds, process, _stopping):
+            process.wait(timeout=20)  # Never probe a real loopback RPC port.
+            raise local.LocalNodeError("Local node exited before readiness.")
+        with mock.patch.dict(os.environ, {"HOME": str(real_home)}), \
+                mock.patch.object(local, "check_ports"), mock.patch.object(local, "wait_ready", side_effect=exited):
+            with self.assertRaisesRegex(local.LocalNodeError, "exited"):
+                local.start(argparse.Namespace(home=str(home)))
+        calls = self.assert_only_sandbox_home(record, home, real_home)
+        self.assertEqual([call["argv"][:3] for call in calls], [["start", "--home", str(home)]])
+
+    def test_symlinked_cli_home_refused_before_binary(self):
+        real_home = self.root / "real-home"
+        real_home.mkdir()
+        home = self.root / "sandbox"
+        home.mkdir(mode=0o700)
+        (home / local.CLI_HOME).symlink_to(real_home, target_is_directory=True)
+        with mock.patch.dict(os.environ, {"HOME": str(real_home)}), \
+                mock.patch.object(local.subprocess, "run") as run, mock.patch.object(local.subprocess, "Popen") as popen:
+            with self.assertRaisesRegex(local.LocalNodeError, "private HOME"):
+                local.cli(Path("zeroned"), home, "keys", "list")
+            run.assert_not_called()
+            popen.assert_not_called()
+        self.assertEqual(list(real_home.iterdir()), [])
 
     def fake_version_binary(self, name, sdk_version):
         # Mimics the SDK root command: it creates its home directory, which

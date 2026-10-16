@@ -28,6 +28,7 @@ import urllib.request
 
 SCHEMA = "zerone-local-node-v1"
 MARKER = ".zerone-local-node.json"
+CLI_HOME = ".cli-home"  # HOME for every zeroned call; see node_environment.
 CHAIN_PATTERN = re.compile(r"zerone-local-[a-z0-9][a-z0-9-]{0,39}\Z")
 CONTROL_FILES = ("config/genesis.json", "config/config.toml", "config/app.toml",
                  "config/client.toml")
@@ -126,8 +127,9 @@ def locked(home: Path):
 
 
 def cli(binary: Path, home: Path, *args: str, secret: bool = False) -> str:
+    environment = node_environment(home)
     result = subprocess.run([str(binary), *args, "--home", str(home)],
-                            text=True, capture_output=True, timeout=60, env=node_environment())
+                            text=True, capture_output=True, timeout=60, env=environment)
     if result.returncode:
         # Key creation can print seed phrases even on a failed invocation.
         detail = "Key operation failed; output withheld." if secret else result.stderr[-1500:]
@@ -135,10 +137,23 @@ def cli(binary: Path, home: Path, *args: str, secret: bool = False) -> str:
     return result.stdout.strip()
 
 
-def node_environment() -> dict:
+def node_environment(home: Path) -> dict:
     # SDK Viper reads ZERONED_* above config files. An operator's shell settings
     # must not replace the freshly generated sandbox's local configuration.
-    return {key: value for key, value in os.environ.items() if not key.upper().startswith("ZERONED_")}
+    environment = {key: value for key, value in os.environ.items() if not key.upper().startswith("ZERONED_")}
+    # Every zeroned command, `start` included, builds a temporary app that
+    # creates DefaultNodeHome/data, and DefaultNodeHome is $HOME/.zeroned even
+    # with --home. A sandbox-private HOME keeps the operator's real home untouched.
+    cli_home = home / CLI_HOME
+    try:
+        cli_home.mkdir(mode=0o700)
+    except FileExistsError:
+        pass
+    if (cli_home.is_symlink() or not cli_home.is_dir() or cli_home.stat().st_uid != os.getuid()
+            or cli_home.stat().st_mode & 0o077):
+        raise LocalNodeError(f"The sandbox's private HOME must be a private, non-symlink directory: {cli_home}")
+    environment["HOME"] = str(cli_home)
+    return environment
 
 
 def configure_toml(path: Path, changes: dict) -> None:
@@ -181,8 +196,10 @@ def public_info(home: Path, manifest: dict) -> dict:
 
 
 def source_version(source: Path) -> str:
-    # The SDK root command creates its home even for `version`; without an
-    # explicit throwaway home it writes the operator's real ~/.zeroned.
+    # The SDK root command creates its home even for `version`, and its
+    # temporary app creates $HOME/.zeroned/data whatever --home says. --home
+    # alone therefore does not protect the operator's real ~/.zeroned: HOME
+    # must point at a throwaway directory too.
     with tempfile.TemporaryDirectory(prefix="zerone-version-probe-") as probe:
         version = subprocess.run([str(source), "version", "--long", "--home", probe], text=True,
                                  capture_output=True, timeout=30, env={**os.environ, "HOME": probe})
@@ -382,7 +399,7 @@ def start(args) -> None:
                     "--rpc.unsafe=false", "--rpc.pprof_laddr", "", "--p2p.laddr", f"tcp://127.0.0.1:{manifest['p2p_port']}",
                     "--p2p.external-address", "", "--p2p.persistent_peers", "", "--p2p.seeds", "", "--p2p.pex=false",
                     "--api.enable=false", "--grpc.enable=false", "--grpc-web.enable=false", "--log_no_color"],
-                    stdout=log, stderr=subprocess.STDOUT, start_new_session=True, env=node_environment())
+                    stdout=log, stderr=subprocess.STDOUT, start_new_session=True, env=node_environment(home))
                 ready = wait_ready(manifest, 45, process, lambda: stopped)
                 print(json.dumps({**public_info(home, manifest), **ready,
                                   "stop": "Press Ctrl-C; use the same start command to resume."}, sort_keys=True), flush=True)

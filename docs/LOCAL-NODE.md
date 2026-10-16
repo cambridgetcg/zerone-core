@@ -37,6 +37,8 @@ It creates one local validator and a funded test account using the test
 keyring, never imported keys. Test keys and balances have no live-network
 value. The helper retains the binary under `bin/zeroned`; rebuilding the
 checkout later does not silently replace a running sandbox's executable.
+Every `zeroned` command the helper runs uses the sandbox's `.cli-home` as
+`HOME`, so nothing is written to your own `~/.zeroned`.
 
 Press Ctrl-C in the start terminal to stop its child process. Data and keys
 remain in the chosen home. Run the same `start` command to resume. There is

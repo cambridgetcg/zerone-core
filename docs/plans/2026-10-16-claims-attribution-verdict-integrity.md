@@ -500,6 +500,18 @@ Conventions that apply to every task:
   `env={**os.environ, "HOME": tmp}`. Keep the SDK-version regex.
 - Acceptance: `python3 -m unittest discover -s scripts -p 'test_local_node.py' -v` is green.
   Existing init tests still pass.
+- Follow-up to Task 1 (review finding): the probe was not the only leak. Every zeroned
+  command builds a temporary app that creates `DefaultNodeHome/data`, and `DefaultNodeHome` is
+  `$HOME/.zeroned` whatever `--home` says (`app/app.go:343-347`, `:717-723`). So `init`'s
+  `cli()` calls and `start` still wrote the operator's `~/.zeroned/data`; this was seen with the
+  a4272bf binary. `node_environment(home)` now sets `HOME=<home>/.cli-home` (created 0700;
+  refused if it is a symlink, foreign-owned or group/world-accessible) for every `cli()` call
+  and for `start`. `scripts/claim-workflow.py` (`Workflow.cli`) uses the same environment.
+  New red tests: `test_cli_runs_zeroned_with_sandbox_private_home`,
+  `test_start_runs_zeroned_with_sandbox_private_home` and
+  `test_symlinked_cli_home_refused_before_binary` in `test_local_node.py`, and
+  `test_cli_runs_zeroned_with_sandbox_private_home` in `test_claim_workflow.py`. Each fake
+  binary creates `$HOME/.zeroned/data` the way the SDK does.
 
 **Task 2 — Characterize v11 semantics and record a golden digest** · consensus: no (tests only)
 - Files: new `x/knowledge/keeper/claim_integrity_legacy_test.go`, and a fixture

@@ -472,7 +472,7 @@ class Workflow:
 
     def cli(self, *args, missing=False):
         result = subprocess.run([str(self.home / "bin/zeroned"), *map(str, args), "--home", str(self.home)],
-                                capture_output=True, text=True, timeout=60, env=local.node_environment())
+                                capture_output=True, text=True, timeout=60, env=local.node_environment(self.home))
         if result.returncode:
             if missing and re.search(r"(?i)(tx .*not found|transaction .*not found)", result.stderr):
                 return None
