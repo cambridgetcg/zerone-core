@@ -1127,6 +1127,15 @@ func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmi
 			return nil, fmt.Errorf("contradiction claim identity already exists")
 		}
 	}
+	integrity, err := m.keeper.ClaimIntegrityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if integrity {
+		if err := m.claimIntegrityContradictionAdmission(ctx, msg, targetFact, contentHash); err != nil {
+			return nil, err
+		}
+	}
 
 	// Lock stake
 	if m.keeper.bankKeeper != nil {
@@ -1211,6 +1220,50 @@ func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmi
 	)
 
 	return &types.MsgSubmitContradictionResponse{CounterFactId: counterClaimID}, nil
+}
+
+// claimIntegrityContradictionAdmission holds a contradiction to what
+// disputing its target costs (knowledge v12, plan Task 10; P3a, P1ext). It
+// runs only with claim integrity on, before any collateral moves:
+//  1. the target must stand; a conjecture was refused above;
+//  2. the stake must meet the minimum for challenging the target
+//     (ChallengeFact's rule), so a 1-uzrn dispute is not admitted;
+//  3. the counter-claim text must not repeat a live or standing record's text
+//     in its domain (§5.4), so a contradiction cannot take a live claim's
+//     0x09 entry.
+func (m *msgServer) claimIntegrityContradictionAdmission(ctx context.Context, msg *types.MsgSubmitContradiction, target *types.Fact, contentHash string) error {
+	switch target.Status {
+	case types.FactStatus_FACT_STATUS_VERIFIED,
+		types.FactStatus_FACT_STATUS_ACTIVE,
+		types.FactStatus_FACT_STATUS_CONTESTED,
+		types.FactStatus_FACT_STATUS_CHALLENGED,
+		types.FactStatus_FACT_STATUS_AT_RISK:
+	default:
+		return fmt.Errorf("fact %s is not standing (status: %s); only a verified, active, contested, challenged or at-risk fact can be contradicted",
+			msg.FactId, target.Status)
+	}
+
+	params, err := m.keeper.GetParams(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load params: %w", err)
+	}
+	stakeAmt, ok := new(big.Int).SetString(msg.Stake, 10)
+	if !ok || stakeAmt.Sign() <= 0 {
+		return fmt.Errorf("invalid stake amount: %s", msg.Stake)
+	}
+	if minimum := EffectiveMinChallengeStake(params, target.Confidence); stakeAmt.Cmp(minimum) < 0 {
+		return fmt.Errorf("contradiction stake %s below effective minimum %s (fact confidence %d; a contradiction disputes the fact, so it costs at least what challenging it costs)",
+			msg.Stake, minimum.String(), target.Confidence)
+	}
+
+	blocker, err := m.keeper.blockingDuplicate(ctx, types.ContentHashKey(contentHash))
+	if err != nil {
+		return err
+	}
+	if blocker != nil {
+		return fmt.Errorf("duplicate claim: content hash matches existing claim %s", blocker)
+	}
+	return nil
 }
 
 // ─── Domain handlers ─────────────────────────────────────────────────────────

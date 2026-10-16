@@ -886,6 +886,31 @@ Conventions that apply to every task:
      `ChallengeFact` (`:786-792`);
   3. `blockingDuplicate(ContentHashKey(contentHash))`.
 - Acceptance: the tests above pass, and the Task 2 digest is unchanged.
+- Done in Task 10:
+  - The three checks are `claimIntegrityContradictionAdmission` in `msg_server.go`, in plan
+    order. `submitContradiction` reads the marker once, after the identity check and before the
+    stake lock, and calls it only when the marker is on. With the marker off the only
+    difference is that one read of 0x87.
+  - Refusals: `fact <id> is not standing (status: <STATUS>); …`,
+    `contradiction stake <s> below effective minimum <m> (fact confidence <c>; …)`, and
+    `duplicate claim: content hash matches existing claim <id> (status …)`, the same text as
+    `submitClaim`'s refusal.
+  - Tests beyond the list: every fact status applied in a cache (the five standing ones
+    admit), a DISPROVEN target reached through a real challenge panel, one uzrn below the
+    minimum, the target's own accepted text (blocked while its fact stands), and a copy of a
+    live contradiction's text through either message. No assertion reads the target after an
+    admission, so Task 12 does not change these tests.
+  - The Task 8 residual is closed. With the marker on, all three admissions that write a 0x09
+    entry (`submitClaim`, the conjecture path and `submitContradiction`) now check it first.
+    The P1ext test is refused in the same block as the live claim, so two same-hash claims
+    can no longer be admitted in one block.
+  - Outside the file list, as the §6 conventions expected: `app/claim_records_test.go`
+    characterizes claim-records retention on knowledge-11 contradiction admission with a
+    1 ZRN stake, below the 11 ZRN minimum. Its fixture now deletes 0x87 with a comment; no
+    assertion changed. Every other knowledge, app and cross-stack test passed unchanged.
+  - Not done: re-pinning the `knowledge-writers` anchor for `msg_server.go` (Task 6 note). It
+    is deferred to the separate reviewed pinning step, so `tools/authority-graph` fails until
+    then.
 
 **Task 11 — Ante gate for dispute messages** · consensus: yes (DeliverTx ante)
 - Files: `app/ante_zerone.go` (`ZeroneCapabilityDecorator` gets `WithClaimIntegrityGate(fn)`),

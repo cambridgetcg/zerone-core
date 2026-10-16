@@ -22,6 +22,12 @@ import (
 func claimRecordsAdmissionFixture(t *testing.T) (*ZeroneApp, sdk.Context, *knowledgetypes.MsgSubmitContradiction) {
 	t.Helper()
 	app, ctx := settlementFixture(t)
+	// These tests characterize claim-records retention on knowledge-11
+	// contradiction admission (a 1 ZRN stake, flip at admission). Claim
+	// integrity (0x87) would refuse that stake as below the challenge minimum,
+	// so it is pinned off; its own tests are in
+	// x/knowledge/keeper/claim_integrity_contradiction_test.go.
+	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.ClaimIntegrityEnabledStoreKey))
 	address := settlementAddress(211)
 	fund := sdk.NewCoins(sdk.NewInt64Coin("uzrn", 3000000))
 	require.NoError(t, app.BankKeeper.MintCoins(ctx, knowledgetypes.BootstrapFundModuleName, fund))
