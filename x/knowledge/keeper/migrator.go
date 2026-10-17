@@ -180,7 +180,7 @@ func (m Migrator) Migrate11to12(ctx sdk.Context) error {
 	if err := m.keeper.ValidateClaimIntegrityActivation(cache); err != nil {
 		return err
 	}
-	restored, unrestorable, err := m.keeper.RestoreAugmentationReplacedEdges(cache)
+	restoration, err := m.keeper.RestoreAugmentationReplacedEdges(cache)
 	if err != nil {
 		return fmt.Errorf("claim integrity: restore augmentation-replaced fact edges: %w", err)
 	}
@@ -191,7 +191,6 @@ func (m Migrator) Migrate11to12(ctx sdk.Context) error {
 		return err
 	}
 	write()
-	m.keeper.Logger(ctx).Info("claim integrity: augmentation-replaced fact edges",
-		"restored", restored, "unrestorable", unrestorable)
+	m.keeper.logAugmentationEdgeRestoration(ctx, "upgrade", restoration)
 	return nil
 }

@@ -2,12 +2,13 @@
 
 Status: Tasks 1–16, review fixes G1, G1R and G2–G5, a cleanup pass, the import-index fix
 from the final acceptance run (row 10; 2026-10-17) and the restoration of fact edges replaced by
-equal-ID augmentations (approved by Yu on 2026-10-17; §8) are implemented and committed on the
-branch, which is not yet merged. Task 16's end-to-end run (at
+equal-ID augmentations (approved by Yu on 2026-10-17; §8), with its review's should-fixes (the
+node log of each pair, the inventory preflight, no height comparison in the restore branch), are
+implemented and committed on the branch, which is not yet merged. Task 16's end-to-end run (at
 `cb4d7dfd`, before the review fixes) passed; it has not been re-run since. The three re-pins
 (authority geometry, spec hashes, the SDK's generated codecs) were applied with Yu's approval
-(`faef4388`, `d8e4b8d9`); the edge restoration then changed the claim-integrity spec, whose pin
-is the only failing check until it is re-pinned (§6, "Deferred checks"). Decisions (a) and (b)
+(`faef4388`, `d8e4b8d9`); the edge restoration and its review fixes then changed the
+claim-integrity spec, whose pin is the only failing check until it is re-pinned (§6, "Deferred checks"). Decisions (a) and (b)
 were taken by Claude and are reversible (§9, D1–D3).
 Base: upstream `main` at `a4272bfa`. Branch: `claims/attribution-verdict-integrity`
 (worktree `/Users/yu/.claude/worktrees/zerone-core-claims-integrity`). The branch is meant to
@@ -154,8 +155,9 @@ Wiring:
   Yu on 2026-10-17: between steps 3 and 4, `RestoreAugmentationReplacedEdges` writes back the
   fact edges that equal-ID augmentations replaced before activation. It reads the augmentation
   inventory, bounded like the record-integrity activation inventory (100,000 records, 64 MiB;
-  above it the migration fails rather than skip any), and writes only the two entries of each
-  restored edge (§8). `InitGenesis` with the flag on runs the same helper last.
+  above it the migration fails rather than skip any, which halts the chain at H: see §9 D4 for
+  the preflight), and writes only the two entries of each restored edge (§8). `InitGenesis` with
+  the flag on runs the same helper last.
 
 ### 3.4 App upgrade handler
 New file `app/upgrades_claim_integrity.go`, mirroring `app/upgrades_fund_settlement.go`.
@@ -2101,10 +2103,10 @@ Setup:
   - `Migrate11to12`, after the marker and receipt checks, and `InitGenesis` with the flag on,
     as its last step (a relaunch from an export runs no migration), call
     `RestoreAugmentationReplacedEdges` (`keeper/claim_integrity_augmentation_restore.go`). It
-    reads every augmentation in key order, bounded at 100,000 records or 64 MiB (above either
-    the upgrade or import fails; nothing is skipped). A pair is examined when the verdict
-    passed, the forward entry is exactly the verdict's REFORMULATES write, and the ID is a
-    fact F with `verified_at_block <= verdict_block`. If F's claim names D, F's ID derives from
+    reads every augmentation in key order, bounded at 100,000 records or 64 MiB (key plus
+    stored value per record; above either the upgrade or import fails; nothing is skipped). A
+    pair is examined when the verdict passed, the forward entry is exactly the verdict's
+    REFORMULATES write, and the ID is a fact F. If F's claim names D, F's ID derives from
     the claim (`GenerateFactID(claim, verified_at_block)`), the reverse entry is also the
     verdict's write, and a relation `method_id` (if any) is placed by a review-v2 round,
     `SetFactRelation` writes F's edge exactly as `createFactFromClaim` wrote it: the claim's last
@@ -2116,14 +2118,33 @@ Setup:
     authority injection), a missing claim, an ID that does not derive from its claim, a
     rewritten reverse entry, or a `method_id` the round cannot place. No status, history, index
     or counter changes; a cascade the replaced edge missed before activation is not replayed.
-  - Count: the receipt stays `"true"`, because `validateClaimIntegrityCompleted` reads exactly
-    that value at startup; the events carry the per-pair record (deviation from the request to
-    record the count in the receipt, which the receipt pattern does not allow without changing
-    the startup check).
+  - Heights (review of `e744e550`, 2026-10-17). The first version also required
+    `verified_at_block <= verdict_block`. After a relaunch at initial height 1 (dev-1's runtime
+    accepts only 0 or 1) those heights may come from two chains, and a pair whose verdict ran
+    on the relaunched chain was skipped silently. The forward entry alone proves the
+    replacement for a fact whose claim names D: `createFactFromClaim` writes F's edge to every
+    named target with the submitter as creator, so had F come after the verdict its own write
+    would hold the pair. The restore branch no longer compares heights
+    (`TestRestoreAugmentationReplacedEdgesAfterRelaunchAtHeightOne`). Only the report of a fact
+    that cannot be traced to a claim still uses them, since nothing else says whether it
+    existed at the verdict; after such a relaunch that report can be missing or spurious, and
+    nothing is written either way (`TestRestoreAugmentationReplacedEdgesClaimlessReportAfterRelaunch`).
+  - Count and visibility: the receipt stays `"true"`, because `validateClaimIntegrityCompleted`
+    reads exactly that value at startup (deviation from the request to record the count in the
+    receipt, which the receipt pattern does not allow without changing the startup check). At
+    the upgrade the events land among the FinalizeBlock events of H (PreBlock). On import they
+    do not land anywhere: `BaseApp.InitChain` ignores the event manager and CometBFT 0.38's
+    `ResponseInitChain` has no events. So both paths also log, after the restoration succeeded,
+    one line with `origin` and the counts and one line per pair in key order
+    (`TestRestoreAugmentationReplacedEdgesLogsEveryPair`; review of `e744e550`).
   - Audit: `scripts/audit-augmentation-edge-overwrites.py` (`python3 -I`, standard library)
     applies the same rules to an exported genesis and lists each pair as restorable, with the
     edge the chain will write, or unrestorable, with its reason. Cross-checked once against a
-    real keeper export and import (scratch, uncommitted): the same pairs, edge and reason.
+    real keeper export and import (scratch, uncommitted): the same pairs, edge and reason. It
+    also charges the inventory as the keeper does and prints a PREFLIGHT verdict (§9 D4);
+    `TestAugmentationInventoryChargeVector` writes the keeper's charge for a vector of records
+    to `scripts/testdata/augmentation-inventory-charge.json`, and the script's tests require
+    the same charge from the same records.
   - So the residual is now: restored by the migration, claimless facts excepted. With the
     marker on no fact's own edge is replaced, so these pairs cannot grow.
 
@@ -2206,7 +2227,19 @@ Each has a default the plan implements. Changing one alters only the named tasks
     export keeps `FactsByTag` and `FactsBySubject` only because `InitGenesis` now rebuilds the
     subject and tag indexes with the flag on (§3.6); before that fix it emptied them. It also
     restores the fact edges equal-ID augmentations replaced (§8); run
-    `scripts/audit-augmentation-edge-overwrites.py` on the export first to see which.
+    `scripts/audit-augmentation-edge-overwrites.py` on the export first to see which. The import
+    logs each pair; its events are discarded by InitChain.
+  - Halt risk at H, and the preflight (review of `e744e550`). The restoration reads the whole
+    augmentation inventory and refuses it above 100,000 records or 64 MiB (key plus stored
+    value per record), or when a record is malformed. At H that fails the upgrade, x/upgrade
+    panics, and every node halts at the upgrade height; an import with the flag on refuses the
+    genesis instead. Before H is scheduled, and again at H−1: export the state at H−1
+    (`zeroned export --height <H−1>`), run `python3 -I scripts/audit-augmentation-edge-overwrites.py`
+    on it, and read `PREFLIGHT PASS` or `PREFLIGHT FAIL` (exit 3) with the records and bytes
+    charged. On FAIL cancel the plan before H (`docs/UPGRADES.md`, "Failure and recovery
+    boundary"). PASS covers what the export shows: it omits undecodable records and unknown
+    fields, which the chain refuses (spec §1.3). dev-1's inventory has not been measured in
+    this session.
   - The height H2, the proposer and the voting path.
   - Who reviews. dev-1 has never had reviewers, and after P5 a submitter cannot review their own
     claim, so every claim will starve (now harmlessly) until there are `MinVerifiers` independent

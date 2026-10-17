@@ -1,8 +1,12 @@
 package keeper_test
 
 import (
+	"bytes"
+	"encoding/json"
+	"strings"
 	"testing"
 
+	"cosmossdk.io/log"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -448,9 +452,9 @@ func TestRestoreAugmentationReplacedEdgesIsIdempotent(t *testing.T) {
 
 	settled := relationContractSnapshot(t, f.ctx, f.key)
 	f.freshEvents()
-	restored, unrestorable, err := f.k.RestoreAugmentationReplacedEdges(f.ctx)
+	restoration, err := f.k.RestoreAugmentationReplacedEdges(f.ctx)
 	require.NoError(t, err)
-	require.Equal(t, [2]int{0, 1}, [2]int{restored, unrestorable})
+	require.Equal(t, [2]int{0, 1}, [2]int{len(restoration.Restored), len(restoration.Unrestorable)})
 	require.Equal(t, settled, relationContractSnapshot(t, f.ctx, f.key))
 	require.Empty(t, v11Event(f.ctx, restoredEvent))
 	require.Error(t, keeper.NewMigrator(f.k).Migrate11to12(claimIntegrityOwnerContext(t, f.ctx)), "the migration runs once")
@@ -492,4 +496,193 @@ func TestClaimIntegrity_ImportRestoresEdgesReplacedByEqualIDAugmentations(t *tes
 			require.True(t, proto.Equal(again.FactRelationState, reimported.k.ExportGenesis(reimported.ctx).FactRelationState))
 		})
 	}
+}
+
+// relaunchAtHeightOne imports gs into a fresh store at initial height 1, as a
+// relaunch from an export does (zerone-dev-1's runtime accepts only initial
+// height 0 or 1, deploy/networks/zerone-dev-1/runtime.py check_genesis). Block
+// heights start again; the imported records keep the heights of the chain
+// that wrote them.
+func relaunchAtHeightOne(t *testing.T, chainID string, gs *types.GenesisState) *v11Fixture {
+	t.Helper()
+	f := newKnowledgeStoreFixture(t, chainID)
+	f.ctx = f.ctx.WithBlockHeight(1)
+	require.NoError(t, f.k.InitGenesis(f.ctx, gs))
+	return f
+}
+
+// After a relaunch at initial height 1, a verdict's height and a fact's
+// verified_at_block come from different chains, so "the fact existed at the
+// verdict" cannot be read from them. A knowledge-11 chain relaunched from an
+// export, whose equal-ID verdict ran at height 2 against a fact accepted at
+// height 100+ on the old chain, replaced that fact's own edge all the same.
+// The forward entry proves it: F's claim names D, and F's creation writes its
+// edge to D with the claim's submitter as creator, so had F been created after
+// the verdict its own write, not the verdict's, would hold the pair. The
+// upgrade and an import with the flag on restore the edge.
+func TestRestoreAugmentationReplacedEdgesAfterRelaunchAtHeightOne(t *testing.T) {
+	source, _, factF, factD := restoreScenario(t, "rl", restoreRequires)
+	own, _ := source.pair(factF, factD)
+	exported := source.k.ExportGenesis(source.ctx)
+	require.False(t, exported.ClaimIntegrityEnabled, "a knowledge-11 export")
+
+	relaunched := relaunchAtHeightOne(t, "v12-restore-relaunch", exported)
+	relaunched.advanceTo(t, 2)
+	require.Equal(t, own, relaunched.replaceOwnEdge(t, factF, factD))
+	aug, found := relaunched.k.GetAugmentation(relaunched.ctx, factF)
+	require.True(t, found)
+	require.Less(t, aug.VerdictBlock, relaunched.fact(t, factF).VerifiedAtBlock, "heights from two chains")
+
+	t.Run("upgrade", func(t *testing.T) {
+		relaunched.inCache(func() {
+			relaunched.freshEvents()
+			relaunched.migrate11to12(t)
+			forward, reverse := relaunched.pair(factF, factD)
+			require.Equal(t, own, forward, "F's own edge, exactly as its creation wrote it")
+			require.Equal(t, own, reverse)
+			require.Equal(t, []map[string]string{{"fact_id": factF, "target_id": factD, "augmentation_id": factF}}, v11Event(relaunched.ctx, restoredEvent))
+			require.Empty(t, v11Event(relaunched.ctx, unrestorableEvent))
+		})
+	})
+	t.Run("import with the flag on", func(t *testing.T) {
+		gs := relaunched.k.ExportGenesis(relaunched.ctx)
+		gs.ClaimIntegrityEnabled = true
+		imported := relaunchAtHeightOne(t, "v12-restore-relaunch-again", gs)
+		forward, reverse := imported.pair(factF, factD)
+		require.Equal(t, own, forward)
+		require.Equal(t, own, reverse)
+		require.Equal(t, []map[string]string{{"fact_id": factF, "target_id": factD, "augmentation_id": factF}}, v11Event(imported.ctx, restoredEvent))
+	})
+}
+
+// The height comparison still decides whether a pair whose fact cannot be
+// traced to a claim is reported, and only that; it never decides a write. On
+// one chain a claimless fact created after the verdict never had an edge to
+// replace and is not reported. After a relaunch at initial height 1 the
+// heights may come from two chains, so such a pair can go unreported (this
+// case) or be reported although nothing was replaced; nothing is written
+// either way (spec §1.5, "Which pairs").
+func TestRestoreAugmentationReplacedEdgesClaimlessReportAfterRelaunch(t *testing.T) {
+	source := setupV11SemanticsTest(t)
+	_, factD, _ := source.contraTarget(t, "v12-rs-rc-d", "Synthetic v12 restoration (rc): fact D, which a genesis fact cites.")
+	const genesisG = "v12-rs-relaunch-genesis-fact"
+	require.NoError(t, source.k.SetFact(source.ctx, &types.Fact{
+		Id: genesisG, Content: "Synthetic v12 restoration: a claimless fact verified on the old chain.", Domain: dedupDomain,
+		Status: types.FactStatus_FACT_STATUS_VERIFIED, VerifiedAtBlock: uint64(source.ctx.BlockHeight()),
+	}))
+	require.NoError(t, source.k.SetFactRelation(source.ctx, &types.FactRelation{
+		SourceFactId: genesisG, TargetFactId: factD, Relation: types.RelationType_RELATION_TYPE_CITES,
+	}))
+	relaunched := relaunchAtHeightOne(t, "v12-restore-relaunch-claimless", source.k.ExportGenesis(source.ctx))
+	relaunched.advanceTo(t, 2)
+	relaunched.replaceOwnEdge(t, genesisG, factD)
+	replaced, _ := relaunched.pair(genesisG, factD)
+
+	before := relationContractSnapshot(t, relaunched.ctx, relaunched.key)
+	relaunched.freshEvents()
+	relaunched.migrate11to12(t)
+	requireOnlyActivationChanged(t, before, relationContractSnapshot(t, relaunched.ctx, relaunched.key), nil)
+	forward, _ := relaunched.pair(genesisG, factD)
+	require.Equal(t, replaced, forward, "left as it is")
+	require.Empty(t, v11Event(relaunched.ctx, restoredEvent))
+	require.Empty(t, v11Event(relaunched.ctx, unrestorableEvent), "the documented residual: unreported after a relaunch")
+}
+
+// captureLog sends the fixture's log to a buffer, as JSON lines.
+func (f *v11Fixture) captureLog() *bytes.Buffer {
+	buf := &bytes.Buffer{}
+	f.ctx = f.ctx.WithLogger(log.NewLogger(buf, log.OutputJSONOption(), log.ColorOption(false)))
+	return buf
+}
+
+// restorationLog returns the restoration's log lines, in order, without
+// their time.
+func restorationLog(t *testing.T, buf *bytes.Buffer) []map[string]any {
+	t.Helper()
+	var out []map[string]any
+	for _, line := range bytes.Split(buf.Bytes(), []byte("\n")) {
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+		entry := map[string]any{}
+		require.NoError(t, json.Unmarshal(line, &entry))
+		if message, _ := entry["message"].(string); strings.HasPrefix(message, "claim integrity: augmentation-replaced fact edge") {
+			delete(entry, "time")
+			out = append(out, entry)
+		}
+	}
+	return out
+}
+
+// The restoration's record outside the events. BaseApp.InitChain discards
+// the events InitGenesis emits (CometBFT 0.38's ResponseInitChain carries
+// none), so an import's restorations would leave no trace but the store. The
+// node log carries one line with the counts and then one line per pair, in
+// augmentation key order, for an import and for the upgrade (whose events
+// are also in the FinalizeBlock events of the upgrade height). The log is not
+// state; it is written after the restoration succeeded.
+func TestRestoreAugmentationReplacedEdgesLogsEveryPair(t *testing.T) {
+	source, _, factF, factD := restoreScenario(t, "lg", restoreRequires)
+	source.nextBlock(t)
+	source.replaceOwnEdge(t, factF, factD)
+	const genesisG = "v12-rs-log-genesis-fact"
+	require.NoError(t, source.k.SetFact(source.ctx, &types.Fact{Id: genesisG, Content: "Synthetic v12 restoration: a claimless fact whose edge is logged.", Domain: dedupDomain, Status: types.FactStatus_FACT_STATUS_VERIFIED}))
+	require.NoError(t, source.k.SetFactRelation(source.ctx, &types.FactRelation{SourceFactId: genesisG, TargetFactId: factD, Relation: types.RelationType_RELATION_TYPE_CITES}))
+	source.replaceOwnEdge(t, genesisG, factD)
+	require.Less(t, factF, genesisG, "augmentation key order")
+	exported := source.k.ExportGenesis(source.ctx)
+
+	want := func(origin string) []map[string]any {
+		line := func(message string, fields map[string]any) map[string]any {
+			fields["level"], fields["module"], fields["message"], fields["origin"] = "info", "x/knowledge", message, origin
+			return fields
+		}
+		return []map[string]any{
+			line("claim integrity: augmentation-replaced fact edges", map[string]any{"restored": float64(1), "unrestorable": float64(1)}),
+			line("claim integrity: augmentation-replaced fact edge restored", map[string]any{"fact_id": factF, "target_id": factD, "augmentation_id": factF}),
+			line("claim integrity: augmentation-replaced fact edge unrestorable", map[string]any{"fact_id": genesisG, "target_id": factD, "augmentation_id": genesisG, "reason": "fact has no claim"}),
+		}
+	}
+	t.Run("import", func(t *testing.T) {
+		gs := proto.Clone(exported).(*types.GenesisState)
+		gs.ClaimIntegrityEnabled = true
+		imported := newKnowledgeStoreFixture(t, "v12-restore-log-import")
+		buf := imported.captureLog()
+		require.NoError(t, imported.k.InitGenesis(imported.ctx, gs))
+		require.Equal(t, want("genesis"), restorationLog(t, buf))
+	})
+	t.Run("native genesis logs the counts", func(t *testing.T) {
+		native := newKnowledgeStoreFixture(t, "v12-restore-log-native")
+		buf := native.captureLog()
+		require.NoError(t, native.k.InitGenesis(native.ctx, types.DefaultGenesis()))
+		require.Equal(t, []map[string]any{{
+			"level": "info", "module": "x/knowledge", "origin": "genesis",
+			"message": "claim integrity: augmentation-replaced fact edges", "restored": float64(0), "unrestorable": float64(0),
+		}}, restorationLog(t, buf))
+	})
+	t.Run("import with the flag off", func(t *testing.T) {
+		imported := newKnowledgeStoreFixture(t, "v12-restore-log-import-off")
+		buf := imported.captureLog()
+		require.NoError(t, imported.k.InitGenesis(imported.ctx, exported))
+		require.Empty(t, restorationLog(t, buf), "knowledge 11 restores nothing")
+	})
+	t.Run("upgrade", func(t *testing.T) {
+		buf := source.captureLog()
+		source.migrate11to12(t)
+		require.Equal(t, want("upgrade"), restorationLog(t, buf))
+	})
+	t.Run("a restoration that fails after a pair logs no pair", func(t *testing.T) {
+		f, _, factF, factD := restoreScenario(t, "lr", restoreRequires)
+		f.nextBlock(t)
+		f.replaceOwnEdge(t, factF, factD)
+		// A later pair, in key order, whose fact names a malformed claim record.
+		const brokenG, brokenClaim = "v12-rs-log-broken-fact", "v12-rs-log-broken-claim"
+		require.Less(t, factF, brokenG)
+		require.NoError(t, f.k.SetFact(f.ctx, &types.Fact{Id: brokenG, ClaimId: brokenClaim, Content: "Synthetic v12 restoration: a fact whose claim record is malformed.", Domain: dedupDomain, Status: types.FactStatus_FACT_STATUS_VERIFIED}))
+		f.vdPassAugmentation(t, brokenG, factD)
+		f.ctx.KVStore(f.key).Set(types.ClaimKey(brokenClaim), []byte{0xff})
+		buf := f.captureLog()
+		require.ErrorContains(t, keeper.NewMigrator(f.k).Migrate11to12(claimIntegrityOwnerContext(t, f.ctx)), "augmentation "+brokenG)
+		require.Empty(t, restorationLog(t, buf), "nothing was restored, so nothing is logged")
+	})
 }

@@ -319,10 +319,13 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 		// equal-ID augmentations replaced, and no migration runs on it.
 		// Restore them as Migrate11to12 does, from the imported facts, claims,
 		// rounds and augmentations. With the flag off nothing is restored, as
-		// on knowledge 11.
-		if _, _, err := k.RestoreAugmentationReplacedEdges(ctx); err != nil {
+		// on knowledge 11. BaseApp.InitChain discards the events emitted
+		// here, so the node log is the import's record of each pair.
+		restoration, err := k.RestoreAugmentationReplacedEdges(ctx)
+		if err != nil {
 			return fmt.Errorf("restore augmentation-replaced fact edges: %w", err)
 		}
+		k.logAugmentationEdgeRestoration(ctx, "genesis", restoration)
 	}
 
 	return nil

@@ -12,12 +12,16 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 SPEC = importlib.util.spec_from_file_location("audit_augmentation_edge_overwrites", Path(__file__).with_name("audit-augmentation-edge-overwrites.py"))
 audit = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(audit)
 
 SUBMITTER = "zrn1synthetic-submitter"
+# Written from the keeper by TestAugmentationInventoryChargeVector
+# (x/knowledge/keeper); keeper_charge is what the chain charges these records.
+CHARGE_VECTOR = Path(__file__).with_name("testdata") / "augmentation-inventory-charge.json"
 
 
 def fact_id(claim_id, height):
@@ -116,11 +120,12 @@ class AuditTest(unittest.TestCase):
         _, named = export.claim_born("n", [requires()])
         _, unnamed = export.claim_born("u", [requires(target="synthetic-other")])
         export.target("synthetic-other")
-        _, late = export.claim_born("t", [requires()], created=20)
+        late_claimless = export.target("synthetic-late-claimless")
         _, drift = export.claim_born("r", [requires()])
         export.replaced("synthetic-ordinary-variant")  # not a fact
         export.replaced(unnamed)  # a stray edge: F's claim does not name D
-        export.replaced(late, block=12)  # F created after the verdict
+        next(f for f in export.state["facts"] if f["id"] == late_claimless)["verified_at_block"] = "20"
+        export.replaced(late_claimless, block=12)  # a claimless fact created after the verdict
         export.replaced(drift, verdict="AUGMENTATION_VERDICT_DRIFT")  # no edge written
         export.state["augmentations"].append({"id": named, "original_fact_id": "synthetic-d", "verdict": "AUGMENTATION_VERDICT_SUPERIOR", "verdict_block": "12"})
         own = requires()
@@ -130,6 +135,64 @@ class AuditTest(unittest.TestCase):
         report = audit.audit(export.state)
         self.assertEqual([], report["pairs"])
         self.assertEqual(5, report["augmentations"])
+
+    def test_relaunch_at_height_one_restores_by_the_forward_entry(self):
+        """After a relaunch at initial height 1 a verdict's height (new chain) can be below the
+        fact's verified_at_block (old chain). The forward entry still proves the replacement for a
+        fact whose claim names the target, so the pair is restorable, as on the chain."""
+        export = Export()
+        _, fid = export.claim_born("h", [requires()], created=150)
+        export.replaced(fid, block=2)
+        report = audit.audit(export.state)
+        self.assertEqual({"restorable": 1, "unrestorable": 0}, report["counts"])
+        self.assertEqual(150, report["pairs"][0]["restored_edge"]["created_at_block"])
+
+    def test_relaunch_claimless_fact_is_not_listed(self):
+        """The documented residual: for a fact that cannot be traced to a claim only the heights
+        say whether it existed at the verdict, so after a relaunch such a pair can go unlisted."""
+        export = Export()
+        fid = export.target("synthetic-old-chain-claimless")
+        next(f for f in export.state["facts"] if f["id"] == fid)["verified_at_block"] = "150"
+        export.replaced(fid, block=2)
+        self.assertEqual([], audit.audit(export.state)["pairs"])
+
+    def test_inventory_charge_matches_the_keeper_vector(self):
+        """The audit charges each augmentation what the keeper charges: its key (0x63 and the ID)
+        plus its stored protobuf encoding. The vector's records exercise every field at the
+        encoding boundaries; its keeper_charge comes from the keeper's own bound."""
+        vector = json.loads(CHARGE_VECTOR.read_text(encoding="utf-8"))
+        report = audit.audit({"augmentations": vector["augmentations"]})
+        self.assertEqual({"records": vector["keeper_charge"]["records"], "bytes": vector["keeper_charge"]["bytes"],
+                          "max_records": 100_000, "max_bytes": 64 << 20}, report["inventory"])
+        self.assertEqual("PASS", report["preflight"]["verdict"])
+        charges = [audit.augmentation_charge(aug, f"augmentations[{i}]") for i, aug in enumerate(vector["augmentations"])]
+        self.assertEqual(vector["keeper_charge"]["bytes"], sum(charges))
+        # Field order and names-versus-numbers do not change the charge.
+        numeric = copy.deepcopy(vector["augmentations"])
+        for aug in numeric:
+            aug["verdict"] = audit.AUGMENTATION_VERDICTS.index(aug["verdict"])
+            aug["verdict_votes"] = [audit.AUGMENTATION_VERDICTS.index(v) for v in aug["verdict_votes"]]
+        self.assertEqual(charges, [audit.augmentation_charge(dict(reversed(list(a.items()))), "a") for a in numeric])
+
+    def test_preflight_fails_above_either_bound_as_the_keeper_does(self):
+        vector = json.loads(CHARGE_VECTOR.read_text(encoding="utf-8"))
+        state = {"augmentations": vector["augmentations"]}
+        records, size = vector["keeper_charge"]["records"], vector["keeper_charge"]["bytes"]
+        for max_records, max_bytes, verdict in ((records, size, "PASS"), (records, size - 1, "FAIL"), (records - 1, size, "FAIL")):
+            with self.subTest(max_records=max_records, max_bytes=max_bytes):
+                with mock.patch.object(audit, "INVENTORY_MAX_RECORDS", max_records), mock.patch.object(audit, "INVENTORY_MAX_BYTES", max_bytes):
+                    report = audit.audit(state)
+                self.assertEqual(verdict, report["preflight"]["verdict"])
+                if verdict == "FAIL":
+                    self.assertIn("halt", report["preflight"]["detail"])
+
+    def test_charge_refuses_what_it_cannot_size(self):
+        for bad in ({"id": "a", "unknown_field": "x"}, {"id": "a", "created_at_block": str(1 << 64)},
+                    {"id": "a", "verdict_voters": [None]}, {"id": "a", "accepted": "true"},
+                    {"id": "a", "verdict_vote_stakes": "1"}, {"id": "\ud800"}):
+            with self.subTest(bad=bad):
+                with self.assertRaises(audit.AuditError):
+                    audit.audit({"augmentations": [bad]})
 
     def test_numeric_enums_and_ordering_are_deterministic(self):
         export = Export()
@@ -176,6 +239,12 @@ class AuditTest(unittest.TestCase):
             out, err = io.StringIO(), io.StringIO()
             self.assertEqual(0, audit.main([str(path)], out, err))
             self.assertEqual(1, json.loads(out.getvalue())["counts"]["restorable"])
+            self.assertRegex(err.getvalue(), r"^PREFLIGHT PASS: 1 augmentation records, [0-9]+ bytes ")
+            with mock.patch.object(audit, "INVENTORY_MAX_BYTES", 1):
+                err = io.StringIO()
+                self.assertEqual(3, audit.main([str(path), "--fail-on-any"], io.StringIO(), err), "a failed preflight wins")
+                self.assertTrue(err.getvalue().startswith("PREFLIGHT FAIL: "))
+                self.assertIn("halt", err.getvalue())
             self.assertEqual(1, audit.main([str(path), "--fail-on-any"], io.StringIO(), err))
             clean = Path(tmp) / "clean.json"
             clean.write_text(json.dumps(Export().state))

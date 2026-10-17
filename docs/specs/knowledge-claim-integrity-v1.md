@@ -108,8 +108,14 @@ is the genesis flag `claim_integrity_enabled` (§1.2).
   does (§1.5). A relaunch from a knowledge-11 export carries those
   replacements, and no migration runs on it. Exporting the result and
   importing it again restores nothing more. With the flag off the replacements
-  are imported as they are.
-  Tests: `TestClaimIntegrity_ImportRestoresEdgesReplacedByEqualIDAugmentations`.
+  are imported as they are. The events an import emits are discarded:
+  `BaseApp.InitChain` does not read the event manager, and CometBFT 0.38's
+  `ResponseInitChain` has no events. So the node log records the import: one
+  line with the counts, then one line per restored or unrestorable pair, in
+  augmentation key order (§1.5). The same inventory bound applies: a genesis
+  above it is refused at InitChain (§1.3).
+  Tests: `TestClaimIntegrity_ImportRestoresEdgesReplacedByEqualIDAugmentations`,
+  `TestRestoreAugmentationReplacedEdgesLogsEveryPair`.
 
 ### 1.3 Migration and named upgrade
 
@@ -119,12 +125,45 @@ is the genesis flag `claim_integrity_enabled` (§1.2).
   before activation (§1.5), then writes `0x87 = {1}` and
   `migration_v12_complete = "true"`, and nothing else. Where nothing was
   replaced, it writes only the marker and the receipt. The receipt stays
-  `"true"`, the value the startup check reads; the restored pairs are reported
-  by events, one per pair. The module refuses a migration that no owner runs.
+  `"true"`, the value the startup check reads. Each restored or unrestorable
+  pair is reported by an event, which appears among the FinalizeBlock events
+  of H (x/upgrade runs the migration in PreBlock), and, once the migration has
+  written, by the node log: the counts, then one line per pair. The module
+  refuses a migration that no owner runs.
   Tests: `TestMigrate11to12RefusesWithoutOwnerOrUnmarkedSource`,
   `TestMigrate11to12ChangesExactlyMarkerAndReceipt`,
   `TestMigrate11to12RestoresEdgesReplacedByEqualIDAugmentations`,
+  `TestRestoreAugmentationReplacedEdgesLogsEveryPair`,
   `TestClaimIntegrityModuleRefusesUnownedMigration`.
+- **Halt risk, and the preflight that guards it.** The restoration reads the
+  whole augmentation inventory, charging each record its store key (`0x63`
+  and the ID) plus its stored value. Above 100,000 records or 64 MiB, or on a
+  read error or a malformed augmentation, fact or claim record, the migration
+  fails. The upgrade then fails at H, which x/upgrade turns into a panic:
+  every node halts at the upgrade height, and this binary cannot pass it
+  (recovery: `docs/UPGRADES.md`, "Failure and recovery boundary"). Review
+  neutrality, a predecessor, refuses new augmentations, but a pending one
+  still grows when its votes are recorded. So, before H is scheduled and
+  again at H−1:
+  1. export the state at H−1 from a node that still holds it
+     (`zeroned export --height <H−1> > export.json`, on a stopped node or a
+     copy of its home);
+  2. run `python3 -I scripts/audit-augmentation-edge-overwrites.py export.json`.
+     It charges the exported records exactly as the keeper does, reports
+     `inventory` (records and bytes against both bounds), prints
+     `PREFLIGHT PASS` or `PREFLIGHT FAIL` on stderr, and exits 3 on FAIL;
+  3. on FAIL, cancel the plan before H (`MsgCancelUpgrade`); raising the bound
+     is a reviewed change, not an operator setting.
+
+  PASS covers the exported state only. An export omits records it cannot
+  decode and fields it does not know; the chain refuses such records, so they
+  halt it too, and the script cannot see them.
+  Tests: `TestMigrate11to12AugmentationInventoryBound`,
+  `TestAugmentationInventoryChargeVector` (the keeper admits exactly the
+  vector's charge and refuses one record or byte less; it writes
+  `scripts/testdata/augmentation-inventory-charge.json`), and the script's
+  `test_inventory_charge_matches_the_keeper_vector` and
+  `test_preflight_fails_above_either_bound_as_the_keeper_does`.
 - Only `knowledge-claim-integrity-v1` may carry knowledge 11→12. Every older
   plan name is refused for that boundary, and the earlier boundaries keep their
   owners. `BuildChainVersionReport` lists the upgrade.
@@ -203,9 +242,18 @@ edges, and so does `InitGenesis` with the flag on (§1.2):
   examined when the augmentation's verdict passed, the forward entry at its
   pair holds exactly the edge the verdict wrote (REFORMULATES, created at
   `verdict_block`, no other field), so nothing wrote the pair after it, and
-  its ID is the ID of a fact F that existed at the verdict
-  (`verified_at_block` at or below `verdict_block`). A pair whose F was created
-  later, or whose F's own write came last, replaced nothing.
+  its ID is the ID of a fact F. For F accepted from a claim that names D, that
+  forward entry alone proves F existed at the verdict: F's creation writes its
+  edge to every target its claim names, with the claim's submitter as
+  creator, and the verdict's edge has none, so had F come later its own write
+  would hold the pair. Heights are not compared there, because after a
+  relaunch at initial height 1 a verdict's height and F's
+  `verified_at_block` may come from two chains. For an F that cannot be
+  traced to a claim (no claim, a missing claim, an ID that does not derive
+  from it) nothing proves it: the pair is reported only when
+  `verified_at_block` is at or below `verdict_block`. That is exact on one
+  chain; after such a relaunch the report can be missing or spurious. Heights
+  decide only that report, never a write.
 - **What is written.** F's edge to D, forward and reverse entry, exactly as
   F's creation from its claim wrote it: the claim's last relation naming D
   (relations are written in order, so the last one was stored) gives the type,
@@ -215,14 +263,16 @@ edges, and so does `InitGenesis` with the flag on (§1.2):
   which only a round created with record integrity on has. The restored bytes
   equal those the real round writer produced before the replacement.
   `zerone.knowledge.augmentation_edge_restored{fact_id, target_id, augmentation_id}`
-  reports each pair. Nothing else is written: no status, history, index or
+  and a node-log line report each pair (an import's events are discarded,
+  §1.2). Nothing else is written: no status, history, index or
   counter. A fact the replaced edge would have contested in a cascade before
   activation is not contested now; from activation on, the contest check and
   the cascade read the restored edge.
 - **Not restored, and why.** A pair whose F was accepted from a claim that does
   not name D replaced nothing (F never had an edge to D) and is not reported.
-  The rest are left as they are and reported by
-  `zerone.knowledge.augmentation_edge_unrestorable{fact_id, target_id, augmentation_id, reason}`:
+  The rest are left as they are and reported, by
+  `zerone.knowledge.augmentation_edge_unrestorable{fact_id, target_id, augmentation_id, reason}`
+  and a node-log line:
   F has no claim (genesis, doctrine, an authority injection: whether F had an
   edge to D is not recorded); F's claim is missing; F's ID does not derive from
   its claim and `verified_at_block`; the reverse entry no longer holds the
@@ -231,17 +281,20 @@ edges, and so does `InitGenesis` with the flag on (§1.2):
   completed on either side of record integrity's activation). So the residual
   is now: restored by the migration, claimless facts excepted.
 - **Bounds and failures.** The augmentation inventory is bounded like the
-  record-integrity activation inventory: above 100,000 records or 64 MiB the
-  migration fails, and so the upgrade, rather than skip any. A read error or a
-  malformed augmentation, fact or claim record fails it too. Nothing is
-  written on failure.
+  record-integrity activation inventory: above 100,000 records or 64 MiB (key
+  plus stored value per record) the migration fails, and so the upgrade,
+  rather than skip any. A read error or a malformed augmentation, fact or
+  claim record fails it too. Nothing is written on failure, and no pair is
+  logged. A failed upgrade halts the chain at H; the preflight in §1.3 checks
+  the bound beforehand.
 - **Audit before a relaunch or an upgrade.**
   `python3 -I scripts/audit-augmentation-edge-overwrites.py EXPORT.json` applies
   the same rules to an exported genesis and lists each pair as restorable, with
   the edge the chain will write, or unrestorable, with the reason it will
   report (standard library only; `--fail-on-any` exits 1 when any pair is
-  listed). An export carries each edge once, after checking that its two
-  entries agree, so the reverse-entry case cannot arise there.
+  listed). It also reports the inventory charge and the preflight verdict of
+  §1.3 (exit 3 on FAIL). An export carries each edge once, after checking
+  that its two entries agree, so the reverse-entry case cannot arise there.
 
 With the marker on no fact's own edge is replaced: the writer withholds an edge
 whose ID is a stored fact's, and a fact created after the verdict writes its
@@ -257,6 +310,9 @@ edge left replaced it became ACTIVE),
 `TestMigrate11to12RestoresNothingElse`, `TestMigrate11to12ReportsUnrestorableEdges`,
 `TestMigrate11to12AugmentationInventoryBound`,
 `TestRestoreAugmentationReplacedEdgesIsIdempotent`,
+`TestRestoreAugmentationReplacedEdgesAfterRelaunchAtHeightOne`,
+`TestRestoreAugmentationReplacedEdgesClaimlessReportAfterRelaunch`,
+`TestRestoreAugmentationReplacedEdgesLogsEveryPair`,
 `TestClaimIntegrity_ImportRestoresEdgesReplacedByEqualIDAugmentations`,
 `TestClaimIntegrityUpgradeRestoresEdgeReplacedByEqualIDAugmentation`
 (`app/upgrades_claim_integrity_restore_test.go`), and the script's
@@ -1267,8 +1323,8 @@ checked by `TestEventAudit_DocumentationCompleteness`.
 | `zerone.knowledge.contradiction_reversed{fact_id, reverted_by_fact}` | New form. `fact_id` was released when counter-fact `reverted_by_fact` fell. | `TestClaimIntegrity_DisprovenCounterFactReleasesTarget`, `TestSettleCounterFactTargets` |
 | `zerone.knowledge.contest_check_incomplete{fact_id, reason}` | New. A contest check could not finish, so no CONTESTED fact is released; at a challenge's end the fact returns to CONTESTED (§6.5). `fact_id` is that fact, or a fallen counter-fact whose edges could not be listed. | `TestContestReasonFailsTowardContested`, `TestSettleCounterFactTargetsFailsTowardContested`, `TestClaimIntegrity_IncompleteCheckAtChallengeEndLeavesFactContested` |
 | `zerone.knowledge.augmentation_edge_withheld{augmentation_id, original_fact_id, reason}` | New. A passing augmentation verdict wrote no REFORMULATES edge because its ID would land in the fact ID space (§6.6). | `TestClaimIntegrity_AugmentationEdgeStaysOutOfTheFactIDSpace` |
-| `zerone.knowledge.augmentation_edge_restored{fact_id, target_id, augmentation_id}` | New. The migration, or an import with the flag on, wrote back a fact edge that an augmentation with the fact's ID replaced before activation (§1.5). | `TestMigrate11to12RestoresEdgesReplacedByEqualIDAugmentations`, `TestClaimIntegrity_ImportRestoresEdgesReplacedByEqualIDAugmentations` |
-| `zerone.knowledge.augmentation_edge_unrestorable{fact_id, target_id, augmentation_id, reason}` | New. Such a replacement cannot be rebuilt exactly and is left as it is (§1.5). | `TestMigrate11to12ReportsUnrestorableEdges` |
+| `zerone.knowledge.augmentation_edge_restored{fact_id, target_id, augmentation_id}` | New. The migration wrote back a fact edge that an augmentation with the fact's ID replaced before activation (§1.5); it appears among the FinalizeBlock events of H. An import with the flag on emits it too, but `InitChain` discards it; the node log carries the import's pairs (§1.2). | `TestMigrate11to12RestoresEdgesReplacedByEqualIDAugmentations`, `TestClaimIntegrity_ImportRestoresEdgesReplacedByEqualIDAugmentations` |
+| `zerone.knowledge.augmentation_edge_unrestorable{fact_id, target_id, augmentation_id, reason}` | New. Such a replacement cannot be rebuilt exactly and is left as it is (§1.5). Visible as the restored event is. | `TestMigrate11to12ReportsUnrestorableEdges`, `TestRestoreAugmentationReplacedEdgesLogsEveryPair` |
 | `zerone.knowledge.challenge_fact` | Unchanged attributes. A CONTESTED fact can now be challenged, so `fact_id` may name one. | `TestClaimIntegrity_ChallengeFactAdmitsContestedTarget` |
 | `zerone.knowledge.challenge_inconclusive_restored{fact_id, challenge_claim_id}` | The fact may return to CONTESTED rather than ACTIVE. | `TestClaimIntegrity_ContestedFactChallengeWhileCounterFactStands` |
 
@@ -1378,6 +1434,11 @@ These are disclosures, not behaviour this release adds. *Not tested here.*
   restores such edges (§1.5); for a fact with no claim the edge cannot be
   rebuilt, and any check of a fact that edge held, a starved challenge's
   included, releases it.
+- **A halt at the upgrade height.** The restoration refuses an augmentation
+  inventory above 100,000 records or 64 MiB, or one with a malformed record,
+  rather than skip any; at H that fails the upgrade and halts the chain. The
+  chain cannot check this before H. The operator preflight of §1.3 can, for
+  everything an export shows.
 - **Mempool copying of claim text.**
 - **Verbatim quotes from third-party clients.** Only reviewers voting MALFORMED
   push back on chain (§2.7).
