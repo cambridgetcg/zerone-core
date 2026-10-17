@@ -1,6 +1,10 @@
 # Claims: attribution, verdict and reversal integrity (knowledge v12)
 
-Status: implementation plan, not started. Nothing in this file has been built or tested.
+Status: Tasks 1–16 and review fixes G1–G5 are implemented and committed on the branch, which
+is not yet merged. Task 16's end-to-end run (at `cb4d7dfd`, before the review fixes) passed;
+it has not been re-run since. Pending Yu's approval: the authority-geometry re-pin and the
+spec-hash re-pin, the two checks that still fail (§6, "Deferred checks"). Decisions (a) and (b)
+were taken by Claude and are reversible (§9, D1–D3).
 Base: upstream `main` at `a4272bfa`. Branch: `claims/attribution-verdict-integrity`
 (worktree `/Users/yu/.claude/worktrees/zerone-core-claims-integrity`). The branch is meant to
 fast-forward into `main` when done, as Yu approved. Commit after each task, following the repo
@@ -38,7 +42,7 @@ Each inferred item has either a test that settles it or a note that it is out of
 |---|---|---|
 | **(1) Who said what is recorded on chain** | (a) An attribution record (work, voice, act, proposition, locator) can be submitted, reviewed and found. It refers to Hermes records by hash only and never stores verbatim text. (b) Every status change of a fact records who or what caused it. | P2 (distinct statements collide, canonical forms can be squatted). P6 (wrong causes). P1 (a starved attribution locks its text). |
 | **(2) The verdict on a proposition is a separate decision by chain participants** | (a) A fact's status changes only through a panel decision on that fact, or through an accepted finding that conflicts with it or that it depends on. No single submitter can change it. (b) A submitter, or the defender of the target, cannot sit on the panel. (c) Accepting an attribution never changes a proposition's verdict. | P3 (a 1-uzrn admission flips status; a starved round restores it). P5 (self-review). P3: CONTESTED facts cannot be challenged. |
-| **(3) Verdicts can be reversed by the latest findings** | (a) A CONTESTED fact has a decision path: ChallengeFact accepts it. (b) When a counter-fact is disproven, its target is re-evaluated. (c) If a fact survives a direct challenge, that clears doubts raised by dependencies refuted earlier. (d) A rejected, starved or fallen proposition can be re-proposed as a new record, with the old one kept. | P1 (permanent lock). P3 (no exit from CONTESTED; no re-evaluation after a counter-fact falls). |
+| **(3) Verdicts can be reversed by the latest findings** | (a) A CONTESTED fact has a decision path: ChallengeFact accepts it. (b) When a counter-fact is disproven, its target is re-evaluated. (c) If a fact survives a direct challenge, that clears doubts raised by dependencies refuted before the challenge opened (review fix SEC-1). (d) A rejected, starved or fallen proposition can be re-proposed as a new record, with the old one kept. | P1 (permanent lock). P3 (no exit from CONTESTED; no re-evaluation after a counter-fact falls). |
 
 Non-goals for this slice: zerone-1, metabolism economics, new tx fields, on-chain quote detection.
 The full list is in §8.
@@ -60,7 +64,8 @@ it highest. It is changed in these ways:
   (`rounds.go:972-997`) off every new BeginBlock path. Yu may reverse this choice (§9, D1).
 - **Whether a fact stays CONTESTED is computed from its relation edges, not from events.**
   - R1: an accepted contradicting fact that is still standing.
-  - R2: a fact it depends on was refuted after the fact's last survived challenge.
+  - R2: a fact it depends on was refuted at or after the height the fact's last survived
+    challenge opened (review fixes SEC-1, F1).
   This avoids D2's `CascadeEventByDescendant` gap: the cascade skips descendants that are
   already CONTESTED or CHALLENGED (`vindication.go:619-627`).
 - **D2's survival rule, made order-aware.** Surviving a direct challenge (verdict REJECT) clears
@@ -202,7 +207,7 @@ New file `app/upgrades_claim_integrity.go`, mirroring `app/upgrades_fund_settlem
 | Facts CONTESTED by a pre-activation admission flip | Released by the same contest-reason predicate when that contradiction's own round ends. If it is accepted, R1 keeps the fact CONTESTED. |
 | Facts that were laundered earlier (VERIFIED while a standing counter-fact contradicts them) | Unchanged. §5.6 tells consumers how to read them. Either side can be challenged. |
 | Pre-activation self-commits | They still reveal and settle. The P5 guard applies to commits only. |
-| REFORMULATES edges from pre-activation augmentation verdicts, including IDs that extend (`<F>/x`) or equal a fact's ID | Kept, a closed set. R2 reads a claim-born fact's edges by key from its claim; the prefix scan of a claimless fact skips foreign entries (§5.3). After activation the writer refuses such IDs (review G1R, §8). |
+| REFORMULATES edges from pre-activation augmentation verdicts, including IDs that extend (`<F>/x`) or equal a fact's ID | Kept, a closed set. R2 reads a claim-born fact's edges by key from its claim; the prefix scan of a claimless fact skips foreign entries (§5.3). After activation the writer refuses such IDs (review G1R), except the ID of a fact created after the verdict (§8). |
 | Historical status transitions | Never rewritten. |
 | Content hashes shared by two records admitted before activation (P1ext: knowledge 11 let a `MsgSubmitContradiction` carry another claim's exact text) | Not rewritten. Knowledge 11 rewrote 0x09 on every save, so the entry names the record **saved last**, and the live chain decides dedup from that record's standing. An import replays first saves in admission order (Task 8), so there the entry names the record **admitted last**. When the two records differ in standing, the live and the imported chain disagree, in either direction: one admits a third copy of a standing fact's text and the other refuses it (review CI-REVIEW-1; both pinned by `TestClaimIntegrity_LegacyContentCollisionLiveVsImport`). After activation every admission checks 0x09 first, so no new pair arises. D4 adds a pre-upgrade check (§9). |
 
@@ -493,21 +498,19 @@ DISPROVEN can only come from a direct challenge on that fact.
   on, so a reason found after it is still conclusive (review G1R). R1 reads every incoming edge
   of every type, which any later fact can add, so it goes second (review G1, second pass).
 - **How R2 reads (review G1R).** For a fact accepted from a claim, R2 reads that claim and, for
-  each target the claim names, the stored edge `F→target` by key (`FactRelationKey`). The
-  stored edge's type decides, as it decides the cascade, so R2 sees exactly what a scan of F's
-  forward prefix would see, restricted to the targets F's claim names; an entry found by key
-  whose payload names another pair (keys are `<source>/<target>`, so F→`x/y` and `<F>/x`→y
-  share one) is not F's edge. F's claim wrote every
-  outgoing edge of F; the one other writer, before activation, was an augmentation whose ID
-  equalled F's, and its REFORMULATES edge is outside the cascade set. So the point reads find
-  every dependency a prefix scan would find, and never read what others add under `<F>/`. R2's
-  other reads are F's claim (one record its submitter wrote, at most `MaxRelationsPerClaim`
-  relations since that cap) and the status histories of F and of each refuted dependency,
-  which grow only by status changes (a challenge, a round, a cascade or metabolism), not by
-  records others can add cheaply. A fact whose claim is
-  missing or unreadable makes R2 fail;
-  it never falls back to the scan. Only a fact with no claim (genesis, doctrine, an authority
-  injection) has its forward prefix scanned.
+  each target the claim names, the stored edge `F→target` by key (`FactRelationKey`). The stored
+  edge's type decides, as it decides the cascade, so R2 sees exactly what a scan of F's forward
+  prefix would see, restricted to the targets F's claim names; an entry found by key whose payload
+  names another pair (keys are `<source>/<target>`, so F→`x/y` and `<F>/x`→y share one) is not F's
+  edge. F's claim wrote every outgoing edge of F. The one other writer is an augmentation whose ID
+  equals F's: before activation, or after it when the verdict came before F existed (§8). Its
+  REFORMULATES edge is outside the cascade set. So the point reads find every dependency a prefix
+  scan would find, and never read what others add under `<F>/`. R2's other reads are F's claim
+  (one record its submitter wrote, at most `MaxRelationsPerClaim` relations since that cap) and
+  the status histories of F and of each refuted dependency, which grow only by status changes (a
+  challenge, a round, a cascade or metabolism), not by records others can add cheaply. A fact
+  whose claim is missing or unreadable makes R2 fail; it never falls back to the scan. Only a fact
+  with no claim (genesis, doctrine, an authority injection) has its forward prefix scanned.
 - **Entries naming another fact are skipped.** A forward prefix `<F>/` can also hold edges whose
   source is not F: a passing augmentation wrote a REFORMULATES edge whose source is its
   user-chosen ID (`ApplyFinalizedAugmentationVerdict`), so an ID `<F>/x` landed under F's
@@ -567,17 +570,47 @@ Further rules:
   created. The old fact keeps its history.
 
 ### 5.5 What consumers read
-- **Current verdict of a fact.** Read `fact.status`, the status transitions with their causes,
-  and its incoming CONTRADICTS edges together with each source fact's status.
+- **Current verdict of a fact.** Read `fact.status` and the status transitions with their
+  causes. A transition's cause records the event that last changed the status, not the reason
+  the fact holds that status now. A fact that a challenge returns to CONTESTED records
+  `challenge_survived` or `challenge_inconclusive`, although a counter-fact or a refuted
+  dependency is what holds it. A reason can also lapse with no transition of F: a counter-fact
+  that is pruned, for example. So for a CONTESTED fact, recompute both rules of §5.3 to learn
+  the current reason (review G5, F4):
+  - **R1.** Take F's incoming CONTRADICTS edges (`FactRelations` with direction `incoming`, or
+    `ClaimHistory`'s `incoming_relations`) whose target is F. One holds if its source fact is
+    VERIFIED, ACTIVE, CONTESTED, CHALLENGED, AT_RISK or EXPIRED.
+  - **R2.** Take F's outgoing SUPPORTS, REQUIRES, REFINES, GENERALIZES and CITES edges
+    (`FactRelations` with direction `outgoing`, or `outgoing_relations`) whose source is F. A
+    prefix read can also return the edge of an augmentation whose ID extends F's (§8); its
+    source is not F. Keep each target D that is DISPROVEN. The cutoff is the
+    `submitted_at_block` of the challenge claim that F's latest `challenge_survived` transition
+    names, or 0 if there is none. D holds F if the cutoff is 0, or if D's latest transition to
+    DISPROVEN is at or after the cutoff.
+
+  When neither rule holds, F stays CONTESTED until it is released: when a contradiction of F
+  ends without acceptance, or a challenge of F ends without refuting it (§5.2). The exception
+  is a fact with more than 100k incoming edges of any type, or 64 MiB of them. There the
+  chain's own check cannot finish, so F stays CONTESTED even when the recomputation finds no
+  reason (the disclosed limitation of §5.3).
 - **Evidence behind a verdict.** Use `ClaimHistory(claim_id)`, which gives:
   - rounds, commits, reveals and attestations: who reviewed, the vote, the method, the reason and
     evidence hashes;
   - the related claims, with link fields `provisional_fact_id`, `challenged_claim_id`,
     `relations.contradicts`, and the new `content_hash`, `canonical_hash` and
     `structure.object` (Task 3).
-- **Who said P.** Read `ClaimHistory(P's claim id)` and use the related claims linked by
-  `structure.object`. Each one is an attribution claim with its own fidelity verdict. For
-  accepted attributions only, `FactsByTag("zc:<40hex>")` also works.
+- **Who said P.** Read `ClaimHistory(P's claim id)` and take the related claims linked by
+  `structure.object`. A link proves only that the claim's `structure.object` names P's content
+  hash: any structured claim may set that field. Treat a linked claim as an attribution (with
+  its own fidelity verdict) only when it is `CLAIM_TYPE_RELATION`, carries the `attr-v1` tag,
+  has a predicate in the §4.2 grammar (`<act>:<voice>`, act in `states`, `reports`, `hedges`,
+  `denies`, voice `author` or `quoted:<speaker-ref>`) and a §4.2 work ID as its subject, and its
+  text is the template rendered from its structure (review G5, F4). Of these, the chain
+  enforces only that template text matches, and only for records admitted with the marker on:
+  text that opens with the template must belong to a RELATION claim whose structure renders it
+  exactly (§4.8). The tag, the grammar and the use of the template at all are conventions it
+  does not enforce. For accepted attributions only, `FactsByTag("zc:<40hex>")` also works, and
+  its results need the same checks.
 - **A proposition by its structure.** Use `FactByCanonical` with the v2 form. Forms with the
   `zrn.cf.v2/` prefix are hashed verbatim after NFC and trim.
 
@@ -586,7 +619,7 @@ How to interpret statuses:
 | Status | Meaning |
 |---|---|
 | VERIFIED / ACTIVE | currently accepted |
-| CONTESTED | Accepted, but a standing accepted finding conflicts with it, or a fact it depends on was refuted. The transition cause says which. It does **not** mean false. |
+| CONTESTED | Accepted, but a standing accepted finding conflicts with it (R1), or a fact it depends on was refuted (R2). The latest transition's cause records the event that last changed the status, which need not be the current reason; recompute R1 and R2 as above. It does **not** mean false. |
 | CHALLENGED | under adjudication |
 | DISPROVEN | refuted by a direct challenge |
 | AT_RISK / EXPIRED / PRUNED | metabolic, never epistemic |
@@ -609,8 +642,39 @@ verdict does not prove truth or reviewer independence (`docs/specs/knowledge-cla
 ## 6. Ordered TDD tasks
 
 Conventions that apply to every task:
-- Write the failing test first. Run `go test -count=1` on the touched packages, then on
-  `./x/knowledge/... ./app/...` before committing.
+- Write the failing test first, run it, and record the red result in the task's note.
+- Verification commands, run before every commit (with `GOTOOLCHAIN=auto`):
+  - `go test -count=1` on the touched packages;
+  - `go test -count=1 ./x/knowledge/... ./app/...`;
+  - `python3 -m unittest discover -s scripts -p 'test_*.py'` when `scripts/` is touched;
+  - `go test -count=1 ./tools/authority-graph/...` and `scripts/check_specs_and_plans_hashes.sh`
+    (the `make test` and `make creed-check` pieces that pin sources and documents). Until the
+    re-pin, each may fail only as listed under "Deferred checks" below. Any other failure in
+    either is a real failure.
+- Deferred checks (pending Yu's approval to re-pin; review G5, TQ-6). These are the only
+  failing checks known on the branch:
+  1. `go test ./tools/authority-graph/...` reports `SOURCE_ANCHOR_SHA256_MISMATCH` for two
+     source anchors in `dashboard/public/standards/authority-geometry.v1.json`:
+     - `knowledge-writers` (`x/knowledge/keeper/msg_server.go`), stale since Task 9
+       (`dcf3732c`);
+     - `knowledge-slash-callsites` (`x/knowledge/keeper/rounds.go`), stale since the Task 7
+       follow-up (`3fe9872c`, the conjecture's creation cause). That follow-up's note does not
+       record it; Task 12's note is the first to mention this anchor.
+
+     Each pin still matches its file at the commit before the one named (checked in G5 by
+     hashing the file at every branch commit). Both files were edited again by later tasks and
+     review fixes. The re-pin follows Task 6: the anchors, then the manifest digest in
+     `tools/authority-graph/manifest.go`, `dashboard/src/authority-geometry.ts`,
+     `.specs-and-plans-hashes` (`authority-geometry-v1-manifest`) and `.recursion-manifest-hash`.
+  2. `scripts/check_specs_and_plans_hashes.sh` (`make creed-check`) fails on
+     `knowledge-claim-records-v1`. Its pin in `.specs-and-plans-hashes` has not matched
+     `docs/specs/knowledge-claim-records-v1.md` since Task 3 (`52bb3848`), and Task 15 edited
+     the file again. In the same file, `knowledge-claim-integrity-v1`
+     (`docs/specs/knowledge-claim-integrity-v1.md`) is not registered, although the sibling
+     knowledge specs are pinned there. The script cannot fail on a document it does not list,
+     so the spec is simply unpinned.
+
+  Neither this plan nor `docs/EVENTS.md` is pinned, so editing them changes neither check.
 - Task 2's characterization suite and golden digest must stay green through every later task.
 - New behaviour is tested twice: with the marker on (new fixture `setupClaimIntegrityTest`, which
   is `DefaultGenesis` plus bootstrap funding) and with it off (a marker-off twin).
@@ -696,6 +760,16 @@ Conventions that apply to every task:
   and keep the existing sort. Do not expand neighbours.
 - Acceptance: the new tests pass. The existing 65,536-read and 8 MiB refusal tests are unchanged.
   The proto comment on `ClaimHistoryLink.field` is updated in Task 5, which already regenerates.
+- Red observed: post hoc only (review G5, 2026-10-17). The Task 3 commit `52bb3848` recorded no
+  red run. In the check, the Task 3 version of `query_claim_history_test.go` ran against the
+  parent's code (`c7d60f01`, an exported copy under `/tmp/zerone-v12-g5`).
+  `TestClaimHistoryLinksResubmissionsCanonicalTwinsAndAttributions` failed (`"[]" should have
+  4 item(s), but has 0`). `TestClaimHistoryHashLinksRequireRetainedNonEmptyRootHashes` passed
+  there: it asserts that no hash link appears, which the parent's code also satisfies. To show
+  it is not vacuous, four mutants were run on a copy of `52bb3848`, and each failed at least one
+  of the two tests: the content-hash, canonical-hash or `structure.object` link without its
+  non-empty-root guard, and the `structure.object` link dropped. Both tests pass unmutated at
+  `52bb3848`.
 - Follow-up to Task 3 (review finding): three repo clients refused any link field outside the
   old closed set, so a history with a resubmission, canonical twin or attribution (the §5.5
   "who said P" read) threw. Their sets now also accept `content_hash`, `canonical_hash` and
@@ -730,6 +804,16 @@ Conventions that apply to every task:
   category `empirical`. Never send `--canonical`.
 - Acceptance: the new and existing `scripts/test_claim_workflow*.py` are green. Tests use no
   network.
+- Red observed: post hoc only (review G5, 2026-10-17). The Task 4 commit `5541f48d` recorded no
+  red run. In the check, the Task 4 version of `test_claim_workflow_attribution.py` ran against
+  the parent's `claim-workflow.py` (`52bb3848`, exported under `/tmp/zerone-v12-g5`), and all 24
+  of its tests failed: 71 errors and 7 failures, counting subtests. Most errors are
+  `AttributeError`s for the encoder and guard functions that did not exist yet
+  (`attribution_claim`, `quote_guard`, `jcs`, …). Of the failures, three are exit code 2
+  (argparse usage) where the `attribute` command was expected to run or refuse. The other four
+  are guard refusals that the parent never made: three were not raised at all, and one was a
+  different refusal (`Contradiction evidence references cannot contain commas…`). The
+  follow-ups below recorded their red runs when they were made.
 - Follow-up to Task 4 (review finding):
   - The guard turned format characters into spaces, so a verbatim quote with soft hyphens
     (or ZWSP, U+2060, U+FEFF) split its words and passed the 8-token window. §4.7 now
@@ -796,6 +880,23 @@ Conventions that apply to every task:
   Task 6. This keeps app startup green between the two commits.
 - Acceptance: `make proto-gen`, `make proto-check`, and `go test` on knowledge and app are green.
   The Task 2 digest is unchanged.
+- Red observed: post hoc only (review G5, 2026-10-17). The Task 5 commit `176a84ed` recorded no
+  red run. Against the parent's code (`5541f48d`, exported under `/tmp/zerone-v12-g5`), the
+  Task 5 `claim_integrity_activation_test.go` does not build: `internal/claimintegritymigration`
+  does not exist yet, and neither do the marker API and genesis field. That red is a build
+  failure only. It shows that the tests need the new code, not that each assertion
+  discriminates. So eight mutants were also run on a copy of `176a84ed`, and each failed at least
+  one of the seven tests:
+  - a malformed marker read as off;
+  - fund settlement not required to enable;
+  - genesis validation without the integrity-requires-fund-settlement rule;
+  - `InitGenesis` not enabling the marker;
+  - `ExportGenesis` exporting false;
+  - `Migrate11to12` writing no receipt;
+  - `Migrate11to12` running without its owner;
+  - activation ignoring an existing receipt.
+
+  All seven tests pass unmutated at `176a84ed`.
 
 **Task 6 — knowledge v12 and the named upgrade `knowledge-claim-integrity-v1`** · consensus: yes
 - Files:
@@ -908,7 +1009,8 @@ Conventions that apply to every task:
   - a starved claim allows resubmission, and the index then names the new claim;
   - live and ACCEPTED-with-standing-fact claims block, and the error names the ID and status;
   - REJECTED, MALFORMED and EXPIRED do not block;
-  - a fact that has become DISPROVEN, EXPIRED or PRUNED allows re-assertion;
+  - a fact that has become DISPROVEN, EXPIRED or PRUNED allows re-assertion (superseded for
+    EXPIRED by decision (b), review G2: an EXPIRED fact now blocks, §5.4);
   - re-saving an old terminal claim does not move the index;
   - after acceptance 0x34 holds the fact ID, and `FactByCanonical` returns the fact (this checks
     the inferred defect);
@@ -1334,7 +1436,8 @@ Conventions that apply to every task:
     - ACCEPT makes F DISPROVEN;
     - a starved challenge leaves F CONTESTED, so there is no laundering.
   - Cascade-contested F (dependency refuted at h1):
-    - REJECT at h2 > h1 makes F ACTIVE;
+    - REJECT at h2 > h1 makes F ACTIVE (after review fix SEC-1: only if the challenge opened
+      after h1; one opened at or before h1 leaves F CONTESTED);
     - a starved challenge leaves F CONTESTED;
     - after a REJECT, a later starved challenge does not re-contest F on account of the h1
       dependency.
@@ -1725,11 +1828,38 @@ Conventions that apply to every task:
       `scripts/check_specs_and_plans_hashes.sh` (`make creed-check`) fails until the re-pin.
     - The new spec is not added to `.specs-and-plans-hashes`, where the sibling knowledge
       specs are pinned.
+- Review fixes, group G5 — documentation (2026-10-17; docs only, no code or test change):
+  - F4: the transition cause records the event that last changed the status, not the current
+    reason. §5.5 and spec §6.2 and §9 now say so, and the consumer recipe recomputes R2 as well
+    as R1. A "who said P" reader checks the `attr-v1` tag, the predicate grammar, the work ID
+    and the template before treating a `structure.object` link as an attribution (§5.5, spec
+    §2.5 and §9).
+  - F6: the status line at the top.
+  - TQ-6: one list of the deferred checks, and `check_specs_and_plans_hashes.sh` among the
+    verification commands (§6 conventions). Hashing the anchored files at every branch commit
+    showed that `knowledge-slash-callsites` went stale at the Task 7 follow-up, not Task 12.
+  - TQ-7: post-hoc "Red observed" lines for Tasks 3–5, with mutant checks where the red was
+    vacuous (Task 3's second test) or a build failure (Task 5). Scratch:
+    `/tmp/zerone-v12-g5` (`logs/`, `tools/mutants.py`).
+  - §8: the relation-graph follow-up from the G1 re-review, stated in full with both proposed
+    remedies. One more open case was found: the stored-fact check cannot catch a fact created
+    after the verdict (also spec §1.5, §6.6, §11, and the "one other writer" sentence of §5.3
+    and spec §6.3).
+  - Consistency with G1–G4: the survival cutoff is the height the surviving challenge opened in
+    §1 and §2, in the spec's introduction and §6.5, and in the `contradiction_reversed` and
+    `challenge_inconclusive_restored` entries of `docs/EVENTS.md`. The Task 8 and Task 13 test
+    bullets carry notes where G2 or SEC-1 changed the outcome. Task 16's recorded result is
+    added.
 
 **Task 16 — End-to-end probe re-run and upgrade rehearsal** · consensus: no (verification)
 - Files: nothing tracked. Artifacts go under `/tmp/zerone-sandbox-<date>-v12/`.
 - Acceptance: §7 in full. Record observed versus expected for each line, and report any line that
   cannot run as BLOCKED with the reason. A missing check is not a pass.
+- Done in Task 16 (recorded in review G5 from `/tmp/zerone-v12-e2e/index.json`, which was read
+  for this note; the run itself was not repeated): the run built the branch at `cb4d7dfd`.
+  Rows 0–19 passed, row 18 for the `a4272bf` source. Row 18's repeat from a `5542b22` sandbox
+  is BLOCKED. No row failed. The run predates review fixes G1–G5, so it does not cover them; it
+  has not been re-run since.
 
 ---
 
@@ -1793,20 +1923,43 @@ Setup:
   laundering. The remedy is an index of CONTRADICTS edges alone (a new store key), so that R1
   reads only contradictions and a heavily referenced fact can leave CONTESTED once its reasons
   are gone.
-- **Relation-graph integrity for augmentation edges: the pre-activation set.** A passing
-  augmentation writes a REFORMULATES edge from its user-chosen ID to the augmented fact
-  (`ApplyFinalizedAugmentationVerdict`), and `SubmitAugmentation` checks that ID only against
-  other augmentations. Knowledge 11 therefore let an ID equal to fact F's, augmenting D,
-  overwrite F's own edge to D (the store keeps one edge per pair), and let IDs extending F's
-  (`<F>/x`) land under F's prefix, where prefix readers such as `GetFactRelations` return them
-  among F's outgoing relations (tested). With the marker on the writer refuses all three shapes
-  (`/`, longer than 128 bytes, a stored fact's ID; review G1R), so for verdicts after
-  activation this is closed. The residual is the edges from augmentations finalized before
-  activation: a closed, auditable set (each is an augmentation record with a passing verdict
-  and a `verdict_block` below the activation height). The contest check does not depend on it:
-  R2 reads a claim-born fact's edges by key from its claim, and its prefix scan of a claimless
-  fact skips them. Options for that set: namespace augmentation edge sources, or rewrite those
-  edges in a later reviewed migration.
+- **Relation-graph integrity for augmentation edges** (pre-existing; found in the G1
+  re-review, recorded here in G1 and G5). Augmentation IDs are chosen by the submitter, and
+  `SubmitAugmentation` checks an ID only against other augmentations. A passing augmentation
+  writes a REFORMULATES edge from that ID to the augmented fact
+  (`ApplyFinalizedAugmentationVerdict`) into the same relation index as fact edges, keyed
+  `<source>/<target>`, one edge per (source, target) pair. Two defects follow:
+  - an augmentation whose ID equals fact F's ID, augmenting D, overwrites F's own edge to D at
+    the same key `F/D` (a CITES edge becomes REFORMULATES, which the cascade does not follow);
+  - an ID such as `<F>/x` shares F's forward prefix `F/`, so prefix readers such as
+    `GetFactRelations` and `FactRelations` return its edges among F's outgoing relations
+    (tested).
+
+  Done with the marker on (review G1R): the writer withholds the edge when the ID contains `/`,
+  is longer than 128 bytes, or is a stored fact's ID, and emits `augmentation_edge_withheld`.
+  The contest check does not depend on the rest: R2 reads a claim-born fact's edges by key from
+  its claim, and its prefix scan of a claimless fact skips entries whose source is not F.
+  Left open:
+  - the edges written by augmentations finalized before activation. They form a closed,
+    auditable set: each is an augmentation record with a passing verdict and a `verdict_block`
+    below the activation height;
+  - an ID equal to a fact created after the verdict. The stored-fact check runs only when the
+    verdict is final, and fact IDs are derived from public values (`GenerateFactID(claim ID,
+    verdict height)`). If that fact's claim names the same target, the fact's own write
+    overwrites the augmentation's edge. Otherwise the stray REFORMULATES edge stays under the
+    fact's prefix. Review neutrality refuses new augmentations, so only IDs chosen before it
+    can do this.
+
+  Proposed remedies, for Yu to choose:
+  - (i) namespace augmentation edge sources: write them under a source no fact ID can take,
+    such as a reserved prefix, or in an index of their own. This closes both defects whatever
+    the ID;
+  - (ii) refuse IDs in the fact-ID space when the verdict is final: the three G1R shapes plus
+    every ID of the generated shape (32 lowercase hex characters), so no future fact can share
+    one.
+
+  Either needs a reviewed migration (or an explicit decision to leave them) for the
+  pre-activation edges.
 - **Exempting attribution facts** from niche competition or metabolism.
 - **Making AT_RISK, EXPIRED or PRUNED facts challengeable.**
 - **Canonical form housekeeping:** cross-dedup between v1 and v2 forms, and repairing legacy

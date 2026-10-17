@@ -19,9 +19,9 @@ The release carries three decisions recorded on 2026-10-16:
    review (§7). Accepting an attribution never changes a proposition's verdict.
 3. **Verdicts can be reversed by the latest findings.** A CONTESTED fact can be
    challenged. A fallen counter-fact releases its target. Surviving a direct
-   challenge clears dependencies refuted before it. A rejected, starved or fallen
-   proposition can be submitted again as a new record, and the old record is
-   kept (§3, §6).
+   challenge clears dependencies refuted before it opened. A rejected, starved
+   or fallen proposition can be submitted again as a new record, and the old
+   record is kept (§3, §6).
 
 There are no new messages, tx fields or store prefixes. The only proto change
 is the genesis flag `claim_integrity_enabled` (§1.2).
@@ -148,7 +148,7 @@ paired tests below, for example `TestClaimIntegrity_ResaveDoesNotMoveIndex`,
 | A fact CONTESTED by a knowledge-11 admission flip | When that contradiction ends, the contest-reason check (§6.3) releases the fact. A standing accepted counter-fact holds it instead. | `TestClaimIntegrity_PreActivationContestSettlesThroughPredicate` |
 | A fact laundered to VERIFIED while a counter-fact stands | It stays VERIFIED. Either side can be challenged. When a challenge of it ends without refuting it, it returns to CONTESTED. | `TestClaimIntegrity_LaunderedFactChallengeFollowsStandingCounterFact` |
 | A reviewer's commitment to their own claim | It still reveals and settles, and the reviewer is paid. New commitments are refused (§7). | `TestClaimIntegrity_PreActivationSelfCommitStillSettles` |
-| REFORMULATES edges written by passing augmentations, including IDs that extend a fact's ID (`<F>/x`) or equal it | Kept, a closed set. The contest check never depends on them: R2 reads a claim-born fact's edges by key from its claim, and the prefix scan of a claimless fact skips entries naming another source (§6.3). After activation such edges are no longer written (§6.6). | `TestClaimIntegrity_ShieldChallengeBehindAugmentationEdgeLaundersNothing`, `TestClaimIntegrity_ShieldChallengeBehindLongAugmentationIDsLaundersNothing` |
+| REFORMULATES edges written by passing augmentations, including IDs that extend a fact's ID (`<F>/x`) or equal it | Kept, a closed set. The contest check never depends on them: R2 reads a claim-born fact's edges by key from its claim, and the prefix scan of a claimless fact skips entries naming another source (§6.3). After activation such edges are no longer written, except under the ID of a fact created after the verdict (§6.6). | `TestClaimIntegrity_ShieldChallengeBehindAugmentationEdgeLaundersNothing`, `TestClaimIntegrity_ShieldChallengeBehindLongAugmentationIDsLaundersNothing` |
 | Claims, rounds, facts, relations, status transitions, payments | Never rewritten. | `TestClaimIntegrityMigrationPreservesEveryByteAndRestart`, `TestMigrate11to12ChangesExactlyMarkerAndReceipt` |
 | One content hash held by two records (knowledge 11 let `MsgSubmitContradiction` carry another claim's exact text) | Known limit, not repaired. Knowledge 11 rewrote `0x09` on every save, so the entry names the record saved last, and the live chain decides from that record (§3). An import replays first saves in admission order, so the entry names the record admitted last. When the two differ in standing, the live and the imported chain disagree, in either direction: one admits a third copy of a standing fact's text, the other refuses it. After activation every admission checks `0x09` first, so no new pair arises. | `TestClaimIntegrity_LegacyContentCollisionLiveVsImport` |
 
@@ -369,7 +369,9 @@ except the intake shape that the encoder accepts:
 
 Each such link targets the root claim ID. An empty root hash, or an absent root
 claim, yields none of these links. The existing budgets, sort order and one-hop
-scope are unchanged. See also
+scope are unchanged. A `structure.object` link does not make the linked claim
+an attribution: any structured claim may name the root's content hash. §9 says
+what a reader checks before treating it as one. See also
 [claim records](knowledge-claim-records-v1.md#read-the-retained-claim-history).
 Tests: `TestClaimHistoryLinksResubmissionsCanonicalTwinsAndAttributions`,
 `TestClaimHistoryHashLinksRequireRetainedNonEmptyRootHashes`.
@@ -791,6 +793,13 @@ Tests: `TestClaimIntegrity_ChallengeTransitionsRecordExactCauses`,
 `TestClaimIntegrity_DisprovenCounterFactReleasesTarget`,
 `TestV11_TransitionCausesInferred`.
 
+- A cause records the event that last changed the status, not the reason the
+  fact holds that status now. A fact that a challenge returns to CONTESTED
+  records `challenge_survived` or `challenge_inconclusive`, although a standing
+  counter-fact (R1) or a refuted dependency (R2) is what holds it. A reason can
+  also lapse with no transition of the fact, for example when a counter-fact is
+  pruned. To learn the current reason, recompute R1 and R2 (§6.3, §9).
+  *Not tested here* as a separate statement: it follows from the table above.
 - A cause is attached to one fact's next status write only. Any other fact
   written in the same context, such as a cascade descendant, keeps its own
   cause.
@@ -849,19 +858,20 @@ never returns an error and writes nothing.
   `TestClaimIntegrity_ShieldChallengeOfHeavilyCitedFactLaundersNothing`.
 - **How R2 reads.** For a fact accepted from a claim, R2 reads that claim and,
   for each target the claim names, the stored edge F→target by key. The stored
-  edge's type decides, as it decides the cascade, so R2 sees exactly what a
-  scan of F's forward-index prefix would see, restricted to the targets F's
-  claim names. An entry found by key whose payload names another pair (keys
-  are `<source>/<target>`, so F→`x/y` and `<F>/x`→y share one) is not F's
-  edge. F's claim wrote every outgoing edge of F; the one other writer,
-  before activation, was an augmentation whose ID equalled F's, and its
-  REFORMULATES edge is outside the cascade set. So R2 finds every dependency
-  and never reads what others add under F's prefix. Its other reads are F's
-  claim and the status histories of F and of each refuted dependency, which
-  grow only by status changes (a challenge, a round, a cascade or
-  metabolism), not by records others can add cheaply. A missing or unreadable claim makes the check incomplete; it never
-  falls back to a scan. Only a fact with no claim (genesis, doctrine, an
-  authority injection) has its forward prefix scanned.
+  edge's type decides, as it decides the cascade, so R2 sees exactly what a scan
+  of F's forward-index prefix would see, restricted to the targets F's claim
+  names. An entry found by key whose payload names another pair (keys are
+  `<source>/<target>`, so F→`x/y` and `<F>/x`→y share one) is not F's edge. F's
+  claim wrote every outgoing edge of F. The one other writer is an augmentation
+  whose ID equals F's: before activation, or after it when the verdict came
+  before F existed (§6.6). Its REFORMULATES edge is outside the cascade set. So
+  R2 finds every dependency and never reads what others add under F's prefix.
+  Its other reads are F's claim and the status histories of F and of each
+  refuted dependency, which grow only by status changes (a challenge, a round, a
+  cascade or metabolism), not by records others can add cheaply. A missing or
+  unreadable claim makes the check incomplete; it never falls back to a scan.
+  Only a fact with no claim (genesis, doctrine, an authority injection) has its
+  forward prefix scanned.
   Tests: `TestContestReasonReadsClaimBornDependenciesFromTheClaim`,
   `TestContestReasonFailsTowardContested`,
   `TestClaimIntegrity_ShieldChallengeBehindLongAugmentationIDsLaundersNothing`.
@@ -987,9 +997,9 @@ tests above.
 - **A counter-fact falls.** When K becomes DISPROVEN, in the same cache and
   after the DISPROVEN write and the cascade, each CONTESTED target of K's stored
   CONTRADICTS edges is released if no contest reason remains. Another standing
-  counter-fact, or a dependency refuted since F's last survival, keeps F
-  CONTESTED. The release emits `contradiction_reversed` with
-  `reverted_by_fact = K`.
+  counter-fact, or a dependency refuted at or after the height F's last
+  surviving challenge opened (§6.3), keeps F CONTESTED. The release emits
+  `contradiction_reversed` with `reverted_by_fact = K`.
   Tests: `TestClaimIntegrity_DisprovenCounterFactReleasesTarget`,
   `TestClaimIntegrity_DisprovingOneOfTwoCounterFactsKeepsTargetContested`,
   `TestClaimIntegrity_DisprovenCounterFactLeavesRefutedDependencyHolding`,
@@ -1040,6 +1050,15 @@ refuses new augmentations, so this governs only those admitted before it.
 Edges written before activation are kept (§1.5).
 Tests: `TestClaimIntegrity_AugmentationEdgeStaysOutOfTheFactIDSpace`,
 `TestClaimIntegrity_AugmentationEdgeGateFailsClosed`.
+
+The stored-fact check runs when the verdict is final. It does not catch a fact
+created later under the same ID; fact IDs are derived from the claim ID and the
+verdict height. If that fact's claim names the same target, the fact's own write
+replaces the augmentation's edge. Otherwise a stray REFORMULATES edge stays
+under the fact's prefix. The contest check never counts it as a reason, since
+REFORMULATES is outside the cascade set (§6.3), but prefix readers list it among
+the fact's relations. Namespacing augmentation edge sources would close this and
+the pre-activation set; it is out of scope (§11). *Not tested here.*
 
 With the marker off every passing verdict writes its edge as knowledge 11
 does, the overwrite included.
@@ -1116,24 +1135,60 @@ checked by `TestEventAudit_DocumentationCompleteness`.
 
 ## 9. What consumers read
 
-- **The current verdict on a fact.** Read `fact.status`, its status transitions
-  with their causes (§6.2), and its incoming CONTRADICTS edges together with each
-  source fact's status.
+- **The current verdict on a fact.** Read `fact.status` and its status
+  transitions with their causes (§6.2). The latest cause records the event that
+  last changed the status, not necessarily the reason the fact holds it now. For
+  a CONTESTED fact F, recompute both rules of §6.3:
+  - **R1.** Take F's incoming CONTRADICTS edges (`FactRelations` with direction
+    `incoming`, or `incoming_relations` in `ClaimHistory`) whose target is F.
+    One holds if its source fact is VERIFIED, ACTIVE, CONTESTED, CHALLENGED,
+    AT_RISK or EXPIRED.
+  - **R2.** Take F's outgoing SUPPORTS, REQUIRES, REFINES, GENERALIZES and CITES
+    edges (`FactRelations` with direction `outgoing`, or `outgoing_relations`)
+    whose source is F. A prefix read can also return the edge of an
+    augmentation whose ID extends F's; its source is not F (§1.5). Keep each
+    target D that is DISPROVEN. The cutoff is the `submitted_at_block` of the
+    challenge claim that F's latest `challenge_survived` transition names, or 0
+    if there is none. D holds F if the cutoff is 0, or if D's latest transition
+    to DISPROVEN is at or after the cutoff.
+
+  When neither holds, F stays CONTESTED until a contradiction of F ends without
+  acceptance or a challenge of F ends without refuting it, which releases it
+  (§6.4, §6.5). The exception is a fact whose check cannot finish (§6.3,
+  disclosed limitation): it stays CONTESTED even when the recomputation finds
+  no reason.
+  *Not tested here* as a reader's procedure; the rules it restates are tested
+  in §6.3.
 - **The evidence behind a verdict.** `ClaimHistory(claim_id)` gives the rounds,
   commitments, reveals and attestations (who reviewed, the vote, the method, the
   reason and the evidence hashes). It also gives the related claims, linked by
   `provisional_fact_id`, `challenged_claim_id`, `relations.contradicts`,
   `content_hash`, `canonical_hash` and `structure.object` (§2.5).
 - **Who said P.** Read `ClaimHistory(P's claim ID)` and take the related claims
-  linked by `structure.object`. Each is an attribution claim with its own
-  fidelity verdict.
+  linked by `structure.object`. A link proves only that the claim names P's
+  content hash in `structure.object`, which any structured claim may do. Treat
+  a linked claim as an attribution, with its own fidelity verdict, only when:
+  - it is `CLAIM_TYPE_RELATION` and carries the `attr-v1` tag;
+  - its predicate follows the §2.2 grammar (`<act>:<voice>`, act `states`,
+    `reports`, `hedges` or `denies`, voice `author` or
+    `quoted:<speaker-ref>`), and its subject is a §2.2 work ID;
+  - its text is the template rendered from its structure.
+
+  Of these, the chain enforces only that template text matches, and only for
+  records admitted with the marker on: text that opens with the template must
+  belong to a RELATION claim whose structure renders it exactly (§2.2). The tag,
+  the grammar and the use of the template at all are conventions it does not
+  enforce. For accepted attributions, `FactsByTag("zc:<40 hex>")` also finds
+  them, and its results need the same checks.
+  *Not tested here*, except the reserved template:
+  `TestClaimIntegrity_AttributionTemplateIsReserved`.
 - **A proposition by its structure.** Use `FactByCanonical` with the v2 form
   (§4).
 
 | Status | Meaning |
 |---|---|
 | VERIFIED, ACTIVE | currently accepted |
-| CONTESTED | Accepted, but a standing accepted finding conflicts with it, or a fact it depends on was refuted. The transition cause says which. It does **not** mean false. |
+| CONTESTED | Accepted, but a standing accepted finding conflicts with it (R1), or a fact it depends on was refuted (R2). The latest transition's cause records the event that last changed the status, which need not be the current reason; recompute R1 and R2 as above. It does **not** mean false. |
 | CHALLENGED | under adjudication |
 | DISPROVEN | refuted by a direct challenge |
 | AT_RISK, EXPIRED, PRUNED | metabolic, never epistemic |
@@ -1208,9 +1263,9 @@ deploy tooling; query energy reaching metabolism; `method_id` on
 `MsgSubmitContradiction`; gating `MsgPostConjecture`; identity limits beyond
 same-key and single-defender exclusion; dispute economics (refunds, cooldowns);
 metabolic re-checks of CONTESTED; an index of CONTRADICTS edges alone, which
-would bound R1 (§6.3); rewriting augmentation edges written before activation
-(§1.5); exempting attribution facts from niche
-competition or metabolism; challenging AT_RISK, EXPIRED or PRUNED facts;
-repairing legacy index pointers; on-chain quote detection; a client-side
-standing fold or a `PropositionStanding` query; and rewriting historical
-records.
+would bound R1 (§6.3); rewriting augmentation edges written before activation,
+or namespacing augmentation edge sources (§1.5, §6.6); exempting attribution
+facts from niche competition or metabolism; challenging AT_RISK, EXPIRED or
+PRUNED facts; repairing legacy index pointers; on-chain quote detection; a
+client-side standing fold or a `PropositionStanding` query; and rewriting
+historical records.
