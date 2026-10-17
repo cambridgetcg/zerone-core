@@ -373,9 +373,10 @@ func (h *TestHarness) CommitHMinusOne() {
 		WithChainID(testChainID)
 }
 
-// AdvanceBlocks simulates advancing the chain by n blocks.
-// Runs module-level BeginBlocker and EndBlocker at each block height.
+// AdvanceBlocks runs the application's BeginBlocker and EndBlocker once per
+// height. It does not run the full FinalizeBlock/Commit lifecycle.
 func (h *TestHarness) AdvanceBlocks(n int) {
+	h.T.Helper()
 	for i := 0; i < n; i++ {
 		h.currentHeight++
 		h.Ctx = h.App.NewContext(true).
@@ -386,16 +387,10 @@ func (h *TestHarness) AdvanceBlocks(n int) {
 				ChainID: testChainID,
 			})
 
-		h.App.BeginBlocker(h.Ctx)
-		// Knowledge module BeginBlocker isn't picked up by the test harness's
-		// module-manager invocation in some setups (Route B Wave 8 heartbeat
-		// depends on it running deterministically). Call it explicitly so
-		// lifecycle tests pass in-harness as they would on a live chain.
-		_ = h.KnowledgeKeeper.BeginBlocker(h.Ctx)
-		// Qualification module BeginBlocker — same harness limitation;
-		// Wave 16 accuracy-decay tests depend on it running deterministically.
-		_ = h.QualificationKeeper.BeginBlocker(h.Ctx)
-		h.App.EndBlocker(h.Ctx)
+		_, err := h.App.BeginBlocker(h.Ctx)
+		require.NoError(h.T, err, "BeginBlocker at height %d", h.currentHeight)
+		_, err = h.App.EndBlocker(h.Ctx)
+		require.NoError(h.T, err, "EndBlocker at height %d", h.currentHeight)
 	}
 }
 
