@@ -79,7 +79,7 @@ func (m *msgServer) submitClaim(ctx context.Context, msg *types.MsgSubmitClaim, 
 		if msg.ClaimType == types.ClaimType_CLAIM_TYPE_RELATION {
 			attribution = msg.Structure
 		}
-		if err := refuseReservedAttributionText("claim text", msg.FactContent, attribution); err != nil {
+		if err := refuseReservedAttributionText("claim text", msg.Domain, msg.FactContent, attribution); err != nil {
 			return nil, err
 		}
 	}
@@ -1163,7 +1163,7 @@ func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmi
 		return nil, err
 	}
 	if integrity {
-		if err := m.claimIntegrityContradictionAdmission(ctx, msg, targetFact, contentHash); err != nil {
+		if err := m.claimIntegrityContradictionAdmission(ctx, msg, targetFact, domain, contentHash); err != nil {
 			return nil, err
 		}
 	}
@@ -1265,10 +1265,11 @@ func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmi
 //     in its domain (§5.4), so a contradiction cannot take a live claim's
 //     0x09 entry.
 //
-// Before these, the counter-claim text may not open with the attribution
-// template (review G2 SEC-4).
-func (m *msgServer) claimIntegrityContradictionAdmission(ctx context.Context, msg *types.MsgSubmitContradiction, target *types.Fact, contentHash string) error {
-	if err := refuseReservedAttributionText("counter-claim text", msg.CounterClaim, nil); err != nil {
+// Before these, neither the effective domain (msg.Domain, or the target's
+// when it is empty, which is what contentHash uses) nor the counter-claim
+// text may carry the attribution template (review G2 SEC-4).
+func (m *msgServer) claimIntegrityContradictionAdmission(ctx context.Context, msg *types.MsgSubmitContradiction, target *types.Fact, domain, contentHash string) error {
+	if err := refuseReservedAttributionText("counter-claim text", domain, msg.CounterClaim, nil); err != nil {
 		return err
 	}
 	if !factStands(target.Status) {

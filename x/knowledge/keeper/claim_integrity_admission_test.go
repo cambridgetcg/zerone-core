@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -55,6 +56,45 @@ func g2ReservedRefusal(field string) string {
 	return field + ` starts with the reserved attribution template "Attribution zerone.attribution/v1:"; only a CLAIM_TYPE_RELATION MsgSubmitClaim whose structure renders exactly that text ("Attribution zerone.attribution/v1: <subject> <predicate> <object> at <scope>") may carry it: invalid claim`
 }
 
+// g2AttrName is the attribution template's prefix without its trailing ':'.
+const g2AttrName = "Attribution zerone.attribution/v1"
+
+func g2DomainRefusal(domain string) string {
+	return fmt.Sprintf(`domain %q contains "Attribution zerone.attribution/v1", the reserved attribution template's name; a content hash joins domain and text with ':', so a record in this domain could take an attribution's content hash with other text: invalid claim`,
+		domain)
+}
+
+// g2AttrSplit is a domain and text whose content-hash preimage
+// ("ZRN.claim.v1:" + domain + ":" + text) is A1's: the domain swallows A1's
+// text up to one of its ':'.
+type g2AttrSplit struct{ domain, text string }
+
+// g2AttrSplits lists every such split of A1. Its domain, "physics", holds no
+// ':', so every split lies at or after the template name's ':' and every
+// split domain contains the name, while no split text opens with the prefix.
+func g2AttrSplits(t *testing.T) []g2AttrSplit {
+	t.Helper()
+	want := keeper.ComputeClaimContentHash(g2AttrText, dedupDomain)
+	var splits []g2AttrSplit
+	for i := 0; i < len(g2AttrText); i++ {
+		if g2AttrText[i] != ':' {
+			continue
+		}
+		s := g2AttrSplit{domain: dedupDomain + ":" + g2AttrText[:i], text: g2AttrText[i+1:]}
+		require.Equal(t, want, keeper.ComputeClaimContentHash(s.text, s.domain), "split %q", s.domain)
+		require.False(t, strings.HasPrefix(s.text, g2AttrName+":"), "the text alone never shows the template")
+		require.Contains(t, s.domain, g2AttrName)
+		splits = append(splits, s)
+	}
+	return splits
+}
+
+func (f *v11Fixture) proposeDomain(t *testing.T, name string) {
+	t.Helper()
+	_, err := f.server.ProposeDomain(f.ctx, &types.MsgProposeDomain{Proposer: v11Addr("v12-g2-domains"), Name: name, Description: "Synthetic v12 review G2 domain."})
+	require.NoError(t, err)
+}
+
 // requireRefusedQuietly runs submit and requires the exact refusal, no bank
 // call and no store write.
 func (f *v11Fixture) requireRefusedQuietly(t *testing.T, want string, submit func() error) {
@@ -68,8 +108,12 @@ func (f *v11Fixture) requireRefusedQuietly(t *testing.T, want string, submit fun
 }
 
 func (f *v11Fixture) postConjecture(proposer, statement string) (string, error) {
+	return f.postConjectureIn(proposer, dedupDomain, statement)
+}
+
+func (f *v11Fixture) postConjectureIn(proposer, domain, statement string) (string, error) {
 	response, err := f.server.PostConjecture(f.ctx, &types.MsgPostConjecture{
-		Proposer: proposer, Domain: dedupDomain, Category: "empirical", Stake: v11ReviewFee, Statement: statement,
+		Proposer: proposer, Domain: domain, Category: "empirical", Stake: v11ReviewFee, Statement: statement,
 		FalsificationPredicate: "Falsified if the pinned source at that locator does not carry the statement.",
 	})
 	if err != nil {
@@ -226,6 +270,190 @@ func TestClaimIntegrity_AttributionTemplateIsReserved(t *testing.T) {
 			}, "duplicate claim: content hash matches existing claim "+a+" (status CLAIM_STATUS_IN_VERIFICATION)")
 			f.starve(t, m)
 			f.starve(t, a)
+			f.requireNoLiveRounds(t)
+		})
+	}
+}
+
+// SEC-4, review G2 re-review. The content-hash preimage
+// "ZRN.claim.v1:" + domain + ":" + text is ambiguous, so a record whose domain
+// swallows the head of A1's text, up to any ':' in it, takes A1's hash with
+// text that never opens with the template. With the marker on, every path
+// also refuses a domain that contains the template's name: each split, on
+// MsgSubmitClaim and MsgPostConjecture in a proposed domain, and on
+// MsgSubmitContradiction in a domain nobody proposed (it never checks that
+// its domain exists). A domain that merely contains the name is refused too.
+// Each refusal moves no coins and writes nothing, and the real attribution is
+// then admitted. Marker off: knowledge 11 admits every split on every path,
+// and each blocks the real attribution.
+func TestClaimIntegrity_AttributionHashCannotBeSplitIntoDomain(t *testing.T) {
+	splits := g2AttrSplits(t)
+	require.Len(t, splits, 5, "one split at each ':' of A1's text: after the name, doi:, states:, zrn-content:, ver=sha256:")
+	for _, sel := range dedupSelections {
+		t.Run(sel.name, func(t *testing.T) {
+			f := sel.setup(t)
+			_, factF, minimum := f.contraTarget(t, "v12-g2-split-target", "Synthetic v12 review G2: a standing fact that a split contradiction names.")
+			if !sel.integrity {
+				for _, s := range splits {
+					_, found := f.k.GetDomain(f.ctx, s.domain)
+					require.False(t, found)
+					f.inCache(func() {
+						c, err := f.contradict(v11Addr("v12-g2-split-contra"), factF, s.text, s.domain, minimum)
+						require.NoError(t, err, "knowledge 11 admits a contradiction in a domain nobody proposed")
+						f.requireSubmitRefused(t, v11Addr("v12-g2-extractor"), g2AttrText, g2Attribution,
+							"duplicate claim: content hash matches existing claim "+c)
+					})
+				}
+				for _, s := range splits {
+					f.proposeDomain(t, s.domain)
+					f.inCache(func() {
+						sq := f.mustSubmitClaim(t, v11Addr("v12-g2-squatter"), s.text, s.domain, nil)
+						f.requireSubmitRefused(t, v11Addr("v12-g2-extractor"), g2AttrText, g2Attribution,
+							"duplicate claim: content hash matches existing claim "+sq)
+					})
+					f.inCache(func() {
+						sq, err := f.postConjectureIn(v11Addr("v12-g2-squatter"), s.domain, s.text)
+						require.NoError(t, err)
+						f.requireSubmitRefused(t, v11Addr("v12-g2-extractor"), g2AttrText, g2Attribution,
+							"duplicate claim: content hash matches existing claim "+sq)
+					})
+				}
+				f.requireNoLiveRounds(t)
+				return
+			}
+
+			for i, s := range splits {
+				t.Run(fmt.Sprintf("split %d/MsgSubmitContradiction in a domain nobody proposed", i), func(t *testing.T) {
+					_, found := f.k.GetDomain(f.ctx, s.domain)
+					require.False(t, found)
+					f.requireRefusedQuietly(t, g2DomainRefusal(s.domain), func() error {
+						_, err := f.contradict(v11Addr("v12-g2-split-contra"), factF, s.text, s.domain, minimum)
+						return err
+					})
+				})
+			}
+			for _, s := range splits {
+				f.proposeDomain(t, s.domain)
+			}
+			f.proposeDomain(t, g2AttrName)
+			for i, s := range splits {
+				t.Run(fmt.Sprintf("split %d/MsgSubmitClaim", i), func(t *testing.T) {
+					f.requireRefusedQuietly(t, g2DomainRefusal(s.domain), func() error {
+						_, err := f.submitClaim(v11Addr("v12-g2-squatter"), s.text, s.domain, nil)
+						return err
+					})
+				})
+				t.Run(fmt.Sprintf("split %d/MsgPostConjecture", i), func(t *testing.T) {
+					f.requireRefusedQuietly(t, g2DomainRefusal(s.domain), func() error {
+						_, err := f.postConjectureIn(v11Addr("v12-g2-squatter"), s.domain, s.text)
+						return err
+					})
+				})
+			}
+			const plain = "Synthetic v12 review G2: ordinary text in a domain named after the template."
+			t.Run("a domain that only contains the name", func(t *testing.T) {
+				f.requireRefusedQuietly(t, g2DomainRefusal(g2AttrName), func() error {
+					_, err := f.submitClaim(v11Addr("v12-g2-squatter"), plain, g2AttrName, nil)
+					return err
+				})
+				f.requireRefusedQuietly(t, g2DomainRefusal(g2AttrName), func() error {
+					_, err := f.postConjectureIn(v11Addr("v12-g2-squatter"), g2AttrName, plain)
+					return err
+				})
+				f.requireRefusedQuietly(t, g2DomainRefusal(g2AttrName), func() error {
+					_, err := f.contradict(v11Addr("v12-g2-split-contra"), factF, plain, g2AttrName, minimum)
+					return err
+				})
+			})
+
+			a := f.mustSubmitClaim(t, v11Addr("v12-g2-extractor"), g2AttrText, dedupDomain, g2Attribution)
+			require.Equal(t, a, f.entry(dedupContentKey(g2AttrText)), "the real attribution takes its own 0x09 entry")
+			f.starve(t, a)
+			f.requireNoLiveRounds(t)
+		})
+	}
+}
+
+// SEC-4, review G2 re-review. A contradiction that names no domain takes its
+// target's, and its content hash uses that effective domain, so the reserved
+// check reads it too. A fact admitted before activation in a domain named
+// like A1's first split cannot lend that domain to a contradiction carrying
+// the rest of A1's text. Marker off: knowledge 11 admits it, and its 0x09
+// entry blocks the real attribution.
+func TestClaimIntegrity_ContradictionDefaultDomainIsChecked(t *testing.T) {
+	s := g2AttrSplits(t)[0]
+	for _, integrity := range []bool{true, false} {
+		name := "marker off"
+		if integrity {
+			name = "marker on (upgraded in place)"
+		}
+		t.Run(name, func(t *testing.T) {
+			f := setupV11SemanticsTest(t)
+			f.proposeDomain(t, s.domain)
+			old := f.mustSubmitClaim(t, v11Addr("v12-g2-split-old"), "Synthetic v12 review G2: a pre-activation fact in a domain named like the template.", s.domain, nil)
+			factT := f.accept(t, old, v11Reviewers()...)
+			require.Equal(t, s.domain, f.fact(t, factT).Domain)
+			params, err := f.k.GetParams(f.ctx)
+			require.NoError(t, err)
+			minimum := keeper.EffectiveMinChallengeStake(params, f.fact(t, factT).Confidence).String()
+			f.requireNoLiveRounds(t)
+			if !integrity {
+				c, err := f.contradict(v11Addr("v12-g2-split-contra"), factT, s.text, "", minimum)
+				require.NoError(t, err)
+				require.Equal(t, keeper.ComputeClaimContentHash(g2AttrText, dedupDomain), f.claim(t, c).ContentHash)
+				f.requireSubmitRefused(t, v11Addr("v12-g2-extractor"), g2AttrText, g2Attribution,
+					"duplicate claim: content hash matches existing claim "+c)
+				f.starve(t, c)
+				f.requireNoLiveRounds(t)
+				return
+			}
+			require.NoError(t, f.k.ValidateClaimIntegrityActivation(f.ctx))
+			require.NoError(t, f.k.EnableClaimIntegrity(f.ctx))
+			f.requireRefusedQuietly(t, g2DomainRefusal(s.domain), func() error {
+				_, err := f.contradict(v11Addr("v12-g2-split-contra"), factT, s.text, "", minimum)
+				return err
+			})
+			a := f.mustSubmitClaim(t, v11Addr("v12-g2-extractor"), g2AttrText, dedupDomain, g2Attribution)
+			require.Equal(t, a, f.entry(dedupContentKey(g2AttrText)), "the real attribution takes its own 0x09 entry")
+			f.starve(t, a)
+			f.requireNoLiveRounds(t)
+		})
+	}
+}
+
+// Review G2 re-review (spec §2.3, plan §4.3). Decision (a) leaves P2 two ways
+// onto the chain, and they exclude each other: while a structured P2 claim is
+// live or stands, a contradiction carrying P2's text is refused, as an
+// identity clash from the same account in the same block and as a duplicate of
+// P2 otherwise. Pinned, not red-first: P1ext's dedup already did this. Marker
+// off: the same-account clash is the same, and another account's
+// contradiction is admitted and takes P2's entry (knowledge 11).
+func TestClaimIntegrity_StructuredPropositionCannotAlsoContest(t *testing.T) {
+	for _, sel := range dedupSelections {
+		t.Run(sel.name, func(t *testing.T) {
+			f := sel.setup(t)
+			_, factP1, minimum := f.contraTarget(t, "v12-g2-p1", "Synthetic v12 review G2: compound Z boils at 78.4 C at 1 atm for a pure sample.")
+			const p2 = "Synthetic v12 review G2: compound Z boils at 81.0 C at 1 atm for a pure sample."
+			author := v11Addr("v12-g2-p2")
+			c2 := f.mustSubmitClaim(t, author, p2, dedupDomain, dedupStructured("boiling point of compound Z"))
+			f.requireRefusedQuietly(t, "contradiction claim identity already exists", func() error {
+				_, err := f.contradict(author, factP1, p2, dedupDomain, minimum)
+				return err
+			})
+			if !sel.integrity {
+				f.inCache(func() {
+					c := f.mustContradict(t, v11Addr("v12-g2-p2-contra"), factP1, p2, minimum)
+					require.Equal(t, c, f.entry(dedupContentKey(p2)), "knowledge 11: the contradiction takes P2's entry")
+				})
+				f.starve(t, c2)
+				f.requireNoLiveRounds(t)
+				return
+			}
+			f.requireContradictionRefused(t, v11Addr("v12-g2-p2-contra"), factP1, p2, minimum,
+				"duplicate claim: content hash matches existing claim "+c2+" (status CLAIM_STATUS_IN_VERIFICATION)")
+			f2 := f.accept(t, c2, v11Reviewers()...)
+			f.requireContradictionRefused(t, v11Addr("v12-g2-p2-contra"), factP1, p2, minimum,
+				"duplicate claim: content hash matches existing claim "+c2+" (status CLAIM_STATUS_ACCEPTED; fact "+f2+" FACT_STATUS_VERIFIED)")
 			f.requireNoLiveRounds(t)
 		})
 	}

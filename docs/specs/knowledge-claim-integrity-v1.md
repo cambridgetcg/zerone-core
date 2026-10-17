@@ -239,9 +239,29 @@ opens with `Attribution zerone.attribution/v1:` is refused, as `fact_content` of
 no coins and writes nothing. Text that mentions the template later, not at its
 start, is ordinary text. Without this, a conjecture or claim carrying an
 attribution's text took its `0x09` entry first and blocked the real attribution
-while it stood. With the marker off every path admits the text, as in
-knowledge 11. Limits are in §2.8.
-Tests: `TestClaimIntegrity_AttributionTemplateIsReserved`.
+while it stood.
+
+The same three messages also check the domain, before the text. The
+content-hash preimage `"ZRN.claim.v1:" + domain + ":" + text` is ambiguous: a
+domain that swallows the head of an attribution's text, up to any `:` in it,
+gives the attribution's hash with text that does not open with the template
+(for A1 in §2.3, domain `chemistry:Attribution zerone.attribution/v1` with the
+rest of the text, or domain `chemistry:Attribution zerone.attribution/v1: doi`
+with text `10.1000/…`). So with the marker on, a domain that contains
+`Attribution zerone.attribution/v1` (the prefix without its `:`) is refused.
+For `MsgSubmitContradiction` the domain checked is the one its content hash
+uses: its own, or its target's when it names none. That message never checks
+that its domain exists, so the check does not depend on anyone proposing the
+domain. The refusal reads `domain "<domain>" contains "Attribution
+zerone.attribution/v1", the reserved attribution template's name; …: invalid
+claim`, moves no coins and writes nothing. When the attribution's own domain
+holds no `:`, every split lies at or after the name's `:`, so every split domain
+contains the name; the encoder's domain grammar (`[a-z0-9][a-z0-9_.-]{0,127}`)
+guarantees that. With the marker off every path admits the text and the
+domain, as in knowledge 11. Limits are in §2.8.
+Tests: `TestClaimIntegrity_AttributionTemplateIsReserved`,
+`TestClaimIntegrity_AttributionHashCannotBeSplitIntoDomain`,
+`TestClaimIntegrity_ContradictionDefaultDomainIsChecked`.
 
 ### 2.3 Example (synthetic)
 
@@ -276,15 +296,29 @@ In the real `fact_content`, each `<64 hex>` is the full value shown above.
 Tests: `TestCanonicalFormV2_PlanExample`, `test_content_hash_matches_go_vectors`,
 `test_fact_content_template_is_byte_exact`.
 
-If a second source reports a different value (81.0), submit it as its own
-proposition P2; form v2 keeps it apart from P1 (§4). For P2 to contest P1,
-submit P2 itself as `MsgSubmitContradiction` against P1's fact, at a stake of at
-least the minimum for challenging P1 (§5.1). Its counter-claim text is P2's
-text, so its content hash is the one P2's attributions name. P1 becomes
-CONTESTED only when P2 is accepted (§6). A `MsgSubmitClaim` may not carry a
-CONTRADICTS relation (§6.4).
+If a second source reports a different value (81.0), P2 goes on chain in one
+of two ways, not both:
+
+- To record P2 beside P1, submit it as its own structured proposition, a
+  `MsgSubmitClaim`; form v2 keeps it apart from P1 (§4).
+- For P2 to contest P1, submit P2 instead as `MsgSubmitContradiction` against
+  P1's fact, at a stake of at least the minimum for challenging P1 (§5.1). Its
+  counter-claim text is P2's text, so its content hash is the one P2's
+  attributions name. P1 becomes CONTESTED only when P2 is accepted (§6).
+
+The second way has a cost. `MsgSubmitContradiction` carries no structure,
+`method_id` or `reasoning_trace`, so a contesting P2 has no form v2 and no
+`0x34` entry, and its attributions can name only its content hash. The two
+ways also exclude each other: while a structured P2 is live or stands, a
+contradiction with P2's text is refused as a duplicate of it (or, from the same
+account in the same block, as `contradiction claim identity already exists`),
+so a structured P2 cannot later contest P1 with its own text. Only once it
+starves or is refused is its text free for a contradiction. A `MsgSubmitClaim`
+may not carry a CONTRADICTS relation (§6.4; plan §9 D1, decision (a)).
 Tests: `TestClaimIntegrity_CanonicalV2SeparatesDistinctFindings`,
 `TestClaimIntegrity_ContradictionContestsOnlyWhenAccepted`,
+`TestClaimIntegrity_StructuredPropositionCannotAlsoContest`,
+`TestClaimIntegrity_ContradictionCannotTakeLiveClaimText`,
 `TestClaimIntegrity_SubmitClaimRefusesContradictsRelation`.
 
 ### 2.4 Roles and Hermes binding
@@ -439,12 +473,20 @@ Limits of the reserved template (§2.2), *not tested here* except where named:
   (a different date or tags) names the same tuple and is a duplicate under the
   usual first-admitted rule (§3).
   Tests: `TestClaimIntegrity_AttributionTemplateIsReserved`.
-- The check reads the text alone. The content-hash preimage is
-  `domain + ":" + text`, and domain names are not validated, so a record in a
-  domain named `<domain>:Attribution zerone.attribution/v1`, carrying the rest
-  of the text, can still take an attribution's `0x09` entry. A scratch probe in
-  review G2 confirmed it. The ambiguity reaches any text containing `:`, not
-  only attributions; it is reported and not closed in this release.
+- The domain check (§2.2) closes every split of an attribution whose own
+  domain holds no `:`. The chain does not enforce the encoder's domain grammar,
+  so a third-party attribution in a domain that holds `:` (say `a:b`) can still
+  be split at that `:`, by a record in domain `a` whose text opens with `b:`.
+  *Not tested here.*
+- The preimage ambiguity remains for every other text: a record in domain `d:x`
+  with text `y` has the hash of a record in domain `d` with text `x:y`, and so
+  takes its `0x09` entry first. Nothing stops it: domain names are not
+  validated, `MsgProposeDomain` needs no stake, a PROPOSED domain admits
+  claims and conjectures, and `MsgSubmitContradiction` never checks that its
+  domain exists. Review G2's scratch probes confirmed it on all three paths.
+  Closing it (refusing `:` in domain names, or a length-prefixed preimage, which
+  changes every hash) needs its own design and is scheduled separately.
+  *Not tested here.*
 
 ## 3. Duplicate checks and resubmission
 
@@ -501,11 +543,13 @@ Tests: `TestClaimIntegrity_ClaimStatusDecidesWhetherEntryBlocks`,
   `TestClaimIntegrity_ContradictionCannotTakeLiveClaimText`.
 - `MsgPostConjecture` and `MsgSubmitContradiction` apply the same check to their
   text. A contradiction cannot take a live claim's `0x09` entry, so two
-  same-hash claims cannot be admitted in one block. All three refuse the
-  reserved attribution template first (§2.2).
+  same-hash claims cannot be admitted in one block. All three first refuse the
+  reserved attribution template, in the domain or at the start of the text
+  (§2.2).
   Tests: `TestClaimIntegrity_ConjectureDedupParity`,
   `TestClaimIntegrity_ContradictionCannotTakeLiveClaimText`,
-  `TestClaimIntegrity_AttributionTemplateIsReserved`.
+  `TestClaimIntegrity_AttributionTemplateIsReserved`,
+  `TestClaimIntegrity_AttributionHashCannotBeSplitIntoDomain`.
 - The usual fee and cooldown apply to a resubmission, and the existing
   `claim-workflow.py --resubmit-after <txhash> --max-review-fee-uzrn N` flow
   needs no client change. *Not tested here*: neither has a unit test; the flow
@@ -582,8 +626,10 @@ q(v) = strconv.QuoteToASCII(collapse(TrimSpace(NFC(v))))
 
 With the marker on, `MsgSubmitContradiction` is the only message that admits a
 contradiction of a fact (a `MsgSubmitClaim` carrying CONTRADICTS is refused,
-§6.4). It is checked as follows, before any collateral moves. First, its counter-claim
-text may not open with the reserved attribution template (§2.2). Then:
+§6.4). It is checked as follows, before any collateral moves. First, its effective
+domain (its own, or the target's when it names none) may not contain the reserved
+attribution template's name, and its counter-claim text may not open with the
+template (§2.2). Then:
 
 1. The target must stand: VERIFIED, ACTIVE, CONTESTED, CHALLENGED or AT_RISK.
    Conjectures were already refused. Otherwise the refusal reads
@@ -601,7 +647,8 @@ With the marker off every positive stake and every target status is admitted.
 Tests: `TestClaimIntegrity_ContradictionStakeMeetsChallengeMinimum`,
 `TestClaimIntegrity_ContradictionTargetMustStand`,
 `TestClaimIntegrity_ContradictionCannotTakeLiveClaimText`,
-`TestClaimIntegrity_AttributionTemplateIsReserved`.
+`TestClaimIntegrity_AttributionTemplateIsReserved`,
+`TestClaimIntegrity_ContradictionDefaultDomainIsChecked`.
 
 ### 5.2 Ante gate for dispute messages
 

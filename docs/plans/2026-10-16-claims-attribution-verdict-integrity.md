@@ -252,7 +252,7 @@ said it.
 | `structure.scope` | `ver=sha256:<64hex>;loc=<locator>` | The digest of the retrieved source bytes (Hermes SourceVersion), plus the Hermes locator in a lowercase grammar such as `p4.para2`, `sec3.2.para4`, `fig2`, `t=00:12:31`. It contains no text. |
 | `structure.temporal_scope` | publication date of the pinned version (`YYYY-MM-DD`) | Informational. |
 | `structure.tags` (≤10, each ≤50 chars) | `attr-v1`, `stmt:<first 40 hex of the StatementOccurrence hash>`, `zc:<first 40 hex of object hash>` | `FactsByTag` joins accepted attributions. Tags are indexed only when a fact is created. |
-| `fact_content` (20–1000 B) | fixed template: `Attribution zerone.attribution/v1: <subject> <predicate> <object> at <scope>` | No free text, so no excerpt can get in. The content hash identifies the tuple. With the marker on, the chain refuses any other record text that opens with `Attribution zerone.attribution/v1:` (review G2, SEC-4; limits in §4.8). |
+| `fact_content` (20–1000 B) | fixed template: `Attribution zerone.attribution/v1: <subject> <predicate> <object> at <scope>` | No free text, so no excerpt can get in. The content hash identifies the tuple. With the marker on, the chain refuses any other record text that opens with `Attribution zerone.attribution/v1:`, and any record domain that contains `Attribution zerone.attribution/v1` (review G2, SEC-4; limits in §4.8). |
 | `reasoning_trace` (≤8192 B) | RFC 8785 JCS JSON, hashes only. Keys: `schema`, `source_version_record`, `statement_occurrence`, `excerpt_sha256`, `proposition_record`, `extractor` | Full hashes live here. Requires record integrity (already on wherever v12 runs). |
 | `references`, `relations` | empty | References must be fact IDs (probe `p4-refs-doi-r1` refused a DOI). |
 | `canonical_form` | omitted | Derived from the structure (v2 after activation). |
@@ -289,15 +289,23 @@ reasoning_trace (JCS)
 In the real fact_content, every `…` above is the full 64-hex value.
 
 Further examples:
-- **Jones 2021 reports a different value (81.0).** Submit a separate proposition `P2` with
-  object `81.0`. After v12 it no longer collides with P1. Then submit attribution `A2` with
-  `subject doi:10.1000/p6-jones-2021`, `predicate reports:author` and
-  `object zrn-content:<hash of P2>`.
-  - If Jones's finding should contest P1, submit P2 itself as `MsgSubmitContradiction` against
-    P1's fact, staking at least the minimum for challenging P1 (Task 10). Its counter-claim
-    text is P2's text, so its content hash is the one A2's `object` names. P1 becomes CONTESTED
-    only if P2 is accepted (§5). After activation a `MsgSubmitClaim` may not carry a
-    CONTRADICTS relation (decision (a), review G2).
+- **Jones 2021 reports a different value (81.0).** P2 goes on chain in one of two ways, not
+  both. Either way, then submit attribution `A2` with `subject doi:10.1000/p6-jones-2021`,
+  `predicate reports:author` and `object zrn-content:<hash of P2>`.
+  - To record P2 beside P1, submit a separate structured proposition `P2` with object `81.0`.
+    After v12 it no longer collides with P1.
+  - If Jones's finding should contest P1, submit P2 **instead** as `MsgSubmitContradiction`
+    against P1's fact, staking at least the minimum for challenging P1 (Task 10). Its
+    counter-claim text is P2's text, so its content hash is the one A2's `object` names. P1
+    becomes CONTESTED only if P2 is accepted (§5). After activation a `MsgSubmitClaim` may not
+    carry a CONTRADICTS relation (decision (a), review G2).
+  - The trade-off (review G2 re-review). `MsgSubmitContradiction` carries no structure,
+    `method_id` or `reasoning_trace`, so a contesting P2 has no form v2 and no 0x34 entry; A2
+    names only its content hash. The two ways exclude each other: while a structured P2 is live
+    or stands, a contradiction with P2's text is refused as a duplicate (or, from the same
+    account in the same block, as `contradiction claim identity already exists`), so a
+    structured P2 cannot later contest P1 with its own text. Test:
+    `TestClaimIntegrity_StructuredPropositionCannotAlsoContest`.
 - **A quoted speaker.** Use `predicate states:quoted:orcid:0000-0002-1825-0097` (a public
   person), or `states:quoted:hermes:<64hex>` (a private person).
 
@@ -381,12 +389,25 @@ that limit is disclosed.
     §4.7 grammar requires. The chain checks only that the structure renders the text. Another
     RELATION claim with the same four fields (a different date or tags, say) is the same tuple
     and is a duplicate under the usual first-admitted rule.
-  - The check reads the text alone. The content-hash preimage is `domain + ":" + text`, and
-    domain names are not validated, so a record in a domain named
-    `<domain>:Attribution zerone.attribution/v1` with the rest of the text can still take an
-    attribution's 0x09 entry (a scratch probe confirmed it in review G2). This is a general
-    content-hash ambiguity that reaches any text containing `:`, not only attributions. It is
-    reported, not closed, in this branch.
+  - The domain is checked too (review G2 re-review). The preimage
+    `"ZRN.claim.v1:" + domain + ":" + text` is ambiguous: a domain that swallows the head of an
+    attribution's text up to any `:` in it (`chemistry:Attribution zerone.attribution/v1`, or
+    `chemistry:Attribution zerone.attribution/v1: doi` with text `10.1000/…`) gives the
+    attribution's hash with text the prefix check never sees. So the three messages also refuse
+    a domain that contains `Attribution zerone.attribution/v1`; for a contradiction that is the
+    domain its hash uses (its own, or its target's when it names none), and it is checked
+    although `MsgSubmitContradiction` never checks that its domain exists. Every split lies at
+    or after the name's `:` when the attribution's own domain holds no `:`, which the
+    encoder's DOMAIN grammar `[a-z0-9][a-z0-9_.-]{0,127}` guarantees, so this closes every
+    split of an encoder-made attribution. The chain does not enforce that grammar: a
+    third-party attribution in a domain holding `:` can still be split at that `:`.
+  - The ambiguity itself remains for every other text: a record in domain `d:x` with text `y`
+    has the hash of a record in domain `d` with text `x:y`. Domain names are not validated,
+    `MsgProposeDomain` needs no stake, a PROPOSED domain admits claims, and
+    `MsgSubmitContradiction` never checks that its domain exists, so any text containing `:`
+    can be squatted this way (review G2's probes confirmed it on all three paths). Closing it,
+    by refusing `:` in domain names or by a length-prefixed preimage (which changes every hash
+    and needs its own design), is a separately scheduled item.
 
 ---
 
@@ -1036,13 +1057,41 @@ Conventions that apply to every task:
     `claimIntegrityContradictionAdmission`. Pure checks, no reads. Test:
     `TestClaimIntegrity_AttributionTemplateIsReserved` (seven `MsgSubmitClaim` shapes, a
     conjecture and a contradiction refused; the real attribution admitted; marker-off twin
-    shows the knowledge-11 squat). Residual reported, not fixed: the ':'-in-domain preimage
-    ambiguity (§4.8).
+    shows the knowledge-11 squat). The ':'-in-domain split was first reported as a residual;
+    the re-review below closes it for attributions.
   - CI-REVIEW-1 (§3.6, §9 D4): no rewrite.
     `TestClaimIntegrity_LegacyContentCollisionLiveVsImport` pins the live (last-saved) and
     imported (last-admitted) decisions in both directions.
   - Docs: spec §1.5, §2.2, §2.3, §2.8, §3, §5.1, §6.1, §6.4, §7, §11; `docs/EVENTS.md`
     (`contradiction_accepted`); the `--relations` flag help of `submit-claim`.
+
+- Review fixes, group G2 re-review (2026-10-17; behind the marker, marker off unchanged,
+  Task 2 digest unchanged):
+  - SEC-4, domain split (§4.8): `refuseReservedAttributionText` takes the domain the content
+    hash uses and first refuses one that contains `Attribution zerone.attribution/v1`, with
+    `domain "<d>" contains "Attribution zerone.attribution/v1", the reserved attribution
+    template's name; …`. `submitClaim` and the conjecture path pass `msg.Domain`;
+    `claimIntegrityContradictionAdmission` gets the defaulted domain (`msg.Domain`, else the
+    target's), not `msg.Domain`. Still pure, still behind the marker. Tests:
+    `TestClaimIntegrity_AttributionHashCannotBeSplitIntoDomain` (every split of A1, at each of
+    its five `:`, refused on `MsgSubmitClaim` and `MsgPostConjecture` in a proposed domain and on
+    `MsgSubmitContradiction` in a domain nobody proposed; a domain that only contains the name
+    is refused on all three; the real attribution admitted; marker-off twin admits every split
+    on every path, each blocking the real attribution) and
+    `TestClaimIntegrity_ContradictionDefaultDomainIsChecked` (a contradiction naming no domain,
+    against a pre-activation fact in a split domain, refused after an in-place upgrade;
+    marker-off twin admits it and it blocks the real attribution). Eight mutants were each
+    killed: the contradiction checking `msg.Domain` or no domain, the conjecture or claim path
+    checking no domain, `HasSuffix` for `Contains`, the prefix with its `:` for the name, the
+    domain checked only when the text opens with the prefix, and the conjecture check ungated.
+  - Decision (a) cost (§4.3, §9 D1): a contesting P2 goes in as `MsgSubmitContradiction`
+    only, with no structure, and a structured P2 cannot later contest with the same text.
+    Pinned by `TestClaimIntegrity_StructuredPropositionCannotAlsoContest`.
+  - §9 D4: how to read the live 0x09 entry, and why the "any member blocks" clause already
+    covers every disagreement.
+  - Task 12 and Task 14 failing-test bullets that describe marker-on `MsgSubmitClaim` +
+    CONTRADICTS admission now point here.
+  - Docs: spec §2.2, §2.3, §2.8, §3, §5.1.
 
 **Task 11 — Ante gate for dispute messages** · consensus: yes (DeliverTx ante)
 - Files: `app/ante_zerone.go` (`ZeroneCapabilityDecorator` gets `WithClaimIntegrityGate(fn)`),
@@ -1102,6 +1151,8 @@ Conventions that apply to every task:
     imported state, C1 starves and F becomes VERIFIED (`contradiction_reversed/C1`).
   - A cascade-contested F plus a starving contradiction leaves F CONTESTED.
   - A `SubmitClaim` with CONTRADICTS does not flip at admission, and contests on ACCEPT.
+    (After review G2: such a claim is admitted before activation, since decision (a) refuses
+    it with the marker on; see the G2 block in Task 10.)
   - A conjecture-shaped target is restored to PROVISIONAL.
   - A fault-injected relation read or bound exhaustion leaves F CONTESTED and emits
     `contest_check_incomplete`.
@@ -1491,7 +1542,8 @@ Conventions that apply to every task:
   - the valoper encoding of the submitter's key is refused;
   - the defender (the submitter of the target fact) is refused on a `ChallengeFact` round and on
     a `MsgSubmitContradiction` round;
-  - a `SubmitClaim` carrying 16 CONTRADICTS relations excludes **only** its submitter;
+  - a `SubmitClaim` carrying 16 CONTRADICTS relations excludes **only** its submitter (after
+    review G2: admitted before activation; see the G2 block in Task 10);
   - a self-commit made before activation still reveals and settles after activation;
   - the vote-extension path skips the commit and logs it;
   - with the marker off, self-review is still allowed.
@@ -1543,7 +1595,7 @@ Conventions that apply to every task:
       - the defender is refused on a `MsgChallengeProvisionalFact` round (the conjecture's
         proposer);
       - a `SubmitClaim` with a single CONTRADICTS relation (a REVIEW_FEE claim) recuses no
-        defender;
+        defender (after review G2: admitted before activation; see the G2 block in Task 10);
       - upper-case and foreign-prefix encodings of the submitter's key are refused;
       - a pre-activation self-commit settles both after an in-place upgrade and after an
         import, and the submitter is paid;
@@ -1731,6 +1783,12 @@ Each has a default the plan implements. Changing one alters only the named tasks
     checks of Task 10. Other relation types are unchanged. With the marker off, knowledge 11
     admits it. The alternative is to apply the Task 10 checks to each CONTRADICTS relation of a
     `MsgSubmitClaim`, which needs per-target stake accounting.
+  - Cost of decision (a) (review G2 re-review): a finding that should contest another goes on
+    chain only as `MsgSubmitContradiction`, which carries no structure, `method_id` or
+    `reasoning_trace`, so it has no form v2 and no 0x34 entry, and its attributions name only
+    its content hash. A structured proposition cannot later contest with its own text: while
+    it is live or stands, a contradiction carrying that text is refused as a duplicate (§4.3).
+    The per-target alternative above would let one structured claim both record and contest.
 - **D2. What an accepted contrary finding does.**
   - Default: **asymmetric**. The target becomes CONTESTED; the counter-fact stays VERIFIED.
   - Default: a target that survives a direct challenge **stays CONTESTED** while the counter-fact
@@ -1763,6 +1821,13 @@ Each has a default the plan implements. Changing one alters only the named tasks
     group where the two disagree about blocking, or where any member stands. Nothing is
     rewritten; the list decides between an in-place upgrade and a relaunch, and tells reviewers
     which texts can be admitted again.
+  - How to read the live entry: neither the genesis export nor any query exposes 0x09, and the
+    export does not record save order. Read the raw key at H−1 from a node that still holds
+    that height, for example CometBFT `abci_query` with path `/store/knowledge/key`, data
+    `0x09` followed by the ASCII bytes of the 64-hex content hash, and `height` H−1; the value
+    is the claim ID. The live-entry column is informational: two records disagree only when one
+    of them blocks, so listing every group in which any member would block (is live or stands)
+    already lists every disagreement.
 - **D5. Hermes contract** (to agree with the Hermes builder):
   - the attribution `object` key: the on-chain content hash (default) or the Hermes Proposition
     hash;

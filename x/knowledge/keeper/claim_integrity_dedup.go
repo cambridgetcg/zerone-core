@@ -145,7 +145,11 @@ func (k Keeper) acceptedFactMayTakeCanonicalEntry(ctx context.Context, hash, cla
 // attributionTextPrefix opens the fixed fact_content template of a
 // zerone.attribution/v1 claim (plan §4.2):
 // "Attribution zerone.attribution/v1: <subject> <predicate> <object> at <scope>".
-const attributionTextPrefix = "Attribution zerone.attribution/v1:"
+// attributionTemplateName is that prefix without its trailing ':'.
+const (
+	attributionTemplateName = "Attribution zerone.attribution/v1"
+	attributionTextPrefix   = attributionTemplateName + ":"
+)
 
 // renderAttributionText renders that template from a claim structure.
 func renderAttributionText(s *types.ClaimStructure) string {
@@ -159,8 +163,21 @@ func renderAttributionText(s *types.ClaimStructure) string {
 // the 0x09 entry and block the real attribution while it stands. With claim
 // integrity on, text that opens with the prefix is refused unless structure
 // (non-nil only for a CLAIM_TYPE_RELATION MsgSubmitClaim) renders exactly
-// that text. Pure: it reads no state.
-func refuseReservedAttributionText(field, text string, structure *types.ClaimStructure) error {
+// that text.
+//
+// domain is the domain the record's content hash uses (a contradiction's own,
+// or its target's when it names none). The preimage
+// "ZRN.claim.v1:" + domain + ":" + text is ambiguous: a domain that swallows
+// the head of an attribution's text up to any ':' in it gives the same hash
+// with text that never opens with the prefix. Every such split lies at or
+// after the template name's ':' whenever the attribution's own domain holds
+// no ':' (the encoder's domain grammar), so a domain that contains the name
+// is refused too. Pure: it reads no state.
+func refuseReservedAttributionText(field, domain, text string, structure *types.ClaimStructure) error {
+	if strings.Contains(domain, attributionTemplateName) {
+		return types.ErrInvalidClaim.Wrapf("domain %q contains %q, the reserved attribution template's name; a content hash joins domain and text with ':', so a record in this domain could take an attribution's content hash with other text",
+			domain, attributionTemplateName)
+	}
 	if !strings.HasPrefix(text, attributionTextPrefix) {
 		return nil
 	}
