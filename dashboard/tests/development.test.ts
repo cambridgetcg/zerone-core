@@ -111,7 +111,7 @@ describe("bounded endpoint observations", () => {
   it("accepts knowledge v12 discovery links to the root claim and keeps the link set closed", () => {
     // Resubmission, canonical twin and attribution ("who said P"): target_id is the root claim ID.
     const related = (claim_id: string, fields: string[], claim: Record<string, unknown> | null = null) => ({ record: { claim_id, claim: claim && { ...claim, id: claim_id } }, links: fields.map((field) => ({ field, target_id: id })) });
-    const v12 = () => { const value = historyFixture() as ReturnType<typeof historyFixture> & { related_claims: unknown[] }; value.related_claims = [related("cd".repeat(16), ["content_hash"]), related("ef".repeat(16), ["canonical_hash", "content_hash"]), related("ab".repeat(15) + "cd", ["structure.object"], { structure: { subject: "zrn1speaker", predicate: "asserted", object: `zrn-content:${"c".repeat(64)}` } })]; return value; };
+    const v12 = () => { const value: Omit<ReturnType<typeof historyFixture>, "related_claims"> & { related_claims: unknown[] } = historyFixture(); value.related_claims = [related("cd".repeat(16), ["content_hash"]), related("ef".repeat(16), ["canonical_hash", "content_hash"]), related("ab".repeat(15) + "cd", ["structure.object"], { structure: { subject: "zrn1speaker", predicate: "asserted", object: `zrn-content:${"c".repeat(64)}` } })]; return value; };
     const value = v12();
     assert.deepEqual(validateHistory(value, id), v12());
     for (const field of ["structure.subject", "Content_Hash", "content_hash ", ""]) {
