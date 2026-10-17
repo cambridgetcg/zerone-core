@@ -1,10 +1,11 @@
 # Claims: attribution, verdict and reversal integrity (knowledge v12)
 
-Status: Tasks 1–16 and review fixes G1–G5 are implemented and committed on the branch, which
-is not yet merged. Task 16's end-to-end run (at `cb4d7dfd`, before the review fixes) passed;
-it has not been re-run since. Pending Yu's approval: the authority-geometry re-pin and the
-spec-hash re-pin, the two checks that still fail (§6, "Deferred checks"). Decisions (a) and (b)
-were taken by Claude and are reversible (§9, D1–D3).
+Status: Tasks 1–16, review fixes G1, G1R and G2–G5, and a cleanup pass (2026-10-17) are
+implemented and committed on the branch, which is not yet merged. Task 16's end-to-end run (at
+`cb4d7dfd`, before the review fixes) passed; it has not been re-run since. Pending Yu's
+approval: three re-pins (authority geometry, spec hashes, the SDK's generated codecs), behind
+the only checks that still fail (§6, "Deferred checks"). Decisions (a) and (b) were taken by
+Claude and are reversible (§9, D1–D3).
 Base: upstream `main` at `a4272bfa`. Branch: `claims/attribution-verdict-integrity`
 (worktree `/Users/yu/.claude/worktrees/zerone-core-claims-integrity`). The branch is meant to
 fast-forward into `main` when done, as Yu approved. Commit after each task, following the repo
@@ -207,7 +208,7 @@ New file `app/upgrades_claim_integrity.go`, mirroring `app/upgrades_fund_settlem
 | Facts CONTESTED by a pre-activation admission flip | Released by the same contest-reason predicate when that contradiction's own round ends. If it is accepted, R1 keeps the fact CONTESTED. |
 | Facts that were laundered earlier (VERIFIED while a standing counter-fact contradicts them) | Unchanged. §5.6 tells consumers how to read them. Either side can be challenged. |
 | Pre-activation self-commits | They still reveal and settle. The P5 guard applies to commits only. |
-| REFORMULATES edges from pre-activation augmentation verdicts, including IDs that extend (`<F>/x`) or equal a fact's ID | Kept, a closed set. R2 reads a claim-born fact's edges by key from its claim; the prefix scan of a claimless fact skips foreign entries (§5.3). After activation the writer refuses such IDs (review G1R), except the ID of a fact created after the verdict (§8). |
+| REFORMULATES edges from pre-activation augmentation verdicts, including IDs that extend (`<F>/x`) or equal a fact's ID | Kept, a closed set. R2 reads a claim-born fact's edges by key from its claim; the prefix scan of a claimless fact skips foreign entries (§5.3). The exception: an equal ID that replaced an existing fact's own edge, which the check then reads (residual in §8). After activation the writer refuses such IDs (review G1R), except the ID of a fact created after the verdict (§8). |
 | Historical status transitions | Never rewritten. |
 | Content hashes shared by two records admitted before activation (P1ext: knowledge 11 let a `MsgSubmitContradiction` carry another claim's exact text) | Not rewritten. Knowledge 11 rewrote 0x09 on every save, so the entry names the record **saved last**, and the live chain decides dedup from that record's standing. An import replays first saves in admission order (Task 8), so there the entry names the record **admitted last**. When the two records differ in standing, the live and the imported chain disagree, in either direction: one admits a third copy of a standing fact's text and the other refuses it (review CI-REVIEW-1; both pinned by `TestClaimIntegrity_LegacyContentCollisionLiveVsImport`). After activation every admission checks 0x09 first, so no new pair arises. D4 adds a pre-upgrade check (§9). |
 
@@ -505,7 +506,10 @@ DISPROVEN can only come from a direct challenge on that fact.
   edge. F's claim wrote every outgoing edge of F. The one other writer is an augmentation whose ID
   equals F's: before activation, or after it when the verdict came before F existed (§8). Its
   REFORMULATES edge is outside the cascade set. So the point reads find every dependency a prefix
-  scan would find, and never read what others add under `<F>/`. R2's other reads are F's claim
+  scan would find, and never read what others add under `<F>/`. Before activation such an
+  augmentation, finalized after F existed, replaced F's own edge to the augmented fact; the
+  point read, the scan and the cascade then all read REFORMULATES there, so that target is no
+  longer a dependency (residual in §8). R2's other reads are F's claim
   (one record its submitter wrote, at most `MaxRelationsPerClaim` relations since that cap) and
   the status histories of F and of each refuted dependency, which grow only by status changes (a
   challenge, a round, a cascade or metabolism), not by records others can add cheaply. A fact
@@ -651,9 +655,18 @@ Conventions that apply to every task:
     (the `make test` and `make creed-check` pieces that pin sources and documents). Until the
     re-pin, each may fail only as listed under "Deferred checks" below. Any other failure in
     either is a real failure.
-- Deferred checks (pending Yu's approval to re-pin; review G5, TQ-6). These are the only
-  failing checks known on the branch:
-  1. `go test ./tools/authority-graph/...` reports `SOURCE_ANCHOR_SHA256_MISMATCH` for two
+  - when `dashboard/` or `sdk/typescript/` is touched: `npm test`, `npx tsc --noEmit` and
+    `npx tsc --project tsconfig.functions.json --noEmit` in `dashboard/`, and the steps of
+    `npm run check` in `sdk/typescript/` (`check:generated`, `check:registry`, `typecheck`,
+    `test`), run one by one until the re-pin because `npm run check` stops at the first. Added
+    in the cleanup pass, after `cdb937e0` broke the second tsc project unnoticed. The same rule
+    applies: only the failures listed below are expected.
+- Deferred checks (pending Yu's approval to re-pin; review G5, TQ-6; the third item was added
+  in the cleanup pass, 2026-10-17, which ran every command below). These are the only failing
+  checks known on the branch:
+  1. Authority geometry. `go test ./tools/authority-graph/...` fails
+     (`TestReportSucceedsWithDeclaredConflictsVisible`,
+     `TestTargetGateRefusesDeterministically`) with `SOURCE_ANCHOR_SHA256_MISMATCH` for two
      source anchors in `dashboard/public/standards/authority-geometry.v1.json`:
      - `knowledge-writers` (`x/knowledge/keeper/msg_server.go`), stale since Task 9
        (`dcf3732c`);
@@ -666,6 +679,12 @@ Conventions that apply to every task:
      review fixes. The re-pin follows Task 6: the anchors, then the manifest digest in
      `tools/authority-graph/manifest.go`, `dashboard/src/authority-geometry.ts`,
      `.specs-and-plans-hashes` (`authority-geometry-v1-manifest`) and `.recursion-manifest-hash`.
+
+     The same stale pins fail in `dashboard/`: `npm run check:authority-geometry` exits 1, and
+     `npm test` fails two tests in `tests/authority-geometry.test.ts` ("verifies every exact
+     repository source hash and required or forbidden snippet" and "exits nonzero when the CLI
+     is explicitly asked for the target gate"). The TypeScript validator stops at the first
+     mismatch, `knowledge-writers`. The re-pin fixes these too.
   2. `scripts/check_specs_and_plans_hashes.sh` (`make creed-check`) fails on
      `knowledge-claim-records-v1`. Its pin in `.specs-and-plans-hashes` has not matched
      `docs/specs/knowledge-claim-records-v1.md` since Task 3 (`52bb3848`), and Task 15 edited
@@ -673,8 +692,22 @@ Conventions that apply to every task:
      (`docs/specs/knowledge-claim-integrity-v1.md`) is not registered, although the sibling
      knowledge specs are pinned there. The script cannot fail on a document it does not list,
      so the spec is simply unpinned.
+  3. The SDK's generated codecs. `npm run check:generated` in `sdk/typescript/` (the first step
+     of its `npm run check`) fails with "Generated codec inputs are stale". Task 5
+     (`176a84ed`) edited `proto/zerone/` and is the only branch commit that touches the
+     check's inputs; the check passes at `176a84ed~1` and at the base `a4272bfa` (run on
+     exported snapshots in the cleanup pass). The Task 3 follow-up note recorded it first.
+     The fix, `npm run generate`, rewrites `src/generated/` and re-pins
+     `src/generated/{SOURCE,GENERATED}_SHA256`, so it belongs to the pinning step. The SDK's
+     `check:registry`, `typecheck` and `test` pass.
 
-  Neither this plan nor `docs/EVENTS.md` is pinned, so editing them changes neither check.
+  Not deferred, fixed: the dashboard's second type check
+  (`npx tsc --project tsconfig.functions.json --noEmit`) failed from `cdb937e0` (TS2322 ×3 and
+  TS2352 in `tests/development.test.ts`, in the Task 3 follow-up's test) until the cleanup pass
+  fixed that test's typing (`e2e41a59`). Both dashboard tsc projects now pass.
+
+  Neither this plan, the spec nor `docs/EVENTS.md` is pinned, so editing them changes no
+  check.
 - Task 2's characterization suite and golden digest must stay green through every later task.
 - New behaviour is tested twice: with the marker on (new fixture `setupClaimIntegrityTest`, which
   is `DefaultGenesis` plus bootstrap funding) and with it off (a marker-off twin).
@@ -1578,8 +1611,9 @@ Conventions that apply to every task:
   - Tests: `TestClaimIntegrity_SurvivalClearsNothingRefutedWhileTheChallengeWasOpen`,
     `TestClaimIntegrity_SameBlockRefutationAfterSurvivalIsNotCleared`,
     `TestClaimIntegrity_ExpiredCounterFactStillHoldsTarget`,
-    `TestClaimIntegrity_IncompleteCheckAtChallengeEndKeepsPriorStanding` (each with a marker-off
-    twin), `TestChallengeEndStatus`, and updated `TestContestReason*` and
+    `TestClaimIntegrity_IncompleteCheckAtChallengeEndKeepsPriorStanding` (renamed in G1R to
+    `TestClaimIntegrity_IncompleteCheckAtChallengeEndLeavesFactContested`), each with a
+    marker-off twin, `TestChallengeEndStatus`, and updated `TestContestReason*` and
     `TestClaimIntegrity_IncompleteCheckOnVerdictPathsNeverReleases` (renamed from
     `…FailsTowardContested`: a VERIFIED-before fact now ends ACTIVE). A test-only hook
     (`export_test.go`) lowers the contest-scan record ceiling. Nine mutants, one per rule
@@ -1850,6 +1884,15 @@ Conventions that apply to every task:
     `challenge_inconclusive_restored` entries of `docs/EVENTS.md`. The Task 8 and Task 13 test
     bullets carry notes where G2 or SEC-1 changed the outcome. Task 16's recorded result is
     added.
+- Cleanup pass (2026-10-17; no consensus code changed):
+  - `e2e41a59` fixes the dashboard type error `cdb937e0` introduced: the v12 history value in
+    `dashboard/tests/development.test.ts` is typed with `related_claims: unknown[]` instead of
+    inheriting the fixture's `never[]`. Typing only; `npm test` is unchanged (497 of 499 pass,
+    the two authority-geometry tests fail as deferred).
+  - Docs: the equal-ID residual of pre-activation augmentation edges is stated (spec §1.5,
+    §6.3, §6.6, §10, §11; here §3.6, §5.3, §8, §11). The deferred-check list is complete (the
+    SDK's generated codecs and the dashboard's authority-geometry checks were missing), and the
+    verification commands name the dashboard and SDK checks. The status line names G1R.
 
 **Task 16 — End-to-end probe re-run and upgrade rehearsal** · consensus: no (verification)
 - Files: nothing tracked. Artifacts go under `/tmp/zerone-sandbox-<date>-v12/`.
@@ -1937,12 +1980,33 @@ Setup:
 
   Done with the marker on (review G1R): the writer withholds the edge when the ID contains `/`,
   is longer than 128 bytes, or is a stored fact's ID, and emits `augmentation_edge_withheld`.
-  The contest check does not depend on the rest: R2 reads a claim-born fact's edges by key from
-  its claim, and its prefix scan of a claimless fact skips entries whose source is not F.
+  Entries under `<F>/` are never read as F's edges: R2 reads a claim-born fact's edges by key
+  from its claim, and its prefix scan of a claimless fact skips entries whose source is not F
+  (they still count toward the bound of any scan that reads them). G1R and G5 wrote that the contest check does not depend
+  on the rest at all. That is false for the equal-ID shape below (corrected in the cleanup
+  pass, 2026-10-17).
   Left open:
   - the edges written by augmentations finalized before activation. They form a closed,
     auditable set: each is an augmentation record with a passing verdict and a `verdict_block`
-    below the activation height;
+    below the activation height. The contest check depends on one shape of them. An
+    augmentation of D whose ID equals the ID of a fact F that existed at the verdict, where F
+    had its own edge to D, replaced that edge (the forward key `F/D` and its reverse entry)
+    with REFORMULATES. R1, R2 and the cascade all read the stored edge, so for that pair:
+    - if F's edge was in the cascade set, R2 no longer counts D as F's dependency, and a later
+      refutation of D does not contest F;
+    - if it was CONTRADICTS, R1 no longer counts F as a standing counter-fact of D.
+
+    A fact that only the replaced edge held CONTESTED is released at its next check: when a
+    contradiction or challenge of it ends without refuting it (a starved one included), or
+    another counter-fact of it is disproven. Tested:
+    `TestClaimIntegrity_AugmentationEdgeStaysOutOfTheFactIDSpace` (marker off, "ID equal to a
+    fact's ID": both entries replaced) and `TestContestReasonReadsClaimBornDependenciesFromTheClaim`
+    ("named, stored edge overwritten with another type": no R2 reason, for a claim-born and a
+    genesis F). The R1 half is read from code (`standingCounterFact` skips an entry that is not
+    CONTRADICTS; `TestContestReasonStandingCounterFact`), not tested end to end; an uncommitted
+    test run once in the cleanup pass (the real writer, marker off, ID equal to the
+    counter-fact's) confirmed that R1 then finds no reason. With the marker on no fact's own
+    edge is replaced, so these pairs cannot grow;
   - an ID equal to a fact created after the verdict. The stored-fact check runs only when the
     verdict is final, and fact IDs are derived from public values (`GenerateFactID(claim ID,
     verdict height)`). If that fact's claim names the same target, the fact's own write
@@ -1959,7 +2023,7 @@ Setup:
     one.
 
   Either needs a reviewed migration (or an explicit decision to leave them) for the
-  pre-activation edges.
+  pre-activation edges, including whether to restore the fact edges an equal ID replaced.
 - **Exempting attribution facts** from niche competition or metabolism.
 - **Making AT_RISK, EXPIRED or PRUNED facts challengeable.**
 - **Canonical form housekeeping:** cross-dedup between v1 and v2 forms, and repairing legacy
@@ -2093,7 +2157,10 @@ Each has a default the plan implements. Changing one alters only the named tasks
 - **Deliberately starved disputes.** A starved challenge or contradiction is refunded in full, so
   the cost is locked capital and gas. After this branch a starved dispute changes no status,
   with one disclosed exception: a fact whose contest check cannot finish (very heavily
-  referenced) returns from any challenge to CONTESTED and stays there (§5.3, §8).
+  referenced) returns from any challenge to CONTESTED and stays there (§5.3, §8). Separately,
+  a pre-activation augmentation whose ID equalled an existing fact's could replace that fact's
+  edge and so remove a reason; any later check, a starved challenge's included, then releases
+  the fact it held (§8).
 - **Mempool copying of claim text.**
 - **Verbatim quotes from third-party clients.** Only reviewers marking MALFORMED push back on chain.
 - **Reviewer independence and the truth of anything a panel accepts.**
