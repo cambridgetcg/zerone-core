@@ -601,6 +601,55 @@ class Courier(unittest.TestCase):
                 pn.check_own_node(lay, 1, {"node_info": other}, "a" * 40)
 
 
+    def test_page_commands_quote_odd_folder_names(self):
+        self.assertEqual(pn.page_cmd("receive", "~/Downloads/kit 2", "<placeholder kept>", "a;b"),
+                         "%s receive ~/'Downloads/kit 2' <placeholder kept> 'a;b'" % self.INBOX_TOOL)
+        out, (rc, _, err) = self.kit("beta", os.path.join(self.dl, "zerone-kit beta"))
+        self.assertEqual(rc, 0, err)
+        with open(os.path.join(out, "START-HERE.md")) as f:
+            page = f.read()
+        self.assertIn("python3 -I ~/'Downloads/zerone-kit beta'/%s/scripts/private-net.py receive "
+                      "~/'Downloads/zerone-kit beta'" % pn.SKILL_NAME, page)
+
+
+class RpcProbe(unittest.TestCase):
+    """What --wait-height makes of whatever holds the seat's RPC port before genesis_time."""
+
+    def serve(self, status, body):
+        import http.server
+        import threading
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(status)
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *args):
+                pass
+
+        server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        return server.server_address[1]
+
+    def test_no_listener_is_not_yet(self):
+        s = socket.socket()
+        s.bind(("127.0.0.1", 0))
+        port = s.getsockname()[1]
+        s.close()
+        self.assertIsNone(pn.rpc_or_absent(port, "/status"))
+
+    def test_a_responder_that_is_not_cometbft_is_refused(self):
+        for status, body in ((404, b"not here"), (200, b"<html>"), (200, b'{"jsonrpc": "2.0"}')):
+            port = self.serve(status, body)
+            with self.assertRaises(pn.Refusal, msg=(status, body)) as caught:
+                pn.rpc_or_absent(port, "/status")
+            self.assertIn("another process answers", str(caught.exception))
+        port = self.serve(200, b'{"result": {"ok": true}}')
+        self.assertEqual(pn.rpc_or_absent(port, "/status"), {"ok": True})
+
 def keep_evidence(*roots):
     parent = os.environ.get("ZERONE_PRIVATE_NET_EVIDENCE_PARENT")
     if not parent:

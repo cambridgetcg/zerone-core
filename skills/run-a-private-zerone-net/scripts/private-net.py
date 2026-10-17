@@ -48,6 +48,7 @@ import json
 import platform
 import pwd
 import re
+import shlex
 import shutil
 import signal
 import socket
@@ -577,6 +578,29 @@ def rpc(port, path, timeout=3):
     return body["result"]
 
 
+def rpc_or_absent(port, path, timeout=2):
+    """rpc() for a node that may not be listening yet: no listener returns None, since the node opens RPC
+    only at genesis_time. Any answer that is not CometBFT's (an HTTP error, not JSON, no result) comes from
+    another process, and is refused rather than waited out."""
+    url = "http://127.0.0.1:%d%s" % (port, path)
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as r:
+            body = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        raise Refusal("another process answers on 127.0.0.1:%d (HTTP %s), not this seat's node" % (port, e.code))
+    except urllib.error.URLError as e:
+        if isinstance(e.reason, (ConnectionRefusedError, ConnectionResetError, socket.timeout, TimeoutError)):
+            return None
+        raise Refusal("RPC 127.0.0.1:%d: %s" % (port, e.reason))
+    except (ConnectionResetError, socket.timeout, TimeoutError):
+        return None  # a node still opening its listener
+    except ValueError:
+        raise Refusal("another process answers on 127.0.0.1:%d (not JSON), not this seat's node" % port)
+    if not isinstance(body, dict) or "result" not in body:
+        raise Refusal("another process answers on 127.0.0.1:%d (no RPC result), not this seat's node" % port)
+    return body["result"]
+
+
 # ── firewall ───────────────────────────────────────────────────────────────────
 
 def firewall_report(binary):
@@ -1036,10 +1060,21 @@ def skill_files():
     return present
 
 
+def page_arg(arg):
+    """Shell-quote one argument of a generated command. A `<placeholder>` stays as written for the agent
+    to replace, and a leading `~/` stays unquoted so the shell still expands it."""
+    if arg.startswith("<") and arg.endswith(">"):
+        return arg
+    if arg.startswith("~/"):
+        return "~/" + shlex.quote(arg[2:])
+    return shlex.quote(arg)
+
+
 def page_cmd(*args):
     """One complete command for a generated page. Agent shells may keep no function or working
     directory between calls, so every path is absolute and nothing is defined first."""
-    return "python3 -I %s/inbox/%s/scripts/private-net.py %s" % (DEFAULT_ROOT, SKILL_NAME, " ".join(args))
+    tool = "%s/inbox/%s/scripts/private-net.py" % (DEFAULT_ROOT, SKILL_NAME)
+    return " ".join(["python3", "-I", page_arg(tool)] + [page_arg(a) for a in args])
 
 
 PAGE_ROOT_NOTE = ("The commands assume this Mac's root is `%s`. If `ZERONE_PRIVATE_ROOT` is set here, use its value "
@@ -1079,10 +1114,12 @@ keep no function or working directory from one call to the next. {rootnote}
 
 1. Bring the kit into the inbox. If this agent can read `~/Downloads`, run:
    ```
-   python3 -I ~/Downloads/{folder}/{skill}/scripts/private-net.py receive ~/Downloads/{folder}
+   python3 -I {dl}/{skill}/scripts/private-net.py receive {dl}
    ```
-   Otherwise run `(umask 077; mkdir -p {inbox})`, and the owner moves
-   everything in this folder into `{inbox}/` in Finder.
+   If AirDrop renamed the folder on arrival (for example to `{folder} 2`),
+   use the name it has in `~/Downloads`. Otherwise run
+   `(umask 077; mkdir -p {inbox})`, and the owner moves everything in this
+   folder into `{inbox}/` in Finder.
 2. Pin the binary:
    ```
    {binary_cmd}
@@ -1121,7 +1158,7 @@ keep no function or working directory from one call to the next. {rootnote}
   including agent missions and chats.
 """.format(label=label, chain=chain, created=created, skill=skill, seat=seat, coordinator=inv["coordinator"],
            endpoint=coord_endpoint, bsha=inv["binary_sha256"], tsha=inv["tool_sha256"], rootnote=PAGE_ROOT_NOTE,
-           folder=folder, inbox=inbox, root=root,
+           folder=folder, dl=page_arg("~/Downloads/" + folder), inbox=inbox, root=root,
            binary_cmd=page_cmd("binary", "--from", inbox + "/zeroned", "--invite", invite),
            preflight_cmd=page_cmd("preflight", "--ip", "<this Mac's LAN IPv4>", "--peer", coord_endpoint),
            seat_cmd=page_cmd("seat", "--invite", invite, "--ip", "<the same IPv4>"))
@@ -1147,7 +1184,8 @@ from the owner, stop and ask.
    ```
    {receive_cmd}
    ```
-   Otherwise the owner moves them into `{inbox}/` in Finder.
+   If AirDrop renamed the folder on arrival, use the name it has in
+   `~/Downloads`. Otherwise the owner moves them into `{inbox}/` in Finder.
 2. Install, with the sha256 from the owner's message:
    ```
    {install_cmd}
@@ -1755,16 +1793,14 @@ def wait_for_seat_height(lay, label, target, timeout):
     while True:
         if not owned_pid(lay, label, lay.binary, state["home"]):
             raise Refusal("seat %s's node is not running; see %s" % (label, lay.log_file(label)))
-        try:
-            st = rpc(port, "/status", timeout=2)
-        except Refusal:
-            st = None  # RPC opens only at genesis_time
+        st = rpc_or_absent(port, "/status")
         if st:
             check_own_node(lay, port, st, own_id)
             height = int(st["sync_info"]["latest_block_height"])
             if height >= target:
                 return None
-            peers = int(rpc(port, "/net_info", timeout=2)["n_peers"])
+            ni = rpc_or_absent(port, "/net_info")
+            peers = int(ni["n_peers"]) if ni else peers
         if time.time() >= deadline:
             return {"label": label, "reached": False, "target_height": target, "height": height, "peers": peers,
                     "genesis_time": state.get("genesis_time"), "observed_at": iso(now_utc()),
