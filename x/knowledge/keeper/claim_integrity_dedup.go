@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -107,11 +108,12 @@ func (k Keeper) dedupEntryBlocks(ctx context.Context, id string) (bool, string, 
 }
 
 // factBlocksDedup: a fallen fact releases its hashes; a standing fact,
-// UNSPECIFIED and any unknown status block.
+// UNSPECIFIED and any unknown status block. EXPIRED blocks: patronage or
+// metabolism can revive it, and a twin admitted meanwhile would then stand
+// beside it (decision (b), review G2 SEC-3; R1 counts it standing too).
 func factBlocksDedup(status types.FactStatus) bool {
 	switch status {
 	case types.FactStatus_FACT_STATUS_SUPERSEDED,
-		types.FactStatus_FACT_STATUS_EXPIRED,
 		types.FactStatus_FACT_STATUS_DISPROVEN,
 		types.FactStatus_FACT_STATUS_REVOKED,
 		types.FactStatus_FACT_STATUS_PRUNED:
@@ -138,4 +140,50 @@ func (k Keeper) acceptedFactMayTakeCanonicalEntry(ctx context.Context, hash, cla
 		return false, fmt.Errorf("read canonical index entry: %w", err)
 	}
 	return bz == nil || string(bz) == claimID, nil
+}
+
+// attributionTextPrefix opens the fixed fact_content template of a
+// zerone.attribution/v1 claim (plan §4.2):
+// "Attribution zerone.attribution/v1: <subject> <predicate> <object> at <scope>".
+const attributionTextPrefix = "Attribution zerone.attribution/v1:"
+
+// renderAttributionText renders that template from a claim structure.
+func renderAttributionText(s *types.ClaimStructure) string {
+	return attributionTextPrefix + " " + s.Subject + " " + s.Predicate + " " + s.Object + " at " + s.Scope
+}
+
+// refuseReservedAttributionText keeps the attribution template for the
+// attribution itself (review G2 SEC-4). The template holds only public
+// fields, so its content hash is the attribution tuple: any other record
+// carrying that text (an assertion, a conjecture, a contradiction) would take
+// the 0x09 entry and block the real attribution while it stands. With claim
+// integrity on, text that opens with the prefix is refused unless structure
+// (non-nil only for a CLAIM_TYPE_RELATION MsgSubmitClaim) renders exactly
+// that text. Pure: it reads no state.
+func refuseReservedAttributionText(field, text string, structure *types.ClaimStructure) error {
+	if !strings.HasPrefix(text, attributionTextPrefix) {
+		return nil
+	}
+	if structure != nil && text == renderAttributionText(structure) {
+		return nil
+	}
+	return types.ErrInvalidClaim.Wrapf("%s starts with the reserved attribution template %q; only a CLAIM_TYPE_RELATION MsgSubmitClaim whose structure renders exactly that text (%q) may carry it",
+		field, attributionTextPrefix, attributionTextPrefix+" <subject> <predicate> <object> at <scope>")
+}
+
+// refuseClaimContradictsRelation: with claim integrity on, a MsgSubmitClaim
+// may not carry a CONTRADICTS relation (decision (a), review G2 SEC-2, F5). A
+// dispute goes through MsgSubmitContradiction, whose admission checks the
+// target's standing, the challenge minimum stake and the counter-claim text
+// (plan Task 10). Otherwise one REVIEW_FEE claim whose true but unrelated
+// text a panel accepts contested up to MaxRelationsPerClaim facts at once,
+// past every one of those checks. Pure: it runs before any target is read.
+func refuseClaimContradictsRelation(relations []*types.ClaimRelation) error {
+	for i, rel := range relations {
+		if rel.GetRelation() == types.RelationType_RELATION_TYPE_CONTRADICTS {
+			return types.ErrInvalidClaim.Wrapf("claim relation %d names fact %s as CONTRADICTS; a claim cannot carry a CONTRADICTS relation — dispute the fact with MsgSubmitContradiction (`tx knowledge submit-contradiction`), whose admission checks the target's standing, the challenge minimum stake and the counter-claim text",
+				i, rel.GetTargetFactId())
+		}
+	}
+	return nil
 }

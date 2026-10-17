@@ -220,14 +220,16 @@ func TestClaimIntegrity_DisputeDefenderCannotReview(t *testing.T) {
 }
 
 // A MsgSubmitClaim carrying CONTRADICTS relations is a REVIEW_FEE claim whose
-// relation list its submitter chose. Only the submitter is excluded, whether
-// it names one target or the maximum of 16, so naming facts recuses none of
-// their defenders.
+// relation list its submitter chose. With the marker on such a claim is
+// refused at admission (review G2, decision (a)), so the case is a claim
+// admitted before activation whose round is still open after it. Only the
+// submitter is excluded, whether it names one target or the maximum of 16,
+// so naming facts recuses none of their defenders.
 func TestClaimIntegrity_SubmitClaimRelationsRecuseNoDefender(t *testing.T) {
 	require.Equal(t, 16, types.MaxRelationsPerClaim)
 	for _, sel := range dedupSelections {
 		t.Run(sel.name, func(t *testing.T) {
-			f := sel.setup(t)
+			f := setupV11SemanticsTest(t)
 			var defenders, facts []string
 			for i := 0; i < types.MaxRelationsPerClaim; i++ {
 				defender := v11Addr(fmt.Sprintf("v12-rv-defender-%02d", i))
@@ -235,15 +237,24 @@ func TestClaimIntegrity_SubmitClaimRelationsRecuseNoDefender(t *testing.T) {
 				defenders = append(defenders, defender)
 				facts = append(facts, f.accept(t, claimID, v11Reviewers()...))
 			}
-			for _, n := range []int{1, types.MaxRelationsPerClaim} {
+			counts := []int{1, types.MaxRelationsPerClaim}
+			claims := map[int]string{}
+			for _, n := range counts {
+				claims[n] = f.mustSubmitClaim(t, v11Addr(fmt.Sprintf("v12-rv-multi-%02d", n)), fmt.Sprintf("Synthetic v12 probe P5: one claim that contradicts %d accepted facts at once.", n), dedupDomain,
+					func(m *types.MsgSubmitClaim) {
+						for _, factID := range facts[:n] {
+							m.Relations = append(m.Relations, &types.ClaimRelation{Relation: types.RelationType_RELATION_TYPE_CONTRADICTS, TargetFactId: factID})
+						}
+					})
+			}
+			if sel.integrity {
+				require.NoError(t, f.k.ValidateClaimIntegrityActivation(f.ctx))
+				require.NoError(t, f.k.EnableClaimIntegrity(f.ctx))
+			}
+			require.Equal(t, sel.integrity, f.claimIntegrityEnabled(t))
+			for _, n := range counts {
 				t.Run(fmt.Sprintf("%d targets", n), func(t *testing.T) {
-					submitter := v11Addr(fmt.Sprintf("v12-rv-multi-%02d", n))
-					c := f.mustSubmitClaim(t, submitter, fmt.Sprintf("Synthetic v12 probe P5: one claim that contradicts %d accepted facts at once.", n), dedupDomain,
-						func(m *types.MsgSubmitClaim) {
-							for _, factID := range facts[:n] {
-								m.Relations = append(m.Relations, &types.ClaimRelation{Relation: types.RelationType_RELATION_TYPE_CONTRADICTS, TargetFactId: factID})
-							}
-						})
+					submitter, c := v11Addr(fmt.Sprintf("v12-rv-multi-%02d", n)), claims[n]
 					claim := f.claim(t, c)
 					require.Len(t, claim.Relations, n)
 					require.Equal(t, types.ClaimFundingKind_CLAIM_FUNDING_KIND_REVIEW_FEE, claim.FundingTerms.Kind)

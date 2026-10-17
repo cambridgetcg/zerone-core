@@ -194,7 +194,7 @@ func NewSubmitClaimCmd() *cobra.Command {
 	cmd.Flags().String("references", "", "Comma-separated fact IDs to reference")
 	cmd.Flags().String("partnership-id", "", "Partnership ID for collaborative claims")
 	cmd.Flags().String("claim-type", "assertion", "Claim type: assertion (default), relation, definition, constraint, negation, observation, computational")
-	cmd.Flags().String("relations", "", "Typed relations: supports:FACT_ID,contradicts:FACT_ID,requires:FACT_ID")
+	cmd.Flags().String("relations", "", "Typed relations: supports:FACT_ID,requires:FACT_ID,refines:FACT_ID (with knowledge 12 a claim may not carry contradicts; dispute a fact with submit-contradiction)")
 	cmd.Flags().String("subject", "", "Claim subject (structured)")
 	cmd.Flags().String("predicate", "", "Claim predicate (structured)")
 	cmd.Flags().String("object", "", "Claim object (structured, optional)")

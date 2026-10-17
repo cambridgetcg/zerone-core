@@ -150,6 +150,7 @@ paired tests below, for example `TestClaimIntegrity_ResaveDoesNotMoveIndex`,
 | A reviewer's commitment to their own claim | It still reveals and settles, and the reviewer is paid. New commitments are refused (§7). | `TestClaimIntegrity_PreActivationSelfCommitStillSettles` |
 | REFORMULATES edges written by passing augmentations, including IDs that extend a fact's ID (`<F>/x`) or equal it | Kept, a closed set. The contest check never depends on them: R2 reads a claim-born fact's edges by key from its claim, and the prefix scan of a claimless fact skips entries naming another source (§6.3). After activation such edges are no longer written (§6.6). | `TestClaimIntegrity_ShieldChallengeBehindAugmentationEdgeLaundersNothing`, `TestClaimIntegrity_ShieldChallengeBehindLongAugmentationIDsLaundersNothing` |
 | Claims, rounds, facts, relations, status transitions, payments | Never rewritten. | `TestClaimIntegrityMigrationPreservesEveryByteAndRestart`, `TestMigrate11to12ChangesExactlyMarkerAndReceipt` |
+| One content hash held by two records (knowledge 11 let `MsgSubmitContradiction` carry another claim's exact text) | Known limit, not repaired. Knowledge 11 rewrote `0x09` on every save, so the entry names the record saved last, and the live chain decides from that record (§3). An import replays first saves in admission order, so the entry names the record admitted last. When the two differ in standing, the live and the imported chain disagree, in either direction: one admits a third copy of a standing fact's text, the other refuses it. After activation every admission checks `0x09` first, so no new pair arises. | `TestClaimIntegrity_LegacyContentCollisionLiveVsImport` |
 
 The rows on contested, laundered and self-reviewed records are each checked
 after an in-place upgrade and after an import.
@@ -229,6 +230,19 @@ The chain does not check this convention. A third-party client can submit
 anything an ordinary claim may hold; reviewers push back by voting MALFORMED
 (§2.6). *Not tested here.*
 
+One exception: the template is reserved. With the marker on, record text that
+opens with `Attribution zerone.attribution/v1:` is refused, as `fact_content` of
+`MsgSubmitClaim`, `statement` of `MsgPostConjecture` and `counter_claim` of
+`MsgSubmitContradiction`, unless the message is a `CLAIM_TYPE_RELATION`
+`MsgSubmitClaim` whose structure renders exactly that text. The refusal reads
+`<field> starts with the reserved attribution template …: invalid claim`, moves
+no coins and writes nothing. Text that mentions the template later, not at its
+start, is ordinary text. Without this, a conjecture or claim carrying an
+attribution's text took its `0x09` entry first and blocked the real attribution
+while it stood. With the marker off every path admits the text, as in
+knowledge 11. Limits are in §2.8.
+Tests: `TestClaimIntegrity_AttributionTemplateIsReserved`.
+
 ### 2.3 Example (synthetic)
 
 Proposition claim P1, type ASSERTION, domain `chemistry`, category `empirical`:
@@ -264,10 +278,14 @@ Tests: `TestCanonicalFormV2_PlanExample`, `test_content_hash_matches_go_vectors`
 
 If a second source reports a different value (81.0), submit it as its own
 proposition P2; form v2 keeps it apart from P1 (§4). For P2 to contest P1,
-submit it with a CONTRADICTS relation to P1's fact, or as
-`MsgSubmitContradiction`. P1 becomes CONTESTED only when P2 is accepted (§6).
+submit P2 itself as `MsgSubmitContradiction` against P1's fact, at a stake of at
+least the minimum for challenging P1 (§5.1). Its counter-claim text is P2's
+text, so its content hash is the one P2's attributions name. P1 becomes
+CONTESTED only when P2 is accepted (§6). A `MsgSubmitClaim` may not carry a
+CONTRADICTS relation (§6.4).
 Tests: `TestClaimIntegrity_CanonicalV2SeparatesDistinctFindings`,
-`TestClaimIntegrity_RelationContradictionContestsOnlyWhenAccepted`.
+`TestClaimIntegrity_ContradictionContestsOnlyWhenAccepted`,
+`TestClaimIntegrity_SubmitClaimRefusesContradictsRelation`.
 
 ### 2.4 Roles and Hermes binding
 
@@ -413,6 +431,21 @@ should apply the same algorithm.
 - A tag is a 160-bit prefix of a hash. The full hashes are in `object` and
   `reasoning_trace`.
 
+Limits of the reserved template (§2.2), *not tested here* except where named:
+
+- The template renders one-to-one only when subject, predicate and object hold
+  no space, as the §2.2 grammar requires; the chain checks only that the
+  structure renders the text. Another RELATION claim with the same four fields
+  (a different date or tags) names the same tuple and is a duplicate under the
+  usual first-admitted rule (§3).
+  Tests: `TestClaimIntegrity_AttributionTemplateIsReserved`.
+- The check reads the text alone. The content-hash preimage is
+  `domain + ":" + text`, and domain names are not validated, so a record in a
+  domain named `<domain>:Attribution zerone.attribution/v1`, carrying the rest
+  of the text, can still take an attribution's `0x09` entry. A scratch probe in
+  review G2 confirmed it. The ambiguity reaches any text containing `:`, not
+  only attributions; it is reported and not closed in this release.
+
 ## 3. Duplicate checks and resubmission
 
 Two index entries block a duplicate: `0x09` (content hash of text and domain)
@@ -422,10 +455,10 @@ while the record it names is live or standing:
 | Record the entry names | Blocks? |
 |---|---|
 | A claim that is PENDING, PENDING_EVALUATION, EVALUATED, PROVISIONAL, IN_VERIFICATION, CHALLENGED, CONTESTED, UNSPECIFIED or unknown | yes |
-| A claim that is REJECTED, MALFORMED, INSUFFICIENT or EXPIRED | no |
+| A claim that is REJECTED, MALFORMED, INSUFFICIENT or EXPIRED (the legacy no-quorum outcome) | no |
 | An ACCEPTED claim | It resolves to its fact `GenerateFactID(claim, round.verdict_block)`, and blocks if that fact blocks. A missing round or fact blocks (fails closed). |
-| A fact that is PENDING, PROVISIONAL, VERIFIED, ACTIVE, CONTESTED, CHALLENGED, AT_RISK, UNSPECIFIED or unknown | yes |
-| A fact that is SUPERSEDED, EXPIRED, DISPROVEN, REVOKED or PRUNED | no |
+| A fact that is PENDING, PROVISIONAL, VERIFIED, ACTIVE, CONTESTED, CHALLENGED, AT_RISK, EXPIRED, UNSPECIFIED or unknown | yes |
+| A fact that is SUPERSEDED, DISPROVEN, REVOKED or PRUNED | no |
 | Nothing | no |
 | An unreadable record, or an empty entry value | the tx is refused |
 
@@ -442,6 +475,15 @@ Tests: `TestClaimIntegrity_ClaimStatusDecidesWhetherEntryBlocks`,
 - A fact refuted by a direct challenge releases both of its entries, so the
   proposition can be asserted again. The old fact keeps its status and history.
   Tests: `TestClaimIntegrity_StandingFactBlocksAndDisprovenReleases`.
+- An EXPIRED fact blocks. Patronage or metabolism can revive it, and a twin
+  admitted meanwhile would then stand beside it; it is the set R1 counts as
+  standing (§6.3). An exact copy, a reworded copy with the same structure and a
+  conjecture carrying the text are all refused, naming the EXPIRED fact. An
+  EXPIRED fact cannot be challenged, so it holds its text until it is revived
+  or pruned (by default 20 metabolism epochs after it expires); PRUNED is
+  final and releases.
+  Tests: `TestClaimIntegrity_ExpiredFactBlocksDedup`,
+  `TestClaimIntegrity_FactStatusDecidesWhetherEntryBlocks`.
 - Only a claim's first save (its admission) writes its entries, so the index
   always names the latest admitted record. A re-save never moves an entry.
   Tests: `TestClaimIntegrity_ResaveDoesNotMoveIndex`,
@@ -459,9 +501,11 @@ Tests: `TestClaimIntegrity_ClaimStatusDecidesWhetherEntryBlocks`,
   `TestClaimIntegrity_ContradictionCannotTakeLiveClaimText`.
 - `MsgPostConjecture` and `MsgSubmitContradiction` apply the same check to their
   text. A contradiction cannot take a live claim's `0x09` entry, so two
-  same-hash claims cannot be admitted in one block.
+  same-hash claims cannot be admitted in one block. All three refuse the
+  reserved attribution template first (§2.2).
   Tests: `TestClaimIntegrity_ConjectureDedupParity`,
-  `TestClaimIntegrity_ContradictionCannotTakeLiveClaimText`.
+  `TestClaimIntegrity_ContradictionCannotTakeLiveClaimText`,
+  `TestClaimIntegrity_AttributionTemplateIsReserved`.
 - The usual fee and cooldown apply to a resubmission, and the existing
   `claim-workflow.py --resubmit-after <txhash> --max-review-fee-uzrn N` flow
   needs no client change. *Not tested here*: neither has a unit test; the flow
@@ -472,6 +516,16 @@ in knowledge 11.
 Tests: `TestV11_StarvedClaimLocksExactText`,
 `TestV11_ContradictionOverwritesContentIndex`, and the marker-off halves of the
 tests above.
+
+**Known limit: one hash, two pre-activation records.** Knowledge 11 let a
+contradiction carry another claim's exact text, and every save rewrote `0x09`.
+Activation rewrites nothing, so on the live chain the entry names whichever of
+the two records was saved last, and dedup follows that record's standing. An
+import replays first saves in admission order, so there the entry names the
+record admitted last. When the two differ in standing, the live and imported
+chains decide differently, in either direction (§1.5). A pre-upgrade export,
+grouped by `content_hash`, lists every such pair (plan §9, D4).
+Tests: `TestClaimIntegrity_LegacyContentCollisionLiveVsImport`.
 
 ## 4. Canonical form v2
 
@@ -526,8 +580,10 @@ q(v) = strconv.QuoteToASCII(collapse(TrimSpace(NFC(v))))
 
 ### 5.1 Contradiction admission
 
-With the marker on, `MsgSubmitContradiction` is checked as follows, before any
-collateral moves:
+With the marker on, `MsgSubmitContradiction` is the only message that admits a
+contradiction of a fact (a `MsgSubmitClaim` carrying CONTRADICTS is refused,
+§6.4). It is checked as follows, before any collateral moves. First, its counter-claim
+text may not open with the reserved attribution template (§2.2). Then:
 
 1. The target must stand: VERIFIED, ACTIVE, CONTESTED, CHALLENGED or AT_RISK.
    Conjectures were already refused. Otherwise the refusal reads
@@ -544,7 +600,8 @@ A refusal moves no coins and writes nothing. Admission changes no fact (§6).
 With the marker off every positive stake and every target status is admitted.
 Tests: `TestClaimIntegrity_ContradictionStakeMeetsChallengeMinimum`,
 `TestClaimIntegrity_ContradictionTargetMustStand`,
-`TestClaimIntegrity_ContradictionCannotTakeLiveClaimText`.
+`TestClaimIntegrity_ContradictionCannotTakeLiveClaimText`,
+`TestClaimIntegrity_AttributionTemplateIsReserved`.
 
 ### 5.2 Ante gate for dispute messages
 
@@ -578,7 +635,7 @@ Each row records the cause shown (§6.2).
 | From | To | Trigger | Cause | Tests |
 |---|---|---|---|---|
 | — | VERIFIED (PROVISIONAL for a conjecture) | claim ACCEPTED | `verification` / claim ID | `TestClaimIntegrity_ChallengeTransitionsRecordExactCauses` |
-| VERIFIED, ACTIVE | CONTESTED | A claim carrying CONTRADICTS→F is **accepted**, and the edge stored from its counter-fact K to F is CONTRADICTS | `contradiction_accepted` / counter-claim ID | `TestClaimIntegrity_ContradictionContestsOnlyWhenAccepted`, `TestClaimIntegrity_RelationContradictionContestsOnlyWhenAccepted`, `TestClaimIntegrity_AcceptedContestFollowsStoredEdge`, `TestContestAcceptedTargets` |
+| VERIFIED, ACTIVE | CONTESTED | A claim carrying CONTRADICTS→F is **accepted**, and the edge stored from its counter-fact K to F is CONTRADICTS. With the marker on only `MsgSubmitContradiction` admits such a claim (§6.4) | `contradiction_accepted` / counter-claim ID | `TestClaimIntegrity_ContradictionContestsOnlyWhenAccepted`, `TestContestAcceptedTargets` |
 | VERIFIED, ACTIVE, AT_RISK | CONTESTED | a fact F depends on is DISPROVEN (the existing cascade, unchanged) | `cascade` / disproven fact ID | `TestClaimIntegrity_ChallengeTransitionsRecordExactCauses`, `TestClaimIntegrity_SurvivalClearsOnlyDependenciesRefutedBeforeIt` |
 | CONTESTED | VERIFIED (PROVISIONAL for a conjecture) | a contradiction ends without acceptance (REJECT, MALFORMED, INCONCLUSIVE or starved) **and** no contest reason remains | `contradiction_reversed` / that claim's ID | `TestClaimIntegrity_PreActivationContestSettlesThroughPredicate`, `TestSettleContradictionTargetsSinceLastSurvival`, `TestClaimIntegrity_ConjectureShapedTargetReturnsToProvisional` |
 | CONTESTED | VERIFIED (PROVISIONAL for a conjecture) | counter-fact K becomes DISPROVEN **and** no contest reason remains | `counterfact_disproven` / K | `TestClaimIntegrity_DisprovenCounterFactReleasesTarget`, `TestSettleCounterFactTargets` |
@@ -592,12 +649,13 @@ Each row records the cause shown (§6.2).
 
 These events change no fact:
 
-- **Admitting a contradiction**, by either message. A counter-claim carrying
-  CONTRADICTS changes nothing until it is accepted, and one that ends without
-  acceptance leaves a VERIFIED target exactly as it was.
+- **Admitting a contradiction.** A counter-claim changes nothing until it is
+  accepted, and one that ends without acceptance leaves a VERIFIED target
+  exactly as it was. With the marker on, a `MsgSubmitClaim` carrying
+  CONTRADICTS is not admitted at all (§6.4).
   Tests: `TestClaimIntegrity_ContradictionContestsOnlyWhenAccepted`,
-  `TestClaimIntegrity_RelationContradictionContestsOnlyWhenAccepted`,
-  `TestClaimIntegrity_UnacceptedContradictionChangesNothing`.
+  `TestClaimIntegrity_UnacceptedContradictionChangesNothing`,
+  `TestClaimIntegrity_SubmitClaimRefusesContradictsRelation`.
 - **Accepting a counter-claim, as far as the target's verdict goes.** The target
   only becomes CONTESTED, never DISPROVEN, and the counter-fact stays VERIFIED.
   Tests: `TestClaimIntegrity_ContradictionContestsOnlyWhenAccepted`.
@@ -609,8 +667,13 @@ writes are in the two versions of `handleChallengeDisproven`.
 
 A claim can name a target twice. The relation store keeps one edge per
 (source, target) pair, and the last relation written wins. So
-`[CONTRADICTS F, CITES F]` stores CITES and contests nothing.
-Tests: `TestClaimIntegrity_AcceptedContestFollowsStoredEdge`.
+`[CONTRADICTS F, CITES F]` stores CITES and contests nothing. With the marker on
+only a claim admitted before activation can carry such a list. Knowledge 11
+contested F at its admission; after activation the stored edge decides whether
+R1 holds F once the claim is accepted: CONTRADICTS holds it, CITES does not, and
+the next ending of a contradiction or challenge of F then releases it.
+Tests: `TestClaimIntegrity_AcceptedContestFollowsStoredEdge`,
+`TestContestAcceptedTargets`.
 
 ### 6.2 Cause vocabulary
 
@@ -755,14 +818,29 @@ Tests: `TestClaimIntegrity_DisprovenCounterFactLeavesRefutedDependencyHolding`,
 
 ### 6.4 Contradictions take effect when accepted
 
+- **Admission.** With the marker on, `MsgSubmitContradiction` is the only way to
+  contradict a fact (a challenge is separate, §6.5). A `MsgSubmitClaim` carrying a CONTRADICTS relation is refused
+  before any target is read, with
+  `claim relation <i> names fact <F> as CONTRADICTS; a claim cannot carry a CONTRADICTS relation — dispute the fact with MsgSubmitContradiction (…): invalid claim`.
+  The refusal moves no coins and writes nothing. Its other relation types are
+  admitted as before. Without this, one review-fee claim whose true but
+  unrelated text a panel accepted contested up to 16 facts at once, past the
+  standing, minimum-stake and text checks of §5.1.
+  Tests: `TestClaimIntegrity_SubmitClaimRefusesContradictsRelation`.
+- **Claims admitted before activation.** A `MsgSubmitClaim` carrying
+  CONTRADICTS that was admitted under knowledge 11 (which contested its target
+  at admission) is still settled. Accepted after activation, its edge holds the
+  target through R1. Ending any other way, it releases the target only if no
+  contest reason remains.
+  Tests: `TestClaimIntegrity_PreActivationRelationContradictionHoldsOnceAccepted`,
+  `TestClaimIntegrity_PreActivationContestSettlesThroughPredicate`.
 - **Acceptance.** For each CONTRADICTS target that is VERIFIED or ACTIVE, and
   whose stored edge from the new counter-fact is CONTRADICTS, the target becomes
   CONTESTED and `zerone.knowledge.contradiction_accepted` is emitted. The
   counter-fact stays VERIFIED. A stored edge that cannot be read is an error,
   and nothing is written.
   Tests: `TestContestAcceptedTargets`,
-  `TestClaimIntegrity_ContradictionContestsOnlyWhenAccepted`,
-  `TestClaimIntegrity_RelationContradictionContestsOnlyWhenAccepted`.
+  `TestClaimIntegrity_ContradictionContestsOnlyWhenAccepted`.
 - **Any other ending.** Each CONTESTED target is released (§6.1) only if no
   contest reason remains, and then `contradiction_reversed` is emitted.
   Tests: `TestClaimIntegrity_ContradictionContestsOnlyWhenAccepted` (a starved
@@ -786,8 +864,9 @@ Tests: `TestClaimIntegrity_DisprovenCounterFactLeavesRefutedDependencyHolding`,
   Tests: `TestClaimIntegrity_ConjectureShapedTargetReturnsToProvisional`,
   `TestContestAcceptedTargets`.
 
-With the marker off, knowledge 11 contests the target at admission and restores
-it when the contradiction fails, whatever else holds it.
+With the marker off, knowledge 11 admits a `MsgSubmitClaim` carrying
+CONTRADICTS, contests the target at admission, and restores it when the
+contradiction fails, whatever else holds it.
 Tests: `TestV11_StarvedContradictionRestoresUpheldTarget`,
 `TestSubmitContradiction_StarvedDoesNotLockFact`,
 `TestSubmitClaim_ContradictionAutoContests`, and the marker-off halves of the
@@ -890,7 +969,9 @@ are:
   relation, which only `MsgSubmitContradiction` creates.
 
 A `MsgSubmitClaim`'s relation list, chosen by its submitter, is never read, so
-naming facts recuses none of their defenders.
+naming facts recuses none of their defenders. With the marker on such a claim
+cannot carry CONTRADICTS (§6.4); one admitted before activation, whose round is
+still open, recuses only its submitter.
 Tests: `TestClaimIntegrity_SubmitterAndDefenderCannotReview`,
 `TestClaimIntegrity_DisputeDefenderCannotReview`,
 `TestClaimIntegrity_SubmitClaimRelationsRecuseNoDefender`, `TestDisputedFactID`.
@@ -1018,7 +1099,10 @@ The defaults adopted on 2026-10-16:
   the counter-fact stays VERIFIED. A target that survives a direct challenge
   stays CONTESTED while the counter-fact stands (§6.5).
 - No-verdict, negative-verdict and fallen records all release text for
-  resubmission (§3).
+  resubmission (§3). An EXPIRED fact is not fallen: it can be revived, so it
+  blocks, as it holds a target for R1 (decision (b), §3, §6.3).
+- A `MsgSubmitClaim` may not carry CONTRADICTS; a dispute goes through
+  `MsgSubmitContradiction` (decision (a), §6.4).
 - The Hermes contract: the attribution `object` is the on-chain content hash,
   records are JCS plus sha256 with a `sha256:` prefix, plus the
   `reasoning_trace` keys and locator grammar of §2.2.

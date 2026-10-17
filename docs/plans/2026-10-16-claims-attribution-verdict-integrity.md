@@ -50,9 +50,11 @@ The full list is in §8.
 The backbone is design D1: minimal, consensus-safe and upgrade-first. All three judges ranked
 it highest. It is changed in these ways:
 
-- **D2's idea: contradictions take effect when accepted, not when admitted.** Neither
-  `MsgSubmitContradiction` nor `MsgSubmitClaim`+CONTRADICTS changes the target's status at
-  admission. When the counter-claim is **accepted**, the target becomes CONTESTED. This removes
+- **D2's idea: contradictions take effect when accepted, not when admitted.**
+  `MsgSubmitContradiction` does not change the target's status at admission, and after
+  activation a `MsgSubmitClaim` may not carry CONTRADICTS at all (decision (a), review G2), so
+  every new contradiction goes through the contradiction admission checks (Task 10). When the
+  counter-claim is **accepted**, the target becomes CONTESTED. This removes
   the cheap grief window (a refundable deposit or a 0.1 ZRN fee buys a 450-block CONTESTED
   window). It also takes the unbounded "is any claim still live" scan
   (`rounds.go:972-997`) off every new BeginBlock path. Yu may reverse this choice (§9, D1).
@@ -202,6 +204,7 @@ New file `app/upgrades_claim_integrity.go`, mirroring `app/upgrades_fund_settlem
 | Pre-activation self-commits | They still reveal and settle. The P5 guard applies to commits only. |
 | REFORMULATES edges from pre-activation augmentation verdicts, including IDs that extend (`<F>/x`) or equal a fact's ID | Kept, a closed set. R2 reads a claim-born fact's edges by key from its claim; the prefix scan of a claimless fact skips foreign entries (§5.3). After activation the writer refuses such IDs (review G1R, §8). |
 | Historical status transitions | Never rewritten. |
+| Content hashes shared by two records admitted before activation (P1ext: knowledge 11 let a `MsgSubmitContradiction` carry another claim's exact text) | Not rewritten. Knowledge 11 rewrote 0x09 on every save, so the entry names the record **saved last**, and the live chain decides dedup from that record's standing. An import replays first saves in admission order (Task 8), so there the entry names the record **admitted last**. When the two records differ in standing, the live and the imported chain disagree, in either direction: one admits a third copy of a standing fact's text and the other refuses it (review CI-REVIEW-1; both pinned by `TestClaimIntegrity_LegacyContentCollisionLiveVsImport`). After activation every admission checks 0x09 first, so no new pair arises. D4 adds a pre-upgrade check (§9). |
 
 ### 3.7 Networks
 - **Fresh local sandboxes.** `zeroned init` uses `DefaultGenesis`, so the new semantics apply
@@ -249,7 +252,7 @@ said it.
 | `structure.scope` | `ver=sha256:<64hex>;loc=<locator>` | The digest of the retrieved source bytes (Hermes SourceVersion), plus the Hermes locator in a lowercase grammar such as `p4.para2`, `sec3.2.para4`, `fig2`, `t=00:12:31`. It contains no text. |
 | `structure.temporal_scope` | publication date of the pinned version (`YYYY-MM-DD`) | Informational. |
 | `structure.tags` (≤10, each ≤50 chars) | `attr-v1`, `stmt:<first 40 hex of the StatementOccurrence hash>`, `zc:<first 40 hex of object hash>` | `FactsByTag` joins accepted attributions. Tags are indexed only when a fact is created. |
-| `fact_content` (20–1000 B) | fixed template: `Attribution zerone.attribution/v1: <subject> <predicate> <object> at <scope>` | No free text, so no excerpt can get in. The content hash identifies the tuple. |
+| `fact_content` (20–1000 B) | fixed template: `Attribution zerone.attribution/v1: <subject> <predicate> <object> at <scope>` | No free text, so no excerpt can get in. The content hash identifies the tuple. With the marker on, the chain refuses any other record text that opens with `Attribution zerone.attribution/v1:` (review G2, SEC-4; limits in §4.8). |
 | `reasoning_trace` (≤8192 B) | RFC 8785 JCS JSON, hashes only. Keys: `schema`, `source_version_record`, `statement_occurrence`, `excerpt_sha256`, `proposition_record`, `extractor` | Full hashes live here. Requires record integrity (already on wherever v12 runs). |
 | `references`, `relations` | empty | References must be fact IDs (probe `p4-refs-doi-r1` refused a DOI). |
 | `canonical_form` | omitted | Derived from the structure (v2 after activation). |
@@ -290,9 +293,11 @@ Further examples:
   object `81.0`. After v12 it no longer collides with P1. Then submit attribution `A2` with
   `subject doi:10.1000/p6-jones-2021`, `predicate reports:author` and
   `object zrn-content:<hash of P2>`.
-  - If Jones's finding should contest P1, submit P2 as `MsgSubmitClaim` with a CONTRADICTS
-    relation to P1's fact, or as `MsgSubmitContradiction`. P1 becomes CONTESTED only if P2 is
-    accepted (§5).
+  - If Jones's finding should contest P1, submit P2 itself as `MsgSubmitContradiction` against
+    P1's fact, staking at least the minimum for challenging P1 (Task 10). Its counter-claim
+    text is P2's text, so its content hash is the one A2's `object` names. P1 becomes CONTESTED
+    only if P2 is accepted (§5). After activation a `MsgSubmitClaim` may not carry a
+    CONTRADICTS relation (decision (a), review G2).
 - **A quoted speaker.** Use `predicate states:quoted:orcid:0000-0002-1825-0097` (a public
   person), or `states:quoted:hermes:<64hex>` (a private person).
 
@@ -368,6 +373,20 @@ that limit is disclosed.
   are pruned above `CompetitionMaxNicheSize`. Scope includes the version digest and the locator,
   so in practice a niche is one locator in one version.
 - A tag is a 160-bit prefix of a hash. Full hashes are in `object` and `reasoning_trace`.
+- The template is reserved on chain (review G2, SEC-4): with the marker on, `MsgSubmitClaim`,
+  `MsgPostConjecture` and `MsgSubmitContradiction` refuse text that opens with
+  `Attribution zerone.attribution/v1:` unless the message is a `CLAIM_TYPE_RELATION` claim whose
+  structure renders exactly that text. Two limits remain:
+  - The rendering is one-to-one only when subject, predicate and object hold no space, as the
+    §4.7 grammar requires. The chain checks only that the structure renders the text. Another
+    RELATION claim with the same four fields (a different date or tags, say) is the same tuple
+    and is a duplicate under the usual first-admitted rule.
+  - The check reads the text alone. The content-hash preimage is `domain + ":" + text`, and
+    domain names are not validated, so a record in a domain named
+    `<domain>:Attribution zerone.attribution/v1` with the rest of the text can still take an
+    attribution's 0x09 entry (a scratch probe confirmed it in review G2). This is a general
+    content-hash ambiguity that reaches any text containing `:`, not only attributions. It is
+    reported, not closed, in this branch.
 
 ---
 
@@ -386,7 +405,7 @@ that limit is disclosed.
 | From | To | Trigger | `cause_event_type / cause_id` |
 |---|---|---|---|
 | — | VERIFIED (PROVISIONAL for a conjecture) | claim ACCEPTED | `verification / <claim id>` (unchanged for VERIFIED; new for PROVISIONAL, which knowledge 11 recorded as `unknown`) |
-| VERIFIED, ACTIVE | CONTESTED | a claim carrying CONTRADICTS→F is **ACCEPTED** and the edge stored from its counter-fact K to F is CONTRADICTS, the edge R1 reads (one edge per pair; the last relation written wins, so `[CONTRADICTS F, CITES F]` stores CITES and contests nothing) | `contradiction_accepted / <counter-claim id>` |
+| VERIFIED, ACTIVE | CONTESTED | a claim carrying CONTRADICTS→F is **ACCEPTED** and the edge stored from its counter-fact K to F is CONTRADICTS, the edge R1 reads (one edge per pair; the last relation written wins, so `[CONTRADICTS F, CITES F]` stores CITES and contests nothing). After activation only `MsgSubmitContradiction` admits such a claim; a `MsgSubmitClaim` carrying CONTRADICTS is refused (decision (a), review G2), so one reaches this row only if admitted before activation. | `contradiction_accepted / <counter-claim id>` |
 | VERIFIED, ACTIVE, AT_RISK | CONTESTED | a fact F depends on is DISPROVEN (existing cascade) | `cascade / <disproven fact id>` (unchanged) |
 | CONTESTED | VERIFIED | a contradiction ends non-accepted (REJECT, MALFORMED, INCONCLUSIVE, starved) **and** no contest reason remains | `contradiction_reversed / <claim id>` |
 | CONTESTED | VERIFIED | counter-fact K becomes DISPROVEN and no contest reason remains | `counterfact_disproven / <K>` |
@@ -489,13 +508,17 @@ it points at is live or standing.
 | Record the entry points at | Blocks? |
 |---|---|
 | A claim with status PENDING, PENDING_EVALUATION, EVALUATED, PROVISIONAL, IN_VERIFICATION, CHALLENGED, CONTESTED or UNSPECIFIED | yes |
-| A claim with status REJECTED, MALFORMED, INSUFFICIENT or EXPIRED | no |
+| A claim with status REJECTED, MALFORMED, INSUFFICIENT or EXPIRED (the legacy no-quorum outcome, §5.1) | no |
 | A claim with status ACCEPTED | The fact is resolved as `GenerateFactID(claim.Id, round.VerdictBlock)`, which is the same height as `createFactFromClaim` (`rounds.go:205-206`, `:612`). It blocks if that fact is standing. A missing round or fact fails closed: it blocks. |
-| A fact with status PENDING, PROVISIONAL, VERIFIED, ACTIVE, CONTESTED, CHALLENGED, AT_RISK or UNSPECIFIED | yes |
-| A fact with status SUPERSEDED, EXPIRED, DISPROVEN, REVOKED or PRUNED | no |
+| A fact with status PENDING, PROVISIONAL, VERIFIED, ACTIVE, CONTESTED, CHALLENGED, AT_RISK, EXPIRED or UNSPECIFIED | yes |
+| A fact with status SUPERSEDED, DISPROVEN, REVOKED or PRUNED | no |
 | An entry pointing at nothing | no |
 
 Further rules:
+- An EXPIRED fact blocks. Patronage or metabolism can revive it, and a twin admitted meanwhile
+  would then stand beside it (decision (b), review G2 SEC-3; the same set R1 counts as standing,
+  §5.3). An EXPIRED fact cannot be challenged (§8), so it holds its text until it is revived or
+  pruned (by default 20 metabolism epochs after it expires).
 - When a resubmission is admitted, its first save overwrites the index, so the index always names
   the latest admitted record.
 - The usual fee and cooldown apply.
@@ -982,6 +1005,44 @@ Conventions that apply to every task:
   - Not done: re-pinning the `knowledge-writers` anchor for `msg_server.go` (Task 6 note). It
     is deferred to the separate reviewed pinning step, so `tools/authority-graph` fails until
     then.
+
+- Review fixes, group G2 — admission and dedup (2026-10-17; every rule behind the marker,
+  marker off unchanged, Task 2 digest unchanged; tests in
+  `claim_integrity_admission_test.go` unless named):
+  - SEC-2 and F5, decision (a) (§9 D1): `submitClaim` refuses a CONTRADICTS relation with
+    `claim relation <i> names fact <F> as CONTRADICTS; a claim cannot carry a CONTRADICTS
+    relation — dispute the fact with MsgSubmitContradiction (…)`, before any target is read
+    (`refuseClaimContradictsRelation`). Test:
+    `TestClaimIntegrity_SubmitClaimRefusesContradictsRelation`, with its marker-off twin. Four
+    existing tests admitted such a claim with the marker on. Each now admits it before
+    activation, the only way one can still reach a knowledge-12 round:
+    `TestClaimIntegrity_RelationContradictionContestsOnlyWhenAccepted` became
+    `TestClaimIntegrity_PreActivationRelationContradictionHoldsOnceAccepted` (accepted after
+    activation, its edge holds F through R1, while knowledge 11 launders F);
+    `TestClaimIntegrity_AcceptedContestFollowsStoredEdge` and
+    `TestClaimIntegrity_SubmitClaimRelationsRecuseNoDefender` keep their names;
+    `TestClaimIntegrity_UnacceptedContradictionChangesNothing` drops its `MsgSubmitClaim` arm,
+    and `TestClaimIntegrity_PreActivationContestSettlesThroughPredicate` gains one (either
+    knowledge-11 admission path settles through the predicate). A legacy claim naming F as
+    `[CONTRADICTS F, CITES F]` and accepted after activation leaves an already CONTESTED F with
+    no contest reason; the next ending of a contradiction or challenge of F releases it.
+  - SEC-3, decision (b) (§5.4, §9 D3): `factBlocksDedup` counts EXPIRED as standing. Test:
+    `TestClaimIntegrity_ExpiredFactBlocksDedup` (real metabolism to EXPIRED; exact, reworded
+    structured and conjecture copies refused; patronage revives P and no twin exists; PRUNED
+    releases); `TestClaimIntegrity_FactStatusDecidesWhetherEntryBlocks` updated.
+  - SEC-4 (§4.2, §4.8): `refuseReservedAttributionText` in `submitClaim` (the text may open
+    with the template only when the claim is `CLAIM_TYPE_RELATION` and its structure renders
+    exactly that text), in the conjecture path and first in
+    `claimIntegrityContradictionAdmission`. Pure checks, no reads. Test:
+    `TestClaimIntegrity_AttributionTemplateIsReserved` (seven `MsgSubmitClaim` shapes, a
+    conjecture and a contradiction refused; the real attribution admitted; marker-off twin
+    shows the knowledge-11 squat). Residual reported, not fixed: the ':'-in-domain preimage
+    ambiguity (§4.8).
+  - CI-REVIEW-1 (§3.6, §9 D4): no rewrite.
+    `TestClaimIntegrity_LegacyContentCollisionLiveVsImport` pins the live (last-saved) and
+    imported (last-admitted) decisions in both directions.
+  - Docs: spec §1.5, §2.2, §2.3, §2.8, §3, §5.1, §6.1, §6.4, §7, §11; `docs/EVENTS.md`
+    (`contradiction_accepted`); the `--relations` flag help of `submit-claim`.
 
 **Task 11 — Ante gate for dispute messages** · consensus: yes (DeliverTx ante)
 - Files: `app/ante_zerone.go` (`ZeroneCapabilityDecorator` gets `WithClaimIntegrityGate(fn)`),
@@ -1662,6 +1723,14 @@ Each has a default the plan implements. Changing one alters only the named tasks
     especially on reviewer-less chains. It would need the live-claim scan, bounded through
     `ActiveRoundIndex`.
   - Either way, `SubmitClaim`+CONTRADICTS no longer flips at admission.
+  - Decision (a), taken by Claude on 2026-10-17 and reversible (review G2, SEC-2 and F5): with
+    the marker on, `MsgSubmitClaim` may not carry a CONTRADICTS relation at all. It is refused
+    at admission, before any target is read, with an error that points to
+    `MsgSubmitContradiction`. Otherwise one REVIEW_FEE claim whose true but unrelated text a
+    panel accepts contested up to 16 facts at once, past the standing, minimum-stake and text
+    checks of Task 10. Other relation types are unchanged. With the marker off, knowledge 11
+    admits it. The alternative is to apply the Task 10 checks to each CONTRADICTS relation of a
+    `MsgSubmitClaim`, which needs per-target stake accounting.
 - **D2. What an accepted contrary finding does.**
   - Default: **asymmetric**. The target becomes CONTESTED; the counter-fact stays VERIFIED.
   - Default: a target that survives a direct challenge **stays CONTESTED** while the counter-fact
@@ -1669,13 +1738,16 @@ Each has a default the plan implements. Changing one alters only the named tasks
   - Decision (b), taken by Claude on 2026-10-16 and reversible: an EXPIRED counter-fact still
     stands for R1, because patronage or metabolism can revive it. Only SUPERSEDED, DISPROVEN,
     REVOKED and PRUNED counter-facts have fallen (review fix SEC-5). The same decision makes an
-    EXPIRED fact block dedup (D3 below); that half is implemented separately from the contest
-    predicate.
+    EXPIRED fact block dedup (D3 below), implemented in review G2 (SEC-3).
   - Alternatives: symmetric CONTESTED, which freezes the counter-fact out of fitness; or letting
     survival clear R1.
 - **D3. What releases text for resubmission.**
   - Default: no-verdict, negative-verdict and fallen states all release it (§5.4).
-  - Minimal alternative: only INSUFFICIENT and EXPIRED.
+  - Decision (b) (above) supersedes this default for an EXPIRED **fact**: it can be revived, so
+    it counts as standing and blocks. The plan first listed it as fallen. Only SUPERSEDED,
+    DISPROVEN, REVOKED and PRUNED facts release. A claim whose status is EXPIRED (the legacy
+    no-quorum outcome) still releases.
+  - Minimal alternative: only the INSUFFICIENT and EXPIRED claim statuses.
 - **D4. zerone-dev-1.**
   - Whether to upgrade it in place, which bundles the 64-commit `5542b22..a4272bfa` delta and
     needs that delta audited first, or relaunch it from a fresh genesis.
@@ -1683,6 +1755,14 @@ Each has a default the plan implements. Changing one alters only the named tasks
   - Who reviews. dev-1 has never had reviewers, and after P5 a submitter cannot review their own
     claim, so every claim will starve (now harmlessly) until there are `MinVerifiers` independent
     reviewers.
+  - Pre-upgrade rehearsal check (review CI-REVIEW-1). Export the source state at H−1 and group
+    its claims by `content_hash`. Every hash held by more than one claim is a knowledge-11
+    collision (§3.6). For each group, record the record the live 0x09 entry names (the one saved
+    last) and the record an import would name (the one admitted last, by `submitted_at_block`
+    then ID), with each one's status and, for an accepted claim, its fact's status. List every
+    group where the two disagree about blocking, or where any member stands. Nothing is
+    rewritten; the list decides between an in-place upgrade and a relaunch, and tells reviewers
+    which texts can be admitted again.
 - **D5. Hermes contract** (to agree with the Hermes builder):
   - the attribution `object` key: the on-chain content hash (default) or the Hermes Proposition
     hash;

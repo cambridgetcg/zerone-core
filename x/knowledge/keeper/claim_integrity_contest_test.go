@@ -15,8 +15,10 @@ import (
 
 // Claim integrity, Task 12 (P3b): a contradiction contests its target only
 // once a panel accepts it (plan §5.2 rows 2 and 4, §5.3). With the marker on:
-//   - admitting a contradiction, through MsgSubmitContradiction or a
-//     MsgSubmitClaim carrying CONTRADICTS, changes no fact;
+//   - admitting a contradiction changes no fact. MsgSubmitContradiction is
+//     the only way to admit one: a MsgSubmitClaim carrying CONTRADICTS is
+//     refused (review G2, decision (a)), so such a claim reaches a
+//     knowledge-12 round only if it was admitted before activation;
 //   - accepting one moves each VERIFIED or ACTIVE target to CONTESTED, with
 //     cause contradiction_accepted/<counter-claim ID>;
 //   - when one ends without acceptance (REJECT, MALFORMED, INCONCLUSIVE or a
@@ -102,6 +104,13 @@ var contestActivations = []struct {
 	}},
 }
 
+// csActivateInPlace selects claim integrity on a knowledge-11 fixture, as
+// Migrate11to12 does at the upgrade height.
+func (f *v11Fixture) csActivateInPlace(t *testing.T) {
+	t.Helper()
+	contestActivations[0].activate(t, f)
+}
+
 // P3 replica (plan §7 #6, #7, #9). Marker on: A's admission leaves F
 // VERIFIED; A's acceptance contests F and names A; B, at the minimum stake,
 // starves and F stays CONTESTED with no contradiction_reversed event, because
@@ -159,25 +168,29 @@ func TestClaimIntegrity_ContradictionContestsOnlyWhenAccepted(t *testing.T) {
 	}
 }
 
-// A MsgSubmitClaim carrying CONTRADICTS does not contest its target at
-// admission; its acceptance does, and names it. The accepted claim's fact K
-// carries the CONTRADICTS edge to F. Marker off:
-// TestSubmitClaim_ContradictionAutoContests (knowledge 11) still holds.
-func TestClaimIntegrity_RelationContradictionContestsOnlyWhenAccepted(t *testing.T) {
+// A MsgSubmitClaim carrying CONTRADICTS can no longer be admitted with the
+// marker on (TestClaimIntegrity_SubmitClaimRefusesContradictsRelation), but
+// one admitted before activation may still be pending. Knowledge 11 contested
+// F at its admission. Accepted after activation, its fact K carries the
+// CONTRADICTS edge to F; F is already CONTESTED, so the acceptance writes no
+// transition and emits no contradiction_accepted. From then on R1 holds F:
+// a later contradiction that starves leaves F CONTESTED while K stands.
+// Marker off throughout: TestSubmitClaim_ContradictionAutoContests still
+// holds, and the starved contradiction launders F (knowledge 11).
+func TestClaimIntegrity_PreActivationRelationContradictionHoldsOnceAccepted(t *testing.T) {
 	for _, sel := range dedupSelections {
 		t.Run(sel.name, func(t *testing.T) {
-			f := sel.setup(t)
-			claimF, factF, _ := f.contraTarget(t, "v12-cs-rel-author", "Synthetic v12 probe P3: fact F, which a claim relation contradicts.")
+			f := setupV11SemanticsTest(t)
+			claimF, factF, minimum := f.contraTarget(t, "v12-cs-rel-author", "Synthetic v12 probe P3: fact F, which a claim relation contradicts.")
 			created := v11Transition{csUnspecified, csVerified, "verification", claimF}
 			admissionFlip := v11Transition{csVerified, csContested, "cascade", ""}
 
 			c := f.mustSubmitClaim(t, v11Addr("v12-cs-rel-counter"), "Synthetic v12 probe P3: a finding that contradicts fact F through a claim relation.", dedupDomain, csContradicts(factF))
+			require.Equal(t, csContested, f.fact(t, factF).Status, "knowledge 11 contests F at admission")
+			history := []v11Transition{created, admissionFlip}
+			require.Equal(t, history, f.transitions(factF))
 			if sel.integrity {
-				require.Equal(t, csVerified, f.fact(t, factF).Status, "admitting a CONTRADICTS relation changes no fact")
-				require.Equal(t, []v11Transition{created}, f.transitions(factF))
-			} else {
-				require.Equal(t, csContested, f.fact(t, factF).Status)
-				require.Equal(t, []v11Transition{created, admissionFlip}, f.transitions(factF))
+				f.csActivateInPlace(t)
 			}
 
 			f.freshEvents()
@@ -189,14 +202,23 @@ func TestClaimIntegrity_RelationContradictionContestsOnlyWhenAccepted(t *testing
 			require.Len(t, incoming, 1)
 			require.Equal(t, factK, incoming[0].SourceFactId)
 			require.Equal(t, types.RelationType_RELATION_TYPE_CONTRADICTS, incoming[0].Relation)
+			require.Equal(t, history, f.transitions(factF), "F was already CONTESTED")
+			require.Empty(t, v11Event(f.ctx, csAcceptedEvent))
+
+			f.nextBlock(t)
+			b := f.mustContradict(t, v11Addr("v12-cs-rel-griefer"), factF, "Synthetic v12 probe P3: a contradiction of fact F at the minimum stake, left without reviewers.", minimum)
+			f.freshEvents()
+			f.starve(t, b)
 			if sel.integrity {
-				require.Equal(t, []v11Transition{created, {csVerified, csContested, "contradiction_accepted", c}}, f.transitions(factF))
-				require.Equal(t, []map[string]string{{"fact_id": factF, "counter_claim_id": c, "counter_fact_id": factK}},
-					v11Event(f.ctx, csAcceptedEvent))
+				require.Equal(t, csContested, f.fact(t, factF).Status, "R1: K's CONTRADICTS edge still holds F")
+				require.Empty(t, v11Event(f.ctx, csReversedEvent))
+				require.Equal(t, history, f.transitions(factF))
 			} else {
-				require.Equal(t, []v11Transition{created, admissionFlip}, f.transitions(factF))
-				require.Empty(t, v11Event(f.ctx, csAcceptedEvent))
+				require.Equal(t, csVerified, f.fact(t, factF).Status, "knowledge 11 launders F while K stands")
+				require.Equal(t, csReversed(factF, b), v11Event(f.ctx, csReversedEvent))
+				require.Equal(t, append(history, v11Transition{csContested, csVerified, "verification", claimF}), f.transitions(factF))
 			}
+			require.Equal(t, csVerified, f.fact(t, factK).Status)
 			f.requireNoLiveRounds(t)
 		})
 	}
@@ -204,12 +226,16 @@ func TestClaimIntegrity_RelationContradictionContestsOnlyWhenAccepted(t *testing
 
 // A claim can name the same target twice. The relation store keeps one edge
 // per (source, target) pair and the last relation written wins, so a claim
-// with [CONTRADICTS F, CITES F] stores K→F as CITES. With the marker on,
-// acceptance contests F only when the stored edge is CONTRADICTS, the edge R1
-// reads. Otherwise F would be CONTESTED with no edge to hold it, and a later
-// starved contradiction would release it while K stands. Marker off:
-// knowledge 11 flips F at admission in either order, and a starved
-// contradiction launders it.
+// with [CONTRADICTS F, CITES F] stores K→F as CITES. With the marker on such
+// a claim can no longer be admitted, so the case is a claim admitted before
+// activation and accepted after it. Knowledge 11 contested F at its
+// admission in either order. With the marker on, the stored edge decides
+// what holds F afterwards: when it is CONTRADICTS, R1 keeps F CONTESTED
+// through a later starved contradiction; when it is CITES, nothing holds F
+// and that ending releases it. (The acceptance itself leaves an already
+// CONTESTED F as it is; the stored-edge rule on a VERIFIED target is
+// TestContestAcceptedTargets.) Marker off: knowledge 11 launders F in either
+// order.
 func TestClaimIntegrity_AcceptedContestFollowsStoredEdge(t *testing.T) {
 	for _, order := range []struct {
 		name   string
@@ -221,7 +247,7 @@ func TestClaimIntegrity_AcceptedContestFollowsStoredEdge(t *testing.T) {
 	} {
 		for _, sel := range dedupSelections {
 			t.Run(order.name+"/"+sel.name, func(t *testing.T) {
-				f := sel.setup(t)
+				f := setupV11SemanticsTest(t)
 				claimF, factF, minimum := f.contraTarget(t, "v12-cs-dup-author", "Synthetic v12 probe P3: fact F, which one claim names twice.")
 				created := v11Transition{csUnspecified, csVerified, "verification", claimF}
 				admissionFlip := v11Transition{csVerified, csContested, "cascade", ""}
@@ -230,12 +256,11 @@ func TestClaimIntegrity_AcceptedContestFollowsStoredEdge(t *testing.T) {
 					func(m *types.MsgSubmitClaim) {
 						m.Relations = []*types.ClaimRelation{{Relation: order.first, TargetFactId: factF}, {Relation: order.second, TargetFactId: factF}}
 					})
+				require.Equal(t, csContested, f.fact(t, factF).Status, "knowledge 11 contests F at admission")
+				history := []v11Transition{created, admissionFlip}
+				require.Equal(t, history, f.transitions(factF))
 				if sel.integrity {
-					require.Equal(t, csVerified, f.fact(t, factF).Status, "admission changes no fact")
-					require.Equal(t, []v11Transition{created}, f.transitions(factF))
-				} else {
-					require.Equal(t, csContested, f.fact(t, factF).Status, "knowledge 11 contests F at admission")
-					require.Equal(t, []v11Transition{created, admissionFlip}, f.transitions(factF))
+					f.csActivateInPlace(t)
 				}
 
 				f.freshEvents()
@@ -245,41 +270,28 @@ func TestClaimIntegrity_AcceptedContestFollowsStoredEdge(t *testing.T) {
 				require.Len(t, incoming, 1, "one edge per (source, target) pair")
 				require.Equal(t, factK, incoming[0].SourceFactId)
 				require.Equal(t, order.second, incoming[0].Relation, "the last relation written wins")
-				contested := sel.integrity && order.second == types.RelationType_RELATION_TYPE_CONTRADICTS
-				switch {
-				case !sel.integrity:
-					require.Equal(t, csContested, f.fact(t, factF).Status)
-					require.Equal(t, []v11Transition{created, admissionFlip}, f.transitions(factF))
-					require.Empty(t, v11Event(f.ctx, csAcceptedEvent))
-				case contested:
-					require.Equal(t, csContested, f.fact(t, factF).Status, "the stored CONTRADICTS edge contests F")
-					require.Equal(t, []v11Transition{created, {csVerified, csContested, "contradiction_accepted", c}}, f.transitions(factF))
-					require.Equal(t, []map[string]string{{"fact_id": factF, "counter_claim_id": c, "counter_fact_id": factK}},
-						v11Event(f.ctx, csAcceptedEvent))
-				default:
-					require.Equal(t, csVerified, f.fact(t, factF).Status, "no stored CONTRADICTS edge, so acceptance contests nothing")
-					require.Equal(t, []v11Transition{created}, f.transitions(factF))
-					require.Empty(t, v11Event(f.ctx, csAcceptedEvent))
-				}
-				history := f.transitions(factF)
+				require.Equal(t, csContested, f.fact(t, factF).Status)
+				require.Equal(t, history, f.transitions(factF))
+				require.Empty(t, v11Event(f.ctx, csAcceptedEvent))
 
 				f.nextBlock(t)
 				b := f.mustContradict(t, v11Addr("v12-cs-dup-griefer"), factF, "Synthetic v12 probe P3: a contradiction of the twice-named fact F, left without reviewers.", minimum)
 				f.freshEvents()
 				f.starve(t, b)
+				held := sel.integrity && order.second == types.RelationType_RELATION_TYPE_CONTRADICTS
 				switch {
 				case !sel.integrity:
 					require.Equal(t, csVerified, f.fact(t, factF).Status, "knowledge 11 launders F")
 					require.Equal(t, csReversed(factF, b), v11Event(f.ctx, csReversedEvent))
 					require.Equal(t, append(history, v11Transition{csContested, csVerified, "verification", claimF}), f.transitions(factF))
-				case contested:
+				case held:
 					require.Equal(t, csContested, f.fact(t, factF).Status, "R1: K's stored CONTRADICTS edge still holds F")
 					require.Empty(t, v11Event(f.ctx, csReversedEvent))
 					require.Equal(t, history, f.transitions(factF))
 				default:
-					require.Equal(t, csVerified, f.fact(t, factF).Status)
-					require.Empty(t, v11Event(f.ctx, csReversedEvent))
-					require.Equal(t, history, f.transitions(factF))
+					require.Equal(t, csVerified, f.fact(t, factF).Status, "the stored edge is CITES, so nothing holds F")
+					require.Equal(t, csReversed(factF, b), v11Event(f.ctx, csReversedEvent))
+					require.Equal(t, append(history, v11Transition{csContested, csVerified, "contradiction_reversed", b}), f.transitions(factF))
 				}
 				require.Equal(t, csVerified, f.fact(t, factK).Status)
 				f.requireNoLiveRounds(t)
@@ -288,73 +300,82 @@ func TestClaimIntegrity_AcceptedContestFollowsStoredEdge(t *testing.T) {
 	}
 }
 
-// With the marker on, a contradiction that ends without acceptance, by either
-// admission path and in each of the three non-accepted endings, leaves its
-// VERIFIED target exactly as it was: no transition and no event.
+// With the marker on, a contradiction that ends without acceptance, in each
+// of the three non-accepted endings, leaves its VERIFIED target exactly as it
+// was: no transition and no event. MsgSubmitContradiction is the only
+// marker-on admission path; a MsgSubmitClaim carrying CONTRADICTS is refused
+// (TestClaimIntegrity_SubmitClaimRefusesContradictsRelation), and one admitted
+// before activation settles through the predicate
+// (TestClaimIntegrity_PreActivationContestSettlesThroughPredicate).
 func TestClaimIntegrity_UnacceptedContradictionChangesNothing(t *testing.T) {
 	for _, ending := range contestEndings {
-		for _, via := range []string{"MsgSubmitContradiction", "MsgSubmitClaim"} {
-			t.Run(ending.name+"/"+via, func(t *testing.T) {
-				f := setupClaimIntegrityTest(t)
-				claimF, factF, minimum := f.contraTarget(t, "v12-cs-un-author", "Synthetic v12 probe P3: fact F, disputed by a claim that is never accepted.")
-				const counter = "Synthetic v12 probe P3: a dispute of fact F that no panel accepts."
-				var c string
-				if via == "MsgSubmitContradiction" {
-					c = f.mustContradict(t, v11Addr("v12-cs-un-counter"), factF, counter, minimum)
-				} else {
-					c = f.mustSubmitClaim(t, v11Addr("v12-cs-un-counter"), counter, dedupDomain, csContradicts(factF))
-				}
-				f.freshEvents()
-				ending.end(t, f, c)
-				require.Equal(t, csVerified, f.fact(t, factF).Status)
-				require.Equal(t, []v11Transition{{csUnspecified, csVerified, "verification", claimF}}, f.transitions(factF))
-				require.Empty(t, v11Event(f.ctx, csReversedEvent))
-				require.Empty(t, v11Event(f.ctx, csAcceptedEvent))
-				f.requireNoLiveRounds(t)
-			})
-		}
+		t.Run(ending.name, func(t *testing.T) {
+			f := setupClaimIntegrityTest(t)
+			claimF, factF, minimum := f.contraTarget(t, "v12-cs-un-author", "Synthetic v12 probe P3: fact F, disputed by a claim that is never accepted.")
+			const counter = "Synthetic v12 probe P3: a dispute of fact F that no panel accepts."
+			c := f.mustContradict(t, v11Addr("v12-cs-un-counter"), factF, counter, minimum)
+			f.freshEvents()
+			ending.end(t, f, c)
+			require.Equal(t, csVerified, f.fact(t, factF).Status)
+			require.Equal(t, []v11Transition{{csUnspecified, csVerified, "verification", claimF}}, f.transitions(factF))
+			require.Empty(t, v11Event(f.ctx, csReversedEvent))
+			require.Empty(t, v11Event(f.ctx, csAcceptedEvent))
+			f.requireNoLiveRounds(t)
+		})
 	}
 }
 
 // Plan §3.6: a fact CONTESTED by a knowledge-11 admission flip is released by
 // the same predicate when that contradiction ends, after an in-place upgrade
 // or an import. If an accepted counter-fact K stands (the P3 state before
-// activation), R1 keeps the fact CONTESTED instead, in every ending.
+// activation), R1 keeps the fact CONTESTED instead, in every ending. The
+// pending contradiction may have been admitted by either knowledge-11 path:
+// MsgSubmitContradiction, or a MsgSubmitClaim carrying CONTRADICTS (which the
+// marker now refuses at admission, review G2).
 func TestClaimIntegrity_PreActivationContestSettlesThroughPredicate(t *testing.T) {
 	for _, standing := range []bool{false, true} {
 		for _, activation := range contestActivations {
 			for _, ending := range contestEndings {
-				t.Run(fmt.Sprintf("counter-fact standing=%t/%s/%s", standing, activation.name, ending.name), func(t *testing.T) {
-					f := setupV11SemanticsTest(t)
-					_, factF, _ := f.contraTarget(t, "v12-pa-author", "Synthetic v12 probe P3: fact F, contested before claim integrity existed.")
-					if standing {
-						a, err := f.contradict(v11Addr("v12-pa-jones"), factF, "Synthetic v12 probe P3: an accepted finding that contradicts fact F.", dedupDomain, v11ReviewFee)
-						require.NoError(t, err)
-						f.accept(t, a, v11Reviewers()...)
-						f.nextBlock(t)
-					}
-					c1, err := f.contradict(v11Addr("v12-pa-pending"), factF, "Synthetic v12 probe P3: a contradiction of fact F still pending at activation.", dedupDomain, v11ReviewFee)
-					require.NoError(t, err)
-					require.Equal(t, csContested, f.fact(t, factF).Status)
-					history := f.transitions(factF)
-					require.Equal(t, v11Transition{csVerified, csContested, "cascade", ""}, history[len(history)-1], "the knowledge-11 admission flip")
+				for _, via := range []string{"MsgSubmitContradiction", "MsgSubmitClaim"} {
+					t.Run(fmt.Sprintf("counter-fact standing=%t/%s/%s/%s", standing, activation.name, ending.name, via), func(t *testing.T) {
+						f := setupV11SemanticsTest(t)
+						_, factF, _ := f.contraTarget(t, "v12-pa-author", "Synthetic v12 probe P3: fact F, contested before claim integrity existed.")
+						if standing {
+							a, err := f.contradict(v11Addr("v12-pa-jones"), factF, "Synthetic v12 probe P3: an accepted finding that contradicts fact F.", dedupDomain, v11ReviewFee)
+							require.NoError(t, err)
+							f.accept(t, a, v11Reviewers()...)
+							f.nextBlock(t)
+						}
+						const pending = "Synthetic v12 probe P3: a contradiction of fact F still pending at activation."
+						var c1 string
+						if via == "MsgSubmitContradiction" {
+							var err error
+							c1, err = f.contradict(v11Addr("v12-pa-pending"), factF, pending, dedupDomain, v11ReviewFee)
+							require.NoError(t, err)
+						} else {
+							c1 = f.mustSubmitClaim(t, v11Addr("v12-pa-pending"), pending, dedupDomain, csContradicts(factF))
+						}
+						require.Equal(t, csContested, f.fact(t, factF).Status)
+						history := f.transitions(factF)
+						require.Equal(t, v11Transition{csVerified, csContested, "cascade", ""}, history[len(history)-1], "the knowledge-11 admission flip")
 
-					g := activation.activate(t, f)
-					require.Equal(t, history, g.transitions(factF))
-					g.freshEvents()
-					ending.end(t, g, c1)
-					if standing {
-						require.Equal(t, csContested, g.fact(t, factF).Status, "R1: the accepted counter-fact still stands")
-						require.Empty(t, v11Event(g.ctx, csReversedEvent))
+						g := activation.activate(t, f)
 						require.Equal(t, history, g.transitions(factF))
-					} else {
-						require.Equal(t, csVerified, g.fact(t, factF).Status, "no contest reason remains")
-						require.Equal(t, csReversed(factF, c1), v11Event(g.ctx, csReversedEvent))
-						require.Equal(t, append(history, v11Transition{csContested, csVerified, "contradiction_reversed", c1}), g.transitions(factF))
-					}
-					require.Empty(t, v11Event(g.ctx, csIncompleteEvent))
-					g.requireNoLiveRounds(t)
-				})
+						g.freshEvents()
+						ending.end(t, g, c1)
+						if standing {
+							require.Equal(t, csContested, g.fact(t, factF).Status, "R1: the accepted counter-fact still stands")
+							require.Empty(t, v11Event(g.ctx, csReversedEvent))
+							require.Equal(t, history, g.transitions(factF))
+						} else {
+							require.Equal(t, csVerified, g.fact(t, factF).Status, "no contest reason remains")
+							require.Equal(t, csReversed(factF, c1), v11Event(g.ctx, csReversedEvent))
+							require.Equal(t, append(history, v11Transition{csContested, csVerified, "contradiction_reversed", c1}), g.transitions(factF))
+						}
+						require.Empty(t, v11Event(g.ctx, csIncompleteEvent))
+						g.requireNoLiveRounds(t)
+					})
+				}
 			}
 		}
 	}

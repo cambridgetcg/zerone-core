@@ -346,8 +346,10 @@ func TestClaimIntegrity_ClaimStatusDecidesWhetherEntryBlocks(t *testing.T) {
 
 // Every fact status, applied to an accepted claim's fact. The 0x09 entry
 // names the claim and the 0x34 entry names the fact; both resolve to the same
-// fact. Fallen facts release; standing and unknown states block. A deleted
-// fact fails closed behind the claim, while the 0x34 entry then names nothing.
+// fact. Fallen facts release; standing and unknown states block. EXPIRED
+// blocks: patronage or metabolism can revive it (decision (b), review G2
+// SEC-3). A deleted fact fails closed behind the claim, while the 0x34 entry
+// then names nothing.
 func TestClaimIntegrity_FactStatusDecidesWhetherEntryBlocks(t *testing.T) {
 	f := setupClaimIntegrityTest(t)
 	const (
@@ -360,7 +362,6 @@ func TestClaimIntegrity_FactStatusDecidesWhetherEntryBlocks(t *testing.T) {
 	require.Equal(t, factF, f.entry(types.CanonicalHashKey(f.claim(t, x).CanonicalHash)))
 	releases := map[types.FactStatus]bool{
 		types.FactStatus_FACT_STATUS_SUPERSEDED: true,
-		types.FactStatus_FACT_STATUS_EXPIRED:    true,
 		types.FactStatus_FACT_STATUS_DISPROVEN:  true,
 		types.FactStatus_FACT_STATUS_REVOKED:    true,
 		types.FactStatus_FACT_STATUS_PRUNED:     true,

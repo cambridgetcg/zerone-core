@@ -109,6 +109,10 @@ func (m *msgServer) postConjecture(ctx context.Context, msg *types.MsgPostConjec
 		return nil, err
 	}
 	if integrity {
+		// Only an attribution may carry the attribution template (review G2 SEC-4).
+		if err := refuseReservedAttributionText("conjecture statement", msg.Statement, nil); err != nil {
+			return nil, err
+		}
 		blocker, err := m.keeper.blockingDuplicate(ctx, types.ContentHashKey(contentHash))
 		if err != nil {
 			return nil, err

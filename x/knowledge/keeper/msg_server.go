@@ -68,6 +68,21 @@ func (m *msgServer) submitClaim(ctx context.Context, msg *types.MsgSubmitClaim, 
 			return nil, err
 		}
 	}
+	// With claim integrity on, a claim carries no CONTRADICTS relation
+	// (disputes go through MsgSubmitContradiction), and only an attribution
+	// may carry the attribution template (review G2: SEC-2, F5, SEC-4).
+	if integrity {
+		if err := refuseClaimContradictsRelation(msg.Relations); err != nil {
+			return nil, err
+		}
+		var attribution *types.ClaimStructure
+		if msg.ClaimType == types.ClaimType_CLAIM_TYPE_RELATION {
+			attribution = msg.Structure
+		}
+		if err := refuseReservedAttributionText("claim text", msg.FactContent, attribution); err != nil {
+			return nil, err
+		}
+	}
 
 	params, err := m.keeper.GetParams(ctx)
 	if err != nil {
@@ -311,8 +326,9 @@ func (m *msgServer) submitClaim(ctx context.Context, msg *types.MsgSubmitClaim, 
 	m.keeper.SetLastClaimHeight(ctx, msg.Submitter, height)
 
 	// Contradiction detection: auto-mark target facts as CONTESTED. With claim
-	// integrity on, admission changes no fact: the targets are contested only
-	// once this claim is accepted (plan §5.2, Task 12; contestAcceptedTargets).
+	// integrity on, admission changes no fact: a claim carrying CONTRADICTS was
+	// refused above (review G2), and one admitted before activation contests
+	// its targets only once accepted (plan §5.2, Task 12; contestAcceptedTargets).
 	if !integrity {
 		for _, rel := range msg.Relations {
 			if rel.Relation == types.RelationType_RELATION_TYPE_CONTRADICTS {
@@ -1248,7 +1264,13 @@ func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmi
 //  3. the counter-claim text must not repeat a live or standing record's text
 //     in its domain (§5.4), so a contradiction cannot take a live claim's
 //     0x09 entry.
+//
+// Before these, the counter-claim text may not open with the attribution
+// template (review G2 SEC-4).
 func (m *msgServer) claimIntegrityContradictionAdmission(ctx context.Context, msg *types.MsgSubmitContradiction, target *types.Fact, contentHash string) error {
+	if err := refuseReservedAttributionText("counter-claim text", msg.CounterClaim, nil); err != nil {
+		return err
+	}
 	if !factStands(target.Status) {
 		return fmt.Errorf("fact %s is not standing (status: %s); only a verified, active, contested, challenged or at-risk fact can be contradicted",
 			msg.FactId, target.Status)
