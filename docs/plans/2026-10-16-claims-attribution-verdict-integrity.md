@@ -4,10 +4,11 @@ Status: Tasks 1–16, review fixes G1, G1R and G2–G5, a cleanup pass, the impo
 from the final acceptance run (row 10; 2026-10-17) and the restoration of fact edges replaced by
 equal-ID augmentations (approved by Yu on 2026-10-17; §8) are implemented and committed on the
 branch, which is not yet merged. Task 16's end-to-end run (at
-`cb4d7dfd`, before the review fixes) passed; it has not been re-run since. Pending Yu's
-approval: three re-pins (authority geometry, spec hashes, the SDK's generated codecs), behind
-the only checks that still fail (§6, "Deferred checks"). Decisions (a) and (b) were taken by
-Claude and are reversible (§9, D1–D3).
+`cb4d7dfd`, before the review fixes) passed; it has not been re-run since. The three re-pins
+(authority geometry, spec hashes, the SDK's generated codecs) were applied with Yu's approval
+(`faef4388`, `d8e4b8d9`); the edge restoration then changed the claim-integrity spec, whose pin
+is the only failing check until it is re-pinned (§6, "Deferred checks"). Decisions (a) and (b)
+were taken by Claude and are reversible (§9, D1–D3).
 Base: upstream `main` at `a4272bfa`. Branch: `claims/attribution-verdict-integrity`
 (worktree `/Users/yu/.claude/worktrees/zerone-core-claims-integrity`). The branch is meant to
 fast-forward into `main` when done, as Yu approved. Commit after each task, following the repo
