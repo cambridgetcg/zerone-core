@@ -765,6 +765,11 @@ export interface GenesisState {
    * Prospective explicit claim funding; import does not reprice historical claims.
    */
   fundSettlementEnabled: boolean;
+  /**
+   * Claim attribution, verdict and reversal integrity (knowledge v12); requires
+   * fund settlement. Import does not invent upgrade receipts or rewrite records.
+   */
+  claimIntegrityEnabled: boolean;
 }
 /**
  * Exports each ordered source/target pair once, including full provenance.
@@ -2125,7 +2130,8 @@ function createBaseGenesisState(): GenesisState {
     reviewNeutralityEnabled: false,
     factRelationState: undefined,
     claimRecordsEnabled: false,
-    fundSettlementEnabled: false
+    fundSettlementEnabled: false,
+    claimIntegrityEnabled: false
   };
 }
 /**
@@ -2239,6 +2245,9 @@ export const GenesisState = {
     if (message.fundSettlementEnabled === true) {
       writer.uint32(560).bool(message.fundSettlementEnabled);
     }
+    if (message.claimIntegrityEnabled === true) {
+      writer.uint32(568).bool(message.claimIntegrityEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -2350,6 +2359,9 @@ export const GenesisState = {
         case 70:
           message.fundSettlementEnabled = reader.bool();
           break;
+        case 71:
+          message.claimIntegrityEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -2393,6 +2405,7 @@ export const GenesisState = {
     message.factRelationState = object.factRelationState !== undefined && object.factRelationState !== null ? FactRelationGenesis.fromPartial(object.factRelationState) : undefined;
     message.claimRecordsEnabled = object.claimRecordsEnabled ?? false;
     message.fundSettlementEnabled = object.fundSettlementEnabled ?? false;
+    message.claimIntegrityEnabled = object.claimIntegrityEnabled ?? false;
     return message;
   }
 };
