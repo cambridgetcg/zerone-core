@@ -217,7 +217,7 @@ func TestClaimFundingGenesisRequiresCompleteSelectedFinancialRecords(t *testing.
 		PendingClaims: []*types.Claim{c}, CompletedRounds: []*types.VerificationRound{r}}
 	require.NoError(t, types.ValidateGenesisRounds(good))
 	for name, mutate := range map[string]func(*types.GenesisState){
-		"disabled":            func(g *types.GenesisState) { g.FundSettlementEnabled = false },
+		"disabled":            func(g *types.GenesisState) { g.FundSettlementEnabled, g.ClaimIntegrityEnabled = false, false },
 		"missing predecessor": func(g *types.GenesisState) { g.ClaimRecordsEnabled = false },
 		"no claim":            func(g *types.GenesisState) { g.PendingClaims = nil },
 		"missing terminal":    func(g *types.GenesisState) { g.CompletedRounds = nil },
@@ -244,4 +244,5 @@ func TestClaimFundingGenesisRequiresCompleteSelectedFinancialRecords(t *testing.
 	legacy.CompletedRounds = nil
 	require.NoError(t, types.ValidateGenesisRounds(legacy), "missing legacy terminal history stays explicitly missing")
 	require.True(t, types.DefaultGenesis().FundSettlementEnabled)
+	require.True(t, types.DefaultGenesis().ClaimIntegrityEnabled)
 }

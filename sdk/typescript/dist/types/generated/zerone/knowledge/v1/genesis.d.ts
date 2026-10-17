@@ -764,6 +764,11 @@ export interface GenesisState {
      * Prospective explicit claim funding; import does not reprice historical claims.
      */
     fundSettlementEnabled: boolean;
+    /**
+     * Claim attribution, verdict and reversal integrity (knowledge v12); requires
+     * fund settlement. Import does not invent upgrade receipts or rewrite records.
+     */
+    claimIntegrityEnabled: boolean;
 }
 /**
  * Exports each ordered source/target pair once, including full provenance.

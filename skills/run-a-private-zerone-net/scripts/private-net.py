@@ -79,6 +79,11 @@ TX_FEE = 250000  # the ante handler requires fee >= gas x 1uzrn
 CHECKPOINT_EVERY = 100
 CHECKPOINT_SPAN = 2000
 SOCKETFILTERFW = "/usr/libexec/ApplicationFirewall/socketfilterfw"
+CODESIGN = "/usr/bin/codesign"
+# Go's linker signs every binary ad hoc as "a.out". The macOS application firewall keys its app
+# entries by that identifier, so zeroned needs its own (see adhoc_sign and firewall_report).
+SIGN_IDENTIFIER = "org.zerone.zeroned"
+GO_DEFAULT_IDENTIFIER = "a.out"
 SKILL_NAME = "run-a-private-zerone-net"
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 # The skill folder a kit carries, exactly: no other file may ride along beside the pinned tool.
@@ -601,6 +606,35 @@ def rpc_or_absent(port, path, timeout=2):
     return body["result"]
 
 
+# ── code signing ───────────────────────────────────────────────────────────────
+
+def parse_signing_identifier(text):
+    """The Identifier= line of `codesign -d` output, or None."""
+    m = re.search(r"^Identifier=(.+)$", text, re.M)
+    return m.group(1).strip() if m else None
+
+
+def signing_identifier(binary):
+    """The code-signing identifier of `binary`, or None (no codesign here, or not signed)."""
+    if not os.path.exists(CODESIGN):
+        return None
+    proc = subprocess.run([CODESIGN, "-d", "--verbose=1", binary], stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, env=clean_env(), timeout=60)
+    return parse_signing_identifier(proc.stdout.decode("utf-8", "replace")) if proc.returncode == 0 else None
+
+
+def adhoc_sign(binary):
+    """Re-sign ad hoc as SIGN_IDENTIFIER, the way the Makefile signs darwin-acl-check. Under Go's
+    default "a.out", `socketfilterfw --add` prints nothing and updates whichever other a.out app
+    already holds the firewall entry (ipfs, another Go tool), so zeroned never gets a rule.
+    The signature has no timestamp, so the same build re-signs to the same bytes."""
+    run([CODESIGN, "--force", "--sign", "-", "--identifier", SIGN_IDENTIFIER, "--timestamp=none", binary])
+    run([CODESIGN, "--verify", "--strict", binary])
+    ident = signing_identifier(binary)
+    if ident != SIGN_IDENTIFIER:
+        raise Refusal("re-signed %s reports identifier %r, not %s" % (binary, ident, SIGN_IDENTIFIER))
+
+
 # ── firewall ───────────────────────────────────────────────────────────────────
 
 def firewall_report(binary):
@@ -619,9 +653,17 @@ def firewall_report(binary):
             if "Allow" in nxt:
                 return "ok", "%s is allowed incoming connections" % binary
             return "fail", "%s is listed but blocked; the owner unblocks it (command below)" % binary
-    return "warn", ("firewall on and zeroned not yet allowed. The prompt would appear only at genesis_time, "
-                    "when the node opens its P2P port, so the owner should allow it now: "
-                    "sudo %s --add %s ; sudo %s --unblockapp %s" % (SOCKETFILTERFW, binary, SOCKETFILTERFW, binary))
+    detail = ("firewall on and zeroned not yet allowed. The prompt would appear only at genesis_time, "
+              "when the node opens its P2P port, so the owner should allow it now: "
+              "sudo %s --add %s ; sudo %s --unblockapp %s" % (SOCKETFILTERFW, binary, SOCKETFILTERFW, binary))
+    if os.path.isfile(binary) and signing_identifier(binary) == GO_DEFAULT_IDENTIFIER:
+        detail += (". This zeroned is signed with Go's default identifier %s, and the firewall keys apps by "
+                   "identifier: if another %s app (ipfs, another Go tool) is already listed, --add prints nothing, "
+                   "updates that app's entry instead, and this warning stays. `build` signs zeroned as %s, so a "
+                   "new pin does not share that identifier. For this binary, allow zeroned if macOS prompts at genesis_time, or rely on "
+                   "this seat dialling out: one connection between two seats is enough"
+                   % (GO_DEFAULT_IDENTIFIER, GO_DEFAULT_IDENTIFIER, SIGN_IDENTIFIER))
+    return "warn", detail
 
 
 # ── commands ───────────────────────────────────────────────────────────────────
@@ -802,8 +844,10 @@ def cmd_build(a):
     info = run(["go", "version", "-m", out], env=env)
     if "vcs.modified=false" not in info or ("vcs.revision=" + a.commit) not in info:
         raise Refusal("built binary does not stamp a clean %s" % a.commit)
+    adhoc_sign(out)
     emit(pin_binary(lay, out, None, {"source": "build", "commit": a.commit, "version": version,
-                                     "go": "go" + m.group(1), "target": "build-darwin-arm64 (CGO_ENABLED=0)"}))
+                                     "go": "go" + m.group(1), "target": "build-darwin-arm64 (CGO_ENABLED=0)",
+                                     "signing_identifier": SIGN_IDENTIFIER}))
     return 0
 
 
@@ -1134,7 +1178,9 @@ keep no function or working directory from one call to the next. {rootnote}
    - Fix every `fail`, then run preflight again. The fixes are the owner's.
      If the `firewall` check warns, the owner runs the two
      `sudo … socketfilterfw` commands it prints, in Terminal, before
-     genesis_time. If `lan-dial` fails, the owner allows the app that runs
+     genesis_time, then preflight runs again; if it still warns, follow what
+     the warning says (a `zeroned` signed `a.out` may never get its own
+     rule). If `lan-dial` fails, the owner allows the app that runs
      this agent under System Settings › Privacy & Security › Local Network.
      If Mullvad is installed, the owner runs `mullvad lan set allow`.
 4. Create the seat:

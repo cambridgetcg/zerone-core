@@ -3907,7 +3907,7 @@
     "zerone.knowledge.v1.ClaimHistoryLink": {
       "properties": {
         "field": {
-          "description": "One of provisional_fact_id, challenged_claim_id, relations.contradicts.",
+          "description": "One of provisional_fact_id, challenged_claim_id, relations.contradicts,\ncontent_hash, canonical_hash, structure.object. The last three name the\nroot claim as target: a resubmission or same-text claim, a canonical twin,\nand an attribution whose object is \"zrn-content:\" + the root content_hash.",
           "type": "string"
         },
         "targetId": {

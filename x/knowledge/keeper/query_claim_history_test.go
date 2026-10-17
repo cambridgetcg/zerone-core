@@ -151,6 +151,114 @@ func TestClaimHistoryPreservesRecordsAndSelectsDirectChallenges(t *testing.T) {
 	require.Empty(t, f.ctx.EventManager().Events())
 }
 
+// Discovery links (claims-integrity plan, Task 3): a resubmission sharing the
+// root's content hash, a twin sharing its non-empty canonical hash, and an
+// attribution whose structure.object names the root's content hash are found
+// in the same single claim scan. Claim IDs sorting before the root exercise
+// key order: the root is not yet known when they are visited.
+func TestClaimHistoryLinksResubmissionsCanonicalTwinsAndAttributions(t *testing.T) {
+	f := setupClaimHistory(t)
+	root, ok := f.k.GetClaim(f.ctx, "claim")
+	require.True(t, ok)
+	root.ContentHash = ComputeClaimContentHash(root.FactContent, root.Domain)
+	root.CanonicalHash = strings.Repeat("c", 64)
+	putClaimHistoryRecord(t, f, types.ClaimKey(root.Id), root)
+	object := "zrn-content:" + root.ContentHash
+	relatedClaims := []*types.Claim{
+		{Id: "a-resubmission", ContentHash: root.ContentHash, FactContent: root.FactContent, Domain: root.Domain, Status: types.ClaimStatus_CLAIM_STATUS_PENDING},
+		{Id: "b-attribution", ContentHash: strings.Repeat("a", 64), Structure: &types.ClaimStructure{Subject: "doi:10.1000/example", Predicate: "states:author", Object: object}, Status: types.ClaimStatus_CLAIM_STATUS_ACCEPTED},
+		{Id: "d-every-link", ContentHash: root.ContentHash, CanonicalHash: root.CanonicalHash, Structure: &types.ClaimStructure{Subject: "doi:10.1000/self", Object: object}, Status: types.ClaimStatus_CLAIM_STATUS_REJECTED},
+		{Id: "zz-canonical-twin", ContentHash: strings.Repeat("b", 64), CanonicalHash: root.CanonicalHash, Status: types.ClaimStatus_CLAIM_STATUS_INSUFFICIENT},
+	}
+	for _, claim := range relatedClaims {
+		putClaimHistoryRecord(t, f, types.ClaimKey(claim.Id), claim)
+		r := &types.VerificationRound{Id: "round-" + claim.Id, ClaimId: claim.Id, Phase: types.VerificationPhase_VERIFICATION_PHASE_COMMIT}
+		putClaimHistoryRecord(t, f, types.RoundKey(r.Id), r)
+	}
+	for _, claim := range []*types.Claim{
+		{Id: "c-other-content", ContentHash: strings.Repeat("d", 64), CanonicalHash: strings.Repeat("e", 64)},
+		{Id: "c-uppercase-object", Structure: &types.ClaimStructure{Subject: "doi:10.1000/x", Object: "zrn-content:" + strings.ToUpper(root.ContentHash)}},
+		{Id: "c-bare-object", Structure: &types.ClaimStructure{Subject: "doi:10.1000/x", Object: root.ContentHash}},
+		{Id: "c-other-field", Structure: &types.ClaimStructure{Subject: object, Predicate: object, Scope: object}},
+		{Id: "c-empty-canonical", ContentHash: strings.Repeat("f", 64)},
+	} {
+		putClaimHistoryRecord(t, f, types.ClaimKey(claim.Id), claim)
+	}
+	before := f.snapshot(t)
+	q := NewQueryServerImpl(f.k)
+	response, err := q.ClaimHistory(f.ctx, &types.QueryClaimHistoryRequest{Id: "claim"})
+	require.NoError(t, err)
+	require.True(t, proto.Equal(root, response.Record.Claim))
+	want := map[string][]*types.ClaimHistoryLink{
+		"a-resubmission":    {{Field: "content_hash", TargetId: "claim"}},
+		"b-attribution":     {{Field: "structure.object", TargetId: "claim"}},
+		"d-every-link":      {{Field: "canonical_hash", TargetId: "claim"}, {Field: "content_hash", TargetId: "claim"}, {Field: "structure.object", TargetId: "claim"}},
+		"zz-canonical-twin": {{Field: "canonical_hash", TargetId: "claim"}},
+	}
+	require.Len(t, response.RelatedClaims, len(want))
+	for i, claim := range relatedClaims {
+		entry := response.RelatedClaims[i]
+		require.Equal(t, claim.Id, entry.Record.ClaimId)
+		require.True(t, proto.Equal(claim, entry.Record.Claim))
+		require.Len(t, entry.Links, len(want[claim.Id]), claim.Id)
+		for j, link := range want[claim.Id] {
+			require.True(t, proto.Equal(link, entry.Links[j]), "%s link %d: %v", claim.Id, j, entry.Links[j])
+		}
+		require.Len(t, entry.Record.Rounds, 1, claim.Id)
+		require.Equal(t, "round-"+claim.Id, entry.Record.Rounds[0].Id)
+	}
+	again, err := q.ClaimHistory(f.ctx, &types.QueryClaimHistoryRequest{Id: "claim"})
+	require.NoError(t, err)
+	require.True(t, proto.Equal(response, again))
+	require.Equal(t, before, f.snapshot(t))
+	require.Empty(t, f.ctx.EventManager().Events())
+
+	// Links are relative to whichever claim is requested: the resubmission's
+	// history links the original root back by content hash. The canonical twin
+	// is absent because the resubmission has no canonical hash; nothing is
+	// reached transitively through the original root.
+	reverse, err := q.ClaimHistory(f.ctx, &types.QueryClaimHistoryRequest{Id: "a-resubmission"})
+	require.NoError(t, err)
+	ids := make([]string, 0, len(reverse.RelatedClaims))
+	for _, entry := range reverse.RelatedClaims {
+		ids = append(ids, entry.Record.ClaimId)
+		for _, link := range entry.Links {
+			require.Equal(t, "a-resubmission", link.TargetId)
+		}
+	}
+	require.Equal(t, []string{"b-attribution", "claim", "d-every-link"}, ids)
+}
+
+// Empty root hashes never match: a root with no content or canonical hash, and
+// an absent root claim, link nothing by hash, even to claims whose own hashes
+// or structure.object suffix are empty.
+func TestClaimHistoryHashLinksRequireRetainedNonEmptyRootHashes(t *testing.T) {
+	f := setupClaimHistory(t)
+	root, ok := f.k.GetClaim(f.ctx, "claim")
+	require.True(t, ok)
+	require.Empty(t, root.ContentHash)
+	require.Empty(t, root.CanonicalHash)
+	for _, claim := range []*types.Claim{
+		{Id: "a-empty-hashes"},
+		{Id: "b-empty-object-suffix", Structure: &types.ClaimStructure{Subject: "doi:10.1000/x", Object: "zrn-content:"}},
+	} {
+		putClaimHistoryRecord(t, f, types.ClaimKey(claim.Id), claim)
+	}
+	q := NewQueryServerImpl(f.k)
+	response, err := q.ClaimHistory(f.ctx, &types.QueryClaimHistoryRequest{Id: "claim"})
+	require.NoError(t, err)
+	require.Empty(t, response.RelatedClaims)
+
+	hash := ComputeClaimContentHash(root.FactContent, root.Domain)
+	putClaimHistoryRecord(t, f, types.ClaimKey("c-resubmission"), &types.Claim{Id: "c-resubmission", ContentHash: hash, CanonicalHash: strings.Repeat("c", 64), Structure: &types.ClaimStructure{Subject: "doi:10.1000/x", Object: "zrn-content:" + hash}})
+	f.ctx.KVStore(f.keys[0]).Delete(types.ClaimKey("claim"))
+	response, err = q.ClaimHistory(f.ctx, &types.QueryClaimHistoryRequest{Id: "claim"})
+	require.NoError(t, err)
+	require.Nil(t, response.Record.Claim)
+	require.Len(t, response.Record.Facts, 1)
+	require.Empty(t, response.RelatedClaims)
+}
+
 func TestClaimHistoryMissingRecordsRemainAbsent(t *testing.T) {
 	f := setupClaimHistory(t)
 	q := NewQueryServerImpl(f.k)

@@ -1,8 +1,10 @@
 package keeper
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -73,6 +75,19 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 		}
 		if err := k.SetFact(ctx, fact); err != nil {
 			return err
+		}
+	}
+	if gs.ClaimIntegrityEnabled {
+		// The subject (0x32) and tag (0x33) indexes are written only when a
+		// round creates a fact, and the export carries no index. Rebuild them
+		// for every imported fact, in the order the live chain created them,
+		// so FactsByTag and FactsBySubject answer as on the exporting chain
+		// (plan §3.6, §5.5). With the flag off nothing is indexed, as on
+		// knowledge 11.
+		for _, fact := range factsInCreationOrder(gs) {
+			if err := k.IndexFactBySubject(ctx, fact); err != nil {
+				return fmt.Errorf("index imported fact %s: %w", fact.Id, err)
+			}
 		}
 	}
 
@@ -272,7 +287,20 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 			return err
 		}
 	}
-	for _, claim := range gs.PendingClaims {
+	if gs.ClaimIntegrityEnabled {
+		if err := k.EnableClaimIntegrity(ctx); err != nil {
+			return err
+		}
+	}
+	claims := gs.PendingClaims
+	if gs.ClaimIntegrityEnabled {
+		// Each claim's first save below takes its dedup entries, and the file
+		// lists claims in ID order. Replay them in admission order so every
+		// entry names the latest admitted record again (plan §5.4). With the
+		// flag off the file order is kept, as on knowledge 11.
+		claims = claimsInAdmissionOrder(gs.PendingClaims)
+	}
+	for _, claim := range claims {
 		if claim == nil {
 			continue
 		}
@@ -286,8 +314,73 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	if err := k.RebuildPendingVerifierRewardIndex(ctx); err != nil {
 		return err
 	}
+	if gs.ClaimIntegrityEnabled {
+		// A relaunch from a knowledge-11 export carries the fact edges that
+		// equal-ID augmentations replaced, and no migration runs on it.
+		// Restore them as Migrate11to12 does, from the imported facts, claims,
+		// rounds and augmentations. With the flag off nothing is restored, as
+		// on knowledge 11. BaseApp.InitChain discards the events emitted
+		// here, so the node log is the import's record of each pair.
+		restoration, err := k.RestoreAugmentationReplacedEdges(ctx)
+		if err != nil {
+			return fmt.Errorf("restore augmentation-replaced fact edges: %w", err)
+		}
+		k.logAugmentationEdgeRestoration(ctx, "genesis", restoration)
+	}
 
 	return nil
+}
+
+// claimsInAdmissionOrder returns the non-nil claims stably sorted by
+// SubmittedAtBlock, then ID. The input slice is not modified.
+func claimsInAdmissionOrder(claims []*types.Claim) []*types.Claim {
+	ordered := make([]*types.Claim, 0, len(claims))
+	for _, claim := range claims {
+		if claim != nil {
+			ordered = append(ordered, claim)
+		}
+	}
+	slices.SortStableFunc(ordered, func(a, b *types.Claim) int {
+		if c := cmp.Compare(a.SubmittedAtBlock, b.SubmittedAtBlock); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Id, b.Id)
+	})
+	return ordered
+}
+
+// factsInCreationOrder returns the facts that carry a structure (the only ones
+// IndexFactBySubject indexes), stably sorted into the order a live chain
+// creates them: by VerifiedAtBlock, a round-created fact's creation height,
+// which nothing rewrites; then by the round ID its claim names, because
+// AdvanceRoundPhases completes one block's rounds in round-ID order; then by
+// fact ID. Indexing in this order leaves each single-valued subject entry
+// naming the fact created last, as on the live chain. A fact whose claim is
+// not in the file sorts before the claimed facts of its block. The input
+// slice is not modified; the map is only read.
+func factsInCreationOrder(gs *types.GenesisState) []*types.Fact {
+	roundOfClaim := make(map[string]string, len(gs.PendingClaims))
+	for _, claim := range gs.PendingClaims {
+		if claim != nil {
+			roundOfClaim[claim.Id] = claim.VerificationRoundId
+		}
+	}
+	ordered := make([]*types.Fact, 0, len(gs.Facts))
+	for _, fact := range gs.Facts {
+		if fact != nil && fact.Structure != nil {
+			ordered = append(ordered, fact)
+		}
+	}
+	slices.SortStableFunc(ordered, func(a, b *types.Fact) int {
+		if c := cmp.Compare(a.VerifiedAtBlock, b.VerifiedAtBlock); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(roundOfClaim[a.ClaimId], roundOfClaim[b.ClaimId]); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Id, b.Id)
+	})
+	return ordered
 }
 
 // ensureGenesisFundBalance brings a module account up to its declared genesis
@@ -380,6 +473,10 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	if err != nil {
 		panic(err)
 	}
+	claimIntegrity, err := k.ClaimIntegrityEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 	transitions, cascades, historyCounters, err := k.ExportKnowledgeHistory(ctx)
 	if err != nil {
 		panic(fmt.Errorf("export knowledge history: %w", err))
@@ -396,7 +493,7 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 			rounds = append(rounds, round)
 		}
 	}
-	if err := types.ValidateGenesisRounds(&types.GenesisState{PendingClaims: claims, ActiveRounds: rounds, CompletedRounds: completedRounds, RecordIntegrityEnabled: enabled, ReviewNeutralityEnabled: neutral, ClaimRecordsEnabled: claimRecords, FundSettlementEnabled: fundSettlement}); err != nil {
+	if err := types.ValidateGenesisRounds(&types.GenesisState{PendingClaims: claims, ActiveRounds: rounds, CompletedRounds: completedRounds, RecordIntegrityEnabled: enabled, ReviewNeutralityEnabled: neutral, ClaimRecordsEnabled: claimRecords, FundSettlementEnabled: fundSettlement, ClaimIntegrityEnabled: claimIntegrity}); err != nil {
 		panic(fmt.Errorf("export knowledge round references: %w", err))
 	}
 
@@ -525,6 +622,7 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		ReviewNeutralityEnabled:   neutral,
 		ClaimRecordsEnabled:       claimRecords,
 		FundSettlementEnabled:     fundSettlement,
+		ClaimIntegrityEnabled:     claimIntegrity,
 		CompletedRounds:           completedRounds,
 		StatusTransitions:         transitions,
 		CascadeEvents:             cascades,

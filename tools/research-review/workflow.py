@@ -289,7 +289,9 @@ def validate_history(value, packet, receipt):
         seen.add(identifier)
         for edge in rows(related.get("links")):
             object_value(edge, "claim relation")
-            if edge.get("field") not in ("provisional_fact_id", "challenged_claim_id", "relations.contradicts"):
+            # knowledge v12 adds content_hash, canonical_hash and structure.object (target: the root claim).
+            if edge.get("field") not in ("provisional_fact_id", "challenged_claim_id", "relations.contradicts",
+                                         "content_hash", "canonical_hash", "structure.object"):
                 raise Error("unsupported claim relationship")
             text_value(edge.get("target_id"), "relationship target", 256)
     return value

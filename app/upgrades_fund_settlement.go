@@ -27,8 +27,11 @@ func fundSettlementTargetVersionMap() module.VersionMap {
 func requireFundSettlementTransitionOwner(name string, fromVM, targetVM module.VersionMap) error {
 	from, fromOK := fromVM["knowledge"]
 	target, targetOK := targetVM["knowledge"]
-	if !fromOK || !targetOK || from < 6 || from > 11 || target < 6 || target > 11 {
+	if !fromOK || !targetOK || from < 6 || from > 12 || target < 6 || target > 12 {
 		return fmt.Errorf("fund settlement requires complete known knowledge versions")
+	}
+	if from == 11 && target == 12 {
+		return requireClaimIntegrityTransitionOwner(name, fromVM, targetVM)
 	}
 	if from == target || (from < 11 && target < 11) {
 		return nil
@@ -116,28 +119,7 @@ func (app *ZeroneApp) registerFundSettlementUpgrade() {
 
 func (app *ZeroneApp) validateFundSettlementStartupVersions(ctx sdk.Context, vm module.VersionMap, latest int64) error {
 	if reflect.DeepEqual(vm, fundSettlementTargetVersionMap()) {
-		enabled, err := app.KnowledgeKeeper.FundSettlementEnabled(ctx)
-		if err != nil || !enabled {
-			return fmt.Errorf("fund settlement target requires explicit enabled marker: %v", err)
-		}
-		if err := app.validateClaimRecordsCompleted(ctx, latest); err != nil {
-			return err
-		}
-		done, err := app.UpgradeKeeper.GetDoneHeight(ctx, UpgradeNameKnowledgeFundSettlementV1)
-		if err != nil {
-			return err
-		}
-		marker, marked, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(ctx, "migration_v11_complete")
-		if err != nil {
-			return err
-		}
-		if done == 0 && !marked {
-			return nil // Native/imported genesis selects semantics, not applied history.
-		}
-		if done <= 0 || done > latest || !marked || marker != "true" {
-			return fmt.Errorf("fund settlement target has inconsistent migration marker and done height")
-		}
-		return nil
+		return app.validateFundSettlementCompleted(ctx, latest)
 	}
 	if !reflect.DeepEqual(vm, fundSettlementSourceVersionMap()) {
 		return fmt.Errorf("fund settlement startup requires exact complete source or target version map")
@@ -165,6 +147,32 @@ func validateFundSettlementGenesisSelection(genesis GenesisState) error {
 	}
 	if selection.Enabled == nil || !*selection.Enabled {
 		return fmt.Errorf("native knowledge genesis requires explicit fund_settlement_enabled=true")
+	}
+	return nil
+}
+
+// validateFundSettlementCompleted also validates later exact predecessors.
+func (app *ZeroneApp) validateFundSettlementCompleted(ctx sdk.Context, latest int64) error {
+	enabled, err := app.KnowledgeKeeper.FundSettlementEnabled(ctx)
+	if err != nil || !enabled {
+		return fmt.Errorf("fund settlement target requires explicit enabled marker: %v", err)
+	}
+	if err := app.validateClaimRecordsCompleted(ctx, latest); err != nil {
+		return err
+	}
+	done, err := app.UpgradeKeeper.GetDoneHeight(ctx, UpgradeNameKnowledgeFundSettlementV1)
+	if err != nil {
+		return err
+	}
+	marker, marked, err := app.KnowledgeKeeper.ReadMigrationMarkerPresenceChecked(ctx, "migration_v11_complete")
+	if err != nil {
+		return err
+	}
+	if done == 0 && !marked {
+		return nil // Native/imported genesis selects semantics, not applied history.
+	}
+	if done <= 0 || done > latest || !marked || marker != "true" {
+		return fmt.Errorf("fund settlement target has inconsistent migration marker and done height")
 	}
 	return nil
 }

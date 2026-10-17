@@ -377,6 +377,9 @@ message GenesisState {
   bool claim_records_enabled = 69;
   // Prospective explicit claim funding; import does not reprice historical claims.
   bool fund_settlement_enabled = 70;
+  // Claim attribution, verdict and reversal integrity (knowledge v12); requires
+  // fund settlement. Import does not invent upgrade receipts or rewrite records.
+  bool claim_integrity_enabled = 71;
 }
 
 // Exports each ordered source/target pair once, including full provenance.

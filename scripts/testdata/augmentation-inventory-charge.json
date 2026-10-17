@@ -1,0 +1,110 @@
+{
+  "schema": "zerone.knowledge.augmentation-inventory-charge-vector/v1",
+  "note": "Synthetic. Written by TestAugmentationInventoryChargeVector (x/knowledge/keeper) with -update-augmentation-charge-vector; read by scripts/test_audit_augmentation_edge_overwrites.py. keeper_charge is what RestoreAugmentationReplacedEdges charges these records: key plus stored value, summed.",
+  "augmentations": [
+    {
+      "id": "synthetic-charge-every-field",
+      "bounty_id": "synthetic-charge-bounty",
+      "original_fact_id": "synthetic-charge-original",
+      "variant_content": "A synthetic variant whose content is short.",
+      "variant_reasoning_trace": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+      "submitter": "zrn1syntheticchargesubmitter",
+      "created_at_block": "1",
+      "accepted": true,
+      "accepted_at_block": "18446744073709551615",
+      "acceptance_note": "quote \" backslash \\ newline \n tab \t \u003chtml\u003e \u0026 ünïcødé 文字",
+      "verdict": "AUGMENTATION_VERDICT_SUPERIOR",
+      "verdict_block": "127",
+      "verdict_voters": [
+        "zrn1syntheticvoter1",
+        "",
+        "zrn1syntheticvoter3"
+      ],
+      "verdict_votes": [
+        "AUGMENTATION_VERDICT_PENDING",
+        "AUGMENTATION_VERDICT_DRIFT",
+        "AUGMENTATION_VERDICT_SUPERIOR"
+      ],
+      "sponsor_vetoed": true,
+      "payout_amount": "18446744073709551616",
+      "verdict_vote_stakes": [
+        "0",
+        "128",
+        "18446744073709551615"
+      ],
+      "verdict_vote_calibration_bps": [
+        "0",
+        "16383",
+        "16384"
+      ]
+    },
+    {
+      "id": "synthetic-charge-id-only",
+      "bounty_id": "",
+      "original_fact_id": "",
+      "variant_content": "",
+      "variant_reasoning_trace": "",
+      "submitter": "",
+      "created_at_block": "0",
+      "accepted": false,
+      "accepted_at_block": "0",
+      "acceptance_note": "",
+      "verdict": "AUGMENTATION_VERDICT_PENDING",
+      "verdict_block": "0",
+      "verdict_voters": [],
+      "verdict_votes": [],
+      "sponsor_vetoed": false,
+      "payout_amount": "",
+      "verdict_vote_stakes": [],
+      "verdict_vote_calibration_bps": []
+    },
+    {
+      "id": "synthetic-charge-zero-lists",
+      "bounty_id": "",
+      "original_fact_id": "",
+      "variant_content": "",
+      "variant_reasoning_trace": "",
+      "submitter": "",
+      "created_at_block": "0",
+      "accepted": false,
+      "accepted_at_block": "0",
+      "acceptance_note": "",
+      "verdict": "AUGMENTATION_VERDICT_INFERIOR",
+      "verdict_block": "0",
+      "verdict_voters": [
+        ""
+      ],
+      "verdict_votes": [
+        "AUGMENTATION_VERDICT_PENDING"
+      ],
+      "sponsor_vetoed": false,
+      "payout_amount": "",
+      "verdict_vote_stakes": [],
+      "verdict_vote_calibration_bps": []
+    },
+    {
+      "id": "synthetic-charge-ünïcødé-文字/x",
+      "bounty_id": "",
+      "original_fact_id": "synthetic-charge-original",
+      "variant_content": "Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the inventory charge vector. Synthetic variant text for the i",
+      "variant_reasoning_trace": "",
+      "submitter": "",
+      "created_at_block": "0",
+      "accepted": false,
+      "accepted_at_block": "0",
+      "acceptance_note": "",
+      "verdict": "AUGMENTATION_VERDICT_EQUIVALENT",
+      "verdict_block": "128",
+      "verdict_voters": [],
+      "verdict_votes": [],
+      "sponsor_vetoed": false,
+      "payout_amount": "",
+      "verdict_vote_stakes": [],
+      "verdict_vote_calibration_bps": []
+    }
+  ],
+  "keeper_charge": {
+    "records": 4,
+    "bytes": 17184
+  }
+}

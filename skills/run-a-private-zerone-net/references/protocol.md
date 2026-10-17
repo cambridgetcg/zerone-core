@@ -196,4 +196,9 @@ gentx at genesis, because `docs/VALIDATOR-GUIDE.md` rules out the standard
 - **macOS 15 behaviour relied on:**
   - Local Network privacy gates outbound LAN connections by the responsible
     app; Terminal and SSH are exempt;
-  - application firewall rules are per app, not per port.
+  - application firewall rules are per app, not per port, and an app is keyed
+    by its code-signing identifier. Go signs every binary ad hoc as `a.out`,
+    so `build` re-signs `zeroned` as `org.zerone.zeroned`, the same way the
+    Makefile signs `darwin-acl-check`. Observed on macOS 26.6 on 2026-10-17:
+    `--add` for an `a.out` `zeroned` logged "updating existing app by bundle
+    id" against a listed ipfs, then saved an unchanged configuration.

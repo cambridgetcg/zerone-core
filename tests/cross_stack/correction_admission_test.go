@@ -36,6 +36,16 @@ func TestCorrectionAdmission_HistoryAndTopology(t *testing.T) {
 				require.NoError(t, h.KnowledgeKeeper.EnableRecordIntegrity(h.Ctx))
 				require.NoError(t, h.KnowledgeKeeper.EnableReviewNeutrality(h.Ctx))
 				require.NoError(t, h.KnowledgeKeeper.EnableFundSettlement(h.Ctx))
+				if route == "contradiction" {
+					// This route characterizes knowledge-11 contradiction
+					// admission, which contests the target at admission. Claim
+					// integrity (0x87) contests only on acceptance, so it is
+					// pinned off; its own tests are in
+					// x/knowledge/keeper/claim_integrity_contest_test.go.
+					store := h.Ctx.KVStore(h.App.GetStoreKeyForTests(kt.StoreKey))
+					require.Equal(t, []byte{1}, store.Get([]byte(knowledgekeeper.ClaimIntegrityEnabledStoreKey)))
+					store.Delete([]byte(knowledgekeeper.ClaimIntegrityEnabledStoreKey))
+				}
 				params, err := h.KnowledgeKeeper.GetParams(h.Ctx)
 				require.NoError(t, err)
 				// Shorten deadlines only; retain the normal quorum and funding rules.

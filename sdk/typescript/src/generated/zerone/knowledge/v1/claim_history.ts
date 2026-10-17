@@ -72,7 +72,10 @@ export interface RelatedClaimHistory {
  */
 export interface ClaimHistoryLink {
   /**
-   * One of provisional_fact_id, challenged_claim_id, relations.contradicts.
+   * One of provisional_fact_id, challenged_claim_id, relations.contradicts,
+   * content_hash, canonical_hash, structure.object. The last three name the
+   * root claim as target: a resubmission or same-text claim, a canonical twin,
+   * and an attribution whose object is "zrn-content:" + the root content_hash.
    */
   field: string;
   targetId: string;

@@ -19,6 +19,7 @@ COPY internal/recordmigration ./internal/recordmigration
 COPY internal/reviewmigration ./internal/reviewmigration
 COPY internal/claimrecordmigration ./internal/claimrecordmigration
 COPY internal/fundsettlementmigration ./internal/fundsettlementmigration
+COPY internal/claimintegritymigration ./internal/claimintegritymigration
 COPY docs/swagger-ui ./docs/swagger-ui
 
 ARG VERSION

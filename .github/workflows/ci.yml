@@ -121,6 +121,8 @@ jobs:
           python3 -m unittest discover -s deploy/networks/zerone-dev-1 -p 'test_*.py' -v
           python3 -m unittest discover -s scripts -p 'test_shared_claims*.py' -v
           python3 -B -m unittest discover -s skills/run-a-private-zerone-net/scripts -p 'test_*.py' -v
+      - name: Augmentation edge overwrite audit (offline, stdlib only)
+        run: python3 -I -B -m unittest discover -s scripts -p 'test_audit_augmentation_edge_overwrites.py' -v
       - name: Mainnet terminal checkpoint rehearsal
         run: bash deploy/mainnet/halt-checkpoint-rehearsal.sh
       - name: Deterministic post-halt archive config authority
@@ -726,6 +728,31 @@ jobs:
         run: |
           mkdir -p "$TMPDIR"
           bash scripts/local-consensus-rehearsal.sh --keep
+      # zerone-dev-1 is a frozen knowledge-11 network: its gateway accepts knowledge 10/11 only.
+      # Its runtime, shared-claims and research-workflow suites therefore run against a pinned
+      # knowledge-11 build of main's base (a4272bfa), never against the candidate.
+      - name: Check out frozen knowledge-11 source for zerone-dev-1 suites
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: a4272bfa9953e979463d3a310985bbacd5838a8e
+          path: knowledge-11-source
+          persist-credentials: false
+      - name: Build frozen knowledge-11 binary
+        run: |
+          set -euo pipefail
+          test "$(git -C knowledge-11-source rev-parse HEAD)" = a4272bfa9953e979463d3a310985bbacd5838a8e
+          mkdir -p "$RUNNER_TEMP/zerone-knowledge-11"
+          (
+            cd knowledge-11-source
+            go mod download
+            go mod verify
+            go build -mod=readonly -trimpath -buildvcs=true \
+              -ldflags "-X github.com/cosmos/cosmos-sdk/version.Name=zerone -X github.com/cosmos/cosmos-sdk/version.AppName=zeroned -X github.com/cosmos/cosmos-sdk/version.Version=knowledge-11 -X github.com/cosmos/cosmos-sdk/version.Commit=a4272bfa9953e979463d3a310985bbacd5838a8e" \
+              -o "$RUNNER_TEMP/zerone-knowledge-11/zeroned" ./cmd/zeroned
+            git diff --exit-code HEAD
+          )
+          rm -rf knowledge-11-source
+          test -z "$(git status --porcelain)"
       - name: Verify persistent local node setup and restart
         env:
           ZERONE_CONSENSUS_EVIDENCE: ${{ runner.temp }}/zerone-consensus-rehearsal-evidence
@@ -733,21 +760,23 @@ jobs:
           binaries=("$ZERONE_CONSENSUS_EVIDENCE"/zerone-consensus-rehearsal.*/bin/zeroned)
           test "${#binaries[@]}" -eq 1
           test -x "${binaries[0]}"
+          knowledge11="$RUNNER_TEMP/zerone-knowledge-11/zeroned"
+          test -x "$knowledge11"
           ZERONE_LOCAL_NODE_TEST_BINARY="${binaries[0]}" \
             python3 -m unittest discover -s scripts -p 'test_local_node.py' -v
           ZERONE_LOCAL_NODE_TEST_BINARY="${binaries[0]}" \
             python3 -m unittest discover -s scripts -p 'test_claim_workflow*.py' -v
-          ZERONE_SHARED_TEST_BINARY="${binaries[0]}" \
+          ZERONE_SHARED_TEST_BINARY="$knowledge11" \
             python3 -m unittest discover -s deploy/networks/zerone-dev-1 -p 'test_*.py' -v
           mkdir -p "$ZERONE_CONSENSUS_EVIDENCE/shared-participant-reports"
           ZERONE_PRIVATE_NET_EVIDENCE_PARENT="$ZERONE_CONSENSUS_EVIDENCE/shared-participant-reports" \
           ZERONE_PRIVATE_NET_TEST_BINARY="${binaries[0]}" \
             python3 -B -m unittest discover -s skills/run-a-private-zerone-net/scripts -p 'test_*.py' -v
           ZERONE_SHARED_EVIDENCE_PARENT="$ZERONE_CONSENSUS_EVIDENCE/shared-participant-reports" \
-          ZERONE_SHARED_TEST_BINARY="${binaries[0]}" \
+          ZERONE_SHARED_TEST_BINARY="$knowledge11" \
             python3 -m unittest discover -s scripts -p 'test_shared_claims*.py' -v
           ZERONE_RESEARCH_EVIDENCE_PARENT="$ZERONE_CONSENSUS_EVIDENCE/shared-participant-reports" \
-          ZERONE_RESEARCH_TEST_BINARY="${binaries[0]}" \
+          ZERONE_RESEARCH_TEST_BINARY="$knowledge11" \
             python3 -B -m unittest discover -s tools/research-review -p 'test_workflow_native.py' -v
       - name: Retain consensus reports and logs
         if: always()
@@ -811,6 +840,12 @@ jobs:
           ref: ac5684e33b6946a31f6ea260ebf280eace55b033
           path: claim-target
           persist-credentials: false
+      - name: Check out frozen fund settlement target / claim integrity predecessor
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: a4272bfa9953e979463d3a310985bbacd5838a8e
+          path: settlement-target
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "1.25.14"
@@ -823,6 +858,7 @@ jobs:
             record-target/go.sum
             review-target/go.sum
             claim-target/go.sum
+            settlement-target/go.sum
       - name: Build independent binaries and publish source provenance
         env:
           ACCOUNTING_REHEARSAL_PARENT: ${{ runner.temp }}/zerone-accounting-authority-evidence
@@ -838,7 +874,8 @@ jobs:
           test "$(git -C record-target rev-parse HEAD)" = c6fa5df13b090a287e69ba1d0e2281d33afa96e8
           test "$(git -C review-target rev-parse HEAD)" = 2fab850a0ae6f2193fb6e8986b303ee77d9a7d91
           test "$(git -C claim-target rev-parse HEAD)" = ac5684e33b6946a31f6ea260ebf280eace55b033
-          for source in predecessor accounting-target survival-target record-target review-target claim-target candidate; do
+          test "$(git -C settlement-target rev-parse HEAD)" = a4272bfa9953e979463d3a310985bbacd5838a8e
+          for source in predecessor accounting-target survival-target record-target review-target claim-target settlement-target candidate; do
             source_commit=$(git -C "$source" rev-parse HEAD)
             (
               cd "$source"
@@ -856,7 +893,7 @@ jobs:
           report = {"schema": "zerone.accounting-authority/ci-build-v1",
                     "release_evidence": False,
                     "go_version": subprocess.check_output(["go", "version"], text=True).strip()}
-          for source in ("predecessor", "accounting-target", "survival-target", "record-target", "review-target", "claim-target", "candidate"):
+          for source in ("predecessor", "accounting-target", "survival-target", "record-target", "review-target", "claim-target", "settlement-target", "candidate"):
               report[source] = {
                   "source_commit": subprocess.check_output(
                       ["git", "-C", source, "rev-parse", "HEAD"], text=True).strip(),
@@ -916,13 +953,15 @@ jobs:
         run: |
           python3 candidate/scripts/fund-settlement-rehearsal.py \
             --before "$ACCOUNTING_REHEARSAL_BINARIES/claim-target" \
-            --after "$ACCOUNTING_REHEARSAL_BINARIES/candidate" \
+            --after "$ACCOUNTING_REHEARSAL_BINARIES/settlement-target" \
             --evidence-parent "$ACCOUNTING_REHEARSAL_PARENT"
+      # The frozen zerone-dev-1 staged replay targets knowledge 11 (its gateway refuses 12), so it
+      # uses the frozen fund settlement target, not the candidate.
       - name: Rehearse staged development replay and unchanged participant clients
         env:
           ZERONE_UPGRADE_PREDECESSOR_ROOT: ${{ github.workspace }}/claim-target
           ZERONE_UPGRADE_PREDECESSOR_BINARY: ${{ runner.temp }}/zerone-accounting-authority-binaries/claim-target
-          ZERONE_UPGRADE_TARGET_BINARY: ${{ runner.temp }}/zerone-accounting-authority-binaries/candidate
+          ZERONE_UPGRADE_TARGET_BINARY: ${{ runner.temp }}/zerone-accounting-authority-binaries/settlement-target
           ZERONE_SHARED_EVIDENCE_PARENT: ${{ runner.temp }}/zerone-accounting-authority-evidence
         run: python3 -I -B candidate/deploy/networks/zerone-dev-1/test_upgrade_native.py
       - name: Retain public accounting reports only

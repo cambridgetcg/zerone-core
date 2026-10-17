@@ -205,6 +205,16 @@ func (k Keeper) SetClaim(ctx context.Context, claim *types.Claim) error {
 			return err
 		}
 	}
+	// With claim integrity on, only a claim's first save (its admission)
+	// writes its dedup entries; a re-save never moves them (plan §5.4).
+	writeIndex := true
+	if previousBytes != nil && (claim.ContentHash != "" || claim.CanonicalHash != "") {
+		integrity, err := k.ClaimIntegrityEnabled(ctx)
+		if err != nil {
+			return err
+		}
+		writeIndex = !integrity
+	}
 
 	bz, err := marshalOpts.Marshal(claim)
 	if err != nil {
@@ -212,6 +222,9 @@ func (k Keeper) SetClaim(ctx context.Context, claim *types.Claim) error {
 	}
 	if err := store.Set(types.ClaimKey(claim.Id), bz); err != nil {
 		return err
+	}
+	if !writeIndex {
+		return nil
 	}
 	// Content hash dedup index
 	if claim.ContentHash != "" {
@@ -666,6 +679,17 @@ func (k Keeper) StoreCommitmentInRound(ctx context.Context, roundID string, comm
 		}
 	default:
 		return fmt.Errorf("unsupported commitment scheme %d", round.CommitmentScheme)
+	}
+	// Knowledge v12 (claim integrity, plan Task 14): a party to the claim may
+	// not commit. With the marker off the only difference is this read.
+	integrity, err := k.ClaimIntegrityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if integrity {
+		if err := k.refuseConflictedReviewer(ctx, round, commit.Verifier); err != nil {
+			return err
+		}
 	}
 
 	existing := findCommitByVerifier(round.Commits, commit.Verifier)

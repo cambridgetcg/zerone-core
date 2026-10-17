@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { queryClaimHistory, type ClaimHistoryRpc } from "../src/claim-history";
-import { QueryClaimHistoryRequest, QueryClaimHistoryResponse } from "../src/generated/zerone/knowledge/v1/claim_history";
+import { ClaimHistoryRecord, QueryClaimHistoryRequest, QueryClaimHistoryResponse } from "../src/generated/zerone/knowledge/v1/claim_history";
+import { ClaimStructure, type Claim } from "../src/generated/zerone/knowledge/v1/types";
 
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/claim-history-response.json", import.meta.url), "utf8"));
 const golden = Uint8Array.from(Buffer.from(fixture.protobufHex, "hex"));
@@ -78,6 +79,32 @@ test("response limits and unsupported protobuf cannot silently become a partial 
   await assert.rejects(queryClaimHistory(rpc(Uint8Array.from([...golden, 0x0a, chain.length, ...chain])), fixture.claimId), /noncanonical/);
   const failure = new Error("historical state unavailable");
   await assert.rejects(queryClaimHistory({ request: async () => { throw failure; } }, fixture.claimId), error => error === failure);
+});
+
+test("knowledge v12 discovery links to the root claim are accepted; other link names stay refused", async () => {
+  // Resubmission, canonical twin and attribution ("who said P"): target_id is the root claim ID.
+  const related = (claimId: string, fields: string[], claim?: Partial<Claim>) => ({
+    record: ClaimHistoryRecord.fromPartial({ claimId, claim: claim && { ...claim, id: claimId } }),
+    links: fields.map(field => ({ field, targetId: fixture.claimId })),
+  });
+  const value = response();
+  value.relatedClaims.push(
+    related("claim-resubmission", ["content_hash"]),
+    related("claim-canonical-twin", ["canonical_hash", "content_hash"]),
+    related("claim-attribution", ["structure.object"], {
+      structure: ClaimStructure.fromPartial({ subject: "test-speaker", predicate: "asserted", object: `zrn-content:${"c".repeat(64)}` }),
+    }),
+  );
+  const bytes = encoded(value);
+  const observed = await queryClaimHistory(rpc(bytes), fixture.claimId);
+  assert.deepEqual(encoded(observed), bytes);
+  assert.deepEqual(observed.relatedClaims.slice(1).map(row => row.links.map(link => link.field)),
+    [["content_hash"], ["canonical_hash", "content_hash"], ["structure.object"]]);
+  for (const field of ["structure.subject", "Content_Hash", "content_hash ", ""]) {
+    const changed = response();
+    changed.relatedClaims.push(related("claim-resubmission", [field]));
+    await assert.rejects(queryClaimHistory(rpc(encoded(changed)), fixture.claimId), /unsupported related-claim link/);
+  }
 });
 
 test("chain, height and retained-record identity mismatches refuse the whole response", async () => {

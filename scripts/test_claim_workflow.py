@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -349,6 +350,25 @@ class WorkflowTests(unittest.TestCase):
             with self.subTest(values=list(values)), self.assertRaises(workflow.WorkflowError):
                 self.w.review(self.review_args(**values))
             self.assertFalse(self.w.review_path("claim-1", "reviewer1").exists())
+
+    def test_cli_runs_zeroned_with_sandbox_private_home(self):
+        # Like the SDK, the fake creates $HOME/.zeroned/data even with --home.
+        real_home, record = self.home / "real-home", self.home / "calls.jsonl"
+        real_home.mkdir()
+        (self.home / "bin").mkdir(mode=0o700)
+        binary = self.home / "bin/zeroned"
+        binary.write_text(f"#!{sys.executable} -I\n" + "\n".join((
+            "import json, os, sys",
+            "os.makedirs(os.path.join(os.environ['HOME'], '.zeroned', 'data'), exist_ok=True)",
+            f"open({str(record)!r}, 'a').write(json.dumps({{'argv': sys.argv[1:], 'HOME': os.environ['HOME']}}) + '\\n')",
+            "print('ok')", "")))
+        binary.chmod(0o700)
+        with mock.patch.dict(os.environ, {"HOME": str(real_home)}):
+            self.assertEqual(workflow.Workflow.cli(self.w, "keys", "list"), "ok")
+        self.assertEqual(list(real_home.iterdir()), [], "a zeroned call wrote the operator's HOME")
+        call = json.loads(record.read_text())
+        self.assertEqual(call, {"argv": ["keys", "list", "--home", str(self.home)],
+                                "HOME": str(self.home / workflow.local.CLI_HOME)})
 
     def test_local_profile_and_account_identity_required(self):
         manifest = {"knowledge_profile": None}

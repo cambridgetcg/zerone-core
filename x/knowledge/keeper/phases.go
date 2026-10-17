@@ -257,7 +257,17 @@ func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
 					}
 					// (2) Attack fix: a starved CONTRADICTS claim must not leave
 					//     its target fact locked CONTESTED forever (0.1-ZRN grief).
-					k.reverseContradictionsFromClaim(ctx, claim)
+					//     With claim integrity on, a target is released only when
+					//     no contest reason remains (plan Task 12). A failure on
+					//     this legacy-policy path is logged and leaves every
+					//     target unchanged.
+					integrity, err := k.ClaimIntegrityEnabled(ctx)
+					if err == nil {
+						err = k.endContradiction(ctx, claim, integrity)
+					}
+					if err != nil {
+						k.Logger(ctx).Error("starved contradiction left its targets unchanged", "claim_id", claim.Id, "error", err)
+					}
 					// (3) Attack fix: a starved CHALLENGE must not leave its
 					//     target fact locked CHALLENGED forever — restore it with
 					//     no survival credit, since no panel actually judged it.

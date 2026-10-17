@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -949,11 +950,48 @@ func (zad ZeroneAccountDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulat
 // transaction omits an already-stored public key from SignerInfo.
 type ZeroneCapabilityDecorator struct {
 	zak zeroneauthkeeper.Keeper
+	// claimIntegrityGate reports whether knowledge claim integrity (marker
+	// 0x87) is on. Nil means no gate: dispute messages keep the legacy
+	// default-allow.
+	claimIntegrityGate func(context.Context) (bool, error)
 }
 
 // NewZeroneCapabilityDecorator creates a new ZeroneCapabilityDecorator.
 func NewZeroneCapabilityDecorator(zak zeroneauthkeeper.Keeper) ZeroneCapabilityDecorator {
 	return ZeroneCapabilityDecorator{zak: zak}
+}
+
+// WithClaimIntegrityGate returns a copy that, while gate reports true, treats
+// the dispute messages MsgSubmitContradiction and MsgChallengeProvisionalFact
+// exactly like MsgChallengeFact: an unregistered signer gets the onboard hint
+// and a registered one needs CanChallenge. The gate is read only for a tx that
+// carries a dispute message, at most once per tx, and a read error refuses the
+// tx; it is never treated as off. MsgPostConjecture is deliberately not gated.
+func (zcd ZeroneCapabilityDecorator) WithClaimIntegrityGate(gate func(context.Context) (bool, error)) ZeroneCapabilityDecorator {
+	zcd.claimIntegrityGate = gate
+	return zcd
+}
+
+// claimIntegrityGateRead memoizes one tx's gate read.
+type claimIntegrityGateRead struct {
+	gate    func(context.Context) (bool, error)
+	read    bool
+	enabled bool
+	err     error
+}
+
+func (r *claimIntegrityGateRead) enabledFor(ctx sdk.Context) (bool, error) {
+	if r.gate == nil {
+		return false, nil
+	}
+	if !r.read {
+		r.read = true
+		r.enabled, r.err = r.gate(ctx)
+		if r.err != nil {
+			r.err = errors.Wrap(r.err, "read claim integrity gate for dispute message")
+		}
+	}
+	return r.enabled, r.err
 }
 
 func (zcd ZeroneCapabilityDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
@@ -967,12 +1005,13 @@ func (zcd ZeroneCapabilityDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simu
 	if err != nil {
 		return ctx, err
 	}
+	gate := &claimIntegrityGateRead{gate: zcd.claimIntegrityGate}
 	for _, signer := range signers {
 		address := signer.String()
 
 		// Enforce account-level capabilities (default-allow for unrecognized types).
 		for _, msg := range msgs {
-			if err := zcd.checkAccountCapability(ctx, address, msg); err != nil {
+			if err := zcd.checkAccountCapability(ctx, address, msg, gate); err != nil {
 				return ctx, err
 			}
 		}
@@ -983,7 +1022,7 @@ func (zcd ZeroneCapabilityDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simu
 
 // checkAccountCapability enforces account-level capabilities for primary key signers.
 // Unlike session keys (default-deny), primary keys use default-allow for unrecognized types.
-func (zcd ZeroneCapabilityDecorator) checkAccountCapability(ctx sdk.Context, address string, msg sdk.Msg) error {
+func (zcd ZeroneCapabilityDecorator) checkAccountCapability(ctx sdk.Context, address string, msg sdk.Msg, gate *claimIntegrityGateRead) error {
 	msgType := sdk.MsgTypeURL(msg)
 
 	// Auth management messages are always allowed (registration, key rotation, etc.)
@@ -991,23 +1030,34 @@ func (zcd ZeroneCapabilityDecorator) checkAccountCapability(ctx sdk.Context, add
 		return nil
 	}
 
+	gatedDispute := false
+	if isClaimIntegrityDisputeMsg(msgType) {
+		enabled, err := gate.enabledFor(ctx)
+		if err != nil {
+			return err
+		}
+		gatedDispute = enabled
+	}
+
 	account, found := zcd.zak.GetAccount(ctx, address)
 	if !found {
 		// Unregistered account: block Zerone-specific ops, allow everything else
-		if isZeroneSpecificMsg(msgType) {
+		if isZeroneSpecificMsg(msgType) || gatedDispute {
 			return errors.Wrapf(zeroneauthtypes.ErrAccountCapabilityDenied,
 				"%s is not registered with zerone_auth — one-shot fix: zeroned tx zerone_auth onboard agent --from <your-key>", address)
 		}
 		return nil
 	}
 
-	return zcd.checkRegisteredAccountCapability(account, msgType)
+	return zcd.checkRegisteredAccountCapability(account, msgType, gatedDispute)
 }
 
 // checkRegisteredAccountCapability enforces capabilities for registered accounts.
 // Flag-based capabilities (CanSubmitClaims, CanChallenge) are checked from AccountFlags.
 // Type-based restrictions (staking, voting) are derived from account_type.
-func (zcd ZeroneCapabilityDecorator) checkRegisteredAccountCapability(account *zeroneauthtypes.Account, msgType string) error {
+// gatedDispute marks a dispute message under claim integrity, which is checked
+// exactly like a challenge.
+func (zcd ZeroneCapabilityDecorator) checkRegisteredAccountCapability(account *zeroneauthtypes.Account, msgType string, gatedDispute bool) error {
 	flags := account.Flags
 	accountType := account.AccountType
 
@@ -1018,7 +1068,7 @@ func (zcd ZeroneCapabilityDecorator) checkRegisteredAccountCapability(account *z
 				"account type %q cannot submit claims or witness (CanSubmitClaims=false; 'agent' and 'human' accounts can)", accountType)
 		}
 		return nil
-	case isChallengeMsg(msgType):
+	case isChallengeMsg(msgType) || gatedDispute:
 		if flags == nil || !flags.CanChallenge {
 			return errors.Wrapf(zeroneauthtypes.ErrAccountCapabilityDenied,
 				"account type %q cannot challenge facts (CanChallenge=false)", accountType)
@@ -1064,6 +1114,14 @@ func isClaimSubmissionMsg(msgType string) bool {
 
 func isChallengeMsg(msgType string) bool {
 	return msgType == "/zerone.knowledge.v1.MsgChallengeFact"
+}
+
+// isClaimIntegrityDisputeMsg names the dispute messages that the claim
+// integrity gate treats like MsgChallengeFact. Without the gate they keep the
+// legacy default-allow, so they are not in isZeroneSpecificMsg.
+func isClaimIntegrityDisputeMsg(msgType string) bool {
+	return msgType == "/zerone.knowledge.v1.MsgSubmitContradiction" ||
+		msgType == "/zerone.knowledge.v1.MsgChallengeProvisionalFact"
 }
 
 func isClaimMsg(msgType string) bool {
