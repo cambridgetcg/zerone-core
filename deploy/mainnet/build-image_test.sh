@@ -40,6 +40,7 @@ for required in \
   '/internal/reviewmigration/context.go' \
   '/internal/claimrecordmigration/context.go' \
   '/internal/fundsettlementmigration/context.go' \
+  '/internal/claimintegritymigration/context.go' \
   '/runtime/entrypoint.sh' '/public/genesis.json'; do
   grep -q "${required}$" "${TMP}/context-files" || fail "context omitted ${required}"
 done
@@ -79,12 +80,55 @@ grep -q '^COPY internal/claimrecordmigration ./internal/claimrecordmigration$' \
 grep -q '^COPY internal/fundsettlementmigration ./internal/fundsettlementmigration$' \
   "${ROOT}/deploy/mainnet/Dockerfile" || \
   fail "Dockerfile omits the fund settlement migration dependency from its builder"
+grep -q '^COPY internal/claimintegritymigration ./internal/claimintegritymigration$' \
+  "${ROOT}/deploy/mainnet/Dockerfile" || \
+  fail "Dockerfile omits the claim integrity migration dependency from its builder"
 grep -q '^COPY internal/recordmigration ./internal/recordmigration$' \
   "${ROOT}/deploy/mainnet/Dockerfile" || \
   fail "Dockerfile omits the record integrity migration dependency from its builder"
 grep -q '^COPY internal/survivalmigration ./internal/survivalmigration$' \
   "${ROOT}/deploy/mainnet/Dockerfile" || \
   fail "Dockerfile omits the survival migration dependency from its builder"
+
+# The sanitized context above compiled zeroned, so its internal packages are a
+# sufficient set. Every other hand-written enumeration must name exactly that
+# set: the Dockerfile builder, the mainnet release allowlist (which this test
+# cannot compile without a signed tag), and the zerone-2 artifact-auditor
+# allowlists, which only run in release mode. A new internal migration package
+# then fails here instead of at a release ceremony.
+internal_packages() {
+  tr ' ' '\n' | { grep -E '^internal/[A-Za-z0-9_]+$' || true; } | LC_ALL=C sort -u
+}
+context_root=$(sed -n 's|/[.]sanitized-mainnet-context-v1$||p' "${TMP}/context-files")
+[ -n "${context_root}" ] || fail "could not locate the sanitized context root"
+compiled_internal=$(awk -v root="${context_root}/" '
+  index($0, root) == 1 {
+    rel = substr($0, length(root) + 1)
+    if (split(rel, part, "/") > 2 && part[1] == "internal") print "internal/" part[2]
+  }' "${TMP}/context-files" | LC_ALL=C sort -u)
+[ -n "${compiled_internal}" ] || fail "compiled context contained no internal packages"
+dockerfile_internal=$(sed -n 's|^COPY \(internal/[A-Za-z0-9_]*\) [.]/\1$|\1|p' \
+  "${ROOT}/deploy/mainnet/Dockerfile" | LC_ALL=C sort -u)
+if [ "${dockerfile_internal}" != "${compiled_internal}" ]; then
+  printf 'compiled:\n%s\nDockerfile:\n%s\n' "${compiled_internal}" "${dockerfile_internal}" >&2
+  fail "Dockerfile internal COPY set differs from the compiled context"
+fi
+for allowlist_script in \
+  deploy/mainnet/build-image.sh \
+  deploy/networks/zerone-2/runtime/build-image.sh \
+  scripts/zerone-2-ceremony.sh; do
+  allowlist_lines=0
+  while IFS= read -r allowlist_line; do
+    allowlist_lines=$((allowlist_lines + 1))
+    listed_internal=$(printf '%s\n' "${allowlist_line}" | internal_packages)
+    if [ "${listed_internal}" != "${compiled_internal}" ]; then
+      printf 'compiled:\n%s\n%s:\n%s\n' "${compiled_internal}" \
+        "${allowlist_script}" "${listed_internal}" >&2
+      fail "${allowlist_script} source allowlist differs from the compiled context"
+    fi
+  done < <(grep -F ' docs/swagger-ui' "${ROOT}/${allowlist_script}")
+  [ "${allowlist_lines}" -gt 0 ] || fail "${allowlist_script} has no source allowlist"
+done
 # shellcheck disable=SC2016
 grep -q 'test "${TARGETOS}/${TARGETARCH}" = "linux/amd64"' \
   "${ROOT}/deploy/mainnet/Dockerfile" || fail "Dockerfile does not enforce linux/amd64"
