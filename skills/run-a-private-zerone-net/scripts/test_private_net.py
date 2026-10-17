@@ -196,12 +196,19 @@ class CodeSigning(unittest.TestCase):
                 self.assertIn("--add " + binary, detail)
                 self.assertEqual("default identifier a.out" in detail, explained, ident)
 
-    @unittest.skipUnless(sys.platform == "darwin" and os.path.exists(pn.CODESIGN), "macOS codesign not available")
+    @unittest.skipUnless(sys.platform == "darwin" and os.path.exists(pn.CODESIGN) and shutil.which("xcrun"),
+                         "macOS codesign and clang not available")
     def test_adhoc_sign_renames_and_is_deterministic(self):
+        # A fresh linker-signed arm64 executable, like Go's output. A re-signed copy of an Apple
+        # arm64e system binary such as /usr/bin/true was killed at exec on the macos-15 runner.
         d = private_tmp(self)
+        src, built = os.path.join(d, "main.c"), os.path.join(d, "built")
+        with open(src, "w") as f:
+            f.write("int main(void) { return 0; }\n")
+        subprocess.run(["xcrun", "--sdk", "macosx", "clang", "-arch", "arm64", "-o", built, src], check=True)
         copies = [os.path.join(d, n) for n in ("one", "two")]
         for c in copies:
-            shutil.copyfile("/usr/bin/true", c)
+            shutil.copyfile(built, c)
             os.chmod(c, 0o700)
             pn.adhoc_sign(c)
         self.assertEqual(pn.signing_identifier(copies[0]), pn.SIGN_IDENTIFIER)
