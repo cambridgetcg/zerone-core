@@ -77,6 +77,19 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 			return err
 		}
 	}
+	if gs.ClaimIntegrityEnabled {
+		// The subject (0x32) and tag (0x33) indexes are written only when a
+		// round creates a fact, and the export carries no index. Rebuild them
+		// for every imported fact, in the order the live chain created them,
+		// so FactsByTag and FactsBySubject answer as on the exporting chain
+		// (plan §3.6, §5.5). With the flag off nothing is indexed, as on
+		// knowledge 11.
+		for _, fact := range factsInCreationOrder(gs) {
+			if err := k.IndexFactBySubject(ctx, fact); err != nil {
+				return fmt.Errorf("index imported fact %s: %w", fact.Id, err)
+			}
+		}
+	}
 
 	// Seed common knowledge registry
 	ckEntries := gs.CommonKnowledge
@@ -316,6 +329,40 @@ func claimsInAdmissionOrder(claims []*types.Claim) []*types.Claim {
 	}
 	slices.SortStableFunc(ordered, func(a, b *types.Claim) int {
 		if c := cmp.Compare(a.SubmittedAtBlock, b.SubmittedAtBlock); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.Id, b.Id)
+	})
+	return ordered
+}
+
+// factsInCreationOrder returns the facts that carry a structure (the only ones
+// IndexFactBySubject indexes), stably sorted into the order a live chain
+// creates them: by VerifiedAtBlock, a round-created fact's creation height,
+// which nothing rewrites; then by the round ID its claim names, because
+// AdvanceRoundPhases completes one block's rounds in round-ID order; then by
+// fact ID. Indexing in this order leaves each single-valued subject entry
+// naming the fact created last, as on the live chain. A fact whose claim is
+// not in the file sorts before the claimed facts of its block. The input
+// slice is not modified; the map is only read.
+func factsInCreationOrder(gs *types.GenesisState) []*types.Fact {
+	roundOfClaim := make(map[string]string, len(gs.PendingClaims))
+	for _, claim := range gs.PendingClaims {
+		if claim != nil {
+			roundOfClaim[claim.Id] = claim.VerificationRoundId
+		}
+	}
+	ordered := make([]*types.Fact, 0, len(gs.Facts))
+	for _, fact := range gs.Facts {
+		if fact != nil && fact.Structure != nil {
+			ordered = append(ordered, fact)
+		}
+	}
+	slices.SortStableFunc(ordered, func(a, b *types.Fact) int {
+		if c := cmp.Compare(a.VerifiedAtBlock, b.VerifiedAtBlock); c != 0 {
+			return c
+		}
+		if c := cmp.Compare(roundOfClaim[a.ClaimId], roundOfClaim[b.ClaimId]); c != 0 {
 			return c
 		}
 		return cmp.Compare(a.Id, b.Id)

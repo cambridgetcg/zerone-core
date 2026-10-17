@@ -86,6 +86,23 @@ is the genesis flag `claim_integrity_enabled` (§1.2).
   (`submitted_at_block`, then ID), so each duplicate-index entry again names the
   latest admitted record (§3). With the flag off the file order is kept.
   Tests: `TestClaimIntegrity_ImportReplaysAdmissionOrder`.
+- With the flag on, `InitGenesis` also rebuilds the subject (`0x32`) and tag
+  (`0x33`) indexes. A round writes them only when it creates a fact, and the
+  export does not carry them. Every imported fact with a structure is indexed
+  as a round indexes it: each non-blank tag, trimmed and lowercased, and a
+  non-empty subject under the fact's domain. The facts are indexed in creation
+  order (`verified_at_block`, then the round ID their claim names, then the
+  fact ID), because rounds create facts in that order: later blocks last, and
+  one block's rounds in round-ID order. So the one subject entry per domain
+  and subject names the fact created last, as on the live chain, and the
+  import of a live chain's export restores its entries exactly, whatever order
+  the file lists the facts in. `FactsByTag` and `FactsBySubject` answer, and
+  admission warns of a duplicate subject, as before the export. With the flag
+  off nothing is indexed, as in knowledge 11, and the store after such an
+  import matches `a4272bfa` byte for byte. Residuals: §1.5.
+  Tests: `TestClaimIntegrity_ImportRebuildsSubjectAndTagIndexes`,
+  `TestClaimIntegrity_ImportIndexesInCreationOrder`,
+  `TestV11_GoldenImportStoreDigest`.
 
 ### 1.3 Migration and named upgrade
 
@@ -133,9 +150,11 @@ digest recorded on `a4272bfa`. The only difference is reads of `0x87`, which
 cost gas, on the
 admission, round-completion, challenge, commitment and passing
 augmentation-verdict paths and in the ante of a tx that carries a dispute
-message.
-Tests: `TestV11_GoldenKnowledgeStoreDigest`, plus the marker-off half of the
-paired tests below, for example `TestClaimIntegrity_ResaveDoesNotMoveIndex`,
+message. An import with the flag off of a genesis whose facts carry structures
+and tags also matches, byte for byte, its own digest recorded on `a4272bfa`.
+Tests: `TestV11_GoldenKnowledgeStoreDigest`, `TestV11_GoldenImportStoreDigest`,
+plus the marker-off half of the paired tests below, for example
+`TestClaimIntegrity_ResaveDoesNotMoveIndex`,
 `TestClaimIntegrity_ChallengeTransitionsMarkerOffKeepInferredCauses` and
 `TestClaimIntegrityVoteExtensionSkipsPartyCommitment`.
 
@@ -149,6 +168,7 @@ paired tests below, for example `TestClaimIntegrity_ResaveDoesNotMoveIndex`,
 | A fact laundered to VERIFIED while a counter-fact stands | It stays VERIFIED. Either side can be challenged. When a challenge of it ends without refuting it, it returns to CONTESTED. | `TestClaimIntegrity_LaunderedFactChallengeFollowsStandingCounterFact` |
 | A reviewer's commitment to their own claim | It still reveals and settles, and the reviewer is paid. New commitments are refused (§7). | `TestClaimIntegrity_PreActivationSelfCommitStillSettles` |
 | REFORMULATES edges written by passing augmentations, including IDs that extend a fact's ID (`<F>/x`) or equal it | Kept, a closed set. An edge whose source only extends a fact's ID is never read as that fact's edge: R2 reads a claim-born fact's edges by key from its claim, and the prefix scan of a claimless fact skips entries naming another source (§6.3). Such entries still count toward the bound of every check that scans them (§6.3). An ID equal to a fact's ID could replace that fact's own edge, and the check reads the replacement: see the residual below. After activation such edges are no longer written, except under the ID of a fact created after the verdict (§6.6). | `TestClaimIntegrity_ShieldChallengeBehindAugmentationEdgeLaundersNothing`, `TestClaimIntegrity_ShieldChallengeBehindLongAugmentationIDsLaundersNothing`; for the equal ID, those below |
+| Subject (`0x32`) and tag (`0x33`) index entries | An in-place upgrade keeps them as they are. An import with the flag on rebuilds them from the imported facts (§1.2). Knowledge 11 restores none on import (the export carries none, and only a round writes them), so a knowledge-11 chain started from an export answers `FactsByTag` and `FactsBySubject` with nothing for its imported facts. Two residuals of the rebuild: a structured fact listed in a genesis file, which no round created, was never indexed on its original chain but is indexed by the import; and facts of one block whose claims the file does not list are ordered by fact ID, which need not be the order their rounds completed. An export lists every claim, so the second arises only in a hand-written file. | `TestClaimIntegrity_ImportRebuildsSubjectAndTagIndexes` (its flag-off half pins knowledge 11), `TestClaimIntegrity_ImportIndexesInCreationOrder` |
 | Claims, rounds, facts, relations, status transitions, payments | Never rewritten. | `TestClaimIntegrityMigrationPreservesEveryByteAndRestart`, `TestMigrate11to12ChangesExactlyMarkerAndReceipt` |
 | One content hash held by two records (knowledge 11 let `MsgSubmitContradiction` carry another claim's exact text) | Known limit, not repaired. Knowledge 11 rewrote `0x09` on every save, so the entry names the record saved last, and the live chain decides from that record (§3). An import replays first saves in admission order, so the entry names the record admitted last. When the two differ in standing, the live and the imported chain disagree, in either direction: one admits a third copy of a standing fact's text, the other refuses it. After activation every admission checks `0x09` first, so no new pair arises. | `TestClaimIntegrity_LegacyContentCollisionLiveVsImport` |
 
@@ -416,7 +436,10 @@ any other unknown name: `test_v12_discovery_links_are_retained_and_the_set_stays
 (`dashboard/tests/development.test.ts`).
 
 For accepted attributions only, `FactsByTag("zc:<40 hex>")` also works, because
-tags are indexed when a fact is created. *Not tested here.*
+tags are indexed when a round creates a fact, and again by an import with the
+flag on (§1.2). Its limits are in §2.8.
+Tests: `TestClaimIntegrity_ImportRebuildsSubjectAndTagIndexes` (the
+attribution's `zc:` tag, before and after an import).
 
 ### 2.6 What attribution reviewers judge
 
@@ -543,6 +566,21 @@ the same algorithm.
   locator, so in practice a niche is one locator in one version.
 - A tag is a 160-bit prefix of a hash. The full hashes are in `object` and
   `reasoning_trace`.
+- Nothing removes a tag or subject entry when a fact changes status, so
+  `FactsByTag` also lists DISPROVEN, PRUNED and other fallen attributions.
+  Read each fact's status. (`IndexFactBySubject` is the only writer of `0x32`
+  and `0x33`, and nothing deletes them.)
+
+Limits of the index lookups (§2.5, §9), here and after an import (§1.2):
+
+- `FactsBySubject` returns one fact per domain and subject, the one created
+  last, not every fact on that subject.
+  Tests: `TestClaimIntegrity_ImportRebuildsSubjectAndTagIndexes`.
+- On a chain started from an export with the flag off (knowledge 11), both
+  lookups answer nothing for the imported facts. `ClaimHistory` still finds
+  attributions (§2.5).
+  Tests: the flag-off half of
+  `TestClaimIntegrity_ImportRebuildsSubjectAndTagIndexes`.
 
 Limits of the reserved template (§2.2), *not tested here* except where named:
 
@@ -1215,7 +1253,8 @@ checked by `TestEventAudit_DocumentationCompleteness`.
   belong to a RELATION claim whose structure renders it exactly (§2.2). The tag,
   the grammar and the use of the template at all are conventions it does not
   enforce. For accepted attributions, `FactsByTag("zc:<40 hex>")` also finds
-  them, and its results need the same checks.
+  them, also after an import with the flag on (§1.2). Its results need the
+  same checks, and it lists fallen facts too (§2.8).
   *Not tested here*, except the reserved template:
   `TestClaimIntegrity_AttributionTemplateIsReserved`.
 - **A proposition by its structure.** Use `FactByCanonical` with the v2 form

@@ -1,7 +1,8 @@
 # Claims: attribution, verdict and reversal integrity (knowledge v12)
 
-Status: Tasks 1–16, review fixes G1, G1R and G2–G5, and a cleanup pass (2026-10-17) are
-implemented and committed on the branch, which is not yet merged. Task 16's end-to-end run (at
+Status: Tasks 1–16, review fixes G1, G1R and G2–G5, a cleanup pass and the import-index fix
+from the final acceptance run (row 10; 2026-10-17) are implemented and committed on the branch,
+which is not yet merged. Task 16's end-to-end run (at
 `cb4d7dfd`, before the review fixes) passed; it has not been re-run since. Pending Yu's
 approval: three re-pins (authority geometry, spec hashes, the SDK's generated codecs), behind
 the only checks that still fail (§6, "Deferred checks"). Decisions (a) and (b) were taken by
@@ -146,7 +147,8 @@ Wiring:
   5. `WriteMigrationMarker("migration_v12_complete","true")`;
   6. `write()`.
 - `module.go`: `RegisterMigration(knowledge, 11, Migrate11to12)`, and `ConsensusVersion() = 12`.
-- No record is rewritten, there is no index rebuild and no inventory scan.
+- No record is rewritten, there is no index rebuild and no inventory scan. (An import rebuilds
+  the subject and tag indexes, §3.6; the in-place upgrade keeps the live entries.)
 
 ### 3.4 App upgrade handler
 New file `app/upgrades_claim_integrity.go`, mirroring `app/upgrades_fund_settlement.go`.
@@ -209,6 +211,7 @@ New file `app/upgrades_claim_integrity.go`, mirroring `app/upgrades_fund_settlem
 | Facts that were laundered earlier (VERIFIED while a standing counter-fact contradicts them) | Unchanged. §5.6 tells consumers how to read them. Either side can be challenged. |
 | Pre-activation self-commits | They still reveal and settle. The P5 guard applies to commits only. |
 | REFORMULATES edges from pre-activation augmentation verdicts, including IDs that extend (`<F>/x`) or equal a fact's ID | Kept, a closed set. R2 reads a claim-born fact's edges by key from its claim; the prefix scan of a claimless fact skips foreign entries (§5.3). The exception: an equal ID that replaced an existing fact's own edge, which the check then reads (residual in §8). After activation the writer refuses such IDs (review G1R), except the ID of a fact created after the verdict (§8). |
+| Subject (0x32) and tag (0x33) index entries | Kept by the in-place upgrade. Only a round writes them (`IndexFactBySubject` at fact creation) and the export carries none, so on knowledge 11 (and on this branch before the fix) an import restored every fact with its tags but no entry, and `FactsByTag`/`FactsBySubject` answered nothing (final acceptance row 10; pre-existing at a4272bf). With `gs.ClaimIntegrityEnabled`, `InitGenesis` now rebuilds both for every imported fact with a structure, with `IndexFactBySubject` itself, in creation order: `verified_at_block` (a round-created fact's creation height, never rewritten), then the round ID its claim names (`AdvanceRoundPhases` completes a block's rounds in round-ID order), then the fact ID. So the single-valued subject entry names the fact created last, as live, and an export's entries come back exactly. Residuals: a structured fact from a genesis file is indexed although its original chain never indexed it; facts of one block whose claims the file does not list are ordered by fact ID (an export lists every claim). With the flag off nothing is rebuilt, byte for byte as at a4272bf. See "Final acceptance fix" in Phase D. |
 | Historical status transitions | Never rewritten. |
 | Content hashes shared by two records admitted before activation (P1ext: knowledge 11 let a `MsgSubmitContradiction` carry another claim's exact text) | Not rewritten. Knowledge 11 rewrote 0x09 on every save, so the entry names the record **saved last**, and the live chain decides dedup from that record's standing. An import replays first saves in admission order (Task 8), so there the entry names the record **admitted last**. When the two records differ in standing, the live and the imported chain disagree, in either direction: one admits a third copy of a standing fact's text and the other refuses it (review CI-REVIEW-1; both pinned by `TestClaimIntegrity_LegacyContentCollisionLiveVsImport`). After activation every admission checks 0x09 first, so no new pair arises. D4 adds a pre-upgrade check (§9). |
 
@@ -614,7 +617,11 @@ Further rules:
   text that opens with the template must belong to a RELATION claim whose structure renders it
   exactly (§4.8). The tag, the grammar and the use of the template at all are conventions it
   does not enforce. For accepted attributions only, `FactsByTag("zc:<40hex>")` also works, and
-  its results need the same checks.
+  its results need the same checks. It also works on a chain started from an export with the
+  flag on, where `InitGenesis` rebuilds the tag index (§3.6); after a knowledge-11 import it
+  returns nothing, and `ClaimHistory` is the only path. It lists facts in any status (no entry
+  is ever removed), so read each fact's status. `FactsBySubject` returns one fact per domain
+  and subject: the one created last.
 - **A proposition by its structure.** Use `FactByCanonical` with the v2 form. Forms with the
   `zrn.cf.v2/` prefix are hashed verbatim after NFC and trim.
 
@@ -708,6 +715,11 @@ Conventions that apply to every task:
 
   Neither this plan, the spec nor `docs/EVENTS.md` is pinned, so editing them changes no
   check.
+
+  The import-index fix (final acceptance row 10) adds no deferred check and changes none of
+  the three above: it edits `x/knowledge/keeper/genesis.go`, which no authority-geometry
+  anchor pins, adds two test files, and edits this plan and the spec, which are unpinned. It
+  changes no proto, so the SDK's generated codecs are unaffected.
 - Task 2's characterization suite and golden digest must stay green through every later task.
 - New behaviour is tested twice: with the marker on (new fixture `setupClaimIntegrityTest`, which
   is `DefaultGenesis` plus bootstrap funding) and with it off (a marker-off twin).
@@ -1893,6 +1905,56 @@ Conventions that apply to every task:
     §6.3, §6.6, §10, §11; here §3.6, §5.3, §8, §11). The deferred-check list is complete (the
     SDK's generated codecs and the dashboard's authority-geometry checks were missing), and the
     verification commands name the dashboard and SDK checks. The status line names G1R.
+- Final acceptance fix: import rebuilds the subject and tag indexes (2026-10-17; consensus:
+  yes, `InitGenesis` with the flag on only):
+  - Found by the final acceptance run, `/tmp/zerone-v12-e2e3/index.json` row 10:
+    `facts-by-tag doi:10.1000/xyz123` named G's fact before export and nothing after import,
+    although the fact and its `structure.tags` were imported. Cause: 0x32/0x33 are written
+    only by `IndexFactBySubject` from `rounds.go` at fact creation, `InitGenesis` never
+    rebuilt them, and the export has no index field. Pre-existing at a4272bf (the a4272bf
+    snapshot below imports a structured, tagged genesis with zero 0x32/0x33 entries). It
+    broke the §5.5 `FactsByTag("zc:<40hex>")` lookup on any chain started from an export,
+    which is D4's relaunch option.
+  - Red observed: `TestClaimIntegrity_ImportRebuildsSubjectAndTagIndexes`, flag on, both file
+    orders: the imported 0x32/0x33 entries were `nil` against the source's 15. Its flag-off
+    twins passed, pinning knowledge 11. `TestClaimIntegrity_ImportIndexesInCreationOrder`
+    failed the same way (`FactsByTag("golden-shared")` empty).
+  - Change (`keeper/genesis.go`): with `gs.ClaimIntegrityEnabled`, right after the facts are
+    set, `InitGenesis` calls `IndexFactBySubject` for every fact with a structure, in the
+    order of `factsInCreationOrder` (§3.6). The round ID comes from the claims in the same
+    file, read through a lookup map that is never iterated.
+  - Which fact wins the subject entry: the fact created last, as live. The live chain
+    creates facts only in `BeginBlocker` → `AdvanceRoundPhases`, which completes a block's
+    rounds in active-round key (round-ID) order; `VerifiedAtBlock` is set only at creation;
+    a claim has one round, created at its admission; and `DeleteFact`/`DeleteClaim` have no
+    caller outside tests (all read from code).
+  - Tests (new files `claim_integrity_import_index_test.go`,
+    `claim_integrity_import_golden_test.go`):
+    - `TestClaimIntegrity_ImportRebuildsSubjectAndTagIndexes`: an accepted attribution
+      (`attr-v1`, `stmt:`, `zc:` tags), a fact with mixed-case, padded, blank and repeated
+      tags, two facts on subject X in different blocks, and two on subject Y accepted in one
+      block whose round-ID and fact-ID orders disagree (asserted). Export, then import with the
+      flag on and off, in file order and reversed. Flag on: the 0x32/0x33 entries equal the
+      source's entry for entry, `FactsByTag` (including `ZC:…` upper case) and
+      `FactsBySubject` return the same IDs, and admission warns of the same duplicate subject.
+      Flag off: no entry, no answers, no warning.
+    - `TestClaimIntegrity_ImportIndexesInCreationOrder`: a hand-written genesis whose last
+      subject-S fact in the file is not the one created last; a block-40 tie with no claims
+      goes to the greater fact ID; a tag-only structure gets tag entries and no subject entry.
+    - `TestV11_GoldenImportStoreDigest`: the same hand-written genesis imported with the flag
+      off. Its digest `97c340e3…7528` (318 entries) was recorded by importing the identical
+      genesis on an `a4272bf` snapshot (`git archive` into
+      `/tmp/zerone-v12-importidx-a4272bf`, the flag line dropped, the fixture and digest
+      copied verbatim); the branch gave the same digest before and after the fix.
+    - Mutants, each restored: indexing in file order fails both flag-on tests; dropping the
+      round-ID tie-break fails the live round-trip test. (The first Y pair happened to order
+      both ways alike; the texts were changed to a pair that disagrees.)
+  - The Task 2 digest is unchanged (`f849e099…`). `go test -count=1 ./x/knowledge/...
+    ./app/...` passes.
+  - Not changed: the §3.3 migration (the in-place upgrade keeps the live entries); the export
+    format; the deferred-check list (see the note under "Deferred checks").
+  - Not done: the sandbox run was not repeated for row 10; the keeper round trip above
+    stands in for it until the next end-to-end run.
 
 **Task 16 — End-to-end probe re-run and upgrade rehearsal** · consensus: no (verification)
 - Files: nothing tracked. Artifacts go under `/tmp/zerone-sandbox-<date>-v12/`.
@@ -1937,7 +1999,7 @@ Setup:
 | 14 | P6: F history (`p3-F-history-after-B-expiry`) | `cascade` with an empty cause_id; `verification` carrying F's own claim ID | Each transition has the exact cause and ID from §5.2. No empty cause_id on any contradiction or challenge transition. |
 | 15 | P4: a DOI in `references` (`p4-refs-doi-r1`) | refused | Unchanged (refused). A DOI in structure or tags is still accepted. |
 | 16 | Attribution round trip | — | `claim-workflow attribute --dry-run` (the default; the flag is an explicit no-op) prints the §4.2 fields. Broadcast proposition P and attribution A1. `ClaimHistory(P)` lists A1 under `structure.object`. A variant carrying 8 excerpt words is refused before signing, and the excerpt does not appear in any artifact. |
-| 17 | Export and import | — | `zeroned export` on the stopped sandbox shows the flag as true. Import into a fresh home starts, and has no `migration_v12_complete` (no invented receipt). |
+| 17 | Export and import | — | `zeroned export` on the stopped sandbox shows the flag as true. Import into a fresh home starts, and has no `migration_v12_complete` (no invented receipt). `facts-by-tag` (an accepted attribution's `zc:` tag) and `facts-by-subject` return the same facts after import as before (added after the final acceptance run's row 10). |
 | 18 | Upgrade rehearsal (required before any dev-1 scheduling; recommended for this branch) | — | Start a v11 sandbox from an a4272bf binary. Pass a gov plan `knowledge-claim-integrity-v1` at H with empty info. The chain halts at H. Swap in the branch binary. At H: `0x87=01` and `migration_v12_complete=true`, and the export diff against H−1 shows only those keys plus the version map and heights. The branch binary refuses a v11 home that is not at H−1. Repeat from a 5542b22 sandbox if local-node supports it; otherwise record BLOCKED. |
 | 19 | Isolation | `version` wrote `$HOME/.zeroned` | `stat` of the real `~/.zeroned` and `~/.zerone-nodes` is unchanged. The fake HOME has no `.zeroned` from the version probe. |
 
@@ -2080,7 +2142,9 @@ Each has a default the plan implements. Changing one alters only the named tasks
   - Minimal alternative: only the INSUFFICIENT and EXPIRED claim statuses.
 - **D4. zerone-dev-1.**
   - Whether to upgrade it in place, which bundles the 64-commit `5542b22..a4272bfa` delta and
-    needs that delta audited first, or relaunch it from a fresh genesis.
+    needs that delta audited first, or relaunch it from a fresh genesis. A relaunch from an
+    export keeps `FactsByTag` and `FactsBySubject` only because `InitGenesis` now rebuilds the
+    subject and tag indexes with the flag on (§3.6); before that fix it emptied them.
   - The height H2, the proposer and the voting path.
   - Who reviews. dev-1 has never had reviewers, and after P5 a submitter cannot review their own
     claim, so every claim will starve (now harmlessly) until there are `MinVerifiers` independent
