@@ -47,9 +47,9 @@ travels with `genesis-<chain>.json` and holds:
 - `blocks`: the block hash and app hash for the last 20 heights, every 100th
   height of the last 2,000, and `--from-height H..H+19` if asked.
 
-`compare` fails unless chain and genesis agree, the seats see one validator
-set, and at least one height is shared, with identical hashes at every shared
-height.
+`compare` fails unless the reports come from at least two distinct seats, chain
+and genesis agree, the seats see one validator set, and at least one height is
+shared, with identical hashes at every shared height.
 
 ## Checks, by step
 
@@ -59,7 +59,7 @@ height.
 | `build` | not darwin-arm64; no Go; checkout dirty or not at the commit; the binary does not stamp `vcs.revision=<commit>`, `vcs.modified=false` |
 | `binary` | no expected hash (`--invite` or `--sha256`); sha256 differs; the binary does not run on this Mac; a different binary is already pinned; `bin/zeroned` and `bin/zeroned.json` do not exist together |
 | `invite` | a validator without a positive stake; that seat's invitation already exists |
-| `seat` | invitation's tool or binary hash differs from this Mac's; a flag disagrees with the invitation; seat home exists; IP is not an IPv4 literal held by this Mac (loopback only in rehearsal); a validator without a positive stake |
+| `seat` | invitation's tool or binary hash differs from this Mac's; a flag disagrees with the invitation; seat home exists; P2P port outside 1024-65534 (RPC takes the next port); IP is not an IPv4 literal held by this Mac (loopback only in rehearsal); a validator without a positive stake |
 | `genesis` | a packet has the wrong format, chain, binary or tool; a gentx memo, stake, consensus key or validator address does not match its packet; duplicate labels, node ids, endpoints, consensus keys or operator addresses; no validators; the coordinator's own packet is missing; an earlier attempt left its coordinator home, gentx directory, or outbox genesis or network file (all are named, to be moved aside only if no seat has installed); collect-gentxs drops a gentx; `genesis validate` fails; a JSON float appears (the tool rewrites genesis, so floats are refused rather than re-encoded) |
 | `install` | everything listed under "What install verifies" in SKILL.md, plus a `genesis_time` that differs from the network packet's; the genesis is read once and those exact bytes are hashed, checked and installed; the config layout lacks a key the tool sets |
 | `start` | not installed; the pinned binary is not the one the seat was made with; already running; `config/genesis.json` changed since install; the seat IP is not on this Mac; a port has a live listener (TIME_WAIT is ignored, as Go's own bind does); the process exits at once |

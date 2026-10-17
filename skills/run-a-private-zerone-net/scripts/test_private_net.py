@@ -78,6 +78,10 @@ class Guards(unittest.TestCase):
             with self.assertRaises(pn.Refusal):
                 pn.check_label(bad)
         pn.check_ipv4("192.0.2.10")
+        self.assertEqual(pn.check_p2p_port(36656), 36656)
+        for bad in (65535, 65536, 80, 0, "36656"):
+            with self.assertRaises(pn.Refusal):
+                pn.check_p2p_port(bad)
         for bad in ("studio.local", "::1", "1.2.3", "300.1.1.1", "192.0.2.10:36656", "01.2.3.4"):
             with self.assertRaises(pn.Refusal):
                 pn.check_ipv4(bad)
@@ -240,6 +244,7 @@ class SeatPackets(unittest.TestCase):
         bad(lambda p: p.update(binary_sha256="e" * 64))
         bad(lambda p: p.update(tool_sha256="e" * 64))
         bad(lambda p: p.update(p2p_endpoint="studio.local:36656"))
+        bad(lambda p: p.update(p2p_endpoint="192.0.2.11:65535"))
         bad(lambda p: p["gentx"]["body"].update(memo="cd" * 20 + "@192.0.2.11:36656"))
         bad(lambda p: p["gentx"]["body"]["messages"][0]["value"].update(amount="5"))
         bad(lambda p: p["gentx"]["body"]["messages"][0]["pubkey"].update(key="OTHER="))
@@ -307,7 +312,7 @@ class VerifyGenesis(unittest.TestCase):
 class Compare(unittest.TestCase):
     def report(self, label, h3="H3", heights=("2", "3")):
         blocks = {h: {"hash": ("H%s" % h) if h != "3" else h3, "app_hash": "A%s" % h} for h in heights}
-        return {"label": label, "chain_id": CHAIN, "genesis_sha256": "g", "latest_height": 3,
+        return {"label": label, "node_id": "n-" + label, "chain_id": CHAIN, "genesis_sha256": "g", "latest_height": 3,
                 "validators": [["V", "1"]], "blocks": blocks}
 
     def test_agree_disagree_and_no_overlap(self):
@@ -318,6 +323,12 @@ class Compare(unittest.TestCase):
         res = pn.compare_reports([self.report("a", heights=("2",)), self.report("b", heights=("3",))])
         self.assertFalse(res["agree"])
         self.assertIn("no common heights", res["problems"][0])
+
+    def test_one_seat_is_not_agreement(self):
+        for reports in ([self.report("a")], [self.report("a"), self.report("a")]):
+            res = pn.compare_reports(reports)
+            self.assertFalse(res["agree"])
+            self.assertTrue(any("two distinct seats" in p for p in res["problems"]), res["problems"])
 
 
 class Floats(unittest.TestCase):

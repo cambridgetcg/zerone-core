@@ -321,6 +321,13 @@ SANDBOX_HINT = ("binding a socket is not permitted (%s): this command is running
                 "run it outside the sandbox with the owner's approval")
 
 
+def check_p2p_port(port):
+    """P2P port; the RPC port is the next one, so it must exist too."""
+    if not isinstance(port, int) or not 1024 <= port <= 65534:
+        raise Refusal("p2p port %r refused: use 1024-65534 (RPC takes the next port)" % (port,))
+    return port
+
+
 def ip_is_local(ip):
     """True when this Mac holds the address right now."""
     s = None
@@ -778,6 +785,7 @@ def make_seat(lay, label, role, ip, p2p_port, stake_zrn, binary, loopback=False)
     if role not in ("validator", "full"):
         raise Refusal("role must be validator or full")
     check_seat_ip(ip, loopback)
+    check_p2p_port(p2p_port)
     if role == "validator" and int(stake_zrn) <= 0:
         raise Refusal("a validator needs a positive stake")
     home = lay.seat_home(label)
@@ -865,8 +873,9 @@ def validate_seat_packet(p, chain_id, binary_sha, tool_sha=None):
         raise Refusal("seat %s: bad node id" % p["label"])
     ip, _, port = p.get("p2p_endpoint", "").rpartition(":")
     check_ipv4(ip)
-    if not port.isdigit() or not 1024 <= int(port) <= 65535:
+    if not port.isdigit():
         raise Refusal("seat %s: bad p2p port" % p["label"])
+    check_p2p_port(int(port))
     if p.get("binary_sha256") != binary_sha:
         raise Refusal("seat %s runs binary %s, the network pins %s" % (p["label"], p.get("binary_sha256"), binary_sha))
     if tool_sha and p.get("tool_sha256") != tool_sha:
@@ -1252,6 +1261,11 @@ def cmd_status(a):
 
 def compare_reports(reports):
     problems = []
+    labels = [r.get("label") for r in reports]
+    if len(set(labels)) != len(labels):
+        problems.append("the same seat's report was given more than once: %s" % sorted(labels))
+    if len(set(labels)) < 2 or len({r.get("node_id") for r in reports}) < len(set(labels)):
+        problems.append("agreement needs reports from at least two distinct seats (got %s)" % sorted(set(labels)))
     for field in ("chain_id", "genesis_sha256"):
         vals = {r[field] for r in reports}
         if len(vals) != 1:
