@@ -227,7 +227,15 @@ func (k Keeper) handleChallengeDisproven(ctx context.Context, challengeClaim *ty
 
 	// Transition to DISPROVEN
 	originalFact.Status = types.FactStatus_FACT_STATUS_DISPROVEN
-	if err = k.SetFact(ctx, originalFact); err != nil {
+	integrity, err := k.ClaimIntegrityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	causeCtx := ctx
+	if integrity {
+		causeCtx = withTransitionCause(ctx, originalFact.Id, causeChallengeDisproven, challengeClaim.Id)
+	}
+	if err = k.SetFact(causeCtx, originalFact); err != nil {
 		return err
 	}
 
@@ -282,6 +290,16 @@ func (k Keeper) handleChallengeDisproven(ctx context.Context, challengeClaim *ty
 	// a later message if needed.
 	if err = k.cascadeFalsificationChecked(ctx, originalFact.Id, challengeClaim.Id); err != nil {
 		return err
+	}
+
+	// Claim integrity (Task 13): the fallen fact may have been the accepted
+	// counter-fact holding other facts CONTESTED. Each is re-evaluated in this
+	// cache, after the cascade and after the DISPROVEN write that its check
+	// reads (R1 sees K fall; R2 sees when it fell).
+	if integrity {
+		if err = k.settleCounterFactTargets(ctx, originalFact.Id); err != nil {
+			return err
+		}
 	}
 
 	// Trigger vindication for the ORIGINAL fact's minority voters

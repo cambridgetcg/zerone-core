@@ -68,6 +68,7 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 	// coherence; the test in Wave 10.2 asserts parity between this list
 	// and the registered handlers so drift gets caught immediately.
 	known := []UpgradeLineageEntry{
+		{UpgradeName: UpgradeNameKnowledgeClaimIntegrityV1, Description: "knowledge-claim-integrity-v1 — exact completed fund-settlement predecessor; knowledge 11->12 selects claim-integrity semantics (marker 0x87 and its receipt only) for future execution; rewrites no claim, fact, index, round or history record and rebuilds nothing."},
 		{UpgradeName: UpgradeNameKnowledgeFundSettlementV1, Description: "knowledge-fund-settlement-v1 — exact completed claim-records predecessor; knowledge 10->11 records future admission funding terms and terminal fund outcomes; preserves prior claims, obligations and balances without inferred historical refunds."},
 		{UpgradeName: UpgradeNameKnowledgeClaimRecordsV1, Description: "knowledge-claim-records-v1 — exact completed review-neutrality predecessor; knowledge 9->10 retains future contradiction reasons and evidence with atomic admission; no historical backfill or economic-policy change."},
 		{UpgradeName: UpgradeNameKnowledgeReviewNeutralityV1, Description: "knowledge-review-neutrality-v1 — exact completed record-integrity predecessor; knowledge 8->9 prospectively separates attributed review work from panel-agreement rewards, score authority and unfunded penalties; preserves accrued obligations and does not activate live legacy state."},

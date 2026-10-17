@@ -52,6 +52,32 @@ def enum_is(value, number, name):
     return value in (number, str(number), name)
 
 
+def contest_transitions(fact_row):
+    """A ClaimHistory fact's transitions into CONTESTED, in sequence order."""
+    rows = sorted(fact_row.get("status_transitions") or [], key=lambda row: int(row.get("seq", 0)))
+    return [row for row in rows if enum_is(row.get("new_status"), 5, "FACT_STATUS_CONTESTED")]
+
+
+def assert_admission_contests_nothing(test, fact_row):
+    """Knowledge 12 (claim_integrity_enabled): admitting a contradiction changes
+    no fact; only its acceptance can contest the target (knowledge-claim-integrity-v1 §5.1, §6.1)."""
+    test.assertTrue(enum_is(fact_row["fact"]["status"], 3, "FACT_STATUS_VERIFIED"),
+                    f"admitted contradiction changed its target: {fact_row['fact']['status']}")
+    test.assertEqual(contest_transitions(fact_row), [])
+
+
+def assert_contested_by_acceptance(test, fact_row, counter_claim_id):
+    """Knowledge 12: the accepted counter-claim contests its VERIFIED target once,
+    with cause contradiction_accepted/<counter-claim ID> (knowledge-claim-integrity-v1 §6.1, §6.2)."""
+    test.assertTrue(enum_is(fact_row["fact"]["status"], 5, "FACT_STATUS_CONTESTED"),
+                    f"accepted contradiction did not contest its target: {fact_row['fact']['status']}")
+    contested = contest_transitions(fact_row)
+    test.assertEqual(len(contested), 1, contested)
+    test.assertTrue(enum_is(contested[0].get("prior_status"), 3, "FACT_STATUS_VERIFIED"), contested[0])
+    test.assertEqual((contested[0].get("cause_event_type"), contested[0].get("cause_id")),
+                     ("contradiction_accepted", counter_claim_id))
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, *args, **kwargs):
         raise RuntimeError("Local fixture RPC redirected")
@@ -257,6 +283,8 @@ class NativeClaimWorkflowTests(unittest.TestCase):
         params = genesis["app_state"]["knowledge"]["params"]
         self.assertEqual([int(params[k]) for k in ("commit_phase_blocks", "reveal_phase_blocks", "aggregation_phase_blocks")], [60, 60, 5])
         self.assertEqual((int(params["min_verifiers"]), int(params["confidence_threshold"])), (3, 770000))
+        self.assertIs(genesis["app_state"]["knowledge"].get("claim_integrity_enabled"), True,
+                      "this workflow checks the knowledge-12 contest contract")
         self.start_node()
         self.workflow("onboard")
         submitted = self.workflow("submit", "--content", CLAIM, "--method", "M-COMPUTATIONAL",
@@ -309,7 +337,7 @@ class NativeClaimWorkflowTests(unittest.TestCase):
         related = [r for r in linked["related_claims"] if r["record"]["claim_id"] == counter_id]
         self.assertEqual(len(related), 1)
         self.assertIn({"field": "relations.contradicts", "target_id": original_fact["id"]}, related[0]["links"])
-        self.assertTrue(enum_is(linked["record"]["facts"][0]["fact"]["status"], 5, "FACT_STATUS_CONTESTED"))
+        assert_admission_contests_nothing(self, linked["record"]["facts"][0])
         second_reasons = [f"Synthetic {actor}: intentional {vote} for the nondecisive fixture."
                           for actor, vote in zip(ACTORS, ("accept", "accept", "reject"))]
         second_scope = "Checked n=0..39 only; same-controller synthetic disagreement, not independent scientific verification."
@@ -331,8 +359,7 @@ class NativeClaimWorkflowTests(unittest.TestCase):
         self.assertTrue(enum_is(edge["relation"], 2, "RELATION_TYPE_CONTRADICTS"))
         self.assertEqual(edge["source_fact_id"], counter_fact["fact"]["id"])
         self.assertEqual(edge["creator"], self.info["accounts"]["challenger"])
-        self.assertTrue(enum_is(final["record"]["facts"][0]["fact"]["status"], 5, "FACT_STATUS_CONTESTED"))
-        self.assertTrue(final["record"]["facts"][0].get("status_transitions"))
+        assert_contested_by_acceptance(self, final["record"]["facts"][0], counter_id)
         self.observations.update({"final_root_history": final, "inconclusive_history": second})
         txs = []
         for digest in sorted(self.txhashes):

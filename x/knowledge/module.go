@@ -138,6 +138,9 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	if err := cfg.RegisterMigration(types.ModuleName, 10, migrator.Migrate10to11); err != nil {
 		panic(fmt.Sprintf("failed to register %s migration v10→v11: %v", types.ModuleName, err))
 	}
+	if err := cfg.RegisterMigration(types.ModuleName, 11, migrator.Migrate11to12); err != nil {
+		panic(fmt.Sprintf("failed to register %s migration v11→v12: %v", types.ModuleName, err))
+	}
 }
 
 // RegisterInvariants is a no-op for now; invariants are added in R2-2.
@@ -170,5 +173,6 @@ func (am AppModule) BeginBlock(ctx context.Context) error {
 // survival reward handoff and derived deadline index reconstruction) → v8
 // (actor-bound reviews, attributable records and explicit payment outcomes) → v9
 // (neutral review admission and settlement) → v10 (contradiction input retention)
-// → v11 (explicit future claim funding terms and terminal fund settlement).
-func (AppModule) ConsensusVersion() uint64 { return 11 }
+// → v11 (explicit future claim funding terms and terminal fund settlement) → v12
+// (claim-integrity selection: marker 0x87 only; no record rewritten).
+func (AppModule) ConsensusVersion() uint64 { return 12 }

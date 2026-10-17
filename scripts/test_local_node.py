@@ -8,6 +8,7 @@ The real lifecycle uses the guide's default loopback ports 47656/47657, refuses
 occupied ports, creates fresh temporary test keys, and stops only its own child.
 """
 import argparse
+import contextlib
 import http.server
 import importlib.util
 import json
@@ -175,11 +176,192 @@ class SafetyTests(unittest.TestCase):
             popen.assert_not_called()
 
     def test_operator_environment_cannot_override_local_config(self):
-        with mock.patch.dict(os.environ, {"ZERONED_P2P_SEEDS": "live-peer", "ZERONED_PRIV_VALIDATOR_LADDR": "remote", "PATH": "/test"}):
-            result = local.node_environment()
+        home = self.root / "sandbox"
+        home.mkdir(mode=0o700)
+        with mock.patch.dict(os.environ, {"ZERONED_P2P_SEEDS": "live-peer", "ZERONED_PRIV_VALIDATOR_LADDR": "remote",
+                                          "PATH": "/test", "HOME": str(self.root / "real-home")}):
+            result = local.node_environment(home)
         self.assertNotIn("ZERONED_P2P_SEEDS", result)
         self.assertNotIn("ZERONED_PRIV_VALIDATOR_LADDR", result)
         self.assertEqual(result["PATH"], "/test")
+        self.assertEqual(result["HOME"], str(home / local.CLI_HOME))
+
+    def fake_node_binary(self, path, record):
+        # Mimics every SDK root command: even with --home, the temporary app
+        # creates DefaultNodeHome/data, and DefaultNodeHome is $HOME/.zeroned.
+        path.write_text(f"#!{sys.executable} -I\n" + "\n".join((
+            "import json, os, sys",
+            "os.makedirs(os.path.join(os.environ['HOME'], '.zeroned', 'data'), exist_ok=True)",
+            f"open({str(record)!r}, 'a').write(json.dumps({{'argv': sys.argv[1:], 'HOME': os.environ.get('HOME')}}) + '\\n')",
+            "print('ok')", "")))
+        path.chmod(0o700)
+
+    def assert_only_sandbox_home(self, record, home, real_home):
+        self.assertEqual(list(real_home.iterdir()), [], "a zeroned call wrote the operator's HOME")
+        calls = [json.loads(line) for line in record.read_text().splitlines()]
+        self.assertTrue(calls)
+        for call in calls:
+            self.assertEqual(call["HOME"], str(home / local.CLI_HOME))
+        self.assertTrue((home / local.CLI_HOME / ".zeroned/data").is_dir())
+        self.assertEqual((home / local.CLI_HOME).stat().st_mode & 0o077, 0)
+        return calls
+
+    def test_cli_runs_zeroned_with_sandbox_private_home(self):
+        real_home = self.root / "real-home"
+        real_home.mkdir()
+        home = self.root / "sandbox"
+        home.mkdir(mode=0o700)
+        binary, record = self.root / "fake-zeroned", self.root / "cli-calls.jsonl"
+        self.fake_node_binary(binary, record)
+        with mock.patch.dict(os.environ, {"HOME": str(real_home)}):
+            self.assertEqual(local.cli(binary, home, "keys", "list", "--keyring-backend", "test"), "ok")
+            local.cli(binary, home, "comet", "show-node-id")
+        calls = self.assert_only_sandbox_home(record, home, real_home)
+        self.assertEqual([call["argv"][-2:] for call in calls], [["--home", str(home)]] * 2)
+
+    def test_start_runs_zeroned_with_sandbox_private_home(self):
+        real_home = self.root / "real-home"
+        real_home.mkdir()
+        record = self.root / "start-calls.jsonl"
+        home, _ = self.fixture()
+        self.fake_node_binary(home / "bin/zeroned", record)
+        manifest = json.loads((home / local.MARKER).read_text())
+        manifest["binary_sha256"] = local.sha256(home / "bin/zeroned")
+        (home / local.MARKER).write_text(json.dumps(manifest))
+        def exited(_manifest, _seconds, process, _stopping):
+            process.wait(timeout=20)  # Never probe a real loopback RPC port.
+            raise local.LocalNodeError("Local node exited before readiness.")
+        with mock.patch.dict(os.environ, {"HOME": str(real_home)}), \
+                mock.patch.object(local, "check_ports"), mock.patch.object(local, "wait_ready", side_effect=exited):
+            with self.assertRaisesRegex(local.LocalNodeError, "exited"):
+                local.start(argparse.Namespace(home=str(home)))
+        calls = self.assert_only_sandbox_home(record, home, real_home)
+        self.assertEqual([call["argv"][:3] for call in calls], [["start", "--home", str(home)]])
+
+    def test_symlinked_cli_home_refused_before_binary(self):
+        real_home = self.root / "real-home"
+        real_home.mkdir()
+        home = self.root / "sandbox"
+        home.mkdir(mode=0o700)
+        (home / local.CLI_HOME).symlink_to(real_home, target_is_directory=True)
+        with mock.patch.dict(os.environ, {"HOME": str(real_home)}), \
+                mock.patch.object(local.subprocess, "run") as run, mock.patch.object(local.subprocess, "Popen") as popen:
+            with self.assertRaisesRegex(local.LocalNodeError, "private HOME"):
+                local.cli(Path("zeroned"), home, "keys", "list")
+            run.assert_not_called()
+            popen.assert_not_called()
+        self.assertEqual(list(real_home.iterdir()), [])
+
+    # Review G4 TQ-4: each private-HOME refusal alone. Every case below breaks
+    # exactly one property of .cli-home and keeps the others valid, and both
+    # entry points (cli and start) must refuse before any subprocess call.
+    def assert_private_home_refused(self, home, stat_patch=None):
+        cli_home = home / local.CLI_HOME
+        before = (cli_home.is_symlink(), os.lstat(cli_home).st_mode,
+                  cli_home.read_bytes() if cli_home.is_file() and not cli_home.is_symlink() else None)
+        calls = (("cli", lambda: local.cli(home / "bin/zeroned", home, "keys", "list", "--keyring-backend", "test")),
+                 ("start", lambda: local.start(argparse.Namespace(home=str(home)))))
+        for entry, call in calls:
+            with self.subTest(entry=entry), \
+                    mock.patch.object(local.subprocess, "run") as run, mock.patch.object(local.subprocess, "Popen") as popen, \
+                    mock.patch.object(local, "check_ports"), mock.patch.object(local, "wait_ready") as ready:
+                with (stat_patch or contextlib.nullcontext)():
+                    with self.assertRaisesRegex(local.LocalNodeError, "private HOME"):
+                        call()
+                run.assert_not_called()
+                popen.assert_not_called()
+                ready.assert_not_called()
+        self.assertEqual((cli_home.is_symlink(), os.lstat(cli_home).st_mode,
+                          cli_home.read_bytes() if cli_home.is_file() and not cli_home.is_symlink() else None), before)
+
+    def test_cli_home_symlink_to_private_owned_directory_refused(self):
+        home, _ = self.fixture()
+        target = self.root / "private-target"
+        target.mkdir(mode=0o700)
+        target.chmod(0o700)
+        (home / local.CLI_HOME).symlink_to(target, target_is_directory=True)
+        followed = (home / local.CLI_HOME).stat()  # Only the link itself is wrong.
+        self.assertEqual((followed.st_uid, followed.st_mode & 0o777), (os.getuid(), 0o700))
+        self.assertTrue((home / local.CLI_HOME).is_dir())
+        self.assert_private_home_refused(home)
+        self.assertEqual(list(target.iterdir()), [])
+
+    def test_preexisting_group_readable_cli_home_refused(self):
+        home, _ = self.fixture()
+        (home / local.CLI_HOME).mkdir()
+        (home / local.CLI_HOME).chmod(0o750)
+        self.assert_private_home_refused(home)
+        self.assertEqual((home / local.CLI_HOME).stat().st_mode & 0o777, 0o750, "the helper must not repair it silently")
+
+    def test_cli_home_regular_file_refused(self):
+        home, _ = self.fixture()
+        (home / local.CLI_HOME).write_text("not a directory")
+        (home / local.CLI_HOME).chmod(0o600)
+        self.assert_private_home_refused(home)
+        self.assertEqual((home / local.CLI_HOME).read_text(), "not a directory")
+
+    def test_cli_home_owned_by_another_user_refused(self):
+        home, _ = self.fixture()
+        cli_home = home / local.CLI_HOME
+        cli_home.mkdir(mode=0o700)
+        cli_home.chmod(0o700)
+        original = local.Path.stat
+
+        def foreign(path, *args, **kwargs):
+            result = original(path, *args, **kwargs)
+            if path == cli_home:
+                values = list(result[:10])
+                values[4] = os.getuid() + 1  # st_uid
+                return os.stat_result(values)
+            return result
+
+        def patch():
+            return mock.patch.object(local.Path, "stat", autospec=True, side_effect=foreign)
+
+        with patch():
+            self.assertNotEqual(cli_home.stat().st_uid, os.getuid())
+            self.assertEqual(home.stat().st_uid, os.getuid())
+        self.assert_private_home_refused(home, stat_patch=patch)
+
+    def fake_version_binary(self, name, sdk_version):
+        # Mimics the SDK root command: it creates its home directory, which
+        # defaults to $HOME/.zeroned unless --home names another one.
+        record = self.root / (name + ".json")
+        binary = self.root / name
+        binary.write_text(f"#!{sys.executable} -I\n" + "\n".join((
+            "import json, os, sys",
+            "argv = sys.argv[1:]",
+            "home = argv[argv.index('--home') + 1] if '--home' in argv else os.path.join(os.environ['HOME'], '.zeroned')",
+            "os.makedirs(os.path.join(home, 'config'), exist_ok=True)",
+            f"open({str(record)!r}, 'w').write(json.dumps({{'argv': argv, 'HOME': os.environ.get('HOME')}}))",
+            f"print('cosmos_sdk_version: {sdk_version}')", "")))
+        binary.chmod(0o700)
+        return binary, record
+
+    def test_source_version_probe_is_isolated(self):
+        real_home = self.root / "real-home"
+        real_home.mkdir()
+        binary, record = self.fake_version_binary("fake-zeroned", "v0.53.0")
+        with mock.patch.dict(os.environ, {"HOME": str(real_home)}):
+            output = local.source_version(binary)
+        self.assertRegex(output, r"(?m)^cosmos_sdk_version: v0\.53\.0$")
+        seen = json.loads(record.read_text())
+        probe_home = seen["HOME"]
+        self.assertTrue(probe_home)
+        self.assertNotEqual(Path(probe_home), real_home)
+        self.assertEqual(seen["argv"][:2], ["version", "--long"])
+        self.assertIn("--home", seen["argv"])
+        self.assertEqual(seen["argv"][seen["argv"].index("--home") + 1], probe_home)
+        self.assertFalse(Path(probe_home).exists(), "temporary probe home was not removed")
+        self.assertFalse((real_home / ".zeroned").exists())
+        self.assertEqual(list(real_home.iterdir()), [])
+        # The SDK 0.53 requirement still applies, and a refusal also cleans up.
+        legacy, legacy_record = self.fake_version_binary("legacy-zeroned", "v0.47.0")
+        with mock.patch.dict(os.environ, {"HOME": str(real_home)}):
+            with self.assertRaisesRegex(local.LocalNodeError, "SDK 0.53"):
+                local.source_version(legacy)
+        self.assertFalse(Path(json.loads(legacy_record.read_text())["HOME"]).exists())
+        self.assertEqual(list(real_home.iterdir()), [])
 
     def test_key_command_failure_never_exposes_captured_seed(self):
         result = subprocess.CompletedProcess([], 1, "private seed stdout", "private seed stderr")

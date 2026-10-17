@@ -56,8 +56,30 @@ func (m *msgServer) submitClaim(ctx context.Context, msg *types.MsgSubmitClaim, 
 	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
+	// With claim integrity on, an index entry blocks only while the record it
+	// names is live or standing (plan §5.4), and the canonical form is v2,
+	// derived from the structure alone (plan Task 9).
+	integrity, err := m.keeper.ClaimIntegrityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if recordIntegrityEnabled {
-		if err := m.keeper.validateClaimRecordInput(ctx, msg); err != nil {
+		if err := m.keeper.validateClaimRecordInput(ctx, msg, integrity); err != nil {
+			return nil, err
+		}
+	}
+	// With claim integrity on, a claim carries no CONTRADICTS relation
+	// (disputes go through MsgSubmitContradiction), and only an attribution
+	// may carry the attribution template (review G2: SEC-2, F5, SEC-4).
+	if integrity {
+		if err := refuseClaimContradictsRelation(msg.Relations); err != nil {
+			return nil, err
+		}
+		var attribution *types.ClaimStructure
+		if msg.ClaimType == types.ClaimType_CLAIM_TYPE_RELATION {
+			attribution = msg.Structure
+		}
+		if err := refuseReservedAttributionText("claim text", msg.Domain, msg.FactContent, attribution); err != nil {
 			return nil, err
 		}
 	}
@@ -160,25 +182,50 @@ func (m *msgServer) submitClaim(ctx context.Context, msg *types.MsgSubmitClaim, 
 		}
 	}
 
-	// Auto-derive or normalize canonical form
+	// Auto-derive or normalize canonical form. With claim integrity on it is
+	// always the v2 form of the structure: validateClaimRecordInput has refused
+	// a declared form that differs from it or has no structure to derive from.
 	canonicalForm := msg.CanonicalForm
-	if canonicalForm == "" && msg.Structure != nil {
+	if integrity {
+		canonicalForm = ""
+		if msg.Structure != nil {
+			canonicalForm = types.BuildCanonicalFormV2(msg.ClaimType, msg.Structure, msg.Domain)
+		}
+	} else if canonicalForm == "" && msg.Structure != nil {
 		canonicalForm = types.BuildCanonicalForm(msg.ClaimType, msg.Structure, msg.Domain)
 	}
 	var canonicalHash string
 	if canonicalForm != "" {
-		canonicalForm = types.NormalizeCanonicalForm(canonicalForm)
+		if !integrity {
+			canonicalForm = types.NormalizeCanonicalForm(canonicalForm)
+		}
 		canonicalHash = types.HashCanonicalForm(canonicalForm)
 
 		// Dedup against canonical hash (stronger than content_hash)
-		if existingID, exists := m.keeper.GetClaimByCanonicalHash(ctx, canonicalHash); exists {
+		if integrity {
+			blocker, err := m.keeper.blockingDuplicate(ctx, types.CanonicalHashKey(canonicalHash))
+			if err != nil {
+				return nil, err
+			}
+			if blocker != nil {
+				return nil, fmt.Errorf("canonical duplicate: matches existing claim %s", blocker)
+			}
+		} else if existingID, exists := m.keeper.GetClaimByCanonicalHash(ctx, canonicalHash); exists {
 			return nil, fmt.Errorf("canonical duplicate: matches existing claim %s", existingID)
 		}
 	}
 
 	// Check content hash dedup
 	contentHash := ComputeClaimContentHash(msg.FactContent, msg.Domain)
-	if existingID, exists := m.keeper.GetClaimByContentHash(ctx, contentHash); exists {
+	if integrity {
+		blocker, err := m.keeper.blockingDuplicate(ctx, types.ContentHashKey(contentHash))
+		if err != nil {
+			return nil, err
+		}
+		if blocker != nil {
+			return nil, fmt.Errorf("duplicate claim: content hash matches existing claim %s", blocker)
+		}
+	} else if existingID, exists := m.keeper.GetClaimByContentHash(ctx, contentHash); exists {
 		return nil, fmt.Errorf("duplicate claim: content hash matches existing claim %s", existingID)
 	}
 
@@ -278,14 +325,19 @@ func (m *msgServer) submitClaim(ctx context.Context, msg *types.MsgSubmitClaim, 
 	// Record last claim height for adaptive cooldown (R29-6)
 	m.keeper.SetLastClaimHeight(ctx, msg.Submitter, height)
 
-	// Contradiction detection: auto-mark target facts as CONTESTED
-	for _, rel := range msg.Relations {
-		if rel.Relation == types.RelationType_RELATION_TYPE_CONTRADICTS {
-			targetFact, found := m.keeper.GetFact(ctx, rel.TargetFactId)
-			if found && (targetFact.Status == types.FactStatus_FACT_STATUS_VERIFIED ||
-				targetFact.Status == types.FactStatus_FACT_STATUS_ACTIVE) {
-				targetFact.Status = types.FactStatus_FACT_STATUS_CONTESTED
-				_ = m.keeper.SetFact(ctx, targetFact)
+	// Contradiction detection: auto-mark target facts as CONTESTED. With claim
+	// integrity on, admission changes no fact: a claim carrying CONTRADICTS was
+	// refused above (review G2), and one admitted before activation contests
+	// its targets only once accepted (plan §5.2, Task 12; contestAcceptedTargets).
+	if !integrity {
+		for _, rel := range msg.Relations {
+			if rel.Relation == types.RelationType_RELATION_TYPE_CONTRADICTS {
+				targetFact, found := m.keeper.GetFact(ctx, rel.TargetFactId)
+				if found && (targetFact.Status == types.FactStatus_FACT_STATUS_VERIFIED ||
+					targetFact.Status == types.FactStatus_FACT_STATUS_ACTIVE) {
+					targetFact.Status = types.FactStatus_FACT_STATUS_CONTESTED
+					_ = m.keeper.SetFact(ctx, targetFact)
+				}
 			}
 		}
 	}
@@ -766,10 +818,21 @@ func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFa
 		return nil, fmt.Errorf("fact %s not found", msg.FactId)
 	}
 
-	// Fact must be in a challengeable state
+	// Fact must be in a challengeable state. With claim integrity on, a
+	// CONTESTED fact is challengeable too, so a panel decides it (plan §5.2,
+	// Task 13). The marker is read only off the VERIFIED/ACTIVE path.
 	if fact.Status != types.FactStatus_FACT_STATUS_VERIFIED &&
 		fact.Status != types.FactStatus_FACT_STATUS_ACTIVE {
-		return nil, fmt.Errorf("fact %s is not in a challengeable state (status: %s) (commitment 4: only verified or active facts accept probes; degraded facts are already moving)", msg.FactId, fact.Status)
+		integrity, err := m.keeper.ClaimIntegrityEnabled(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if !integrity {
+			return nil, fmt.Errorf("fact %s is not in a challengeable state (status: %s) (commitment 4: only verified or active facts accept probes; degraded facts are already moving)", msg.FactId, fact.Status)
+		}
+		if fact.Status != types.FactStatus_FACT_STATUS_CONTESTED {
+			return nil, fmt.Errorf("fact %s is not in a challengeable state (status: %s) (commitment 4: only verified, active or contested facts accept probes; degraded facts are already moving)", msg.FactId, fact.Status)
+		}
 	}
 
 	// Risk-scaled stake check (T12): higher-confidence facts require more stake
@@ -803,14 +866,21 @@ func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFa
 		}
 	}
 
+	// The challenge claim ID is known before the CHALLENGED write so that,
+	// with claim integrity on, the transition names it as its cause.
+	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
+
 	// Mark fact as challenged
 	fact.Status = types.FactStatus_FACT_STATUS_CHALLENGED
-	if err := m.keeper.SetFact(ctx, fact); err != nil {
+	causeCtx, err := m.keeper.claimIntegrityTransitionCause(ctx, fact.Id, causeChallengeOpened, challengeClaimID)
+	if err != nil {
+		return nil, err
+	}
+	if err := m.keeper.SetFact(causeCtx, fact); err != nil {
 		return nil, err
 	}
 
 	// Create a challenge claim and round
-	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
 	challengeClaim := &types.Claim{
 		ReviewPolicyVersion: reviewPolicy,
 		Id:                  challengeClaimID,
@@ -955,12 +1025,16 @@ func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.Msg
 		}
 	}
 
+	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
 	fact.Status = types.FactStatus_FACT_STATUS_CHALLENGED
-	if err := m.keeper.SetFact(ctx, fact); err != nil && enabled {
+	causeCtx, err := m.keeper.claimIntegrityTransitionCause(ctx, fact.Id, causeChallengeOpened, challengeClaimID)
+	if err != nil {
+		return nil, err
+	}
+	if err := m.keeper.SetFact(causeCtx, fact); err != nil && enabled {
 		return nil, err
 	}
 
-	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
 	challengeClaim := &types.Claim{
 		ReviewPolicyVersion: reviewPolicy,
 		Id:                  challengeClaimID,
@@ -1084,6 +1158,15 @@ func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmi
 			return nil, fmt.Errorf("contradiction claim identity already exists")
 		}
 	}
+	integrity, err := m.keeper.ClaimIntegrityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if integrity {
+		if err := m.claimIntegrityContradictionAdmission(ctx, msg, targetFact, domain, contentHash); err != nil {
+			return nil, err
+		}
+	}
 
 	// Lock stake
 	if m.keeper.bankKeeper != nil {
@@ -1148,9 +1231,11 @@ func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmi
 	// can be contested (mirrors SubmitClaim), so an unestablished target is not
 	// flipped. When the round resolves REJECT/MALFORMED/INCONCLUSIVE (including
 	// a starved panel), reverseContradictionsFromClaim restores it via the
-	// relation recorded above.
-	if targetFact.Status == types.FactStatus_FACT_STATUS_VERIFIED ||
-		targetFact.Status == types.FactStatus_FACT_STATUS_ACTIVE {
+	// relation recorded above. With claim integrity on, admission changes no
+	// fact: the target is contested only once this counter-claim is accepted
+	// (plan §5.2, Task 12; contestAcceptedTargets).
+	if !integrity && (targetFact.Status == types.FactStatus_FACT_STATUS_VERIFIED ||
+		targetFact.Status == types.FactStatus_FACT_STATUS_ACTIVE) {
 		targetFact.Status = types.FactStatus_FACT_STATUS_CONTESTED
 		if err := m.keeper.SetFact(ctx, targetFact); err != nil && retainRecord {
 			return nil, err
@@ -1168,6 +1253,51 @@ func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmi
 	)
 
 	return &types.MsgSubmitContradictionResponse{CounterFactId: counterClaimID}, nil
+}
+
+// claimIntegrityContradictionAdmission holds a contradiction to what
+// disputing its target costs (knowledge v12, plan Task 10; P3a, P1ext). It
+// runs only with claim integrity on, before any collateral moves:
+//  1. the target must stand; a conjecture was refused above;
+//  2. the stake must meet the minimum for challenging the target
+//     (ChallengeFact's rule), so a 1-uzrn dispute is not admitted;
+//  3. the counter-claim text must not repeat a live or standing record's text
+//     in its domain (§5.4), so a contradiction cannot take a live claim's
+//     0x09 entry.
+//
+// Before these, neither the effective domain (msg.Domain, or the target's
+// when it is empty, which is what contentHash uses) nor the counter-claim
+// text may carry the attribution template (review G2 SEC-4).
+func (m *msgServer) claimIntegrityContradictionAdmission(ctx context.Context, msg *types.MsgSubmitContradiction, target *types.Fact, domain, contentHash string) error {
+	if err := refuseReservedAttributionText("counter-claim text", domain, msg.CounterClaim, nil); err != nil {
+		return err
+	}
+	if !factStands(target.Status) {
+		return fmt.Errorf("fact %s is not standing (status: %s); only a verified, active, contested, challenged or at-risk fact can be contradicted",
+			msg.FactId, target.Status)
+	}
+
+	params, err := m.keeper.GetParams(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to load params: %w", err)
+	}
+	stakeAmt, ok := new(big.Int).SetString(msg.Stake, 10)
+	if !ok || stakeAmt.Sign() <= 0 {
+		return fmt.Errorf("invalid stake amount: %s", msg.Stake)
+	}
+	if minimum := EffectiveMinChallengeStake(params, target.Confidence); stakeAmt.Cmp(minimum) < 0 {
+		return fmt.Errorf("contradiction stake %s below effective minimum %s (fact confidence %d; a contradiction disputes the fact, so it costs at least what challenging it costs)",
+			msg.Stake, minimum.String(), target.Confidence)
+	}
+
+	blocker, err := m.keeper.blockingDuplicate(ctx, types.ContentHashKey(contentHash))
+	if err != nil {
+		return err
+	}
+	if blocker != nil {
+		return fmt.Errorf("duplicate claim: content hash matches existing claim %s", blocker)
+	}
+	return nil
 }
 
 // ─── Domain handlers ─────────────────────────────────────────────────────────

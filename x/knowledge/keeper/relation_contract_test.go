@@ -124,6 +124,7 @@ func TestRelationContractRetainedAugmentationEndpointMismatch(t *testing.T) {
 			genesis.ReviewNeutralityEnabled = false
 			genesis.ClaimRecordsEnabled = false
 			genesis.FundSettlementEnabled = false
+			genesis.ClaimIntegrityEnabled = false // Predecessor claim semantics.
 			k, ctx, bank, key := relationContractFixture(t, genesis)
 			qualification := newMockDomainQualificationKeeper()
 			voters := []string{makeValidBech32Addr("aug-voter-1"), makeValidBech32Addr("aug-voter-2"), makeValidBech32Addr("aug-voter-3")}

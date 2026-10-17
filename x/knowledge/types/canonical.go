@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -89,6 +90,70 @@ func BuildCanonicalForm(claimType ClaimType, structure *ClaimStructure, domain s
 
 	form := fmt.Sprintf("%s(%s)", funcName, strings.Join(args, ", "))
 	return NormalizeCanonicalForm(form)
+}
+
+// CanonicalFormV2Prefix marks a canonical form v2 (knowledge v12, claim
+// integrity). A lookup form with this prefix is hashed verbatim after NFC and
+// trimming; any other form keeps the v1 normalisation.
+const CanonicalFormV2Prefix = "zrn.cf.v2/"
+
+// BuildCanonicalFormV2 constructs the v2 canonical form that claim-integrity
+// chains derive from a claim's type and structure:
+//
+//	zrn.cf.v2/<CLAIM_TYPE_…>(domain="…",subject="…",predicate="…",object="…",scope="…",temporal_scope="…")
+//
+// Every field is present, named, normalised (normalizeCanonicalFieldV2) and
+// quoted on its own; the form is never post-processed, lowercased or
+// collapsed as a whole. Tags and negatable do not take part. UNSPECIFIED is
+// defaulted to ASSERTION, as at admission. Returns "" when the structure is nil
+// or its normalised subject is empty.
+func BuildCanonicalFormV2(claimType ClaimType, structure *ClaimStructure, domain string) string {
+	if structure == nil || normalizeCanonicalFieldV2(structure.Subject) == "" {
+		return ""
+	}
+	if claimType == ClaimType_CLAIM_TYPE_UNSPECIFIED {
+		claimType = ClaimType_CLAIM_TYPE_ASSERTION
+	}
+	return CanonicalFormV2Prefix + claimType.String() +
+		"(domain=" + quoteCanonicalFieldV2(domain) +
+		",subject=" + quoteCanonicalFieldV2(structure.Subject) +
+		",predicate=" + quoteCanonicalFieldV2(structure.Predicate) +
+		",object=" + quoteCanonicalFieldV2(structure.Object) +
+		",scope=" + quoteCanonicalFieldV2(structure.Scope) +
+		",temporal_scope=" + quoteCanonicalFieldV2(structure.TemporalScope) + ")"
+}
+
+// NormalizeCanonicalFormForLookup prepares a caller-supplied canonical form
+// for hashing. A v2 form (CanonicalFormV2Prefix after NFC and trim) is used
+// verbatim after NFC and trim; anything else is a v1 form and gets
+// NormalizeCanonicalForm.
+func NormalizeCanonicalFormForLookup(form string) string {
+	trimmed := strings.TrimSpace(norm.NFC.String(form))
+	if strings.HasPrefix(trimmed, CanonicalFormV2Prefix) {
+		return trimmed
+	}
+	return NormalizeCanonicalForm(form)
+}
+
+// normalizeCanonicalFieldV2 is NFC, then trim, then every run of
+// unicode.IsSpace collapsed to one U+0020. Case is kept.
+func normalizeCanonicalFieldV2(v string) string {
+	return strings.Join(strings.Fields(norm.NFC.String(v)), " ")
+}
+
+// quoteCanonicalFieldV2 quotes a normalised field with strconv.QuoteToASCII,
+// so the whole form is ASCII. Two reasons, both found while building v2:
+//   - strconv.Quote escapes only non-printable runes, and an escape ending in
+//     a hex letter can compose with a following combining mark under NFC
+//     (ZWSP then U+0307 gives `\u200b` + U+0307 -> `\u200` + U+1E03). The
+//     lookup normaliser would then change a form the chain built, and
+//     FactByCanonical or a declared form would miss it.
+//   - which runes strconv.Quote treats as printable follows the Go
+//     toolchain's Unicode tables, so a newly assigned code point would change
+//     the form, and the dedup decision, between binaries. QuoteToASCII
+//     escapes every non-ASCII rune whatever the Unicode version.
+func quoteCanonicalFieldV2(v string) string {
+	return strconv.QuoteToASCII(normalizeCanonicalFieldV2(v))
 }
 
 // NormalizeCanonicalForm applies normalization rules to a canonical form string:

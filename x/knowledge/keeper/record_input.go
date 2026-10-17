@@ -35,7 +35,11 @@ func (k Keeper) validateChallengeRecordInput(ctx context.Context, reason string,
 	return k.validateDeclaredMethod(ctx, method)
 }
 
-func (k Keeper) validateClaimRecordInput(ctx context.Context, msg *types.MsgSubmitClaim) error {
+// validateClaimRecordInput bounds a claim's retained record fields. With
+// claimIntegrity on, a declared canonical form must equal the v2 form its
+// structure derives (after NormalizeCanonicalFormForLookup), and a declared
+// form with no structure is refused, so no claim can reserve another's slot.
+func (k Keeper) validateClaimRecordInput(ctx context.Context, msg *types.MsgSubmitClaim, claimIntegrity bool) error {
 	if len(msg.ProtoReflect().GetUnknown()) != 0 {
 		return fmt.Errorf("unsupported claim fields")
 	}
@@ -106,9 +110,18 @@ func (k Keeper) validateClaimRecordInput(ctx context.Context, msg *types.MsgSubm
 				return err
 			}
 		}
-		if msg.CanonicalForm != "" && types.NormalizeCanonicalForm(msg.CanonicalForm) != types.BuildCanonicalForm(msg.ClaimType, s, msg.Domain) {
+		if msg.CanonicalForm != "" && !declaredCanonicalFormMatches(msg, claimIntegrity) {
 			return fmt.Errorf("canonical form does not match declared claim structure")
 		}
+	} else if claimIntegrity && msg.CanonicalForm != "" {
+		return fmt.Errorf("canonical form requires claim structure")
 	}
 	return nil
+}
+
+func declaredCanonicalFormMatches(msg *types.MsgSubmitClaim, claimIntegrity bool) bool {
+	if claimIntegrity {
+		return types.NormalizeCanonicalFormForLookup(msg.CanonicalForm) == types.BuildCanonicalFormV2(msg.ClaimType, msg.Structure, msg.Domain)
+	}
+	return types.NormalizeCanonicalForm(msg.CanonicalForm) == types.BuildCanonicalForm(msg.ClaimType, msg.Structure, msg.Domain)
 }

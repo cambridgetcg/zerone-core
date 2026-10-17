@@ -80,6 +80,10 @@ func (k Keeper) buildClaimHistory(ctx context.Context, id string) (*types.QueryC
 	root := &types.ClaimHistoryRecord{ClaimId: id}
 	records := map[string]*types.ClaimHistoryRecord{id: root}
 	var related []*types.RelatedClaimHistory
+	// Hash links compare against the root Claim, which key order may place
+	// after its relatives, so links are selected once the single scan ends.
+	// Held candidates are bounded by the shared read budget that charged them.
+	var candidates []*types.Claim
 	if err := k.walkClaimHistory(ctx, types.ClaimKeyPrefix, guard, func(key, value []byte) error {
 		claim := new(types.Claim)
 		if err := decodeClaimHistoryRecord(key, value, claim); err != nil {
@@ -101,16 +105,19 @@ func (k Keeper) buildClaimHistory(ctx context.Context, id string) (*types.QueryC
 			root.Claim = claim
 			return nil
 		}
-		links := claimHistoryLinks(claim, id, rootFacts)
+		candidates = append(candidates, claim)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	for _, claim := range candidates {
+		links := claimHistoryLinks(claim, root.Claim, id, rootFacts)
 		if len(links) == 0 {
-			return nil
+			continue
 		}
 		record := &types.ClaimHistoryRecord{ClaimId: claim.Id, Claim: claim}
 		records[claim.Id] = record
 		related = append(related, &types.RelatedClaimHistory{Record: record, Links: links})
-		return nil
-	}); err != nil {
-		return nil, err
 	}
 	// Keep the full round primary set, including terminal and non-selected
 	// historical rounds. The active and claim->round indexes are not an inventory.
@@ -195,7 +202,10 @@ func (k Keeper) buildClaimHistory(ctx context.Context, id string) (*types.QueryC
 	return response, nil
 }
 
-func claimHistoryLinks(claim *types.Claim, rootID string, rootFacts map[string]bool) []*types.ClaimHistoryLink {
+// claimHistoryLinks names each literal field of claim that points at the root.
+// rootClaim is nil when the root Claim is not retained; hash links then cannot
+// be established. Empty root hashes never match, so unhashed claims stay apart.
+func claimHistoryLinks(claim, rootClaim *types.Claim, rootID string, rootFacts map[string]bool) []*types.ClaimHistoryLink {
 	var links []*types.ClaimHistoryLink
 	seen := make(map[string]bool)
 	add := func(field, target string) {
@@ -214,6 +224,20 @@ func claimHistoryLinks(claim *types.Claim, rootID string, rootFacts map[string]b
 	for _, relation := range claim.Relations {
 		if relation.Relation == types.RelationType_RELATION_TYPE_CONTRADICTS && rootFacts[relation.TargetFactId] {
 			add("relations.contradicts", relation.TargetFactId)
+		}
+	}
+	if rootClaim != nil {
+		// A resubmission or contradiction carrying the root's exact text.
+		if rootClaim.ContentHash != "" && claim.ContentHash == rootClaim.ContentHash {
+			add("content_hash", rootID)
+		}
+		// A claim sharing the root's canonical form.
+		if rootClaim.CanonicalHash != "" && claim.CanonicalHash == rootClaim.CanonicalHash {
+			add("canonical_hash", rootID)
+		}
+		// An attribution naming the root proposition by its content hash.
+		if rootClaim.ContentHash != "" && claim.Structure != nil && claim.Structure.Object == "zrn-content:"+rootClaim.ContentHash {
+			add("structure.object", rootID)
 		}
 	}
 	sort.Slice(links, func(i, j int) bool {

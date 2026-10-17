@@ -450,6 +450,7 @@ func DefaultGenesis() *GenesisState {
 		ReviewNeutralityEnabled: true,
 		ClaimRecordsEnabled:     true,
 		FundSettlementEnabled:   true,
+		ClaimIntegrityEnabled:   true,
 	}
 }
 
