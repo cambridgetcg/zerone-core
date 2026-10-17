@@ -2,7 +2,8 @@
 
 Status: **static source observatory; target gate intentionally closed**
 
-Date: 2026-08-11; source map revised 2026-09-24 (manifest 1.0.7)
+Date: 2026-08-11; source map revised 2026-09-24; source pins revised 2026-10-17
+(manifest 1.0.8)
 
 Canonical machine artifact:
 `dashboard/public/standards/authority-geometry.v1.json`
@@ -316,3 +317,21 @@ The 2026-09-09 source refresh recognizes claim-backed custom accounting and
 atomic LIP execution. It keeps all seven authority findings open: the repair
 does not retire the duplicate ledgers, select an electorate, or implement H4/H5.
 The observatory artifact itself remains read-only.
+
+The 2026-10-17 source refresh re-pins the knowledge writer and verdict-callsite
+anchors for knowledge v12 (`knowledge-claim-integrity-v1`). Its changes stay
+inside knowledge evidence and zerone-auth's existing account capabilities, and
+apply only while the claim-integrity marker is set. A claim may no longer carry
+a CONTRADICTS relation; a fact is disputed through a contradiction, which needs
+at least the deposit for challenging its target. Admission changes no target's
+status: a target becomes CONTESTED only when a panel accepts a claim that
+contradicts it (a contradiction, or a claim carrying CONTRADICTS admitted
+before the marker was set). Only an attribution claim may carry the reserved
+attribution template; other claims, contradictions and conjectures that carry
+it are refused at admission. A claim's submitter and the defender of the fact
+it disputes cannot commit on its panel; this is address-level recusal, not
+controller deduplication. The challenge capability now also gates
+contradictions and provisional-fact challenges. Direct fact adoption (which
+the attribution-template reservation does not bind), knowledge domain writers,
+knowledge pause authority, keeper wiring, custom-staking adapters and verifier
+slash callsites are unchanged, so all seven authority findings stay open.

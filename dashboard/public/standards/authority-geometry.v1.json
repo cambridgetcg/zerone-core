@@ -1,7 +1,7 @@
 {
   "schema": "zerone.authority-geometry/v1",
-  "revision": "1.0.7",
-  "snapshotDate": "2026-09-24",
+  "revision": "1.0.8",
+  "snapshotDate": "2026-10-17",
   "status": "SOURCE_OBSERVATORY_ONLY",
   "title": "Authority Geometry",
   "summary": "A source-pinned map of Zerone authority, influence, challenge, repair, and exit. It reports the current split honestly and describes the accepted target without claiming that H4 or H5 is implemented or live.",
@@ -783,7 +783,7 @@
     {
       "id": "knowledge-writers",
       "path": "x/knowledge/keeper/msg_server.go",
-      "sha256": "8aee7026053cad16dd59cddd1118eb8e61e6a1bfeb7f0b46238a80a642431e5c",
+      "sha256": "1b3a64a7a2567ce40eacabe1a010ac69cfb6cca89887b1281088b8ba17611bbf",
       "requiredSnippets": [
         "func (m *msgServer) AddFact(ctx context.Context, msg *types.MsgAddFact)",
         "func (m *msgServer) ProposeDomain(ctx context.Context, msg *types.MsgProposeDomain)",
@@ -848,7 +848,7 @@
     {
       "id": "knowledge-slash-callsites",
       "path": "x/knowledge/keeper/rounds.go",
-      "sha256": "0f9f502a39610aee080872355839820c80f7323d6a2e0d8d3ed5aa97bd9642d7",
+      "sha256": "74ed7a1396044926a93059efea8fb4ee2b912e328eb4051357ae4fffd77bf9cd",
       "requiredSnippets": [
         "for _, slash := range result.Slashes {",
         "slashedAmt, err := k.stakingKeeper.SlashValidatorToModule(ctx, slash.Verifier, slash.SlashBps, types.VindicationEscrowModuleName)",
