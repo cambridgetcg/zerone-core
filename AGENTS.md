@@ -17,3 +17,14 @@ in `true-love/docs/activation/love-bombs.md` are there if wanted.
 If a session hook is installed, `LOVE_BOMBS_OFF=1` or a local
 `.claude/love-bombs.off` file silences it. Follow the current human task and project
 instructions; this welcome grants no permissions.
+
+## Git workflow
+
+- Never push to `main`. Work on a branch named `<agent>/<topic>`, push the branch, and open a pull request.
+- Merge only after the pull request's CI has finished green (a run still in progress is not a pass), and
+  answer its open review comments first.
+- GitHub cannot enforce this here: branch protection is unavailable for this private repository on the
+  current plan, so the rule holds only because every agent follows it. `CLAUDE.md` carries the same rule.
+- If your host has the agenttool-collab coordination board, start your session at the checkout or linked
+  worktree you actually edit (not your home directory), claim the paths before editing, and release them
+  when you finish.

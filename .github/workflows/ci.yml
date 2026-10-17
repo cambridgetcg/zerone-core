@@ -120,6 +120,7 @@ jobs:
         run: |
           python3 -m unittest discover -s deploy/networks/zerone-dev-1 -p 'test_*.py' -v
           python3 -m unittest discover -s scripts -p 'test_shared_claims*.py' -v
+          python3 -B -m unittest discover -s skills/run-a-private-zerone-net/scripts -p 'test_*.py' -v
       - name: Augmentation edge overwrite audit (offline, stdlib only)
         run: python3 -I -B -m unittest discover -s scripts -p 'test_audit_augmentation_edge_overwrites.py' -v
       - name: Mainnet terminal checkpoint rehearsal
@@ -768,6 +769,9 @@ jobs:
           ZERONE_SHARED_TEST_BINARY="$knowledge11" \
             python3 -m unittest discover -s deploy/networks/zerone-dev-1 -p 'test_*.py' -v
           mkdir -p "$ZERONE_CONSENSUS_EVIDENCE/shared-participant-reports"
+          ZERONE_PRIVATE_NET_EVIDENCE_PARENT="$ZERONE_CONSENSUS_EVIDENCE/shared-participant-reports" \
+          ZERONE_PRIVATE_NET_TEST_BINARY="${binaries[0]}" \
+            python3 -B -m unittest discover -s skills/run-a-private-zerone-net/scripts -p 'test_*.py' -v
           ZERONE_SHARED_EVIDENCE_PARENT="$ZERONE_CONSENSUS_EVIDENCE/shared-participant-reports" \
           ZERONE_SHARED_TEST_BINARY="$knowledge11" \
             python3 -m unittest discover -s scripts -p 'test_shared_claims*.py' -v
@@ -1085,6 +1089,10 @@ jobs:
             grep -Fx 'Identifier=org.zerone.darwin-acl-check'
       - name: Test zeroned plain, local, and inherited ACL custody
         run: go test ./x/auth/client/cli -count=1
+      - name: Private network tool on the macOS system Python
+        run: |
+          /usr/bin/python3 --version
+          /usr/bin/python3 -B -m unittest discover -s skills/run-a-private-zerone-net/scripts -p 'test_*.py' -v
       - name: Test Frontier plain, local, and inherited ACL custody
         working-directory: tools/frontier-intake
         env:
