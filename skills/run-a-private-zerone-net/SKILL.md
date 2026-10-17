@@ -77,6 +77,11 @@ on the coordinator that is its checkout; on every other Mac it is
      This needs Go 1.21 or newer and Xcode Command Line Tools; Go fetches the
      toolchain that `go.mod` pins. The tool only builds darwin-arm64, so Intel
      Macs cannot seat.
+   - `build` then re-signs the binary ad hoc as `org.zerone.zeroned`, because
+     the firewall cannot tell apart binaries that keep Go's default identifier
+     `a.out` (see Firewall below). The pinned sha256 covers the re-signed bytes.
+     To reproduce it from the same build, run
+     `codesign --force --sign - --identifier org.zerone.zeroned --timestamp=none build/zeroned-darwin-arm64`.
    - **Every other Mac** (after round 0, step 2):
      `pn binary --from inbox/zeroned --invite inbox/invite-<label>.json`.
      This checks the sha256 and clears the AirDrop quarantine flag.
@@ -105,6 +110,17 @@ on the coordinator that is its checkout; on every other Mac it is
      ```
 
      Do this again if the pinned binary changes.
+     - Check the result with `socketfilterfw --listapps`, which `preflight`
+       reads. `--getappblocked` is no proof: it answers "permitted" even for a
+       path that is not on the list.
+     - The firewall keys apps by code-signing identifier. A `zeroned` pinned
+       before `build` re-signed it carries Go's default `a.out`. If another
+       `a.out` app (ipfs, another Go tool) is already listed, `--add` prints
+       nothing and updates that app's entry, so `preflight` keeps warning.
+       `preflight` names this case. For that binary, allow `zeroned` if macOS
+       prompts at `genesis_time`, or rely on this seat dialling out: one
+       connection between two seats is enough. A pin made with `build`
+       carries `org.zerone.zeroned` instead.
    - **Local Network permission (macOS 15).** Outbound LAN connections need
      Local Network permission for the app that runs the agent: iTerm2, an IDE,
      the Claude or Codex app, or a LaunchAgent.
@@ -242,6 +258,7 @@ confirms the table.
 | `status` cannot connect | `genesis_time` not reached yet, or the node exited (see `nets/<id>/run/<label>.log`) |
 | log shows `connect: no route to host` to peers | Local Network permission is missing for the app that ran `start` (see above) |
 | `n_peers` 0 or only outbound peers, peers' logs show timeouts to this Mac | firewall not pre-authorised, Mullvad LAN blocked, or the seat IP changed |
+| `socketfilterfw --add` prints nothing and `preflight` still warns about the firewall | the pinned `zeroned` is signed `a.out` and another `a.out` app already holds that firewall entry (see Firewall above) |
 | `REFUSED: … running inside an agent sandbox` or `REFUSED: permission denied …` | the command ran inside an agent sandbox; run it outside, with the owner's approval |
 | `REFUSED: this Mac does not hold <ip>` | off the home LAN, the IP changed (a new chain id is needed), or the wrong IP was given |
 | `REFUSED: cannot access …/Downloads/…` | macOS privacy blocks this app from that folder; the owner moves the file into the inbox |

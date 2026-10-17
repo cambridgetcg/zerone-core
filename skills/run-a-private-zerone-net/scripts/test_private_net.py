@@ -19,6 +19,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPT = Path(__file__).with_name("private-net.py")
 spec = importlib.util.spec_from_file_location("private_net", SCRIPT)
@@ -158,6 +159,61 @@ class Pinning(unittest.TestCase):
         out = subprocess.run(["sandbox-exec", "-p", "(version 1)(allow default)(deny network-bind)",
                               sys.executable, "-c", code, str(SCRIPT)], capture_output=True, text=True)
         self.assertIn("agent sandbox", out.stdout + out.stderr)
+
+
+class CodeSigning(unittest.TestCase):
+    def test_identifier_is_parsed_from_codesign_output(self):
+        out = ("Executable=/Users/Shared/zerone-private/bin/zeroned\nIdentifier=a.out\n"
+               "Format=Mach-O thin (arm64)\nSignature=adhoc\n")
+        self.assertEqual(pn.parse_signing_identifier(out), "a.out")
+        self.assertIsNone(pn.parse_signing_identifier("code object is not signed at all\n"))
+
+    def test_adhoc_sign_uses_the_zerone_identifier_and_checks_it(self):
+        calls = []
+        with mock.patch.object(pn, "run", side_effect=lambda argv, **kw: calls.append(argv) or ""), \
+                mock.patch.object(pn, "signing_identifier", return_value=pn.SIGN_IDENTIFIER):
+            pn.adhoc_sign("/tmp/zeroned")
+        self.assertEqual(calls[0], [pn.CODESIGN, "--force", "--sign", "-", "--identifier", pn.SIGN_IDENTIFIER,
+                                    "--timestamp=none", "/tmp/zeroned"])
+        self.assertEqual(calls[1], [pn.CODESIGN, "--verify", "--strict", "/tmp/zeroned"])
+        with mock.patch.object(pn, "run", return_value=""), \
+                mock.patch.object(pn, "signing_identifier", return_value=pn.GO_DEFAULT_IDENTIFIER):
+            with self.assertRaises(pn.Refusal):
+                pn.adhoc_sign("/tmp/zeroned")
+
+    def test_firewall_warning_explains_the_go_default_identifier(self):
+        binary = os.path.join(private_tmp(self), "zeroned")
+        with open(binary, "wb") as f:
+            f.write(b"binary")
+        answers = {"--getglobalstate": "Firewall is enabled. (State = 1)", "--getblockall": "disabled",
+                   "--listapps": "Total number of apps = 1\n1 : /opt/homebrew/bin/ipfs\n (Allow incoming connections)"}
+        with mock.patch.object(pn, "SOCKETFILTERFW", str(SCRIPT)), \
+                mock.patch.object(pn, "run", side_effect=lambda argv, **kw: answers[argv[1]]):
+            for ident, explained in ((pn.GO_DEFAULT_IDENTIFIER, True), (pn.SIGN_IDENTIFIER, False)):
+                with mock.patch.object(pn, "signing_identifier", return_value=ident):
+                    status, detail = pn.firewall_report(binary)
+                self.assertEqual(status, "warn")
+                self.assertIn("--add " + binary, detail)
+                self.assertEqual("default identifier a.out" in detail, explained, ident)
+
+    @unittest.skipUnless(sys.platform == "darwin" and os.path.exists(pn.CODESIGN) and shutil.which("xcrun"),
+                         "macOS codesign and clang not available")
+    def test_adhoc_sign_renames_and_is_deterministic(self):
+        # A fresh linker-signed arm64 executable, like Go's output. A re-signed copy of an Apple
+        # arm64e system binary such as /usr/bin/true was killed at exec on the macos-15 runner.
+        d = private_tmp(self)
+        src, built = os.path.join(d, "main.c"), os.path.join(d, "built")
+        with open(src, "w") as f:
+            f.write("int main(void) { return 0; }\n")
+        subprocess.run(["xcrun", "--sdk", "macosx", "clang", "-arch", "arm64", "-o", built, src], check=True)
+        copies = [os.path.join(d, n) for n in ("one", "two")]
+        for c in copies:
+            shutil.copyfile(built, c)
+            os.chmod(c, 0o700)
+            pn.adhoc_sign(c)
+        self.assertEqual(pn.signing_identifier(copies[0]), pn.SIGN_IDENTIFIER)
+        self.assertEqual(pn.sha256_file(copies[0]), pn.sha256_file(copies[1]))
+        self.assertEqual(subprocess.run([copies[0]]).returncode, 0)
 
 
 class Toml(unittest.TestCase):
