@@ -314,6 +314,16 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	if err := k.RebuildPendingVerifierRewardIndex(ctx); err != nil {
 		return err
 	}
+	if gs.ClaimIntegrityEnabled {
+		// A relaunch from a knowledge-11 export carries the fact edges that
+		// equal-ID augmentations replaced, and no migration runs on it.
+		// Restore them as Migrate11to12 does, from the imported facts, claims,
+		// rounds and augmentations. With the flag off nothing is restored, as
+		// on knowledge 11.
+		if _, _, err := k.RestoreAugmentationReplacedEdges(ctx); err != nil {
+			return fmt.Errorf("restore augmentation-replaced fact edges: %w", err)
+		}
+	}
 
 	return nil
 }

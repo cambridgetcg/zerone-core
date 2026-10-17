@@ -1,8 +1,9 @@
 # Claims: attribution, verdict and reversal integrity (knowledge v12)
 
-Status: Tasks 1–16, review fixes G1, G1R and G2–G5, a cleanup pass and the import-index fix
-from the final acceptance run (row 10; 2026-10-17) are implemented and committed on the branch,
-which is not yet merged. Task 16's end-to-end run (at
+Status: Tasks 1–16, review fixes G1, G1R and G2–G5, a cleanup pass, the import-index fix
+from the final acceptance run (row 10; 2026-10-17) and the restoration of fact edges replaced by
+equal-ID augmentations (approved by Yu on 2026-10-17; §8) are implemented and committed on the
+branch, which is not yet merged. Task 16's end-to-end run (at
 `cb4d7dfd`, before the review fixes) passed; it has not been re-run since. Pending Yu's
 approval: three re-pins (authority geometry, spec hashes, the SDK's generated codecs), behind
 the only checks that still fail (§6, "Deferred checks"). Decisions (a) and (b) were taken by
@@ -147,8 +148,13 @@ Wiring:
   5. `WriteMigrationMarker("migration_v12_complete","true")`;
   6. `write()`.
 - `module.go`: `RegisterMigration(knowledge, 11, Migrate11to12)`, and `ConsensusVersion() = 12`.
-- No record is rewritten, there is no index rebuild and no inventory scan. (An import rebuilds
-  the subject and tag indexes, §3.6; the in-place upgrade keeps the live entries.)
+- No record is rewritten and there is no index rebuild. (An import rebuilds the subject and tag
+  indexes, §3.6; the in-place upgrade keeps the live entries.) The one exception, approved by
+  Yu on 2026-10-17: between steps 3 and 4, `RestoreAugmentationReplacedEdges` writes back the
+  fact edges that equal-ID augmentations replaced before activation. It reads the augmentation
+  inventory, bounded like the record-integrity activation inventory (100,000 records, 64 MiB;
+  above it the migration fails rather than skip any), and writes only the two entries of each
+  restored edge (§8). `InitGenesis` with the flag on runs the same helper last.
 
 ### 3.4 App upgrade handler
 New file `app/upgrades_claim_integrity.go`, mirroring `app/upgrades_fund_settlement.go`.
@@ -210,7 +216,7 @@ New file `app/upgrades_claim_integrity.go`, mirroring `app/upgrades_fund_settlem
 | Facts CONTESTED by a pre-activation admission flip | Released by the same contest-reason predicate when that contradiction's own round ends. If it is accepted, R1 keeps the fact CONTESTED. |
 | Facts that were laundered earlier (VERIFIED while a standing counter-fact contradicts them) | Unchanged. §5.6 tells consumers how to read them. Either side can be challenged. |
 | Pre-activation self-commits | They still reveal and settle. The P5 guard applies to commits only. |
-| REFORMULATES edges from pre-activation augmentation verdicts, including IDs that extend (`<F>/x`) or equal a fact's ID | Kept, a closed set. R2 reads a claim-born fact's edges by key from its claim; the prefix scan of a claimless fact skips foreign entries (§5.3). The exception: an equal ID that replaced an existing fact's own edge, which the check then reads (residual in §8). After activation the writer refuses such IDs (review G1R), except the ID of a fact created after the verdict (§8). |
+| REFORMULATES edges from pre-activation augmentation verdicts, including IDs that extend (`<F>/x`) or equal a fact's ID | Kept, a closed set. R2 reads a claim-born fact's edges by key from its claim; the prefix scan of a claimless fact skips foreign entries (§5.3). The exception: an equal ID that replaced an existing fact's own edge. The migration, and an import with the flag on, write that fact's edge back exactly as its claim's acceptance wrote it; a claimless fact's edge cannot be rebuilt and is reported (§8). After activation the writer refuses such IDs (review G1R), except the ID of a fact created after the verdict (§8). |
 | Subject (0x32) and tag (0x33) index entries | Kept by the in-place upgrade. Only a round writes them (`IndexFactBySubject` at fact creation) and the export carries none, so on knowledge 11 (and on this branch before the fix) an import restored every fact with its tags but no entry, and `FactsByTag`/`FactsBySubject` answered nothing (final acceptance row 10; pre-existing at a4272bf). With `gs.ClaimIntegrityEnabled`, `InitGenesis` now rebuilds both for every imported fact with a structure, with `IndexFactBySubject` itself, in creation order: `verified_at_block` (a round-created fact's creation height, never rewritten), then the round ID its claim names (`AdvanceRoundPhases` completes a block's rounds in round-ID order), then the fact ID. So the single-valued subject entry names the fact created last, as live, and an export's entries come back exactly. Residuals: a structured fact from a genesis file is indexed although its original chain never indexed it; facts of one block whose claims the file does not list are ordered by fact ID (an export lists every claim). With the flag off nothing is rebuilt, byte for byte as at a4272bf. See "Final acceptance fix" in Phase D. |
 | Historical status transitions | Never rewritten. |
 | Content hashes shared by two records admitted before activation (P1ext: knowledge 11 let a `MsgSubmitContradiction` carry another claim's exact text) | Not rewritten. Knowledge 11 rewrote 0x09 on every save, so the entry names the record **saved last**, and the live chain decides dedup from that record's standing. An import replays first saves in admission order (Task 8), so there the entry names the record **admitted last**. When the two records differ in standing, the live and the imported chain disagree, in either direction: one admits a third copy of a standing fact's text and the other refuses it (review CI-REVIEW-1; both pinned by `TestClaimIntegrity_LegacyContentCollisionLiveVsImport`). After activation every admission checks 0x09 first, so no new pair arises. D4 adds a pre-upgrade check (§9). |
@@ -511,8 +517,9 @@ DISPROVEN can only come from a direct challenge on that fact.
   REFORMULATES edge is outside the cascade set. So the point reads find every dependency a prefix
   scan would find, and never read what others add under `<F>/`. Before activation such an
   augmentation, finalized after F existed, replaced F's own edge to the augmented fact; the
-  point read, the scan and the cascade then all read REFORMULATES there, so that target is no
-  longer a dependency (residual in §8). R2's other reads are F's claim
+  point read, the scan and the cascade then all read REFORMULATES there, so that target was no
+  longer a dependency. The migration writes F's edge back, so R2 counts it again; a claimless
+  F's edge cannot be rebuilt and stays replaced (§8). R2's other reads are F's claim
   (one record its submitter wrote, at most `MaxRelationsPerClaim` relations since that cap) and
   the status histories of F and of each refuted dependency, which grow only by status changes (a
   challenge, a round, a cascade or metabolism), not by records others can add cheaply. A fact
@@ -713,8 +720,12 @@ Conventions that apply to every task:
   TS2352 in `tests/development.test.ts`, in the Task 3 follow-up's test) until the cleanup pass
   fixed that test's typing (`e2e41a59`). Both dashboard tsc projects now pass.
 
-  Neither this plan, the spec nor `docs/EVENTS.md` is pinned, so editing them changes no
-  check.
+  Neither this plan nor `docs/EVENTS.md` is pinned, so editing them changes no check. The
+  spec was registered in `.specs-and-plans-hashes` by the re-pin (`faef4388`, 2026-10-17),
+  which also applied items 1–3 (with `d8e4b8d9` for item 3). The equal-ID edge restoration
+  then edited the spec again, so its pin, and `.recursion-manifest-hash` after it, need
+  re-pinning once more; it touches no authority-geometry anchor (`msg_server.go`, `rounds.go`,
+  `app/app.go` are unchanged) and no proto.
 
   The import-index fix (final acceptance row 10) adds no deferred check and changes none of
   the three above: it edits `x/knowledge/keeper/genesis.go`, which no authority-geometry
@@ -1955,6 +1966,39 @@ Conventions that apply to every task:
     format; the deferred-check list (see the note under "Deferred checks").
   - Not done: the sandbox run was not repeated for row 10; the keeper round trip above
     stands in for it until the next end-to-end run.
+- Equal-ID edge restoration (2026-10-17; consensus: yes, `Migrate11to12` and `InitGenesis`
+  with the flag on; approved by Yu on 2026-10-17; design in §8):
+  - Red observed: `TestMigrate11to12RestoresEdgesReplacedByEqualIDAugmentations` failed in all
+    four shapes first written (REQUIRES; CITES with inference, strength and method;
+    CONTRADICTS; a target named twice) at "F's own edge, exactly as its creation wrote it": the
+    stored entry after `Migrate11to12` was still the verdict's 73-byte REFORMULATES write.
+  - Change: new `keeper/claim_integrity_augmentation_restore.go`; `migrator.go` calls it after
+    `ValidateClaimIntegrityActivation`; `genesis.go` calls it last with the flag on;
+    `export_test.go` gains two bound hooks; comments that said activation rewrites nothing are
+    corrected (`claim_integrity_activation.go`, `claim_integrity_augmentation_edge.go`,
+    `app/upgrades_claim_integrity.go` and its test); `docs/EVENTS.md` documents both events;
+    CI runs the script's tests (`.github/workflows/ci.yml`, one step). Not changed:
+    `msg_server.go`, `rounds.go`, `app/app.go`, the upgrade handler's code, any proto.
+  - Tests (keeper, `claim_integrity_augmentation_restore_test.go`): restoration with the real
+    writers, marker off, byte-equal to the entry snapshotted before the replacement, in five
+    shapes including a verdict in F's own creation block, with nothing else changed; a
+    refutation of D that contests F by cascade after the upgrade but not before it; and, for
+    CONTRADICTS, R1 end to end: D survives a challenge and stays CONTESTED after the upgrade,
+    where with the marker on and the edge left replaced it became ACTIVE; five no-op
+    cases; five unrestorable cases with their exact reasons; the record and byte bounds and a
+    malformed record (the upgrade fails and writes nothing); idempotence and the receipt;
+    import with the flag on and off and a re-export round trip. App:
+    `TestClaimIntegrityUpgradeRestoresEdgeReplacedByEqualIDAugmentation` through
+    `ApplyUpgrade` (every store byte-equal except the marker, receipt, x/upgrade bookkeeping and
+    the two restored entries; the event is in the upgrade block's events). Script:
+    `scripts/test_audit_augmentation_edge_overwrites.py` (8 tests on a synthetic export).
+  - Mutants, each restored: dropping the existence-at-verdict check, taking the first relation
+    instead of the last, never copying `method_id`, dropping the reverse-entry, derivation or
+    bound checks, dropping `creator`, ignoring the round's scheme, and not restoring on import
+    each fail at least one test; discarding the migration's restoration fails the app test.
+  - The Task 2 and import golden digests are unchanged; `TestMigrate11to12ChangesExactlyMarkerAndReceipt`
+    and `TestClaimIntegrityMigrationPreservesEveryByteAndRestart` pass unchanged (nothing to
+    restore there). `go test -count=1 ./x/knowledge/... ./app/...` passes.
 
 **Task 16 — End-to-end probe re-run and upgrade rehearsal** · consensus: no (verification)
 - Files: nothing tracked. Artifacts go under `/tmp/zerone-sandbox-<date>-v12/`.
@@ -2047,28 +2091,42 @@ Setup:
   (they still count toward the bound of any scan that reads them). G1R and G5 wrote that the contest check does not depend
   on the rest at all. That is false for the equal-ID shape below (corrected in the cleanup
   pass, 2026-10-17).
-  Left open:
-  - the edges written by augmentations finalized before activation. They form a closed,
-    auditable set: each is an augmentation record with a passing verdict and a `verdict_block`
-    below the activation height. The contest check depends on one shape of them. An
-    augmentation of D whose ID equals the ID of a fact F that existed at the verdict, where F
-    had its own edge to D, replaced that edge (the forward key `F/D` and its reverse entry)
-    with REFORMULATES. R1, R2 and the cascade all read the stored edge, so for that pair:
-    - if F's edge was in the cascade set, R2 no longer counts D as F's dependency, and a later
-      refutation of D does not contest F;
-    - if it was CONTRADICTS, R1 no longer counts F as a standing counter-fact of D.
+  Done by migration (approved by Yu on 2026-10-17): the fact edges that pre-activation
+  augmentations with a fact's ID replaced. An augmentation of D whose ID equals the ID of a
+  fact F that existed at the verdict, where F had its own edge to D, replaced that edge (the
+  forward key `F/D` and its reverse entry) with REFORMULATES. R1, R2 and the cascade all read
+  the stored edge, so for that pair R2 no longer counted D as F's dependency (cascade-set edge)
+  and R1 no longer counted F as a standing counter-fact of D (CONTRADICTS). Now:
+  - `Migrate11to12`, after the marker and receipt checks, and `InitGenesis` with the flag on,
+    as its last step (a relaunch from an export runs no migration), call
+    `RestoreAugmentationReplacedEdges` (`keeper/claim_integrity_augmentation_restore.go`). It
+    reads every augmentation in key order, bounded at 100,000 records or 64 MiB (above either
+    the upgrade or import fails; nothing is skipped). A pair is examined when the verdict
+    passed, the forward entry is exactly the verdict's REFORMULATES write, and the ID is a
+    fact F with `verified_at_block <= verdict_block`. If F's claim names D, F's ID derives from
+    the claim (`GenerateFactID(claim, verified_at_block)`), the reverse entry is also the
+    verdict's write, and a relation `method_id` (if any) is placed by a review-v2 round,
+    `SetFactRelation` writes F's edge exactly as `createFactFromClaim` wrote it: the claim's last
+    relation naming D, creator the claim's submitter, created at F's `verified_at_block`, and
+    `method_id` only when record integrity was on (proved by the round's scheme).
+    `augmentation_edge_restored{fact_id, target_id, augmentation_id}` reports it. If F's claim
+    does not name D, nothing was replaced. Otherwise the pair is left and
+    `augmentation_edge_unrestorable{…, reason}` reports it: no claim (genesis, doctrine,
+    authority injection), a missing claim, an ID that does not derive from its claim, a
+    rewritten reverse entry, or a `method_id` the round cannot place. No status, history, index
+    or counter changes; a cascade the replaced edge missed before activation is not replayed.
+  - Count: the receipt stays `"true"`, because `validateClaimIntegrityCompleted` reads exactly
+    that value at startup; the events carry the per-pair record (deviation from the request to
+    record the count in the receipt, which the receipt pattern does not allow without changing
+    the startup check).
+  - Audit: `scripts/audit-augmentation-edge-overwrites.py` (`python3 -I`, standard library)
+    applies the same rules to an exported genesis and lists each pair as restorable, with the
+    edge the chain will write, or unrestorable, with its reason. Cross-checked once against a
+    real keeper export and import (scratch, uncommitted): the same pairs, edge and reason.
+  - So the residual is now: restored by the migration, claimless facts excepted. With the
+    marker on no fact's own edge is replaced, so these pairs cannot grow.
 
-    A fact that only the replaced edge held CONTESTED is released at its next check: when a
-    contradiction or challenge of it ends without refuting it (a starved one included), or
-    another counter-fact of it is disproven. Tested:
-    `TestClaimIntegrity_AugmentationEdgeStaysOutOfTheFactIDSpace` (marker off, "ID equal to a
-    fact's ID": both entries replaced) and `TestContestReasonReadsClaimBornDependenciesFromTheClaim`
-    ("named, stored edge overwritten with another type": no R2 reason, for a claim-born and a
-    genesis F). The R1 half is read from code (`standingCounterFact` skips an entry that is not
-    CONTRADICTS; `TestContestReasonStandingCounterFact`), not tested end to end; an uncommitted
-    test run once in the cleanup pass (the real writer, marker off, ID equal to the
-    counter-fact's) confirmed that R1 then finds no reason. With the marker on no fact's own
-    edge is replaced, so these pairs cannot grow;
+  Left open:
   - an ID equal to a fact created after the verdict. The stored-fact check runs only when the
     verdict is final, and fact IDs are derived from public values (`GenerateFactID(claim ID,
     verdict height)`). If that fact's claim names the same target, the fact's own write
@@ -2085,7 +2143,8 @@ Setup:
     one.
 
   Either needs a reviewed migration (or an explicit decision to leave them) for the
-  pre-activation edges, including whether to restore the fact edges an equal ID replaced.
+  remaining pre-activation edges (stray REFORMULATES edges under a fact's ID or prefix). The
+  fact edges an equal ID replaced are already restored (above).
 - **Exempting attribution facts** from niche competition or metabolism.
 - **Making AT_RISK, EXPIRED or PRUNED facts challengeable.**
 - **Canonical form housekeeping:** cross-dedup between v1 and v2 forms, and repairing legacy
@@ -2144,7 +2203,9 @@ Each has a default the plan implements. Changing one alters only the named tasks
   - Whether to upgrade it in place, which bundles the 64-commit `5542b22..a4272bfa` delta and
     needs that delta audited first, or relaunch it from a fresh genesis. A relaunch from an
     export keeps `FactsByTag` and `FactsBySubject` only because `InitGenesis` now rebuilds the
-    subject and tag indexes with the flag on (§3.6); before that fix it emptied them.
+    subject and tag indexes with the flag on (§3.6); before that fix it emptied them. It also
+    restores the fact edges equal-ID augmentations replaced (§8); run
+    `scripts/audit-augmentation-edge-overwrites.py` on the export first to see which.
   - The height H2, the proposer and the voting path.
   - Who reviews. dev-1 has never had reviewers, and after P5 a submitter cannot review their own
     claim, so every claim will starve (now harmlessly) until there are `MinVerifiers` independent
@@ -2223,8 +2284,9 @@ Each has a default the plan implements. Changing one alters only the named tasks
   with one disclosed exception: a fact whose contest check cannot finish (very heavily
   referenced) returns from any challenge to CONTESTED and stays there (§5.3, §8). Separately,
   a pre-activation augmentation whose ID equalled an existing fact's could replace that fact's
-  edge and so remove a reason; any later check, a starved challenge's included, then releases
-  the fact it held (§8).
+  edge and so remove a reason. The migration restores such edges; only a claimless fact's
+  edge stays replaced, and any later check, a starved challenge's included, then releases the
+  fact it held (§8).
 - **Mempool copying of claim text.**
 - **Verbatim quotes from third-party clients.** Only reviewers marking MALFORMED push back on chain.
 - **Reviewer independence and the truth of anything a panel accepts.**

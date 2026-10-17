@@ -11,7 +11,9 @@ import (
 // decision-path reversal, recorded transition causes and conflicted-reviewer
 // exclusion. It is independent of the migration-done marker so native or
 // imported genesis does not pretend that an upgrade ran. No message or param
-// toggles it, and nothing deactivates it. Existing records are never rewritten.
+// toggles it, and nothing deactivates it. Existing records are never rewritten,
+// except the fact edges that Migrate11to12 (and InitGenesis with the flag)
+// restores (RestoreAugmentationReplacedEdges).
 const ClaimIntegrityEnabledStoreKey = "\x87"
 
 // ClaimIntegrityEnabled never treats an unreadable or malformed marker as
@@ -68,7 +70,9 @@ func (k Keeper) EnableClaimIntegrity(ctx context.Context) error {
 
 // ValidateClaimIntegrityActivation proves the exact knowledge-11 source: the
 // marker is absent, every predecessor is on, and no v12 receipt exists. It
-// inventories nothing else; activation rewrites no record and rebuilds no index.
+// inventories nothing else. The migration's one rewrite is the restoration of
+// fact edges replaced by equal-ID augmentations (RestoreAugmentationReplacedEdges);
+// it rebuilds no index.
 func (k Keeper) ValidateClaimIntegrityActivation(ctx context.Context) error {
 	enabled, err := k.ClaimIntegrityEnabled(ctx)
 	if err != nil || enabled {

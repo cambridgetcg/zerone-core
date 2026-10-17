@@ -1648,6 +1648,19 @@ Claim integrity (knowledge v12): a passing augmentation verdict (EQUIVALENT or S
 - `original_fact_id` -- the fact the variant reformulates
 - `reason` -- `augmentation id contains '/'`, `augmentation id is longer than 128 bytes`, or `augmentation id is the id of a fact`
 
+### zerone.knowledge.augmentation_edge_restored
+Claim integrity (knowledge v12): a fact edge that an augmentation whose ID equals the fact's ID replaced before activation was written again, forward and reverse entry, exactly as the fact's creation from its claim wrote it (type, inference, strength and method from the claim's last relation naming the target; creator the claim's submitter; created at the fact's `verified_at_block`). Emitted once per restored pair by the `knowledge-claim-integrity-v1` migration at the upgrade height, and by an import whose genesis selects claim integrity (a relaunch from an export). Nothing else is written: no status, history or index changes. See `docs/specs/knowledge-claim-integrity-v1.md` §1.5.
+- `fact_id` -- the fact whose own edge was restored
+- `target_id` -- the edge's target, the augmentation's original fact
+- `augmentation_id` -- the augmentation that replaced it (equal to `fact_id`)
+
+### zerone.knowledge.augmentation_edge_unrestorable
+Claim integrity (knowledge v12): the same migration or import found the REFORMULATES edge of a passing augmentation, whose ID is the ID of a fact that existed at the verdict, at that fact's pair, but cannot rebuild the edge it replaced exactly. The stored edge is left as it is. Emitted once per such pair each time the restoration runs (it is left, so a later import reports it again).
+- `fact_id`
+- `target_id`
+- `augmentation_id` -- equal to `fact_id`
+- `reason` -- `fact has no claim` (genesis, doctrine or authority-injected facts: whether the fact had an edge to the target is not recorded), `claim <id> of the fact is missing`, `fact id does not derive from its claim and verification height`, `reverse entry is not the augmentation's edge`, or `relation method_id is set but the claim's round does not prove record integrity at the fact's creation`
+
 ### zerone.knowledge.augmentation_sponsor_vetoed
 Sponsor vetoed a passing verdict, forfeiting the payout amount to the research fund (Route B Wave 4d). The only sponsor-held lever — deliberately costly so it cannot silently block legitimate variants.
 - `augmentation_id`

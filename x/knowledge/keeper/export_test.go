@@ -21,3 +21,22 @@ func SetContestScanMaxBytesForTest(t testing.TB, n int) {
 	contestScanMaxBytes = n
 	t.Cleanup(func() { contestScanMaxBytes = previous })
 }
+
+// SetAugmentationRestoreMaxRecordsForTest lowers the record ceiling of the
+// augmentation inventory RestoreAugmentationReplacedEdges reads, for the rest
+// of t. Keeper tests do not run in parallel.
+func SetAugmentationRestoreMaxRecordsForTest(t testing.TB, n int) {
+	t.Helper()
+	previous := augmentationRestoreMaxRecords
+	augmentationRestoreMaxRecords = n
+	t.Cleanup(func() { augmentationRestoreMaxRecords = previous })
+}
+
+// SetAugmentationRestoreMaxBytesForTest lowers the byte ceiling of that
+// inventory for the rest of t. Keeper tests do not run in parallel.
+func SetAugmentationRestoreMaxBytesForTest(t testing.TB, n int) {
+	t.Helper()
+	previous := augmentationRestoreMaxBytes
+	augmentationRestoreMaxBytes = n
+	t.Cleanup(func() { augmentationRestoreMaxBytes = previous })
+}

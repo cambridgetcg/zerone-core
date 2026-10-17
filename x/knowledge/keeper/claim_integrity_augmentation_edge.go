@@ -23,8 +23,9 @@ import (
 // Review neutrality, a predecessor of 0x87, already refuses new
 // augmentations, so this governs only those admitted before it whose ballots
 // finalize after activation. Edges written before activation are a closed,
-// auditable set that this does not rewrite. With the marker off the edge is
-// written exactly as knowledge 11 writes it.
+// auditable set that this does not rewrite; the migration writes back the fact
+// edges an equal ID replaced (RestoreAugmentationReplacedEdges). With the
+// marker off the edge is written exactly as knowledge 11 writes it.
 
 // AugmentationEdgeSourceMaxBytes is the longest augmentation ID whose
 // REFORMULATES edge is written with claim integrity on. Chain-generated IDs

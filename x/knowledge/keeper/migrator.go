@@ -167,8 +167,11 @@ func (m Migrator) Migrate10to11(ctx sdk.Context) error {
 	return nil
 }
 
-// Migrate11to12 selects claim-integrity semantics for future execution only.
-// No claim, fact, index, round or history record is rewritten or rebuilt.
+// Migrate11to12 selects claim-integrity semantics for future execution. It
+// also restores the fact edges that equal-ID augmentations replaced before
+// activation (RestoreAugmentationReplacedEdges; approved by Yu on
+// 2026-10-17). No other claim, fact, index, round or history record is
+// rewritten or rebuilt.
 func (m Migrator) Migrate11to12(ctx sdk.Context) error {
 	if err := claimintegritymigration.Require(ctx); err != nil {
 		return err
@@ -177,6 +180,10 @@ func (m Migrator) Migrate11to12(ctx sdk.Context) error {
 	if err := m.keeper.ValidateClaimIntegrityActivation(cache); err != nil {
 		return err
 	}
+	restored, unrestorable, err := m.keeper.RestoreAugmentationReplacedEdges(cache)
+	if err != nil {
+		return fmt.Errorf("claim integrity: restore augmentation-replaced fact edges: %w", err)
+	}
 	if err := m.keeper.EnableClaimIntegrity(cache); err != nil {
 		return err
 	}
@@ -184,5 +191,7 @@ func (m Migrator) Migrate11to12(ctx sdk.Context) error {
 		return err
 	}
 	write()
+	m.keeper.Logger(ctx).Info("claim integrity: augmentation-replaced fact edges",
+		"restored", restored, "unrestorable", unrestorable)
 	return nil
 }

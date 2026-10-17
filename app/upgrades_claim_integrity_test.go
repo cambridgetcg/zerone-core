@@ -28,8 +28,10 @@ import (
 )
 
 // knowledge-claim-integrity-v1 (plan §3.3-§3.4, §6 Task 6). The handler owns
-// exactly knowledge 11->12, writes only marker 0x87 and its receipt, and the
-// v12 binary admits v11 state only at the exact scheduled H-1.
+// exactly knowledge 11->12, writes marker 0x87 and its receipt (and, where an
+// equal-ID augmentation replaced a fact edge, that edge's two entries; see
+// upgrades_claim_integrity_restore_test.go), and the v12 binary admits v11
+// state only at the exact scheduled H-1.
 
 const claimIntegrityReceiptName = "migration_v12_complete"
 

@@ -13,7 +13,9 @@ import (
 )
 
 // UpgradeNameKnowledgeClaimIntegrityV1 owns knowledge 11->12. Its predecessor
-// is completed fund settlement; it writes only marker 0x87 and its receipt.
+// is completed fund settlement; it writes marker 0x87 and its receipt, and
+// restores the fact edges that equal-ID augmentations replaced before
+// activation (keeper.RestoreAugmentationReplacedEdges), nothing else.
 const UpgradeNameKnowledgeClaimIntegrityV1 = claimintegritymigration.UpgradeName
 
 func claimIntegritySourceVersionMap() module.VersionMap {
