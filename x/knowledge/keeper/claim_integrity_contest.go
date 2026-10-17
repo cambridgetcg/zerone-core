@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	corestore "cosmossdk.io/core/store"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -30,13 +31,17 @@ import (
 // Review fixes (group G1): a survival is judged from the height its challenge
 // opened, never from the height it ended, so a refutation while the challenge
 // was open is not cleared by it (SEC-1); a refutation at that height counts
-// against the fact (F1); an EXPIRED counter-fact still holds its target
-// (SEC-5); and a check that cannot finish at a challenge's end changes
-// nothing (SEC-6). R2 is read before R1, and a reason either finds is
-// conclusive, so a heavily cited fact cannot hide a refuted dependency
-// behind the scan bound (second pass). An entry under a fact's prefix whose
-// payload names another fact, such as the edge of an augmentation whose ID
-// extends the fact's, is skipped rather than failing the check (third pass).
+// against the fact (F1); and an EXPIRED counter-fact still holds its target
+// (SEC-5). R2 is read before R1, and a reason either finds is conclusive
+// (second pass). An entry under a fact's prefix whose payload names another
+// fact is skipped rather than failing the check (third pass).
+//
+// Review G1R: a check that cannot finish never releases, at a challenge's end
+// too; G1's SEC-6 fallback, which restored the standing before the challenge,
+// is reverted because any read an attacker can inflate made it a laundering
+// lever. R2 reads a claim-born fact's dependencies by point lookups from its
+// claim, so it never reads what others write under the fact's prefix; a
+// failed item inside either rule no longer stops the rule.
 
 const (
 	causeContradictionAccepted = "contradiction_accepted"
@@ -92,10 +97,14 @@ type contestScan struct {
 	records, bytes int
 }
 
-// contestScanMaxRecords is the record ceiling of one contest check:
-// recordInventoryMaxRecords. Only tests change it, to reach the bound without
-// writing 100k records.
-var contestScanMaxRecords = recordInventoryMaxRecords
+// contestScanMaxRecords and contestScanMaxBytes are the ceilings of one
+// contest check: recordInventoryMaxRecords and recordInventoryMaxBytes. Only
+// tests change them, to reach the bound without writing 100k records or
+// 64 MiB.
+var (
+	contestScanMaxRecords = recordInventoryMaxRecords
+	contestScanMaxBytes   = recordInventoryMaxBytes
+)
 
 func (k Keeper) newContestScan(ctx context.Context) *contestScan {
 	return &contestScan{store: k.storeService.OpenKVStore(ctx)}
@@ -106,7 +115,7 @@ func (s *contestScan) charge(size int) error {
 	if s.records > contestScanMaxRecords {
 		return fmt.Errorf("contest scan exceeds record bound")
 	}
-	if size > recordInventoryMaxBytes-s.bytes {
+	if size > contestScanMaxBytes-s.bytes {
 		return fmt.Errorf("contest scan exceeds byte bound")
 	}
 	s.bytes += size
@@ -259,36 +268,91 @@ func (s *contestScan) lastSurvivedAt(factID string) (uint64, error) {
 	return challenge.SubmittedAtBlock, nil
 }
 
+// maxReportedContestFailures caps the failed reads one rule names in
+// contest_check_incomplete; the rest are counted.
+const maxReportedContestFailures = 8
+
+// contestFailures collects the failed reads of one rule. A failed item never
+// stops the rule (review G1R): a reason found after it is conclusive. A scan
+// that stopped (the bound, or an iterator error) is always named.
+type contestFailures struct {
+	named   []error
+	more    int
+	stopped error
+}
+
+func (f *contestFailures) add(err error) {
+	if len(f.named) < maxReportedContestFailures {
+		f.named = append(f.named, err)
+		return
+	}
+	f.more++
+}
+
+func (f *contestFailures) stop(err error) {
+	if f.stopped == nil {
+		f.stopped = err
+	}
+}
+
+// err names the collected failures, or is nil when none was collected.
+func (f *contestFailures) err() error {
+	parts := make([]string, 0, len(f.named)+2)
+	for _, err := range f.named {
+		parts = append(parts, err.Error())
+	}
+	if f.more > 0 {
+		parts = append(parts, fmt.Sprintf("and %d more", f.more))
+	}
+	if f.stopped != nil {
+		parts = append(parts, f.stopped.Error())
+	}
+	if len(parts) == 0 {
+		return nil
+	}
+	return errors.New(strings.Join(parts, "; "))
+}
+
 // contestReason decides R2, then R1 (plan §5.3). survivedAt, the evidence
 // cutoff of the fact's last survival (0 if none), is called at most once, and
 // only when a refuted dependency makes it matter.
 //
 // A reason found by either rule is conclusive: it is returned with no error,
-// whatever the other rule could read. Only when neither finds one does a
-// failed read make the check incomplete, and the error then names every
-// failed read. Both rules share one scan budget, and R2 is read first (review
-// G1, second pass): R1 reads every incoming edge of every type, which any
-// later fact can add, so with R1 first enough facts citing F hid a refuted
-// dependency behind the bound.
+// whatever else could not be read. Inside each rule a failed item (a
+// malformed or unreadable record, an edge naming a missing fact) is recorded
+// and the rule goes on, so a reason found after it is still conclusive
+// (review G1R). Only when neither rule finds a reason does a failure make the
+// check incomplete, and the error then names the failed reads, up to
+// maxReportedContestFailures per rule. Both rules share one scan budget, and
+// R2 is read first (review G1, second pass): R1 reads every incoming edge of
+// every type, which any later fact can add.
 //
-// R2 reads F's forward prefix. F's own entries there are its claim's edges (at
-// most types.MaxRelationsPerClaim), genesis edges, and the edge of an
-// augmentation whose ID is F's, if one passed. The prefix can also hold
-// entries whose payload names another source (third pass): a passing
-// augmentation writes a REFORMULATES edge whose source is its user-chosen ID
-// (ApplyFinalizedAugmentationVerdict), so an ID "<F>/x" lands under F's
-// prefix. validateToKStoredRecord rebuilds the key from the payload, so the
-// payload names the edge's owner, and such an entry is skipped rather than
-// failing the check; treating it as an error let it hide a refuted dependency
-// through the SEC-6 fallback. R1 skips an entry under F's reverse prefix that
-// names another target the same way. A skipped entry is still read and
-// charged, so a refuted dependency can now hide behind the bound only if F's
-// forward prefix nears the 100k-record bound by itself. Review neutrality
-// refuses new augmentations, so that would take about 100k passing
-// augmentations admitted before it.
+// R2 reads nothing others can grow cheaply (review G1R). For a fact accepted from a
+// claim it reads that claim and, for each target the claim names, the stored
+// edge F→target by key: one read per named target (the claim is one record
+// its submitter wrote, at most types.MaxRelationsPerClaim relations since
+// that cap), plus the status histories of F and of each refuted dependency,
+// which grow only by status changes. F's claim wrote every outgoing edge of
+// F; the one other writer, before activation, was an augmentation whose ID
+// equalled F's, and its REFORMULATES edge is outside the cascade set. So the
+// point reads find every dependency a scan of F's forward prefix would find,
+// without reading the entries others add under that prefix: a passing
+// augmentation wrote a REFORMULATES edge whose source is its user-chosen ID
+// (ApplyFinalizedAugmentationVerdict), so long IDs "<F>/…" could fill the
+// prefix past the byte bound. Only a fact with no claim (genesis, doctrine or
+// an authority injection) has its forward prefix scanned; entries there whose
+// payload names another source are skipped, and still charged.
+// validateToKStoredRecord rebuilds every key from its payload, so the payload
+// names the edge's owner. R1 skips an entry under F's reverse prefix that
+// names another target the same way.
+//
+// The bound can still be reached: by R1, on a fact with very many incoming
+// edges, or by the prefix scan of a claimless fact. The check is then
+// incomplete and never releases (challengeEndStatus); that is the disclosed
+// cost, and nothing an attacker adds can turn it into a release.
 func (k Keeper) contestReason(ctx context.Context, fact *types.Fact, survivedAt func(*contestScan) (uint64, error)) (bool, error) {
 	s := k.newContestScan(ctx)
-	refuted, dependencyErr := s.refutedDependency(fact.Id, survivedAt)
+	refuted, dependencyErr := s.refutedDependency(fact, survivedAt)
 	if refuted {
 		return true, nil
 	}
@@ -310,41 +374,30 @@ func (k Keeper) contestReason(ctx context.Context, fact *types.Fact, survivedAt 
 // refutedDependency decides R2: an outgoing dependency edge (the cascade set)
 // to a DISPROVEN fact that fell at or after the opening of the fact's last
 // survived challenge. A fall at the opening height counts: heights cannot
-// order two events of one block (F1).
-func (s *contestScan) refutedDependency(factID string, survivedAt func(*contestScan) (uint64, error)) (bool, error) {
-	var dependencies []string
-	err := s.each(types.FactRelationsBySourcePrefix(factID), func(key, value []byte) error {
-		rel, err := decodeContestRelation(key, value)
-		if err != nil {
-			return fmt.Errorf("outgoing relation: %w", err)
-		}
-		if rel.SourceFactId != factID {
-			return nil // another source's edge (see contestReason)
-		}
-		if isCascadeRelation(rel.Relation) {
-			dependencies = append(dependencies, rel.TargetFactId)
-		}
-		return nil
-	})
-	if err != nil {
-		return false, err
-	}
+// order two events of one block (F1). A dependency that cannot be read is
+// recorded and the next is tried; without the survival cutoff no refuted
+// dependency can be judged, so a failure to read it ends the rule.
+func (s *contestScan) refutedDependency(fact *types.Fact, survivedAt func(*contestScan) (uint64, error)) (bool, error) {
+	var failed contestFailures
 	var survived uint64
 	known := false
-	for _, id := range dependencies {
+	for _, id := range s.dependencies(fact, &failed) {
 		dependency, found, err := s.fact(id)
 		if err != nil {
-			return false, fmt.Errorf("dependency %s: %w", id, err)
+			failed.add(fmt.Errorf("dependency %s: %w", id, err))
+			continue
 		}
 		if !found {
-			return false, fmt.Errorf("dependency %s is missing", id)
+			failed.add(fmt.Errorf("dependency %s is missing", id))
+			continue
 		}
 		if dependency.Status != types.FactStatus_FACT_STATUS_DISPROVEN {
 			continue
 		}
 		if !known {
 			if survived, err = survivedAt(s); err != nil {
-				return false, fmt.Errorf("survival history: %w", err)
+				failed.add(fmt.Errorf("survival history: %w", err))
+				return false, failed.err()
 			}
 			known = true
 		}
@@ -353,23 +406,105 @@ func (s *contestScan) refutedDependency(factID string, survivedAt func(*contestS
 		}
 		at, err := s.disprovenAt(id)
 		if err != nil {
-			return false, fmt.Errorf("dependency %s history: %w", id, err)
+			failed.add(fmt.Errorf("dependency %s history: %w", id, err))
+			continue
 		}
 		if at >= survived {
 			return true, nil
 		}
 	}
-	return false, nil
+	return false, failed.err()
+}
+
+// dependencies lists the targets of fact's stored outgoing edges in the
+// cascade set (see contestReason). For a fact accepted from a claim it reads
+// the claim and looks up the stored edge to each target the claim names, so
+// entries others write under the fact's forward prefix are never read. A
+// target whose stored edge is absent or outside the cascade set is not a
+// dependency: the stored edge is what the cascade follows. Only a fact with
+// no claim has its forward prefix scanned. Failed reads go to failed.
+func (s *contestScan) dependencies(fact *types.Fact, failed *contestFailures) []string {
+	if fact.ClaimId == "" {
+		return s.scannedDependencies(fact.Id, failed)
+	}
+	claim, err := s.claim(fact.ClaimId)
+	if err != nil {
+		failed.add(fmt.Errorf("claim %s of %s: %w", fact.ClaimId, fact.Id, err))
+		return nil
+	}
+	if claim == nil {
+		failed.add(fmt.Errorf("claim %s of %s is missing", fact.ClaimId, fact.Id))
+		return nil
+	}
+	var ids []string
+	named := make(map[string]bool, len(claim.Relations))
+	for _, rel := range claim.Relations {
+		if rel == nil || named[rel.TargetFactId] {
+			continue
+		}
+		named[rel.TargetFactId] = true
+		edge, err := s.relation(types.FactRelationKey(fact.Id, rel.TargetFactId))
+		if err != nil {
+			failed.add(fmt.Errorf("outgoing relation %s→%s: %w", fact.Id, rel.TargetFactId, err))
+			continue
+		}
+		// Keys are "<source>/<target>", so F→"x/y" and "<F>/x"→y share a
+		// key; an entry whose payload names another pair is not F's edge.
+		if edge != nil && edge.SourceFactId == fact.Id && edge.TargetFactId == rel.TargetFactId && isCascadeRelation(edge.Relation) {
+			ids = append(ids, rel.TargetFactId)
+		}
+	}
+	return ids
+}
+
+// scannedDependencies is dependencies for a fact with no claim: a scan of its
+// forward prefix, skipping entries whose payload names another source.
+func (s *contestScan) scannedDependencies(factID string, failed *contestFailures) []string {
+	var ids []string
+	err := s.each(types.FactRelationsBySourcePrefix(factID), func(key, value []byte) error {
+		rel, err := decodeContestRelation(key, value)
+		if err != nil {
+			failed.add(fmt.Errorf("outgoing relation: %w", err))
+			return nil
+		}
+		if rel.SourceFactId != factID {
+			return nil // another source's edge (see contestReason)
+		}
+		if isCascadeRelation(rel.Relation) {
+			ids = append(ids, rel.TargetFactId)
+		}
+		return nil
+	})
+	if err != nil {
+		failed.stop(err)
+	}
+	return ids
+}
+
+// relation reads and validates the relation stored at key. It is nil when
+// absent.
+func (s *contestScan) relation(key []byte) (*types.FactRelation, error) {
+	bz, err := s.store.Get(key)
+	if err != nil {
+		return nil, err
+	}
+	if err = s.charge(len(key) + len(bz)); err != nil || bz == nil {
+		return nil, err
+	}
+	return decodeContestRelation(key, bz)
 }
 
 // standingCounterFact decides R1: an incoming CONTRADICTS edge from a fact
 // that has not fallen (counterFactStands). It reads every incoming edge, of
-// any type, until it finds one.
+// any type, until it finds one. An entry that cannot be read, or that names a
+// missing or unreadable fact, is recorded and the scan goes on.
 func (s *contestScan) standingCounterFact(factID string) (bool, error) {
+	var failed contestFailures
 	err := s.each(types.FactRelationsByTargetPrefix(factID), func(key, value []byte) error {
 		rel, err := decodeContestRelation(key, value)
 		if err != nil {
-			return fmt.Errorf("incoming relation: %w", err)
+			failed.add(fmt.Errorf("incoming relation: %w", err))
+			return nil
 		}
 		if rel.TargetFactId != factID {
 			return nil // another target's edge (see contestReason)
@@ -379,10 +514,12 @@ func (s *contestScan) standingCounterFact(factID string) (bool, error) {
 		}
 		source, found, err := s.fact(rel.SourceFactId)
 		if err != nil {
-			return fmt.Errorf("contradicting fact %s: %w", rel.SourceFactId, err)
+			failed.add(fmt.Errorf("contradicting fact %s: %w", rel.SourceFactId, err))
+			return nil
 		}
 		if !found {
-			return fmt.Errorf("contradicting fact %s is missing", rel.SourceFactId)
+			failed.add(fmt.Errorf("contradicting fact %s is missing", rel.SourceFactId))
+			return nil
 		}
 		if counterFactStands(source.Status) {
 			return errContestReasonFound
@@ -392,7 +529,10 @@ func (s *contestScan) standingCounterFact(factID string) (bool, error) {
 	if errors.Is(err, errContestReasonFound) {
 		return true, nil
 	}
-	return false, err
+	if err != nil {
+		failed.stop(err)
+	}
+	return false, failed.err()
 }
 
 func emitContestCheckIncomplete(ctx context.Context, factID string, cause error) {
@@ -417,9 +557,10 @@ func (k Keeper) contestReasonOrIncomplete(ctx context.Context, fact *types.Fact,
 // (counterFactStands); or R2, an outgoing dependency edge to a DISPROVEN fact
 // that fell at or after survivedAt (or any such fall when survivedAt is 0).
 // survivedAt is the opening height of a survived challenge. Pending
-// contradictions are not reasons. A reason either rule finds is conclusive.
-// It never returns an error: when neither finds one, a read error, a
-// malformed record or the scan bound means the reason remains, and
+// contradictions are not reasons. A reason either rule finds is conclusive,
+// even after failed items (see contestReason for what each rule reads). It
+// never returns an error: when neither finds one, a read error, a malformed
+// record or the scan bound means the reason remains, and
 // contest_check_incomplete says why. It writes nothing.
 func (k Keeper) contestReasonRemains(ctx context.Context, fact *types.Fact, survivedAt uint64) bool {
 	return k.contestReasonOrIncomplete(ctx, fact, func(*contestScan) (uint64, error) { return survivedAt, nil })
@@ -571,59 +712,30 @@ func (k Keeper) endContradiction(ctx context.Context, claim *types.Claim, integr
 // nothing, so the reasons are judged since the fact's last survival. A
 // standing counter-fact is never cleared by a survival (§9 D2).
 //
-// A check that cannot finish changes nothing (SEC-6): the fact returns to
-// CONTESTED if it was CONTESTED when this challenge opened, and otherwise as
-// if no reason remained. contest_check_incomplete says why, once. Otherwise
-// one starved, refunded challenge would freeze CONTESTED a fact whose check
-// finds no refuted dependency and is too large to finish, such as one with
-// more than 100k incoming relations. A refuted dependency is read first, so it
-// is lost this way only if the fact's forward prefix alone exceeds the bound
-// (see contestReason); otherwise only R1 is lost (a counter-fact accepted
-// while the fact was CHALLENGED, or a fact laundered before activation). If
-// the status before the challenge cannot be read (a challenge opened before
-// activation recorded no challenge_opened transition) the fact returns to
-// CONTESTED.
+// A check that cannot finish never releases: the fact returns to CONTESTED,
+// whatever its standing before the challenge, and contest_check_incomplete
+// says why (review G1R). G1's SEC-6 fallback restored the standing before the
+// challenge instead, and that made every read an attacker can inflate a
+// laundering lever: long augmentation IDs extending F's ID filled the byte
+// bound of R2's prefix scan, and a shielded F returned to ACTIVE although a
+// dependency fell while its challenge was open. The disclosed cost: a fact
+// whose check is too large to finish, such as one with more than 100k
+// incoming relations, stays CONTESTED once a challenge of it ends; only a
+// challenge that refutes it moves it.
 func (k Keeper) challengeEndStatus(ctx context.Context, fact *types.Fact, challenge *types.Claim, integrity, survived bool) types.FactStatus {
 	if !integrity || IsConjecture(fact) {
 		return RestoredStatusFor(fact)
 	}
-	cutoff := func(s *contestScan) (uint64, error) { return s.lastSurvivedAt(fact.Id) }
+	remains := false
 	if survived {
-		cutoff = func(*contestScan) (uint64, error) { return challenge.SubmittedAtBlock, nil }
+		remains = k.contestReasonRemains(ctx, fact, challenge.SubmittedAtBlock)
+	} else {
+		remains = k.contestReasonRemainsSinceLastSurvival(ctx, fact)
 	}
-	remains, err := k.contestReason(ctx, fact, cutoff)
-	if err == nil {
-		if remains {
-			return types.FactStatus_FACT_STATUS_CONTESTED
-		}
-		return RestoredStatusFor(fact)
-	}
-	contested, priorErr := k.contestedWhenChallengeOpened(ctx, fact.Id, challenge.Id)
-	if priorErr != nil {
-		err = fmt.Errorf("%w; status before the challenge: %v", err, priorErr)
-	}
-	emitContestCheckIncomplete(ctx, fact.Id, err)
-	if priorErr != nil || contested {
+	if remains {
 		return types.FactStatus_FACT_STATUS_CONTESTED
 	}
 	return RestoredStatusFor(fact)
-}
-
-// contestedWhenChallengeOpened reports whether factID was CONTESTED when
-// challenge challengeID opened: the prior status of the latest
-// challenge_opened transition naming it. It reads within its own contest-scan
-// budget. No such transition is an error.
-func (k Keeper) contestedWhenChallengeOpened(ctx context.Context, factID, challengeID string) (bool, error) {
-	opened, err := k.newContestScan(ctx).latestTransition(factID, func(t *types.StatusTransition) bool {
-		return t.CauseEventType == causeChallengeOpened && t.CauseId == challengeID
-	})
-	if err != nil {
-		return false, err
-	}
-	if opened == nil {
-		return false, fmt.Errorf("no challenge_opened transition names %s", challengeID)
-	}
-	return opened.PriorStatus == types.FactStatus_FACT_STATUS_CONTESTED, nil
 }
 
 // settleCounterFactTargets runs when counter-fact K has just been disproven,

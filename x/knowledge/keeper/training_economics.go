@@ -728,6 +728,14 @@ func (k Keeper) ApplyFinalizedAugmentationVerdict(ctx context.Context, augID str
 
 	passing := verdict == types.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT ||
 		verdict == types.AugmentationVerdict_AUGMENTATION_VERDICT_SUPERIOR
+	// Claim integrity (review G1R): whether the passing edge is withheld is
+	// read before any write, so a marker or store error changes nothing.
+	withheld := ""
+	if passing {
+		if withheld, err = k.augmentationEdgeWithheld(ctx, aug); err != nil {
+			return err
+		}
+	}
 
 	if passing && aug.BountyId != "" {
 		bounty, ok := k.GetAugmentationBounty(ctx, aug.BountyId)
@@ -769,8 +777,13 @@ func (k Keeper) ApplyFinalizedAugmentationVerdict(ctx context.Context, augID str
 	}
 
 	// For passing verdicts, also write a REFORMULATES edge from variant →
-	// original fact (provides queryable knowledge-graph evidence).
-	if passing {
+	// original fact (provides queryable knowledge-graph evidence). With claim
+	// integrity on, an ID that would land in the fact ID space writes no edge
+	// (withheld, decided before any write above).
+	if passing && withheld != "" {
+		emitAugmentationEdgeWithheld(ctx, aug, withheld)
+	}
+	if passing && withheld == "" {
 		rel := &types.FactRelation{
 			SourceFactId:   aug.Id, // variant-side
 			TargetFactId:   aug.OriginalFactId,

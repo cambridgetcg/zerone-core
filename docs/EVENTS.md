@@ -1425,9 +1425,9 @@ Claim integrity (knowledge v12): a claim carrying a CONTRADICTS relation, throug
 - `counter_fact_id` -- the fact created from it, which carries the CONTRADICTS edge
 
 ### zerone.knowledge.contest_check_incomplete
-Claim integrity (knowledge v12): the check for whether a CONTESTED fact may be released found no reason and could not finish, so the fact stays CONTESTED. A reason found by either rule (refuted dependency, read first; standing counter-fact) is conclusive and emits nothing. Causes: an unreadable or malformed relation, fact, claim or transition record, a relation naming a missing fact, a survival whose challenge claim is missing or inconsistent, or the scan bound (100,000 records / 64 MiB per check, counting incoming relations of every type). A relation entry under the fact's index prefix whose record names another fact (such as the edge of an augmentation whose ID extends the fact's) is skipped, not a cause, but still counts toward the bound. The same check decides how a challenge that does not refute a fact ends; if it cannot finish, the fact keeps its standing from before the challenge: CONTESTED if it was CONTESTED when the challenge opened (or that cannot be read), ACTIVE otherwise. When a disproven counter-fact's own relations cannot be listed, the event names the counter-fact and none of its targets is released; the disproval stands.
+Claim integrity (knowledge v12): the check for whether a CONTESTED fact may be released found no reason and could not finish, so the fact stays CONTESTED. A reason found by either rule (refuted dependency, read first; standing counter-fact) is conclusive and emits nothing, even after items that could not be read. Causes: an unreadable or malformed relation, fact, claim or transition record (the fact's own claim included: a fact accepted from a claim has its dependencies read from that claim), a relation naming a missing fact, a survival whose challenge claim is missing or inconsistent, or the scan bound (100,000 records / 64 MiB per check, counting incoming relations of every type). A relation entry under the fact's index prefix whose record names another fact (such as the edge of an augmentation whose ID extends the fact's) is skipped, not a cause; the prefix scan of a fact with no claim still counts it toward the bound. The same check decides how a challenge that does not refute a fact ends; if it cannot finish, the fact returns to CONTESTED, whatever its standing before the challenge. So a fact with more incoming relations than one check may read stays CONTESTED once a challenge of it ends (a disclosed limitation). When a disproven counter-fact's own relations cannot be listed, the event names the counter-fact and none of its targets is released; the disproval stands.
 - `fact_id` -- fact whose check could not finish (or the disproven counter-fact whose relations could not be listed)
-- `reason` -- why the check could not finish
+- `reason` -- why the check could not finish: up to eight failed reads per rule, a count of the rest, and the bound if a scan stopped there
 
 ### zerone.knowledge.confidence_clamped_to_floor
 On fact creation, the new fact's confidence was capped to its `dependency_confidence_floor` (ToK Wave 2). Emitted when a proof chain inherits a weaker ceiling than its own verification would give it.
@@ -1636,11 +1636,17 @@ A verifier cast a verdict on a reformulation round (Route B Wave 4d). Sponsor an
 - `finalized` -- boolean: did this vote finalize the verdict?
 
 ### zerone.knowledge.augmentation_verdict_finalized
-The verifier panel reached consensus on a reformulation (Route B Wave 4d). For EQUIVALENT/SUPERIOR the handler releases escrow to the submitter and writes a REFORMULATES relation; for DRIFT/INFERIOR the variant is archived for the drift corpus. Never fired by the sponsor or submitter directly.
+The verifier panel reached consensus on a reformulation (Route B Wave 4d). For EQUIVALENT/SUPERIOR the handler releases escrow to the submitter and writes a REFORMULATES relation (with the claim-integrity marker on, not for an ID in the fact ID space; see `augmentation_edge_withheld`); for DRIFT/INFERIOR the variant is archived for the drift corpus. Never fired by the sponsor or submitter directly.
 - `augmentation_id`
 - `original_fact_id`
 - `verdict` -- final panel verdict
 - `payout` -- uzrn paid (0 for DRIFT/INFERIOR/vetoed)
+
+### zerone.knowledge.augmentation_edge_withheld
+Claim integrity (knowledge v12): a passing augmentation verdict (EQUIVALENT or SUPERIOR) wrote no REFORMULATES relation, because the augmentation's ID would land in the fact ID space: it contains `/` (relation keys are `<source>/<target>`, so it would sit under another ID's index prefix), is longer than 128 bytes, or is the ID of a stored fact (its edge would overwrite that fact's own edge to the same target). The verdict, payout and acceptance are applied unchanged. Emitted only with the claim-integrity marker on; with it off the relation is written as before.
+- `augmentation_id`
+- `original_fact_id` -- the fact the variant reformulates
+- `reason` -- `augmentation id contains '/'`, `augmentation id is longer than 128 bytes`, or `augmentation id is the id of a fact`
 
 ### zerone.knowledge.augmentation_sponsor_vetoed
 Sponsor vetoed a passing verdict, forfeiting the payout amount to the research fund (Route B Wave 4d). The only sponsor-held lever — deliberately costly so it cannot silently block legitimate variants.

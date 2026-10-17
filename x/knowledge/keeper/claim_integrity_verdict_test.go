@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strings"
 	"testing"
 
+	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
@@ -479,15 +481,15 @@ func TestClaimIntegrity_ConjectureChallengeEndsProvisional(t *testing.T) {
 }
 
 // Plan §5.3 failure handling on the new paths: a check that cannot finish
-// never releases. A challenged fact whose check fails returns to its standing
-// before the challenge however the challenge ends without refuting it:
-// CONTESTED if it was CONTESTED, ACTIVE otherwise (review fix SEC-6; an
-// incomplete check changes nothing). The CONTESTED F here depends on a refuted
-// D; R2 is read before the unreadable incoming edge, so unless F survives a
-// challenge opened after D fell, D is found and the check finishes. A target
-// whose check fails stays CONTESTED when its counter-fact falls; and if the
-// fallen counter-fact's own relations cannot be listed, no target is released
-// and the event names the counter-fact. The disproval itself stands.
+// never releases. A challenged fact whose check fails returns to CONTESTED
+// however the challenge ends without refuting it, whatever its standing
+// before the challenge (review G1R, which reverts G1's SEC-6 fallback). The
+// CONTESTED F here depends on a refuted D; R2 is read before the unreadable
+// incoming edge, so unless F survives a challenge opened after D fell, D is
+// found and the check finishes. A target whose check fails stays CONTESTED
+// when its counter-fact falls; and if the fallen counter-fact's own relations
+// cannot be listed, no target is released and the event names the
+// counter-fact. The disproval itself stands.
 func TestClaimIntegrity_IncompleteCheckOnVerdictPathsNeverReleases(t *testing.T) {
 	unreadableIncoming := func(f *v11Fixture, factID string) {
 		f.ctx.KVStore(f.key).Set(types.FactRelationReverseKey(factID, "unreadable-source"), []byte{0xff})
@@ -514,14 +516,10 @@ func TestClaimIntegrity_IncompleteCheckOnVerdictPathsNeverReleases(t *testing.T)
 				if ending.name == "rejected" {
 					cause = "challenge_survived"
 				}
-				next := vdActive
-				if before == csContested {
-					next = csContested
-				}
-				require.Equal(t, next, f.fact(t, factF).Status, "an incomplete check neither contests nor releases")
+				require.Equal(t, csContested, f.fact(t, factF).Status, "an incomplete check never releases")
 				require.Equal(t, append(history,
 					v11Transition{before, vdChallenged, "challenge_opened", c},
-					v11Transition{vdChallenged, next, cause, c}), f.transitions(factF))
+					v11Transition{vdChallenged, csContested, cause, c}), f.transitions(factF))
 				incomplete := v11Event(f.ctx, csIncompleteEvent)
 				if before == csContested && ending.name != "rejected" {
 					require.Empty(t, incomplete, "refuted D is found first and was never cleared")
@@ -760,17 +758,42 @@ func TestClaimIntegrity_ShieldChallengeOfHeavilyCitedFactLaundersNothing(t *test
 	}
 }
 
+// vdBeforeActivation runs fn with the claim-integrity marker lifted, as if fn
+// ran before activation, and then restores the marker. With the marker off it
+// only runs fn.
+func (f *v11Fixture) vdBeforeActivation(t *testing.T, fn func()) {
+	t.Helper()
+	kv := f.ctx.KVStore(f.key)
+	key := []byte(keeper.ClaimIntegrityEnabledStoreKey)
+	marker := kv.Get(key)
+	if marker != nil {
+		kv.Delete(key)
+		defer kv.Set(key, marker)
+	}
+	fn()
+}
+
+// vdPassAugmentation stores augmentation augID of original and applies a
+// passing (EQUIVALENT) verdict through the real writer.
+func (f *v11Fixture) vdPassAugmentation(t *testing.T, augID, original string) {
+	t.Helper()
+	require.NoError(t, f.k.SetAugmentation(f.ctx, &types.Augmentation{
+		Id: augID, OriginalFactId: original, VariantContent: "Synthetic v12 review G1: a variant of fact D.",
+	}))
+	require.NoError(t, f.k.ApplyFinalizedAugmentationVerdict(f.ctx, augID, types.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT))
+}
+
 // SEC-1 behind an augmentation edge (review G1, third pass). F REQUIRES D.
 // Augmentation IDs are chosen by their submitter, and a passing verdict
-// (ApplyFinalizedAugmentationVerdict) writes a REFORMULATES edge whose source
-// is the augmentation's ID. An augmentation named "<F>/0" therefore puts its
+// (ApplyFinalizedAugmentationVerdict) wrote a REFORMULATES edge whose source
+// is the augmentation's ID. An augmentation named "<F>/0" therefore put its
 // edge under F's forward-index prefix, next to F's own edges. With the marker
-// on new augmentations are refused, but one admitted before review neutrality
-// can still pass, so this one is written directly and only its verdict runs.
-// That entry is another source's edge: R2 skips it and still finds D, so the
-// shield challenge leaves F CONTESTED and the check complete. Before the fix
-// R2 failed on it, and the SEC-6 fallback returned F to ACTIVE. With the
-// marker off F returns to ACTIVE, as knowledge 11 does.
+// on the writer no longer writes such an edge (review G1R), so the verdict
+// runs before activation, where the edge is still written: the closed set of
+// pre-activation edges. R2 reads F's dependencies from F's own claim and
+// never reads that entry, so the shield challenge leaves F CONTESTED and the
+// check complete. With the marker off F returns to ACTIVE, as knowledge 11
+// does.
 func TestClaimIntegrity_ShieldChallengeBehindAugmentationEdgeLaundersNothing(t *testing.T) {
 	for _, sel := range dedupSelections {
 		for _, ending := range []string{"reject", "malformed", "starve"} {
@@ -778,10 +801,7 @@ func TestClaimIntegrity_ShieldChallengeBehindAugmentationEdgeLaundersNothing(t *
 				f := sel.setup(t)
 				claimF, factF, factD := f.vdDependent(t, "aug")
 				augID := factF + "/0"
-				require.NoError(t, f.k.SetAugmentation(f.ctx, &types.Augmentation{
-					Id: augID, OriginalFactId: factD, VariantContent: "Synthetic v12 review G1: a variant of fact D whose ID extends fact F's.",
-				}))
-				require.NoError(t, f.k.ApplyFinalizedAugmentationVerdict(f.ctx, augID, types.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT))
+				f.vdBeforeActivation(t, func() { f.vdPassAugmentation(t, augID, factD) })
 				outgoing, err := f.k.GetFactRelations(f.ctx, factF)
 				require.NoError(t, err)
 				var listed [][3]string
@@ -793,6 +813,44 @@ func TestClaimIntegrity_ShieldChallengeBehindAugmentationEdgeLaundersNothing(t *
 					{augID, factD, types.RelationType_RELATION_TYPE_REFORMULATES.String()},
 				}, listed, "the augmentation's edge lies under F's prefix")
 				f.vdShieldChallenge(t, sel.integrity, "aug", ending, claimF, factF, factD)
+			})
+		}
+	}
+}
+
+// The byte-bound shield (review G1R). F REQUIRES D. Before activation, passing
+// augmentations whose long IDs extend F's ID put their REFORMULATES edges
+// under F's forward-index prefix, together more bytes than one contest check
+// may read (the byte bound is lowered here to 64 KiB; on chain, about 343 IDs
+// of 96 KiB fill 64 MiB). An R2 that scanned that prefix stopped at the bound
+// before D, and G1's SEC-6 fallback then returned the shielded F to ACTIVE.
+// R2 now reads F's dependencies by point lookups from F's own claim, so the
+// inflated prefix is never read: however the shield challenge ends without
+// refuting F, F returns to CONTESTED and the check is complete. With the
+// marker off F returns to ACTIVE, as knowledge 11 does.
+func TestClaimIntegrity_ShieldChallengeBehindLongAugmentationIDsLaundersNothing(t *testing.T) {
+	const byteBound, idPad = 64 << 10, 8 << 10
+	pad := strings.Repeat("x", idPad)
+	for _, sel := range dedupSelections {
+		for _, ending := range []string{"reject", "malformed", "starve"} {
+			t.Run(sel.name+"/"+ending, func(t *testing.T) {
+				f := sel.setup(t)
+				keeper.SetContestScanMaxBytesForTest(t, byteBound)
+				claimF, factF, factD := f.vdDependent(t, "bb")
+				f.vdBeforeActivation(t, func() {
+					for i := 0; i*2*idPad <= byteBound; i++ {
+						f.vdPassAugmentation(t, fmt.Sprintf("%s/%02d%s", factF, i, pad), factD)
+					}
+				})
+				prefix := types.FactRelationsBySourcePrefix(factF)
+				it := f.ctx.KVStore(f.key).Iterator(prefix, storetypes.PrefixEndBytes(prefix))
+				size := 0
+				for ; it.Valid(); it.Next() {
+					size += len(it.Key()) + len(it.Value())
+				}
+				require.NoError(t, it.Close())
+				require.Greater(t, size, byteBound, "F's forward prefix alone exceeds the byte bound")
+				f.vdShieldChallenge(t, sel.integrity, "bb", ending, claimF, factF, factD)
 			})
 		}
 	}
@@ -924,18 +982,19 @@ func TestClaimIntegrity_ExpiredCounterFactStillHoldsTarget(t *testing.T) {
 	}
 }
 
-// SEC-6. A heavily cited fact makes every contest check that finds no reason
-// in F's dependencies reach the scan bound (lowered here to 8 records). An
-// incomplete check at a challenge's end changes nothing: a fact that was not
-// CONTESTED before the challenge returns to ACTIVE, as if no reason were
-// found, and one that was CONTESTED stays CONTESTED. Either way
-// contest_check_incomplete names the fact once. So one starved, refunded
-// challenge cannot freeze a popular fact CONTESTED, and an incomplete check
-// releases nothing. In the contested-before cases F depends on a refuted D:
-// only a survival of a challenge opened after D fell clears D and so reaches
-// the bound; any other ending finds D first and finishes. With the marker off
-// nothing is checked.
-func TestClaimIntegrity_IncompleteCheckAtChallengeEndKeepsPriorStanding(t *testing.T) {
+// The disclosed limitation that replaced SEC-6 (review G1R). A heavily cited
+// fact makes every contest check that finds no reason in F's dependencies
+// reach the scan bound (lowered here to 8 records). An incomplete check at a
+// challenge's end never releases: F ends CONTESTED whatever its standing
+// before the challenge, and contest_check_incomplete names it once. So one
+// starved, refunded challenge leaves a very heavily cited fact CONTESTED
+// (griefing, disclosed); G1's fallback, which returned it to ACTIVE, let any
+// attacker-inflatable read launder a shielded fact. In the contested-before
+// cases F depends on a refuted D: only a survival of a challenge opened after
+// D fell clears D and so reaches the bound; any other ending finds D first
+// and finishes. With the marker off nothing is checked and F returns to
+// ACTIVE.
+func TestClaimIntegrity_IncompleteCheckAtChallengeEndLeavesFactContested(t *testing.T) {
 	const bound = 8
 	cite := func(t *testing.T, f *v11Fixture, factID string) {
 		t.Helper()
@@ -956,18 +1015,19 @@ func TestClaimIntegrity_IncompleteCheckAtChallengeEndKeepsPriorStanding(t *testi
 				c := f.challenge(t, v11Addr("v12-vd-cb-ch"), factF)
 				f.freshEvents()
 				ending.end(t, f, c)
-				require.Equal(t, vdActive, f.fact(t, factF).Status, "an incomplete check never contests")
 				if !sel.integrity {
+					require.Equal(t, vdActive, f.fact(t, factF).Status, "knowledge 11 restores F")
 					require.Empty(t, v11Event(f.ctx, csIncompleteEvent))
 					return
 				}
+				require.Equal(t, csContested, f.fact(t, factF).Status, "an incomplete check never releases")
 				cause := "challenge_inconclusive"
 				if ending.name == "rejected" {
 					cause = "challenge_survived"
 				}
 				require.Equal(t, append(history,
 					v11Transition{csVerified, vdChallenged, "challenge_opened", c},
-					v11Transition{vdChallenged, vdActive, cause, c}), f.transitions(factF))
+					v11Transition{vdChallenged, csContested, cause, c}), f.transitions(factF))
 				incomplete := v11Event(f.ctx, csIncompleteEvent)
 				require.Len(t, incomplete, 1)
 				require.Equal(t, factF, incomplete[0]["fact_id"])

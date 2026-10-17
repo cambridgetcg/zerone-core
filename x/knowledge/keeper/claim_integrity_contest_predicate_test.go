@@ -18,6 +18,12 @@ import (
 // CONTESTED; every other record is written directly, with explicit heights,
 // so each rule and each failure is checked in isolation. The scenarios in
 // claim_integrity_contest_test.go run the same predicate through real rounds.
+//
+// Facts are claim-born, as accepted facts are: fact X names claim
+// "X-claim", and putRelation adds each relation from X to that claim as well
+// as storing the edge, as createFactFromClaim does. R2 reads a claim-born
+// fact's dependencies from its claim (review G1R). A genesis fact (no claim)
+// is built with putGenesisFact; R2 scans its forward prefix.
 
 const contestF = "contest-f"
 
@@ -34,14 +40,67 @@ func newContestPredicateFixture(t *testing.T) *contestPredicateFixture {
 	return f
 }
 
-func (f *contestPredicateFixture) putFact(id string, status types.FactStatus) {
-	f.t.Helper()
-	require.NoError(f.t, f.k.SetFactSkipTransition(f.ctx, &types.Fact{Id: id, ClaimId: id + "-claim", Status: status}))
+// newGenesisContestPredicateFixture is newContestPredicateFixture with F a
+// genesis fact: it names no claim.
+func newGenesisContestPredicateFixture(t *testing.T) *contestPredicateFixture {
+	t.Helper()
+	f := newContestPredicateFixture(t)
+	f.putGenesisFact(contestF, types.FactStatus_FACT_STATUS_CONTESTED)
+	return f
 }
 
+// contestOrigins runs a case for a claim-born F and for a genesis F.
+var contestOrigins = []struct {
+	name    string
+	fixture func(*testing.T) *contestPredicateFixture
+}{
+	{"claim-born F", newContestPredicateFixture},
+	{"genesis F", newGenesisContestPredicateFixture},
+}
+
+func contestClaimOf(factID string) string { return factID + "-claim" }
+
+// putFact writes a claim-born fact, and its claim with no relations if that
+// claim is not yet stored.
+func (f *contestPredicateFixture) putFact(id string, status types.FactStatus) {
+	f.t.Helper()
+	require.NoError(f.t, f.k.SetFactSkipTransition(f.ctx, &types.Fact{Id: id, ClaimId: contestClaimOf(id), Status: status}))
+	claim, err := f.k.getClaimRecordChecked(f.ctx, contestClaimOf(id))
+	require.NoError(f.t, err)
+	if claim == nil {
+		require.NoError(f.t, f.k.SetClaim(f.ctx, &types.Claim{Id: contestClaimOf(id), Submitter: "author-" + id}))
+	}
+}
+
+// putGenesisFact writes a fact that names no claim, as genesis and doctrine
+// facts do.
+func (f *contestPredicateFixture) putGenesisFact(id string, status types.FactStatus) {
+	f.t.Helper()
+	require.NoError(f.t, f.k.SetFactSkipTransition(f.ctx, &types.Fact{Id: id, Status: status}))
+}
+
+// putRelation stores the edge source→target, and names it in source's claim
+// when source is a claim-born fact.
 func (f *contestPredicateFixture) putRelation(source, target string, relation types.RelationType) {
 	f.t.Helper()
 	require.NoError(f.t, f.k.SetFactRelation(f.ctx, &types.FactRelation{SourceFactId: source, TargetFactId: target, Relation: relation}))
+	f.nameInClaim(source, target, relation)
+}
+
+// nameInClaim adds relation→target to the claim of source, if source is a
+// claim-born fact, without storing an edge.
+func (f *contestPredicateFixture) nameInClaim(source, target string, relation types.RelationType) {
+	f.t.Helper()
+	fact, found, err := f.k.getFactChecked(f.ctx, source)
+	require.NoError(f.t, err)
+	if !found || fact.ClaimId == "" {
+		return
+	}
+	claim, err := f.k.getClaimRecordChecked(f.ctx, fact.ClaimId)
+	require.NoError(f.t, err)
+	require.NotNil(f.t, claim)
+	claim.Relations = append(claim.Relations, &types.ClaimRelation{Relation: relation, TargetFactId: target})
+	require.NoError(f.t, f.k.SetClaim(f.ctx, claim))
 }
 
 func (f *contestPredicateFixture) putTransition(factID string, prior, next types.FactStatus, cause string, height uint64) {
@@ -197,8 +256,17 @@ func TestContestReasonStandingCounterFact(t *testing.T) {
 // unless F survived a direct challenge that opened after D's latest
 // transition to DISPROVEN. survivedAt is that opening height; a fall at the
 // same height counts against F (F1: heights cannot order two events of one
-// block). A D with no recorded fall is cleared by any survival.
+// block). A D with no recorded fall is cleared by any survival. The rule is
+// the same whether F's edges are read from its claim or by a prefix scan.
 func TestContestReasonRefutedDependencyIsOrderedBySurvival(t *testing.T) {
+	for _, origin := range contestOrigins {
+		t.Run(origin.name, func(t *testing.T) {
+			testContestReasonRefutedDependencyIsOrderedBySurvival(t, origin.fixture)
+		})
+	}
+}
+
+func testContestReasonRefutedDependencyIsOrderedBySurvival(t *testing.T, newContestPredicateFixture func(*testing.T) *contestPredicateFixture) {
 	for _, relation := range sortedRelationTypes() {
 		t.Run(relation.String(), func(t *testing.T) {
 			f := newContestPredicateFixture(t)
@@ -316,11 +384,36 @@ func TestContestReasonFailsTowardContested(t *testing.T) {
 			f.kFault.op, f.kFault.prefix = "get", types.FactKey("refuted-k")
 		}, "injected read failure"},
 		{"unreadable outgoing relation", func(f *contestPredicateFixture) {
+			f.nameInClaim(contestF, "garbled", types.RelationType_RELATION_TYPE_REQUIRES)
 			putRaw(f, types.FactRelationKey(contestF, "garbled"), []byte{0xff})
 		}, "outgoing relation"},
+		{"outgoing relation stored under another key", func(f *contestPredicateFixture) {
+			f.nameInClaim(contestF, "listed", types.RelationType_RELATION_TYPE_REQUIRES)
+			putRaw(f, types.FactRelationKey(contestF, "listed"), relationBytes(contestF, "elsewhere", types.RelationType_RELATION_TYPE_REQUIRES))
+		}, "key/payload mismatch"},
+		{"read error on outgoing relation", func(f *contestPredicateFixture) {
+			f.kFault.op, f.kFault.prefix = "get", types.FactRelationKey(contestF, "dependency-d")
+		}, "injected read failure"},
 		{"missing dependency", func(f *contestPredicateFixture) {
 			f.putRelation(contestF, "ghost-d", types.RelationType_RELATION_TYPE_REQUIRES)
 		}, "dependency ghost-d is missing"},
+		{"fact's claim missing", func(f *contestPredicateFixture) {
+			f.ctx.KVStore(f.keys[0]).Delete(types.ClaimKey(contestClaimOf(contestF)))
+		}, "claim contest-f-claim of contest-f is missing"},
+		{"unreadable fact's claim", func(f *contestPredicateFixture) {
+			putRaw(f, types.ClaimKey(contestClaimOf(contestF)), []byte{0xff})
+		}, "claim contest-f-claim of contest-f"},
+		{"read error on fact's claim", func(f *contestPredicateFixture) {
+			f.kFault.op, f.kFault.prefix = "get", types.ClaimKey(contestClaimOf(contestF))
+		}, "injected read failure"},
+		{"genesis fact: unreadable outgoing relation", func(f *contestPredicateFixture) {
+			f.putGenesisFact(contestF, types.FactStatus_FACT_STATUS_CONTESTED)
+			putRaw(f, types.FactRelationKey(contestF, "garbled"), []byte{0xff})
+		}, "outgoing relation"},
+		{"genesis fact: forward prefix past the byte bound", func(f *contestPredicateFixture) {
+			f.putGenesisFact(contestF, types.FactStatus_FACT_STATUS_CONTESTED)
+			putRaw(f, types.FactRelationKey(contestF, "oversized"), make([]byte, recordInventoryMaxBytes))
+		}, "contest scan exceeds byte bound"},
 		{"unreadable dependency history", func(f *contestPredicateFixture) {
 			putRaw(f, types.StatusTransitionKey("dependency-d", 1), []byte{0xff})
 		}, "dependency dependency-d history"},
@@ -439,6 +532,7 @@ func TestContestReasonFindingIsConclusive(t *testing.T) {
 	}
 	t.Run("neither rule finishes", func(t *testing.T) {
 		f := newContestPredicateFixture(t)
+		f.nameInClaim(contestF, "garbled", types.RelationType_RELATION_TYPE_REQUIRES)
 		f.ctx.KVStore(f.keys[0]).Set(types.FactRelationKey(contestF, "garbled"), []byte{0xff})
 		f.ctx.KVStore(f.keys[0]).Set(types.FactRelationReverseKey(contestF, "garbled"), []byte{0xff})
 		remains, incomplete := f.check(f.k.contestReasonRemainsSinceLastSurvival)
@@ -447,53 +541,241 @@ func TestContestReasonFindingIsConclusive(t *testing.T) {
 		require.Contains(t, incomplete[0]["reason"], "outgoing relation")
 		require.Contains(t, incomplete[0]["reason"], "incoming relation")
 	})
+
+	// Inside each rule, a failed read of one item does not stop the rule
+	// (review G1R): a reason found after it is conclusive. Every failing item
+	// sorts, and is named, before the item that holds F.
+	putRaw := func(f *contestPredicateFixture, key, value []byte) { f.ctx.KVStore(f.keys[0]).Set(key, value) }
+	refutedAfter := func(f *contestPredicateFixture) {
+		f.disprove("dependency-d", 50)
+		f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
+	}
+	for _, tc := range []struct {
+		name    string
+		fixture func(*testing.T) *contestPredicateFixture
+		inject  func(*contestPredicateFixture)
+		hold    func(*contestPredicateFixture)
+	}{
+		{"refuted dependency after a missing dependency", newContestPredicateFixture, func(f *contestPredicateFixture) {
+			f.putRelation(contestF, "a-ghost", types.RelationType_RELATION_TYPE_REQUIRES)
+		}, refutedAfter},
+		{"refuted dependency after an unreadable outgoing relation", newContestPredicateFixture, func(f *contestPredicateFixture) {
+			f.nameInClaim(contestF, "a-garbled", types.RelationType_RELATION_TYPE_REQUIRES)
+			putRaw(f, types.FactRelationKey(contestF, "a-garbled"), []byte{0xff})
+		}, refutedAfter},
+		{"refuted dependency after an unreadable dependency", newContestPredicateFixture, func(f *contestPredicateFixture) {
+			f.putFact("a-bad-d", types.FactStatus_FACT_STATUS_DISPROVEN)
+			f.putRelation(contestF, "a-bad-d", types.RelationType_RELATION_TYPE_REQUIRES)
+			putRaw(f, types.FactKey("a-bad-d"), []byte{0xff})
+		}, refutedAfter},
+		{"refuted dependency after an unreadable dependency history", newContestPredicateFixture, func(f *contestPredicateFixture) {
+			f.disprove("a-dep", 30)
+			f.putRelation(contestF, "a-dep", types.RelationType_RELATION_TYPE_REQUIRES)
+			putRaw(f, types.StatusTransitionKey("a-dep", 1), []byte{0xff})
+		}, refutedAfter},
+		{"genesis F: refuted dependency after an unreadable outgoing entry", newGenesisContestPredicateFixture, func(f *contestPredicateFixture) {
+			putRaw(f, types.FactRelationKey(contestF, "a-garbled"), []byte{0xff})
+		}, refutedAfter},
+		{"genesis F: refuted dependency after a missing dependency", newGenesisContestPredicateFixture, func(f *contestPredicateFixture) {
+			f.putRelation(contestF, "a-ghost", types.RelationType_RELATION_TYPE_REQUIRES)
+		}, refutedAfter},
+		{"standing counter-fact after an unreadable incoming relation", newContestPredicateFixture, func(f *contestPredicateFixture) {
+			putRaw(f, types.FactRelationReverseKey(contestF, "a-garbled"), []byte{0xff})
+		}, nil},
+		{"standing counter-fact after a missing contradicting fact", newContestPredicateFixture, func(f *contestPredicateFixture) {
+			f.putRelation("a-ghost-k", contestF, types.RelationType_RELATION_TYPE_CONTRADICTS)
+		}, nil},
+		{"standing counter-fact after an unreadable contradicting fact", newContestPredicateFixture, func(f *contestPredicateFixture) {
+			f.putFact("a-bad-k", types.FactStatus_FACT_STATUS_VERIFIED)
+			f.putRelation("a-bad-k", contestF, types.RelationType_RELATION_TYPE_CONTRADICTS)
+			putRaw(f, types.FactKey("a-bad-k"), []byte{0xff})
+		}, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := tc.fixture(t)
+			tc.inject(f)
+			hold := tc.hold
+			if hold == nil {
+				hold = func(f *contestPredicateFixture) {
+					f.putFact("z-counter-k", types.FactStatus_FACT_STATUS_VERIFIED)
+					f.putRelation("z-counter-k", contestF, types.RelationType_RELATION_TYPE_CONTRADICTS)
+				}
+			}
+			remains, incomplete := f.check(func(ctx context.Context, fact *types.Fact) bool {
+				return f.k.contestReasonRemains(ctx, fact, 40)
+			})
+			require.True(t, remains, "the fault alone leaves the check incomplete")
+			require.Len(t, incomplete, 1)
+			hold(f)
+			remains, incomplete = f.check(func(ctx context.Context, fact *types.Fact) bool {
+				return f.k.contestReasonRemains(ctx, fact, 40)
+			})
+			require.True(t, remains)
+			require.Empty(t, incomplete, "a reason found after a failed item is conclusive")
+		})
+	}
+
+	// When no reason is found, every failed item is named, up to eight; the
+	// rest are counted.
+	t.Run("failed items are named and counted", func(t *testing.T) {
+		f := newContestPredicateFixture(t)
+		for i := 0; i < 10; i++ {
+			f.putRelation(fmt.Sprintf("ghost-%02d", i), contestF, types.RelationType_RELATION_TYPE_CONTRADICTS)
+		}
+		f.putRelation(contestF, "ghost-d", types.RelationType_RELATION_TYPE_REQUIRES)
+		remains, incomplete := f.check(f.k.contestReasonRemainsSinceLastSurvival)
+		require.True(t, remains)
+		require.Len(t, incomplete, 1)
+		reason := incomplete[0]["reason"]
+		require.Contains(t, reason, "dependency ghost-d is missing")
+		for i := 0; i < 8; i++ {
+			require.Contains(t, reason, fmt.Sprintf("contradicting fact ghost-%02d is missing", i))
+		}
+		require.NotContains(t, reason, "ghost-08")
+		require.Contains(t, reason, "and 2 more")
+	})
+	t.Run("a stopped scan is named past the cap", func(t *testing.T) {
+		f := newContestPredicateFixture(t)
+		for i := 0; i < 10; i++ {
+			f.putRelation(fmt.Sprintf("ghost-%02d", i), contestF, types.RelationType_RELATION_TYPE_CONTRADICTS)
+		}
+		for i := 0; i < 4; i++ {
+			f.putRelation(fmt.Sprintf("z-citing-%02d", i), contestF, types.RelationType_RELATION_TYPE_CITES)
+		}
+		// F's claim, then two reads per ghost (its edge and its fact), then
+		// the bound among the citing edges.
+		SetContestScanMaxRecordsForTest(t, 1+2*10+2)
+		remains, incomplete := f.check(f.k.contestReasonRemainsSinceLastSurvival)
+		require.True(t, remains)
+		require.Len(t, incomplete, 1)
+		require.Contains(t, incomplete[0]["reason"], "and 2 more")
+		require.Contains(t, incomplete[0]["reason"], "contest scan exceeds record bound")
+	})
 }
 
 // An entry under F's prefix that names another fact is not one of F's edges
 // (review G1, third pass). validateToKStoredRecord rebuilds the key from the
 // payload, so such an entry's source (or target, in the reverse index) starts
-// with "<F>/": a passing augmentation whose user-chosen ID extends F's writes
-// one (ApplyFinalizedAugmentationVerdict). Both rules skip it, so it neither
-// hides a refuted dependency nor becomes a reason. It is still read, so it
-// still counts toward the bound.
+// with "<F>/": a passing augmentation whose user-chosen ID extends F's wrote
+// one (ApplyFinalizedAugmentationVerdict; with the marker on it no longer
+// does, review G1R). Both rules skip it, so it neither hides a refuted
+// dependency nor becomes a reason. R2 never reads a claim-born F's forward
+// prefix (review G1R), so there such entries cost nothing; a genesis F's
+// prefix scan still reads them, so there they count toward the bound.
 func TestContestReasonSkipsForeignEdgesUnderTheFactsPrefix(t *testing.T) {
 	foreign := contestF + "/0"
-	t.Run("foreign source before a refuted dependency", func(t *testing.T) {
-		f := newContestPredicateFixture(t)
-		f.disprove("dependency-d", 50)
-		f.putRelation(foreign, "dependency-d", types.RelationType_RELATION_TYPE_REFORMULATES)
-		f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
-		for _, survivedAt := range []uint64{0, 50} {
-			require.True(t, f.remainsAt(survivedAt), "survivedAt %d", survivedAt)
-		}
-		require.False(t, f.remainsAt(51), "cleared by a later survival")
-		require.True(t, f.remainsSinceLastSurvival(), "never survived")
-	})
-	t.Run("foreign dependency edge is not F's", func(t *testing.T) {
-		f := newContestPredicateFixture(t)
-		f.disprove("dependency-x", 50)
-		f.putRelation(foreign, "dependency-x", types.RelationType_RELATION_TYPE_REQUIRES)
-		require.False(t, f.remainsAt(0))
-		require.False(t, f.remainsSinceLastSurvival())
-	})
+	for _, origin := range contestOrigins {
+		t.Run(origin.name+"/foreign source before a refuted dependency", func(t *testing.T) {
+			f := origin.fixture(t)
+			f.disprove("dependency-d", 50)
+			f.putRelation(foreign, "dependency-d", types.RelationType_RELATION_TYPE_REFORMULATES)
+			f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
+			for _, survivedAt := range []uint64{0, 50} {
+				require.True(t, f.remainsAt(survivedAt), "survivedAt %d", survivedAt)
+			}
+			require.False(t, f.remainsAt(51), "cleared by a later survival")
+			require.True(t, f.remainsSinceLastSurvival(), "never survived")
+		})
+		t.Run(origin.name+"/foreign dependency edge is not F's", func(t *testing.T) {
+			f := origin.fixture(t)
+			f.disprove("dependency-x", 50)
+			f.putRelation(foreign, "dependency-x", types.RelationType_RELATION_TYPE_REQUIRES)
+			require.False(t, f.remainsAt(0))
+			require.False(t, f.remainsSinceLastSurvival())
+		})
+	}
 	t.Run("foreign target under the reverse prefix", func(t *testing.T) {
 		f := newContestPredicateFixture(t)
 		f.putFact("counter-k", types.FactStatus_FACT_STATUS_VERIFIED)
 		f.putRelation("counter-k", foreign, types.RelationType_RELATION_TYPE_CONTRADICTS)
 		require.False(t, f.remainsSinceLastSurvival())
 	})
-	t.Run("foreign entries count toward the bound", func(t *testing.T) {
-		const bound = 8
-		f := newContestPredicateFixture(t)
-		SetContestScanMaxRecordsForTest(t, bound)
+	const bound = 8
+	inflate := func(f *contestPredicateFixture) {
+		SetContestScanMaxRecordsForTest(f.t, bound)
 		for i := 0; i <= bound; i++ {
 			f.putRelation(fmt.Sprintf("%s/%02d", contestF, i), "dependency-x", types.RelationType_RELATION_TYPE_REFORMULATES)
 		}
+	}
+	t.Run("claim-born F/foreign entries under the forward prefix are never read", func(t *testing.T) {
+		f := newContestPredicateFixture(t)
+		inflate(f)
+		require.False(t, f.remainsSinceLastSurvival(), "the check finishes with no reason")
+		f.disprove("dependency-d", 50)
+		f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
+		require.True(t, f.remainsSinceLastSurvival(), "and finds a refuted dependency")
+	})
+	t.Run("genesis F/foreign entries count toward the bound", func(t *testing.T) {
+		f := newGenesisContestPredicateFixture(t)
+		inflate(f)
 		remains, incomplete := f.check(f.k.contestReasonRemainsSinceLastSurvival)
 		require.True(t, remains, "with no reason found, the bound still means the reason remains")
 		require.Len(t, incomplete, 1)
 		require.Contains(t, incomplete[0]["reason"], "contest scan exceeds record bound")
 	})
+}
+
+// R2 for a claim-born F (review G1R) reads F's own claim, the only writer of
+// F's outgoing edges, and for each target the claim names it looks up the
+// stored edge F→target by key. The stored edge decides, as it decides the
+// cascade: R2 sees exactly what a scan of F's forward prefix would see,
+// restricted to the targets F's claim names. An edge the claim does not name
+// is not read, and a named target whose stored edge is absent, or is outside
+// the cascade set (the store keeps one edge per pair; an augmentation whose
+// ID equalled F's could overwrite it before activation), is not a
+// dependency. A genesis F has no claim, so R2 scans its forward prefix and
+// reads every stored edge.
+func TestContestReasonReadsClaimBornDependenciesFromTheClaim(t *testing.T) {
+	putEdge := func(f *contestPredicateFixture, target string, relation types.RelationType) {
+		require.NoError(f.t, f.k.SetFactRelation(f.ctx, &types.FactRelation{SourceFactId: contestF, TargetFactId: target, Relation: relation}))
+	}
+	for _, tc := range []struct {
+		name            string
+		setup           func(*contestPredicateFixture)
+		claimBorn, gene bool
+	}{
+		{"named and stored", func(f *contestPredicateFixture) {
+			f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
+		}, true, true},
+		{"stored but not named", func(f *contestPredicateFixture) {
+			putEdge(f, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
+		}, false, true},
+		{"named but not stored", func(f *contestPredicateFixture) {
+			f.nameInClaim(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
+		}, false, false},
+		{"named, stored edge overwritten with another type", func(f *contestPredicateFixture) {
+			f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
+			putEdge(f, "dependency-d", types.RelationType_RELATION_TYPE_REFORMULATES)
+		}, false, false},
+		{"named as another type, stored edge of the cascade set", func(f *contestPredicateFixture) {
+			f.nameInClaim(contestF, "dependency-d", types.RelationType_RELATION_TYPE_CONTRADICTS)
+			putEdge(f, "dependency-d", types.RelationType_RELATION_TYPE_CITES)
+		}, true, true},
+		{"named twice, last written wins", func(f *contestPredicateFixture) {
+			f.nameInClaim(contestF, "dependency-d", types.RelationType_RELATION_TYPE_CITES)
+			f.putRelation(contestF, "dependency-d", types.RelationType_RELATION_TYPE_CONTRADICTS)
+		}, false, false},
+		// Keys are "<source>/<target>", so the key of F→"x/dependency-d" is
+		// also the key of "<F>/x"→dependency-d. The entry found there is
+		// another pair's edge, not F's.
+		{"named target whose key holds another pair's edge", func(f *contestPredicateFixture) {
+			f.nameInClaim(contestF, "x/dependency-d", types.RelationType_RELATION_TYPE_REQUIRES)
+			require.NoError(f.t, f.k.SetFactRelation(f.ctx, &types.FactRelation{SourceFactId: contestF + "/x", TargetFactId: "dependency-d", Relation: types.RelationType_RELATION_TYPE_REQUIRES}))
+		}, false, false},
+	} {
+		for _, origin := range contestOrigins {
+			t.Run(origin.name+"/"+tc.name, func(t *testing.T) {
+				f := origin.fixture(t)
+				f.disprove("dependency-d", 50)
+				tc.setup(f)
+				want := tc.claimBorn
+				if origin.name == "genesis F" {
+					want = tc.gene
+				}
+				require.Equal(t, want, f.remainsAt(0))
+			})
+		}
+	}
 }
 
 // contestEventsOf returns the attributes of every event of eventType on ctx.
@@ -852,7 +1134,7 @@ func TestSettleCounterFactTargetsFailsTowardContested(t *testing.T) {
 	})
 }
 
-// challengeEndStatus (§5.2 rows 7 and 8; review fixes SEC-1, F1, SEC-6) on
+// challengeEndStatus (§5.2 rows 7 and 8; review fixes SEC-1, F1, G1R) on
 // hand-built state. F is CHALLENGED by challenge claim "challenge-c", opened
 // at 50 from priorStatus. Dependency D fell at 50, except in the incomplete
 // cases, where F depends on nothing.
@@ -873,10 +1155,11 @@ func TestChallengeEndStatus(t *testing.T) {
 		return f
 	}
 	overBound := func(f *contestPredicateFixture) {
-		for i := 0; i < 4; i++ {
+		const bound = 4
+		for i := 0; i <= bound; i++ {
 			f.putRelation(fmt.Sprintf("citing-%d", i), contestF, types.RelationType_RELATION_TYPE_CITES)
 		}
-		SetContestScanMaxRecordsForTest(f.t, 3)
+		SetContestScanMaxRecordsForTest(f.t, bound)
 	}
 	end := func(f *contestPredicateFixture, c *types.Claim, integrity, survived bool) (types.FactStatus, []map[string]string) {
 		f.t.Helper()
@@ -936,42 +1219,32 @@ func TestChallengeEndStatus(t *testing.T) {
 		}
 	}
 
-	// An incomplete check changes nothing: the standing before the challenge
-	// decides, and one event names F.
-	for _, tc := range []struct {
-		name   string
-		prior  types.FactStatus
-		setup  func(*contestPredicateFixture)
-		want   types.FactStatus
-		reason string
-	}{
-		{"VERIFIED before", types.FactStatus_FACT_STATUS_VERIFIED, nil, active, "contest scan exceeds record bound"},
-		{"ACTIVE before", types.FactStatus_FACT_STATUS_ACTIVE, nil, active, "contest scan exceeds record bound"},
-		{"CONTESTED before", types.FactStatus_FACT_STATUS_CONTESTED, nil, contested, "contest scan exceeds record bound"},
-		{"CONTESTED at an earlier challenge only", types.FactStatus_FACT_STATUS_ACTIVE, func(f *contestPredicateFixture) {
-			f.putCausedTransition(types.FactStatus_FACT_STATUS_CONTESTED, types.FactStatus_FACT_STATUS_CHALLENGED, causeChallengeOpened, "challenge-earlier", 20)
-		}, active, "contest scan exceeds record bound"},
-		{"no challenge_opened transition names the challenge", types.FactStatus_FACT_STATUS_ACTIVE, func(f *contestPredicateFixture) {
-			f.ctx.KVStore(f.keys[0]).Delete(types.StatusTransitionKey(contestF, 1))
-		}, contested, "status before the challenge: no challenge_opened transition names challenge-c"},
-		{"unreadable history", types.FactStatus_FACT_STATUS_ACTIVE, func(f *contestPredicateFixture) {
-			f.ctx.KVStore(f.keys[0]).Set(types.StatusTransitionKey(contestF, 1), []byte{0xff})
-		}, contested, "status before the challenge"},
-	} {
+	// An incomplete check never releases (review G1R): F ends CONTESTED
+	// whatever its standing before the challenge and however the challenge
+	// ended, and one event names F. G1's fallback, which restored the
+	// standing before the challenge, let an attacker who could inflate any
+	// scan return a shielded F to ACTIVE; a stuck CONTESTED is the disclosed
+	// cost instead.
+	for _, prior := range []types.FactStatus{types.FactStatus_FACT_STATUS_VERIFIED, types.FactStatus_FACT_STATUS_ACTIVE, types.FactStatus_FACT_STATUS_CONTESTED} {
 		for _, survived := range []bool{true, false} {
-			t.Run(fmt.Sprintf("incomplete check, %s, survived %t", tc.name, survived), func(t *testing.T) {
-				f := opened(t, tc.prior)
-				if tc.setup != nil {
-					tc.setup(f)
-				}
+			t.Run(fmt.Sprintf("incomplete check, %s before, survived %t", prior, survived), func(t *testing.T) {
+				f := opened(t, prior)
 				overBound(f)
 				status, incomplete := end(f, challenge, true, survived)
-				require.Equal(t, tc.want, status)
+				require.Equal(t, contested, status)
 				require.Len(t, incomplete, 1)
 				require.Equal(t, contestF, incomplete[0]["fact_id"])
 				require.Contains(t, incomplete[0]["reason"], "contest scan exceeds record bound")
-				require.Contains(t, incomplete[0]["reason"], tc.reason)
+				require.NotContains(t, incomplete[0]["reason"], "status before the challenge")
 			})
 		}
 	}
+	t.Run("incomplete check without a challenge_opened transition", func(t *testing.T) {
+		f := opened(t, types.FactStatus_FACT_STATUS_ACTIVE)
+		f.ctx.KVStore(f.keys[0]).Delete(types.StatusTransitionKey(contestF, 1))
+		overBound(f)
+		status, incomplete := end(f, challenge, true, true)
+		require.Equal(t, contested, status)
+		require.Len(t, incomplete, 1)
+	})
 }

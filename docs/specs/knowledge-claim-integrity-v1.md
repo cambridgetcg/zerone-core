@@ -131,8 +131,9 @@ Every new rule is behind the marker. With the marker off, the knowledge store
 after the knowledge-11 characterization scenario matches, byte for byte, the
 digest recorded on `a4272bfa`. The only difference is reads of `0x87`, which
 cost gas, on the
-admission, round-completion, challenge and commitment paths and in the ante of a
-tx that carries a dispute message.
+admission, round-completion, challenge, commitment and passing
+augmentation-verdict paths and in the ante of a tx that carries a dispute
+message.
 Tests: `TestV11_GoldenKnowledgeStoreDigest`, plus the marker-off half of the
 paired tests below, for example `TestClaimIntegrity_ResaveDoesNotMoveIndex`,
 `TestClaimIntegrity_ChallengeTransitionsMarkerOffKeepInferredCauses` and
@@ -147,6 +148,7 @@ paired tests below, for example `TestClaimIntegrity_ResaveDoesNotMoveIndex`,
 | A fact CONTESTED by a knowledge-11 admission flip | When that contradiction ends, the contest-reason check (§6.3) releases the fact. A standing accepted counter-fact holds it instead. | `TestClaimIntegrity_PreActivationContestSettlesThroughPredicate` |
 | A fact laundered to VERIFIED while a counter-fact stands | It stays VERIFIED. Either side can be challenged. When a challenge of it ends without refuting it, it returns to CONTESTED. | `TestClaimIntegrity_LaunderedFactChallengeFollowsStandingCounterFact` |
 | A reviewer's commitment to their own claim | It still reveals and settles, and the reviewer is paid. New commitments are refused (§7). | `TestClaimIntegrity_PreActivationSelfCommitStillSettles` |
+| REFORMULATES edges written by passing augmentations, including IDs that extend a fact's ID (`<F>/x`) or equal it | Kept, a closed set. The contest check never depends on them: R2 reads a claim-born fact's edges by key from its claim, and the prefix scan of a claimless fact skips entries naming another source (§6.3). After activation such edges are no longer written (§6.6). | `TestClaimIntegrity_ShieldChallengeBehindAugmentationEdgeLaundersNothing`, `TestClaimIntegrity_ShieldChallengeBehindLongAugmentationIDsLaundersNothing` |
 | Claims, rounds, facts, relations, status transitions, payments | Never rewritten. | `TestClaimIntegrityMigrationPreservesEveryByteAndRestart`, `TestMigrate11to12ChangesExactlyMarkerAndReceipt` |
 
 The rows on contested, laundered and self-reviewed records are each checked
@@ -583,8 +585,8 @@ Each row records the cause shown (§6.2).
 | VERIFIED, ACTIVE, **CONTESTED** | CHALLENGED | `MsgChallengeFact` | `challenge_opened` / challenge claim ID | `TestClaimIntegrity_ChallengeFactAdmitsContestedTarget` |
 | PROVISIONAL | CHALLENGED | `MsgChallengeProvisionalFact` | `challenge_opened` / challenge claim ID | `TestClaimIntegrity_ChallengeTransitionsRecordExactCauses` |
 | CHALLENGED | DISPROVEN | the challenge is ACCEPTED | `challenge_disproven` / challenge claim ID | `TestClaimIntegrity_ContestedFactChallengeWhileCounterFactStands` |
-| CHALLENGED | ACTIVE, or CONTESTED while a contest reason remains | the challenge is REJECTED (survived) | `challenge_survived` / challenge claim ID | `TestClaimIntegrity_SurvivalClearsOnlyDependenciesRefutedBeforeIt`, `TestClaimIntegrity_ContestedFactChallengeWhileCounterFactStands`, `TestClaimIntegrity_SurvivalClearsNothingRefutedWhileTheChallengeWasOpen` |
-| CHALLENGED | ACTIVE, or CONTESTED while a contest reason remains | the challenge is INCONCLUSIVE, MALFORMED or starved | `challenge_inconclusive` / challenge claim ID | `TestClaimIntegrity_SurvivalClearsOnlyDependenciesRefutedBeforeIt`, `TestClaimIntegrity_ContestedFactChallengeWhileCounterFactStands`, `TestClaimIntegrity_SameBlockRefutationAfterSurvivalIsNotCleared` |
+| CHALLENGED | ACTIVE, or CONTESTED while a contest reason remains or the check cannot finish | the challenge is REJECTED (survived) | `challenge_survived` / challenge claim ID | `TestClaimIntegrity_SurvivalClearsOnlyDependenciesRefutedBeforeIt`, `TestClaimIntegrity_ContestedFactChallengeWhileCounterFactStands`, `TestClaimIntegrity_SurvivalClearsNothingRefutedWhileTheChallengeWasOpen`, `TestClaimIntegrity_IncompleteCheckAtChallengeEndLeavesFactContested` |
+| CHALLENGED | ACTIVE, or CONTESTED while a contest reason remains or the check cannot finish | the challenge is INCONCLUSIVE, MALFORMED or starved | `challenge_inconclusive` / challenge claim ID | `TestClaimIntegrity_SurvivalClearsOnlyDependenciesRefutedBeforeIt`, `TestClaimIntegrity_ContestedFactChallengeWhileCounterFactStands`, `TestClaimIntegrity_SameBlockRefutationAfterSurvivalIsNotCleared`, `TestClaimIntegrity_IncompleteCheckAtChallengeEndLeavesFactContested` |
 | CHALLENGED (conjecture) | PROVISIONAL | any ending except ACCEPT | `challenge_survived` or `challenge_inconclusive` / challenge claim ID | `TestClaimIntegrity_ConjectureChallengeEndsProvisional`, `TestClaimIntegrity_ChallengeTransitionsRecordExactCauses` |
 | metabolic statuses | — | unchanged | inferred, as in knowledge 11 | *Not tested here* |
 
@@ -681,36 +683,65 @@ never returns an error and writes nothing.
   `TestClaimIntegrity_SurvivalClearsNothingRefutedWhileTheChallengeWasOpen`,
   `TestChallengeEndStatus`.
 - **Order.** R2 is read first, then R1, within one budget. A reason found by
-  either rule is conclusive, whatever the other could read. R1 reads every
-  incoming edge of every type, which any later fact can add, so no number of
-  facts citing F can hide a refuted dependency behind the bound.
+  either rule is conclusive, whatever else could not be read. Inside each rule
+  a failed item (a malformed or unreadable record, an edge naming a missing
+  fact) is recorded and the rule goes on, so a reason found after it is still
+  conclusive. R1 reads every incoming edge of every type, which any later fact
+  can add, so no number of facts citing F can hide a refuted dependency behind
+  the bound.
   Tests: `TestContestReasonFindingIsConclusive`,
   `TestClaimIntegrity_ShieldChallengeOfHeavilyCitedFactLaundersNothing`.
-- **Entries naming another fact.** F's forward-index prefix holds F's own
-  edges (from its claim, from genesis, and from an augmentation whose ID is
-  F's), and it can also hold edges whose source is another ID that starts
-  with `<F>/`. A passing augmentation writes a REFORMULATES edge whose source
-  is its user-chosen ID, so an augmentation named `<F>/0` puts one there. The
-  stored key is checked against the payload, and the payload names the edge's
-  owner. R2 skips an entry whose source is not F, and R1 skips an entry whose
-  target is not F; neither makes the check incomplete. A skipped entry still
-  counts toward the bound, so a refuted dependency can hide behind the bound
-  only if F's forward prefix nears it by itself, which would take about 100,000
-  passing augmentations admitted before review neutrality, which refuses new
-  ones.
+- **How R2 reads.** For a fact accepted from a claim, R2 reads that claim and,
+  for each target the claim names, the stored edge F→target by key. The stored
+  edge's type decides, as it decides the cascade, so R2 sees exactly what a
+  scan of F's forward-index prefix would see, restricted to the targets F's
+  claim names. An entry found by key whose payload names another pair (keys
+  are `<source>/<target>`, so F→`x/y` and `<F>/x`→y share one) is not F's
+  edge. F's claim wrote every outgoing edge of F; the one other writer,
+  before activation, was an augmentation whose ID equalled F's, and its
+  REFORMULATES edge is outside the cascade set. So R2 finds every dependency
+  and never reads what others add under F's prefix. Its other reads are F's
+  claim and the status histories of F and of each refuted dependency, which
+  grow only by status changes (a challenge, a round, a cascade or
+  metabolism), not by records others can add cheaply. A missing or unreadable claim makes the check incomplete; it never
+  falls back to a scan. Only a fact with no claim (genesis, doctrine, an
+  authority injection) has its forward prefix scanned.
+  Tests: `TestContestReasonReadsClaimBornDependenciesFromTheClaim`,
+  `TestContestReasonFailsTowardContested`,
+  `TestClaimIntegrity_ShieldChallengeBehindLongAugmentationIDsLaundersNothing`.
+- **Entries naming another fact.** A forward-index prefix can hold edges whose
+  source is another ID that starts with `<F>/`: before activation, a passing
+  augmentation wrote a REFORMULATES edge whose source is its user-chosen ID,
+  so an augmentation named `<F>/0` put one there. The stored key is checked
+  against the payload, and the payload names the edge's owner. The prefix scan
+  of a claimless fact skips an entry whose source is not F, and R1 skips an
+  entry whose target is not F; neither makes the check incomplete. A skipped
+  entry is still read and counts toward the bound. A claim-born fact's prefix
+  is never scanned.
   Tests: `TestContestReasonSkipsForeignEdgesUnderTheFactsPrefix`,
   `TestClaimIntegrity_ShieldChallengeBehindAugmentationEdgeLaundersNothing`.
 - **Failure handling.** When neither rule finds a reason, a read error, a
   malformed record, an edge naming a missing fact, or more than 100,000 records
   or 64 MiB read in one check all mean the reason remains, so no CONTESTED fact
-  is released. The check emits
-  `zerone.knowledge.contest_check_incomplete{fact_id, reason}`, exactly once per
-  failed check; the reason names every failed read. The bound counts every
-  incoming edge, of any type. At a challenge's end an incomplete check changes
-  nothing (§6.5).
+  is released, and a challenged fact returns to CONTESTED (§6.5). The check
+  emits `zerone.knowledge.contest_check_incomplete{fact_id, reason}`, exactly
+  once per failed check; the reason names up to eight failed reads per rule,
+  counts the rest, and always names a scan that stopped at the bound. The
+  bound counts every incoming edge, of any type.
   Tests: `TestContestReasonFailsTowardContested`,
+  `TestContestReasonFindingIsConclusive`,
   `TestClaimIntegrity_IncompleteContestCheckKeepsTargetContested`,
   `TestClaimIntegrity_IncompleteCheckOnVerdictPathsNeverReleases`.
+- **Disclosed limitation.** A fact whose check cannot finish stays CONTESTED
+  once any challenge of it ends, even a starved, refunded one, and no release
+  path frees it; only a challenge that refutes it moves it. In practice that is
+  a fact with more than 100,000 incoming relations of any type, or 64 MiB of
+  them, or a claimless fact whose forward prefix was inflated before
+  activation. This is griefing, not laundering: nothing anyone adds can make an
+  incomplete check release a fact. Bounding R1 needs an index of CONTRADICTS
+  edges alone, a new store key, which is out of scope (§11).
+  Tests: `TestClaimIntegrity_IncompleteCheckAtChallengeEndLeavesFactContested`,
+  `TestChallengeEndStatus`.
 - **Pending contradictions are not reasons.** A contradiction has no fact, and
   so no stored edge, until it is accepted. *Not tested here* as a separate
   case: no test ends one contradiction while another is still pending. Read
@@ -791,29 +822,21 @@ tests above.
   `TestClaimIntegrity_DisprovingOneOfTwoCounterFactsKeepsTargetContested`,
   `TestClaimIntegrity_DisprovenCounterFactLeavesRefutedDependencyHolding`,
   `TestSettleCounterFactTargets`.
-- **Failures on these paths never release.** A challenged fact whose check fails
-  keeps its standing from before the challenge: it returns to CONTESTED if its
-  `challenge_opened` transition for this challenge has prior status CONTESTED,
-  or if that transition is absent or unreadable, and to ACTIVE otherwise.
-  `contest_check_incomplete` names it once. So one refunded, starved challenge
-  cannot freeze CONTESTED a fact that has no refuted dependency and whose check
-  is too large to finish, and an incomplete check releases nothing. A refuted
-  dependency is read before the incoming edges, and entries naming another
-  fact are skipped (§6.3), so it is lost this way only if F's forward prefix
-  alone exceeds the bound. Otherwise the cost is limited to R1: a fact against
-  which a counter-fact was accepted while it was CHALLENGED, or a fact
-  laundered before activation, returns to ACTIVE if its check also cannot
-  finish. The residual: a fact
-  whose check is too large to finish, once CONTESTED, never returns to
-  VERIFIED or ACTIVE, even after surviving a challenge opened after its
-  refutation, because every release check reads the incoming edges; only a
-  challenge that refutes it moves it. If K's edges
+- **Failures on these paths never release.** A challenged fact whose check
+  fails returns to CONTESTED, whatever its standing before the challenge and
+  however the challenge ended without refuting it, and
+  `contest_check_incomplete` names it once. An earlier design returned it to
+  its standing before the challenge instead; any read an attacker could
+  inflate then laundered a shielded fact back to ACTIVE, so it was withdrawn.
+  The cost is the disclosed limitation of §6.3: a fact whose check is too
+  large to finish stays CONTESTED once a challenge of it ends. If K's edges
   cannot be listed, no target is released and `contest_check_incomplete` names
   K. A target that cannot be read is reported and left as it is, while the
   other targets still settle. The disproval stands in every case. A write error
   is returned, and the round's cache discards it.
   Tests: `TestClaimIntegrity_IncompleteCheckOnVerdictPathsNeverReleases`,
-  `TestClaimIntegrity_IncompleteCheckAtChallengeEndKeepsPriorStanding`,
+  `TestClaimIntegrity_IncompleteCheckAtChallengeEndLeavesFactContested`,
+  `TestClaimIntegrity_ShieldChallengeBehindLongAugmentationIDsLaundersNothing`,
   `TestChallengeEndStatus`,
   `TestSettleCounterFactTargetsFailsTowardContested`.
 - **Conjectures.** A challenge ending that does not refute a conjecture returns
@@ -827,6 +850,29 @@ tests above.
 
 With the marker off, nothing re-evaluates F when K falls, and F stays CONTESTED.
 Tests: `TestClaimIntegrity_DisprovenCounterFactReleasesTarget`.
+
+### 6.6 Augmentation edges stay out of the fact ID space
+
+A passing augmentation verdict writes a REFORMULATES edge whose source is the
+augmentation's ID, which its submitter chose. Relation keys are
+`<source>/<target>`, so an ID containing `/` lands under another ID's prefix,
+and an ID equal to a fact's ID overwrites that fact's own edge to the same
+target. With the marker on, the verdict writes no edge when the ID contains
+`/`, is longer than 128 bytes, or is the ID of a stored fact, and emits
+`zerone.knowledge.augmentation_edge_withheld{augmentation_id, original_fact_id, reason}`.
+The verdict, payout and acceptance are applied unchanged. 128 bytes is four
+times a generated fact or claim ID and keeps an edge entry under about 340
+bytes. The marker is read before any write of the verdict, so a malformed
+marker refuses the verdict and moves no coins. Review neutrality already
+refuses new augmentations, so this governs only those admitted before it.
+Edges written before activation are kept (§1.5).
+Tests: `TestClaimIntegrity_AugmentationEdgeStaysOutOfTheFactIDSpace`,
+`TestClaimIntegrity_AugmentationEdgeGateFailsClosed`.
+
+With the marker off every passing verdict writes its edge as knowledge 11
+does, the overwrite included.
+Tests: `TestClaimIntegrity_AugmentationEdgeStaysOutOfTheFactIDSpace`,
+`TestRelationContractRetainedAugmentationEndpointMismatch`.
 
 ## 7. Conflicted reviewers
 
@@ -889,7 +935,8 @@ checked by `TestEventAudit_DocumentationCompleteness`.
 | `zerone.knowledge.contradiction_accepted{fact_id, counter_claim_id, counter_fact_id}` | New. An accepted contradiction contested `fact_id` (§6.4). | `TestContestAcceptedTargets` |
 | `zerone.knowledge.contradiction_reversed{fact_id, reverted_by_claim}` | `fact_id` was released when that contradiction ended without acceptance and no contest reason remained. It is not emitted while a reason remains. | `TestClaimIntegrity_PreActivationContestSettlesThroughPredicate`, `TestClaimIntegrity_ContradictionContestsOnlyWhenAccepted` |
 | `zerone.knowledge.contradiction_reversed{fact_id, reverted_by_fact}` | New form. `fact_id` was released when counter-fact `reverted_by_fact` fell. | `TestClaimIntegrity_DisprovenCounterFactReleasesTarget`, `TestSettleCounterFactTargets` |
-| `zerone.knowledge.contest_check_incomplete{fact_id, reason}` | New. A contest check could not finish, so no CONTESTED fact is released; at a challenge's end the fact keeps its standing from before the challenge (§6.5). `fact_id` is that fact, or a fallen counter-fact whose edges could not be listed. | `TestContestReasonFailsTowardContested`, `TestSettleCounterFactTargetsFailsTowardContested`, `TestClaimIntegrity_IncompleteCheckAtChallengeEndKeepsPriorStanding` |
+| `zerone.knowledge.contest_check_incomplete{fact_id, reason}` | New. A contest check could not finish, so no CONTESTED fact is released; at a challenge's end the fact returns to CONTESTED (§6.5). `fact_id` is that fact, or a fallen counter-fact whose edges could not be listed. | `TestContestReasonFailsTowardContested`, `TestSettleCounterFactTargetsFailsTowardContested`, `TestClaimIntegrity_IncompleteCheckAtChallengeEndLeavesFactContested` |
+| `zerone.knowledge.augmentation_edge_withheld{augmentation_id, original_fact_id, reason}` | New. A passing augmentation verdict wrote no REFORMULATES edge because its ID would land in the fact ID space (§6.6). | `TestClaimIntegrity_AugmentationEdgeStaysOutOfTheFactIDSpace` |
 | `zerone.knowledge.challenge_fact` | Unchanged attributes. A CONTESTED fact can now be challenged, so `fact_id` may name one. | `TestClaimIntegrity_ChallengeFactAdmitsContestedTarget` |
 | `zerone.knowledge.challenge_inconclusive_restored{fact_id, challenge_claim_id}` | The fact may return to CONTESTED rather than ACTIVE. | `TestClaimIntegrity_ContestedFactChallengeWhileCounterFactStands` |
 
@@ -954,7 +1001,9 @@ These are disclosures, not behaviour this release adds. *Not tested here.*
 - **Deliberately starved disputes.** A starved challenge or contradiction is
   refunded in full, so its cost is locked capital and gas. After activation a
   starved contradiction changes no fact's status, and a starved challenge
-  clears no contest reason (§6.1, §6.3).
+  clears no contest reason (§6.1, §6.3). One disclosed exception: a fact whose
+  contest check cannot finish (very heavily referenced) returns from any
+  challenge, a starved one included, to CONTESTED and stays there (§6.3).
 - **Mempool copying of claim text.**
 - **Verbatim quotes from third-party clients.** Only reviewers voting MALFORMED
   push back on chain (§2.7).
@@ -981,7 +1030,9 @@ Out of scope for this release: any `zerone-dev-1` or `zerone-1` upgrade or
 deploy tooling; query energy reaching metabolism; `method_id` on
 `MsgSubmitContradiction`; gating `MsgPostConjecture`; identity limits beyond
 same-key and single-defender exclusion; dispute economics (refunds, cooldowns);
-metabolic re-checks of CONTESTED; exempting attribution facts from niche
+metabolic re-checks of CONTESTED; an index of CONTRADICTS edges alone, which
+would bound R1 (§6.3); rewriting augmentation edges written before activation
+(§1.5); exempting attribution facts from niche
 competition or metabolism; challenging AT_RISK, EXPIRED or PRUNED facts;
 repairing legacy index pointers; on-chain quote detection; a client-side
 standing fold or a `PropositionStanding` query; and rewriting historical
