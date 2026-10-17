@@ -237,21 +237,104 @@ def guard_tokens(text):
     return "".join(kept).split()
 
 
+# Han, Hiragana, Katakana, Thai, Lao, Khmer and Myanmar put no spaces between
+# words, so a whole clause is one token and the 8-token rule never sees a run-in
+# or trimmed quote (review G4 TQ-2). Each letter of these scripts is therefore
+# also a unit of its own, weighing 1; every other unit weighs 2. A run of
+# excerpt units weighing 16 is refused: 16 characters is about 8 words of
+# Chinese or Japanese (roughly 2 characters a word), and 8 spaced words still
+# weigh 16, so text without these letters is judged exactly as before.
+UNSPACED_WINDOW = 16
+# Unicode blocks (Blocks.txt) that hold every letter of those seven scripts
+# after NFKD; only letters (L*) in them are split.
+UNSPACED_BLOCKS = (
+    (0x0E00, 0x0EFF),    # Thai, Lao
+    (0x1000, 0x109F),    # Myanmar
+    (0x1780, 0x17FF),    # Khmer
+    (0x3000, 0x30FF),    # CJK symbols (iteration marks), Hiragana, Katakana
+    (0x31F0, 0x31FF),    # Katakana phonetic extensions
+    (0x3400, 0x4DBF),    # CJK unified ideographs extension A
+    (0x4E00, 0x9FFF),    # CJK unified ideographs
+    (0xA9E0, 0xA9FF),    # Myanmar extended-B
+    (0xAA60, 0xAA7F),    # Myanmar extended-A
+    (0xF900, 0xFAFF),    # CJK compatibility ideographs (twelve survive NFKD)
+    (0x1AFF0, 0x1B16F),  # Kana extended-B, kana supplement, kana extended-A, small kana
+    (0x20000, 0x3FFFF),  # CJK unified ideograph extensions B onward, compatibility supplement
+)
+
+
+def unspaced_letter(ch):
+    code = ord(ch)
+    return unicodedata.category(ch)[0] == "L" and any(low <= code <= high for low, high in UNSPACED_BLOCKS)
+
+
+def split_units(tokens):
+    units = []
+    for token in tokens:
+        word = ""
+        for ch in token:
+            if unspaced_letter(ch):
+                if word:
+                    units.append(word)
+                    word = ""
+                units.append(ch)
+            else:
+                word += ch
+        if word:
+            units.append(word)
+    return units
+
+
+def guard_units(text):
+    """guard_tokens, with each letter of a script written without spaces split out."""
+    return split_units(guard_tokens(text))
+
+
+def weighted_runs(units):
+    """From each start, the shortest run of units weighing UNSPACED_WINDOW."""
+    weights = [1 if unspaced_letter(unit[0]) else 2 for unit in units]
+    runs, total, end = [], 0, 0
+    for start in range(len(units)):
+        while end < len(units) and total < UNSPACED_WINDOW:
+            total += weights[end]
+            end += 1
+        if total < UNSPACED_WINDOW:
+            break
+        runs.append(tuple(units[start:end]))
+        total -= weights[start]
+    return runs
+
+
 def quote_guard(excerpt, fields):
     """Refuse any field holding 8 consecutive excerpt tokens, or the whole excerpt
-    when it has fewer than 8. Messages name the field, never the text."""
+    when it has fewer than 8; then any field holding a run of excerpt units that
+    weighs 16 (see UNSPACED_WINDOW), or every excerpt unit when the excerpt weighs
+    less. Messages name the field, never the text."""
     tokens = guard_tokens(excerpt)
     if not tokens:
         raise WorkflowError("The excerpt file has no letters or digits, so the quote guard cannot run; nothing was signed.")
     width = min(QUOTE_WINDOW, len(tokens))
     windows = {tuple(tokens[index:index + width]) for index in range(len(tokens) - width + 1)}
     rule = f"{QUOTE_WINDOW} consecutive excerpt tokens" if width == QUOTE_WINDOW else "the whole excerpt"
+    units = split_units(tokens)
+    runs = set(weighted_runs(units))
+    whole = tuple(units)
+    unit_rule = (f"{UNSPACED_WINDOW} consecutive excerpt characters (a word counts as 2)" if runs
+                 else "the whole excerpt")
     for name, value in fields:
         if not isinstance(value, str):
             raise WorkflowError(f"Quote guard {QUOTE_GUARD_VERSION} cannot read {name}; nothing was signed.")
         candidate = guard_tokens(value)
+        found = None
         if any(tuple(candidate[index:index + width]) in windows for index in range(len(candidate) - width + 1)):
-            raise WorkflowError(f"Quote guard {QUOTE_GUARD_VERSION} refused {name}: it contains {rule}. "
+            found = rule
+        else:
+            pieces = split_units(candidate)
+            if (any(run in runs for run in weighted_runs(pieces)) if runs else
+                    any(tuple(pieces[index:index + len(whole)]) == whole for index in range(len(pieces) - len(whole) + 1))):
+                found = unit_rule
+        if found:
+            raise WorkflowError(f"Quote guard {QUOTE_GUARD_VERSION} refused {name}: it contains {found}. "
                                 "Paraphrase it; nothing was signed or saved.")
     return {"version": QUOTE_GUARD_VERSION, "excerpt_sha256": excerpt_digest(excerpt)}
 
@@ -269,9 +352,11 @@ ATTRIBUTION_ACTS = ("states", "reports", "hedges", "denies")
 # types.ValidAxiomCategories; the default genesis MaxClaimTextLength.
 CLAIM_CATEGORIES = ("analytic", "formal", "empirical", "protocol", "computational")
 MAX_FACT_CONTENT = 1000
-STRUCTURE_FIELD = re.compile(r"[a-z0-9][a-z0-9:._/;=+-]*")
+# '(' and ')' appear in Elsevier PII DOIs such as 10.1016/s0140-6736(20)30183-5;
+# Wiley SICI DOIs also carry '<…>' and a '#' check character (review G4 F3).
+STRUCTURE_FIELD = re.compile(r"[a-z0-9][a-z0-9:._/;=+()<>#-]*")
 SHA256_REF = re.compile(r"sha256:[0-9a-f]{64}")
-WORK_ID = re.compile(r"doi:10\.[0-9]{4,9}/[a-z0-9:._/;=+-]+"
+WORK_ID = re.compile(r"doi:10\.[0-9]{4,9}/[a-z0-9:._/;=+()<>#-]+"
                      r"|arxiv:(?:[0-9]{4}\.[0-9]{4,5}|[a-z-]+(?:\.[a-z]{2})?/[0-9]{7})v[1-9][0-9]*"
                      r"|isbn:97[89][0-9]{10}|url-sha256:[0-9a-f]{64}")
 # Private persons appear only as opaque hermes: references (D6).
@@ -1014,8 +1099,9 @@ def parser():
     return result
 
 
-EXCERPT_HELP = ("Local excerpt file for the quote guard: refuse on-chain text repeating 8 consecutive excerpt tokens "
-                "(or a whole shorter excerpt). The excerpt is never sent, saved or printed.")
+EXCERPT_HELP = ("Local excerpt file for the quote guard: refuse on-chain text repeating 8 consecutive excerpt tokens, "
+                "16 consecutive characters of Chinese, Japanese, Thai, Lao, Khmer or Myanmar text (a word counts as 2), "
+                "or a whole shorter excerpt. The excerpt is never sent, saved or printed.")
 
 
 def attribute_command(args):

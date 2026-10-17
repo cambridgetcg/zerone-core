@@ -246,7 +246,7 @@ said it.
 | `domain` | the proposition's domain | Attribution and proposition share the content-hash namespace. |
 | `category` | `empirical` | `historical` is not an accepted category (`types/axiom.go:54-60`). |
 | `method_id` | `M-HISTORICAL` | Primary-source documentation with provenance (`types/methodologies.go:273`). Check that it is registered on the target chain. See §9 D7. |
-| `structure.subject` | work ID, lowercase: `doi:<doi>`, `arxiv:<id>v<n>`, `isbn:<13>`, or `url-sha256:<64hex>` | The source document anchors the record. |
+| `structure.subject` | work ID, lowercase: `doi:<doi>`, `arxiv:<id>v<n>`, `isbn:<13>`, or `url-sha256:<64hex>` | The source document anchors the record. A DOI's suffix is one or more of `a-z0-9:._/;=+()<>#-`: parentheses for DOIs such as `doi:10.1016/s0140-6736(20)30183-5`, and `<`, `>`, `#` for SICI DOIs such as `doi:10.1002/(sici)1097-4571(199806)49:8<693::aid-asi4>3.0.co;2-0` (review G4, F3). |
 | `structure.predicate` | `<act>:<voice>`. act ∈ {`states`, `reports`, `hedges`, `denies`}. voice ∈ {`author`, `quoted:<speaker-ref>`} | `speaker-ref` is `orcid:…`, `wikidata:q…`, or `hermes:<64hex>` (opaque). Private persons appear **only** as opaque `hermes:` refs. |
 | `structure.object` | `zrn-content:<64hex>` | The proposition claim's on-chain content hash: `sha256("ZRN.claim.v1:" + domain + ":" + text)` (`state.go:571-578`). It can be computed before the proposition exists. |
 | `structure.scope` | `ver=sha256:<64hex>;loc=<locator>` | The digest of the retrieved source bytes (Hermes SourceVersion), plus the Hermes locator in a lowercase grammar such as `p4.para2`, `sec3.2.para4`, `fig2`, `t=00:12:31`. It contains no text. |
@@ -352,12 +352,27 @@ The chain has no excerpt field and cannot detect quotation. Anything written is 
 guard runs **before signing**, in `claim-workflow` (Task 4). The Hermes intake should apply the
 same algorithm.
 
-- Attribution structure fields must match `^[a-z0-9][a-z0-9:._/;=+-]*$`.
+- Attribution structure fields must match `^[a-z0-9][a-z0-9:._/;=+()<>#-]*$` (`(`, `)`,
+  `<`, `>` and `#` were added for DOIs; review G4, F3).
 - The excerpt is read from a local file and never leaves it.
 - Any on-chain text (fact_content, reasoning_trace, structure fields, contradiction text,
-  challenge or review reason) is refused if, after normalisation, it contains:
+  challenge or review reason, challenge or review evidence, review scope) is refused if,
+  after normalisation, it contains:
   - any window of **8 consecutive excerpt tokens**; or
-  - the whole excerpt, when the excerpt has fewer than 8 tokens.
+  - the whole excerpt, when the excerpt has fewer than 8 tokens; or
+  - a run of consecutive excerpt **units weighing 16**, or every excerpt unit in order when
+    the excerpt weighs less (review G4, TQ-2). Units split each token again: every letter of
+    Han, Hiragana, Katakana, Thai, Lao, Khmer or Myanmar (scripts written without spaces
+    between words, listed as Unicode blocks and checked after NFKD) is its own unit,
+    weighing 1; the rest of a token is one unit, weighing 2. Those scripts put a whole
+    clause into one token, so a run-in or trimmed quote never matched the 8-token rule.
+    16 characters is about 8 words of Chinese or Japanese (roughly 2 characters a word);
+    a Thai, Lao, Khmer or Myanmar word keeps several letters after mark deletion, so there
+    16 letters is fewer words and the rule is stricter, erring toward refusal. A word
+    weighing 2 keeps 8 spaced words at 16, so text without these letters is judged exactly
+    as before, and a spaced quote glued to such a letter (which used to lose its first
+    word) is still caught. Other unspaced scripts (Tai Tham, Balinese, Javanese, …) are not
+    split.
   Normalisation is applied identically to the excerpt and to each field: NFKD, casefold, NFKD;
   then **delete** every combining mark (M\*), every format character (Cf) and every
   Default_Ignorable_Code_Point (soft hyphen, ZWSP/ZWJ/ZWNJ, word joiner, BOM, bidi controls,
@@ -366,9 +381,11 @@ same algorithm.
   than spacing, means a hidden character cannot split a word. Folding to base letters means a
   composed, decomposed or unaccented copy of a quote matches the same window. (Changed after
   the Task 4 review; it was NFKC with every non-letter/non-digit spaced, so a soft hyphen hid
-  a quote. See "Follow-up to Task 4".) Category data comes from the running Python's
-  `unicodedata` (Unicode 14 on 3.11); a code point assigned in a later Unicode version can
-  tokenize differently between runtimes.
+  a quote. See "Follow-up to Task 4".) The first NFKD folds compatibility capitals that
+  casefold alone keeps (`ᴬ`, lunate sigma `ϲ`); the second changes no token under Unicode
+  14.0–16.0 (checked over every code point) and stays against later casefold mappings.
+  Category data comes from the running Python's `unicodedata` (Unicode 14 on 3.11); a code
+  point assigned in a later Unicode version can tokenize differently between runtimes.
 - Receipts record only the guard version and the excerpt's sha256.
 
 Reviewers back this up on chain by voting MALFORMED. A third-party client can skip the guard;
@@ -725,6 +742,23 @@ Conventions that apply to every task:
     it is redefined before merge rather than bumped.
   - `attribute --dry-run` is accepted as an explicit no-op (a dry run is the default), as §7
     #16 spells it. With `--broadcast` it is a usage error (exit 2).
+- Follow-up to Task 4 (review G4):
+  - F3: DOIs with `(`, `)` (Elsevier PII) and SICI DOIs with `<…>` and a `#` check
+    character were refused; §4.2 and §4.7 now admit those characters. Only a DOI can use
+    them: the other work IDs and structure fields keep their narrower grammars.
+  - TQ-2: the 16-weight unit rule of §4.7 for scripts written without spaces. Red tests
+    cover run-in and trimmed Chinese, Japanese and Thai quotes, the 15/16 boundary, a word
+    weighing 2, a short excerpt run into other text, and unchanged spaced-text results.
+    `QUOTE_GUARD_VERSION` stays `zerone.quote-guard/v1` for the same reason as above.
+  - TQ-3: the refusal test has one row per guarded field (contradiction text, challenge
+    reason, each evidence position, review reason and scope, the extractor DID through
+    `reasoning_trace`), each in a fresh home, plus clean controls; casefold tests cover
+    ß/ss/ẞ and ligatures both ways and the first NFKD. No input needs the second NFKD under
+    Unicode 14.0–16.0; a test checks that over every code point instead.
+  - TQ-4: `local-node.py`'s private-HOME refusals are tested one property at a time (a
+    symlink to a private owned directory, a 0750 directory, a regular file, a foreign
+    owner), through `cli` and `start`, before any subprocess call. Removing any one check
+    now fails exactly one test; before, removing any one failed none.
 
 ### Phase B — activation (consensus)
 

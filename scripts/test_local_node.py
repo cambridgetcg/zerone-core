@@ -8,6 +8,7 @@ The real lifecycle uses the guide's default loopback ports 47656/47657, refuses
 occupied ports, creates fresh temporary test keys, and stops only its own child.
 """
 import argparse
+import contextlib
 import http.server
 import importlib.util
 import json
@@ -250,6 +251,77 @@ class SafetyTests(unittest.TestCase):
             run.assert_not_called()
             popen.assert_not_called()
         self.assertEqual(list(real_home.iterdir()), [])
+
+    # Review G4 TQ-4: each private-HOME refusal alone. Every case below breaks
+    # exactly one property of .cli-home and keeps the others valid, and both
+    # entry points (cli and start) must refuse before any subprocess call.
+    def assert_private_home_refused(self, home, stat_patch=None):
+        cli_home = home / local.CLI_HOME
+        before = (cli_home.is_symlink(), os.lstat(cli_home).st_mode,
+                  cli_home.read_bytes() if cli_home.is_file() and not cli_home.is_symlink() else None)
+        calls = (("cli", lambda: local.cli(home / "bin/zeroned", home, "keys", "list", "--keyring-backend", "test")),
+                 ("start", lambda: local.start(argparse.Namespace(home=str(home)))))
+        for entry, call in calls:
+            with self.subTest(entry=entry), \
+                    mock.patch.object(local.subprocess, "run") as run, mock.patch.object(local.subprocess, "Popen") as popen, \
+                    mock.patch.object(local, "check_ports"), mock.patch.object(local, "wait_ready") as ready:
+                with (stat_patch or contextlib.nullcontext)():
+                    with self.assertRaisesRegex(local.LocalNodeError, "private HOME"):
+                        call()
+                run.assert_not_called()
+                popen.assert_not_called()
+                ready.assert_not_called()
+        self.assertEqual((cli_home.is_symlink(), os.lstat(cli_home).st_mode,
+                          cli_home.read_bytes() if cli_home.is_file() and not cli_home.is_symlink() else None), before)
+
+    def test_cli_home_symlink_to_private_owned_directory_refused(self):
+        home, _ = self.fixture()
+        target = self.root / "private-target"
+        target.mkdir(mode=0o700)
+        target.chmod(0o700)
+        (home / local.CLI_HOME).symlink_to(target, target_is_directory=True)
+        followed = (home / local.CLI_HOME).stat()  # Only the link itself is wrong.
+        self.assertEqual((followed.st_uid, followed.st_mode & 0o777), (os.getuid(), 0o700))
+        self.assertTrue((home / local.CLI_HOME).is_dir())
+        self.assert_private_home_refused(home)
+        self.assertEqual(list(target.iterdir()), [])
+
+    def test_preexisting_group_readable_cli_home_refused(self):
+        home, _ = self.fixture()
+        (home / local.CLI_HOME).mkdir()
+        (home / local.CLI_HOME).chmod(0o750)
+        self.assert_private_home_refused(home)
+        self.assertEqual((home / local.CLI_HOME).stat().st_mode & 0o777, 0o750, "the helper must not repair it silently")
+
+    def test_cli_home_regular_file_refused(self):
+        home, _ = self.fixture()
+        (home / local.CLI_HOME).write_text("not a directory")
+        (home / local.CLI_HOME).chmod(0o600)
+        self.assert_private_home_refused(home)
+        self.assertEqual((home / local.CLI_HOME).read_text(), "not a directory")
+
+    def test_cli_home_owned_by_another_user_refused(self):
+        home, _ = self.fixture()
+        cli_home = home / local.CLI_HOME
+        cli_home.mkdir(mode=0o700)
+        cli_home.chmod(0o700)
+        original = local.Path.stat
+
+        def foreign(path, *args, **kwargs):
+            result = original(path, *args, **kwargs)
+            if path == cli_home:
+                values = list(result[:10])
+                values[4] = os.getuid() + 1  # st_uid
+                return os.stat_result(values)
+            return result
+
+        def patch():
+            return mock.patch.object(local.Path, "stat", autospec=True, side_effect=foreign)
+
+        with patch():
+            self.assertNotEqual(cli_home.stat().st_uid, os.getuid())
+            self.assertEqual(home.stat().st_uid, os.getuid())
+        self.assert_private_home_refused(home, stat_patch=patch)
 
     def fake_version_binary(self, name, sdk_version):
         # Mimics the SDK root command: it creates its home directory, which

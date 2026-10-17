@@ -205,7 +205,14 @@ is added for it.
 
 A `speaker-ref` is `orcid:…`, `wikidata:q…`, or the opaque `hermes:<64 hex>`.
 Private persons appear only as opaque `hermes:` references. Structure fields and
-tags must match `^[a-z0-9][a-z0-9:._/;=+-]*$`.
+tags must match `^[a-z0-9][a-z0-9:._/;=+()<>#-]*$`. A DOI is
+`doi:10.<4–9 digits>/` followed by one or more of `a–z 0–9 : . _ / ; = + ( ) < > # -`,
+lowercased. The parentheses admit DOIs such as
+`doi:10.1016/s0140-6736(20)30183-5`; `<`, `>` and `#` admit SICI DOIs such as
+`doi:10.1002/(sici)1097-4571(199806)49:8<693::aid-asi4>3.0.co;2-0`, whose
+check character may be `#`. Spaces, commas, quotes, and square and curly
+brackets stay refused, and the other work-ID kinds keep their narrower grammars
+(review G4, F3).
 
 The encoder is `scripts/claim-workflow.py attribute`. It is a dry run by
 default; `--dry-run` is an explicit no-op and conflicts with `--broadcast`.
@@ -217,6 +224,7 @@ Tests: `test_hermes_fixture_produces_exact_attribution_fields`,
 `test_jcs_matches_rfc8785_ordering_and_string_rules`,
 `test_content_hash_matches_go_vectors`,
 `test_quoted_voices_and_other_work_identifiers`,
+`test_doi_work_ids_with_parentheses_and_sici_segments_are_accepted`,
 `test_uppercase_or_free_text_in_structure_fields_is_refused`,
 `test_unknown_missing_or_misversioned_intake_fields_are_refused`,
 `test_method_and_category_defaults_and_bounded_overrides`,
@@ -422,11 +430,31 @@ is permanent. The guard therefore runs in the client before signing. Version:
   4. split on whitespace.
   Deleting, rather than spacing, means a hidden character cannot split a word.
   Folding to base letters means a composed, decomposed or unaccented copy matches
-  the same window.
-- A field is refused if it contains any 8 consecutive excerpt tokens, or the
-  whole excerpt when the excerpt has fewer than 8 tokens. An excerpt with no
-  tokens is refused. Refusals name the field, never the text, and happen before
-  any CLI call or saved record.
+  the same window. The first NFKD exposes the base letter of compatibility
+  capitals that casefold alone keeps (`ᴬ`, lunate sigma `ϲ`). The second NFKD
+  changes no token under Unicode 14.0–16.0 (checked over every code point); it
+  stays so that a later casefold mapping cannot leave a decomposable character.
+- Units: each token is split again so that every letter (L\*) of a script
+  written without spaces between words (Han, Hiragana, Katakana, Thai, Lao,
+  Khmer, Myanmar; listed as Unicode blocks, checked after NFKD) is a unit of its
+  own; the rest of the token stays one unit. Such a letter weighs 1; any other
+  unit weighs 2.
+- A field is refused if it contains:
+  1. any 8 consecutive excerpt tokens, or the whole excerpt when the excerpt
+     has fewer than 8 tokens; or
+  2. a run of consecutive excerpt units weighing at least 16, or every excerpt
+     unit in order when the excerpt weighs less than 16.
+  Rule 2 exists because those scripts put a whole clause into one token, so a
+  run-in or trimmed quote never matched rule 1 (review G4, TQ-2). Sixteen
+  characters is about 8 words of Chinese or Japanese, at roughly 2 characters
+  a word. A Thai, Lao, Khmer or Myanmar word keeps several letters after mark
+  deletion, so there 16 letters is fewer words and the rule is stricter, which
+  errs toward refusing.
+  Counting a word as 2 keeps 8 spaced words at 16, so text with no letters from
+  these scripts is judged exactly as by rule 1, and a spaced quote glued to
+  such a letter (which used to lose its first word) is still caught.
+  An excerpt with no tokens is refused. Refusals name the field and the rule,
+  never the text, and happen before any CLI call or saved record.
 - `attribute --broadcast` requires a passing guard and an excerpt whose digest
   equals the record's `excerpt_sha256`.
 Tests: `test_refuses_eight_token_overlap_after_normalisation`,
@@ -439,6 +467,17 @@ Tests: `test_refuses_eight_token_overlap_after_normalisation`,
 `test_zero_width_and_other_default_ignorables_are_deleted`,
 `test_combining_marks_left_after_nfkc_are_deleted`,
 `test_marks_inside_words_keep_scripts_whole_and_normalisation_is_idempotent`,
+`test_casefold_equivalences_sharp_s_and_ligatures`,
+`test_nfkd_before_casefold_folds_compatibility_capitals`,
+`test_second_nfkd_changes_no_token_under_this_unicode_version`,
+`test_units_split_only_scripts_written_without_spaces`,
+`test_run_in_chinese_quote_is_refused`,
+`test_trimmed_japanese_quote_is_refused`,
+`test_run_in_and_trimmed_thai_quotes_are_refused`,
+`test_fifteen_unspaced_characters_pass_and_sixteen_refuse`,
+`test_a_word_counts_as_two_characters_in_mixed_text`,
+`test_a_short_unspaced_excerpt_is_refused_whole_even_when_run_in`,
+`test_spaced_text_keeps_the_eight_token_rule`,
 `test_guarded_submit_challenge_and_commit_record_only_version_and_digest`,
 `test_guarded_attempt_keeps_snapshot_view_compatible`,
 `test_guard_refuses_before_any_cli_call_or_saved_record`,
@@ -446,11 +485,18 @@ Tests: `test_refuses_eight_token_overlap_after_normalisation`,
 `test_eight_excerpt_words_in_a_field_are_refused_before_signing`,
 `test_broadcast_requires_the_excerpt_and_a_matching_digest`.
 
+`test_guard_refuses_before_any_cli_call_or_saved_record` has one row per
+guarded field (each challenge and review field, each evidence position, and an
+attribution's extractor DID through `reasoning_trace`), each in a fresh home.
+
 Limits: character categories come from the running Python's `unicodedata`
 (Unicode 14 on Python 3.11), so a code point assigned in a later Unicode version
-can tokenize differently between runtimes. A third-party client can skip the
-guard; only reviewers voting MALFORMED push back on chain. The Hermes intake
-should apply the same algorithm.
+can tokenize differently between runtimes. Other scripts written without spaces
+(for example Tai Tham, Balinese, Javanese) are not split, so only rule 1 guards
+them. Folding drops Japanese voicing marks with the other combining marks, so
+`か` and `が` compare equal. A third-party client can skip the guard; only
+reviewers voting MALFORMED push back on chain. The Hermes intake should apply
+the same algorithm.
 
 ### 2.8 Known limits of attribution records
 

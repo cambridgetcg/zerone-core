@@ -157,10 +157,29 @@ class AttributionEncoderTests(unittest.TestCase):
                 claim = workflow.attribution_claim(record(**{parent + "__" + field: value}))
                 self.assertEqual(claim["structure"][key], expected)
 
+    def test_doi_work_ids_with_parentheses_and_sici_segments_are_accepted(self):
+        # Review G4 F3. Lowercased DOI shapes that real registries issue: an
+        # Elsevier PII DOI, and Wiley SICI DOIs, whose contribution segment sits
+        # in angle brackets and whose check character may be '#'.
+        for work in ("doi:10.1016/s0140-6736(20)30183-5",
+                     "doi:10.1002/(sici)1097-4571(199806)49:8<693::aid-asi4>3.0.co;2-0",
+                     "doi:10.1002/(sici)1520-6688(199723)16:4<516::aid-pam2>3.0.co;2-#"):
+            with self.subTest(work=work):
+                claim = workflow.attribution_claim(record(source_version__work=work))
+                self.assertEqual(claim["structure"]["subject"], work)
+                self.assertTrue(claim["fact_content"].startswith(f"Attribution zerone.attribution/v1: {work} states:author "))
+                self.assertTrue(workflow.STRUCTURE_FIELD.fullmatch(work))
+        # The other work-ID kinds keep their narrower grammars.
+        for work in ("isbn:978030640615(1)", "arxiv:2101.00001v2(x)", "url-sha256:" + "cd" * 32 + "#",
+                     "doi:10.1000/a b(c)", "doi:10.1000/a[b]", "doi:10.1000/a\"b", "doi:10.1000/a,b", "doi:10.1000/a{b}"):
+            with self.subTest(work=work), self.assertRaises(workflow.WorkflowError):
+                workflow.attribution_claim(record(source_version__work=work))
+
     def test_uppercase_or_free_text_in_structure_fields_is_refused(self):
         bad = {
             "source_version__work": ["DOI:10.1000/p6-smith-2019", "doi:10.1000/P6-Smith-2019", "doi:10.1000/smith 2019",
-                                     "https://example.org/paper", "Smith 2019", "isbn:978030640615", "arxiv:2101.00001"],
+                                     "https://example.org/paper", "Smith 2019", "isbn:978030640615", "arxiv:2101.00001",
+                                     "doi:10.1016/S0140-6736(20)30183-5", "doi:10.1002/(SICI)1097-4571(199806)49:8"],
             "statement_occurrence__locator": ["p4 para2", "P4.para2", "p4;loc=p5", "page four, second paragraph", ""],
             "statement_occurrence__act": ["says", "States", "states:author"],
             "statement_occurrence__voice": ["quoted:John Smith", "quoted:hermes:" + "AB" * 32, "Author", "quoted:", "quoted:orcid:smith"],
@@ -304,6 +323,145 @@ class QuoteGuardTests(unittest.TestCase):
                     self.assertTrue(all(unicodedata.category(ch)[0] == "L" or unicodedata.category(ch) == "Nd"
                                         for ch in token), token)
 
+    # Review G4 TQ-3: casefold equivalences, in both directions.
+    def test_casefold_equivalences_sharp_s_and_ligatures(self):
+        self.assertEqual(workflow.guard_tokens("STRASSE Straße straße STRAẞE"), ["strasse"] * 4)
+        self.assertEqual(workflow.guard_tokens("ﬁ ﬂ ﬀ ﬃ ﬄ"), ["fi", "fl", "ff", "ffi", "ffl"])
+        german = "Die Straße am Fluss war nach dem Regen sehr nass und glatt."
+        efficient = "an eﬃcient ﬂuid ﬁlter was observed to boil off quickly"
+        pairs = (
+            (german, "DIE STRASSE AM FLUSS WAR NACH DEM REGEN"),
+            (german, "die strasse am fluss war nach dem regen"),
+            (german, "DIE STRAẞE AM FLUSS WAR NACH DEM REGEN"),
+            (german.replace("ß", "ss"), "die Straße am Fluss war nach dem Regen"),
+            ("the ﬁne compound was observed to boil at last", "THE FINE COMPOUND WAS OBSERVED TO BOIL AT"),
+            ("the fine compound was observed to boil at last", "the ﬁne compound was observed to boil at"),
+            (efficient, "An efficient fluid filter was observed to boil off"),
+            ("an efficient fluid filter was observed to boil off quickly", "An eﬃcient ﬂuid ﬁlter was observed to boil off"),
+        )
+        for excerpt, field in pairs:
+            with self.subTest(excerpt=excerpt, field=field), self.assertRaisesRegex(workflow.WorkflowError, "8 consecutive"):
+                workflow.quote_guard(excerpt, [("review reason", field)])
+        workflow.quote_guard(german, [("review reason", "die strase am fluss war nach dem regen")])
+
+    def test_nfkd_before_casefold_folds_compatibility_capitals(self):
+        # casefold alone keeps these: the first NFKD must expose the base letter.
+        for ch, folded in (("ᴬ", "a"), ("ᴮ", "b"), ("ϲ", "σ"), ("Ϲ", "σ"), ("ϒ", "υ")):
+            with self.subTest(code_point=f"U+{ord(ch):04X}"):
+                self.assertNotEqual(unicodedata.normalize("NFKD", ch.casefold()), folded)
+                self.assertEqual(workflow.guard_tokens(ch), [folded])
+        greek = "ο σοφός λέγει ότι η ουσία βράζει στους εβδομήντα οκτώ βαθμούς"
+        with self.assertRaisesRegex(workflow.WorkflowError, "8 consecutive"):
+            workflow.quote_guard(greek, [("review reason", greek.replace("σ", "ϲ").replace("ς", "ϲ"))])
+
+    def test_second_nfkd_changes_no_token_under_this_unicode_version(self):
+        # TQ-3 asked for an input that needs the NFKD after casefold. None exists
+        # here: NFKD output holds only code points without decompositions; the
+        # casefold of each is already NFKD (checked below for all of them), so
+        # the second NFKD can only reorder combining marks across code points,
+        # and every character with a nonzero combining class is a mark (M*),
+        # which the guard deletes. The step stays so a later Unicode version
+        # whose casefold yields a decomposable character still folds; if this
+        # test fails, that has happened: add the code point as a vector above.
+        offenders = []
+        for code in range(0x110000):
+            if 0xD800 <= code <= 0xDFFF:
+                continue
+            ch = chr(code)
+            folded = unicodedata.normalize("NFKD", ch).casefold()
+            if unicodedata.normalize("NFKD", folded) != folded or (
+                    unicodedata.combining(ch) and unicodedata.category(ch)[0] != "M"):
+                offenders.append(f"U+{code:04X}")
+        self.assertEqual(offenders, [], f"Unicode {unicodedata.unidata_version}")
+
+
+class UnspacedScriptGuardTests(unittest.TestCase):
+    """Review G4 TQ-2: Han, Hiragana, Katakana, Thai, Lao, Khmer and Myanmar text
+    has no spaces between words, so a whole clause used to be one token and a
+    run-in or trimmed quote never matched a token window. Synthetic text only."""
+
+    ZH = "合成样品中的化合物Z在一个标准大气压下于七十八点四摄氏度沸腾，这一结果在三次独立测量中得到重复。"
+    JA = "化合物Zは一気圧のもとで七十八・四度で沸騰することが、三回の独立した測定で確かめられた。"
+    TH = "สารประกอบแซดเดือดที่เจ็ดสิบแปดจุดสี่องศาเซลเซียสภายใต้ความดันหนึ่งบรรยากาศ"
+
+    def refused(self, excerpt, field, rule="16 consecutive"):
+        with self.assertRaisesRegex(workflow.WorkflowError, rule) as error:
+            workflow.quote_guard(excerpt, [("review reason", field)])
+        self.assertIn("refused review reason:", str(error.exception))
+        for ch in excerpt:
+            if workflow.unspaced_letter(ch):
+                self.assertNotIn(ch, str(error.exception))
+
+    def test_units_split_only_scripts_written_without_spaces(self):
+        cases = {
+            "漢字かなカナー々": ["漢", "字", "か", "な", "カ", "ナ", "ー", "々"],
+            "ｶﾀｶﾅ": ["カ", "タ", "カ", "ナ"],  # halfwidth folds to fullwidth first
+            "ภาษาไทย": ["ภ", "า", "ษ", "า", "ไ", "ท", "ย"],
+            "ພາສາລາວ": ["ພ", "າ", "ສ", "າ", "ລ", "າ", "ວ"],
+            "ភាសាខ្មែរ": ["ភ", "ស", "ខ", "ម", "រ"],  # dependent vowels and coeng are marks
+            "မြန်မာစာ": ["မ", "န", "မ", "စ"],
+            "ปี๒๕๖๗": ["ป", "๒๕๖๗"],  # digits stay one word
+            "DNA配列78.4度": ["dna", "配", "列", "78", "4", "度"],
+            "한국어 문장, Straße": ["한국어", "문장", "strasse"],  # spaced scripts keep their words
+        }
+        for text, expected in cases.items():
+            with self.subTest(text=text):
+                units = workflow.guard_units(text)
+                self.assertEqual(units, [unicodedata.normalize("NFKD", unit) for unit in expected])
+                self.assertEqual(workflow.guard_units(" ".join(units)), units)
+
+    def test_run_in_chinese_quote_is_refused(self):
+        run = "化合物Z在一个标准大气压下于七十八点四摄氏度沸腾"
+        self.assertIn(run, self.ZH)
+        field = "据称" + run + "并已确认"
+        self.assertEqual(len(workflow.guard_tokens(field)), 1)  # one token: the 8-token rule cannot see it
+        self.refused(self.ZH, field)
+        self.refused(self.ZH, "据称，" + run.replace("大气压", "大气 压") + "，并已确认")  # re-spaced, re-punctuated
+
+    def test_trimmed_japanese_quote_is_refused(self):
+        trimmed = "は一気圧のもとで七十八・四度で沸騰すること"  # cut inside words at both ends
+        self.assertIn(trimmed, self.JA)
+        self.refused(self.JA, "報告では「" + trimmed + "」とある")
+        self.refused(self.JA, "報告では" + trimmed.replace("・", "") + "とある")
+
+    def test_run_in_and_trimmed_thai_quotes_are_refused(self):
+        trimmed = self.TH[3:40]
+        self.assertGreaterEqual(len(workflow.guard_units(trimmed)), 16)
+        self.refused(self.TH, "รายงานระบุว่า" + trimmed + "ตามที่วัดได้")
+        self.refused(self.TH, trimmed)
+        workflow.quote_guard(self.TH, [("review reason", "รายงานระบุว่าสารประกอบเดือดที่อุณหภูมิสูง")])
+
+    def test_fifteen_unspaced_characters_pass_and_sixteen_refuse(self):
+        fifteen = "在一个标准大气压下于七十八点四"
+        self.assertEqual(len(workflow.guard_units(fifteen)), 15)
+        workflow.quote_guard(self.ZH, [("review reason", "另一份记录写道" + fifteen + "而非其他")])
+        self.refused(self.ZH, "另一份记录写道" + fifteen + "摄而非其他")
+        self.assertEqual(workflow.UNSPACED_WINDOW, 16)
+
+    def test_a_word_counts_as_two_characters_in_mixed_text(self):
+        # "化合物Z在一个标准大气压下于": 13 characters and the word "z" weigh 15;
+        # one more character weighs 16. Were a word one unit, it would weigh 15.
+        workflow.quote_guard(self.ZH, [("review reason", "据称化合物Z在一个标准大气压下于而已")])
+        self.refused(self.ZH, "据称化合物Z在一个标准大气压下于七而已")
+        # Eight Latin words glued to unspaced text used to lose their first word.
+        glued = "引用the purified compound Z was observed to boil。"
+        self.assertNotIn("the", workflow.guard_tokens(glued))
+        self.refused(EXCERPT, glued)
+
+    def test_a_short_unspaced_excerpt_is_refused_whole_even_when_run_in(self):
+        self.refused("沸騰した", "化合物は沸騰したと報告された", rule="the whole excerpt")
+        workflow.quote_guard("沸騰した", [("review reason", "化合物は沸騰しないと報告された")])
+
+    def test_spaced_text_keeps_the_eight_token_rule(self):
+        # Without letters from these scripts, units are the tokens and the new
+        # rule never refuses what the 8-token rule accepts.
+        self.assertEqual(workflow.guard_units(EXCERPT), workflow.guard_tokens(EXCERPT))
+        workflow.quote_guard(EXCERPT, [("fact_content", SEVEN), ("proposition", PROPOSITION)])
+        korean = "합성 화합물 지는 일 기압에서 칠십팔 점 사 도에 끓는다고 세 번의 측정에서 확인되었다"
+        workflow.quote_guard(korean, [("review reason", "합성 화합물 지는 일 기압에서 칠십팔 점 다른 이야기")])
+        with self.assertRaisesRegex(workflow.WorkflowError, "8 consecutive excerpt tokens"):
+            workflow.quote_guard(korean, [("review reason", "보고서: 합성 화합물 지는 일 기압에서 칠십팔 점 사")])
+
 
 class AttributionWorkflowTests(unittest.TestCase):
     def setUp(self):
@@ -411,27 +569,81 @@ class AttributionWorkflowTests(unittest.TestCase):
         self.assert_excerpt_absent(snapshot)
 
     def test_guard_refuses_before_any_cli_call_or_saved_record(self):
-        refusals = {
-            "submit": lambda: self.w.submit(argparse.Namespace(content=EIGHT, domain="chemistry", category="empirical",
-                                                                method="", reasoning="ok", excerpt_file=str(self.excerpt_path))),
-            "submit reasoning": lambda: self.w.submit(argparse.Namespace(content=PROPOSITION, domain="chemistry", category="empirical",
-                                                                          method="", reasoning=EIGHT, excerpt_file=str(self.excerpt_path))),
-            "challenge": lambda: self.w.challenge(argparse.Namespace(fact="fact-1", content=SECOND_TEXT, reason="ok", evidence=[EIGHT],
-                                                                     stake="11000000", excerpt_file=str(self.excerpt_path))),
-            "commit": lambda: self.w.review(self.case.review_args(scope=EIGHT, excerpt_file=str(self.excerpt_path))),
-        }
-        self.w.round_for_claim = mock.Mock(return_value=self.case.row())
-        for name, action in refusals.items():
+        # Review G4 TQ-3: one row per guarded field, every other field clean, and
+        # a fresh home and call recorder per row, so each row alone proves that
+        # field is guarded, named in the refusal, and refused before any call.
+        smuggled = "hermes:the-purified-compound-z-was-observed-to-boil"  # 8 excerpt words, no space or comma
+
+        def submit(p, **changes):
+            values = dict(content=PROPOSITION, domain="chemistry", category="empirical", method="",
+                          reasoning="Paraphrase of a synthetic fixture source.", excerpt_file=str(p.excerpt_path))
+            return p.w.submit(argparse.Namespace(**{**values, **changes}))
+
+        def challenge(p, **changes):
+            values = dict(fact="fact-1", content=SECOND_TEXT, reason="Synthetic disagreement.", evidence=["ref:a", "ref:b"],
+                          stake="11000000", excerpt_file=str(p.excerpt_path))
+            return p.w.challenge(argparse.Namespace(**{**values, **changes}))
+
+        def review(p, **changes):
+            p.w.round_for_claim = mock.Mock(return_value=p.case.row())
+            return p.w.review(p.case.review_args(excerpt_file=str(p.excerpt_path), **changes))
+
+        def attribute(p, **changes):
+            path = Path(p.home) / "record.json"
+            path.write_text(json.dumps(record(**changes)), encoding="utf-8")
+            args = argparse.Namespace(record=str(path), excerpt_file=str(p.excerpt_path), method="M-HISTORICAL",
+                                      category="empirical", dry_run=False, broadcast=True, home=str(p.home), wait=30,
+                                      resubmit_after=None, max_review_fee_uzrn=None)
+            # Opening the workflow is the first step after the guard passes.
+            with mock.patch.object(workflow, "Workflow", side_effect=AssertionError("workflow opened")):
+                return workflow.attribute_command(args)
+
+        def fresh():
+            probe = AttributionWorkflowTests()
+            probe.setUp()
+            self.addCleanup(probe.doCleanups)
+            return probe
+
+        def untouched(p):
+            self.assertEqual(p.calls, [])
+            for recorder in (p.w.query, p.w.actor, p.w.check_node, p.w.tx_observation):
+                recorder.assert_not_called()
+            self.assertEqual(p.w.records("attempts"), [])
+            self.assertEqual(p.w.records("reviews"), [])
+
+        rows = (
+            ("submit content", "fact_content", submit, dict(content=EIGHT)),
+            ("submit reasoning", "reasoning_trace", submit, dict(reasoning=EIGHT)),
+            ("challenge content", "contradiction text", challenge, dict(content=EIGHT)),
+            ("challenge reason", "challenge reason", challenge, dict(reason=EIGHT)),
+            ("challenge evidence 1 of 2", "challenge evidence", challenge, dict(evidence=[smuggled, "ref:b"])),
+            ("challenge evidence 2 of 2", "challenge evidence", challenge, dict(evidence=["ref:a", smuggled])),
+            ("review reason", "review reason", review, dict(reason=EIGHT)),
+            ("review scope", "review scope", review, dict(scope=EIGHT)),
+            ("review evidence 1 of 2", "review evidence", review, dict(evidence=[smuggled, "ref:b"])),
+            ("review evidence 2 of 2", "review evidence", review, dict(evidence=["ref:a", smuggled])),
+            ("attribute extractor DID", "reasoning_trace", attribute,
+             dict(extractor="did:zrn:the-purified-compound-z-was-observed-to-boil")),
+        )
+        for name, field, action, changes in rows:
             with self.subTest(name=name):
-                self.w.query.reset_mock()
-                self.w.actor.reset_mock()
-                with self.assertRaisesRegex(workflow.WorkflowError, "Quote guard"):
-                    action()
-                self.assertEqual(self.calls, [])
-                self.w.query.assert_not_called()
-                self.w.actor.assert_not_called()
-                self.assertEqual(self.w.records("attempts"), [])
-                self.assertEqual(self.w.records("reviews"), [])
+                p = fresh()
+                with self.assertRaises(workflow.WorkflowError) as refused:
+                    action(p, **changes)
+                self.assertIn(f"Quote guard zerone.quote-guard/v1 refused {field}:", str(refused.exception))
+                self.assertNotIn("purified", str(refused.exception))
+                untouched(p)
+        # Controls: with every field clean each command passes the guard.
+        for action in (submit, challenge, review):
+            with self.subTest(control=action.__name__):
+                p = fresh()
+                if action is challenge:
+                    p.observation["events"] = [{"type": "zerone.knowledge.submit_contradiction",
+                                                "attributes": [{"key": "counter_claim_id", "value": "counter-1"}]}]
+                self.assertEqual(action(p)["status"], "committed")
+                self.assertTrue(p.calls)
+        with self.subTest(control="attribute"), self.assertRaisesRegex(AssertionError, "workflow opened"):
+            attribute(fresh())
 
     def test_parsers_offer_excerpt_file_on_submit_challenge_and_commit(self):
         parser = workflow.parser()
