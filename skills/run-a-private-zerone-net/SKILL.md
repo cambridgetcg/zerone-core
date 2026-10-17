@@ -114,9 +114,18 @@ avoid this by spelling out every command with absolute paths.
    - **Every other Mac** (after round 0, step 2):
      `pn binary --from inbox/zeroned --invite inbox/invite-<label>.json`.
      This checks the sha256 and clears the AirDrop quarantine flag.
-   - **To change the pin later:** stop every seat on that Mac, then move
-     `bin/zeroned` and `bin/zeroned.json` aside together. Every chain pinned to
-     the old binary then needs a new chain id.
+   - **To change the pin later:** stop every seat on that Mac. If the old
+     binary was allowed through the firewall, the owner runs
+     `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --remove /Users/Shared/zerone-private/bin/zeroned`.
+     Then move `bin/zeroned` and `bin/zeroned.json` aside together, pin the
+     new binary, and allow it again (step 3). Every chain pinned to the old
+     binary then needs a new chain id.
+   - **A pin signed `a.out`** (made with `binary` from a plain `make` build,
+     or before `build` re-signed) reaches every seat through the kits, and a
+     seat cannot re-sign it, because its invitation fixes the sha256. `invite`
+     and `kit` add a `warning` for such a pin on a `-lan-` or `-private-`
+     chain. Re-pin with `build` before inviting, or accept that seats where
+     another `a.out` app holds the firewall entry can only dial out.
 2. **Invitations (coordinator, round 0):** one per Mac, the coordinator's own
    included:
    `pn invite --chain-id <id> --coordinator-label <own label> --label <mac> [--role full] [--stake-zrn N]`.
@@ -141,7 +150,9 @@ avoid this by spelling out every command with absolute paths.
      sudo /usr/libexec/ApplicationFirewall/socketfilterfw --unblockapp /Users/Shared/zerone-private/bin/zeroned
      ```
 
-     Do this again if the pinned binary changes.
+     Do this again if the pinned binary changes, after `--remove` for the old
+     one: `preflight`'s `ok` matches the path only, so it cannot tell that the
+     binary behind the path changed.
      - Check the result with `socketfilterfw --listapps`, which `preflight`
        reads. `--getappblocked` is no proof: it answers "permitted" even for a
        path that is not on the list.
@@ -291,7 +302,8 @@ confirms the table.
   on one. The tool strips `ZERONED_*` from every call. To start over, use a new
   chain id suffix, for example `zerone-rehearsal-lan-2`. Before receiving the
   new chain's files, the owner moves the old chain's arrivals into
-  `inbox/<old chain id>/`; the skill folder and `zeroned` may stay if unchanged.
+  `inbox/<old chain id>/`; the skill folder and `zeroned` may stay if unchanged
+  (and, for a LAN chain, signed `org.zerone.zeroned`; `invite` warns otherwise).
 - Seat packets, the genesis, the network packet, gentx and `START-HERE.md`
   contain LAN IPs. Move them only by courier. Never post them in public places,
   repositories, or mission or chat text.

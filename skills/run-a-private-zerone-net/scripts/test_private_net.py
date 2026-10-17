@@ -153,6 +153,19 @@ class Pinning(unittest.TestCase):
         with self.assertRaises(pn.Refusal):
             pn.pin_binary(lay, src, hashlib.sha256(b"new").hexdigest())
 
+    def test_a_binary_that_cannot_run_here_is_not_pinned(self):
+        base = private_tmp(self)
+        lay = pn.Layout(os.path.join(base, "root"))
+        for body, text in ((b"#!/bin/sh\nkill -9 $$\n", "killed by signal 9"), (b"#!/bin/sh\nexit 3\n", "exited 3")):
+            src = os.path.join(base, "candidate")
+            with open(src, "wb") as f:
+                f.write(body)
+            os.chmod(src, 0o700)
+            with self.assertRaises(pn.Refusal) as caught:
+                pn.pin_binary(lay, src, hashlib.sha256(body).hexdigest())
+            self.assertIn(text, str(caught.exception))
+            self.assertFalse(os.path.exists(lay.binary) or os.path.exists(lay.binary_record))
+
     @unittest.skipUnless(shutil.which("sandbox-exec"), "macOS sandbox-exec not available")
     def test_sandboxed_bind_names_the_sandbox(self):
         code = ("import importlib.util,sys; s=importlib.util.spec_from_file_location('p', sys.argv[1]); "
@@ -197,6 +210,17 @@ class CodeSigning(unittest.TestCase):
                 self.assertEqual(status, "warn")
                 self.assertIn("--add " + binary, detail)
                 self.assertEqual("default identifier a.out" in detail, explained, ident)
+
+    def test_firewall_ok_says_it_matches_the_path_only(self):
+        binary = os.path.join(private_tmp(self), "zeroned")
+        answers = {"--getglobalstate": "Firewall is enabled. (State = 1)", "--getblockall": "disabled",
+                   "--listapps": "Total number of apps = 1\n1 : %s\n (Allow incoming connections)" % binary}
+        with mock.patch.object(pn, "SOCKETFILTERFW", str(SCRIPT)), \
+                mock.patch.object(pn, "run", side_effect=lambda argv, **kw: answers[argv[1]]):
+            status, detail = pn.firewall_report(binary)
+        self.assertEqual(status, "ok")
+        self.assertIn("path only", detail)
+        self.assertIn("--remove " + binary, detail)
 
     @unittest.skipUnless(sys.platform == "darwin" and os.path.exists(pn.CODESIGN) and shutil.which("xcrun"),
                          "macOS codesign and clang not available")
@@ -474,6 +498,23 @@ class Courier(unittest.TestCase):
                      "%s binary --from %s/zeroned --invite %s/invite-beta.json" % (self.INBOX_TOOL, inbox, inbox),
                      "--peer 192.0.2.10:36656", "If the `firewall` check warns", "This page, the seat packet"):
             self.assertIn(text, page)
+
+    def test_invite_and_kit_warn_about_an_a_out_pin_on_a_lan_chain(self):
+        cases = ((pn.GO_DEFAULT_IDENTIFIER, CHAIN, True), (pn.SIGN_IDENTIFIER, CHAIN, False),
+                 (pn.GO_DEFAULT_IDENTIFIER, "zerone-rehearsal-local-w1", False))
+        for n, (ident, chain, warned) in enumerate(cases):
+            with mock.patch.object(pn, "signing_identifier", return_value=ident):
+                rc, doc, err = cli("--root", self.root, "invite", "--chain-id", chain, "--coordinator-label",
+                                   "alpha", "--label", "gamma%d" % n)
+            self.assertEqual(rc, 0, err)
+            self.assertEqual("warning" in doc, warned, (ident, chain))
+            if warned:
+                self.assertIn("--remove", doc["warning"])
+                self.assertIn("new chain id", doc["warning"])
+        with mock.patch.object(pn, "signing_identifier", return_value=pn.GO_DEFAULT_IDENTIFIER):
+            _, (rc, doc, err) = self.kit()
+        self.assertEqual(rc, 0, err)
+        self.assertIn("warning", doc)
 
     def test_kit_leaves_a_stray_module_behind(self):
         skill = os.path.join(self.base, "skill-copy", pn.SKILL_NAME)

@@ -651,7 +651,9 @@ def firewall_report(binary):
         if line.strip().endswith(binary):
             nxt = lines[i + 1] if i + 1 < len(lines) else ""
             if "Allow" in nxt:
-                return "ok", "%s is allowed incoming connections" % binary
+                return "ok", ("%s is allowed incoming connections. This matches the path only: if bin/zeroned "
+                              "changed since the owner allowed it, they run `sudo %s --remove %s`, then the two "
+                              "commands again" % (binary, SOCKETFILTERFW, binary))
             return "fail", "%s is listed but blocked; the owner unblocks it (command below)" % binary
     detail = ("firewall on and zeroned not yet allowed. The prompt would appear only at genesis_time, "
               "when the node opens its P2P port, so the owner should allow it now: "
@@ -660,7 +662,8 @@ def firewall_report(binary):
         detail += (". This zeroned is signed with Go's default identifier %s, and the firewall keys apps by "
                    "identifier: if another %s app (ipfs, another Go tool) is already listed, --add prints nothing, "
                    "updates that app's entry instead, and this warning stays. `build` signs zeroned as %s, so a "
-                   "new pin does not share that identifier. For this binary, allow zeroned if macOS prompts at genesis_time, or rely on "
+                   "new pin does not share that identifier, but only the coordinator can re-pin, for a new chain id: "
+                   "a seat's pin is fixed by its invitation. For this binary, allow zeroned if macOS prompts at genesis_time, or rely on "
                    "this seat dialling out: one connection between two seats is enough"
                    % (GO_DEFAULT_IDENTIFIER, GO_DEFAULT_IDENTIFIER, SIGN_IDENTIFIER))
     return "warn", detail
@@ -758,8 +761,10 @@ def pin_binary(lay, src, expect_sha=None, provenance=None):
         if sha256_file(lay.binary) == actual:
             return dict(load_json(lay.binary_record, allow_floats=True), already_pinned=True)
         raise Refusal("%s already holds a different binary. To change it, stop every seat on this Mac, "
-                      "then move bin/zeroned and bin/zeroned.json aside; every chain pinned to the old "
-                      "binary then needs a new chain id" % lay.binary)
+                      "have the owner run `sudo %s --remove %s` if the old one was allowed through the firewall, "
+                      "then move bin/zeroned and bin/zeroned.json aside and allow the new pin once it is in place; "
+                      "every chain pinned to the old binary then needs a new chain id"
+                      % (lay.binary, SOCKETFILTERFW, lay.binary))
     tmp = lay.binary + ".tmp-%d" % os.getpid()
     shutil.copyfile(src, tmp)
     os.chmod(tmp, 0o700)
@@ -769,9 +774,15 @@ def pin_binary(lay, src, expect_sha=None, provenance=None):
         if sha256_file(tmp) != actual:
             raise Refusal("copy changed bytes")
         try:
-            ver = run([tmp, "version", "--long", "--output", "json"], check=False)
+            probe = subprocess.run([tmp, "version", "--long", "--output", "json"], stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, env=clean_env(), timeout=60)
         except OSError as e:
             raise Refusal("this binary does not run on this Mac (%s); it was built for another CPU or OS" % e)
+        if probe.returncode != 0:
+            how = ("was killed by signal %d at exec: macOS rejects its code signature, or it is for another CPU"
+                   % -probe.returncode if probe.returncode < 0 else "exited %d" % probe.returncode)
+            raise Refusal("this binary does not run on this Mac: `zeroned version` %s" % how)
+        ver = probe.stdout.decode("utf-8", "replace")
         try:
             v = json.loads(ver)
             version = {k: v.get(k) for k in ("version", "commit", "go", "cosmos_sdk_version") if k in v}
@@ -871,8 +882,23 @@ def cmd_invite(a):
            if a.label == a.coordinator_label else
            "once the coordinator has seated, `kit --chain-id %s --label %s --out <folder>` writes %s's courier folder"
            % (lay.chain_id, a.label, a.label))
-    emit({"invitation": path, "next": nxt})
+    out = {"invitation": path, "next": nxt}
+    warning = aout_pin_warning(lay)
+    if warning:
+        out["warning"] = warning
+    emit(out)
     return 0
+
+
+def aout_pin_warning(lay):
+    """A pin still signed with Go's default identifier spreads to every seat, and a seat cannot re-sign it."""
+    if lay.chain_id.startswith("zerone-rehearsal-local-") or signing_identifier(lay.binary) != GO_DEFAULT_IDENTIFIER:
+        return None
+    return ("the pinned zeroned is signed %s, Go's default, and every seat inherits it: on a Mac where another %s "
+            "app already holds the firewall entry, `--add` cannot allow it, and that seat can only dial out. To give "
+            "the seats %s instead, stop this Mac's seats, have the owner run `sudo %s --remove %s`, move bin/zeroned "
+            "and bin/zeroned.json aside, re-pin with `build`, and invite under a new chain id"
+            % (GO_DEFAULT_IDENTIFIER, GO_DEFAULT_IDENTIFIER, SIGN_IDENTIFIER, SOCKETFILTERFW, lay.binary))
 
 
 def make_seat(lay, label, role, ip, p2p_port, stake_zrn, binary, loopback=False):
@@ -1180,7 +1206,9 @@ keep no function or working directory from one call to the next. {rootnote}
      `sudo … socketfilterfw` commands it prints, in Terminal, before
      genesis_time, then preflight runs again; if it still warns, follow what
      the warning says (a `zeroned` signed `a.out` may never get its own
-     rule). If `lan-dial` fails, the owner allows the app that runs
+     rule). If this Mac allowed an earlier `zeroned` at this path, the owner
+     first runs the `--remove` command the `firewall` check prints, then the
+     two commands again, even if the check says ok. If `lan-dial` fails, the owner allows the app that runs
      this agent under System Settings › Privacy & Security › Local Network.
      If Mullvad is installed, the owner runs `mullvad lan set allow`.
 4. Create the seat:
@@ -1380,9 +1408,13 @@ def cmd_kit(a):
         inv, coord_endpoint, files, expect = kit_round0(lay, a.label)
         files.append(("START-HERE.md", start_here_text(inv, coord_endpoint, folder, created).encode("utf-8"), 0o644))
         write_courier_dir(real, files, expect)
-        emit({"kit": real, "round": 0, "label": a.label, "files": sorted(rel for rel, _, _ in files),
-              "binary_sha256": inv["binary_sha256"], "tool_sha256": inv["tool_sha256"],
-              "next": "the owner AirDrops this folder to %s; the agent there follows START-HERE.md" % a.label})
+        out = {"kit": real, "round": 0, "label": a.label, "files": sorted(rel for rel, _, _ in files),
+               "binary_sha256": inv["binary_sha256"], "tool_sha256": inv["tool_sha256"],
+               "next": "the owner AirDrops this folder to %s; the agent there follows START-HERE.md" % a.label}
+        warning = aout_pin_warning(lay)
+        if warning:
+            out["warning"] = warning
+        emit(out)
     else:
         net, gsha, files = kit_round2(lay, a.label)
         files.append(("NEXT.md", next_text(net, a.label, folder, created).encode("utf-8"), 0o644))
