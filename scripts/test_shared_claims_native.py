@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Opt-in actual signed five-home development workflow through the real gateway.
 
-Set ZERONE_SHARED_TEST_BINARY to a current native zeroned. The chain is an
-isolated --local-test fixture with accelerated review windows. Five separate key
+Set ZERONE_SHARED_TEST_BINARY to a native knowledge-11 zeroned: the frozen
+zerone-dev-1 runtime and gateway refuse a knowledge-12 node until the network is
+relaunched. The chain is an isolated --local-test fixture with accelerated review windows. Five separate key
 homes are controlled by this test; no human/reviewer independence is asserted.
 Optional ZERONE_SHARED_EVIDENCE_PARENT retains curated public observations only.
 """
@@ -491,6 +492,9 @@ class NativeSharedClaimsTests(unittest.TestCase):
         relation = next(row for row in related["facts"][0]["outgoing_relations"] if row["target_fact_id"] == fact["id"])
         self.assertTrue(fixture.enum_is(relation["relation"], 2, "RELATION_TYPE_CONTRADICTS"))
         self.assertEqual(relation["creator"], self.addresses["challenger"])
+        # The frozen zerone-dev-1 tooling serves knowledge 11 only (descriptor above), so
+        # this is a knowledge-11 run: the contradiction contested the fact when admitted.
+        # test_claim_workflow_native.py checks the knowledge-12 contract (contest on acceptance).
         self.assertTrue(fixture.enum_is(final["record"]["facts"][0]["fact"]["status"], 5, "FACT_STATUS_CONTESTED"))
         inconclusive = self.history(second_id)
         self.assertFalse(inconclusive["record"].get("facts"))
