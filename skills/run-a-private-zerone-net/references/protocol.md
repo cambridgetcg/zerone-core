@@ -148,9 +148,9 @@ gentx at genesis, because `docs/VALIDATOR-GUIDE.md` rules out the standard
   - `start`, `status --wait-height`, `compare` and a transfer.
 - **First LAN run, 2026-10-17** (`zerone-rehearsal-lan-1`):
   - **Setup:** two equal validators on the same home LAN: a Mac Studio
-    (macOS 15.3) as coordinator, and a second Apple silicon Mac whose macOS
-    version was not recorded. AirDrop was the courier, and the second Mac's
-    agent asked the owner for the genesis sha256. The binary was zerone-core
+    (macOS 15.3) as coordinator, and a second Apple silicon Mac (macOS 26.6.2,
+    as its agent reported in #107). AirDrop was the courier, and the second
+    Mac's agent asked the owner for the genesis sha256. The binary was zerone-core
     0a4dd03b, built with `make build-darwin-arm64`.
   - **Timing:** with the owner couriering, the invitations, kit, seat packet
     and genesis took about 13 minutes. `genesis --start-in 1200` left room for
@@ -161,8 +161,12 @@ gentx at genesis, because `docs/VALIDATOR-GUIDE.md` rules out the standard
   - **Transfer:** a 1 ZRN transfer from one validator showed in the other's
     balance.
   - **Firewall:** the coordinator's firewall rule was pre-authorised and
-    Mullvad set to `lan allow`. The second Mac's firewall state was not
-    recorded.
+    Mullvad set to `lan allow`. On the second Mac the same two commands
+    silently did nothing: Go signs every binary ad hoc as `a.out`, the
+    firewall keys its entries by that identifier, and `--add` updated another
+    `a.out` app's entry instead (#107 re-signs `zeroned` with its own
+    identifier). The chain ran anyway because the second Mac dialled out to the
+    coordinator; a seat that needs inbound peers would have been stuck.
   - **What the run changed:** it produced `kit` and `receive` (the run used a
     hand-built kit and moved files by hand) and `status --wait-height` (the run
     polled ad hoc). It also changed `pn` into a shell function, because a
