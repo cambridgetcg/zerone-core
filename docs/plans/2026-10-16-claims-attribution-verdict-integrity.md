@@ -1267,6 +1267,27 @@ Conventions that apply to every task:
     - the stored edge read error ignored.
   - An explicit source/target check in `storedContradiction` survived its mutant, because
     `validateToKStoredRecord` already rebuilds the key from the payload. It was removed.
+- Review fixes, group G3 — marker-off twins for `completeRound` (2026-10-17; tests only, no
+  code or semantic change; the Task 2 digest is unchanged). TQ-1: three marker gates in
+  `completeRound` had no marker-off test, so forcing the knowledge-12 branch at any of them
+  passed every suite (`./x/knowledge/...`, `./app/...`, `./tests/cross_stack/...`). The gates
+  are the `contestAcceptedTargets` call in the ACCEPT arm and the `endContradiction` calls in
+  the REJECT and MALFORMED arms.
+  - `TestClaimIntegrity_ContradictionAdmittedDuringChallengeContestsOnAcceptance` (new; marker
+    on and off). A contradiction A is admitted while F is CHALLENGED and accepted one block
+    after F survives, when F is ACTIVE. Marker on: F becomes CONTESTED with
+    `contradiction_accepted/A`. Marker off: F stays ACTIVE, with no transition and no
+    `contradiction_accepted` event.
+  - `TestClaimIntegrity_ContradictionContestsOnlyWhenAccepted` now ends B in each of
+    `contestEndings` (rejected, malformed, starved) instead of starving it only. Marker on: F
+    stays CONTESTED while K stands. Marker off: F returns to VERIFIED with the knowledge-11
+    inferred cause `verification/<F's claim>` and `contradiction_reversed{reverted_by_claim: B}`.
+  - Mutants on a /tmp copy of `29022b71` (`/tmp/zerone-v12-g3`). Each survived the suites at
+    that commit and is killed only by its twin: `if true` at the ACCEPT gate (M5) by the new
+    test's `marker_off` case; `endContradiction(ctx, claim, true)` in the REJECT arm (S1) by
+    `marker_off/rejected`; the same in the MALFORMED arm (S2) by `marker_off/malformed`. The
+    INCONCLUSIVE arm (S3) was already guarded: at that commit its mutant fails the starved
+    marker-off twins and `TestV11_GoldenKnowledgeStoreDigest`.
 
 **Task 13 — Participants decide the target; reversal follows the latest finding (P3c)** · consensus: yes
 - Files: `msg_server.go:770-773`, `rounds.go:1212` and `:1284`, `vindication.go`
