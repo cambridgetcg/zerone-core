@@ -4,9 +4,9 @@
 Protocol zerone-private-net/v1. One coordinator, N seats (one seat per Mac in normal use).
 Keys are born on their seat and never move. Only public files travel, each pinned by sha256:
 
-  round 0  owner    ──kit (private-net.py, zeroned, invite-<label>.json)──▶ each Mac
+  round 0  coordinator ──kit (skill, zeroned, invite-<label>.json, START-HERE.md)──▶ each Mac
   round 1  seat     ──seat-<label>.json──▶ coordinator
-  round 2  coordinator ──genesis-<chain>.json + network-<chain>.json──▶ every seat
+  round 2  coordinator ──genesis-<chain>.json + network-<chain>.json + NEXT.md──▶ every seat
 
 Subcommands (`private-net.py <command> --help` for details):
   prepare     create the root and its inbox before any kit arrives
@@ -14,11 +14,13 @@ Subcommands (`private-net.py <command> --help` for details):
   build       build zeroned from a clean checkout at an exact commit, then pin it
   binary      pin a couriered zeroned after checking its sha256
   invite      coordinator: write one Mac's invitation (chain, label, role, pinned hashes)
+  kit         coordinator: one Mac's courier folder (round 0 kit, or round 2 genesis files)
+  receive     move couriered files (or a kit folder) into the inbox, checking their names
   seat        create this Mac's seat and its seat packet (with gentx)
   genesis     coordinator only: build genesis + network packet from every seat packet
   install     verify the genesis and network packet, then write this seat's node config
   start/stop  run or stop this seat's node (detached; stop checks the exact command line)
-  status      this seat's view of the chain as JSON
+  status      this seat's view of the chain as JSON (--wait-height waits for blocks)
   compare     compare status reports from several seats
   send        one test transfer from this seat's operator key; balance reads one back
   rehearse    run the whole protocol with N loopback seats on this Mac, then stop them
@@ -28,21 +30,30 @@ network (zerone-1, zerone-testnet-1, zerone-dev-1, zerone-2) can never be addres
 Stdlib only; Python 3.9+ (the macOS Command Line Tools python works).
 """
 
+import os
+import sys
+
+# Run as a script, Python puts this file's folder first on sys.path, so a stray module beside it
+# (a couriered hashlib.py, say) would shadow the standard library and could fake every hash
+# check. Drop that entry before any other import; os and sys are already loaded by then.
+if __name__ == "__main__" and sys.path and \
+        os.path.realpath(sys.path[0] or os.curdir) == os.path.dirname(os.path.realpath(__file__)):
+    del sys.path[0]
+
 import argparse
 import datetime
 import errno
 import hashlib
 import json
-import os
 import platform
 import pwd
 import re
+import shlex
 import shutil
 import signal
 import socket
 import stat
 import subprocess
-import sys
 import time
 import urllib.error
 import urllib.request
@@ -73,6 +84,18 @@ CODESIGN = "/usr/bin/codesign"
 # entries by that identifier, so zeroned needs its own (see adhoc_sign and firewall_report).
 SIGN_IDENTIFIER = "org.zerone.zeroned"
 GO_DEFAULT_IDENTIFIER = "a.out"
+SKILL_NAME = "run-a-private-zerone-net"
+SKILL_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
+# The skill folder a kit carries, exactly: no other file may ride along beside the pinned tool.
+SKILL_FILES = ("SKILL.md", os.path.join("references", "protocol.md"),
+               os.path.join("scripts", "private-net.py"), os.path.join("scripts", "test_private_net.py"))
+# Everything a courier may carry into an inbox. Anything else is refused by `receive`.
+COURIER_NAME_RE = re.compile(r"(invite|seat|status)-(?:%s)\.json|(genesis|network)-(?:%s)\.json"
+                             r"|zeroned|START-HERE\.md|NEXT\.md" % (LABEL_RE.pattern, CHAIN_RE.pattern))
+# Reports and pages that may be re-sent within one chain; every other arrival pins something.
+REPLACEABLE_RE = re.compile(r"status-.*\.json|START-HERE\.md|NEXT\.md")
+MAX_COURIER_JSON = 16 << 20
+MAX_COURIER_BINARY = 1 << 30
 
 # The private-test-v1 genesis profile. Everything else stays at the binary's own defaults,
 # which every seat can reproduce locally and check (see verify_genesis).
@@ -560,6 +583,29 @@ def rpc(port, path, timeout=3):
     return body["result"]
 
 
+def rpc_or_absent(port, path, timeout=2):
+    """rpc() for a node that may not be listening yet: no listener returns None, since the node opens RPC
+    only at genesis_time. Any answer that is not CometBFT's (an HTTP error, not JSON, no result) comes from
+    another process, and is refused rather than waited out."""
+    url = "http://127.0.0.1:%d%s" % (port, path)
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as r:
+            body = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        raise Refusal("another process answers on 127.0.0.1:%d (HTTP %s), not this seat's node" % (port, e.code))
+    except urllib.error.URLError as e:
+        if isinstance(e.reason, (ConnectionRefusedError, ConnectionResetError, socket.timeout, TimeoutError)):
+            return None
+        raise Refusal("RPC 127.0.0.1:%d: %s" % (port, e.reason))
+    except (ConnectionResetError, socket.timeout, TimeoutError):
+        return None  # a node still opening its listener
+    except ValueError:
+        raise Refusal("another process answers on 127.0.0.1:%d (not JSON), not this seat's node" % port)
+    if not isinstance(body, dict) or "result" not in body:
+        raise Refusal("another process answers on 127.0.0.1:%d (no RPC result), not this seat's node" % port)
+    return body["result"]
+
+
 # ── code signing ───────────────────────────────────────────────────────────────
 
 def parse_signing_identifier(text):
@@ -605,7 +651,9 @@ def firewall_report(binary):
         if line.strip().endswith(binary):
             nxt = lines[i + 1] if i + 1 < len(lines) else ""
             if "Allow" in nxt:
-                return "ok", "%s is allowed incoming connections" % binary
+                return "ok", ("%s is allowed incoming connections. This matches the path only: if bin/zeroned "
+                              "changed since the owner allowed it, they run `sudo %s --remove %s`, then the two "
+                              "commands again" % (binary, SOCKETFILTERFW, binary))
             return "fail", "%s is listed but blocked; the owner unblocks it (command below)" % binary
     detail = ("firewall on and zeroned not yet allowed. The prompt would appear only at genesis_time, "
               "when the node opens its P2P port, so the owner should allow it now: "
@@ -614,7 +662,8 @@ def firewall_report(binary):
         detail += (". This zeroned is signed with Go's default identifier %s, and the firewall keys apps by "
                    "identifier: if another %s app (ipfs, another Go tool) is already listed, --add prints nothing, "
                    "updates that app's entry instead, and this warning stays. `build` signs zeroned as %s, so a "
-                   "new pin does not share that identifier. For this binary, allow zeroned if macOS prompts at genesis_time, or rely on "
+                   "new pin does not share that identifier, but only the coordinator can re-pin, for a new chain id: "
+                   "a seat's pin is fixed by its invitation. For this binary, allow zeroned if macOS prompts at genesis_time, or rely on "
                    "this seat dialling out: one connection between two seats is enough"
                    % (GO_DEFAULT_IDENTIFIER, GO_DEFAULT_IDENTIFIER, SIGN_IDENTIFIER))
     return "warn", detail
@@ -712,8 +761,10 @@ def pin_binary(lay, src, expect_sha=None, provenance=None):
         if sha256_file(lay.binary) == actual:
             return dict(load_json(lay.binary_record, allow_floats=True), already_pinned=True)
         raise Refusal("%s already holds a different binary. To change it, stop every seat on this Mac, "
-                      "then move bin/zeroned and bin/zeroned.json aside; every chain pinned to the old "
-                      "binary then needs a new chain id" % lay.binary)
+                      "have the owner run `sudo %s --remove %s` if the old one was allowed through the firewall, "
+                      "then move bin/zeroned and bin/zeroned.json aside and allow the new pin once it is in place; "
+                      "every chain pinned to the old binary then needs a new chain id"
+                      % (lay.binary, SOCKETFILTERFW, lay.binary))
     tmp = lay.binary + ".tmp-%d" % os.getpid()
     shutil.copyfile(src, tmp)
     os.chmod(tmp, 0o700)
@@ -723,9 +774,15 @@ def pin_binary(lay, src, expect_sha=None, provenance=None):
         if sha256_file(tmp) != actual:
             raise Refusal("copy changed bytes")
         try:
-            ver = run([tmp, "version", "--long", "--output", "json"], check=False)
+            probe = subprocess.run([tmp, "version", "--long", "--output", "json"], stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, env=clean_env(), timeout=60)
         except OSError as e:
             raise Refusal("this binary does not run on this Mac (%s); it was built for another CPU or OS" % e)
+        if probe.returncode != 0:
+            how = ("was killed by signal %d at exec: macOS rejects its code signature, or it is for another CPU"
+                   % -probe.returncode if probe.returncode < 0 else "exited %d" % probe.returncode)
+            raise Refusal("this binary does not run on this Mac: `zeroned version` %s" % how)
+        ver = probe.stdout.decode("utf-8", "replace")
         try:
             v = json.loads(ver)
             version = {k: v.get(k) for k in ("version", "commit", "go", "cosmos_sdk_version") if k in v}
@@ -744,7 +801,8 @@ def pin_binary(lay, src, expect_sha=None, provenance=None):
 def cmd_prepare(a):
     lay = Layout(a.root)
     emit({"root": lay.root, "inbox": lay.inbox,
-          "next": "the owner moves the kit (skill folder, zeroned, invitation) into the inbox in Finder"})
+          "next": ("the owner moves the kit (skill folder, zeroned, invitation) into the inbox in Finder, or "
+                   "`receive <folder>` moves it there where this app may read ~/Downloads")})
     return 0
 
 
@@ -820,8 +878,27 @@ def cmd_invite(a):
            "platform": platform_label(rec), "tool_sha256": tool_sha256(), "created_at": iso(now_utc()),
            "kit": ["private-net.py (sha256 tool_sha256)", "zeroned (sha256 binary_sha256)", "this invitation"]}
     write_new(path, json_bytes(inv), 0o644)
-    emit({"invitation": path, "next": "courier the kit (SKILL.md, private-net.py, zeroned, this file) to %s" % a.label})
+    nxt = ("the coordinator seats with this file from the outbox before any kit is made"
+           if a.label == a.coordinator_label else
+           "once the coordinator has seated, `kit --chain-id %s --label %s --out <folder>` writes %s's courier folder"
+           % (lay.chain_id, a.label, a.label))
+    out = {"invitation": path, "next": nxt}
+    warning = aout_pin_warning(lay)
+    if warning:
+        out["warning"] = warning
+    emit(out)
     return 0
+
+
+def aout_pin_warning(lay):
+    """A pin still signed with Go's default identifier spreads to every seat, and a seat cannot re-sign it."""
+    if lay.chain_id.startswith("zerone-rehearsal-local-") or signing_identifier(lay.binary) != GO_DEFAULT_IDENTIFIER:
+        return None
+    return ("the pinned zeroned is signed %s, Go's default, and every seat inherits it: on a Mac where another %s "
+            "app already holds the firewall entry, `--add` cannot allow it, and that seat can only dial out. To give "
+            "the seats %s instead, stop this Mac's seats, have the owner run `sudo %s --remove %s`, move bin/zeroned "
+            "and bin/zeroned.json aside, re-pin with `build`, and invite under a new chain id"
+            % (GO_DEFAULT_IDENTIFIER, GO_DEFAULT_IDENTIFIER, SIGN_IDENTIFIER, SOCKETFILTERFW, lay.binary))
 
 
 def make_seat(lay, label, role, ip, p2p_port, stake_zrn, binary, loopback=False):
@@ -892,9 +969,12 @@ def cmd_seat(a):
     binary, _ = lay.pinned_binary()
     if a.invite and sha256_file(binary) != inv["binary_sha256"]:
         raise Refusal("the pinned zeroned is not the invitation's binary")
-    path, packet = make_seat(lay, label, role, a.ip, a.p2p_port, stake, binary)
+    # A zerone-rehearsal-local-* chain lives on one Mac, so its seats may sit on loopback.
+    loopback = chain_id.startswith("zerone-rehearsal-local-") and a.ip == "127.0.0.1"
+    path, packet = make_seat(lay, label, role, a.ip, a.p2p_port, stake, binary, loopback=loopback)
     emit({"seat_packet": path, "sha256": sha256_file(path), "label": packet["label"], "role": packet["role"],
-          "node_id": packet["node_id"], "next": "courier this one file to the coordinator; keep everything else here"})
+          "node_id": packet["node_id"],
+          "next": "courier this one file to the coordinator, which runs `receive` on it; keep everything else here"})
     return 0
 
 
@@ -1025,15 +1105,484 @@ def cmd_genesis(a):
     emit({"genesis": gpath, "genesis_sha256": net["genesis_sha256"], "network": npath,
           "network_sha256": sha256_file(npath), "genesis_time": net["genesis_time"],
           "seats": seat_table(net),
-          "next": ("courier both files to every seat and tell the owner the genesis sha256. Seats ideally "
-                   "start before genesis_time; a later start is fine (blocks begin once >2/3 of the stake is "
-                   "online), so never re-run genesis because the time passed")})
+          "next": ("`kit --round 2 --chain-id %s --label <seat> --out <folder>` writes each other seat's courier "
+                   "folder; tell the owner the genesis sha256 separately. Seats ideally start before "
+                   "genesis_time; a later start is fine (blocks begin once >2/3 of the stake is online), so "
+                   "never re-run genesis because the time passed" % lay.chain_id)})
     return 0
 
 
 def seat_table(net):
     return [{"label": s["label"], "role": s["role"], "stake_zrn": int(s.get("stake_uzrn") or 0) // UZRN_PER_ZRN,
              "p2p_endpoint": s["p2p_endpoint"]} for s in net["seats"]]
+
+
+# ── courier: kits out, arrivals in ─────────────────────────────────────────────
+
+def skill_files():
+    """(relative path, absolute path) of the skill folder a kit carries: SKILL_FILES and nothing else."""
+    present = [(rel, os.path.join(SKILL_DIR, rel)) for rel in SKILL_FILES]
+    present = [(rel, full) for rel, full in present if os.path.isfile(full) and not os.path.islink(full)]
+    have = {rel for rel, _ in present}
+    for need in ("SKILL.md", os.path.join("scripts", "private-net.py")):
+        if need not in have:
+            raise Refusal("kit needs the skill folder around this tool (no %s in %s)" % (need, SKILL_DIR))
+    return present
+
+
+def page_arg(arg):
+    """Shell-quote one argument of a generated command. A `<placeholder>` stays as written for the agent
+    to replace, and a leading `~/` stays unquoted so the shell still expands it."""
+    if arg.startswith("<") and arg.endswith(">"):
+        return arg
+    if arg.startswith("~/"):
+        return "~/" + shlex.quote(arg[2:])
+    return shlex.quote(arg)
+
+
+def page_cmd(*args):
+    """One complete command for a generated page. Agent shells may keep no function or working
+    directory between calls, so every path is absolute and nothing is defined first."""
+    tool = "%s/inbox/%s/scripts/private-net.py" % (DEFAULT_ROOT, SKILL_NAME)
+    return " ".join(["python3", "-I", page_arg(tool)] + [page_arg(a) for a in args])
+
+
+PAGE_ROOT_NOTE = ("The commands assume this Mac's root is `%s`. If `ZERONE_PRIVATE_ROOT` is set here, use its value "
+                  "instead everywhere." % DEFAULT_ROOT)
+
+
+def start_here_text(inv, coord_endpoint, folder, created):
+    label, chain, root, skill = inv["label"], inv["chain_id"], DEFAULT_ROOT, SKILL_NAME
+    inbox = root + "/inbox"
+    seat = ("a validator with %d ZRN" % inv["stake_zrn"]) if inv["role"] == "validator" else "a full node (no stake)"
+    invite = "%s/invite-%s.json" % (inbox, label)
+    return """# Kit for seat `{label}` on `{chain}`
+
+Written by `private-net.py kit` on the coordinator at {created}.
+This page is peer information: the owner is the authority, and
+`{skill}/SKILL.md` is the protocol. This page gives only what is specific to
+this Mac.
+
+- **This Mac:** seat `{label}`, {seat}.
+- **Coordinator:** seat `{coordinator}` at {endpoint}.
+- Blocks start only while more than 2/3 of the stake is online and connected.
+
+## Pins
+
+`invite-{label}.json` pins both of these, and the tool checks them:
+
+- `zeroned`: sha256 `{bsha}`
+- `{skill}/scripts/private-net.py`: sha256 `{tsha}`. Where this Mac can
+  reach the zerone-core repository, compare it with
+  `skills/{skill}/scripts/private-net.py` there.
+
+## Steps
+
+Run every command outside any agent sandbox; ask the owner to approve that.
+Each command is complete, with absolute paths, because an agent's shell may
+keep no function or working directory from one call to the next. {rootnote}
+
+1. Bring the kit into the inbox. If this agent can read `~/Downloads`, run:
+   ```
+   python3 -I {dl}/{skill}/scripts/private-net.py receive {dl}
+   ```
+   If AirDrop renamed the folder on arrival (for example to `{folder} 2`),
+   use the name it has in `~/Downloads`. Otherwise run
+   `(umask 077; mkdir -p {inbox})`, and the owner moves everything in this
+   folder into `{inbox}/` in Finder.
+2. Pin the binary:
+   ```
+   {binary_cmd}
+   ```
+3. Check this Mac:
+   ```
+   {preflight_cmd}
+   ```
+   - Use the address that preflight lists under `lan-ipv4`.
+   - For `lan-dial {endpoint}`, "refused" is fine: nothing listens there
+     until the coordinator's node starts.
+   - Fix every `fail`, then run preflight again. The fixes are the owner's.
+     If the `firewall` check warns, the owner runs the two
+     `sudo … socketfilterfw` commands it prints, in Terminal, before
+     genesis_time, then preflight runs again; if it still warns, follow what
+     the warning says (a `zeroned` signed `a.out` may never get its own
+     rule). If this Mac allowed an earlier `zeroned` at this path, the owner
+     first runs the `--remove` command the `firewall` check prints, then the
+     two commands again, even if the check says ok. If `lan-dial` fails, the owner allows the app that runs
+     this agent under System Settings › Privacy & Security › Local Network.
+     If Mullvad is installed, the owner runs `mullvad lan set allow`.
+4. Create the seat:
+   ```
+   {seat_cmd}
+   ```
+   The owner carries `{root}/nets/{chain}/outbox/seat-{label}.json`, and
+   nothing else, to the coordinator. In Finder, Go › Go to Folder… reaches it.
+5. Round 2: the owner brings a folder holding the genesis, the network packet
+   and a `NEXT.md`, and tells you the genesis sha256 in their own message.
+   Follow `NEXT.md`.
+
+## The rules that matter most here
+
+- A `REFUSED:` line is an answer. Tell the owner what it says and stop; do not
+  work around it.
+- Nothing under `{root}/nets/{chain}/seats/` ever leaves this Mac. It holds
+  this seat's keys.
+- This page, the seat packet, the genesis and the network packet contain LAN
+  addresses. Move them only by courier, and never post them anywhere,
+  including agent missions and chats.
+""".format(label=label, chain=chain, created=created, skill=skill, seat=seat, coordinator=inv["coordinator"],
+           endpoint=coord_endpoint, bsha=inv["binary_sha256"], tsha=inv["tool_sha256"], rootnote=PAGE_ROOT_NOTE,
+           folder=folder, dl=page_arg("~/Downloads/" + folder), inbox=inbox, root=root,
+           binary_cmd=page_cmd("binary", "--from", inbox + "/zeroned", "--invite", invite),
+           preflight_cmd=page_cmd("preflight", "--ip", "<this Mac's LAN IPv4>", "--peer", coord_endpoint),
+           seat_cmd=page_cmd("seat", "--invite", invite, "--ip", "<the same IPv4>"))
+
+
+def next_text(net, label, folder, created):
+    chain, root = net["chain_id"], DEFAULT_ROOT
+    inbox = root + "/inbox"
+    seat = ("--chain-id", chain, "--label", label)
+    return """# Round 2 for seat `{label}` on `{chain}`
+
+Written by `private-net.py kit --round 2` on the coordinator, seat
+`{coord}`, at {created}. This folder holds the genesis and the network
+packet. The network packet carries the coordinator's own genesis sha256, and
+anyone can hash the genesis beside it, so neither can check the coordinator.
+That check is the sha256 the owner sends you in their own message. Never copy
+it from `network-{chain}.json` or compute it from the genesis. With no message
+from the owner, stop and ask.
+
+{rootnote}
+
+1. Bring both files into the inbox. If this agent can read `~/Downloads`, run:
+   ```
+   {receive_cmd}
+   ```
+   If AirDrop renamed the folder on arrival, use the name it has in
+   `~/Downloads`. Otherwise the owner moves them into `{inbox}/` in Finder.
+2. Install, with the sha256 from the owner's message:
+   ```
+   {install_cmd}
+   ```
+3. Show the owner the seat table that `install` prints. Only after they say
+   yes, start the node:
+   ```
+   {start_cmd}
+   ```
+   The genesis time is {gtime}. Starting later is fine; never ask for a new
+   genesis because the time passed.
+4. Wait for blocks:
+   ```
+   {wait_cmd}
+   ```
+   It prints the status report once the chain is past height 3, which means
+   enough stake is connected and voting. Until then it waits at most 100 s and
+   prints `"reached": false` with the height and peers so far; run it again.
+   That is not a refusal.
+5. For a comparison, agree a height H with the coordinator, run
+   `{status_cmd}`, and have the owner carry
+   `{root}/nets/{chain}/outbox/status-{label}.json` to it.
+6. Stop only when the owner says so:
+   ```
+   {stop_cmd}
+   ```
+   A node still sleeping before genesis_time cannot stop at once: it exits at
+   genesis_time, after opening its ports for a moment, without producing a
+   block. `stop` says so. Never kill it with -9.
+""".format(label=label, chain=chain, coord=net.get("coordinator"), created=created, rootnote=PAGE_ROOT_NOTE,
+           inbox=inbox, root=root, gtime=net["genesis_time"],
+           receive_cmd=page_cmd("receive", "~/Downloads/" + folder),
+           install_cmd=page_cmd("install", *seat, "--network", "%s/network-%s.json" % (inbox, chain),
+                                "--genesis", "%s/genesis-%s.json" % (inbox, chain),
+                                "--expect-genesis-sha256", "<sha256 from the owner's message>"),
+           start_cmd=page_cmd("start", *seat),
+           wait_cmd=page_cmd("status", *seat, "--wait-height", "3", "--timeout", "100"),
+           status_cmd=page_cmd("status", *seat, "--write", "--from-height", "H"),
+           stop_cmd=page_cmd("stop", *seat))
+
+
+def inside(path, root):
+    """Case-insensitively, as APFS compares names: is `path` the root or below it?"""
+    p, r = os.path.realpath(path).casefold(), os.path.realpath(root).casefold()
+    return p == r or p.startswith(r + os.sep)
+
+
+def new_courier_dir(lay, out):
+    """A fresh folder outside the root, for the owner to AirDrop. It never sits beside seat homes."""
+    real = os.path.realpath(out)
+    if inside(real, lay.root):
+        raise Refusal("%s is inside the root; write the kit elsewhere, for example ~/Desktop/zerone-kit-<label>" % out)
+    if os.path.lexists(out):
+        raise Refusal("%s already exists; a kit is written once, into a new folder" % out)
+    if not os.path.isdir(os.path.dirname(real)):
+        raise Refusal("%s has no parent folder" % out)
+    return real
+
+
+def write_courier_dir(real, files, expect):
+    """files: [(relative path, bytes or a source path, mode)]. Built beside the target, checked against
+    `expect` ({relative path: sha256}), then renamed into place, so a failed kit leaves nothing behind."""
+    tmp = "%s.partial-%d" % (real, os.getpid())
+    try:
+        os.mkdir(tmp, 0o700)
+    except PermissionError as e:
+        raise Refusal("cannot write %s (%s): give an --out folder this app may write, outside the root (for "
+                      "example under /Users/Shared), or have the owner allow this app that folder" % (real, e.strerror))
+    try:
+        for rel, content, mode in files:
+            dest = os.path.join(tmp, rel)
+            os.makedirs(os.path.dirname(dest), mode=0o700, exist_ok=True)
+            if isinstance(content, bytes):
+                write_new(dest, content, mode)
+            else:
+                shutil.copyfile(content, dest)
+                os.chmod(dest, mode)
+        for rel, want in expect.items():
+            if sha256_file(os.path.join(tmp, rel)) != want:
+                raise Refusal("the kit's %s does not have sha256 %s" % (rel, want))
+        os.rename(tmp, real)
+    except BaseException:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
+    return real
+
+
+def kit_round0(lay, label):
+    path = os.path.join(lay.outbox, "invite-%s.json" % label)
+    if not os.path.isfile(path):
+        raise Refusal("no invitation for %s on %s; run `invite` first" % (label, lay.chain_id))
+    inv = read_invite(path)
+    if inv["chain_id"] != lay.chain_id or inv["label"] != label:
+        raise Refusal("%s is not seat %s's invitation for %s" % (path, label, lay.chain_id))
+    if label == inv["coordinator"]:
+        raise Refusal("%s is the coordinator; it seats with its own invitation from the outbox and needs no kit" % label)
+    coord_packet = os.path.join(lay.outbox, "seat-%s.json" % inv["coordinator"])
+    if not os.path.isfile(coord_packet):
+        raise Refusal("the coordinator (%s) has not seated yet; seat it first (step 4), so the kit can name its "
+                      "address for the other Mac's preflight" % inv["coordinator"])
+    coord_endpoint = load_json(coord_packet, allow_floats=True)["p2p_endpoint"]
+    binary, rec = lay.pinned_binary()
+    if rec["sha256"] != inv["binary_sha256"]:
+        raise Refusal("the pinned zeroned is not the one the invitation names")
+    if tool_sha256() != inv["tool_sha256"]:
+        raise Refusal("this private-net.py (%s) did not write the invitation (%s); make kits with the tool "
+                      "that wrote it" % (tool_sha256()[:12], inv["tool_sha256"][:12]))
+    with open(path, "rb") as f:
+        inv_bytes = f.read()
+    files = [(os.path.join(SKILL_NAME, rel), full, 0o644) for rel, full in skill_files()]
+    files += [("zeroned", binary, 0o755), (os.path.basename(path), inv_bytes, 0o644)]
+    expect = {os.path.join(SKILL_NAME, "scripts", "private-net.py"): inv["tool_sha256"],
+              "zeroned": inv["binary_sha256"]}
+    return inv, coord_endpoint, files, expect
+
+
+def kit_round2(lay, label):
+    gpath = os.path.join(lay.outbox, "genesis-%s.json" % lay.chain_id)
+    npath = os.path.join(lay.outbox, "network-%s.json" % lay.chain_id)
+    if not (os.path.isfile(gpath) and os.path.isfile(npath)):
+        raise Refusal("no genesis and network packet for %s in the outbox; run `genesis` first" % lay.chain_id)
+    net = load_json(npath, allow_floats=True)
+    if net.get("format") != NETWORK_FORMAT or net.get("chain_id") != lay.chain_id:
+        raise Refusal("%s is not the %s network packet for %s" % (npath, NETWORK_FORMAT, lay.chain_id))
+    if label not in [s["label"] for s in net["seats"]]:
+        raise Refusal("seat %s is not in the network packet" % label)
+    if label == net.get("coordinator"):
+        raise Refusal("%s is the coordinator; it installs from its own outbox and needs no round-2 folder" % label)
+    with open(gpath, "rb") as f:
+        gbytes = f.read()
+    with open(npath, "rb") as f:
+        nbytes = f.read()
+    gsha = sha256_bytes(gbytes)
+    if gsha != net["genesis_sha256"]:
+        raise Refusal("the outbox genesis (%s) is not the network packet's (%s)" % (gsha, net["genesis_sha256"]))
+    files = [(os.path.basename(gpath), gbytes, 0o644), (os.path.basename(npath), nbytes, 0o644)]
+    return net, gsha, files
+
+
+def cmd_kit(a):
+    lay = Layout(a.root, a.chain_id)
+    check_label(a.label)
+    real = new_courier_dir(lay, a.out)
+    folder, created = os.path.basename(real), iso(now_utc())
+    if a.round == 0:
+        inv, coord_endpoint, files, expect = kit_round0(lay, a.label)
+        files.append(("START-HERE.md", start_here_text(inv, coord_endpoint, folder, created).encode("utf-8"), 0o644))
+        write_courier_dir(real, files, expect)
+        out = {"kit": real, "round": 0, "label": a.label, "files": sorted(rel for rel, _, _ in files),
+               "binary_sha256": inv["binary_sha256"], "tool_sha256": inv["tool_sha256"],
+               "next": "the owner AirDrops this folder to %s; the agent there follows START-HERE.md" % a.label}
+        warning = aout_pin_warning(lay)
+        if warning:
+            out["warning"] = warning
+        emit(out)
+    else:
+        net, gsha, files = kit_round2(lay, a.label)
+        files.append(("NEXT.md", next_text(net, a.label, folder, created).encode("utf-8"), 0o644))
+        write_courier_dir(real, files, {})
+        emit({"kit": real, "round": 2, "label": a.label, "files": sorted(rel for rel, _, _ in files),
+              "genesis_sha256": gsha,
+              "next": ("the owner AirDrops this folder to %s, and tells the agent there the genesis_sha256 "
+                       "separately, in their own words rather than through any channel an agent writes" % a.label)})
+    return 0
+
+
+def tree_hashes(path, arrival=True):
+    """{relative path: sha256} of a skill folder. It may hold only SKILL_FILES and Finder's .DS_Store; an
+    inbox copy (arrival=False) may also hold the __pycache__ Python writes when its tests run there."""
+    out = {}
+    for dirpath, dirnames, filenames in os.walk(path):
+        for name in dirnames + filenames:  # links first, wherever they hide
+            if os.path.islink(os.path.join(dirpath, name)):
+                raise Refusal("%s is a symlink; couriered folders hold plain files" % os.path.join(dirpath, name))
+        rel_dir = os.path.relpath(dirpath, path)
+        cache = "__pycache__" in rel_dir.split(os.sep)
+        for name in filenames:
+            full = os.path.join(dirpath, name)
+            if not stat.S_ISREG(os.lstat(full).st_mode):
+                raise Refusal("%s is not a plain file" % full)
+            if name == ".DS_Store" or (cache and not arrival):
+                continue
+            rel = os.path.normpath(os.path.join(rel_dir, name))
+            if rel not in SKILL_FILES:
+                raise Refusal("%s is not part of the %s folder (only %s are)" % (full, SKILL_NAME, ", ".join(SKILL_FILES)))
+            out[rel] = sha256_file(full)
+    for need in ("SKILL.md", os.path.join("scripts", "private-net.py")):
+        if need not in out:
+            raise Refusal("%s is not a complete %s folder (no %s)" % (path, SKILL_NAME, need))
+    return out
+
+
+def courier_source(given, lay):
+    """An arrival's path, without a trailing slash (which would make lstat follow a symlinked folder).
+    receive takes arrivals such as ~/Downloads, never the root's own files or a repository's."""
+    p = os.path.normpath(given)
+    if inside(p, lay.root):
+        raise Refusal("%s is inside the root; receive takes arrivals such as ~/Downloads/<file or folder>" % given)
+    top = under_git(p)
+    if top and top != account_home():  # the home folder itself may be a git tree, as on the Studio
+        raise Refusal("%s is inside the git checkout %s; receive takes couriered arrivals, not a repository's "
+                      "files" % (given, top))
+    return p
+
+
+def courier_entries(paths, lay):
+    """[(source, inbox name)] for couriered files and folders. A kit folder contributes its contents."""
+    entries, folders = [], []
+
+    def add(src, name, mode):
+        if stat.S_ISLNK(mode):
+            raise Refusal("%s is a symlink; couriered files are plain files" % src)
+        if stat.S_ISDIR(mode) and name == SKILL_NAME:
+            entries.append((src, name))
+        elif stat.S_ISREG(mode):
+            entries.append((src, name))
+        else:
+            raise Refusal("%s is not something this protocol couriers" % src)
+
+    for given in paths:
+        p = courier_source(given, lay)
+        mode = os.lstat(p).st_mode  # raises PermissionError where macOS privacy blocks this app
+        name = os.path.basename(p)
+        if stat.S_ISDIR(mode) and name != SKILL_NAME:
+            folders.append(p)
+            for child in sorted(os.listdir(p)):
+                full = os.path.join(p, child)
+                child_mode = os.lstat(full).st_mode
+                if child == ".DS_Store" and stat.S_ISREG(child_mode):
+                    continue
+                add(full, child, child_mode)
+        else:
+            add(p, name, mode)
+    names = [n for _, n in entries]
+    if len(set(names)) != len(names):
+        raise Refusal("two arrivals share a name: %s" % sorted(n for n in set(names) if names.count(n) > 1))
+    return entries, folders
+
+
+def arrival_hash(src, name):
+    """Check one arrival by name, size and format; return its content hash (a dict for the skill folder)."""
+    if name == SKILL_NAME:
+        return tree_hashes(src)
+    if not COURIER_NAME_RE.fullmatch(name):
+        raise Refusal("%s is not a file this protocol couriers (expected invite-, seat-, status-, genesis- or "
+                      "network- JSON, zeroned, START-HERE.md, NEXT.md or the %s folder)" % (src, SKILL_NAME))
+    limit = MAX_COURIER_BINARY if name == "zeroned" else MAX_COURIER_JSON
+    if os.path.getsize(src) > limit:
+        raise Refusal("%s is larger than any %s this protocol couriers" % (src, name))
+    if name.endswith(".json"):
+        doc = load_json(src, allow_floats=True)
+        if not isinstance(doc, dict):
+            raise Refusal("%s is not a JSON object" % src)
+        kind = name.split("-")[0]
+        want = {"invite": INVITE_FORMAT, "seat": SEAT_FORMAT, "status": STATUS_FORMAT, "network": NETWORK_FORMAT}
+        if kind in want and doc.get("format") != want[kind]:
+            raise Refusal("%s is not a %s file" % (src, want[kind]))
+        if kind == "genesis" and doc.get("chain_id") != name[len("genesis-"):-len(".json")]:
+            raise Refusal("%s does not hold the genesis its name says" % src)
+    return sha256_file(src)
+
+
+def move_in(src, dest, replace=False):
+    """Move one checked arrival into the inbox, owner-only. A replacement lands beside the old file first,
+    then takes its name in one rename."""
+    target = "%s.arriving-%d" % (dest, os.getpid()) if replace else dest
+    try:
+        os.rename(src, target)
+    except OSError as e:
+        if e.errno != errno.EXDEV:
+            raise
+        if os.path.isdir(src):
+            shutil.copytree(src, target, symlinks=True)
+            shutil.rmtree(src)
+        else:
+            shutil.copy2(src, target)
+            os.unlink(src)
+    if os.path.isdir(target):
+        for dirpath, _, filenames in os.walk(target):
+            os.chmod(dirpath, 0o700)
+            for name in filenames:
+                path = os.path.join(dirpath, name)
+                if not os.path.islink(path):  # links were refused before any move; never chmod through one
+                    os.chmod(path, 0o600)
+    else:
+        os.chmod(target, 0o600)
+    if replace:
+        os.replace(target, dest)
+
+
+def cmd_receive(a):
+    lay = Layout(a.root)
+    entries, folders = courier_entries(a.paths, lay)
+    plan, same, conflicts = [], [], []
+    for src, name in entries:  # every check runs before anything moves
+        digest = arrival_hash(src, name)
+        dest = os.path.join(lay.inbox, name)
+        if not os.path.lexists(dest):
+            plan.append((src, dest, name, False))
+        elif os.path.islink(dest) or os.path.isdir(dest) != (name == SKILL_NAME):
+            conflicts.append(name)
+        elif (tree_hashes(dest, arrival=False) if name == SKILL_NAME else sha256_file(dest)) == digest:
+            same.append(name)
+        elif REPLACEABLE_RE.fullmatch(name):
+            plan.append((src, dest, name, True))
+        else:
+            conflicts.append(name)
+    if conflicts:
+        raise Refusal("the inbox already holds a different %s. Those files pin a chain and are written once; the "
+                      "owner moves them aside first (an earlier chain's arrivals go into inbox/<its chain id>/)"
+                      % ", ".join(conflicts))
+    for src, dest, _, replace in plan:
+        move_in(src, dest, replace)
+    for folder in folders:  # an emptied courier folder goes too
+        try:
+            if os.listdir(folder) == [".DS_Store"]:
+                os.unlink(os.path.join(folder, ".DS_Store"))
+            os.rmdir(folder)
+        except OSError:
+            pass
+    emit({"received": [n for _, _, n, r in plan if not r], "replaced": [n for _, _, n, r in plan if r],
+          "already_in_inbox": same, "inbox": lay.inbox})
+    return 0
 
 
 def verify_genesis(final, net, me, role, own_default, own_gentx, own_pubkey_key, own_operator):
@@ -1165,6 +1714,9 @@ def install_seat(lay, label, network_path, genesis_path, binary, expect_genesis_
 
 def cmd_install(a):
     lay = Layout(a.root, a.chain_id)
+    if not a.expect_genesis_sha256 and not lay.chain_id.startswith("zerone-rehearsal-local-"):
+        raise Refusal("give --expect-genesis-sha256: on a chain across Macs, install checks the genesis against "
+                      "the sha256 the owner relays in their own message, never one read from the network packet")
     binary, _ = lay.pinned_binary()
     st, net = install_seat(lay, a.label, a.network, a.genesis, binary, a.expect_genesis_sha256)
     emit({"installed": a.label, "genesis_sha256": st["genesis_sha256"], "genesis_time": st["genesis_time"],
@@ -1238,6 +1790,13 @@ def stop_seat(lay, label, binary, timeout=30):
             os.unlink(lay.pid_file(label))
             return pid
         time.sleep(0.5)
+    gtime = state.get("genesis_time")
+    if gtime and datetime.datetime.strptime(gtime, "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=datetime.timezone.utc) > now_utc():
+        # zeroned takes SIGTERM during its sleep before genesis_time but acts on it only then.
+        raise Refusal("node %s (pid %d) has SIGTERM but sleeps until genesis_time %s. It exits then, after opening "
+                      "its ports for a moment, without producing a block. It was not killed; never kill -9 it"
+                      % (label, pid, gtime))
     raise Refusal("node %s (pid %d) did not stop within %ds; it was not killed" % (label, pid, timeout))
 
 
@@ -1265,10 +1824,19 @@ def blocks_between(port, lo, hi):
     return out
 
 
+def check_own_node(lay, port, st, own_id):
+    """The node answering on this seat's RPC port must be this seat's: another chain's node, or any other
+    process, can hold the port while this one sleeps before genesis_time."""
+    if st["node_info"]["network"] != lay.chain_id or st["node_info"]["id"] != own_id:
+        raise Refusal("another process answers on 127.0.0.1:%d (chain %s, node %s), not this seat's node"
+                      % (port, st["node_info"]["network"], st["node_info"]["id"]))
+
+
 def seat_status(lay, label, from_height=None):
     state = installed_state(lay, label)
     port = state["rpc_port"]
     st = rpc(port, "/status")
+    check_own_node(lay, port, st, node_id(lay.binary, state["home"]))
     latest = int(st["sync_info"]["latest_block_height"])
     ni = rpc(port, "/net_info")
     vals = rpc(port, "/validators?per_page=100")
@@ -1292,8 +1860,40 @@ def seat_status(lay, label, from_height=None):
     }
 
 
+def wait_for_seat_height(lay, label, target, timeout):
+    """Wait until this seat's node reports `target`, through the sleep before genesis_time. Returns None
+    when it reaches it, else a 'not yet' report; refuses as soon as the node is gone or another answers."""
+    state = installed_state(lay, label)
+    port = state["rpc_port"]
+    own_id = node_id(lay.binary, state["home"])
+    deadline = time.time() + timeout
+    height, peers = None, None
+    while True:
+        if not owned_pid(lay, label, lay.binary, state["home"]):
+            raise Refusal("seat %s's node is not running; see %s" % (label, lay.log_file(label)))
+        st = rpc_or_absent(port, "/status")
+        if st:
+            check_own_node(lay, port, st, own_id)
+            height = int(st["sync_info"]["latest_block_height"])
+            if height >= target:
+                return None
+            ni = rpc_or_absent(port, "/net_info")
+            peers = int(ni["n_peers"]) if ni else peers
+        if time.time() >= deadline:
+            return {"label": label, "reached": False, "target_height": target, "height": height, "peers": peers,
+                    "genesis_time": state.get("genesis_time"), "observed_at": iso(now_utc()),
+                    "next": ("not a refusal: run the same command again. Before genesis_time the node is asleep; "
+                             "after it, blocks need more than 2/3 of the stake online and connected")}
+        time.sleep(2)
+
+
 def cmd_status(a):
     lay = Layout(a.root, a.chain_id)
+    if a.wait_height is not None:
+        not_yet = wait_for_seat_height(lay, a.label, a.wait_height, a.timeout)
+        if not_yet:
+            emit(not_yet)
+            return 3
     rep = seat_status(lay, a.label, a.from_height)
     if a.write:
         path = os.path.join(lay.outbox, "status-%s.json" % a.label)
@@ -1523,6 +2123,18 @@ def main(argv=None):
     p.add_argument("--stake-zrn", type=int, default=DEFAULT_STAKE_ZRN)
     p.set_defaults(fn=cmd_invite)
 
+    p = sub.add_parser("kit", help="coordinator: one Mac's courier folder (round 0 kit or round 2 files)")
+    p.add_argument("--chain-id", required=True)
+    p.add_argument("--label", required=True, help="the seat the folder is for")
+    p.add_argument("--out", required=True, help="a new folder outside the root, e.g. ~/Desktop/zerone-kit-<label>")
+    p.add_argument("--round", type=int, choices=[0, 2], default=0,
+                   help="0: skill, zeroned, invitation, START-HERE.md; 2: genesis, network packet, NEXT.md")
+    p.set_defaults(fn=cmd_kit)
+
+    p = sub.add_parser("receive", help="move couriered files or a kit folder into the inbox")
+    p.add_argument("paths", nargs="+", help="AirDropped files or folders, e.g. ~/Downloads/zerone-kit-<label>")
+    p.set_defaults(fn=cmd_receive)
+
     p = sub.add_parser("seat", help="create this Mac's seat and its seat packet")
     p.add_argument("--invite", help="this Mac's invitation (sets chain id, label, role and stake)")
     p.add_argument("--chain-id")
@@ -1559,6 +2171,10 @@ def main(argv=None):
     p.add_argument("--label", required=True)
     p.add_argument("--from-height", type=int, help="also record heights H..H+19 (an agreed H for compare)")
     p.add_argument("--write", action="store_true", help="also write outbox/status-<label>.json to share")
+    p.add_argument("--wait-height", type=int,
+                   help="first wait until the chain reaches this height; exit 3 with \"reached\": false if not yet")
+    p.add_argument("--timeout", type=int, default=100,
+                   help="seconds --wait-height waits (default 100, under agent hosts' per-command limits)")
     p.set_defaults(fn=cmd_status)
 
     p = sub.add_parser("compare", help="compare status reports from several seats")
