@@ -500,13 +500,9 @@ func TestResolveRejected(t *testing.T) {
 		t.Errorf("expected 10000000 sent to development fund, got %d", devFundAfter-devFundBefore)
 	}
 
-	// Verify bounty pool received the slashed amount
-	pool, found := k.GetBountyPool(ctx, "biology")
-	if !found {
-		t.Fatal("bounty pool not found after reject")
-	}
-	if pool.Balance != "10000000" {
-		t.Errorf("expected bounty pool balance 10000000, got %s", pool.Balance)
+	// Coins sent to development_fund cannot also back a domain bounty pool.
+	if _, found := k.GetBountyPool(ctx, "biology"); found {
+		t.Fatal("rejected stake must not create an unbacked bounty pool")
 	}
 
 	// Verify challenge resolved

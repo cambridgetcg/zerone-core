@@ -171,6 +171,12 @@ func (m msgServer) ResolveChallenge(goCtx context.Context, msg *types.MsgResolve
 	}
 
 	currentBlock := uint64(ctx.BlockHeight())
+	// An overdue UNDER_REVIEW record is awaiting its expiry refund, not a
+	// verdict. In particular, a failed BeginBlock refund must not expose its
+	// retained stake to a later governance resolution.
+	if currentBlock >= challenge.ReviewDeadline {
+		return nil, fmt.Errorf("%w: review deadline %d reached; expiry refund pending", types.ErrChallengeNotOpen, challenge.ReviewDeadline)
+	}
 	scale := new(big.Int).SetUint64(1_000_000)
 	params := m.GetParams(ctx)
 
@@ -280,27 +286,14 @@ func (m msgServer) ResolveChallenge(goCtx context.Context, msg *types.MsgResolve
 		)
 
 	case types.ChallengeOutcome_CHALLENGE_OUTCOME_REJECTED:
-		// Route rejected challenger stake to development fund
+		// Failed challenge stakes belong to development_fund (R16-3). Once
+		// transferred they cannot also back this module's domain bounty pool.
 		if stakeAmt.Sign() > 0 {
 			stakeCoins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stakeAmt)))
 			if err := m.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, "development_fund", stakeCoins); err != nil {
 				return nil, fmt.Errorf("failed to route stake to development fund: %w", err)
 			}
 		}
-
-		// Add slashed stake to bounty pool
-		pool, poolFound := m.GetBountyPool(ctx, challenge.Domain)
-		if !poolFound {
-			pool = &types.DomainBountyPool{
-				Domain:  challenge.Domain,
-				Balance: "0",
-			}
-		}
-		poolBal := new(big.Int)
-		poolBal.SetString(pool.Balance, 10)
-		poolBal.Add(poolBal, stakeAmt)
-		pool.Balance = poolBal.String()
-		m.SetBountyPool(ctx, pool)
 
 		rewardAmount = "0"
 		slashAmount = "0"

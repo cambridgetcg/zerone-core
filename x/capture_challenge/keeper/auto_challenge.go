@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
 	"github.com/zerone-chain/zerone/x/capture_challenge/types"
 )
@@ -25,9 +25,11 @@ func (k Keeper) AutoSubmitChallenge(ctx context.Context, domain string, riskScor
 		}
 		if ch.Status == types.ChallengeStatus_CHALLENGE_STATUS_EVIDENCE ||
 			ch.Status == types.ChallengeStatus_CHALLENGE_STATUS_OPEN ||
-			ch.Status == types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW {
+			(ch.Status == types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW && uint64(sdkCtx.BlockHeight()) < ch.ReviewDeadline) {
 			return nil // Already has an active challenge
 		}
+		// An overdue UNDER_REVIEW record only awaits its refund. Financial
+		// retry must not indefinitely suppress another automatic adjudication.
 	}
 
 	// Use module account as auto-challenger

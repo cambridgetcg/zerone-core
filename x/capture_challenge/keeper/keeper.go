@@ -127,23 +127,45 @@ func (k Keeper) AdvanceChallengePhases(ctx sdk.Context, height uint64) {
 				k.SetChallenge(ctx, ch)
 			}
 		case types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW:
-			// Auto-expire at review deadline
+			// Past the review deadline, UNDER_REVIEW means refund-pending.
+			// Keep that durable record until payment and EXPIRED commit together.
 			if height >= ch.ReviewDeadline {
-				ch.Status = types.ChallengeStatus_CHALLENGE_STATUS_EXPIRED
-				// Return stake on expiry
-				challengerAddr, err := sdk.AccAddressFromBech32(ch.Challenger)
-				if err == nil {
-					stakeAmt, ok := new(big.Int).SetString(ch.Stake, 10)
-					if ok && stakeAmt.Sign() > 0 {
-						coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stakeAmt)))
-						_ = k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, challengerAddr, coins)
-					}
+				if err := k.expireChallenge(ctx, ch); err != nil {
+					k.Logger(ctx).Error("expiry refund pending", "challenge_id", ch.Id, "error", err)
 				}
-				k.SetChallenge(ctx, ch)
 			}
 		}
 		return false
 	})
+}
+
+// expireChallenge commits one refund and its terminal status atomically. A bank
+// or record-write error discards that challenge's effects; other challenges can
+// still advance and the original record will be retried on the next block.
+func (k Keeper) expireChallenge(ctx sdk.Context, ch *types.CaptureChallenge) error {
+	stakeAmt, ok := new(big.Int).SetString(ch.Stake, 10)
+	if !ok || stakeAmt.Sign() < 0 || stakeAmt.BitLen() > sdkmath.MaxBitLen {
+		return fmt.Errorf("invalid expiry stake: %q", ch.Stake)
+	}
+
+	cacheCtx, write := ctx.CacheContext()
+	if stakeAmt.Sign() > 0 {
+		challengerAddr, err := sdk.AccAddressFromBech32(ch.Challenger)
+		if err != nil {
+			return fmt.Errorf("invalid refund address: %w", err)
+		}
+		coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stakeAmt)))
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(cacheCtx, types.ModuleName, challengerAddr, coins); err != nil {
+			return fmt.Errorf("failed to refund expiry stake: %w", err)
+		}
+	}
+	// Zero-stake automatic challenges have no refund obligation.
+	ch.Status = types.ChallengeStatus_CHALLENGE_STATUS_EXPIRED
+	if err := k.setChallenge(cacheCtx, ch); err != nil {
+		return fmt.Errorf("failed to record expiry: %w", err)
+	}
+	write()
+	return nil
 }
 
 // RunRiskAnalysis queries capture defense keeper for flagged domains.
