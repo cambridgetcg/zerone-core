@@ -37,11 +37,11 @@ import (
 // staking observations/history. It does not run signed transactions, the app
 // manager, FinalizeBlock/Commit, a node, or a live-chain replay.
 func TestSeatRunoffReplayDeterminism(t *testing.T) {
-	f := newSeatRunoffReplayFixture(t)
+	f := newSeatRunoffReplayFixture(t, []uint32{0, 1})
 	before := seatRunoffStoreBytes(t, f.ctx, f.key)
 	const trials = 512
 	type outcome struct {
-		ids    [2][2]uint64
+		ids    [][2]uint64
 		nextID uint64
 		state  []byte
 		count  int
@@ -52,7 +52,7 @@ func TestSeatRunoffReplayDeterminism(t *testing.T) {
 		ctx := f.replayContext()
 		require.True(t, bytes.Equal(before, seatRunoffStoreBytes(t, ctx, f.key)), "trial %d prestate drift", trial)
 		require.NoError(t, f.module.BeginBlock(ctx))
-		ids := f.checkRunoffs(t, ctx)
+		ids := f.checkRunoffs(t, ctx, [][2]uint64{{5, 6}, {7, 8}})
 		nextID := f.keeper.GetNextSeatElectionID(ctx)
 		after := seatRunoffStoreBytes(t, ctx, f.key)
 		matched := false
@@ -87,7 +87,7 @@ func TestSeatRunoffReplayDeterminism(t *testing.T) {
 }
 
 func TestSeatRunoffReplayControls(t *testing.T) {
-	f := newSeatRunoffReplayFixture(t)
+	f := newSeatRunoffReplayFixture(t, []uint32{0, 1})
 	before := seatRunoffStoreBytes(t, f.ctx, f.key)
 
 	t.Run("EndBlock_is_not_the_tally_hook", func(t *testing.T) {
@@ -108,7 +108,7 @@ func TestSeatRunoffReplayControls(t *testing.T) {
 	t.Run("same_cache_second_call_does_not_allocate_again", func(t *testing.T) {
 		ctx := f.replayContext()
 		require.NoError(t, f.module.BeginBlock(ctx))
-		ids := f.checkRunoffs(t, ctx)
+		ids := f.checkRunoffs(t, ctx, [][2]uint64{{5, 6}, {7, 8}})
 		after := seatRunoffStoreBytes(t, ctx, f.key)
 		ctx = ctx.WithEventManager(sdk.NewEventManager())
 		require.NoError(t, f.module.BeginBlock(ctx))
@@ -123,16 +123,73 @@ func TestSeatRunoffReplayControls(t *testing.T) {
 	require.Equal(t, before, seatRunoffStoreBytes(t, f.ctx, f.key))
 }
 
+// Nomination/proposal order must not accidentally define the canonical seat
+// order. The ascending-nomination replay alone cannot distinguish these rules.
+func TestSeatRunoffReplayCanonicalSeatOrder(t *testing.T) {
+	for _, tc := range []struct {
+		name            string
+		nominationOrder []uint32
+		wantParents     [][2]uint64
+		wantRunoffs     [][2]uint64
+	}{
+		{
+			name:            "reverse_nomination_order",
+			nominationOrder: []uint32{1, 0},
+			wantParents:     [][2]uint64{{3, 4}, {1, 2}},
+			wantRunoffs:     [][2]uint64{{5, 6}, {7, 8}},
+		},
+		{
+			name:            "three_balanced_seats",
+			nominationOrder: []uint32{2, 0, 1},
+			wantParents:     [][2]uint64{{3, 4}, {5, 6}, {1, 2}},
+			wantRunoffs:     [][2]uint64{{7, 8}, {9, 10}, {11, 12}},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newSeatRunoffReplayFixture(t, tc.nominationOrder)
+			require.Equal(t, types.ResearchFundPhase_RESEARCH_FUND_PHASE_BALANCED, f.keeper.GetResearchFundPhase(f.ctx))
+			for seat, parents := range tc.wantParents {
+				require.Equal(t, parents, [2]uint64{f.originals[seat][0].ProposalId, f.originals[seat][1].ProposalId}, "fixture nomination order for seat %d", seat)
+			}
+			require.Equal(t, tc.wantRunoffs[0][0], f.keeper.GetNextSeatElectionID(f.ctx))
+			before := seatRunoffStoreBytes(t, f.ctx, f.key)
+			ctx := f.replayContext()
+			require.NoError(t, f.module.BeginBlock(ctx))
+			ids := f.checkRunoffs(t, ctx, tc.wantRunoffs)
+			require.Equal(t, before, seatRunoffStoreBytes(t, f.ctx, f.key))
+			t.Logf("nomination_order=%v runoff_ids_by_seat=%v next_id=%d", tc.nominationOrder, ids, f.keeper.GetNextSeatElectionID(ctx))
+		})
+	}
+}
+
+func TestSeatRunoffReplayObserverTalliesAllDueSeats(t *testing.T) {
+	f := newSeatRunoffReplayFixture(t, []uint32{0, 1})
+	ctx := f.replayContext()
+	// Both seats were admitted and voted in BALANCED. OBSERVER permits new
+	// nominations only for seat 0, but must not strand seat 1's due election.
+	state := f.keeper.GetResearchFundGovernanceState(ctx)
+	state.CurrentPhase = types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER
+	f.keeper.SetResearchFundGovernanceState(ctx, state)
+	require.Equal(t, types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER, f.keeper.GetResearchFundPhase(ctx))
+	require.NoError(t, f.module.BeginBlock(ctx))
+	ids := f.checkRunoffs(t, ctx, [][2]uint64{{5, 6}, {7, 8}})
+	require.Equal(t, types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER, f.keeper.GetResearchFundPhase(ctx))
+	t.Logf("OBSERVER tally: seat0=%v seat1=%v next_id=%d", ids[0], ids[1], f.keeper.GetNextSeatElectionID(ctx))
+}
+
 type seatRunoffReplayFixture struct {
 	keeper    keeper.Keeper
 	module    gov.AppModule
 	ctx       sdk.Context
 	key       *storetypes.KVStoreKey
-	originals [2][2]*types.SeatElectionProposal
+	originals [][2]*types.SeatElectionProposal
 }
 
-func newSeatRunoffReplayFixture(t *testing.T) seatRunoffReplayFixture {
+// nominationOrder is a permutation of the contiguous seat indices to exercise.
+func newSeatRunoffReplayFixture(t *testing.T, nominationOrder []uint32) seatRunoffReplayFixture {
 	t.Helper()
+	require.NotEmpty(t, nominationOrder)
+	require.LessOrEqual(t, len(nominationOrder), 3)
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	ms := store.NewCommitMultiStore(db, log.NewNopLogger(), storemetrics.NewNoOpMetrics())
@@ -150,14 +207,20 @@ func newSeatRunoffReplayFixture(t *testing.T) seatRunoffReplayFixture {
 	}, false, log.NewNopLogger())
 	k.SetParams(ctx, types.DefaultParams())
 	state := k.GetResearchFundGovernanceState(ctx)
-	// Balanced permits three seats; Observer would make seat 1 invalid.
+	// BALANCED permits three seats; OBSERVER would reject new nominations for
+	// seats 1 and 2. Tallying already-admitted elections is a separate contract.
 	state.CurrentPhase = types.ResearchFundPhase_RESEARCH_FUND_PHASE_BALANCED
 	state.CommunitySeats = []string{"", "", ""}
 	state.SeatTermEndBlocks = []uint64{0, 0, 0}
 	k.SetResearchFundGovernanceState(ctx, state)
-	f := seatRunoffReplayFixture{keeper: k, module: gov.NewAppModule(cdc, k), key: key}
+	f := seatRunoffReplayFixture{
+		keeper: k, module: gov.NewAppModule(cdc, k), key: key,
+		originals: make([][2]*types.SeatElectionProposal, len(nominationOrder)),
+	}
 
-	for seat := range f.originals {
+	for _, seat := range nominationOrder {
+		require.Less(t, seat, uint32(len(f.originals)))
+		require.Nil(t, f.originals[seat][0], "duplicate seat in nomination order")
 		for candidate := range f.originals[seat] {
 			addr := testAddr(fmt.Sprintf("s%d-c%d", seat, candidate))
 			staking.guardians[addr] = true
@@ -191,14 +254,14 @@ func newSeatRunoffReplayFixture(t *testing.T) seatRunoffReplayFixture {
 		}
 	}
 	// Both candidates meet default quorum/support; 500 versus 490 is within
-	// the runoff margin. All four proposals expire at precisely this height.
+	// the runoff margin. All proposals expire at precisely this height.
 	f.ctx = ctx.WithBlockHeight(int64(f.originals[0][0].VotingEndBlock)).WithEventManager(sdk.NewEventManager())
 	for _, seat := range f.originals {
 		for _, prop := range seat {
 			require.Equal(t, uint64(f.ctx.BlockHeight()), prop.VotingEndBlock)
 		}
 	}
-	require.Equal(t, uint64(5), k.GetNextSeatElectionID(f.ctx))
+	require.Equal(t, uint64(2*len(f.originals)+1), k.GetNextSeatElectionID(f.ctx))
 	return f
 }
 
@@ -208,12 +271,15 @@ func (f seatRunoffReplayFixture) replayContext() sdk.Context {
 }
 
 // checkRunoffs pins the exact transition independently of the determinism
-// assertion: four original records change stage, four children are written,
-// parent/candidate identities survive, and the shared counter advances by four.
-func (f seatRunoffReplayFixture) checkRunoffs(t *testing.T, ctx sdk.Context) [2][2]uint64 {
+// assertion: every original changes stage, two children per seat are written,
+// parent/candidate identities survive, and the shared counter advances exactly.
+func (f seatRunoffReplayFixture) checkRunoffs(t *testing.T, ctx sdk.Context, wantIDs [][2]uint64) [][2]uint64 {
 	t.Helper()
-	require.Len(t, f.keeper.GetAllSeatElections(ctx), 8)
-	require.Equal(t, uint64(9), f.keeper.GetNextSeatElectionID(ctx))
+	require.Len(t, wantIDs, len(f.originals))
+	firstID := uint64(2*len(f.originals) + 1)
+	nextID := firstID + uint64(2*len(f.originals))
+	require.Len(t, f.keeper.GetAllSeatElections(ctx), 4*len(f.originals))
+	require.Equal(t, nextID, f.keeper.GetNextSeatElectionID(ctx))
 	for _, seat := range f.originals {
 		for _, original := range seat {
 			got, found := f.keeper.GetSeatElection(ctx, original.ProposalId)
@@ -223,13 +289,13 @@ func (f seatRunoffReplayFixture) checkRunoffs(t *testing.T, ctx sdk.Context) [2]
 			require.True(t, proto.Equal(expected, got), "original proposal %d changed beyond its stage", original.ProposalId)
 		}
 	}
-	var ids [2][2]uint64
+	ids := make([][2]uint64, len(f.originals))
 	var seatOrder []uint32
-	for id := uint64(5); id < 9; id++ {
+	for id := firstID; id < nextID; id++ {
 		got, found := f.keeper.GetSeatElection(ctx, id)
 		require.True(t, found)
 		require.Less(t, got.SeatIndex, uint32(len(f.originals)))
-		candidate := int((id - 5) % 2)
+		candidate := int((id - firstID) % 2)
 		seat := got.SeatIndex
 		original := f.originals[seat][candidate]
 		expected := &types.SeatElectionProposal{
@@ -247,14 +313,14 @@ func (f seatRunoffReplayFixture) checkRunoffs(t *testing.T, ctx sdk.Context) [2]
 			seatOrder = append(seatOrder, seat)
 		}
 	}
-	require.Equal(t, [2][2]uint64{{5, 6}, {7, 8}}, ids, "runoff IDs must follow ascending seat index")
+	require.Equal(t, wantIDs, ids, "runoff IDs must follow ascending seat index, not nomination/proposal order")
 	var runoffEvents sdk.Events
 	for _, event := range ctx.EventManager().Events() {
 		if event.Type == "zerone.gov.seat_election_runoff_created" {
 			runoffEvents = append(runoffEvents, event)
 		}
 	}
-	require.Len(t, runoffEvents, 2)
+	require.Len(t, runoffEvents, len(f.originals))
 	for i, event := range runoffEvents {
 		seat := seatOrder[i]
 		require.Equal(t, sdk.NewEvent("zerone.gov.seat_election_runoff_created",

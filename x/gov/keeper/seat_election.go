@@ -273,8 +273,13 @@ func (k Keeper) TallySeatElections(ctx sdk.Context) {
 		bySeat[prop.SeatIndex] = append(bySeat[prop.SeatIndex], prop)
 	}
 
-	// Runoffs allocate from a shared ID counter, so seat resolution must use
-	// ascending seat index rather than Go's nondeterministic map order.
+	// Ascending seat index is a NEW canonical consensus rule for the shared
+	// runoff ID counter. Historical unsorted map traversal most often followed
+	// first-appearance (lowest proposal ID) order, but guaranteed no order.
+	// This rule is ungated: ship only by a scheduled binary swap at an agreed
+	// upgrade height, not mixed-version execution or pre-upgrade replay.
+	// Tally every due seat even if the current phase no longer permits new
+	// nominations for its index.
 	seatIndices := make([]uint32, 0, len(bySeat))
 	for seatIndex := range bySeat {
 		seatIndices = append(seatIndices, seatIndex)
