@@ -123,6 +123,7 @@ func TestHarnessBeginBlockersRegistered(t *testing.T) {
 	h := NewTestHarness(t)
 	manager := h.App.ModuleManager
 	// Implementing HasBeginBlocker is not enough: a wrapper could replay hooks.
+	// IsType pins these exact value types; pointer registrations also fail closed.
 	require.IsType(t, knowledge.AppModule{}, manager.Modules[knowledgetypes.ModuleName])
 	require.IsType(t, qualification.AppModule{}, manager.Modules[qualificationtypes.ModuleName])
 
@@ -131,6 +132,7 @@ func TestHarnessBeginBlockersRegistered(t *testing.T) {
 		name    string
 		modules []string
 	}{
+		{"OrderPreBlockers", manager.OrderPreBlockers},
 		{"OrderBeginBlockers", manager.OrderBeginBlockers},
 		{"OrderEndBlockers", manager.OrderEndBlockers},
 	} {
