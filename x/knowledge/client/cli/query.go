@@ -75,6 +75,7 @@ func GetQueryCmd() *cobra.Command {
 		NewQueryClaimCmd(),
 		NewQueryClaimHistoryCmd(),
 		NewQueryPendingClaimsCmd(),
+		NewQueryOpenQuestionsCmd(),
 		NewQueryVerificationRoundCmd(),
 		NewQueryDomainCmd(),
 		NewQueryDomainsCmd(),
@@ -327,6 +328,39 @@ func NewQueryPendingClaimsCmd() *cobra.Command {
 	}
 	flags.AddQueryFlagsToCmd(cmd)
 	addKnowledgePaginationFlags(cmd, "pending claims")
+	return cmd
+}
+
+// NewQueryOpenQuestionsCmd exposes the existing bounded conjecture query.
+func NewQueryOpenQuestionsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "open-questions",
+		Short: "Query unresolved conjectures with an optional domain filter",
+		Long: `Query conjectures the chain is still holding open for refutation.
+
+Results are oldest-first within a bounded scan of at most 5,000 facts.
+The response includes facts_examined and scan_limit_reached; total counts
+matches in that scan, not necessarily all open questions. This query supports
+a result limit, not page/offset or cursor pagination.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			domain, _ := cmd.Flags().GetString("domain")
+			limit, _ := cmd.Flags().GetUint32(flags.FlagLimit)
+			req := &types.QueryOpenQuestionsRequest{Domain: domain, Limit: limit}
+			resp, err := types.NewQueryClient(clientCtx).OpenQuestions(cmd.Context(), req)
+			if err != nil {
+				return fmt.Errorf("failed to query open questions: %w", err)
+			}
+			return clientCtx.PrintProto(resp)
+		},
+	}
+	cmd.Flags().String("domain", "", "Filter by domain")
+	cmd.Flags().Uint32(flags.FlagLimit, 100, "Max results (0 = server default 100; capped at 5000)")
+	flags.AddQueryFlagsToCmd(cmd)
 	return cmd
 }
 
