@@ -23,8 +23,17 @@ func NewAlignmentOntologyAdapter(k Keeper) *AlignmentOntologyAdapter {
 var _ alignmenttypes.OntologyKeeper = (*AlignmentOntologyAdapter)(nil)
 
 // GetDomainCount returns the number of active domains.
+// Alignment uses this for governance participation and the capture-risk
+// denominator; proposed and retired domains must not inflate either signal.
+// Keep GetAllDomains unfiltered for queries and genesis export.
 func (a *AlignmentOntologyAdapter) GetDomainCount(ctx context.Context) uint64 {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	domains := a.k.GetAllDomains(sdkCtx)
-	return uint64(len(domains))
+	var count uint64
+	for _, domain := range domains {
+		if domain.Status == "active" {
+			count++
+		}
+	}
+	return count
 }
