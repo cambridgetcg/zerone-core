@@ -2,7 +2,7 @@ package keeper
 
 import (
 	"fmt"
-	"math"
+	"math/big"
 	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -175,7 +175,7 @@ func top3Share(participations map[string]uint64, total uint64) uint64 {
 }
 
 // timingCorrelation measures the fraction of rounds where validators submitted
-// within a tight window (std dev < 2 blocks). Returns BPS fraction.
+// within a tight window (population std dev < 2 blocks). Returns BPS fraction.
 func timingCorrelation(history []*types.VerificationHistoryEntry) uint64 {
 	if len(history) == 0 {
 		return 0
@@ -190,21 +190,26 @@ func timingCorrelation(history []*types.VerificationHistoryEntry) uint64 {
 		}
 		total++
 
-		// Compute standard deviation
-		var sum uint64
+		// Population variance is (n*sum(b^2) - sum(b)^2) / n^2.
+		// Compare its numerator strictly with 4*n^2: this preserves std dev
+		// < 2 blocks without a rounded mean, division, sqrt or architecture-
+		// dependent floating-point fusion. big.Int also prevents overflow for
+		// the full uint64 SubmitBlocks range, including the sum and squares.
+		var sum, sumSquares, block, square big.Int
 		for _, b := range entry.SubmitBlocks {
-			sum += b
+			block.SetUint64(b)
+			sum.Add(&sum, &block)
+			square.Mul(&block, &block)
+			sumSquares.Add(&sumSquares, &square)
 		}
-		mean := float64(sum) / float64(len(entry.SubmitBlocks))
+		n := new(big.Int).SetUint64(uint64(len(entry.SubmitBlocks)))
+		varianceNumerator := new(big.Int).Mul(n, &sumSquares)
+		square.Mul(&sum, &sum)
+		varianceNumerator.Sub(varianceNumerator, &square)
+		threshold := new(big.Int).Mul(n, n)
+		threshold.Lsh(threshold, 2)
 
-		var varianceSum float64
-		for _, b := range entry.SubmitBlocks {
-			diff := float64(b) - mean
-			varianceSum += diff * diff
-		}
-		stdDev := math.Sqrt(varianceSum / float64(len(entry.SubmitBlocks)))
-
-		if stdDev < 2.0 {
+		if varianceNumerator.Cmp(threshold) < 0 {
 			correlated++
 		}
 	}
