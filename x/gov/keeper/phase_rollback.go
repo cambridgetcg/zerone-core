@@ -47,10 +47,11 @@ func (k Keeper) ValidatePhaseRollback(ctx sdk.Context) error {
 	// Check gridlock: 3+ consecutive expired proposals.
 	gridlocked := k.CountConsecutiveExpiredProposals(ctx) >= types.RollbackGridlockThreshold
 
-	// Check emergency halt for research fund.
+	// Check research-fund halts initiated in the current governance phase.
+	// The emergency keeper preserves legacy semantics until its activation.
 	haltTriggered := false
 	if k.emergencyKeeper != nil {
-		haltTriggered = k.emergencyKeeper.CountHaltsForReason(ctx, "research_fund") > 0
+		haltTriggered = k.emergencyKeeper.CountHaltsForReason(ctx, "research_fund", state.PhaseStartedAtBlock) > 0
 	}
 
 	if !gridlocked && !haltTriggered {

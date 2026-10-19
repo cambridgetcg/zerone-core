@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -24,16 +25,51 @@ func NewGovEmergencyAdapter(k Keeper) *GovEmergencyAdapter {
 // Compile-time interface check.
 var _ govtypes.EmergencyKeeper = (*GovEmergencyAdapter)(nil)
 
-// CountHaltsForReason counts the number of finalized halt ceremonies.
-// The reason parameter is reserved for future filtering; currently all
-// finalized halts are counted.
-func (a *GovEmergencyAdapter) CountHaltsForReason(ctx context.Context, _ string) uint64 {
+// CountHaltsForReason preserves the legacy all-reasons, all-history count until
+// HaltReasonFilterEnabled is selected by a coordinated upgrade. Once enabled,
+// only finalized halts with an exact, nonempty recorded reason and StartBlock
+// in [sinceBlock, current height] count. Governance supplies its current phase's
+// start, not a rolling TTL. StartBlock is the ceremony initiation height, not
+// its finalization height; the ceremony schema has no finalization timestamp.
+// Malformed in-window halt payloads fail closed rather than authorizing either
+// rollback or a forward phase transition from an invented zero count.
+func (a *GovEmergencyAdapter) CountHaltsForReason(ctx context.Context, reason string, sinceBlock uint64) uint64 {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	enabled, err := a.k.HaltReasonFilterEnabled(sdkCtx)
+	if err != nil {
+		panic(err)
+	}
+	var currentHeight uint64
+	if enabled {
+		if sdkCtx.BlockHeight() < 0 {
+			panic("cannot count reason-specific halts at a negative height")
+		}
+		currentHeight = uint64(sdkCtx.BlockHeight())
+		if reason == "" || sinceBlock > currentHeight {
+			return 0
+		}
+	}
 	var count uint64
 	a.k.IterateCeremonies(sdkCtx, func(c *types.EmergencyCeremony) bool {
-		if c.Type == string(types.CeremonyHalt) && c.Phase == string(types.PhaseFinalized) {
-			count++
+		if c.Type != string(types.CeremonyHalt) || c.Phase != string(types.PhaseFinalized) {
+			return false
 		}
+		if enabled {
+			if c.StartBlock < sinceBlock || c.StartBlock > currentHeight {
+				return false
+			}
+			var proposal types.EmergencyHaltProposal
+			if err := unmarshalProposal(c.ProposalData, &proposal); err != nil {
+				panic(fmt.Errorf("decode halt %q for reason count: %w", c.Id, err))
+			}
+			if proposal.Id != c.Id {
+				panic(fmt.Sprintf("halt %q reason payload has mismatched proposal id %q", c.Id, proposal.Id))
+			}
+			if proposal.Reason != reason {
+				return false
+			}
+		}
+		count++
 		return false
 	})
 	return count

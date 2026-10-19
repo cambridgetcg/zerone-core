@@ -1922,7 +1922,7 @@ type mockEmergencyKeeper struct {
 	halted bool
 }
 
-func (m *mockEmergencyKeeper) CountHaltsForReason(_ context.Context, reason string) uint64 {
+func (m *mockEmergencyKeeper) CountHaltsForReason(_ context.Context, reason string, _ uint64) uint64 {
 	if m.halts != nil {
 		return m.halts[reason]
 	}

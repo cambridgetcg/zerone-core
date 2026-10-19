@@ -75,7 +75,7 @@ type govMockEmergencyKeeper struct {
 	halts map[string]uint64
 }
 
-func (m *govMockEmergencyKeeper) CountHaltsForReason(_ context.Context, reason string) uint64 {
+func (m *govMockEmergencyKeeper) CountHaltsForReason(_ context.Context, reason string, _ uint64) uint64 {
 	return m.halts[reason]
 }
 

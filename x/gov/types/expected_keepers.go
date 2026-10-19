@@ -51,7 +51,10 @@ type FundingRecorder interface {
 
 // EmergencyKeeper defines the emergency module interface for governance condition checking.
 type EmergencyKeeper interface {
-	CountHaltsForReason(ctx context.Context, reason string) uint64
+	// After the emergency keeper's halt-reason activation, count finalized
+	// halts with this exact reason and StartBlock in [sinceBlock, current height].
+	// Before activation, preserve the legacy all-reasons, all-history count.
+	CountHaltsForReason(ctx context.Context, reason string, sinceBlock uint64) uint64
 	IsHalted(ctx context.Context) bool
 }
 
