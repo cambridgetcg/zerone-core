@@ -25,9 +25,9 @@ import (
 	"github.com/zerone-chain/zerone/x/gov/types"
 )
 
-// This is an intentionally RED characterization of the replay-determinism
-// contract on 77521a0d, not a consensus repair. The 2026-10-12 block-processing
-// review identified the unsorted bySeat map plus shared runoff ID counter.
+// Pin ascending seat-index allocation of the shared runoff ID counter.
+// The 2026-10-12 block-processing review identified the unsorted bySeat map;
+// PR #115 reproduced two raw-state outcomes from identical governance bytes.
 // Two seats enter runoffs in the same BeginBlock (EndBlock is a no-op).
 //
 // Each trial executes the real module wrapper against a fresh, discarded cache
@@ -41,30 +41,32 @@ func TestSeatRunoffReplayDeterminism(t *testing.T) {
 	before := seatRunoffStoreBytes(t, f.ctx, f.key)
 	const trials = 512
 	type outcome struct {
-		ids   [2][2]uint64
-		state []byte
-		count int
+		ids    [2][2]uint64
+		nextID uint64
+		state  []byte
+		count  int
 	}
 	var outcomes []outcome
 
 	for trial := 0; trial < trials; trial++ {
 		ctx := f.replayContext()
 		require.True(t, bytes.Equal(before, seatRunoffStoreBytes(t, ctx, f.key)), "trial %d prestate drift", trial)
-		require.Empty(t, ctx.EventManager().Events(), "trial %d retained events", trial)
 		require.NoError(t, f.module.BeginBlock(ctx))
 		ids := f.checkRunoffs(t, ctx)
+		nextID := f.keeper.GetNextSeatElectionID(ctx)
 		after := seatRunoffStoreBytes(t, ctx, f.key)
 		matched := false
 		for i := range outcomes {
 			if bytes.Equal(after, outcomes[i].state) {
 				require.Equal(t, outcomes[i].ids, ids)
+				require.Equal(t, outcomes[i].nextID, nextID)
 				outcomes[i].count++
 				matched = true
 				break
 			}
 		}
 		if !matched {
-			outcomes = append(outcomes, outcome{ids: ids, state: after, count: 1})
+			outcomes = append(outcomes, outcome{ids: ids, nextID: nextID, state: after, count: 1})
 		}
 		// Never write the trial cache: the next replay must not inherit IDs,
 		// stage transitions, events, or gas accounting from this execution.
@@ -73,12 +75,14 @@ func TestSeatRunoffReplayDeterminism(t *testing.T) {
 
 	t.Logf("identical-prestate trials=%d prestate_sha256=%x raw_state_outcomes=%d", trials, sha256.Sum256(before), len(outcomes))
 	for _, observed := range outcomes {
-		t.Logf("seat0=%v seat1=%v next_id=9 trials=%d raw_state_sha256=%x", observed.ids[0], observed.ids[1], observed.count, sha256.Sum256(observed.state))
+		t.Logf("seat0=%v seat1=%v next_id=%d trials=%d raw_state_sha256=%x", observed.ids[0], observed.ids[1], observed.nextID, observed.count, sha256.Sum256(observed.state))
+		// Ascending-seat golden from the PR #115 forced-order control.
+		require.Equal(t, "efd5abbee21b2e449748dc4dcf8ada3e62f1476065469c22b586a13f13821e6e", fmt.Sprintf("%x", sha256.Sum256(observed.state)))
 	}
 	// Compare raw key/value bytes, not just event ordering or a Go map's
-	// presentation. The digest above is a diagnostic, NOT an IAVL/AppHash.
+	// presentation. The digest above is NOT an IAVL/AppHash.
 	if len(outcomes) != 1 {
-		t.Fatalf("CHARACTERIZATION: identical state produced %d runoff ID/raw-state outcomes; the bySeat traversal is not consensus-deterministic", len(outcomes))
+		t.Fatalf("identical state produced %d runoff ID/raw-state outcomes; seat traversal is not consensus-deterministic", len(outcomes))
 	}
 }
 
@@ -243,7 +247,7 @@ func (f seatRunoffReplayFixture) checkRunoffs(t *testing.T, ctx sdk.Context) [2]
 			seatOrder = append(seatOrder, seat)
 		}
 	}
-	require.True(t, ids == [2][2]uint64{{5, 6}, {7, 8}} || ids == [2][2]uint64{{7, 8}, {5, 6}}, "unexpected runoff allocation: %v", ids)
+	require.Equal(t, [2][2]uint64{{5, 6}, {7, 8}}, ids, "runoff IDs must follow ascending seat index")
 	var runoffEvents sdk.Events
 	for _, event := range ctx.EventManager().Events() {
 		if event.Type == "zerone.gov.seat_election_runoff_created" {

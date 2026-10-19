@@ -3,6 +3,7 @@ package keeper
 import (
 	"fmt"
 	"math/big"
+	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -272,7 +273,15 @@ func (k Keeper) TallySeatElections(ctx sdk.Context) {
 		bySeat[prop.SeatIndex] = append(bySeat[prop.SeatIndex], prop)
 	}
 
-	for seatIndex, candidates := range bySeat {
+	// Runoffs allocate from a shared ID counter, so seat resolution must use
+	// ascending seat index rather than Go's nondeterministic map order.
+	seatIndices := make([]uint32, 0, len(bySeat))
+	for seatIndex := range bySeat {
+		seatIndices = append(seatIndices, seatIndex)
+	}
+	sort.Slice(seatIndices, func(i, j int) bool { return seatIndices[i] < seatIndices[j] })
+	for _, seatIndex := range seatIndices {
+		candidates := bySeat[seatIndex]
 		if len(candidates) == 1 {
 			// Single candidate: standard quorum + support check.
 			prop := candidates[0]
