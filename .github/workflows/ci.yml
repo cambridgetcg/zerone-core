@@ -31,12 +31,17 @@ permissions:
   contents: read
 
 concurrency:
-  # Signing dispatches have a separate non-cancelling lane. A later ordinary
-  # push therefore cannot interrupt a run after it has published a log entry.
-  group: ${{ github.event_name == 'workflow_dispatch' && inputs.sign_release_components && format('ci-signing-{0}', github.ref) || format('ci-{0}', github.ref) }}
+  # A newer push to a pull request supersedes its older run: one lane per PR
+  # number. Every push to main gets its own lane and always finishes, so each
+  # main commit keeps a complete verdict (main is the only backstop: this
+  # private repository has no branch protection). Signing dispatches have a
+  # separate non-cancelling lane, so a later ordinary run cannot interrupt a
+  # run after it has published a log entry.
+  group: ${{ github.event_name == 'pull_request' && format('{0}-pr-{1}', github.workflow, github.event.pull_request.number) || github.event_name == 'push' && format('{0}-push-{1}-{2}', github.workflow, github.ref, github.run_id) || github.event_name == 'workflow_dispatch' && inputs.sign_release_components && format('ci-signing-{0}', github.ref) || format('ci-{0}', github.ref) }}
   # A signing run may already have published an immutable Rekor entry. Let it
-  # finish so its evidence packet is complete and auditable.
-  cancel-in-progress: ${{ !(github.event_name == 'workflow_dispatch' && inputs.sign_release_components) }}
+  # finish so its evidence packet is complete and auditable. Pushes to main are
+  # never cancelled; ordinary manual runs keep their previous behaviour.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && !inputs.sign_release_components) }}
 
 jobs:
   scope:
