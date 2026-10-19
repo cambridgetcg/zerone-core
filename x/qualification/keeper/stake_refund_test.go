@@ -61,6 +61,13 @@ type refundHarness struct {
 
 func newRefundHarness(t *testing.T) *refundHarness {
 	t.Helper()
+	h := newLegacyRefundHarness(t)
+	require.NoError(t, h.k.EnableSingleRefund(h.ctx))
+	return h
+}
+
+func newLegacyRefundHarness(t *testing.T) *refundHarness {
+	t.Helper()
 	keys := storetypes.NewKVStoreKeys(types.StoreKey, authtypes.StoreKey, banktypes.StoreKey)
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -338,18 +345,23 @@ func TestStakeRefundGenesisPreservesSettlementState(t *testing.T) {
 				h.k.SetQualification(h.ctx, q)
 			}
 			require.NoError(t, h.k.BeginBlocker(h.ctx))
-			// Exercise existing logical export/import; no out-of-schema marker is
-			// needed. This is not full-app export or an AppHash equivalence claim.
+			// Record fields round-trip through logical genesis, but its current
+			// schema does NOT preserve the execution marker. An authorized import
+			// carrier must restore that selector explicitly before any processing.
 			genesis := h.k.ExportGenesis(h.ctx)
 			encoded, err := proto.Marshal(genesis)
 			require.NoError(t, err)
 			decoded := new(types.GenesisState)
 			require.NoError(t, proto.Unmarshal(encoded, decoded))
-			restored := newRefundHarness(t)
+			restored := newLegacyRefundHarness(t)
 			restored.ctx = restored.ctx.WithBlockHeight(h.ctx.BlockHeight())
 			restored.auth.InitGenesis(restored.ctx, *h.auth.ExportGenesis(h.ctx))
 			restored.bank.InitGenesis(restored.ctx, h.bank.ExportGenesis(h.ctx))
 			restored.k.InitGenesis(restored.ctx, decoded)
+			enabled, err := restored.k.SingleRefundEnabled(restored.ctx)
+			require.NoError(t, err)
+			require.False(t, enabled, "logical genesis does not carry the activation marker")
+			require.NoError(t, restored.k.EnableSingleRefund(restored.ctx))
 			require.True(t, proto.Equal(genesis, restored.k.ExportGenesis(restored.ctx)))
 			require.Equal(t, h.escrow(), restored.escrow())
 			require.Equal(t, h.balance(a), restored.balance(a))
