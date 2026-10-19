@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -697,7 +698,16 @@ func (k Keeper) RecordAugmentationVote(ctx context.Context, augID, verifier stri
 	}
 	var winner types.AugmentationVerdict
 	var winnerStake uint64
-	for v, s := range stakeTally {
+	// Equal qualifying weights prefer the lowest numeric verdict:
+	// EQUIVALENT, SUPERIOR, INFERIOR, then DRIFT. Thresholds at or below
+	// 50% can admit ties; map order must not select the verdict or payout.
+	verdicts := make([]types.AugmentationVerdict, 0, len(stakeTally))
+	for v := range stakeTally {
+		verdicts = append(verdicts, v)
+	}
+	sort.Slice(verdicts, func(i, j int) bool { return verdicts[i] < verdicts[j] })
+	for _, v := range verdicts {
+		s := stakeTally[v]
 		if s*bps/totalStake >= consensusBps && s > winnerStake {
 			winner = v
 			winnerStake = s
