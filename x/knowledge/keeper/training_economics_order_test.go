@@ -32,7 +32,7 @@ func TestReformulationOrderTies(t *testing.T) {
 						if reverseBallots {
 							votes[0], votes[1] = votes[1], votes[0]
 						}
-						checkReformulationOrder(t, votes, []uint64{100_000, 100_000}, 500_000, neutral, first)
+						checkReformulationOrder(t, votes, []uint64{100_000, 100_000}, 500_000, neutral, types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING)
 					})
 				}
 			}
@@ -55,19 +55,26 @@ func TestReformulationOrderControls(t *testing.T) {
 		{"strict-majority-tie", 500_001, []uint64{100_000, 100_000}, pending},
 		{"larger-weight-beats-enum-priority", 250_000, []uint64{100_000, 300_000}, drift},
 		{"no-stake-no-finalization", 500_000, []uint64{0, 0}, pending},
+		{"overflow-safe-threshold", 666_000, []uint64{200_000_000_000_000, 100_000_000_000_000}, equivalent},
+		{"overflow-safe-tie", 500_000, []uint64{200_000_000_000_000, 200_000_000_000_000}, pending},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			checkReformulationOrder(t, []types.AugmentationVerdict{equivalent, drift}, tc.stakes, tc.threshold, false, tc.want)
 		})
 	}
-	// Below 50%, more than two verdicts may qualify. Use the same numeric
-	// priority for every tie, not a special case for EQUIVALENT versus DRIFT.
-	checkReformulationOrder(t, []types.AugmentationVerdict{drift, types.AugmentationVerdict_AUGMENTATION_VERDICT_INFERIOR, equivalent}, []uint64{100_000, 100_000, 100_000}, 333_333, false, equivalent)
+	// Below 50%, more than two verdicts may qualify; no exact top tie wins.
+	checkReformulationOrder(t, []types.AugmentationVerdict{drift, types.AugmentationVerdict_AUGMENTATION_VERDICT_INFERIOR, equivalent}, []uint64{100_000, 100_000, 100_000}, 333_333, false, pending)
+	// A lower tie must not mask a unique higher weight, regardless of order.
+	checkReformulationOrder(t, []types.AugmentationVerdict{equivalent, types.AugmentationVerdict_AUGMENTATION_VERDICT_INFERIOR, drift}, []uint64{100_000, 100_000, 300_000}, 200_000, false, drift)
+	for _, neutral := range []bool{false, true} {
+		checkReformulationOrder(t, []types.AugmentationVerdict{types.AugmentationVerdict_AUGMENTATION_VERDICT_SUPERIOR, drift}, []uint64{300_000, 100_000}, 666_000, neutral, types.AugmentationVerdict_AUGMENTATION_VERDICT_SUPERIOR)
+	}
 }
 
 func checkReformulationOrder(t *testing.T, votes []types.AugmentationVerdict, stakes []uint64, threshold uint64, neutral bool, want types.AugmentationVerdict) {
 	t.Helper()
 	k, ctx, bank, staking := newKnowledgeOrderFixture(t)
+	require.NoError(t, k.EnableEconomicDeterminism(ctx))
 	params, err := k.GetParams(ctx)
 	require.NoError(t, err)
 	params.ReformulationConsensusBps = threshold
@@ -104,7 +111,7 @@ func checkReformulationOrder(t *testing.T, votes []types.AugmentationVerdict, st
 	response, err := server.VoteOnAugmentation(ctx, &types.MsgVoteOnAugmentation{AugmentationId: "variant", Verifier: "zero-weight-final-voter", Vote: votes[0]})
 	require.NoError(t, err)
 	require.Equal(t, want != types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING, response.VerdictFinalized)
-	require.Equal(t, want, response.FinalizedVerdict, "equal qualifying weight must prefer the lowest numeric verdict")
+	require.Equal(t, want, response.FinalizedVerdict, "equal top qualifying weights must remain pending")
 	aug, found := k.GetAugmentation(ctx, "variant")
 	require.True(t, found)
 	require.Equal(t, want, aug.Verdict, "message handler must persist the selected verdict")

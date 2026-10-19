@@ -145,15 +145,25 @@ func (k Keeper) GetVindicationRecordsForFact(ctx context.Context, factId string)
 // PruneExpiredVindications removes pending vindication entries older than the window.
 // Expired escrowed tokens are sent to protocol treasury.
 func (k Keeper) PruneExpiredVindications(ctx context.Context, currentHeight, windowBlocks uint64) {
+	enabled, err := k.EconomicDeterminismEnabled(ctx)
+	if err != nil {
+		// This legacy void hook cannot propagate errors. Fail closed before
+		// any transfer, deletion or event rather than guessing a policy.
+		k.Logger(ctx).Error("vindication pruning refused", "error", err)
+		return
+	}
 	allPending := k.GetAllVindicationPending(ctx)
 
 	// Preserve ascending store-key order: all facts share one escrow account,
 	// so an insufficient balance can make transfer outcomes order-dependent.
+	// Until activation retain the predecessor's map traversal order.
 	factIDs := make([]string, 0, len(allPending))
 	for factId := range allPending {
 		factIDs = append(factIDs, factId)
 	}
-	sort.Strings(factIDs)
+	if enabled {
+		sort.Strings(factIDs)
+	}
 	for _, factId := range factIDs {
 		entries := allPending[factId]
 		if len(entries) == 0 {

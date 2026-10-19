@@ -1,9 +1,9 @@
 package keeper
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"sort"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -24,6 +24,41 @@ import (
 // signal that the PoT adjudication layer has already produced.
 
 const bps uint64 = 1_000_000
+
+// EconomicDeterminismEnabledStoreKey selects prospective augmentation vote
+// safety and vindication key ordering. Absent means predecessor semantics;
+// only {1} enables it. No message, param, genesis default or existing upgrade
+// sets it. A separately reviewed upgrade carrier must enable it at its height
+// and preserve it across genesis export/import before this can be released.
+// It is independent of claim integrity and never rewrites historical records.
+const EconomicDeterminismEnabledStoreKey = "\x88"
+
+func (k Keeper) EconomicDeterminismEnabled(ctx context.Context) (bool, error) {
+	bz, err := k.storeService.OpenKVStore(ctx).Get([]byte(EconomicDeterminismEnabledStoreKey))
+	if err != nil {
+		return false, fmt.Errorf("read economic determinism marker: %w", err)
+	}
+	if bz == nil {
+		return false, nil
+	}
+	if !bytes.Equal(bz, []byte{1}) {
+		return false, fmt.Errorf("malformed economic determinism marker")
+	}
+	return true, nil
+}
+
+// EnableEconomicDeterminism is a one-way, idempotent selection for the future
+// upgrade carrier's transaction cache, not an upgrade completion receipt.
+func (k Keeper) EnableEconomicDeterminism(ctx context.Context) error {
+	enabled, err := k.EconomicDeterminismEnabled(ctx)
+	if err != nil || enabled {
+		return err
+	}
+	if err := k.storeService.OpenKVStore(ctx).Set([]byte(EconomicDeterminismEnabledStoreKey), []byte{1}); err != nil {
+		return fmt.Errorf("write economic determinism marker: %w", err)
+	}
+	return nil
+}
 
 // ─── Training-value weight (TVW) ────────────────────────────────────────
 
@@ -560,6 +595,10 @@ func (k Keeper) RecordAugmentationVote(ctx context.Context, augID, verifier stri
 	if _, err := k.ReviewNeutralityEnabled(ctx); err != nil {
 		return false, types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING, err
 	}
+	safe, err := k.EconomicDeterminismEnabled(ctx)
+	if err != nil {
+		return false, types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING, err
+	}
 	aug, ok := k.GetAugmentation(ctx, augID)
 	if !ok {
 		return false, types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING, fmt.Errorf("augmentation %s not found", augID)
@@ -569,6 +608,18 @@ func (k Keeper) RecordAugmentationVote(ctx context.Context, augID, verifier stri
 	}
 	if vote == types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING {
 		return false, aug.Verdict, fmt.Errorf("pending is not a valid vote")
+	}
+	if safe {
+		if vote < types.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT || vote > types.AugmentationVerdict_AUGMENTATION_VERDICT_DRIFT {
+			return false, aug.Verdict, fmt.Errorf("augmentation vote must be in range 1..4")
+		}
+		// Legacy pending records can contain unknown enum values. Refuse
+		// before appending or paying; do not erase or reinterpret old ballots.
+		for _, retained := range aug.VerdictVotes {
+			if retained < types.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT || retained > types.AugmentationVerdict_AUGMENTATION_VERDICT_DRIFT {
+				return false, aug.Verdict, fmt.Errorf("augmentation contains an invalid retained vote")
+			}
+		}
 	}
 
 	// Guard: sponsor and submitter may not vote.
@@ -698,22 +749,28 @@ func (k Keeper) RecordAugmentationVote(ctx context.Context, augID, verifier stri
 	}
 	var winner types.AugmentationVerdict
 	var winnerStake uint64
-	// Equal qualifying weights prefer the lowest numeric verdict:
-	// EQUIVALENT, SUPERIOR, INFERIOR, then DRIFT. Thresholds at or below
-	// 50% can admit ties; map order must not select the verdict or payout.
-	verdicts := make([]types.AugmentationVerdict, 0, len(stakeTally))
-	for v := range stakeTally {
-		verdicts = append(verdicts, v)
-	}
-	sort.Slice(verdicts, func(i, j int) bool { return verdicts[i] < verdicts[j] })
-	for _, v := range verdicts {
-		s := stakeTally[v]
-		if s*bps/totalStake >= consensusBps && s > winnerStake {
+	tied := false
+	for v, s := range stakeTally {
+		var share uint64
+		if safe {
+			share = safeMulDiv(s, bps, totalStake)
+		} else {
+			share = s * bps / totalStake // predecessor arithmetic until activation
+		}
+		if share < consensusBps {
+			continue
+		}
+		if s > winnerStake {
 			winner = v
 			winnerStake = s
+			tied = false // a larger candidate clears any lower-weight tie
+		} else if safe && s == winnerStake {
+			tied = true
 		}
 	}
-	if winner == types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING {
+	// An exact top tie is not a verdict or payout entitlement. This result
+	// is independent of map traversal, without privileging an enum value.
+	if tied || winner == types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING {
 		return false, aug.Verdict, nil
 	}
 	// Finalize.

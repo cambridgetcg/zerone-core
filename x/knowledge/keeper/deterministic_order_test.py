@@ -9,7 +9,9 @@ To reproduce the predecessor defect with the SAME Go assertions:
   ... --source-ref 77521a0daf14420836483ae9d8ea3fbcc1ae0d40 --expect-defect
 
 The compiler overlays change only map traversal, not tally/transfer bodies.
-On repaired source they perturb key collection BEFORE the production sort.
+On repaired source the tally is order-independent; pruning key collection is
+perturbed BEFORE its enabled sort. Historical overlays retain the new marker
+API solely so current tests compile; historical consumers do not read it.
 No random-map sampling, source restoration, dependency download or node is used.
 Artifacts are retained, including compiler overlays and complete Go JSON logs.
 """
@@ -73,12 +75,17 @@ def main():
     artifacts = Path(tempfile.mkdtemp(prefix="forced-order-", dir=args.artifacts.resolve()))
     print(f"artifacts: {artifacts}", flush=True)
     originals = {}
+    current_training = (ROOT / OWNER / "training_economics.go").read_text()
+    marker_api = current_training[current_training.index("// EconomicDeterminismEnabledStoreKey"):current_training.index("// ─── Training-value weight")]
     for name in CASES:
         path = OWNER / name
         originals[name] = (
             subprocess.check_output(["git", "show", f"{args.source_ref}:{path}"], cwd=ROOT, text=True)
             if args.source_ref else (ROOT / path).read_text()
         )
+        if args.source_ref and name == "training_economics.go":
+            assert "EconomicDeterminismEnabledStoreKey" not in originals[name], "use current-source mode for marker-aware revisions"
+            originals[name] = originals[name].replace('"context"', '"bytes"\n\t"context"', 1) + "\n" + marker_api
     env = dict(os.environ, GOFLAGS="-mod=readonly", GOPROXY="off", TMPDIR=str(artifacts))
     results = {}
     for order in ("ascending", "descending"):
@@ -105,14 +112,20 @@ def main():
         # A missing module, build error, timeout or skipped test is not a RED proof.
         assert set(outcomes) == TESTS and "skip" not in outcomes.values(), "all real Go tests must execute"
     (artifacts / "results.json").write_text(json.dumps(results, indent=2) + "\n")
-    assert results["ascending"]["returncode"] == 0
-    assert set(results["ascending"]["tests"].values()) == {"pass"}
     if args.expect_defect:
+        # No-winner-on-tie rejects BOTH predecessor enum choices. Overflow is
+        # also visible in the controls, independently of traversal direction.
+        assert results["ascending"]["returncode"] == 1
+        assert results["ascending"]["tests"]["TestReformulationOrderTies"] == "fail"
+        assert results["ascending"]["tests"]["TestReformulationOrderControls"] == "fail"
+        assert results["ascending"]["tests"]["TestVindicationOrderTransfers"] == "pass"
         assert results["descending"]["returncode"] == 1
         for test in ("TestReformulationOrderTies", "TestVindicationOrderTransfers"):
             assert results["descending"]["tests"][test] == "fail", f"defect not detected: {test}"
         print("PASS: both predecessor defects detected under forced descending traversal")
     else:
+        assert results["ascending"]["returncode"] == 0
+        assert set(results["ascending"]["tests"].values()) == {"pass"}
         assert results["descending"]["returncode"] == 0
         assert set(results["descending"]["tests"].values()) == {"pass"}
         print("PASS: both forced traversal orders preserve the required outcomes")
