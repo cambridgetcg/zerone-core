@@ -150,13 +150,42 @@ class ScopeTests(unittest.TestCase):
 
     def test_known_kinds_mixed_with_runtime_or_ci_inputs_run_everything(self):
         for path in ("x/knowledge/rule.go", "go.sum", "Makefile", ".github/workflows/ci.yml",
-                     "scripts/ci-scope.py", "tests/cross_stack/helpers.go", "skills/README.md"):
+                     "scripts/ci-scope.py", "tests/cross_stack/helpers.go", "skills/witness-zerone-work/witness.py"):
             with self.subTest(path=path):
                 self.git("reset", "--hard", self.base)
                 self.write(SKILL + "scripts/private-net.py", "skill change")
                 self.write("tests/cross_stack/harness_test.go", "test change")
                 self.write(path, "shared input")
                 self.assertEqual(self.classified(self.commit()), EVERYTHING)
+
+    def test_markdown_runs_build_lint_test_and_operations_tools(self):
+        for paths in (("AGENTS.md", "CLAUDE.md"), ("docs/ZERONE_MAP.md", "docs/infrastructure/PRODUCTION-STACK.md"),
+                      ("skills/run-a-zerone-node/SKILL.md",), ("docs/AUTHORITATIVE-STATE.md", "README.md")):
+            with self.subTest(paths=paths):
+                self.git("reset", "--hard", self.base)
+                for path in paths:
+                    self.write(path, "documentation")
+                self.assertEqual(self.classified(self.commit()), only("full_checks", "operations_safety"))
+
+    def test_markdown_combined_with_other_known_kinds_takes_the_union(self):
+        self.write("docs/ZERONE_MAP.md", "documentation")
+        self.write(SKILL + "SKILL.md", "skill protocol")
+        self.write("tests/cross_stack/harness_test.go", "test change")
+        self.assertEqual(self.classified(self.commit()),
+                         only("full_checks", "frontier_macos", "consensus_rehearsal", "operations_safety"))
+
+    def test_markdown_below_go_embed_or_with_unusual_modes_runs_everything(self):
+        self.write("docs/swagger-ui/embed.go", "package swaggerui\n\n//go:embed index.html\nvar files embed.FS\n")
+        self.base = self.commit()
+        self.write("docs/swagger-ui/NOTES.md", "could be embedded later")
+        self.assertEqual(self.classified(self.commit()), EVERYTHING)
+        self.git("reset", "--hard", self.base)
+        self.write("docs/run.md", "executable markdown")
+        (self.root / "docs/run.md").chmod(0o755)
+        self.assertEqual(self.classified(self.commit()), EVERYTHING)
+        self.git("reset", "--hard", self.base)
+        self.write("docs/keyring-notes/custody.md", "secret-shaped directory")
+        self.assertEqual(self.classified(self.commit()), EVERYTHING)
 
     def test_secret_shaped_names_never_narrow_checks(self):
         for path in (SKILL + "node_key.json", SKILL + "priv_validator_key.json.bak", SKILL + "wallet.mnemonic",

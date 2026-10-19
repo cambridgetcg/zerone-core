@@ -48,22 +48,24 @@ SKILL_FILE_MODES = ("100644", "100755")
 # Kinds each scoped job is known not to read, with the directories whose
 # *_test.go files it does compile. Every other kind, and every unknown path,
 # runs the job. full_checks keeps its original website-only meaning for the
-# remaining jobs.
+# remaining jobs: Lint hashes pinned documents and Go tests read documents,
+# so Markdown still runs Build, Lint and Test.
 JOBS = {
     "full_checks": ({"website"}, ()),
     # go test ./x/auth/client/cli, the Darwin ACL helper, the private-net
     # skill on system Python, and the Frontier Bun tests and package.
-    "frontier_macos": ({"website", "go-test"}, ("x/auth/client/cli/",)),
+    "frontier_macos": ({"website", "markdown", "go-test"}, ("x/auth/client/cli/",)),
     # docker build of make build plus explicitly copied, non-test files.
-    "deployment_images": ({"website", "skill", "go-test"}, ()),
+    "deployment_images": ({"website", "markdown", "skill", "go-test"}, ()),
     # Local four-validator network, go test ./tests/multivalidator, and the
     # node, claim, shared-network and private-net skill suites.
-    "consensus_rehearsal": ({"website", "go-test"}, ("tests/multivalidator/",)),
+    "consensus_rehearsal": ({"website", "markdown", "go-test"}, ("tests/multivalidator/",)),
     # go build of candidate and frozen binaries plus the rehearsal scripts.
-    "accounting_rehearsal": ({"website", "skill", "go-test"}, ()),
+    "accounting_rehearsal": ({"website", "markdown", "skill", "go-test"}, ()),
     # Its own module, which builds against the root module's non-test source.
-    "sigstore_compiler": ({"website", "skill", "go-test"}, ("tools/sigstore-substrate-compiler/",)),
+    "sigstore_compiler": ({"website", "markdown", "skill", "go-test"}, ("tools/sigstore-substrate-compiler/",)),
     # Key boundary, authority graph and go test/vet of ./deploy and ./tools/...
+    # The authority graph pins docs/AUTHORITATIVE-STATE.md, so Markdown runs it.
     "operations_safety": ({"website", "skill", "go-test"}, ("deploy/", "tools/")),
 }
 
@@ -134,6 +136,8 @@ def path_kind(before, after, path, embed_dirs=()):
         return "skill" if modes_ok else None
     if regular and path.endswith("_test.go"):
         return "go-test"
+    if regular and path.endswith(".md"):
+        return "markdown"
     return None
 
 
