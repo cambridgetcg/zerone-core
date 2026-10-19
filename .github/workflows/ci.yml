@@ -54,8 +54,17 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    # Each output is "false" only when the pull request diff cannot affect
+    # that job's inputs (scripts/ci-scope.py). Pushes to main, manual runs, a
+    # failed scope job and any unknown path run every job.
     outputs:
       full_checks: ${{ steps.classify.outputs.full_checks }}
+      frontier_macos: ${{ steps.classify.outputs.frontier_macos }}
+      deployment_images: ${{ steps.classify.outputs.deployment_images }}
+      consensus_rehearsal: ${{ steps.classify.outputs.consensus_rehearsal }}
+      accounting_rehearsal: ${{ steps.classify.outputs.accounting_rehearsal }}
+      sigstore_compiler: ${{ steps.classify.outputs.sigstore_compiler }}
+      operations_safety: ${{ steps.classify.outputs.operations_safety }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -75,9 +84,17 @@ jobs:
           CI_EVENT: ${{ github.event_name }}
           CI_BASE: ${{ github.event.pull_request.base.sha }}
           CI_HEAD: ${{ github.event.pull_request.head.sha }}
-        run: >-
-          python3 scripts/ci-scope.py --event "$CI_EVENT"
-          --base "$CI_BASE" --head "$CI_HEAD" >> "$GITHUB_OUTPUT"
+        run: |
+          python3 scripts/ci-scope.py --event "$CI_EVENT" \
+            --base "$CI_BASE" --head "$CI_HEAD" > "$RUNNER_TEMP/ci-scope.txt"
+          cat "$RUNNER_TEMP/ci-scope.txt" >> "$GITHUB_OUTPUT"
+          {
+            echo '### CI scope'
+            echo
+            echo 'A false value skips that check for this pull request only; pushes to main run every check.'
+            echo
+            sed 's/^/- /' "$RUNNER_TEMP/ci-scope.txt"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   build:
     needs: scope
@@ -717,7 +734,7 @@ jobs:
 
   consensus-rehearsal:
     needs: scope
-    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.consensus_rehearsal != 'false') }}
     name: "Consensus rehearsal"
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -803,7 +820,7 @@ jobs:
 
   accounting-authority-rehearsal:
     needs: scope
-    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.accounting_rehearsal != 'false') }}
     name: "Accounting authority two-binary rehearsal"
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -1069,7 +1086,7 @@ jobs:
 
   frontier-intake-macos:
     needs: scope
-    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.frontier_macos != 'false') }}
     name: "Frontier intake macOS ACL boundary"
     runs-on: macos-15
     timeout-minutes: 20
@@ -1166,7 +1183,7 @@ jobs:
 
   sigstore-compiler:
     needs: scope
-    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.sigstore_compiler != 'false') }}
     name: "Sigstore substrate compiler"
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -1215,7 +1232,7 @@ jobs:
 
   operations-safety-tools:
     needs: scope
-    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.operations_safety != 'false') }}
     name: "Operations safety tools"
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -1395,12 +1412,17 @@ jobs:
         run: scripts/validate-chain-registry.sh
 
   deployment-images:
-    # Keep every required profile check present, including website-only PRs.
-    # Drafts are the one exception; marking one ready runs these on the same commit.
-    if: ${{ !github.event.pull_request.draft }}
+    # Keep every required profile check present: the matrix always expands and,
+    # when the pull request diff cannot change an image, only its build steps
+    # skip. Drafts are the one exception; marking one ready runs these on the
+    # same commit.
+    needs: scope
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft }}
     name: "Deployment image (${{ matrix.profile }})"
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    env:
+      BUILD_IMAGE: ${{ github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.deployment_images != 'false' }}
     strategy:
       fail-fast: false
       matrix:
@@ -1412,10 +1434,20 @@ jobs:
           - profile: cosmovisor-validator
             dockerfile: Dockerfile.validator
     steps:
+      - name: Record that this diff cannot change the image
+        if: env.BUILD_IMAGE != 'true'
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          message="Not rebuilt: CI scope found no input of the $PROFILE image in this pull request diff. Pushes to main rebuild every image."
+          echo "::notice title=Deployment image ($PROFILE)::$message"
+          echo "$message" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.BUILD_IMAGE == 'true'
         with:
           persist-credentials: false
       - name: Verify secret-deny build-context rules
+        if: env.BUILD_IMAGE == 'true'
         run: |
           grep -Fxq '**/priv_validator_key.json' .dockerignore
           grep -Fxq '**/priv_validator_state.json' .dockerignore
@@ -1428,6 +1460,7 @@ jobs:
           grep -Fxq 'deploy/testnet/artifacts/*' .dockerignore
           grep -Fxq '!deploy/testnet/artifacts/genesis.json' .dockerignore
       - name: Build repository-root runtime profile
+        if: env.BUILD_IMAGE == 'true'
         env:
           CI_IMAGE_VERSION: v0.0.0-ci
         run: |
@@ -1460,6 +1493,7 @@ jobs:
               "zerone-${{ matrix.profile }}:ci"
           )" = "${ci_source_date_epoch}"
       - name: Refuse embedded consensus or P2P key files
+        if: env.BUILD_IMAGE == 'true'
         run: |
           found="$(
             docker run --rm --entrypoint /bin/sh zerone-${{ matrix.profile }}:ci \

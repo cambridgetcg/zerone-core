@@ -28,6 +28,16 @@ keep full checks. SDK/dashboard validation, chain-registry checks and the
 containment/runtime image matrices always run. Skipping a matrix job before
 expansion leaves its required per-profile check names absent and blocks merging.
 
+**CI update, 2026-10-19.** Draft pull requests run no CI; marking one ready runs
+the selection on the same commit. The classifier now also skips individual heavy
+jobs on a pull request when every changed path is of a kind that job is known not
+to read: the private-network skill (`skills/run-a-private-zerone-net/`) and Go
+`_test.go` files outside the packages that job compiles. Unknown paths,
+secret-shaped names, files below a package that uses `go:embed`, malformed diffs
+and every push to main still run every job. The image matrices still expand on
+every ready pull request so their per-profile check names stay present; only their
+build steps skip. A push to main is no longer cancelled by a later push.
+
 The module dispositions below are **future work**. The original presentation
 release changed no keeper, transaction, consensus rule, balance, module
 permission, upgrade sequence, signer, or running network. The dated
