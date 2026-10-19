@@ -32,6 +32,10 @@ var (
 	SourceRefPrefix = []byte{0x8E}
 
 	DedupeArmedKey = []byte{0x8F}
+
+	// QualificationSemanticsKey selects meaning-based admission only when a
+	// separately authorized upgrade carrier writes the exact marker 0x01.
+	QualificationSemanticsKey = []byte{0x90}
 )
 
 // SourceRefKey indexes the one attestation holding an external source

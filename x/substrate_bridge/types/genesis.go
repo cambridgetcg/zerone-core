@@ -39,7 +39,8 @@ func IsAllowedGenesisStateKey(key []byte) bool {
 	case bytes.Equal(prefix, AttestationPendingClaimsPrefix):
 		// prefix | nonempty attestation id | 0x00 | nonempty claim id
 		return len(key) > 3
-	case bytes.Equal(key, AttestationIDCounterKey), bytes.Equal(key, DedupeArmedKey):
+	case bytes.Equal(key, AttestationIDCounterKey), bytes.Equal(key, DedupeArmedKey),
+		bytes.Equal(key, QualificationSemanticsKey):
 		return len(key) == 1
 	case bytes.Equal(prefix, WitnessDeadlineIndexPrefix):
 		// prefix | uint64 deadline | nonempty attestation id
