@@ -12,7 +12,6 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
 	"github.com/zerone-chain/zerone/x/ibcratelimit/keeper"
-	"github.com/zerone-chain/zerone/x/ibcratelimit/types"
 )
 
 var (
@@ -52,24 +51,20 @@ func (im IBCMiddleware) SendPacket(ctx sdk.Context, sourcePort string, sourceCha
 
 	denom := packetData.Denom
 
-	if err := im.keeper.CheckAndUpdateSendQuota(ctx, sourceChannel, denom, amount); err != nil {
+	charge, err := im.keeper.ChargeSendQuota(ctx, sourceChannel, denom, amount)
+	if err != nil {
 		return 0, err
 	}
 
 	seq, err := im.channel.SendPacket(ctx, sourcePort, sourceChannel, timeoutHeight, timeoutTimestamp, data)
 	if err != nil {
-		// Reverse the quota update on send failure
-		im.keeper.ReverseSendQuota(ctx, sourceChannel, denom, amount)
+		// A disabled/unconfigured send has no charge to reverse.
+		im.keeper.ReverseSendCharge(ctx, charge)
 		return 0, err
 	}
 
-	// Record packet flow for reversal on timeout/error ack
-	im.keeper.SetPacketFlow(ctx, &types.PacketFlow{
-		ChannelId: sourceChannel,
-		Sequence:  seq,
-		Denom:     denom,
-		Amount:    amount.String(),
-	})
+	// Only an actual charge creates a reversal record.
+	im.keeper.RecordPacketCharge(ctx, seq, charge)
 
 	return seq, nil
 }
@@ -133,13 +128,7 @@ func (im IBCMiddleware) OnTimeoutPacket(ctx sdk.Context, channelVersion string, 
 
 // reversePacketFlow looks up the stored packet flow and reverses the send quota.
 func (im IBCMiddleware) reversePacketFlow(ctx sdk.Context, channelID string, sequence uint64) {
-	flow, found := im.keeper.GetPacketFlow(ctx, channelID, sequence)
-	if !found {
-		return
-	}
-	amount := new(big.Int)
-	amount.SetString(flow.Amount, 10)
-	im.keeper.ReverseSendQuota(ctx, flow.ChannelId, flow.Denom, amount)
+	im.keeper.ReversePacketFlow(ctx, channelID, sequence)
 }
 
 // ---- Channel Handshake Callbacks (pure pass-through) ----

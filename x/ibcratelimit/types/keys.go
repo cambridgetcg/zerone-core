@@ -11,4 +11,6 @@ var (
 	ParamsKey          = []byte{0x00}
 	RateLimitKeyPrefix = []byte{0x01}
 	PacketFlowPrefix   = []byte{0x02}
+	// RuleGenerationPrefix retains a generation even after a rule is removed.
+	RuleGenerationPrefix = []byte{0x03}
 )

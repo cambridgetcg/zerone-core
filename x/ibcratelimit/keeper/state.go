@@ -28,7 +28,16 @@ func (k Keeper) SetRateLimit(ctx context.Context, rl *types.RateLimit) {
 	if err != nil {
 		panic(fmt.Sprintf("failed to marshal rate limit: %v", err))
 	}
-	_ = kvStore.Set(key, bz)
+	previous, found := k.GetRateLimit(ctx, rl.ChannelId, rl.Denom)
+	if !found || previous.MaxSend != rl.MaxSend || previous.MaxRecv != rl.MaxRecv || previous.WindowBlocks != rl.WindowBlocks {
+		// Counter/window updates keep the identity; installation or policy
+		// replacement does not. The generation survives DeleteRateLimit.
+		k.advanceRuleGeneration(ctx, rl.ChannelId, rl.Denom)
+	}
+	// A charge receipt must never be issued after a failed debit write.
+	if err := kvStore.Set(key, bz); err != nil {
+		panic(fmt.Sprintf("failed to write rate limit: %v", err))
+	}
 }
 
 func (k Keeper) GetRateLimit(ctx context.Context, channelID, denom string) (*types.RateLimit, bool) {
@@ -47,6 +56,8 @@ func (k Keeper) GetRateLimit(ctx context.Context, channelID, denom string) (*typ
 
 func (k Keeper) DeleteRateLimit(ctx context.Context, channelID, denom string) {
 	kvStore := k.storeService.OpenKVStore(ctx)
+	// Do not delete the generation: re-adding identical policy at the same
+	// height must not let outstanding packets debit the replacement rule.
 	_ = kvStore.Delete(rateLimitKey(channelID, denom))
 }
 
@@ -110,5 +121,9 @@ func (k Keeper) GetPacketFlow(ctx context.Context, channelID string, sequence ui
 
 func (k Keeper) DeletePacketFlow(ctx context.Context, channelID string, sequence uint64) {
 	kvStore := k.storeService.OpenKVStore(ctx)
-	_ = kvStore.Delete(packetFlowKey(channelID, sequence))
+	// A failed cleanup must abort the caller's cache, not leave a reusable
+	// receipt after a successful reversal.
+	if err := kvStore.Delete(packetFlowKey(channelID, sequence)); err != nil {
+		panic(fmt.Sprintf("failed to delete packet flow: %v", err))
+	}
 }
