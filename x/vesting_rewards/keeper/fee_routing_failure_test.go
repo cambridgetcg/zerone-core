@@ -6,24 +6,10 @@ import (
 	"fmt"
 	"testing"
 
-	"cosmossdk.io/log"
-	"cosmossdk.io/store"
-	storemetrics "cosmossdk.io/store/metrics"
-	storetypes "cosmossdk.io/store/types"
-	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
-	dbm "github.com/cosmos/cosmos-db"
-	"github.com/cosmos/cosmos-sdk/codec"
-	addresscodec "github.com/cosmos/cosmos-sdk/codec/address"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
-	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zerone-chain/zerone/x/vesting_rewards/keeper"
 	"github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
@@ -33,54 +19,30 @@ import (
 // balance-counting mock or a production-installed restriction. An injected
 // dependency-contract failure is not evidence of observed production loss.
 func TestRouteFeesActualBankFailureCharacterization(t *testing.T) {
-	const fundingModule = "fee_routing_test_fund"
+	genesis := types.DefaultGenesis()
+	fees := sdk.NewCoins(sdk.NewInt64Coin("atom", 7), sdk.NewInt64Coin("uzrn", 1000003))
+	feeAmount := fees.AmountOf("uzrn")
+	split := genesis.Params.RevenueSplit
+	// RevenueSplit uses millionths; each routed share truncates independently.
+	researchShare := feeAmount.MulRaw(int64(split.ResearchBps)).QuoRaw(1_000_000).Int64()
+	developmentShare := feeAmount.MulRaw(int64(split.DevelopmentBps)).QuoRaw(1_000_000).Int64()
+	collectorRemainder := feeAmount.Int64() - researchShare - developmentShare
+	researchTransfer := sdk.NewInt64Coin("uzrn", researchShare).String()
+	developmentTransfer := sdk.NewInt64Coin("uzrn", developmentShare).String()
 	for _, tc := range []struct {
 		name, refuseFrom, refuseTo               string
 		collector, escrow, research, development int64
 		wantAttempts                             int
 	}{
-		{"success-control", "", "", 770003, 0, 33300, 196700, 3},
-		{"deposit-failure-strands-escrow", types.ModuleName, types.ResearchFundModuleName, 770003, 33300, 0, 196700, 3},
-		{"escrow-failure-skips-development", authtypes.FeeCollectorName, types.ModuleName, 1000003, 0, 0, 0, 1},
+		{"success-control", "", "", collectorRemainder, 0, researchShare, developmentShare, 3},
+		{"deposit-failure-retains-escrow", types.ModuleName, types.ResearchFundModuleName, collectorRemainder, researchShare, 0, developmentShare, 3},
+		{"escrow-failure-skips-development", authtypes.FeeCollectorName, types.ModuleName, feeAmount.Int64(), 0, 0, 0, 1},
 	} {
 		for _, nested := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/caller-cache-%t", tc.name, nested), func(t *testing.T) {
-				keys := storetypes.NewKVStoreKeys(types.StoreKey, authtypes.StoreKey, banktypes.StoreKey)
-				db := dbm.NewMemDB()
-				t.Cleanup(func() { require.NoError(t, db.Close()) })
-				state := store.NewCommitMultiStore(db, log.NewNopLogger(), storemetrics.NewNoOpMetrics())
-				state.SetIAVLSyncPruning(true)
-				for _, name := range []string{types.StoreKey, authtypes.StoreKey, banktypes.StoreKey} {
-					state.MountStoreWithDB(keys[name], storetypes.StoreTypeIAVL, db)
-				}
-				require.NoError(t, state.LoadLatestVersion())
-				ctx := sdk.NewContext(state, cmtproto.Header{Height: 100}, false, log.NewNopLogger())
-				registry := codectypes.NewInterfaceRegistry()
-				authtypes.RegisterInterfaces(registry)
-				banktypes.RegisterInterfaces(registry)
-				cdc := codec.NewProtoCodec(registry)
-				authority := authtypes.NewModuleAddress("gov").String()
-				perms := map[string][]string{
-					fundingModule: {authtypes.Minter}, authtypes.FeeCollectorName: nil,
-					types.ModuleName: nil, types.ResearchFundModuleName: nil, types.DevelopmentFundModuleName: nil,
-				}
-				ak := authkeeper.NewAccountKeeper(cdc, runtime.NewKVStoreService(keys[authtypes.StoreKey]),
-					authtypes.ProtoBaseAccount, perms, addresscodec.NewBech32Codec("zrn"), "zrn", authority)
-				ak.InitGenesis(ctx, *authtypes.DefaultGenesisState())
-				bank := bankkeeper.NewBaseKeeper(cdc, runtime.NewKVStoreService(keys[banktypes.StoreKey]), ak, map[string]bool{}, authority, log.NewNopLogger())
-				bank.InitGenesis(ctx, banktypes.DefaultGenesisState())
-				modules := []string{fundingModule, authtypes.FeeCollectorName, types.ModuleName, types.ResearchFundModuleName, types.DevelopmentFundModuleName}
-				for _, module := range modules {
-					require.NotNil(t, ak.GetModuleAccount(ctx, module))
-				}
-				k := keeper.NewKeeper(cdc, runtime.NewKVStoreService(keys[types.StoreKey]), bank, nil, authority)
-				k.InitGenesis(ctx, types.DefaultGenesis())
-				fees := sdk.NewCoins(sdk.NewInt64Coin("atom", 7), sdk.NewInt64Coin("uzrn", 1000003))
-				require.NoError(t, bank.MintCoins(ctx, fundingModule, fees), "synthetic test issuance")
-				require.NoError(t, bank.SendCoinsFromModuleToModule(ctx, fundingModule, authtypes.FeeCollectorName, fees))
+				k, ctx, bank, modules := setupFeeRoutingFixture(t, genesis, fees)
 				supply := bank.GetSupply(ctx, "uzrn")
 				otherSupply := bank.GetSupply(ctx, "atom")
-				ctx = ctx.WithEventManager(sdk.NewEventManager())
 
 				type attempt struct{ from, to, amount string }
 				var attempts []attempt
@@ -90,7 +52,7 @@ func TestRouteFeesActualBankFailureCharacterization(t *testing.T) {
 					attempts = append(attempts, attempt{from.String(), to.String(), amount.String()})
 					if from.Equals(authtypes.NewModuleAddress(types.ModuleName)) && to.Equals(authtypes.NewModuleAddress(types.ResearchFundModuleName)) {
 						deposits++
-						require.Equal(t, "33300uzrn", amount.String())
+						require.Equal(t, researchTransfer, amount.String())
 						require.Equal(t, amount.String(), bank.GetAllBalances(callCtx, from).String(), "actual escrow transfer must have succeeded before the deposit attempt")
 					}
 					if tc.refuseFrom != "" && from.Equals(authtypes.NewModuleAddress(tc.refuseFrom)) && to.Equals(authtypes.NewModuleAddress(tc.refuseTo)) {
@@ -114,12 +76,15 @@ func TestRouteFeesActualBankFailureCharacterization(t *testing.T) {
 				}
 				if tc.refuseTo == types.ModuleName {
 					require.Zero(t, deposits)
-					require.Equal(t, []attempt{{authtypes.NewModuleAddress(authtypes.FeeCollectorName).String(), authtypes.NewModuleAddress(types.ModuleName).String(), "33300uzrn"}}, attempts,
+					require.Equal(t, []attempt{{authtypes.NewModuleAddress(authtypes.FeeCollectorName).String(), authtypes.NewModuleAddress(types.ModuleName).String(), researchTransfer}}, attempts,
 						"CURRENT continue skips this coin's development share as well as deposit")
 				} else {
 					require.Equal(t, 1, deposits)
-					require.Equal(t, attempt{authtypes.NewModuleAddress(authtypes.FeeCollectorName).String(), authtypes.NewModuleAddress(types.DevelopmentFundModuleName).String(), "196700uzrn"}, attempts[2],
-						"development is still transferred after a deposit refusal")
+					message := "development is transferred after a successful research deposit"
+					if tc.refuseTo == types.ResearchFundModuleName {
+						message = "development is still transferred after a deposit refusal"
+					}
+					require.Equal(t, attempt{authtypes.NewModuleAddress(authtypes.FeeCollectorName).String(), authtypes.NewModuleAddress(types.DevelopmentFundModuleName).String(), developmentTransfer}, attempts[2], message)
 				}
 				assertBalances := func(observed sdk.Context) {
 					t.Helper()
