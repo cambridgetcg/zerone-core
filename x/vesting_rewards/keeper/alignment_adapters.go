@@ -4,8 +4,6 @@ import (
 	"context"
 	"math/big"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	alignmenttypes "github.com/zerone-chain/zerone/x/alignment/types"
 )
 
@@ -23,16 +21,15 @@ func NewAlignmentVestingRewardsAdapter(k Keeper) *AlignmentVestingRewardsAdapter
 // Ensure compile-time interface compliance.
 var _ alignmenttypes.VestingRewardsKeeper = (*AlignmentVestingRewardsAdapter)(nil)
 
-// GetTotalSupply returns the total uzrn token supply via the bank keeper.
+// GetTotalSupply returns current bank supply in uzrn, the custom staking denom.
+// The cumulative MintWithCap ledger is not supply: it excludes direct bank and
+// genesis minting, and burns do not reduce it. An unwired bank yields zero so
+// alignment keeps its neutral zero-denominator behavior, never a ledger proxy.
+// This consensus-changing correction requires a scheduled binary swap; it has
+// no stored activation marker and does not rewrite historical observations.
 func (a *AlignmentVestingRewardsAdapter) GetTotalSupply(ctx context.Context) *big.Int {
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	_ = sdkCtx
-	// Access the bank keeper through vesting_rewards to get total supply.
-	// The vesting_rewards keeper wraps bankKeeper.GetSupply internally.
-	// Since bankKeeper is private, we use GetTotalMinted as a proxy.
-	totalMinted := a.k.GetTotalMinted(sdk.UnwrapSDKContext(ctx))
-	if totalMinted == nil {
+	if a.k.bankKeeper == nil {
 		return new(big.Int)
 	}
-	return totalMinted
+	return a.k.bankKeeper.GetSupply(ctx, "uzrn").Amount.BigInt()
 }
