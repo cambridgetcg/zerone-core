@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+    # ready_for_review runs the checks when a draft is marked ready.
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       sign_release_components:
@@ -44,8 +46,12 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && !inputs.sign_release_components) }}
 
 jobs:
+  # Draft pull requests run no jobs: every job carries the draft condition,
+  # because a skipped scope job would otherwise select every check. Marking the
+  # pull request ready runs the checks on the same commit.
   scope:
     name: "CI scope"
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -75,7 +81,7 @@ jobs:
 
   build:
     needs: scope
-    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Build"
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -667,7 +673,7 @@ jobs:
 
   lint:
     needs: scope
-    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Lint"
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -692,7 +698,7 @@ jobs:
 
   test:
     needs: scope
-    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Test"
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -711,7 +717,7 @@ jobs:
 
   consensus-rehearsal:
     needs: scope
-    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Consensus rehearsal"
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -797,7 +803,7 @@ jobs:
 
   accounting-authority-rehearsal:
     needs: scope
-    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Accounting authority two-binary rehearsal"
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -980,6 +986,7 @@ jobs:
 
   typescript-sdk:
     name: "TypeScript SDK and dashboard"
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -1039,7 +1046,7 @@ jobs:
 
   frontier-intake:
     needs: scope
-    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Frontier intake (math breakthrough register)"
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -1062,7 +1069,7 @@ jobs:
 
   frontier-intake-macos:
     needs: scope
-    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Frontier intake macOS ACL boundary"
     runs-on: macos-15
     timeout-minutes: 20
@@ -1159,7 +1166,7 @@ jobs:
 
   sigstore-compiler:
     needs: scope
-    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Sigstore substrate compiler"
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -1208,7 +1215,7 @@ jobs:
 
   operations-safety-tools:
     needs: scope
-    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Operations safety tools"
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -1280,7 +1287,9 @@ jobs:
 
   containment-runtime:
     # Required matrix checks must run: a job-level skip prevents expansion and
-    # leaves the concrete check names required by branch rules absent.
+    # leaves the concrete check names required by branch rules absent. Drafts
+    # are the one exception; marking one ready runs these on the same commit.
+    if: ${{ !github.event.pull_request.draft }}
     name: "Containment clean runtime (${{ matrix.network }})"
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -1328,7 +1337,7 @@ jobs:
 
   public-rpc-edge:
     needs: scope
-    if: ${{ always() && !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.full_checks != 'false') }}
     name: "Public RPC edge image"
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -1366,6 +1375,7 @@ jobs:
 
   chain-registry:
     name: "Chain Registry metadata"
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -1386,6 +1396,8 @@ jobs:
 
   deployment-images:
     # Keep every required profile check present, including website-only PRs.
+    # Drafts are the one exception; marking one ready runs these on the same commit.
+    if: ${{ !github.event.pull_request.draft }}
     name: "Deployment image (${{ matrix.profile }})"
     runs-on: ubuntu-24.04
     timeout-minutes: 25
