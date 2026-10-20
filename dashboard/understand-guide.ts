@@ -94,7 +94,7 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
           { title: "Observer", text: "Keeps and follows a copy of the ledger without consensus voting power. Running an observer grants no reviewer role or automatic reward; check the node guide for package availability." },
         ],
         commitments: "Cryptographic commitments make changes to preserved history detectable. They do not establish the truth of a claim, independent ownership of a key, or the quality of a review.",
-        liveBoundary: `${nodeGuide.live.trust} The disclosed operator retains the ability to halt or reset the legacy network.`,
+        liveBoundary: `${nodeGuide.live.trust} The founding household, the people who started Zerone, can still stop, roll back or restart the live chain, zerone-1.`,
         link: { label: "Read the authority model and its current limits", url: source("docs/AUTHORITATIVE-STATE.md") },
       },
       {
@@ -103,10 +103,10 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
         intro: "ZRN is the chain’s token: 1 ZRN is 1,000,000 uzrn. Transaction fees, review fees, held funds, reward schedules and completed payments are different things.",
         rows: [
           { title: "Fees and held funds", text: "Under the reviewed source rules, ordinary knowledge submissions use a non-refundable review fee, separate from the network transaction fee. Challenge deposits have their own settlement rules. Check the target network’s rules before submitting." },
-          { title: "Schedules and payments", text: "The current source policy pays valid, timely review work from a fixed fee pool, including dissent and inconclusive outcomes. New claims create no automatic acceptance or challenge bonus. Earlier recorded obligations remain; a pending plan is not a completed payment. These source changes are not active on the legacy network." },
+          { title: "Schedules and payments", text: "The current source policy pays valid, timely review work from a fixed fee pool, including dissent and inconclusive outcomes. New claims create no automatic acceptance or challenge bonus. Earlier recorded obligations remain; a pending plan is not a completed payment. These source changes are not active on the live chain, zerone-1." },
           { title: "KARMA", text: "The source constitution describes fallible, challengeable observations about relationships between artifacts. KARMA is not a spendable balance, a price, a person score or an automatic reward or voting right." },
         ],
-        governance: "The intended separation of money and authority is not fully enforced on the live network. Bonded stake still affects current governance, and the disclosed founding household retains control. The source constitution does not itself change that runtime.",
+        governance: "The intended separation of money and authority is not fully enforced on the live chain, zerone-1. Bonded stake still affects current governance, and the founding household retains control. The source constitution does not itself change that runtime.",
         history: {
           title: "A dated example from the real ledger",
           date: "2026-09-09",
@@ -137,9 +137,9 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
         rows: [
           { title: `Read ${nodeGuide.live.chainId}`, availability: nodeGuide.live.availability, text: "Inspect public records, compare observations and ask reproducible questions.", link: { label: "Read the existing network", url: `${nodes}#live` } },
           { title: observer ? "Run an experimental observer" : "Check observer availability", availability: nodeGuide.live.replicaInstallation.availability, text: nodeGuide.live.replicaInstallation.reason,
-            note: observer ? `The signed bootstrap window ends ${observer.expiresAt}. ${observer.maintenance}` : "Use the node guide for the current publication record.",
+            note: observer ? `New setups had to start before ${observer.expiresAt}; after that the package refuses them until a new signed package is published. The package and its tools come from the source repository, which is not public. ${observer.maintenance}` : "Use the node guide for the current publication record.",
             link: { label: observer ? "Verify the observer package" : "Read the node guide", url: `${nodes}#${observer ? "observer" : "live"}` } },
-          { title: `Build on ${nodeGuide.local.chainId}`, availability: nodeGuide.local.availability, text: `${nodeGuide.local.funds} ${nodeGuide.local.apiScope}`, link: { label: "Set up a local sandbox", url: `${nodes}#local` } },
+          { title: `Build on ${nodeGuide.local.chainId}`, availability: nodeGuide.local.availability, text: `${nodeGuide.local.funds} The source code is not public, so only people who already have access to it can build this. ${nodeGuide.local.apiScope}`, link: { label: "Set up a local sandbox", url: `${nodes}#local` } },
           { title: "New zerone-1 accounts", availability: nodeGuide.live.newAccountAdmission.availability, text: `Starter funds: ${nodeGuide.live.starterFunds.availability}. Reward-claim onboarding: ${nodeGuide.live.rewardClaimOnboarding.availability}. Validator joining: ${nodeGuide.live.validatorJoining.availability}.`, link: { label: "Read participation options", url: `${nodes}#participation` } },
           { title: `Shared work on ${nodeGuide.development.chainId}`, availability: nodeGuide.development.availability, text: `${nodeGuide.development.status} ${nodeGuide.development.consensus}`, link: { label: "Read the development lane", url: "https://zerone.ai/development/" } },
         ],

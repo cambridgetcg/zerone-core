@@ -84,10 +84,20 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
 	for _, c := range gs.CrossStratumRequirements {
 		k.SetCrossStratumRequirement(ctx, c)
 	}
+	// Only an explicit true writes the marker; absence keeps legacy semantics.
+	if gs.IntegerVarianceEnabled {
+		if err := k.EnableIntegerVariance(ctx); err != nil {
+			panic("invalid capture_defense genesis: " + err.Error())
+		}
+	}
 }
 
 // ExportGenesis exports the current state.
 func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
+	integerVariance, err := k.IntegerVarianceEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 	return &types.GenesisState{
 		Params:                   k.GetParams(ctx),
 		GlobalReputations:        k.GetAllGlobalReputations(ctx),
@@ -95,6 +105,7 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 		DomainReputations:        k.GetAllDomainReputations(ctx),
 		CaptureMetrics:           k.GetAllCaptureMetrics(ctx),
 		CrossStratumRequirements: k.GetAllCrossStratumRequirements(ctx),
+		IntegerVarianceEnabled:   integerVariance,
 	}
 }
 
@@ -116,6 +127,11 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		_, analysisPacing := k.pacingKeeper.GetGlobalPacingMultiplier(ctx)
 		if analysisPacing > 0 && analysisPacing != 1_000_000 {
 			effectiveInterval = params.RiskAnalysisInterval * 1_000_000 / analysisPacing
+			// Faster pacing (Critical health) must not round an enabled interval down
+			// to 0, which the guard below reads as "never analyse": run every block.
+			if effectiveInterval == 0 && params.RiskAnalysisInterval > 0 {
+				effectiveInterval = 1
+			}
 		}
 	}
 	if height > 0 && effectiveInterval > 0 && height%effectiveInterval == 0 {

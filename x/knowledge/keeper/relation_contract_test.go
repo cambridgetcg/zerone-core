@@ -22,9 +22,10 @@ import (
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
-// Characterization of the knowledge-11 predecessor, NOT a repair or approval of
-// ambiguous admissions. A future prospective fix needs its own activation;
-// retained claims/ballots still require explicitly selected predecessor tests.
+// Characterization originating at 7a68ca51, NOT a repair or approval of
+// ambiguous admissions. Exercise both absent and enabled knowledge-v12 marker
+// 0x87 explicitly; DefaultGenesis now selects v12. Retained augmentations are
+// admitted before review neutrality, then finalized under each selection.
 // These are in-memory handler/phase/query tests with actual SDK stores. The
 // tracking bank records calls, not actual transfers or conservation of custody.
 func relationContractFixture(t *testing.T, genesis *types.GenesisState) (keeper.Keeper, sdk.Context, *trackingBankKeeper, *storetypes.KVStoreKey) {
@@ -105,6 +106,27 @@ func completeRelationClaim(t *testing.T, k keeper.Keeper, ctx sdk.Context, bank 
 }
 
 func TestRelationContractRetainedAugmentationEndpointMismatch(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("marker-0x87-%t", enabled), func(t *testing.T) {
+			relationContractRetainedAugmentationEndpointMismatch(t, enabled)
+		})
+	}
+}
+
+func requireRelationContractMarker(t *testing.T, k keeper.Keeper, ctx sdk.Context, key *storetypes.KVStoreKey, enabled bool) {
+	t.Helper()
+	require.Equal(t, []byte{0x87}, []byte(keeper.ClaimIntegrityEnabledStoreKey))
+	selected, err := k.ClaimIntegrityEnabled(ctx)
+	require.NoError(t, err)
+	require.Equal(t, enabled, selected)
+	if enabled {
+		require.Equal(t, []byte{1}, ctx.KVStore(key).Get([]byte{0x87}))
+	} else {
+		require.Nil(t, ctx.KVStore(key).Get([]byte{0x87}))
+	}
+}
+
+func relationContractRetainedAugmentationEndpointMismatch(t *testing.T, enabled bool) {
 	for _, tc := range []struct {
 		name              string
 		verdict           types.AugmentationVerdict
@@ -140,6 +162,7 @@ func TestRelationContractRetainedAugmentationEndpointMismatch(t *testing.T) {
 				// Explicit genuine Fact-to-Fact fixture prestate, not an augmentation edge.
 				require.NoError(t, k.SetFactRelation(ctx, &types.FactRelation{SourceFactId: augID, TargetFactId: "target-a", Relation: types.RelationType_RELATION_TYPE_SUPPORTS}))
 			}
+			ownEdge := bytes.Clone(ctx.KVStore(key).Get(types.FactRelationKey(augID, "target-a")))
 			if tc.funded {
 				bountyID = "retained-bounty"
 				_, err := server.CreateAugmentationBounty(ctx, &types.MsgCreateAugmentationBounty{
@@ -159,6 +182,12 @@ func TestRelationContractRetainedAugmentationEndpointMismatch(t *testing.T) {
 			require.Zero(t, before.VerdictBlock)
 			require.NoError(t, k.EnableRecordIntegrity(ctx))
 			require.NoError(t, k.EnableReviewNeutrality(ctx)) // In-memory retirement selection, not an upgrade rehearsal.
+			require.NoError(t, k.EnableClaimRecords(ctx))
+			require.NoError(t, k.EnableFundSettlement(ctx))
+			if enabled {
+				require.NoError(t, k.EnableClaimIntegrity(ctx))
+			}
+			requireRelationContractMarker(t, k, ctx, key, enabled)
 			require.NotPanics(t, func() { k.ExportGenesis(ctx) }, "the pending retained record alone does not spoil export")
 			callsBefore := len(bank.sendCalls)
 			for _, voter := range voters[1:] {
@@ -193,14 +222,27 @@ func TestRelationContractRetainedAugmentationEndpointMismatch(t *testing.T) {
 			require.NoError(t, err)
 			if passing {
 				require.Len(t, rels, 1)
-				require.Equal(t, types.RelationType_RELATION_TYPE_REFORMULATES, rels[0].Relation)
+				wantRelation := types.RelationType_RELATION_TYPE_REFORMULATES
+				if enabled && tc.collision {
+					wantRelation = types.RelationType_RELATION_TYPE_SUPPORTS
+				}
+				require.Equal(t, wantRelation, rels[0].Relation)
 				require.Equal(t, "target-a", rels[0].TargetFactId)
 				require.Equal(t, augID, rels[0].SourceFactId)
 				forward := ctx.KVStore(key).Get(types.FactRelationKey(augID, "target-a"))
 				require.NotEmpty(t, forward)
 				require.Equal(t, forward, ctx.KVStore(key).Get(types.FactRelationReverseKey("target-a", augID)))
+				if enabled && tc.collision {
+					require.Equal(t, ownEdge, forward, "v12 withholds the colliding augmentation edge and preserves the genuine Fact edge byte-for-byte")
+				}
 			} else {
 				require.Empty(t, rels)
+			}
+			withheld := v11Event(ctx, "zerone.knowledge.augmentation_edge_withheld")
+			if enabled && tc.collision {
+				require.Equal(t, []map[string]string{{"augmentation_id": augID, "original_fact_id": "target-a", "reason": "augmentation id is the id of a fact"}}, withheld)
+			} else {
+				require.Empty(t, withheld)
 			}
 			_, factExists := k.GetFact(ctx, augID)
 			require.Equal(t, tc.collision, factExists)
@@ -209,6 +251,7 @@ func TestRelationContractRetainedAugmentationEndpointMismatch(t *testing.T) {
 				require.ErrorContains(t, err, "fact relation references an absent Fact")
 				require.Nil(t, exported)
 				require.PanicsWithError(t, "export fact relations: fact relation references an absent Fact", func() { k.ExportGenesis(ctx) })
+				t.Logf("marker=%t: retained augmentation %s wrote a non-Fact edge; full genesis export panics: %v", enabled, augID, err)
 			} else {
 				require.NoError(t, err)
 				require.NotPanics(t, func() { k.ExportGenesis(ctx) })
@@ -219,9 +262,20 @@ func TestRelationContractRetainedAugmentationEndpointMismatch(t *testing.T) {
 }
 
 func TestRelationContractPredecessorCountBound(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("marker-0x87-%t", enabled), func(t *testing.T) {
+			relationContractCountBound(t, enabled)
+		})
+	}
+}
+
+func relationContractCountBound(t *testing.T, enabled bool) {
 	for _, count := range []int{16, 17} {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {
-			k, ctx, bank, key := relationContractFixture(t, types.DefaultGenesis())
+			genesis := types.DefaultGenesis()
+			genesis.ClaimIntegrityEnabled = enabled
+			k, ctx, bank, key := relationContractFixture(t, genesis)
+			requireRelationContractMarker(t, k, ctx, key, enabled)
 			relations := make([]*types.ClaimRelation, count)
 			for i := range relations {
 				relations[i] = &types.ClaimRelation{TargetFactId: "target-a", Relation: types.RelationType_RELATION_TYPE_CITES}
@@ -233,12 +287,13 @@ func TestRelationContractPredecessorCountBound(t *testing.T) {
 				Domain: "physics", Category: "empirical", Stake: "1000000", Relations: relations,
 			})
 			if count == 16 {
-				require.NoError(t, err, "the predecessor caps count, not target uniqueness")
+				require.NoError(t, err, "both selections cap count, not target uniqueness")
 				claim, found := k.GetClaim(ctx, response.ClaimId)
 				require.True(t, found)
 				require.Len(t, claim.Relations, count)
 			} else {
-				require.Error(t, err)
+				require.ErrorIs(t, err, types.ErrInvalidClaim)
+				require.ErrorContains(t, err, "claim carries 17 relations, max 16")
 				require.Nil(t, response)
 				require.Equal(t, before, relationContractSnapshot(t, ctx, key))
 				require.Len(t, bank.sendCalls, calls)
@@ -249,6 +304,14 @@ func TestRelationContractPredecessorCountBound(t *testing.T) {
 }
 
 func TestRelationContractPredecessorLastPairWriteSurvives(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("marker-0x87-%t", enabled), func(t *testing.T) {
+			relationContractLastPairWriteSurvives(t, enabled)
+		})
+	}
+}
+
+func relationContractLastPairWriteSurvives(t *testing.T, enabled bool) {
 	for _, tc := range []struct {
 		name         string
 		first, last  types.RelationType
@@ -261,7 +324,10 @@ func TestRelationContractPredecessorLastPairWriteSurvives(t *testing.T) {
 		{"same-type-last-metadata", types.RelationType_RELATION_TYPE_SUPPORTS, types.RelationType_RELATION_TYPE_SUPPORTS, "target-a", 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			k, ctx, bank, key := relationContractFixture(t, types.DefaultGenesis())
+			genesis := types.DefaultGenesis()
+			genesis.ClaimIntegrityEnabled = enabled
+			k, ctx, bank, key := relationContractFixture(t, genesis)
+			requireRelationContractMarker(t, k, ctx, key, enabled)
 			inputs := []*types.ClaimRelation{
 				{TargetFactId: "target-a", Relation: tc.first, InferenceStrengthBps: 100_000},
 				{TargetFactId: tc.secondTarget, Relation: tc.last, InferenceStrengthBps: 200_000},
@@ -311,13 +377,17 @@ func TestRelationContractPredecessorLastPairWriteSurvives(t *testing.T) {
 			}
 			exported, err := k.ExportFactRelationGenesis(ctx)
 			require.NoError(t, err, "valid endpoints do not reveal that a proposed edge was overwritten")
-			selected := 0
+			selected := make(map[string]*types.FactRelation)
 			for _, rel := range exported.Relations {
 				if rel.SourceFactId == derived.Fact.Id {
-					selected++
+					require.NotContains(t, selected, rel.TargetFactId)
+					selected[rel.TargetFactId] = rel
 				}
 			}
-			require.Equal(t, tc.wantEdges, selected)
+			require.Len(t, selected, tc.wantEdges)
+			for _, rel := range derived.OutgoingRelations {
+				require.True(t, proto.Equal(rel, selected[rel.TargetFactId]), "export must retain the same surviving endpoints, type and metadata as history")
+			}
 			require.Equal(t, before, relationContractSnapshot(t, ctx, key), "read projections must not reconstruct missing edges")
 		})
 	}

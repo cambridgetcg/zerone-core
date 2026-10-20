@@ -101,6 +101,8 @@ func DefaultGenesis() *GenesisState {
 		Qualifications:    []*DomainQualification{},
 		Endorsements:      []*QualificationEndorsement{},
 		NextEndorsementId: 1,
+		// A new chain starts with the consensus-repairs-v1 selection on.
+		SingleRefundEnabled: true,
 	}
 }
 
