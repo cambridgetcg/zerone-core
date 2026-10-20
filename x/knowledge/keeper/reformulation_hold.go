@@ -115,15 +115,9 @@ type ReformulationHold struct {
 // this prospective read, and no state or events are changed by it.
 func (k Keeper) CensusReformulationHolds(ctx context.Context) ([]ReformulationHold, error) {
 	store := k.storeService.OpenKVStore(ctx)
-	paramsBytes, err := store.Get(types.ParamsKey)
+	params, err := k.reformulationHoldParams(ctx)
 	if err != nil {
 		return nil, err
-	}
-	params := types.DefaultParams()
-	if paramsBytes != nil {
-		if err := proto.Unmarshal(paramsBytes, &params); err != nil {
-			return nil, fmt.Errorf("reformulation census: malformed params: %w", err)
-		}
 	}
 	iter, err := store.Iterator(types.AugmentationKeyPrefix, prefixEndBytes(types.AugmentationKeyPrefix))
 	if err != nil {
@@ -144,7 +138,18 @@ func (k Keeper) CensusReformulationHolds(ctx context.Context) ([]ReformulationHo
 		if aug.Id == "" || string(iter.Key()) != string(types.AugmentationKey(aug.Id)) {
 			return nil, fmt.Errorf("reformulation census: augmentation key/id mismatch")
 		}
-		if reason := ReformulationHoldReason(&aug, &params); reason != "" {
+		// The carrier must verify index completeness before enabling indexed
+		// consumers. Ordinary calls deliberately do not scan unrelated records.
+		if aug.BountyId != "" {
+			index, err := store.Get(types.AugmentationByBountyKey(aug.BountyId, aug.Id))
+			if err != nil {
+				return nil, err
+			}
+			if len(index) != 1 || index[0] != 1 {
+				return nil, fmt.Errorf("reformulation census: missing or malformed bounty index for %s", aug.Id)
+			}
+		}
+		if reason := ReformulationHoldReason(&aug, params); reason != "" {
 			holds = append(holds, ReformulationHold{aug.Id, aug.OriginalFactId, aug.BountyId, reason})
 		}
 	}
@@ -157,23 +162,40 @@ func (k Keeper) CensusReformulationHolds(ctx context.Context) ([]ReformulationHo
 	return holds, nil
 }
 
-func emitReformulationHold(ctx context.Context, aug *types.Augmentation, reason string) {
-	sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent(
-		"zerone.knowledge.reformulation_held",
-		sdk.NewAttribute("augmentation_id", aug.Id),
-		sdk.NewAttribute("original_fact_id", aug.OriginalFactId),
-		sdk.NewAttribute("bounty_id", aug.BountyId),
-		sdk.NewAttribute("reason", reason),
-	))
+// emitReformulationHoldTransition is called only after a successful ballot
+// changes the classification. Existing holds are surfaced by the carrier's
+// one-time census, not by repeated block or sibling-payout events.
+func emitReformulationHoldTransition(ctx context.Context, aug *types.Augmentation, before, after string) {
+	if before == after {
+		return
+	}
+	events := sdk.UnwrapSDKContext(ctx).EventManager()
+	if before != "" {
+		events.EmitEvent(sdk.NewEvent(
+			"zerone.knowledge.reformulation_hold_released",
+			sdk.NewAttribute("augmentation_id", aug.Id),
+			sdk.NewAttribute("original_fact_id", aug.OriginalFactId),
+			sdk.NewAttribute("bounty_id", aug.BountyId),
+			sdk.NewAttribute("reason", before),
+		))
+	}
+	if after != "" {
+		events.EmitEvent(sdk.NewEvent(
+			"zerone.knowledge.reformulation_held",
+			sdk.NewAttribute("augmentation_id", aug.Id),
+			sdk.NewAttribute("original_fact_id", aug.OriginalFactId),
+			sdk.NewAttribute("bounty_id", aug.BountyId),
+			sdk.NewAttribute("reason", after),
+		))
+	}
 }
 
 // Escrow is pooled per bounty: a different variant or a sponsor veto must not
 // spend a held record's remaining backing. There is no per-variant reservation
 // from which a safe partial release could be inferred.
-func (k Keeper) requireReformulationBountyUnheld(ctx context.Context, bountyID string) error {
-	enabled, err := k.ReformulationVindicationOrderingEnabled(ctx)
-	if err != nil || !enabled {
-		return err
+func (k Keeper) requireReformulationBountyUnheld(ctx context.Context, bountyID string, enabled bool) error {
+	if !enabled {
+		return nil
 	}
 	hold, err := k.reformulationBountyHold(ctx, bountyID)
 	if err != nil {
@@ -186,16 +208,67 @@ func (k Keeper) requireReformulationBountyUnheld(ctx context.Context, bountyID s
 }
 
 func (k Keeper) reformulationBountyHold(ctx context.Context, bountyID string) (*ReformulationHold, error) {
-	holds, err := k.CensusReformulationHolds(ctx)
+	if bountyID == "" {
+		return nil, nil
+	}
+	params, err := k.reformulationHoldParams(ctx)
 	if err != nil {
 		return nil, err
 	}
-	for _, hold := range holds {
-		if hold.BountyID == bountyID {
-			return &hold, nil
+	store := k.storeService.OpenKVStore(ctx)
+	prefix := types.AugmentationByBountyPrefix(bountyID)
+	iter, err := store.Iterator(prefix, prefixEndBytes(prefix))
+	if err != nil {
+		return nil, err
+	}
+	closed := false
+	defer func() {
+		if !closed {
+			_ = iter.Close()
+		}
+	}()
+	var hold *ReformulationHold
+	for ; iter.Valid(); iter.Next() {
+		id := string(iter.Key()[len(prefix):])
+		value := iter.Value()
+		if id == "" || len(value) != 1 || value[0] != 1 {
+			return nil, fmt.Errorf("reformulation hold: malformed bounty index")
+		}
+		bz, err := store.Get(types.AugmentationKey(id))
+		if err != nil {
+			return nil, err
+		}
+		var aug types.Augmentation
+		if err := proto.Unmarshal(bz, &aug); err != nil {
+			return nil, fmt.Errorf("reformulation hold: malformed augmentation: %w", err)
+		}
+		if aug.Id != id || aug.BountyId != bountyID {
+			return nil, fmt.Errorf("reformulation hold: bounty index/augmentation mismatch")
+		}
+		if reason := ReformulationHoldReason(&aug, params); reason != "" {
+			hold = &ReformulationHold{aug.Id, aug.OriginalFactId, aug.BountyId, reason}
+			break
 		}
 	}
-	return nil, nil
+	closed = true
+	if err := closeSurvivalIterator(iter); err != nil {
+		return nil, err
+	}
+	return hold, nil
+}
+
+func (k Keeper) reformulationHoldParams(ctx context.Context) (*types.Params, error) {
+	bz, err := k.storeService.OpenKVStore(ctx).Get(types.ParamsKey)
+	if err != nil {
+		return nil, err
+	}
+	params := types.DefaultParams()
+	if bz != nil {
+		if err := proto.Unmarshal(bz, &params); err != nil {
+			return nil, fmt.Errorf("reformulation hold: malformed params: %w", err)
+		}
+	}
+	return &params, nil
 }
 
 func emitReformulationRefusal(ctx context.Context, operation, reason string) {

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	corestore "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
 	"cosmossdk.io/store"
 	storemetrics "cosmossdk.io/store/metrics"
@@ -36,6 +37,10 @@ const orderTestMint = "knowledge_order_test_mint"
 // synthetic issuance and a supplied staking adapter, not signed transactions,
 // application block replay or observations of a live escrow deficit.
 func newKnowledgeOrderFixture(t *testing.T) (keeper.Keeper, sdk.Context, bankkeeper.BaseKeeper, *trackingStakingKeeper) {
+	return newKnowledgeOrderFixtureWithStore(t, func(s corestore.KVStoreService) corestore.KVStoreService { return s })
+}
+
+func newKnowledgeOrderFixtureWithStore(t *testing.T, wrap func(corestore.KVStoreService) corestore.KVStoreService) (keeper.Keeper, sdk.Context, bankkeeper.BaseKeeper, *trackingStakingKeeper) {
 	t.Helper()
 	keys := storetypes.NewKVStoreKeys(types.StoreKey, authtypes.StoreKey, banktypes.StoreKey)
 	db := dbm.NewMemDB()
@@ -65,7 +70,7 @@ func newKnowledgeOrderFixture(t *testing.T) (keeper.Keeper, sdk.Context, bankkee
 		ak.GetModuleAccount(ctx, name)
 	}
 	staking := newTrackingStakingKeeper()
-	k := keeper.NewKeeper(runtime.NewKVStoreService(keys[types.StoreKey]), cdc, authority, bank, staking)
+	k := keeper.NewKeeper(wrap(runtime.NewKVStoreService(keys[types.StoreKey])), cdc, authority, bank, staking)
 	params := types.DefaultParams()
 	require.NoError(t, k.SetParams(ctx, &params))
 	return k, ctx.WithEventManager(sdk.NewEventManager()), bank, staking

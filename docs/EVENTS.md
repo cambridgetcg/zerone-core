@@ -1647,12 +1647,14 @@ New voting weight can break a tie; invalid retained ballots require a separately
 governed resolution. Already finalized verdicts/payments/graph records are not
 reconciled, and deleted vindication obligations are not recreated.
 
-Emitted on a successful vote that leaves a tie, on a vote whose passing
-finalization is deferred by a held sibling (naming that sibling), and for every held record in
-store-key order on each BeginBlock Route B lifecycle pass. The latter supplies
-durable visibility for invalid ballots: an event in a rejected voting
-transaction would be discarded. Repeated events describe a continuing hold,
-not repeated custody or payment. Volunteers have an empty bounty ID.
+Emitted only when a successful vote starts a hold. A continuing hold does not
+re-emit on another vote, a sibling's deferred finalization, or any BeginBlock.
+The carrier must record pre-existing holds (including invalid retained ballots)
+in its one-time census before enabling the marker; a rejected transaction is
+not a durable event source. Volunteers have an empty bounty ID. These holds
+also apply to NEW exact ties after activation, not just inherited records:
+one tied variant can freeze its whole pooled bounty until new voting weight
+breaks the tie. This prospective policy remains a carrier review decision.
 Tie-breaking ballots are retained even while a sibling holds the bounty;
 passing finalization waits for another vote after that peer hold resolves.
 This prevents mutually blocking ties without releasing held escrow. The query's
@@ -1670,16 +1672,25 @@ state. `held` is false before activation; `prospective_reason` supports a
 pre-activation census. The displayed bounty escrow is not a per-record balance.
 `CensusReformulationHolds` provides the carrier's checked, read-only full scan;
 the carrier must census before enabling the marker and must budget the scan.
+It also checks that bounty-linked augmentations have their existing `0x65`
+index entry. Routine payout/veto/finalization checks use only that bounty's
+index; expiry checks only bounties due for expiration.
+
+### zerone.knowledge.reformulation_hold_released
+With the marker selected, a successful vote ended the named record's hold.
+This does not promise a payout or that all siblings' holds have ended. It is
+emitted once per transition, with the same `augmentation_id`, `original_fact_id`,
+`bounty_id`, and prior `reason` attributes as `reformulation_held`.
 
 ### zerone.knowledge.reformulation_processing_refused
-The void BeginBlock consumer refused to choose semantics or release funds.
-Malformed/unreadable activation state never means "off". No affected pruning
-transfer/deletion or bounty refund/deactivation is performed; unrelated Route B
-vesting/manifest work continues. This event repeats until the state is resolved
-through a separately authorized path, not by automatically repairing a marker.
-- `operation` -- `vindication_pruning` or `bounty_expiry`
-- `reason` -- `activation_marker_unreadable` (both operations), or
-  `hold_census_unreadable` (bounty expiry)
+A due bounty's hold index or referenced augmentation could not be read. No
+refund/deactivation for that bounty is performed; other lifecycle work keeps
+its existing error handling. This refusal can repeat until separately resolved.
+Marker faults are different: `activation.ErrMarkerFault` propagates from the
+message/BeginBlock entry point before writes, without a log-and-skip event or
+automatic marker repair. Vindication transfer failures retain their old handling.
+- `operation` -- `bounty_expiry`
+- `reason` -- `hold_index_unreadable`
 
 ### zerone.knowledge.augmentation_verdict_finalized
 The verifier panel reached consensus on a reformulation (Route B Wave 4d). For EQUIVALENT/SUPERIOR the handler releases escrow to the submitter and writes a REFORMULATES relation (with the claim-integrity marker on, not for an ID in the fact ID space; see `augmentation_edge_withheld`); for DRIFT/INFERIOR the variant is archived for the drift corpus. Never fired by the sponsor or submitter directly.

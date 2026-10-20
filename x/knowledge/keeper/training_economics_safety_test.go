@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/zerone-chain/zerone/internal/activation"
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -87,10 +88,11 @@ func TestReformulationActivationMalformedMarkerStopsConsumers(t *testing.T) {
 	response, err := f.server.VoteOnAugmentation(f.ctx, &types.MsgVoteOnAugmentation{AugmentationId: "pending", Verifier: "voter", Vote: types.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT})
 	require.ErrorContains(t, err, "malformed reformulation and vindication ordering marker")
 	require.Nil(t, response)
-	f.k.PruneExpiredVindications(f.ctx, 100, 10)
+	require.ErrorIs(t, err, activation.ErrMarkerFault)
+	require.ErrorIs(t, f.k.PruneExpiredVindications(f.ctx, 100, 10), activation.ErrMarkerFault)
+	require.ErrorIs(t, f.k.BeginBlocker(f.ctx), activation.ErrMarkerFault)
 	require.Equal(t, before, relationContractSnapshot(t, f.ctx, f.key))
-	require.Equal(t, sdk.Events{sdk.NewEvent("zerone.knowledge.reformulation_processing_refused",
-		sdk.NewAttribute("operation", "vindication_pruning"), sdk.NewAttribute("reason", "activation_marker_unreadable"))}, f.ctx.EventManager().Events())
+	require.Empty(t, f.ctx.EventManager().Events())
 }
 
 func TestAugmentationVoteRange(t *testing.T) {

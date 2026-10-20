@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/zerone-chain/zerone/internal/activation"
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -45,7 +46,7 @@ func TestReformulationHeldEscrowLifecycle(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, []keeper.ReformulationHold{{AugmentationID: "retained", OriginalFactID: "original", BountyID: "bounty", Reason: reason}}, holds)
 				ctx = ctx.WithBlockHeight(102).WithEventManager(sdk.NewEventManager())
-				k.ProcessRouteBLifecycle(ctx)
+				require.NoError(t, k.ProcessRouteBLifecycle(ctx))
 				stored, found := k.GetAugmentation(ctx, aug.Id)
 				require.True(t, found)
 				require.True(t, proto.Equal(aug, stored), "heartbeat never retallies into a verdict or rewrites retained ballots")
@@ -63,7 +64,9 @@ func TestReformulationHeldEscrowLifecycle(t *testing.T) {
 				require.EqualValues(t, 1500, k.GetEscrowLocked(ctx, "bounty").Int64())
 				require.Zero(t, bank.GetBalance(ctx, sponsor, "uzrn").Amount.Int64())
 				require.EqualValues(t, 1500, bank.GetBalance(ctx, authtypes.NewModuleAddress(types.TrainingFundModuleName), "uzrn").Amount.Int64())
-				require.Equal(t, sdk.Events{sdk.NewEvent("zerone.knowledge.reformulation_held", sdk.NewAttribute("augmentation_id", "retained"), sdk.NewAttribute("original_fact_id", "original"), sdk.NewAttribute("bounty_id", "bounty"), sdk.NewAttribute("reason", reason))}, ctx.EventManager().Events())
+				require.Empty(t, ctx.EventManager().Events(), "continuing holds never re-emit on a block")
+				require.NoError(t, k.ProcessRouteBLifecycle(ctx.WithBlockHeight(103)))
+				require.Empty(t, ctx.EventManager().Events(), "nor on the following block")
 				// Pooled backing cannot escape via a sibling payout or sponsor veto.
 				require.ErrorContains(t, k.ReleaseAugmentationPayout(ctx, "bounty", submitter.String(), sdkmath.NewInt(1)), "escrow held")
 				require.ErrorContains(t, k.ForfeitAugmentationDeposit(ctx, "bounty", sdkmath.NewInt(1)), "escrow held")
@@ -137,14 +140,22 @@ func TestReformulationHoldCensusRefusesCorruption(t *testing.T) {
 			if corruptMarker {
 				f.ctx.KVStore(f.key).Set([]byte(keeper.ReformulationVindicationOrderingEnabledStoreKey), []byte{2})
 			} else {
+				require.NoError(t, f.k.SetAugmentationBounty(f.ctx, &types.AugmentationBounty{Id: "pool", Active: true, ExpiresAtBlock: 1}))
+				require.NoError(t, f.k.SetAugmentation(f.ctx, &types.Augmentation{Id: "bad", BountyId: "pool"}))
 				f.ctx.KVStore(f.key).Set(types.AugmentationKey("bad"), []byte{0xff})
 			}
 			before := relationContractSnapshot(t, f.ctx, f.key)
 			f.ctx = f.ctx.WithEventManager(sdk.NewEventManager())
-			f.k.ProcessRouteBLifecycle(f.ctx)
+			err := f.k.ProcessRouteBLifecycle(f.ctx)
 			require.Equal(t, before, relationContractSnapshot(t, f.ctx, f.key))
-			require.Len(t, f.ctx.EventManager().Events(), 1)
-			require.Equal(t, "zerone.knowledge.reformulation_processing_refused", f.ctx.EventManager().Events()[0].Type)
+			if corruptMarker {
+				require.ErrorIs(t, err, activation.ErrMarkerFault)
+				require.Empty(t, f.ctx.EventManager().Events(), "a marker fault propagates, not log-and-skip")
+			} else {
+				require.NoError(t, err, "ordinary lifecycle errors are not new halts")
+				require.Len(t, f.ctx.EventManager().Events(), 1)
+				require.Equal(t, "zerone.knowledge.reformulation_processing_refused", f.ctx.EventManager().Events()[0].Type)
+			}
 		})
 	}
 }
