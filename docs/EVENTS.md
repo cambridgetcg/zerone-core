@@ -2027,9 +2027,34 @@ Governance parameter update.
 - `authority` -- governance address
 
 ### zerone.qualification.qualification_expired
-*BeginBlock.* Qualification expired.
+*BeginBlock.* The qualification's validity period ended; this event alone is not
+proof of a stake refund. Its two attributes are unchanged across activation.
+With the qualification-store single-refund marker enabled, a successful stake
+refund is committed with EXPIRED status and an empty `StakedAmount`. A locked or
+failed refund instead leaves the record SUSPENDED with its amount retained and
+emits `zerone.qualification.stake_refund_pending` immediately before this event,
+paired by `validator` and `domain` in the same block. Non-stake expiry needs no
+refund. Without the marker, legacy expiry sets EXPIRED and retains the amount
+regardless of whether a refund succeeds, fails, or is still locked; there is no
+pending event and neither the event nor retained amount establishes payment.
 - `validator` -- validator address
 - `domain` -- expired domain
+
+### zerone.qualification.stake_refund_pending
+*BeginBlock; single-refund marker enabled only.* Expiry could not settle a stake
+refund. The qualification is SUSPENDED (ineligible and not renewable), while
+`StakedAmount` and its lock deadline remain intact. This event immediately
+precedes `zerone.qualification.qualification_expired` for the same validator and
+domain. It is not a payment receipt or an automatic retry schedule: BeginBlock
+does not retry suspended refunds. The owner can use `WithdrawQualification`
+after the lock ends or the transfer failure is resolved. Failed cached bank
+writes and bank events are discarded. Legacy EXPIRED records with an amount
+are separately held for reconciliation after activation and do not emit this
+event merely because withdrawal is refused.
+- `validator` -- claimant address
+- `domain` -- expired qualification's domain
+- `reason` -- `stake_locked` if expiry precedes unlock, or `transfer_failed` if
+  the refund call fails (including an absent bank adapter)
 
 ### zerone.qualification.qualification_promoted
 *BeginBlock.* Probationary qualification promoted to full.
