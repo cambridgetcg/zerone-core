@@ -388,6 +388,10 @@ message GenesisState {
   // Native genesis sets it; a file without the field imports as off. In place,
   // only the named carrier upgrade consensus-repairs-v2 sets it.
   bool inconclusive_round_accounting_enabled = 73;
+  // Calibration-smoothing marker (decision zc-calibration-cliff-q5). Native
+  // genesis sets it; a file without the field imports as off. In place, only
+  // the named carrier upgrade consensus-repairs-v2 sets it.
+  bool calibration_smoothing_enabled = 74;
 }
 
 // Exports each ordered source/target pair once, including full provenance.

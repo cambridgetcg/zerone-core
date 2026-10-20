@@ -852,3 +852,8 @@ var ReformulationVindicationOrderingEnabledKey = []byte{0x90}
 // 2e37c4c layout. Only three branch tips that never merged into trunk (their
 // knowledge layout diverged on 2026-03-01) use 0x91-0xFA, for legacy prefixes.
 var InconclusiveRoundAccountingEnabledKey = []byte{0x91}
+
+// CalibrationSmoothingEnabledKey is the consensus-repairs-v2 marker for
+// decision zc-calibration-cliff-q5
+// (keeper/calibration_smoothing_activation.go), unused like 0x91.
+var CalibrationSmoothingEnabledKey = []byte{0x92}

@@ -31,6 +31,7 @@ func initReformulationAdmissionGenesis(t *testing.T, k keeper.Keeper, ctx sdk.Co
 	// The predecessor digests below cover the whole store, which predates the
 	// consensus-repairs-v2 markers (0x91 onwards).
 	gs.InconclusiveRoundAccountingEnabled = false
+	gs.CalibrationSmoothingEnabled = false
 	gs.BootstrapFundAllocation = "0"
 	require.NoError(t, k.InitGenesis(ctx, gs))
 }

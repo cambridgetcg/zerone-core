@@ -45,6 +45,11 @@ var knowledgeV2Markers = []knowledgeV2Marker{
 		enabled: keeper.Keeper.InconclusiveRoundAccountingEnabled, enable: keeper.Keeper.EnableInconclusiveRoundAccounting,
 		genesis: func(gs *types.GenesisState) *bool { return &gs.InconclusiveRoundAccountingEnabled },
 	},
+	{
+		field: "calibration_smoothing_enabled", pinned: 0x92, key: types.CalibrationSmoothingEnabledKey,
+		enabled: keeper.Keeper.CalibrationSmoothingEnabled, enable: keeper.Keeper.EnableCalibrationSmoothing,
+		genesis: func(gs *types.GenesisState) *bool { return &gs.CalibrationSmoothingEnabled },
+	},
 }
 
 type knowledgeV2MarkerFixture struct {

@@ -455,6 +455,7 @@ func DefaultGenesis() *GenesisState {
 		ReformulationVindicationOrderingEnabled: true,
 		// And with the consensus-repairs-v2 selections on.
 		InconclusiveRoundAccountingEnabled: true,
+		CalibrationSmoothingEnabled:        true,
 	}
 }
 

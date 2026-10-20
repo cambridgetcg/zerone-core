@@ -23,6 +23,7 @@ func v11ImportGenesis() *types.GenesisState {
 	gs.ReformulationVindicationOrderingEnabled = false
 	// Nor the consensus-repairs-v2 markers (0x91 onwards).
 	gs.InconclusiveRoundAccountingEnabled = false
+	gs.CalibrationSmoothingEnabled = false
 	structure := func(subject string, tags ...string) *types.ClaimStructure {
 		return &types.ClaimStructure{Subject: subject, Predicate: "has dry mass in grams", Object: "3.5", Scope: "dry sample at 20 C", Tags: tags}
 	}
