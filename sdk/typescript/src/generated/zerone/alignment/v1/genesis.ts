@@ -15,6 +15,12 @@ export interface GenesisState {
   scores: DimensionScores[];
   healthIndices: AlignmentHealthIndex[];
   corrections: CorrectionRecord[];
+  /**
+   * Unobserved-health marker (decision zc-health-unknown-q1). Native genesis
+   * sets it; a file without the field imports as off. In place, only the
+   * named carrier upgrade consensus-repairs-v2 sets it.
+   */
+  unobservedHealthEnabled: boolean;
 }
 /**
  * Params defines the alignment module parameters.
@@ -71,7 +77,8 @@ function createBaseGenesisState(): GenesisState {
     observations: [],
     scores: [],
     healthIndices: [],
-    corrections: []
+    corrections: [],
+    unobservedHealthEnabled: false
   };
 }
 /**
@@ -101,6 +108,9 @@ export const GenesisState = {
     for (const v of message.corrections) {
       CorrectionRecord.encode(v!, writer.uint32(50).fork()).ldelim();
     }
+    if (message.unobservedHealthEnabled === true) {
+      writer.uint32(56).bool(message.unobservedHealthEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -128,6 +138,9 @@ export const GenesisState = {
         case 6:
           message.corrections.push(CorrectionRecord.decode(reader, reader.uint32()));
           break;
+        case 7:
+          message.unobservedHealthEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -143,6 +156,7 @@ export const GenesisState = {
     message.scores = object.scores?.map(e => DimensionScores.fromPartial(e)) || [];
     message.healthIndices = object.healthIndices?.map(e => AlignmentHealthIndex.fromPartial(e)) || [];
     message.corrections = object.corrections?.map(e => CorrectionRecord.fromPartial(e)) || [];
+    message.unobservedHealthEnabled = object.unobservedHealthEnabled ?? false;
     return message;
   }
 };
