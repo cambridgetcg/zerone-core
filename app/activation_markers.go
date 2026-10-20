@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 
+	zeronealignmenttypes "github.com/zerone-chain/zerone/x/alignment/types"
 	zeronecctypes "github.com/zerone-chain/zerone/x/capture_challenge/types"
 	zeronecdtypes "github.com/zerone-chain/zerone/x/capture_defense/types"
 	zeroneemergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
@@ -75,5 +76,26 @@ func (app *ZeroneApp) ConsensusRepairsV1Markers() []ActivationMarker {
 			app.SubstrateBridgeKeeper.QualificationSemanticsEnabled, app.SubstrateBridgeKeeper.EnableQualificationSemantics},
 		{zeroneibcrltypes.ModuleName, "refund_identity_enabled",
 			app.IBCRateLimitKeeper.RefundIdentityEnabled, app.IBCRateLimitKeeper.EnableRefundIdentity},
+	}
+}
+
+// ConsensusRepairsV2Markers lists every consensus-repairs-v2 marker in the
+// order of their decisions in the decision ledger: zc-health-unknown-q1,
+// zc-panel-unanimity-q2, zc-calibration-cliff-q5 and zc-pr37-frontier-fixes.
+// Native genesis selects each one through its module's genesis field; the
+// consensus-repairs-v2 carrier will enable each one by looping over this list.
+// It shares no module/field pair or store key with ConsensusRepairsV1Markers.
+// The genesis-only FX7 and FX8 schemas change export and import, never a live
+// state transition, so they have no marker here.
+func (app *ZeroneApp) ConsensusRepairsV2Markers() []ActivationMarker {
+	return []ActivationMarker{
+		{zeronealignmenttypes.ModuleName, "unobserved_health_enabled",
+			app.AlignmentKeeper.UnobservedHealthEnabled, app.AlignmentKeeper.EnableUnobservedHealth},
+		{zeroneknowledgetypes.ModuleName, "inconclusive_round_accounting_enabled",
+			app.KnowledgeKeeper.InconclusiveRoundAccountingEnabled, app.KnowledgeKeeper.EnableInconclusiveRoundAccounting},
+		{zeroneknowledgetypes.ModuleName, "calibration_smoothing_enabled",
+			app.KnowledgeKeeper.CalibrationSmoothingEnabled, app.KnowledgeKeeper.EnableCalibrationSmoothing},
+		{zeroneknowledgetypes.ModuleName, "zero_confidence_floor_enabled",
+			app.KnowledgeKeeper.ZeroConfidenceFloorEnabled, app.KnowledgeKeeper.EnableZeroConfidenceFloor},
 	}
 }
