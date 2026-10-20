@@ -980,6 +980,14 @@ check. Deploy only the exact merged and CI-verified commit from a clean detached
 worktree. `--commit-dirty=false` records metadata; the explicit Git check is what
 refuses local drift. A non-`main` branch creates a no-index preview.
 
+Never request a new `/assets/` path on `https://zerone.ai` before that build is
+deployed. Pages answers a missing asset with the SPA index, `_headers` gives every
+`/assets/*` response `max-age=31536000, immutable`, and the Cloudflare edge then
+keeps the HTML as that asset. That happened on 2026-10-20: eight new chunks
+served HTML until production was rolled back. Compare new assets only after the
+deploy, or on the deployment's own `*.pages.dev` URL. A poisoned name must never
+be referenced again; change the source so the chunk gets a new name.
+
 After production deployment, verify that `https://zerone.ai/#authority`
 opens its fold and renders the source-only status, three target pillars, `1/7`, `0/24`, `0/14`,
 and `NO-GO` as selectable text. Fetch

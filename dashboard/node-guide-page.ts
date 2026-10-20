@@ -84,7 +84,7 @@ export function nodeGuidePage(profile: NodeGuideProfile): string {
       </div>
       <aside class="scope-card" aria-label="Choose your network">
         <div class="scope-row"><span class="scope-label">On your computer</span><strong>${escape(local.chainId)}</strong><p>A fresh local chain with disposable keys and test funds. You control the process and its files.</p></div>
-        <div class="scope-row"><span class="scope-label">Existing public network</span><strong>${escape(live.chainId)}</strong><p>${observer ? "Read public records. Validator joining remains closed." : "Public records are available to read. A supported live replica installation and validator joining are not open."}</p></div>
+        <div class="scope-row scope-row-live"><span class="scope-label">Existing public network</span><strong>${escape(live.chainId)}</strong><p>${observer ? "Read public records. Validator joining remains closed." : "Public records are available to read. A supported live replica installation and validator joining are not open."}</p></div>
         <div class="scope-row"><span class="scope-label">Separate shared development</span><strong>${escape(development.chainId)}</strong><p>${escape(development.status)}</p><a href="#development">Read the development lane ↓</a></div>
         <div class="scope-row"><span class="scope-label">Closed beta · our home network</span><strong>${escape(beta.chainIdPattern)}</strong><p>Invited Apple silicon Macs on our home network run a valueless chain together.</p><a href="#beta">Read the closed beta ↓</a></div><p class="scope-footnote">These are separate networks. The local sandbox does not connect to zerone-1, and a closed-beta chain connects only its invited Macs.</p>
       </aside>

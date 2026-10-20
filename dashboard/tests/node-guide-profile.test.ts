@@ -212,7 +212,7 @@ describe("closed-beta private network lane", () => {
     assert.ok(order.every((index) => index > 0));
     assert.deepEqual([...order].sort((a, b) => a - b), order);
     assert.match(html, /<a href="#beta">Closed beta<\/a>/u);
-    assert.equal([...html.matchAll(/class="scope-row"/gu)].length, 4);
+    assert.equal([...html.matchAll(/class="scope-row[ "]/gu)].length, 4);
     assert.equal([...html.matchAll(/class="roadmap-stage"/gu)].length, buildNodeGuideProfile(inputs).privateNetwork.roadmap.length);
     assert.match(html, /The zerone-core repository is private/u);
     assert.doesNotMatch(html, /<form\b|\sonclick=|\sstyle=/u);
