@@ -683,6 +683,13 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
 	if gs.NextSeatElectionNumber > 0 {
 		k.SetNextSeatElectionID(ctx, gs.NextSeatElectionNumber)
 	}
+
+	// Only an explicit true writes the marker; absence keeps legacy semantics.
+	if gs.SeatRunoffOrderingEnabled {
+		if err := k.EnableSeatRunoffOrdering(ctx); err != nil {
+			panic("invalid governance genesis: " + err.Error())
+		}
+	}
 }
 
 // ExportGenesis exports the module's current state as a genesis state.
@@ -710,6 +717,11 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 		return false
 	})
 
+	seatRunoffOrdering, err := k.SeatRunoffOrderingEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
+
 	return &types.GenesisState{
 		AccountingSafetyEnabled: k.AccountingSafetyEnabled(ctx),
 		Params:                  params,
@@ -731,5 +743,6 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 			}
 			return hold
 		}(),
+		SeatRunoffOrderingEnabled: seatRunoffOrdering,
 	}
 }

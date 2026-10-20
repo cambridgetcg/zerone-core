@@ -73,6 +73,8 @@ func DefaultGenesis() *GenesisState {
 	return &GenesisState{
 		Params: &p,
 		Status: string(StatusNormal),
+		// A new chain starts with the consensus-repairs-v1 selection on.
+		HaltReasonScopingEnabled: true,
 	}
 }
 
