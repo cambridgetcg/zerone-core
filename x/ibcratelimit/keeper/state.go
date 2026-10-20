@@ -21,7 +21,16 @@ func rateLimitKey(channelID, denom string) []byte {
 	return key
 }
 
-func (k Keeper) SetRateLimit(ctx context.Context, rl *types.RateLimit) {
+// SetRateLimitForActivation takes the marker decision read once by the entry point. When on,
+// installation or a byte-for-byte change to MaxSend, MaxRecv or WindowBlocks
+// advances the retained generation; counters/window starts never do. Numeric
+// spelling changes ("100" -> "0100") intentionally invalidate old receipts.
+// A future MsgUpdateRateLimit must preserve this policy and review its gas.
+func (k Keeper) SetRateLimitForActivation(ctx context.Context, refundIdentity bool, rl *types.RateLimit) {
+	if !refundIdentity {
+		k.SetRateLimitLegacy(ctx, rl)
+		return
+	}
 	kvStore := k.storeService.OpenKVStore(ctx)
 	key := rateLimitKey(rl.ChannelId, rl.Denom)
 	bz, err := json.Marshal(rl)
@@ -95,6 +104,8 @@ func packetFlowKey(channelID string, sequence uint64) []byte {
 	return key
 }
 
+// SetPacketFlow writes the pre-activation shape, without charge identity.
+// Deprecated: legacy dispatch/tests only; activated sends use RecordPacketCharge.
 func (k Keeper) SetPacketFlow(ctx context.Context, flow *types.PacketFlow) {
 	kvStore := k.storeService.OpenKVStore(ctx)
 	key := packetFlowKey(flow.ChannelId, flow.Sequence)
@@ -119,7 +130,11 @@ func (k Keeper) GetPacketFlow(ctx context.Context, channelID string, sequence ui
 	return &flow, true
 }
 
-func (k Keeper) DeletePacketFlow(ctx context.Context, channelID string, sequence uint64) {
+func (k Keeper) DeletePacketFlowForActivation(ctx context.Context, refundIdentity bool, channelID string, sequence uint64) {
+	if !refundIdentity {
+		k.DeletePacketFlowLegacy(ctx, channelID, sequence)
+		return
+	}
 	kvStore := k.storeService.OpenKVStore(ctx)
 	// A failed cleanup must abort the caller's cache, not leave a reusable
 	// receipt after a successful reversal.

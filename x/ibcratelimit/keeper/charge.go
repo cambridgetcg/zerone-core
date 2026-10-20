@@ -13,9 +13,9 @@ import (
 	"github.com/zerone-chain/zerone/x/ibcratelimit/types"
 )
 
-// Charge identity is a consensus-changing rule with no stored activation gate
-// in this module. Deploy it only via a scheduled binary swap at an agreed
-// upgrade height, retaining the existing store; never as a rolling update.
+// Charge identity is selected only by RefundIdentityEnabled. The entry point
+// reads that marker once; these repair helpers never read it. The named
+// consensus-repairs-v1 carrier owns activation and the version bump.
 //
 // SendCharge is an opaque receipt for a successful quota debit. A nil receipt
 // means no debit occurred. Its identity is captured before the packet is sent.
@@ -48,17 +48,27 @@ func ruleGenerationKey(channelID, denom string) []byte {
 }
 
 func (k Keeper) ruleGeneration(ctx context.Context, channelID, denom string) uint64 {
+	generation, err := k.readRuleGeneration(ctx, channelID, denom)
+	if err != nil {
+		panic(err)
+	}
+	return generation
+}
+
+// Refunds skip unusable limiter metadata; charges and installs still fail
+// closed through ruleGeneration. Missing legacy keys are valid generation 0.
+func (k Keeper) readRuleGeneration(ctx context.Context, channelID, denom string) (uint64, error) {
 	bz, err := k.storeService.OpenKVStore(ctx).Get(ruleGenerationKey(channelID, denom))
 	if err != nil {
-		panic(fmt.Sprintf("failed to read rule generation: %v", err))
+		return 0, fmt.Errorf("failed to read rule generation: %w", err)
 	}
 	if bz == nil {
-		return 0
+		return 0, nil
 	}
 	if len(bz) != 8 {
-		panic("invalid rule generation encoding")
+		return 0, fmt.Errorf("invalid rule generation encoding")
 	}
-	return binary.BigEndian.Uint64(bz)
+	return binary.BigEndian.Uint64(bz), nil
 }
 
 func (k Keeper) advanceRuleGeneration(ctx context.Context, channelID, denom string) {
@@ -100,7 +110,11 @@ func (k Keeper) ReverseSendCharge(ctx context.Context, charge *SendCharge) {
 		return
 	}
 	rl, found := k.GetRateLimit(ctx, charge.channelID, charge.denom)
-	if !found || rl.WindowStart != charge.windowStart || k.ruleGeneration(ctx, charge.channelID, charge.denom) != charge.ruleGeneration {
+	if !found || rl.WindowStart != charge.windowStart {
+		return
+	}
+	generation, err := k.readRuleGeneration(ctx, charge.channelID, charge.denom)
+	if err != nil || generation != charge.ruleGeneration {
 		return
 	}
 	height := sdk.UnwrapSDKContext(ctx).BlockHeight()
@@ -113,7 +127,7 @@ func (k Keeper) ReverseSendCharge(ctx context.Context, charge *SendCharge) {
 	if !ok || amount.Sign() <= 0 {
 		return
 	}
-	k.ReverseSendQuota(ctx, charge.channelID, charge.denom, amount)
+	k.reverseSendQuota(ctx, charge.channelID, charge.denom, amount)
 }
 
 // ReversePacketFlow checks persisted identity before adjusting quota. Records

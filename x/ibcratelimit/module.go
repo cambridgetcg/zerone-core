@@ -111,7 +111,11 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 func (AppModule) ConsensusVersion() uint64 { return 1 }
 
 func (am AppModule) BeginBlock(ctx context.Context) error {
-	am.keeper.ResetExpiredWindows(ctx)
+	refundIdentity, err := am.keeper.RefundIdentityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	am.keeper.ResetExpiredWindowsForActivation(ctx, refundIdentity)
 	return nil
 }
 

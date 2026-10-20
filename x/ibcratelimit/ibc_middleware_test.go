@@ -68,6 +68,10 @@ type middlewareFixture struct {
 }
 
 func newMiddlewareFixture(t *testing.T) *middlewareFixture {
+	return newMiddlewareFixtureWithActivation(t, true)
+}
+
+func newMiddlewareFixtureWithActivation(t *testing.T, enabled bool) *middlewareFixture {
 	t.Helper()
 	key := storetypes.NewKVStoreKey(types.StoreKey)
 	db := dbm.NewMemDB()
@@ -79,6 +83,12 @@ func newMiddlewareFixture(t *testing.T) *middlewareFixture {
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 	k := keeper.NewKeeper(runtime.NewKVStoreService(key), cdc, "authority")
 	ctx := sdk.NewContext(state, cmtproto.Header{Height: 100}, false, log.NewNopLogger())
+	genesis := types.DefaultGenesis()
+	genesis.RefundIdentityEnabled = false
+	k.InitGenesis(ctx, genesis)
+	if enabled {
+		require.NoError(t, k.EnableRefundIdentity(ctx))
+	}
 	sender, app := &packetSender{}, &packetReceiver{}
 	return &middlewareFixture{k, ctx, ibcratelimit.NewIBCMiddleware(app, sender, k), sender, app}
 }
@@ -221,9 +231,9 @@ func TestRefundPreviousWindowPreservesNewUsage(t *testing.T) {
 				f.ctx = f.ctx.WithBlockHeight(110)
 				switch reset {
 				case "begin_block":
-					f.keeper.ResetExpiredWindows(f.ctx)
+					f.keeper.ResetExpiredWindowsForActivation(f.ctx, true)
 				case "receive":
-					require.NoError(t, f.keeper.CheckAndUpdateRecvQuota(f.ctx, "channel-0", "uzrn", big.NewInt(1)))
+					require.NoError(t, f.keeper.CheckAndUpdateRecvQuotaForActivation(f.ctx, true, "channel-0", "uzrn", big.NewInt(1)))
 				}
 				f.mustSend(t, "100")
 				f.refund(t, mode, old)
