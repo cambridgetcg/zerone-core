@@ -19,6 +19,15 @@ import (
 
 const repairsMarkersChainID = "zerone-consensus-repairs-v1-markers"
 
+// Synthetic pre-carrier state, not an accepted fresh-genesis selection. The
+// owner module tests separately pin false DefaultGenesis and legacy parity.
+func seedAbsentRepairsMarkers(t *testing.T, app *zeroneapp.ZeroneApp, ctx sdk.Context) {
+	t.Helper()
+	for store, key := range map[string]byte{"zerone_gov": 0x18, "knowledge": 0x90, "capture_defense": 0x08, "qualification": 0x40, "capture_challenge": 0x05, "vesting_rewards": 0x0c, "zerone_ontology": 0x06, "emergency": 0x14, "substrate_bridge": 0x90, "zerone_ibcrl": 0x04} {
+		ctx.KVStore(app.GetStoreKeyForTests(store)).Delete([]byte{key})
+	}
+}
+
 func repairsMarkersApp(t *testing.T) *zeroneapp.ZeroneApp {
 	t.Helper()
 	app := zeroneapp.NewZeroneApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true,
@@ -104,9 +113,8 @@ func requireExportedRepairsMarkers(t *testing.T, app *zeroneapp.ZeroneApp, want 
 
 // Through the real application (module manager, each module's own genesis
 // codec, InitChain, commit, export and a second InitChain), a native genesis
-// selects every consensus-repairs-v1 marker and an export carries it, while a
-// genesis written before the fields existed starts and stays with all of them
-// off. The binary alone selects nothing.
+// selects every consensus-repairs-v1 marker and an export carries it. A legacy
+// genesis is now refused rather than silently opting into the new semantics.
 func TestConsensusRepairsV1MarkersFollowGenesisThroughTheApp(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -124,6 +132,11 @@ func TestConsensusRepairsV1MarkersFollowGenesisThroughTheApp(t *testing.T) {
 			}
 			if tc.strip {
 				stripRepairsMarkerFields(t, source, genesis)
+				bz, err := json.Marshal(genesis)
+				require.NoError(t, err)
+				_, err = source.InitChain(&abci.RequestInitChain{ChainId: repairsMarkersChainID, InitialHeight: 1, AppStateBytes: bz, ConsensusParams: simtestutil.DefaultConsensusParams})
+				require.ErrorContains(t, err, "requires explicit")
+				return
 			}
 			initRepairsMarkersChain(t, source, genesis)
 			requireRepairsMarkers(t, source, source.NewContextLegacy(false, cmtproto.Header{ChainID: repairsMarkersChainID, Height: 1}), tc.want)
@@ -159,9 +172,9 @@ func TestConsensusRepairsV1RegistryEnablesEveryMarker(t *testing.T) {
 	}, listed)
 
 	genesis := genesisStateWithValSet(t, app, app.DefaultGenesis())
-	stripRepairsMarkerFields(t, app, genesis)
 	initRepairsMarkersChain(t, app, genesis)
 	ctx := app.NewContextLegacy(false, cmtproto.Header{ChainID: repairsMarkersChainID, Height: 1})
+	seedAbsentRepairsMarkers(t, app, ctx)
 	requireRepairsMarkers(t, app, ctx, false)
 	for range 2 {
 		for _, m := range app.ConsensusRepairsV1Markers() {
@@ -183,9 +196,9 @@ func TestConsensusRepairsV1RegistryEnablesEveryMarker(t *testing.T) {
 func TestConsensusRepairsV1RegistryEntriesAreIndependentAndGasFree(t *testing.T) {
 	app := repairsMarkersApp(t)
 	genesis := genesisStateWithValSet(t, app, app.DefaultGenesis())
-	stripRepairsMarkerFields(t, app, genesis)
 	initRepairsMarkersChain(t, app, genesis)
 	ctx := app.NewContextLegacy(false, cmtproto.Header{ChainID: repairsMarkersChainID, Height: 1})
+	seedAbsentRepairsMarkers(t, app, ctx)
 	markers := app.ConsensusRepairsV1Markers()
 
 	requireGasFree := func(ctx sdk.Context, m zeroneapp.ActivationMarker, want bool) {

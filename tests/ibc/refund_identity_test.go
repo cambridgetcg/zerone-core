@@ -1,8 +1,6 @@
 package ibc_test
 
 import (
-	"encoding/json"
-
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	transfertypes "github.com/cosmos/ibc-go/v10/modules/apps/transfer/types"
@@ -17,25 +15,15 @@ import (
 // callbacks across an in-place marker transition with a genuinely charged
 // legacy receipt, rather than only a synthetic middleware callback.
 func (s *IBCTestSuite) TestLegacyRefundAfterIdentityActivation() {
-	previousInit := ibctesting.DefaultTestingAppInit
-	ibctesting.DefaultTestingAppInit = func() (ibctesting.TestingApp, map[string]json.RawMessage) {
-		app, genesis := previousInit()
-		legacy := ibcratelimittypes.DefaultGenesis()
-		legacy.RefundIdentityEnabled = false
-		raw, err := json.Marshal(legacy)
-		s.Require().NoError(err)
-		genesis[ibcratelimittypes.ModuleName] = raw
-		return app, genesis
-	}
-	defer func() { ibctesting.DefaultTestingAppInit = previousInit }()
-
 	for _, mode := range []string{"timeout", "error_ack"} {
 		s.Run(mode, func() {
-			// Rebuild only this test's ephemeral chains with explicit marker-off
-			// DefaultGenesis; never clear an already-enabled production marker.
+			// Fresh genesis is now strictly on. Seed only these ephemeral stores
+			// with absent legacy markers; this is not a production marker writer.
 			s.SetupTest()
 			appA, appB := GetZeroneApp(s.chainA), GetZeroneApp(s.chainB)
 			ctxA, ctxB := s.chainA.GetContext(), s.chainB.GetContext()
+			ctxA.KVStore(appA.GetStoreKeyForTests(ibcratelimittypes.StoreKey)).Delete(ibcratelimittypes.RefundIdentityEnabledKey)
+			ctxB.KVStore(appB.GetStoreKeyForTests(ibcratelimittypes.StoreKey)).Delete(ibcratelimittypes.RefundIdentityEnabledKey)
 			enabled, err := appA.IBCRateLimitKeeper.RefundIdentityEnabled(ctxA)
 			s.Require().NoError(err)
 			s.Require().False(enabled)

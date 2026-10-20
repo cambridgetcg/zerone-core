@@ -106,6 +106,9 @@ func (app *ZeroneApp) runMigrationsForPlan(
 	if err := requireCompletedPreSDKTransitionVersions(plan.Name, fromVM); err != nil {
 		return nil, err
 	}
+	if err := requireConsensusRepairsTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
+		return nil, err
+	}
 	if err := requireAccountingTransitionOwner(plan.Name, fromVM, app.ModuleManager.GetVersionMap()); err != nil {
 		return nil, err
 	}
@@ -152,6 +155,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 	app.registerClaimRecordsUpgrade()
 	app.registerFundSettlementUpgrade()
 	app.registerClaimIntegrityUpgrade()
+	app.registerConsensusRepairsUpgrade()
 	// v1.0.0-testnet — initial testnet launch.
 	// Runs all module migrations from ConsensusVersion 1 → 2.
 	app.UpgradeKeeper.SetUpgradeHandler(

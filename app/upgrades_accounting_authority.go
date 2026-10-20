@@ -496,7 +496,7 @@ func accountingVersions(vm module.VersionMap) (accountingModuleVersions, error) 
 	staking, hasStaking := vm[zeronestakingtypes.ModuleName]
 	gov, hasGov := vm[zeronegovtypes.ModuleName]
 	pair := accountingModuleVersions{staking: staking, gov: gov}
-	if !hasStaking || !hasGov || (pair != accountingLegacyVersions && pair != accountingTargetVersions) {
+	if !hasStaking || !hasGov || (pair != accountingLegacyVersions && pair != accountingTargetVersions && pair != (accountingModuleVersions{staking: 2, gov: 4})) {
 		return pair, fmt.Errorf("accounting authority requires one complete known version pair: zerone_staking=%d (present=%t), zerone_gov=%d (present=%t)", staking, hasStaking, gov, hasGov)
 	}
 	return pair, nil
@@ -505,6 +505,9 @@ func accountingVersions(vm module.VersionMap) (accountingModuleVersions, error) 
 // requireAccountingTransitionOwner guards both historical broad migrations and
 // H3's direct migration call. A frozen H3 source map alone cannot pin its target.
 func requireAccountingTransitionOwner(planName string, fromVM, targetVM module.VersionMap) error {
+	if fromVM[zeronegovtypes.ModuleName] == 4 || targetVM[zeronegovtypes.ModuleName] == 4 {
+		return requireConsensusRepairsTransitionOwner(planName, fromVM, targetVM)
+	}
 	from, err := accountingVersions(fromVM)
 	if err != nil {
 		return fmt.Errorf("upgrade %q source: %w", planName, err)

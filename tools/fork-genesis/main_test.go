@@ -88,6 +88,24 @@ func newFixture(t *testing.T) fixture {
 		t.Fatal(err)
 	}
 	appState["accounting_authority"] = json.RawMessage(`{"schema":"zerone.accounting-authority/genesis-v1","origin":"native"}`)
+	// Synthetic current-native selection only. The fork compiler must preserve
+	// these explicit fields, never infer them for an old production export.
+	defaults := zeroneapp.ModuleBasics.DefaultGenesis(encodingConfig.Codec)
+	for _, marker := range (&zeroneapp.ZeroneApp{}).ConsensusRepairsV1Markers() {
+		raw := appState[marker.Module]
+		if len(raw) == 0 {
+			raw = defaults[marker.Module]
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &fields); err != nil {
+			t.Fatal(err)
+		}
+		fields[marker.Name] = json.RawMessage(`true`)
+		appState[marker.Module], err = json.Marshal(fields)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	oldPrivate := cmted25519.GenPrivKeyFromSecret([]byte("fork-genesis-old"))
 	newPrivate := cmted25519.GenPrivKeyFromSecret([]byte("fork-genesis-new"))

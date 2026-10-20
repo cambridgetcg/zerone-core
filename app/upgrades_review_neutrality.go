@@ -28,9 +28,12 @@ func reviewNeutralityTargetVersionMap() module.VersionMap {
 // Earlier named releases retain their original target. No broad migration may
 // append knowledge 8->9, skip its predecessor, or downgrade current records.
 func requireReviewNeutralityTransitionOwner(name string, fromVM, targetVM module.VersionMap) error {
+	if fromVM["knowledge"] == 13 || targetVM["knowledge"] == 13 {
+		return requireConsensusRepairsTransitionOwner(name, fromVM, targetVM)
+	}
 	from, fromOK := fromVM["knowledge"]
 	target, targetOK := targetVM["knowledge"]
-	if !fromOK || !targetOK || from < 6 || from > 12 || target < 6 || target > 12 {
+	if !fromOK || !targetOK || from < 6 || from > 13 || target < 6 || target > 13 {
 		return fmt.Errorf("review neutrality requires complete known knowledge versions")
 	}
 	if (from == 9 && target == 10) || (from == 10 && target == 11) || (from == 11 && target == 12) {

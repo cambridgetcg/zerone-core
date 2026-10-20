@@ -29,6 +29,7 @@ type archivedFundSettlementKnowledgeModule struct{ knowledgemodule.AppModule }
 
 func (archivedFundSettlementKnowledgeModule) ConsensusVersion() uint64 { return 11 }
 func freezeFundSettlementCompiledTarget(app *ZeroneApp) {
+	freezeConsensusRepairsSiblingTargets(app)
 	app.ModuleManager.Modules["knowledge"] = archivedFundSettlementKnowledgeModule{app.ModuleManager.Modules["knowledge"].(knowledgemodule.AppModule)}
 }
 func newFrozenFundSettlementFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {

@@ -265,10 +265,18 @@ type archivedH3AccountingModule struct {
 
 func (m archivedH3AccountingModule) ConsensusVersion() uint64 { return m.version }
 
+// No later carrier migration may ride the historical release fixtures.
+func pinArchivedRepairsSiblings(application *zeroneapp.ZeroneApp) {
+	for name, version := range map[string]uint64{"alignment": 1, "capture_challenge": 1, "capture_defense": 1, "qualification": 1, "emergency": 2, "ibcratelimit": 1, "substrate_bridge": 1, "zerone_ontology": 1, "zerone_gov": 3} {
+		application.ModuleManager.Modules[name] = archivedH3AccountingModule{application.ModuleManager.Modules[name].(appmodule.AppModule), version}
+	}
+}
+
 // Historical named-plan fixtures retain the preceding accounting release's
 // targets; production startup and migration guards continue to reject using the
 // current candidate to append survival semantics to those old plans.
 func pinArchivedAccountingTargets(application *zeroneapp.ZeroneApp) {
+	pinArchivedRepairsSiblings(application)
 	for name, version := range map[string]uint64{"knowledge": 6, "vesting_rewards": 2} {
 		application.ModuleManager.Modules[name] = archivedH3AccountingModule{application.ModuleManager.Modules[name].(appmodule.AppModule), version}
 	}
@@ -276,6 +284,7 @@ func pinArchivedAccountingTargets(application *zeroneapp.ZeroneApp) {
 
 func seedPreSDKTransitionLineage(t *testing.T, h *TestHarness) {
 	t.Helper()
+	pinArchivedRepairsSiblings(h.App)
 	for name, version := range map[string]uint64{"zerone_staking": 1, "zerone_gov": 2, "knowledge": 6, "vesting_rewards": 2} {
 		h.App.ModuleManager.Modules[name] = archivedH3AccountingModule{h.App.ModuleManager.Modules[name].(appmodule.AppModule), version}
 	}
@@ -618,7 +627,7 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 		switch m.ModuleName {
 		case "knowledge":
 			sawKnowledge = true
-			require.Equal(t, uint64(12), m.ConsensusVersion,
+			require.Equal(t, uint64(13), m.ConsensusVersion,
 				"knowledge module advertises its current ConsensusVersion")
 		case liquiditypooltypes.ModuleName:
 			sawLiquidityPool = true
@@ -626,8 +635,8 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 				"liquiditypool module advertises the LP-only fee ConsensusVersion")
 		case vestingrewardstypes.ModuleName:
 			sawVestingRewards = true
-			require.Equal(t, uint64(3), m.ConsensusVersion,
-				"vesting_rewards advertises the atomic knowledge handoff ConsensusVersion")
+			require.Equal(t, uint64(4), m.ConsensusVersion,
+				"vesting_rewards advertises the consensus repairs ConsensusVersion")
 		}
 	}
 	require.True(t, sawKnowledge, "knowledge module appears in report")

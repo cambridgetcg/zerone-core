@@ -39,6 +39,7 @@ func newAccountingAuthorityFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.D
 
 func accountingLegacyFixture(t *testing.T, app *ZeroneApp, ctx sdk.Context) module.VersionMap {
 	t.Helper()
+	freezeConsensusRepairsSiblingTargets(app)
 	// Exercise the original accounting binary target, without appending the
 	// later survival handoff delta to its frozen named release.
 	for name, version := range map[string]uint64{"knowledge": 6, "vesting_rewards": 2} {
@@ -59,7 +60,7 @@ func TestAccountingAuthorityNativeGenesisAndRestart(t *testing.T) {
 	require.True(t, app.UpgradeKeeper.HasHandler(UpgradeNameAccountingAuthorityV1))
 	require.Contains(t, app.KnownUpgradeNames(), UpgradeNameAccountingAuthorityV1)
 	require.Equal(t, uint64(2), app.CurrentModuleVersionMap()[stakingtypes.ModuleName])
-	require.Equal(t, uint64(3), app.CurrentModuleVersionMap()[govtypes.ModuleName])
+	require.Equal(t, uint64(4), app.CurrentModuleVersionMap()[govtypes.ModuleName])
 	app.CommitMultiStore().Commit()
 	require.NoError(t, app.ValidateAccountingAuthorityStartup())
 	// Exercise the real loadLatest constructor, including the initially empty DB
@@ -103,7 +104,7 @@ func TestAccountingAuthorityStartupRefusesLegacyMixedAndForgedState(t *testing.T
 		}},
 		{"unknown", func(app *ZeroneApp, ctx sdk.Context) {
 			vm := app.CurrentModuleVersionMap()
-			vm[govtypes.ModuleName] = 4
+			vm[govtypes.ModuleName] = 5
 			require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, vm))
 		}},
 		{"missing version", func(app *ZeroneApp, ctx sdk.Context) {
@@ -133,6 +134,7 @@ func TestAccountingAuthorityStartupRefusesLegacyMixedAndForgedState(t *testing.T
 
 func TestAccountingAuthorityOwnsEveryMigrationDelta(t *testing.T) {
 	app, _, _ := newAccountingAuthorityFixture(t)
+	freezeConsensusRepairsSiblingTargets(app)
 	target := app.CurrentModuleVersionMap()
 	legacy := app.CurrentModuleVersionMap()
 	legacy[stakingtypes.ModuleName], legacy[govtypes.ModuleName] = 1, 2

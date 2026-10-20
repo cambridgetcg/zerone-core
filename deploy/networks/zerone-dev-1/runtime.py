@@ -33,6 +33,17 @@ VALIDATOR_BOND = 1_000_000_000_000
 FAUCET_ALLOCATION = 1_000_000_000_000
 UPGRADE_NAME = "knowledge-fund-settlement-v1"
 UPGRADE_DIRECTORY = "fund-settlement-upgrade"
+UPGRADE_VERSIONS = {
+    UPGRADE_NAME: (10, 11),
+    "knowledge-claim-integrity-v1": (11, 12),
+    "consensus-repairs-v1": (12, 13),
+}
+CONSENSUS_REPAIRS_VERSIONS = {
+    "zerone_gov": 4, "knowledge": 13, "capture_defense": 2,
+    "qualification": 2, "capture_challenge": 2, "vesting_rewards": 4,
+    "alignment": 2, "zerone_ontology": 2, "emergency": 3,
+    "substrate_bridge": 2, "ibcratelimit": 2, "home": 1, "zerone_staking": 2,
+}
 
 
 class RuntimeError(Exception):
@@ -112,12 +123,12 @@ def validate_upgrade_packet(packet):
     hash_pin(packet["genesis_sha256"])
     hash_pin(packet["predecessor_descriptor_sha256"])
     exact_fields(packet["plan"], ("name", "height", "info"), "upgrade plan")
-    if packet["plan"]["name"] != UPGRADE_NAME or packet["plan"]["info"] != "":
-        raise RuntimeError("Only the named fund-settlement upgrade with empty info is supported.")
+    if packet["plan"]["name"] not in UPGRADE_VERSIONS or packet["plan"]["info"] != "":
+        raise RuntimeError("Only a named supported successor with empty info is supported.")
     height = integer(packet["plan"]["height"], "upgrade height", 2)
     if type(packet["plan"]["height"]) is not str or height > (1 << 63) - 1:
         raise RuntimeError("Upgrade height must be a canonical positive int64 string.")
-    for name, version in (("predecessor", 10), ("target", 11)):
+    for name, version in zip(("predecessor", "target"), UPGRADE_VERSIONS[packet["plan"]["name"]]):
         release = packet[name]
         exact_fields(release, ("knowledge_version", "source_commit", "binaries"), name)
         if type(release["knowledge_version"]) is not int or release["knowledge_version"] != version:
@@ -464,7 +475,7 @@ def load_upgrade(home, external_pin):
 def matching_upgrade_plan(value, packet):
     if not isinstance(value, dict) or not {"name", "height"} <= set(value) or set(value) - {"name", "height", "info", "time", "upgraded_client_state"}:
         raise RuntimeError("Actual upgrade plan has an unsupported shape.")
-    if value["name"] != UPGRADE_NAME or integer(value["height"], "actual upgrade height", 2) != int(packet["plan"]["height"]) or value.get("info", "") != "" or value.get("time") not in (None, "", "0001-01-01T00:00:00Z") or value.get("upgraded_client_state") is not None:
+    if value["name"] != packet["plan"]["name"] or integer(value["height"], "actual upgrade height", 2) != int(packet["plan"]["height"]) or value.get("info", "") != "" or value.get("time") not in (None, "", "0001-01-01T00:00:00Z") or value.get("upgraded_client_state") is not None:
         raise RuntimeError("Actual upgrade plan differs from the pinned name, height or empty metadata.")
 
 
@@ -490,9 +501,11 @@ def verify_applied_upgrade(binary, home, manifest, packet):
         if not isinstance(row, dict) or not isinstance(row.get("name"), str) or not row["name"] or row["name"] in mapped:
             raise RuntimeError("Applied upgrade has duplicate or malformed module versions.")
         mapped[row["name"]] = integer(row.get("version", "0"), "module version", 0)
-    applied = upgrade_query(binary, home, manifest, "applied", UPGRADE_NAME)
-    if mapped.get("knowledge") != 11 or integer(applied.get("height"), "applied upgrade height", 1) != int(packet["plan"]["height"]):
-        raise RuntimeError("Target has not applied the exact knowledge 10-to-11 upgrade.")
+    applied = upgrade_query(binary, home, manifest, "applied", packet["plan"]["name"])
+    if mapped.get("knowledge") != packet["target"]["knowledge_version"] or integer(applied.get("height"), "applied upgrade height", 1) != int(packet["plan"]["height"]):
+        raise RuntimeError("Target has not applied the exact pinned successor upgrade.")
+    if packet["plan"]["name"] == "consensus-repairs-v1" and any(mapped.get(name) != version for name, version in CONSENSUS_REPAIRS_VERSIONS.items()):
+        raise RuntimeError("Target has an incomplete or mixed consensus-repairs version map.")
     return {"module_versions": mapped, "applied_height": str(applied["height"])}
 
 

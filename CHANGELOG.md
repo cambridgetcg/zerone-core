@@ -3,6 +3,22 @@
 Notable source changes are recorded here. Network activation and package
 publication are separate events and are stated explicitly when they occur.
 
+## Draft source — consensus-repairs-v1 (not scheduled)
+
+- Adds the all-or-nothing successor to claim-integrity: eleven guarded version
+  steps, ten explicit markers, bounded read-only censuses, exact store-diff
+  verification and a marker-readback receipt. No legacy balance is redistributed.
+- Carries deterministic seat-runoff ordering, reformulation holds, integer
+  capture variance, single-refund qualification, challenge backing, alignment
+  input selection, scoped halt evidence, qualification floors and IBC refund
+  identity. `home` remains version 1; endorsement gating is not included.
+- Fresh genesis must explicitly select all ten repairs. An offline copied-DB
+  census supports re-checks before a height; dev-1 tooling recognizes knowledge
+  12/13 without scheduling an upgrade.
+- This remains a blocked deployment candidate: empty-registry neutral pacing
+  is absent from the reviewed stack and is a census blocker, not silently
+  treated as healthy or critical. See [limits and rehearsal](docs/consensus-repairs-v1.md).
+
 ## Source — 2026-09-13 claim fund settlement
 
 - The separate `knowledge-fund-settlement-v1` 10→11 upgrade records prospective

@@ -14,8 +14,8 @@ import (
 )
 
 // Exercise the installed capture_defense -> capture_challenge adapter and the
-// real application BeginBlock order. The two contexts select their marker in
-// genesis; no upgrade handler or live chain is simulated by this fixture.
+// real application BeginBlock order. The off case seeds synthetic legacy state;
+// post-carrier fresh genesis requires every marker on.
 func TestCaptureChallengeAccountingAutomaticTimingThroughApp(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		t.Run(fmt.Sprint(enabled), func(t *testing.T) {
@@ -24,9 +24,7 @@ func TestCaptureChallengeAccountingAutomaticTimingThroughApp(t *testing.T) {
 			var challengeGenesis capturechallengetypes.GenesisState
 			// This module owns an encoding/json genesis path, not proto JSON.
 			require.NoError(t, json.Unmarshal(genesis[capturechallengetypes.ModuleName], &challengeGenesis))
-			// Explicit opt-out is essential when rehearsing pre-carrier behavior
-			// using native DefaultGenesis, which otherwise selects every repair.
-			challengeGenesis.ChallengeAccountingEnabled = enabled
+			challengeGenesis.ChallengeAccountingEnabled = true
 			challengeJSON, err := json.Marshal(&challengeGenesis)
 			require.NoError(t, err)
 			genesis[capturechallengetypes.ModuleName] = challengeJSON
@@ -40,6 +38,9 @@ func TestCaptureChallengeAccountingAutomaticTimingThroughApp(t *testing.T) {
 			_, err = app.Commit()
 			require.NoError(t, err)
 			ctx := app.NewContextLegacy(true, cmtproto.Header{ChainID: repairsMarkersChainID, Height: 1000})
+			if !enabled {
+				ctx.KVStore(app.GetStoreKeyForTests(capturechallengetypes.StoreKey)).Delete(capturechallengetypes.ChallengeAccountingEnabledKey)
+			}
 			selected, err := app.CaptureChallengeKeeper.ChallengeAccountingEnabled(ctx)
 			require.NoError(t, err)
 			require.Equal(t, enabled, selected)
