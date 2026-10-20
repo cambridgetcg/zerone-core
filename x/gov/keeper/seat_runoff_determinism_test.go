@@ -37,7 +37,7 @@ import (
 // staking observations/history. It does not run signed transactions, the app
 // manager, FinalizeBlock/Commit, a node, or a live-chain replay.
 func TestSeatRunoffReplayDeterminism(t *testing.T) {
-	f := newSeatRunoffReplayFixture(t, []uint32{0, 1})
+	f := newSeatRunoffReplayFixture(t, []uint32{0, 1}, true)
 	before := seatRunoffStoreBytes(t, f.ctx, f.key)
 	const trials = 512
 	type outcome struct {
@@ -55,6 +55,13 @@ func TestSeatRunoffReplayDeterminism(t *testing.T) {
 		ids := f.checkRunoffs(t, ctx, [][2]uint64{{5, 6}, {7, 8}})
 		nextID := f.keeper.GetNextSeatElectionID(ctx)
 		after := seatRunoffStoreBytes(t, ctx, f.key)
+		if trial == 0 {
+			// The marker is the only added byte-level state relative to the
+			// PR #115 ascending-order golden; never rewrite election history.
+			withoutMarker, _ := ctx.CacheContext()
+			withoutMarker.KVStore(f.key).Delete(types.SeatRunoffOrderingEnabledKey)
+			require.Equal(t, "efd5abbee21b2e449748dc4dcf8ada3e62f1476065469c22b586a13f13821e6e", fmt.Sprintf("%x", sha256.Sum256(seatRunoffStoreBytes(t, withoutMarker, f.key))))
+		}
 		matched := false
 		for i := range outcomes {
 			if bytes.Equal(after, outcomes[i].state) {
@@ -76,8 +83,8 @@ func TestSeatRunoffReplayDeterminism(t *testing.T) {
 	t.Logf("identical-prestate trials=%d prestate_sha256=%x raw_state_outcomes=%d", trials, sha256.Sum256(before), len(outcomes))
 	for _, observed := range outcomes {
 		t.Logf("seat0=%v seat1=%v next_id=%d trials=%d raw_state_sha256=%x", observed.ids[0], observed.ids[1], observed.nextID, observed.count, sha256.Sum256(observed.state))
-		// Ascending-seat golden from the PR #115 forced-order control.
-		require.Equal(t, "efd5abbee21b2e449748dc4dcf8ada3e62f1476065469c22b586a13f13821e6e", fmt.Sprintf("%x", sha256.Sum256(observed.state)))
+		// Ascending-seat golden including the foundation's enabled marker.
+		require.Equal(t, "df85a7c9a7d219a3a45a4effffcdd0e1a92be78eec0ca618148d3c35b1eb1f83", fmt.Sprintf("%x", sha256.Sum256(observed.state)))
 	}
 	// Compare raw key/value bytes, not just event ordering or a Go map's
 	// presentation. The digest above is NOT an IAVL/AppHash.
@@ -87,7 +94,7 @@ func TestSeatRunoffReplayDeterminism(t *testing.T) {
 }
 
 func TestSeatRunoffReplayControls(t *testing.T) {
-	f := newSeatRunoffReplayFixture(t, []uint32{0, 1})
+	f := newSeatRunoffReplayFixture(t, []uint32{0, 1}, true)
 	before := seatRunoffStoreBytes(t, f.ctx, f.key)
 
 	t.Run("EndBlock_is_not_the_tally_hook", func(t *testing.T) {
@@ -146,7 +153,7 @@ func TestSeatRunoffReplayCanonicalSeatOrder(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := newSeatRunoffReplayFixture(t, tc.nominationOrder)
+			f := newSeatRunoffReplayFixture(t, tc.nominationOrder, true)
 			require.Equal(t, types.ResearchFundPhase_RESEARCH_FUND_PHASE_BALANCED, f.keeper.GetResearchFundPhase(f.ctx))
 			for seat, parents := range tc.wantParents {
 				require.Equal(t, parents, [2]uint64{f.originals[seat][0].ProposalId, f.originals[seat][1].ProposalId}, "fixture nomination order for seat %d", seat)
@@ -163,18 +170,33 @@ func TestSeatRunoffReplayCanonicalSeatOrder(t *testing.T) {
 }
 
 func TestSeatRunoffReplayObserverTalliesAllDueSeats(t *testing.T) {
-	f := newSeatRunoffReplayFixture(t, []uint32{0, 1})
+	f := newSeatRunoffReplayFixture(t, []uint32{2, 0, 1}, true)
 	ctx := f.replayContext()
-	// Both seats were admitted and voted in BALANCED. OBSERVER permits new
-	// nominations only for seat 0, but must not strand seat 1's due election.
+	// Exercise the real rollback, not just a phase-field edit. Continuing due
+	// elections after seat truncation is existing behavior, not a new policy.
+	f.keeper.ExecuteRollback(ctx)
 	state := f.keeper.GetResearchFundGovernanceState(ctx)
-	state.CurrentPhase = types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER
-	f.keeper.SetResearchFundGovernanceState(ctx, state)
+	require.Len(t, state.CommunitySeats, 1)
+	require.Len(t, state.SeatTermEndBlocks, 1)
+	require.Equal(t, uint64(ctx.BlockHeight())+types.RollbackCooldownBlocks, state.RollbackCooldownUntil)
 	require.Equal(t, types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER, f.keeper.GetResearchFundPhase(ctx))
 	require.NoError(t, f.module.BeginBlock(ctx))
-	ids := f.checkRunoffs(t, ctx, [][2]uint64{{5, 6}, {7, 8}})
+	ids := f.checkRunoffs(t, ctx, [][2]uint64{{7, 8}, {9, 10}, {11, 12}})
 	require.Equal(t, types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER, f.keeper.GetResearchFundPhase(ctx))
-	t.Logf("OBSERVER tally: seat0=%v seat1=%v next_id=%d", ids[0], ids[1], f.keeper.GetNextSeatElectionID(ctx))
+	t.Logf("OBSERVER tally: ids=%v next_id=%d", ids, f.keeper.GetNextSeatElectionID(ctx))
+}
+
+func TestSeatRunoffReplaySparseDueSeats(t *testing.T) {
+	f := newSeatRunoffReplayFixture(t, []uint32{2, 0, 1}, true)
+	ctx := f.replayContext()
+	for i, original := range f.originals[1] {
+		prop := proto.Clone(original).(*types.SeatElectionProposal)
+		prop.VotingEndBlock++ // seat 1 exists but is not yet due
+		f.keeper.SetSeatElection(ctx, prop)
+		f.originals[1][i] = prop
+	}
+	require.NoError(t, f.module.BeginBlock(ctx))
+	f.checkRunoffs(t, ctx, [][2]uint64{{7, 8}, {}, {9, 10}})
 }
 
 type seatRunoffReplayFixture struct {
@@ -186,7 +208,7 @@ type seatRunoffReplayFixture struct {
 }
 
 // nominationOrder is a permutation of the contiguous seat indices to exercise.
-func newSeatRunoffReplayFixture(t *testing.T, nominationOrder []uint32) seatRunoffReplayFixture {
+func newSeatRunoffReplayFixture(t *testing.T, nominationOrder []uint32, ordered bool) seatRunoffReplayFixture {
 	t.Helper()
 	require.NotEmpty(t, nominationOrder)
 	require.LessOrEqual(t, len(nominationOrder), 3)
@@ -206,6 +228,9 @@ func newSeatRunoffReplayFixture(t *testing.T, nominationOrder []uint32) seatRuno
 		ChainID: "seat-runoff-replay-test", Height: 100, Time: time.Unix(1700000000, 0).UTC(),
 	}, false, log.NewNopLogger())
 	k.SetParams(ctx, types.DefaultParams())
+	if ordered {
+		require.NoError(t, k.EnableSeatRunoffOrdering(ctx))
+	}
 	state := k.GetResearchFundGovernanceState(ctx)
 	// BALANCED permits three seats; OBSERVER would reject new nominations for
 	// seats 1 and 2. Tallying already-admitted elections is a separate contract.
@@ -277,15 +302,23 @@ func (f seatRunoffReplayFixture) checkRunoffs(t *testing.T, ctx sdk.Context, wan
 	t.Helper()
 	require.Len(t, wantIDs, len(f.originals))
 	firstID := uint64(2*len(f.originals) + 1)
-	nextID := firstID + uint64(2*len(f.originals))
-	require.Len(t, f.keeper.GetAllSeatElections(ctx), 4*len(f.originals))
+	dueSeats := 0
+	for _, ids := range wantIDs {
+		if ids != [2]uint64{} {
+			dueSeats++
+		}
+	}
+	nextID := firstID + uint64(2*dueSeats)
+	require.Len(t, f.keeper.GetAllSeatElections(ctx), 2*(len(f.originals)+dueSeats))
 	require.Equal(t, nextID, f.keeper.GetNextSeatElectionID(ctx))
-	for _, seat := range f.originals {
+	for seatIndex, seat := range f.originals {
 		for _, original := range seat {
 			got, found := f.keeper.GetSeatElection(ctx, original.ProposalId)
 			require.True(t, found)
 			expected := proto.Clone(original).(*types.SeatElectionProposal)
-			expected.Stage = types.SeatStageRunoff
+			if wantIDs[seatIndex] != [2]uint64{} {
+				expected.Stage = types.SeatStageRunoff
+			}
 			require.True(t, proto.Equal(expected, got), "original proposal %d changed beyond its stage", original.ProposalId)
 		}
 	}
@@ -320,7 +353,7 @@ func (f seatRunoffReplayFixture) checkRunoffs(t *testing.T, ctx sdk.Context, wan
 			runoffEvents = append(runoffEvents, event)
 		}
 	}
-	require.Len(t, runoffEvents, len(f.originals))
+	require.Len(t, runoffEvents, dueSeats)
 	for i, event := range runoffEvents {
 		seat := seatOrder[i]
 		require.Equal(t, sdk.NewEvent("zerone.gov.seat_election_runoff_created",

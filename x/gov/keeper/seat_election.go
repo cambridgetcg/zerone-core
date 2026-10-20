@@ -251,6 +251,12 @@ func (k Keeper) VoteSeatElection(ctx sdk.Context, msg *types.MsgVoteSeatElection
 // candidate with the highest yes_stake wins if they have a clear margin (>5%),
 // otherwise a runoff is triggered.
 func (k Keeper) TallySeatElections(ctx sdk.Context) {
+	ordered, err := k.SeatRunoffOrderingEnabled(ctx)
+	if err != nil {
+		// This void block hook cannot return an error. Never interpret a corrupt
+		// activation marker as permission to execute either consensus rule.
+		panic(err)
+	}
 	currentHeight := uint64(ctx.BlockHeight())
 	params := k.GetParams(ctx)
 
@@ -273,20 +279,7 @@ func (k Keeper) TallySeatElections(ctx sdk.Context) {
 		bySeat[prop.SeatIndex] = append(bySeat[prop.SeatIndex], prop)
 	}
 
-	// Ascending seat index is a NEW canonical consensus rule for the shared
-	// runoff ID counter. Historical unsorted map traversal most often followed
-	// first-appearance (lowest proposal ID) order, but guaranteed no order.
-	// This rule is ungated: ship only by a scheduled binary swap at an agreed
-	// upgrade height, not mixed-version execution or pre-upgrade replay.
-	// Tally every due seat even if the current phase no longer permits new
-	// nominations for its index.
-	seatIndices := make([]uint32, 0, len(bySeat))
-	for seatIndex := range bySeat {
-		seatIndices = append(seatIndices, seatIndex)
-	}
-	sort.Slice(seatIndices, func(i, j int) bool { return seatIndices[i] < seatIndices[j] })
-	for _, seatIndex := range seatIndices {
-		candidates := bySeat[seatIndex]
+	tallySeat := func(seatIndex uint32, candidates []*types.SeatElectionProposal) {
 		if len(candidates) == 1 {
 			// Single candidate: standard quorum + support check.
 			prop := candidates[0]
@@ -322,6 +315,25 @@ func (k Keeper) TallySeatElections(ctx sdk.Context) {
 			// Multiple candidates for same seat: rank by yes_stake with quorum filter.
 			k.resolveContestedSeat(ctx, seatIndex, candidates, currentHeight)
 		}
+	}
+
+	if !ordered {
+		// Preserve the pre-activation map traversal, including its lack of order.
+		for seatIndex, candidates := range bySeat {
+			tallySeat(seatIndex, candidates)
+		}
+		return
+	}
+
+	// With the marker on, ascending seat index is the canonical consensus
+	// order for the shared runoff ID counter and cross-seat tally events.
+	seatIndices := make([]uint32, 0, len(bySeat))
+	for seatIndex := range bySeat {
+		seatIndices = append(seatIndices, seatIndex)
+	}
+	sort.Slice(seatIndices, func(i, j int) bool { return seatIndices[i] < seatIndices[j] })
+	for _, seatIndex := range seatIndices {
+		tallySeat(seatIndex, bySeat[seatIndex])
 	}
 }
 
