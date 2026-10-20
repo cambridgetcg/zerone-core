@@ -2,14 +2,12 @@ package keeper
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/zerone-chain/zerone/internal/activation"
 	"github.com/zerone-chain/zerone/x/gov/types"
 )
 
@@ -241,10 +239,6 @@ func (k Keeper) BeginBlockPhaseTransition(ctx sdk.Context) {
 				return false
 			}
 			if err := k.validateScopedRollbackEvidence(ctx, state); err != nil {
-				if errors.Is(err, activation.ErrMarkerFault) {
-					// Convention (2b): propagate through the pinned void abci.go.
-					panic(err)
-				}
 				k.CancelPhaseTransition(ctx, meta, err.Error())
 				return false
 			}

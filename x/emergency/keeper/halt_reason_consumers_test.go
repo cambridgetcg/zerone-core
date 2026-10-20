@@ -1,17 +1,13 @@
 package keeper_test
 
 import (
-	"context"
-	"errors"
 	"fmt"
 	"testing"
 
+	errorsmod "cosmossdk.io/errors"
 	"github.com/stretchr/testify/require"
 
-	"github.com/zerone-chain/zerone/internal/activation"
-	"github.com/zerone-chain/zerone/x/emergency/keeper"
 	"github.com/zerone-chain/zerone/x/emergency/types"
-	govmodule "github.com/zerone-chain/zerone/x/gov"
 	govtypes "github.com/zerone-chain/zerone/x/gov/types"
 )
 
@@ -72,46 +68,16 @@ func TestHaltReasonCurrentPhaseStartsAtCurrentHeight(t *testing.T) {
 	require.NoError(t, selected.ValidatePhaseRollback(ctx))
 }
 
-type haltEvidenceFault struct {
-	*keeper.GovEmergencyAdapter
-	err error
-}
-
-func (a haltEvidenceFault) CountResearchFundHalts(context.Context, uint64) (uint64, error) {
-	return 0, a.err
-}
-
-func TestHaltReasonOnlyTaggedFaultPanicsAcrossPinnedConsumers(t *testing.T) {
-	for _, markerFault := range []bool{false, true} {
-		t.Run(fmt.Sprint(markerFault), func(t *testing.T) {
-			k, g, ctx, _ := setupHaltReasonKeepers(t)
-			require.NoError(t, k.EnableHaltReasonScoping(ctx))
-			err := errors.New("ordinary evidence failure")
-			if markerFault {
-				err = fmt.Errorf("injected dependency: %w", activation.ErrMarkerFault)
-			}
-			g.SetEmergencyKeeper(haltEvidenceFault{keeper.NewGovEmergencyAdapter(k), err})
-			selected := g.WithHaltReasonScoping(true)
-			if markerFault {
-				require.PanicsWithValue(t, err, func() { selected.CheckPhaseExitConditions(ctx) })
-			} else {
-				_, met := selected.CheckPhaseExitConditions(ctx)
-				require.False(t, met)
-			}
-			require.ErrorIs(t, selected.ValidatePhaseRollback(ctx), err)
-			g.SetPhaseTransitionMeta(ctx, &govtypes.PhaseTransitionProposal{
-				LipID: "rollback", Stage: govtypes.PhaseTransitionStagePending, IsRollback: true,
-				ActivationBlock: uint64(ctx.BlockHeight()), TargetPhase: govtypes.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER,
-			})
-			if markerFault {
-				require.PanicsWithValue(t, err, func() { _ = govmodule.NewAppModule(nil, g).BeginBlock(ctx) })
-			} else {
-				require.NoError(t, govmodule.NewAppModule(nil, g).BeginBlock(ctx))
-				meta, _ := g.GetPhaseTransitionMeta(ctx, "rollback")
-				require.Equal(t, govtypes.PhaseTransitionStageCancelled, meta.Stage)
-			}
-		})
-	}
+func TestHaltReasonUnknownErrorHasRegisteredABCIResult(t *testing.T) {
+	k, g, ctx, _ := setupHaltReasonKeepers(t)
+	storeHaltReasonCeremony(t, k, ctx, "prose", "validator double-sign incident", "finalized", 45_000_000)
+	require.NoError(t, k.EnableHaltReasonScoping(ctx))
+	_, err := haltEntry(g, ctx, "rollback")
+	require.ErrorIs(t, err, types.ErrHaltEvidence)
+	codespace, code, message := errorsmod.ABCIInfo(err, false)
+	require.Equal(t, types.ModuleName, codespace)
+	require.Equal(t, uint32(21), code)
+	require.Equal(t, types.ErrHaltEvidence.Error(), message)
 }
 
 func TestHaltReasonBadCeremonyEnvelopeIsEvidenceError(t *testing.T) {
@@ -121,6 +87,7 @@ func TestHaltReasonBadCeremonyEnvelopeIsEvidenceError(t *testing.T) {
 			if mismatch {
 				storeHaltReasonCeremony(t, k, ctx, "halt", types.HaltReasonResearchFund, "finalized", 45_000_000)
 				ctx.KVStore(key).Set(types.CeremonyKey("wrong"), ctx.KVStore(key).Get(types.CeremonyKey("halt")))
+				ctx.KVStore(key).Delete(types.CeremonyKey("halt"))
 			} else {
 				ctx.KVStore(key).Set(types.CeremonyKey("bad-wire"), []byte{0xff})
 			}

@@ -5,6 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
 	"github.com/zerone-chain/zerone/x/gov/types"
 )
 
@@ -58,17 +59,19 @@ func (k Keeper) validateScopedRollbackEvidence(ctx sdk.Context, state *types.Res
 	// Check gridlock: 3+ consecutive expired proposals.
 	gridlocked := k.CountConsecutiveExpiredProposals(ctx) >= types.RollbackGridlockThreshold
 
-	// Unknown evidence never authorizes rollback, even alongside gridlock.
+	// Unknown evidence cannot authorize rollback or veto another justification.
 	haltTriggered := false
+	unknown := false
 	if k.emergencyKeeper != nil {
-		count, err := k.emergencyKeeper.CountResearchFundHalts(ctx, state.PhaseStartedAtBlock)
-		if err != nil {
-			return err
-		}
+		var count uint64
+		count, unknown = k.emergencyKeeper.CountResearchFundHalts(ctx, state.PhaseStartedAtBlock)
 		haltTriggered = count > 0
 	}
 
 	if !gridlocked && !haltTriggered {
+		if unknown {
+			return emergencytypes.ErrHaltEvidence
+		}
 		return types.ErrNoRollbackJustification
 	}
 

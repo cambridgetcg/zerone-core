@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
 
 	corestore "cosmossdk.io/core/store"
@@ -16,6 +17,7 @@ import (
 	emergencymodule "github.com/zerone-chain/zerone/x/emergency"
 	"github.com/zerone-chain/zerone/x/emergency/keeper"
 	"github.com/zerone-chain/zerone/x/emergency/types"
+	govtypes "github.com/zerone-chain/zerone/x/gov/types"
 )
 
 func TestHaltReasonImportedLegacyPayloadFailsClosed(t *testing.T) {
@@ -99,6 +101,41 @@ func (i haltIteratorFault) Close() error {
 	}
 	return err
 }
+func TestHaltReasonIteratorFaultDoesNotEraseJustification(t *testing.T) {
+	for _, mode := range []string{"open", "terminal", "close"} {
+		for _, gridlock := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/gridlock=%t", mode, gridlock), func(t *testing.T) {
+				k, g, ctx, key := setupHaltReasonKeepers(t)
+				storeHaltReasonCeremony(t, k, ctx, "valid", types.HaltReasonResearchFund, "finalized", 45_000_000)
+				if gridlock {
+					for i := 0; i < govtypes.RollbackGridlockThreshold; i++ {
+						g.SetResearchSpendProposal(ctx, &govtypes.ResearchSpendProposal{ProposalId: uint64(i + 1), Stage: string(govtypes.ResearchStageExpired)})
+					}
+				}
+				k = keeper.NewKeeper(haltIteratorFaultService{runtime.NewKVStoreService(key), mode}, nil, "authority", nil)
+				require.NoError(t, k.EnableHaltReasonScoping(ctx))
+				a := keeper.NewGovEmergencyAdapter(k)
+				g.SetEmergencyKeeper(a)
+				count, unknown := a.CountResearchFundHalts(ctx, 40_000_000)
+				require.True(t, unknown)
+				if mode == "open" {
+					require.Zero(t, count, "an unread halt is not positive evidence")
+				} else {
+					require.Equal(t, uint64(1), count, "preserve already verified evidence")
+				}
+				selected := g.WithHaltReasonScoping(true)
+				_, met := selected.CheckPhaseExitConditions(ctx)
+				require.False(t, met)
+				if gridlock || mode != "open" {
+					require.NoError(t, selected.ValidatePhaseRollback(ctx))
+				} else {
+					require.ErrorIs(t, selected.ValidatePhaseRollback(ctx), types.ErrHaltEvidence)
+				}
+			})
+		}
+	}
+}
+
 func TestHaltReasonIteratorFailuresAreEvidenceErrors(t *testing.T) {
 	for _, mode := range []string{"open", "terminal", "close"} {
 		t.Run(mode, func(t *testing.T) {

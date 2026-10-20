@@ -682,6 +682,10 @@ Governance parameter change from LIP failed to apply.
 
 ### zerone.gov.phase_transition_cancelled
 Governance phase transition proposal cancelled.
+With halt-reason scoping enabled, due rollbacks recheck the current target and
+require gridlock or a valid in-phase `research_fund` halt. Unknown/malformed
+evidence alone cannot justify rollback, but never cancels an otherwise justified
+rollback. Marker-off processing and the event's attributes are unchanged.
 - `lip_id` -- originating LIP identifier
 - `reason` -- cancellation reason
 

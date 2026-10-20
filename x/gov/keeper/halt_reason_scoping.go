@@ -2,11 +2,9 @@ package keeper
 
 import (
 	"context"
-	"errors"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/zerone-chain/zerone/internal/activation"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
 	"github.com/zerone-chain/zerone/x/gov/types"
 )
@@ -41,8 +39,8 @@ func (k Keeper) WithHaltReasonScoping(enabled bool) Keeper {
 // scopedHaltCounter preserves the pinned research_spend.go interface. Window
 // filtering and decoding live in emergency; the lower bound is read live so
 // another transition in this same block cannot leave a stale phase boundary.
-// Its uint64-only forward gate uses one as a conservative unknown-evidence
-// sentinel. Rollback instead calls CountResearchFundHalts and returns its error.
+// Its uint64-only forward gate adds one for unknown evidence (saturating).
+// Rollback instead uses only the valid count, independently of the unknown flag.
 type scopedHaltCounter struct {
 	types.EmergencyKeeper
 	phaseStart func(sdk.Context) uint64
@@ -52,14 +50,9 @@ func (s scopedHaltCounter) CountHaltsForReason(ctx context.Context, reason strin
 	if reason != emergencytypes.HaltReasonResearchFund {
 		return 1 // no unclassified query may invent an absence of evidence
 	}
-	count, err := s.CountResearchFundHalts(ctx, s.phaseStart(sdk.UnwrapSDKContext(ctx)))
-	if errors.Is(err, activation.ErrMarkerFault) {
-		// Convention (2b): the pinned forward consumer has no error result.
-		// Only a marker fault may halt; ordinary evidence errors block exit.
-		panic(err)
-	}
-	if err != nil {
-		return 1
+	count, unknown := s.CountResearchFundHalts(ctx, s.phaseStart(sdk.UnwrapSDKContext(ctx)))
+	if unknown && count < ^uint64(0) {
+		count++
 	}
 	return count
 }

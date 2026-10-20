@@ -14,9 +14,10 @@ A finalized halt with any other reason, including `research_fund_misuse`,
 `research fund misuse: multisig drained`, case variants, trailing spaces and
 apparently unrelated prose, is unclassified. Within the current phase it blocks
 forward phase progress, but it does not justify rollback. Malformed evidence has
-the same conservative result. This deliberately avoids the reviewed fail-open
-policy. It can hold governance on an unrelated halt; do not describe that cost
-as a structured category system or as Yu accepting exact-token fail-open rules.
+the same conservative result. Neither unknown nor malformed evidence vetoes
+rollback justified by gridlock or a valid `research_fund` halt. Unknown evidence
+alone still holds the phase; it is not silently classified as misuse or ignored
+by the zero-tolerance forward gate. This is not a structured category system.
 Record supporting narrative in the incident process, not as a suffix to the
 reserved token. A future structured reason/category needs separate schema and
 policy review.
@@ -28,18 +29,31 @@ Only finalized halt ceremonies with StartBlock in the inclusive interval
 not finalization. A phase start of zero covers all history. Rollback/re-advance
 updates the phase boundary. Non-finalized ceremonies are not evidence.
 
-The forward query's `EmergencyHaltsFromMisuse` value is a conservative gate
-metric: one can mean unknown evidence, not a verified incident count. Rollback
-returns an evidence error rather than converting that sentinel to justification.
-At activation time pending rollbacks are revalidated; invalid targets or missing
-or unknown evidence cancel the pending transition with the existing cancellation
-event. The marker-off path retains legacy all-history/all-reasons behavior.
+The evidence API returns the valid count and an independent unknown flag, not an
+error. The forward query's `EmergencyHaltsFromMisuse` is the valid count plus one
+if unknown evidence exists (saturating at uint64 max), not a verified incident
+count. Rollback succeeds on gridlock OR a positive valid count. Only when neither
+exists does unknown evidence return `ErrHaltEvidence` (codespace `emergency`, ABCI
+code 21); without unknown evidence the rejection is `ErrNoRollbackJustification`.
+Pending rollbacks use the same rule at execution, plus current-phase/target
+validation. Unsupported rollbacks cancel with the existing event; unknown
+evidence never cancels an otherwise justified rollback. The marker-off path
+retains legacy all-history/all-reasons behavior.
 
 ## Carrier / relaunch checklist (not implemented by this lane)
 
 - Independently review this exact candidate and the reason-policy trade-off.
 - Census retained ceremonies, including imports without electorate snapshots;
   those legacy records can bypass newer genesis payload validation.
+  Envelope decoding and key/ID checks precede the type and height filters: one
+  malformed envelope or mismatched key/ID anywhere in history, including a
+  non-halt record, keeps the forward gate closed. Malformed halt payloads are
+  relevant only for finalized, in-window halts. Enumeration continues past bad
+  records; surfaced iterator open/traversal/close faults set the unknown flag
+  without discarding valid records already read. An open failure has no valid
+  count, but still cannot veto independent gridlock. The SDK iterator helper
+  cannot prove the absence of hidden parent traversal errors; census committed
+  state independently before enabling. This does not assert live corruption.
 - Inspect pending transitions and rollbacks, their recorded target and evidence.
   Stored ConditionsSnapshot counts remain historical; runtime revalidation is
   not a replacement for the carrier's state census.
@@ -56,4 +70,5 @@ event. The marker-off path retains legacy all-history/all-reasons behavior.
 
 Marker read errors wrap `activation.ErrMarkerFault` and propagate before writes
 from SubmitLIP, the governance query, and the module BeginBlock hook. Evidence
-errors are ordinary gate failures, not consensus-fault panics.
+scanning reads no marker and cannot return a marker fault. There are no secondary
+marker-fault panics in the forward counter or pending-rollback loop.

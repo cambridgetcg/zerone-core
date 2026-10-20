@@ -143,13 +143,9 @@ func TestGovEmergencyAdapterReasonAndPhaseWindow(t *testing.T) {
 					selected := g.WithHaltReasonScoping(enabled)
 					unknown := enabled && tc.unknown
 					if enabled {
-						count, err := a.CountResearchFundHalts(ctx, 40_000_000)
+						count, gotUnknown := a.CountResearchFundHalts(ctx, 40_000_000)
 						require.Equal(t, mode.count, count)
-						if unknown {
-							require.ErrorIs(t, err, types.ErrHaltEvidence)
-						} else {
-							require.NoError(t, err)
-						}
+						require.Equal(t, unknown, gotUnknown)
 					} else {
 						require.Equal(t, mode.count, a.CountHaltsForReason(ctx, "ignored"))
 					}
@@ -214,12 +210,13 @@ func TestGovEmergencyAdapterMixedHistoryAndBounds(t *testing.T) {
 	for _, tc := range []struct{ start, count uint64 }{
 		{40_000_000, 2}, {0, 3}, {50_000_000, 1}, {50_000_001, 0}, {^uint64(0), 0},
 	} {
-		count, err := a.CountResearchFundHalts(ctx, tc.start)
-		require.NoError(t, err)
+		count, unknown := a.CountResearchFundHalts(ctx, tc.start)
+		require.False(t, unknown)
 		require.Equal(t, tc.count, count)
 	}
-	_, err := a.CountResearchFundHalts(ctx.WithBlockHeight(-1), 0)
-	require.ErrorIs(t, err, types.ErrHaltEvidence)
+	count, unknown := a.CountResearchFundHalts(ctx.WithBlockHeight(-1), 0)
+	require.True(t, unknown)
+	require.Zero(t, count)
 }
 
 func TestGovEmergencyAdapterActualCeremony(t *testing.T) {
@@ -249,8 +246,8 @@ func TestGovEmergencyAdapterActualCeremony(t *testing.T) {
 				ceremony, found := k.GetCeremony(ctx, response.ProposalId)
 				require.True(t, found)
 				require.Equal(t, string(phase), ceremony.Phase)
-				count, err := a.CountResearchFundHalts(ctx, 40_000_000)
-				require.NoError(t, err)
+				count, unknown := a.CountResearchFundHalts(ctx, 40_000_000)
+				require.False(t, unknown)
 				require.Zero(t, count)
 				_, err = server.VoteHalt(ctx, &types.MsgVoteHalt{Voter: guardian, ProposalId: response.ProposalId, Approve: true})
 				require.NoError(t, err)
@@ -259,13 +256,14 @@ func TestGovEmergencyAdapterActualCeremony(t *testing.T) {
 			require.True(t, found)
 			require.Equal(t, string(types.PhaseFinalized), ceremony.Phase)
 			if reason == "research_fund" {
-				count, err := a.CountResearchFundHalts(ctx, 40_000_000)
-				require.NoError(t, err)
+				count, unknown := a.CountResearchFundHalts(ctx, 40_000_000)
+				require.False(t, unknown)
 				require.Equal(t, uint64(1), count)
 				require.NoError(t, g.ValidatePhaseRollback(ctx))
 			} else {
-				_, err := a.CountResearchFundHalts(ctx, 40_000_000)
-				require.ErrorIs(t, err, types.ErrHaltEvidence)
+				count, unknown := a.CountResearchFundHalts(ctx, 40_000_000)
+				require.True(t, unknown)
+				require.Zero(t, count)
 				require.ErrorIs(t, g.ValidatePhaseRollback(ctx), types.ErrHaltEvidence)
 			}
 		})
