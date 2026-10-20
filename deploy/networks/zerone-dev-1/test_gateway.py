@@ -141,6 +141,28 @@ class DescriptorUpgradeTest(unittest.TestCase):
             self.assertTrue((node.home / "public/network-knowledge-12.json").exists())
 
 
+    def test_missing_claim_integrity_requires_staged_gateway(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            node = g.Node.__new__(g.Node)
+            node.home = Path(temporary)
+            node.rpc = "http://127.0.0.1:26657"
+            node.genesis_hash = "a" * 64
+            node.manifest = {"source_commit": "b" * 40, "binary_sha256": "c" * 64,
+                "advertised_peer": "d" * 40 + "@127.0.0.1:26656", "node_id": "d" * 40,
+                "review_window_blocks": 3600, "local_test": True, "gateway_port": 8080}
+            node.ready = lambda: 10
+            node.call = lambda method: {"genesis": {"chain_id": g.CHAIN,
+                "app_state": {"knowledge": {"fund_settlement_enabled": True}}}}
+            node.upgrade_packet = None
+            for version in (12, 13):
+                with self.subTest(version=version):
+                    node.cli = lambda *args: g.canonical({"module_versions": [
+                        {"name": "knowledge", "version": str(version)}]})
+                    with self.assertRaisesRegex(g.GatewayError, "Claim-integrity ledger"):
+                        node.descriptor()
+                    self.assertFalse((node.home / "public").exists())
+
+
 class FaucetTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()

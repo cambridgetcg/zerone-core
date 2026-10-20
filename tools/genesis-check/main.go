@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/zerone-chain/zerone/app"
 )
 
 // ════════════════════════════════════════════════════════════════════════
@@ -874,16 +876,21 @@ func checkAdapterQualificationMinima(c *checker, g map[string]interface{}) {
 			c.fail("adapter[%d] is not an object", i)
 			continue
 		}
-		domain, present := adapter["required_qualification_domain"]
-		if !present || domain == "" {
+		domain, domainPresent, domainDuplicate := qualificationJSONField(adapter, "required_qualification_domain", "requiredQualificationDomain")
+		minimum, minimumPresent, minimumDuplicate := qualificationJSONField(adapter, "min_qualification_status", "minQualificationStatus")
+		// Check both pairs before any open-domain/default-minimum early return.
+		if domainDuplicate || minimumDuplicate {
+			c.fail("adapter[%d] has duplicate snake_case/camelCase qualification fields", i)
+			continue
+		}
+		if !domainPresent || domain == nil || domain == "" {
 			continue
 		}
 		if _, ok := domain.(string); !ok {
 			c.fail("adapter[%d] has malformed qualification domain", i)
 			continue
 		}
-		minimum, present := adapter["min_qualification_status"]
-		if !present {
+		if !minimumPresent {
 			continue
 		} // Protobuf's UNSPECIFIED default is supported.
 		valid := false
@@ -901,6 +908,32 @@ func checkAdapterQualificationMinima(c *checker, g map[string]interface{}) {
 			c.pass("adapter[%d] qualification minimum is supported", i)
 		}
 	}
+}
+
+func qualificationJSONField(fields map[string]interface{}, snake, camel string) (interface{}, bool, bool) {
+	value, hasSnake := fields[snake]
+	alias, hasCamel := fields[camel]
+	if hasSnake {
+		return value, true, hasCamel
+	}
+	return alias, hasCamel, false
+}
+
+func checkConsensusRepairsMarkers(c *checker, g map[string]interface{}) {
+	c.section("Consensus Repairs Genesis Selection")
+	raw, err := json.Marshal(g["app_state"])
+	var genesis app.GenesisState
+	if err == nil {
+		err = json.Unmarshal(raw, &genesis)
+	}
+	if err == nil {
+		err = app.ValidateConsensusRepairsGenesisSelection(genesis)
+	}
+	if err != nil {
+		c.fail("%v", err)
+		return
+	}
+	c.pass("All ten consensus-repairs-v1 markers explicitly true with exact spelling")
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -966,6 +999,7 @@ func main() {
 	checkAxiomSeeds(c, genesis)
 	checkChainMetadata(c, genesis)
 	checkAdapterQualificationMinima(c, genesis)
+	checkConsensusRepairsMarkers(c, genesis)
 
 	fmt.Println()
 	fmt.Println("═══════════════════════════════════════════════")

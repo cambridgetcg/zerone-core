@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -75,6 +76,10 @@ func run(args []string, out, diagnostics io.Writer) (code int) {
 		fmt.Fprintln(diagnostics, "committed height/AppHash differs from independently expected tuple")
 		return 1
 	}
+	if !bytes.Equal(candidate.CommitMultiStore().WorkingHash(), decoded) {
+		fmt.Fprintln(diagnostics, "loaded working AppHash differs from independently expected tuple")
+		return 1
+	}
 	ctx := candidate.NewUncachedContext(true, cmtproto.Header{Height: *height, ChainID: *chain})
 	report, censusErr := candidate.CensusConsensusRepairsV1(ctx)
 	versions, versionErr := candidate.UpgradeKeeper.GetModuleVersionMap(ctx)
@@ -129,6 +134,15 @@ func copiedDataDirectory(home string) (string, error) {
 		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 			return "", fmt.Errorf("copy path components must be non-symlink directories")
 		}
+	}
+	// GoLevelDB opens a missing LOCK with O_CREATE even in ReadOnly mode.
+	// Require the copied regular file so this command creates no source files.
+	lock, err := os.Lstat(filepath.Join(dbPath, "LOCK"))
+	if err != nil {
+		return "", fmt.Errorf("copy must include existing LOCK file: %w", err)
+	}
+	if !lock.Mode().IsRegular() {
+		return "", fmt.Errorf("copy LOCK must be a regular non-symlink file")
 	}
 	return data, nil
 }

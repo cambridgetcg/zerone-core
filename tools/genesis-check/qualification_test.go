@@ -27,3 +27,38 @@ func TestAdapterQualificationMinima(t *testing.T) {
 		t.Fatal("open adapters do not impose a qualification floor")
 	}
 }
+
+func TestAdapterQualificationMinimaJSONSpellings(t *testing.T) {
+	for _, domain := range []string{"required_qualification_domain", "requiredQualificationDomain"} {
+		for _, minimum := range []string{"min_qualification_status", "minQualificationStatus"} {
+			for _, value := range []string{"QUALIFICATION_STATUS_ACTIVE", "QUALIFICATION_STATUS_DISTINGUISHED"} {
+				t.Run(domain+"/"+minimum+"/"+value, func(t *testing.T) {
+					g := makeGenesis(map[string]interface{}{"app_state.substrate_bridge.adapters": []interface{}{
+						map[string]interface{}{"adapterId": "x", domain: "physics", minimum: value},
+					}})
+					c := &checker{}
+					checkAdapterQualificationMinima(c, g)
+					if (c.failed == 0) != (value == "QUALIFICATION_STATUS_ACTIVE") {
+						t.Fatalf("value %s: failures=%d", value, c.failed)
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestAdapterQualificationMinimaRejectsDuplicateSpellings(t *testing.T) {
+	for _, fields := range []map[string]interface{}{
+		{"required_qualification_domain": "", "requiredQualificationDomain": "physics", "minQualificationStatus": "QUALIFICATION_STATUS_DISTINGUISHED"},
+		{"required_qualification_domain": "physics", "requiredQualificationDomain": "physics"},
+		{"requiredQualificationDomain": "physics", "min_qualification_status": "1", "minQualificationStatus": "1"},
+		{"required_qualification_domain": "", "min_qualification_status": "1", "minQualificationStatus": "3"},
+	} {
+		g := makeGenesis(map[string]interface{}{"app_state.substrate_bridge.adapters": []interface{}{fields}})
+		c := &checker{}
+		checkAdapterQualificationMinima(c, g)
+		if c.failed == 0 {
+			t.Fatalf("duplicate spellings accepted: %v", fields)
+		}
+	}
+}

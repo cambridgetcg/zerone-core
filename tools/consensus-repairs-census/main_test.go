@@ -13,6 +13,7 @@ import (
 
 	"cosmossdk.io/log"
 	sdkmath "cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	dbm "github.com/cosmos/cosmos-db"
@@ -29,14 +30,19 @@ import (
 	customstaking "github.com/zerone-chain/zerone/x/staking/types"
 )
 
-func sourceCopy(t *testing.T, badMarker bool) (string, int64, string) {
+func sourceCopy(t *testing.T, badMarker bool, extraStore ...bool) (string, int64, string) {
 	t.Helper()
-	home := t.TempDir()
+	home, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
 	data := filepath.Join(home, "data")
 	require.NoError(t, os.Mkdir(data, 0700))
 	db, err := dbm.NewGoLevelDBWithOpts("application", data, &opt.Options{})
 	require.NoError(t, err)
-	a := app.NewZeroneApp(log.NewNopLogger(), db, nil, true, options{"home": home}, baseapp.SetChainID("zerone-rehearsal-census"), baseapp.SetIAVLDisableFastNode(true))
+	a := app.NewZeroneApp(log.NewNopLogger(), db, nil, false, options{"home": home}, baseapp.SetChainID("zerone-rehearsal-census"), baseapp.SetIAVLDisableFastNode(true))
+	if len(extraStore) > 0 && extraStore[0] {
+		a.CommitMultiStore().MountStoreWithDB(storetypes.NewKVStoreKey("unmounted-copy-store"), storetypes.StoreTypeIAVL, nil)
+	}
+	require.NoError(t, a.LoadLatestVersion())
 	cdc := a.AppCodec()
 	genesis := a.DefaultGenesis()
 	pub := sdked25519.GenPrivKey().PubKey()
@@ -63,6 +69,8 @@ func sourceCopy(t *testing.T, badMarker bool) (string, int64, string) {
 	registry, err := json.Marshal(&customstaking.Validator{OperatorAddress: address.String(), TotalStake: "0", SelfDelegation: "0", DelegatedStake: "0"})
 	require.NoError(t, err)
 	ctx.KVStore(a.GetStoreKeyForTests("zerone_staking")).Set(append([]byte{1}, []byte(address.String())...), registry)
+	// Synthetic non-discontinuous source; not a dev-1 mint-ledger measurement.
+	ctx.KVStore(a.GetStoreKeyForTests("vesting_rewards")).Set([]byte{0x0b}, []byte("1"))
 	vm := a.CurrentModuleVersionMap()
 	for name, version := range map[string]uint64{"knowledge": 12, "zerone_gov": 3, "capture_defense": 1, "capture_challenge": 1, "qualification": 1, "vesting_rewards": 3, "alignment": 1, "zerone_ontology": 1, "emergency": 2, "substrate_bridge": 1, "ibcratelimit": 1} {
 		vm[name] = version
@@ -129,8 +137,59 @@ func TestCommandRefusesMissingAttestationAndProtectedPaths(t *testing.T) {
 		_, err := copiedDataDirectory(path)
 		require.Error(t, err)
 	}
-	home := t.TempDir()
+	home, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Join(home, "data", "application.db"), 0700))
+	require.NoError(t, os.WriteFile(filepath.Join(home, "data", "application.db", "LOCK"), nil, 0600))
 	require.NoError(t, os.Symlink(home, filepath.Join(home, "alias")))
-	_, err := copiedDataDirectory(filepath.Join(home, "alias"))
-	require.Error(t, err)
+	_, err = copiedDataDirectory(filepath.Join(home, "alias"))
+	require.ErrorContains(t, err, "non-symlink")
+}
+
+func TestReadOnlyCopiedDBCensusWithSymlinkTMPDIR(t *testing.T) {
+	root := t.TempDir()
+	alias := filepath.Join(root, "tmp-alias")
+	require.NoError(t, os.Symlink(root, alias))
+	t.Setenv("TMPDIR", alias)
+	home, height, hash := sourceCopy(t, false)
+	resolved, err := filepath.EvalSymlinks(home)
+	require.NoError(t, err)
+	require.Equal(t, resolved, home)
+	var out, diagnostics bytes.Buffer
+	require.Zero(t, run([]string{"--copied-db", "--home", home, "--chain-id", "zerone-rehearsal-census", "--expected-height", strconv.FormatInt(height, 10), "--expected-app-hash", hash}, &out, &diagnostics), diagnostics.String())
+}
+
+func TestCommandRefusesLoadedWorkingHashMismatch(t *testing.T) {
+	// The committed metadata includes a store not mounted by this binary.
+	// LastCommitID still matches; WorkingHash must independently refuse it.
+	home, height, hash := sourceCopy(t, false, true)
+	before := fileDigests(t, home)
+	var out, diagnostics bytes.Buffer
+	code := run([]string{"--copied-db", "--home", home, "--chain-id", "zerone-rehearsal-census", "--expected-height", strconv.FormatInt(height, 10), "--expected-app-hash", hash}, &out, &diagnostics)
+	require.Equal(t, 1, code, diagnostics.String()+out.String())
+	require.Empty(t, out.String())
+	require.Contains(t, diagnostics.String(), "loaded working AppHash")
+	require.Equal(t, before, fileDigests(t, home))
+}
+
+func TestCommandRefusesMissingOrSymlinkLOCKWithoutCreatingFiles(t *testing.T) {
+	for _, symlink := range []bool{false, true} {
+		t.Run(strconv.FormatBool(symlink), func(t *testing.T) {
+			home, height, hash := sourceCopy(t, false)
+			lock := filepath.Join(home, "data", "application.db", "LOCK")
+			require.NoError(t, os.Remove(lock))
+			if symlink {
+				target := filepath.Join(home, "lock-target")
+				require.NoError(t, os.WriteFile(target, nil, 0600))
+				require.NoError(t, os.Symlink(target, lock))
+			}
+			before := fileDigests(t, home)
+			var out, diagnostics bytes.Buffer
+			code := run([]string{"--copied-db", "--home", home, "--chain-id", "zerone-rehearsal-census", "--expected-height", strconv.FormatInt(height, 10), "--expected-app-hash", hash}, &out, &diagnostics)
+			require.Equal(t, 1, code)
+			require.Empty(t, out.String())
+			require.Contains(t, diagnostics.String(), "LOCK")
+			require.Equal(t, before, fileDigests(t, home))
+		})
+	}
 }
