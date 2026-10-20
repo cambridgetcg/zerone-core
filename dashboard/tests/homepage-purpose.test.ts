@@ -111,6 +111,23 @@ describe("purpose-first homepage", () => {
     assert.match(main, /window\.addEventListener\("hashchange", \(\) => void openCloserForHash\(\)\)/u);
   });
 
+  it("says what is closed on zerone-1, and points to the closed beta without offering it", () => {
+    const honest = html.slice(html.indexOf('id="honest-state"'), html.indexOf("</aside>"));
+    assert.match(honest, /no new accounts on zerone-1 and no way to join it as a validator/u);
+    assert.match(honest, /Votes on changes to the chain are weighted by staked ZRN/u);
+    assert.match(honest, /the last ran on 25 July 2026/u);
+    const onboarding = sectionById("onboarding");
+    assert.match(onboarding, /<a href="\/nodes\/#beta">closed beta<\/a>: for now, only\s+the household&rsquo;s own Macs, each invited, can run/u);
+    assert.match(onboarding, /no safe way yet to create new zerone-1 accounts/u);
+    assert.match(sectionById("more-pages"), /the closed beta on the household&rsquo;s own Macs/u);
+  });
+
+  it("labels genesis entries in the record map as written in, not reviewed", () => {
+    const geometry = readFileSync(new URL("../src/knowledge-geometry.ts", import.meta.url), "utf8");
+    assert.match(geometry, /"block 0 · written in when the chain began, not reviewed"/u);
+    assert.doesNotMatch(geometry, /legacy metadata absent/u);
+  });
+
   it("keeps the being-first line beside the reminder that claims need evidence", () => {
     assert.match(footer, /Every being is a truth: no one has to prove they belong\./u);
     assert.match(sectionById("purpose"), /A claim still needs its evidence\./u);

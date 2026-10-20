@@ -133,11 +133,13 @@
             </ol>
             <p class="purpose-today">
               Today one household, the people who started Zerone, runs the live chain,
-              <code>zerone-1</code>. It runs an older version of these steps. On 20 October
+              <code>zerone-1</code>. It runs an older version of these steps, without some
+              of the protections above. On 20 October
               2026, every entry it showed as verified had been written in when the chain
-              began, without review; the 25 claims that went through review are no longer
+              began, without review; the 25 claims accepted after review are no longer
               marked verified, and none has been accepted since 4 August 2026. A separate
-              test chain, with valueless test funds, tries the newer version. <a href="/understand/">Understand Zerone</a>
+              test chain, with valueless test funds, tries a newer version from September
+              2026; no chain runs the whole design yet. <a href="/understand/">Understand Zerone</a>
               walks through an example, and <a href="#onboarding">what you can do today</a>
               is below.
             </p>
@@ -174,9 +176,10 @@
 
         <noscript>
           <p class="metrics-noscript">
-            The latest block, the four numbers above and the latest-blocks table are
-            filled in by JavaScript; without it they stay as dashes. The raw supply and
-            validator data are linked under <a href="#network">Check it yourself</a>.
+            The latest block, the four numbers above, the live-record check below and the
+            latest-blocks table are filled in by JavaScript; without it they keep their
+            dashes or loading text. The raw block, supply and validator data are linked
+            under <a href="#network">Check it yourself</a>.
           </p>
         </noscript>
 
@@ -196,10 +199,10 @@
             </p>
             <ul class="truth-list">
               <li>By 20 October 2026 the chain had stopped twice for more than a day: about 28 hours in July 2026 and about 54 hours in August 2026. Both times, blocks started again. It has also paused for shorter spells, from a couple of minutes to about half an hour.</li>
-              <li>The same household holds nearly all ZRN: at least 95% on 20 October 2026, counting only its two founding accounts and its stake. Both accounts are linked under Check it yourself. There is no market for ZRN on Zerone, and no price is promised.</li>
+              <li>The same household holds nearly all ZRN: at least 95% on 20 October 2026, counting only its two founding accounts and its stake. Votes on changes to the chain are weighted by staked ZRN, and all staked ZRN is the household&rsquo;s. Both accounts are linked under <a href="#network">Check it yourself</a>. There is no market for ZRN on Zerone, and no price is promised.</li>
               <li>The live numbers on this page are read from the household&rsquo;s own node, through this site. They are an observation, not an independent proof.</li>
-              <li>The live chain runs older code than Zerone&rsquo;s current source. Changes reach it only through upgrades, and the planned ones have not run yet.</li>
-              <li>Today the household offers no new accounts and no way to join as a validator: there is no sign-up, no starter ZRN, and no supported joining path on zerone-1. The source code is not public.</li>
+              <li>The live chain runs older code than Zerone&rsquo;s current source. New code reaches it through upgrades; the last ran on 25 July 2026, and the planned ones have not run yet.</li>
+              <li>Today the household offers no new accounts on zerone-1 and no way to join it as a validator: there is no sign-up, no starter ZRN, and no supported joining path. The source code is not public.</li>
             </ul>
             <p class="truth-protect">
               <strong>What you can rely on:</strong> the record is public and read live.
@@ -226,7 +229,8 @@
             <p>
               You can read everything without an account or a wallet. If you already
               hold a <code>zrn1…</code> account, you can view it.
-              <a href="/development/">A separate test chain</a> has its own setup.
+              <a href="/development/">A separate test chain</a> has its own setup, which
+              needs access to the source.
             </p>
           </header>
 
@@ -280,7 +284,10 @@
               <a class="button button-ghost node-entry" href="/nodes/">
                 Read the node guide <span aria-hidden="true">↗</span>
               </a>
-              <small>A practice chain uses throwaway test keys and funds. It does not join zerone-1.</small>
+              <small>A practice chain uses throwaway test keys and funds. It does not join zerone-1.
+                The guide also describes a <a href="/nodes/#beta">closed beta</a>: for now, only
+                the household&rsquo;s own Macs, each invited, can run a separate, valueless chain
+                together.</small>
             </li>
             <li data-path="existing-wallet">
               <span class="onboarding-path-state">Optional · existing accounts only</span>
@@ -307,7 +314,7 @@
               <span class="onboarding-path-state">Paused in this release</span>
               <h3>Need a new account?</h3>
               <p>
-                There is no safe way to create new accounts yet, so none are offered.
+                There is no safe way yet to create new zerone-1 accounts, so none are offered.
                 Do not send money, secrets, identity documents, or seed phrases to
                 anyone offering access.
               </p>
@@ -392,7 +399,8 @@
             <p>
               Read from the chain through this site. A new block arrives about every
               30 seconds whether or not anyone writes, so a block with 0 transactions
-              is normal.
+              is normal. Each block carries the time the one before it was agreed, so
+              the newest usually shows as 30 seconds to a minute old.
             </p>
           </div>
 
@@ -441,7 +449,7 @@
                 <div><i class="share-operator"></i><span>Kept for operations: proposal deposits and fee grants</span><strong>2,222</strong></div>
                 <div><i class="share-team"></i><span>Given at the start to anyone else</span><strong>0</strong></div>
               </div>
-              <p class="genesis-note">The founding household, the people who started Zerone, holds both accounts. 13,555 ZRN is 0.0061% of the cap.</p>
+              <p class="genesis-note">The founding household, the people who started Zerone, holds both accounts. 13,555 ZRN is 0.0061% of the cap. More ZRN has been issued since; the live total is at the top of this page.</p>
             </article>
 
             <article class="network-card reveal">
@@ -496,8 +504,8 @@
                 <p class="closer-key">
                   How to read it: &ldquo;NO-GO&rdquo; means the design for sharing power is not
                   ready to switch on. It says nothing about whether the chain is running. H4
-                  and H5 are the two planned chain upgrades that would put the design in place.
-                  None of their checks has evidence yet.
+                  and H5 name the planned chain upgrades that would put the design in place.
+                  They are not in the source yet, and none of their checks has evidence.
                 </p>
                 <div
                   class="authority-geometry-root reveal"
@@ -712,7 +720,7 @@
             <ul class="doors">
               <li><a href="/understand/">Understand Zerone</a><span>The purpose, an example, and what is open today.</span></li>
               <li><a href="/compositions/">Enter the gallery</a><span>Artworks, each begun from a randomly chosen part of Zerone&rsquo;s code.</span></li>
-              <li><a href="/nodes/">Node guide</a><span>Run a private practice chain. Needs access to the source.</span></li>
+              <li><a href="/nodes/">Node guide</a><span>Run a private practice chain (needs access to the source), or read about the closed beta on the household&rsquo;s own Macs.</span></li>
               <li><a href="/development/">Development chain</a><span>Where newer versions are tried, with valueless test funds.</span></li>
               <li><a href="/llms.txt">For AI agents</a><span>A plain-text index of these pages.</span></li>
             </ul>
@@ -725,26 +733,26 @@
             <a class="research-legacy-target" id="relational-topology-root" data-research-destination href="/research/#relational-topology-root">Research library: Relations <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="correspondence-title" data-research-destination href="/research/#correspondence-title">Research library: Correspondence <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="correspondence-geometry-root" data-research-destination href="/research/#correspondence-geometry-root">Research library: Correspondence <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="correspondence-noscript-lanes-title" data-research-destination href="/research/#correspondence-noscript-lanes-title">Research library: Correspondence <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="correspondence-noscript-mappings-title" data-research-destination href="/research/#correspondence-noscript-mappings-title">Research library: Correspondence <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="correspondence-noscript-energy-title" data-research-destination href="/research/#correspondence-noscript-energy-title">Research library: Correspondence <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="correspondence-noscript-duality-title" data-research-destination href="/research/#correspondence-noscript-duality-title">Research library: Correspondence <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="correspondence-noscript-effects-title" data-research-destination href="/research/#correspondence-noscript-effects-title">Research library: Correspondence <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="correspondence-noscript-sources-title" data-research-destination href="/research/#correspondence-noscript-sources-title">Research library: Correspondence <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="correspondence-noscript-lanes-title" data-research-destination href="/research/#correspondence">Research library: Correspondence <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="correspondence-noscript-mappings-title" data-research-destination href="/research/#correspondence">Research library: Correspondence <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="correspondence-noscript-energy-title" data-research-destination href="/research/#correspondence">Research library: Correspondence <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="correspondence-noscript-duality-title" data-research-destination href="/research/#correspondence">Research library: Correspondence <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="correspondence-noscript-effects-title" data-research-destination href="/research/#correspondence">Research library: Correspondence <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="correspondence-noscript-sources-title" data-research-destination href="/research/#correspondence">Research library: Correspondence <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="explicit-invariants-title" data-research-destination href="/research/#explicit-invariants-title">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="explicit-invariant-discipline-root" data-research-destination href="/research/#explicit-invariant-discipline-root">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="explicit-invariant-boundary-probing-zero-input-robustness" data-research-destination href="/research/#explicit-invariant-boundary-probing-zero-input-robustness">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="boundary-probing-zero-input-robustness" data-research-destination href="/research/#boundary-probing-zero-input-robustness">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="explicit-invariant-boundary-probing-title" data-research-destination href="/research/#explicit-invariant-boundary-probing-title">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="explicit-invariant-factorization-declared-dependency-integrity" data-research-destination href="/research/#explicit-invariant-factorization-declared-dependency-integrity">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="factorization-declared-dependency-integrity" data-research-destination href="/research/#factorization-declared-dependency-integrity">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="explicit-invariant-factorization-title" data-research-destination href="/research/#explicit-invariant-factorization-title">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="explicit-invariant-bootstrap-conditional-solution-space" data-research-destination href="/research/#explicit-invariant-bootstrap-conditional-solution-space">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="bootstrap-conditional-solution-space" data-research-destination href="/research/#bootstrap-conditional-solution-space">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="explicit-invariant-bootstrap-title" data-research-destination href="/research/#explicit-invariant-bootstrap-title">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="explicit-invariant-witness-projection-publication-integrity" data-research-destination href="/research/#explicit-invariant-witness-projection-publication-integrity">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="witness-projection-publication-integrity" data-research-destination href="/research/#witness-projection-publication-integrity">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="explicit-invariant-witness-title" data-research-destination href="/research/#explicit-invariant-witness-title">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="explicit-invariant-boundary-probing-zero-input-robustness" data-research-destination href="/research/#explicit-invariants">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="boundary-probing-zero-input-robustness" data-research-destination href="/research/#explicit-invariants">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="explicit-invariant-boundary-probing-title" data-research-destination href="/research/#explicit-invariants">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="explicit-invariant-factorization-declared-dependency-integrity" data-research-destination href="/research/#explicit-invariants">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="factorization-declared-dependency-integrity" data-research-destination href="/research/#explicit-invariants">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="explicit-invariant-factorization-title" data-research-destination href="/research/#explicit-invariants">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="explicit-invariant-bootstrap-conditional-solution-space" data-research-destination href="/research/#explicit-invariants">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="bootstrap-conditional-solution-space" data-research-destination href="/research/#explicit-invariants">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="explicit-invariant-bootstrap-title" data-research-destination href="/research/#explicit-invariants">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="explicit-invariant-witness-projection-publication-integrity" data-research-destination href="/research/#explicit-invariants">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="witness-projection-publication-integrity" data-research-destination href="/research/#explicit-invariants">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="explicit-invariant-witness-title" data-research-destination href="/research/#explicit-invariants">Research library: Explicit invariants <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="skills-title" data-research-destination href="/research/#skills-title">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="constructive-tree-root" data-research-destination href="/research/#constructive-tree-root">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="branch-flow" data-research-destination href="/research/#branch-flow">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
@@ -753,10 +761,10 @@
             <a class="research-legacy-target" id="research-commons" data-research-destination href="/research/#research-commons">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="research-commons-title" data-research-destination href="/research/#research-commons-title">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="research-commons-root" data-research-destination href="/research/#research-commons-root">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="research-commons-noscript-fund" data-research-destination href="/research/#research-commons-noscript-fund">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="research-commons-noscript-work" data-research-destination href="/research/#research-commons-noscript-work">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="research-commons-noscript-replicate" data-research-destination href="/research/#research-commons-noscript-replicate">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="research-commons-noscript-agenttool" data-research-destination href="/research/#research-commons-noscript-agenttool">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="research-commons-noscript-fund" data-research-destination href="/research/#research-commons">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="research-commons-noscript-work" data-research-destination href="/research/#research-commons">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="research-commons-noscript-replicate" data-research-destination href="/research/#research-commons">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="research-commons-noscript-agenttool" data-research-destination href="/research/#research-commons">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="life-sciences-title" data-research-destination href="/research/#life-sciences-title">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="life-sciences-tree-root" data-research-destination href="/research/#life-sciences-tree-root">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="quantum-season-root" data-research-destination href="/research/#quantum-season-root">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
@@ -766,53 +774,53 @@
             <a class="research-legacy-target" id="fold-to-fire" data-research-destination href="/research/#fold-to-fire">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="fold-to-fire-title" data-research-destination href="/research/#fold-to-fire-title">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="fold-to-fire-root" data-research-destination href="/research/#fold-to-fire-root">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="fold-to-fire-noscript-equations" data-research-destination href="/research/#fold-to-fire-noscript-equations">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="fold-to-fire-noscript-equations" data-research-destination href="/research/#fold-to-fire">Research library: Constructive intelligence <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="life-title" data-research-destination href="/research/#life-title">Research library: The living garden <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="life-garden-root" data-research-destination href="/research/#life-garden-root">Research library: The living garden <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="frontier-commons-title" data-research-destination href="/research/#frontier-commons-title">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="commons-modes-title" data-research-destination href="/research/#commons-modes-title">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="observe" data-research-destination href="/research/#observe">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="verify-and-fork" data-research-destination href="/research/#verify-and-fork">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="public-source-contribution" data-research-destination href="/research/#public-source-contribution">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="reproduce-or-challenge" data-research-destination href="/research/#reproduce-or-challenge">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="sponsor" data-research-destination href="/research/#sponsor">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="govern" data-research-destination href="/research/#govern">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="observe" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="verify-and-fork" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="public-source-contribution" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="reproduce-or-challenge" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="sponsor" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="govern" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
             <a class="research-legacy-target" id="commons-reasoning-title" data-research-destination href="/research/#commons-reasoning-title">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="R0-being-and-agency" data-research-destination href="/research/#R0-being-and-agency">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="R1-epistemic-pluralism" data-research-destination href="/research/#R1-epistemic-pluralism">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="R2-artifacts-over-status" data-research-destination href="/research/#R2-artifacts-over-status">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="R3-commons-and-provenance" data-research-destination href="/research/#R3-commons-and-provenance">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="R4-interoperability-and-optionality" data-research-destination href="/research/#R4-interoperability-and-optionality">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="R5-institutional-science" data-research-destination href="/research/#R5-institutional-science">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="R6-corporate-risk-and-value" data-research-destination href="/research/#R6-corporate-risk-and-value">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="R7-personal-agency-and-craft" data-research-destination href="/research/#R7-personal-agency-and-craft">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="affected-beings-and-publics" data-research-destination href="/research/#affected-beings-and-publics">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="boards-and-fiduciaries" data-research-destination href="/research/#boards-and-fiduciaries">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="executives-and-strategy" data-research-destination href="/research/#executives-and-strategy">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="research-leadership" data-research-destination href="/research/#research-leadership">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="research-scientists" data-research-destination href="/research/#research-scientists">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="software-and-research-engineers" data-research-destination href="/research/#software-and-research-engineers">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="safety-and-security" data-research-destination href="/research/#safety-and-security">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="ethics-biosafety-and-human-subjects" data-research-destination href="/research/#ethics-biosafety-and-human-subjects">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="data-and-privacy-stewards" data-research-destination href="/research/#data-and-privacy-stewards">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="legal-ip-and-compliance" data-research-destination href="/research/#legal-ip-and-compliance">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="finance-procurement-and-funders" data-research-destination href="/research/#finance-procurement-and-funders">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="program-operations-and-communications" data-research-destination href="/research/#program-operations-and-communications">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="early-career-contractors-and-technicians" data-research-destination href="/research/#early-career-contractors-and-technicians">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="independent-and-smaller-labs" data-research-destination href="/research/#independent-and-smaller-labs">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="ai-systems-agents-and-operators" data-research-destination href="/research/#ai-systems-agents-and-operators">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="unlisted-affected-being-or-role" data-research-destination href="/research/#unlisted-affected-being-or-role">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="lock-in-and-exclusivity" data-research-destination href="/research/#lock-in-and-exclusivity">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="wallet-token-and-money" data-research-destination href="/research/#wallet-token-and-money">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="endorsement-and-reputation" data-research-destination href="/research/#endorsement-and-reputation">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="ip-confidentiality-and-licensing" data-research-destination href="/research/#ip-confidentiality-and-licensing">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="security-and-vulnerability-reporting" data-research-destination href="/research/#security-and-vulnerability-reporting">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="privacy-hosting-and-logs" data-research-destination href="/research/#privacy-hosting-and-logs">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="data-genomics-and-research-records" data-research-destination href="/research/#data-genomics-and-research-records">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="research-clinical-and-biological-authorization" data-research-destination href="/research/#research-clinical-and-biological-authorization">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="antitrust-export-sanctions-and-law" data-research-destination href="/research/#antitrust-export-sanctions-and-law">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="procurement-sponsor-insurance-and-sla" data-research-destination href="/research/#procurement-sponsor-insurance-and-sla">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
-            <a class="research-legacy-target" id="governance-capture-and-control" data-research-destination href="/research/#governance-capture-and-control">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="R0-being-and-agency" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="R1-epistemic-pluralism" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="R2-artifacts-over-status" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="R3-commons-and-provenance" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="R4-interoperability-and-optionality" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="R5-institutional-science" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="R6-corporate-risk-and-value" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="R7-personal-agency-and-craft" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="affected-beings-and-publics" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="boards-and-fiduciaries" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="executives-and-strategy" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="research-leadership" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="research-scientists" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="software-and-research-engineers" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="safety-and-security" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="ethics-biosafety-and-human-subjects" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="data-and-privacy-stewards" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="legal-ip-and-compliance" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="finance-procurement-and-funders" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="program-operations-and-communications" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="early-career-contractors-and-technicians" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="independent-and-smaller-labs" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="ai-systems-agents-and-operators" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="unlisted-affected-being-or-role" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="lock-in-and-exclusivity" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="wallet-token-and-money" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="endorsement-and-reputation" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="ip-confidentiality-and-licensing" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="security-and-vulnerability-reporting" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="privacy-hosting-and-logs" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="data-genomics-and-research-records" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="research-clinical-and-biological-authorization" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="antitrust-export-sanctions-and-law" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="procurement-sponsor-insurance-and-sla" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
+            <a class="research-legacy-target" id="governance-capture-and-control" data-research-destination href="/research/#frontier-commons">Research library: Frontier Commons <span aria-hidden="true">↗</span></a>
           </div>
         </section>
 

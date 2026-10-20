@@ -397,7 +397,7 @@ function updateSnapshot(next: NetworkSnapshot): void {
   );
   onboarding.setNetwork(readiness);
   heroHeight.textContent = formatHeight(next.height);
-  heroBlockAge.textContent = `made ${timeAgo(next.blockTime)}`;
+  heroBlockAge.textContent = `dated ${timeAgo(next.blockTime)}`;
   heroState.textContent = healthy
     ? "Running"
     : regressed
@@ -508,7 +508,7 @@ async function refreshNetwork(showFailure = true): Promise<void> {
     onboarding.setNetwork("unavailable");
     heroState.textContent = snapshot ? "Stale snapshot" : "Unavailable";
     heroBlockAge.textContent = snapshot
-      ? `last made ${timeAgo(snapshot.blockTime)}`
+      ? `last dated ${timeAgo(snapshot.blockTime)}`
       : "No fresh block received";
     if (!snapshot) {
       updateMetric(supplyValue, null);
@@ -1251,7 +1251,7 @@ window.setInterval(() => {
     node.textContent = timeAgo(node.dataset.timestamp ?? "");
   });
   if (snapshot) {
-    const prefix = networkPill.dataset.state === "online" ? "made" : "last made";
+    const prefix = networkPill.dataset.state === "online" ? "dated" : "last dated";
     heroBlockAge.textContent = `${prefix} ${timeAgo(snapshot.blockTime)}`;
   }
 }, 1_000);
