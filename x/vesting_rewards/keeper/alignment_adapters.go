@@ -21,13 +21,36 @@ func NewAlignmentVestingRewardsAdapter(k Keeper) *AlignmentVestingRewardsAdapter
 // Ensure compile-time interface compliance.
 var _ alignmenttypes.VestingRewardsKeeper = (*AlignmentVestingRewardsAdapter)(nil)
 
-// GetTotalSupply returns current bank supply in uzrn, the custom staking denom.
-// The cumulative MintWithCap ledger is not supply: it excludes direct bank and
-// genesis minting, and burns do not reduce it. An unwired bank yields zero so
-// alignment keeps its neutral zero-denominator behavior, never a ledger proxy.
-// This consensus-changing correction requires a scheduled binary swap; it has
-// no stored activation marker and does not rewrite historical observations.
+// AlignmentBankSupplyEnabled exposes the keeper's sole marker reader to the
+// alignment entry point. No marker is read by a selected sensor call.
+func (a *AlignmentVestingRewardsAdapter) AlignmentBankSupplyEnabled(ctx context.Context) (bool, error) {
+	return a.k.AlignmentBankSupplyEnabled(ctx)
+}
+
+var _ alignmenttypes.BankSupplySelector = (*AlignmentVestingRewardsAdapter)(nil)
+
+// GetTotalSupply uses the entry-point selection when present. Standalone reads
+// select from the marker themselves; this historical interface has no error
+// return, so a marker fault panics rather than masquerading as legacy state.
+// EndBlock reads and returns marker faults before reaching this interface.
 func (a *AlignmentVestingRewardsAdapter) GetTotalSupply(ctx context.Context) *big.Int {
+	selection, selected := alignmenttypes.InputSelectionFromContext(ctx)
+	if !selected {
+		var err error
+		selection.BankSupply, err = a.AlignmentBankSupplyEnabled(ctx)
+		if err != nil {
+			panic(err)
+		}
+	}
+	if !selection.BankSupply {
+		return a.getTotalSupplyLegacy(ctx)
+	}
+	return a.getTotalSupplyFixed(ctx)
+}
+
+// getTotalSupplyFixed reads current uzrn bank supply, not the cumulative mint
+// ledger. An unwired bank retains the neutral zero-denominator behavior.
+func (a *AlignmentVestingRewardsAdapter) getTotalSupplyFixed(ctx context.Context) *big.Int {
 	if a.k.bankKeeper == nil {
 		return new(big.Int)
 	}

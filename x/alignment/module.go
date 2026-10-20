@@ -125,6 +125,11 @@ func (am AppModule) BeginBlock(_ context.Context) error {
 // When health degrades, enables 2x observation frequency (halved interval).
 // When health recovers to healthy, restores normal frequency.
 func (am AppModule) EndBlock(ctx context.Context) error {
+	var err error
+	ctx, err = am.keeper.SelectInputs(ctx)
+	if err != nil {
+		return err
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 

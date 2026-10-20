@@ -236,11 +236,10 @@ func TestAlignmentDomainCountRetainsLegacyHistoryUntilNextObservation(t *testing
 	for i := 0; i < 93; i++ {
 		f.propose(t, fmt.Sprintf("retained_%02d", i))
 	}
-	// Explicit legacy fixture: the pre-fix regression produces 700000 from
-	// these 100 records. Retain its observation/category as upgrade prestate;
-	// this is not an upgrade handler or a replay of the old binary.
+	// The marker-off adapter produces the actual legacy observation from these
+	// 100 records. Retain it as prestate, then select only future observations.
 	legacyObservation := f.alignment.ObserveAll(f.ctx)
-	legacyObservation.GovernanceParticipation = 700_000
+	require.Equal(t, uint64(700_000), legacyObservation.GovernanceParticipation)
 	f.alignment.SetObservation(f.ctx, legacyObservation)
 	legacyScores := f.alignment.ComputeScores(f.ctx, legacyObservation)
 	f.alignment.SetScores(f.ctx, legacyScores)

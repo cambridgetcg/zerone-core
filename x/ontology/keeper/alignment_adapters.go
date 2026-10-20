@@ -22,11 +22,36 @@ func NewAlignmentOntologyAdapter(k Keeper) *AlignmentOntologyAdapter {
 // Ensure compile-time interface compliance.
 var _ alignmenttypes.OntologyKeeper = (*AlignmentOntologyAdapter)(nil)
 
-// GetDomainCount returns the number of active domains.
-// Alignment uses this for governance participation and the capture-risk
-// denominator; proposed and retired domains must not inflate either signal.
-// Keep GetAllDomains unfiltered for queries and genesis export.
+// ActiveDomainCountEnabled exposes the keeper's sole marker reader to the
+// alignment entry point. No marker is read by a selected sensor call.
+func (a *AlignmentOntologyAdapter) ActiveDomainCountEnabled(ctx context.Context) (bool, error) {
+	return a.k.ActiveDomainCountEnabled(ctx)
+}
+
+var _ alignmenttypes.ActiveDomainCountSelector = (*AlignmentOntologyAdapter)(nil)
+
+// GetDomainCount uses the entry-point selection when present. Standalone reads
+// select from the marker themselves; this historical interface has no error
+// return, so a marker fault panics rather than masquerading as legacy state.
+// EndBlock reads and returns marker faults before reaching this interface.
 func (a *AlignmentOntologyAdapter) GetDomainCount(ctx context.Context) uint64 {
+	selection, selected := alignmenttypes.InputSelectionFromContext(ctx)
+	if !selected {
+		var err error
+		selection.ActiveDomainCount, err = a.ActiveDomainCountEnabled(ctx)
+		if err != nil {
+			panic(err)
+		}
+	}
+	if !selection.ActiveDomainCount {
+		return a.getDomainCountLegacy(ctx)
+	}
+	return a.getDomainCountFixed(ctx)
+}
+
+// getDomainCountFixed counts exact active status for alignment only. All-status
+// query/export readers remain unchanged, including proposed and retired records.
+func (a *AlignmentOntologyAdapter) getDomainCountFixed(ctx context.Context) uint64 {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	domains := a.k.GetAllDomains(sdkCtx)
 	var count uint64

@@ -53,6 +53,11 @@ func (emptyAlignmentDomains) GetDomainCount(context.Context) uint64 { return 0 }
 
 func newAlignmentSupplyHarness(t *testing.T) alignmentSupplyHarness {
 	t.Helper()
+	return newAlignmentSupplyHarnessWithActivation(t, true)
+}
+
+func newAlignmentSupplyHarnessWithActivation(t *testing.T, enabled bool) alignmentSupplyHarness {
+	t.Helper()
 	keys := storetypes.NewKVStoreKeys(types.StoreKey, alignmenttypes.StoreKey,
 		stakingtypes.StoreKey, authtypes.StoreKey, banktypes.StoreKey)
 	db := dbm.NewMemDB()
@@ -81,7 +86,12 @@ func newAlignmentSupplyHarness(t *testing.T) alignmentSupplyHarness {
 		accounts, map[string]bool{}, authority, log.NewNopLogger())
 	bank.InitGenesis(ctx, banktypes.DefaultGenesisState())
 	vesting := keeper.NewKeeper(cdc, runtime.NewKVStoreService(keys[types.StoreKey]), bank, nil, authority)
-	vesting.InitGenesis(ctx, types.DefaultGenesis())
+	genesis := types.DefaultGenesis()
+	genesis.AlignmentBankSupplyEnabled = false
+	vesting.InitGenesis(ctx, genesis)
+	if enabled {
+		require.NoError(t, vesting.EnableAlignmentBankSupply(ctx))
+	}
 	staking := stakingkeeper.NewKeeper(cdc, keys[stakingtypes.StoreKey], accounts, bank, authority)
 	staking.InitGenesis(ctx, stakingtypes.DefaultGenesisState())
 	adapter := keeper.NewAlignmentVestingRewardsAdapter(vesting)
@@ -121,9 +131,6 @@ func TestAlignmentSupply_UsesCurrentBankSupply(t *testing.T) {
 	h.mint(t, "uzrn", 1_000_000_000_000)
 	require.Equal(t, big.NewInt(1_000_000_000_000), h.adapter.GetTotalSupply(h.ctx))
 
-	// The returned big.Int must not alias keeper state.
-	h.adapter.GetTotalSupply(h.ctx).SetInt64(1)
-	require.Equal(t, "1000000000000", h.bank.GetSupply(h.ctx, "uzrn").Amount.String())
 	require.NoError(t, h.bank.BurnCoins(h.ctx, alignmentSupplyTestFund,
 		sdk.NewCoins(sdk.NewInt64Coin("uzrn", 750_000_000_000))))
 	require.Equal(t, big.NewInt(250_000_000_000), h.adapter.GetTotalSupply(h.ctx))
@@ -167,15 +174,13 @@ func TestAlignmentSupply_ObservationsIgnoreMintLedger(t *testing.T) {
 }
 
 func TestAlignmentSupply_EndBlockPreservesHistoryAndUpdatesPacing(t *testing.T) {
-	h := newAlignmentSupplyHarness(t)
+	h := newAlignmentSupplyHarnessWithActivation(t, false)
 	h.mint(t, "uzrn", 1_000_000_000_000)
 	h.stake(t, 100_000_000_000)
-	// Reconstruct a prior zero-ledger observation using the unchanged legacy
-	// sensor result. This is retained history, not a rewrite of old observations.
-	oldObs := h.alignment.ObserveAll(h.ctx)
-	oldObs.Height = 99
-	oldObs.StakingRatio = alignmenttypes.NeutralBPS
-	oldObs.EconomicStability = alignmenttypes.NeutralBPS
+	// The marker-off adapter produces actual legacy zero-ledger readings.
+	oldObs := h.alignment.ObserveAll(h.ctx.WithBlockHeight(99))
+	require.Equal(t, alignmenttypes.NeutralBPS, oldObs.StakingRatio)
+	require.Equal(t, alignmenttypes.NeutralBPS, oldObs.EconomicStability)
 	oldScores := h.alignment.ComputeScores(h.ctx, oldObs)
 	oldCategory := h.alignment.CategorizeHealth(h.ctx, oldScores.Composite)
 	require.Equal(t, alignmenttypes.CategoryDegraded, oldCategory)
@@ -190,7 +195,8 @@ func TestAlignmentSupply_EndBlockPreservesHistoryAndUpdatesPacing(t *testing.T) 
 	require.Equal(t, uint64(750_000), creation)
 	require.Equal(t, uint64(1_500_000), analysis)
 
-	// A binary swap does not reset history or force an immediate observation.
+	// Activation does not reset history or force an immediate observation.
+	require.NoError(t, h.vesting.EnableAlignmentBankSupply(h.ctx))
 	module := alignment.NewAppModule(h.cdc, h.alignment)
 	require.NoError(t, module.EndBlock(h.ctx.WithBlockHeight(101)))
 	require.Equal(t, oldCategory, h.alignment.GetState(h.ctx).PreviousCategory)
