@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"sort"
 
 	sdkmath "cosmossdk.io/math"
 
@@ -48,8 +49,8 @@ func (k Keeper) DeleteVindicationPending(ctx context.Context, factId string) {
 
 // GetAllVindicationPending iterates all pending vindication entries across all facts.
 // Returns a map of factId -> entries. Used by pruning logic in BeginBlocker.
-// NOTE: Map iteration order is non-deterministic. Safe for pruning (each entry is
-// processed independently), but do not use where ordering affects consensus state.
+// NOTE: Callers must sort the keys before order-sensitive processing. In
+// particular, pruning transfers draw from a shared escrow balance.
 func (k Keeper) GetAllVindicationPending(ctx context.Context) map[string][]types.VindicationEntry {
 	store := k.storeService.OpenKVStore(ctx)
 	iter, err := store.Iterator(types.VindicationPendingPrefix, prefixEndBytes(types.VindicationPendingPrefix))
@@ -143,10 +144,31 @@ func (k Keeper) GetVindicationRecordsForFact(ctx context.Context, factId string)
 
 // PruneExpiredVindications removes pending vindication entries older than the window.
 // Expired escrowed tokens are sent to protocol treasury.
-func (k Keeper) PruneExpiredVindications(ctx context.Context, currentHeight, windowBlocks uint64) {
+func (k Keeper) PruneExpiredVindications(ctx context.Context, currentHeight, windowBlocks uint64) error {
+	enabled, err := k.ReformulationVindicationOrderingEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	k.pruneExpiredVindications(ctx, currentHeight, windowBlocks, enabled)
+	return nil
+}
+
+// Only iteration order differs; the transfer/error/delete body stays shared.
+func (k Keeper) pruneExpiredVindications(ctx context.Context, currentHeight, windowBlocks uint64, enabled bool) {
 	allPending := k.GetAllVindicationPending(ctx)
 
-	for factId, entries := range allPending {
+	// Preserve ascending store-key order: all facts share one escrow account,
+	// so an insufficient balance can make transfer outcomes order-dependent.
+	// Until activation retain the predecessor's map traversal order.
+	factIDs := make([]string, 0, len(allPending))
+	for factId := range allPending {
+		factIDs = append(factIDs, factId)
+	}
+	if enabled {
+		sort.Strings(factIDs)
+	}
+	for _, factId := range factIDs {
+		entries := allPending[factId]
 		if len(entries) == 0 {
 			continue
 		}
