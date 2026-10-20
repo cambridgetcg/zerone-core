@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import { QueryAppliedPlanRequest, QueryAppliedPlanResponse, QueryModuleVersionsResponse } from "cosmjs-types/cosmos/upgrade/v1beta1/query";
-import { buildNodeGuideProfile } from "./node-guide-profile";
+import { buildNodeGuideProfile, PRIVATE_NETWORK_TOOL_PATH } from "./node-guide-profile";
 import { buildObserverRelease, type ObserverPublication } from "./observer-release-profile";
 import { buildDevelopmentProfile, validateDevelopmentPublication, validateDevelopmentRelease, type DevelopmentPublication } from "./development-profile";
 
@@ -42,6 +42,16 @@ export function loadNodeGuideProfile(repositoryRoot: string) {
   }
   if (!committedHelper.equals(readFileSync(resolve(repositoryRoot, helperPath)))) {
     throw new Error("Node guide helper differs from HEAD; commit the reviewed helper before building the guide.");
+  }
+  // The closed-beta lane describes this exact private-network tool.
+  let committedPrivateNetworkTool: Buffer;
+  try {
+    committedPrivateNetworkTool = git("show", `${sourceCommit}:${PRIVATE_NETWORK_TOOL_PATH}`);
+  } catch {
+    throw new Error(`Node guide requires ${PRIVATE_NETWORK_TOOL_PATH} committed at HEAD; commit the reviewed tool before building the guide.`);
+  }
+  if (!committedPrivateNetworkTool.equals(readFileSync(resolve(repositoryRoot, PRIVATE_NETWORK_TOOL_PATH)))) {
+    throw new Error("Node guide private-network tool differs from HEAD; commit the reviewed tool before building the guide.");
   }
   const publicationPath = "dashboard/observer-release.json";
   let observerPublication: ObserverPublication | undefined;
@@ -143,6 +153,7 @@ export function loadNodeGuideProfile(repositoryRoot: string) {
   return buildNodeGuideProfile({
     sourceCommit,
     helperSha256: createHash("sha256").update(committedHelper).digest("hex"),
+    privateNetworkToolSha256: createHash("sha256").update(committedPrivateNetworkTool).digest("hex"),
     observerPublication,
     developmentPublication,
   });

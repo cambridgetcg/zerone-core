@@ -67,7 +67,7 @@ describe("production onboarding surface", () => {
       html,
       /<a class="button button-primary" href="\/understand\/">\s*Understand Zerone/u,
     );
-    assert.match(html, /<a class="button button-ghost" href="#onboarding">\s*Explore the live record/u);
+    assert.match(html, /<a class="button button-ghost" href="#onboarding">\s*What you can do today/u);
     assert.doesNotMatch(
       html.slice(0, onboardingStart),
       /class="[^"]*wallet-connect/u,
@@ -97,7 +97,7 @@ describe("production onboarding surface", () => {
     assert.match(text, /Bring an existing account/u);
     assert.match(
       text,
-      /Requires JavaScript and Keplr\. Connection is not account creation, admission, identity proof, or funding/u,
+      /Requires JavaScript and Keplr\. Connecting only shows your address and balance/u,
     );
     assert.match(text, /Need a new account\? Paused in this release|Paused in this release Need a new account\?/u);
     assert.match(text, /No signup, key creation, starter funds, or waitlist is active/u);
@@ -122,10 +122,10 @@ describe("production onboarding surface", () => {
     assert.match(onboarding, /id="onboarding-network-state">Checking mainnet</u);
     assert.match(onboarding, /id="onboarding-wallet-state">Optional</u);
     assert.match(onboarding, /data-onboarding-status="admission" data-tone="paused"/u);
-    assert.match(
-      onboarding,
-      /deploy\/mainnet\/JOIN\.md#onboarding-and-transaction-lanes-are-paused/u,
-    );
+    // The pause is explained on this site: the repository's JOIN.md is not
+    // publicly readable, so a link to it would be a dead end for visitors.
+    assert.match(onboarding, /href="\/understand\/#today"/u);
+    assert.doesNotMatch(onboarding, /github\.com/u);
     assert.doesNotMatch(onboarding, /<noscript\b/iu);
     assert.doesNotMatch(onboarding, /<script\b|\son[a-z]+\s*=/iu);
   });

@@ -4,11 +4,13 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
-import { buildNodeGuideProfile } from "../node-guide-profile";
+import { nodeGuidePage } from "../node-guide-page";
+import { buildNodeGuideProfile, PRIVATE_NETWORK_TOOL_PATH } from "../node-guide-profile";
 
 const inputs = {
   sourceCommit: "74e2bbac317dacb1695ed8aed20830310617ea7a",
   helperSha256: "a1".repeat(32),
+  privateNetworkToolSha256: "c3".repeat(32),
 };
 const repositoryRoot = fileURLToPath(new URL("../../", import.meta.url));
 
@@ -124,6 +126,96 @@ describe("node guide source and network boundaries", () => {
     assert.notEqual(first, second);
     assert.equal(JSON.stringify(first), JSON.stringify(second));
     assert.deepEqual(frozen, inputs);
+  });
+});
+
+describe("closed-beta private network lane", () => {
+  it("pins the private-network tool only to a full hexadecimal digest, and omits it when absent", () => {
+    for (const privateNetworkToolSha256 of ["", "0".repeat(64), "C3".repeat(32), "c3".repeat(31), `${"c3".repeat(32)}\n`]) {
+      assert.throws(() => buildNodeGuideProfile({ ...inputs, privateNetworkToolSha256 }));
+    }
+    const tool = buildNodeGuideProfile(inputs).source.privateNetworkTool;
+    assert.equal(tool?.sha256, inputs.privateNetworkToolSha256);
+    assert.equal(tool?.url, `https://github.com/cambridgetcg/zerone-core/blob/${inputs.sourceCommit}/${PRIVATE_NETWORK_TOOL_PATH}`);
+    const { privateNetworkToolSha256: _omitted, ...withoutTool } = inputs;
+    const bare = buildNodeGuideProfile(withoutTool);
+    assert.equal(bare.source.privateNetworkTool, null);
+    assert.doesNotMatch(nodeGuidePage(bare), /Private-network tool/u);
+  });
+
+  it("stays invitation-only and publishes no way to join from this page", () => {
+    const guide = buildNodeGuideProfile(inputs);
+    const beta = guide.privateNetwork;
+    assert.equal(beta.availability, "closed-beta");
+    assert.equal(beta.admission, "invitation-only");
+    assert.equal(beta.signUp, false);
+    assert.equal(beta.publishesJoinCoordinates, false);
+    assert.equal(beta.valueless, true);
+    assert.equal(beta.bridged, false);
+    assert.equal(beta.chainIdPattern, "zerone-rehearsal-lan-*");
+    assert.deepEqual(beta.admissionChecks.map((check) => check.id), ["invited", "private-addresses", "seats-only", "fixed-at-genesis"]);
+    assert.equal(guide.source.repositoryAccess, "restricted");
+    assert.match(guide.source.accessNote, /private/u);
+    const text = JSON.stringify({ ...beta, evidence: { ...beta.evidence, record: "" } });
+    // Address ranges may be named; no host address, endpoint, node id, genesis hash or key may appear.
+    for (const match of text.matchAll(/\b\d{1,3}(?:\.\d{1,3}){3}\b(?!\/\d)/gu)) assert.fail(`host address ${match[0]} in the beta lane`);
+    assert.doesNotMatch(text, /\b[a-fA-F0-9]{40,}\b|:3665[67]\b|\.local\b|\/Users\/|priv_validator|mnemonic/u);
+    assert.doesNotMatch(text, /zerone-rehearsal-lan-[0-9a-z]+-|zerone-1-observer/u);
+    assert.equal(guide.boundaries.admitsValidatorsOrNewLiveAccounts, false);
+    assert.equal(guide.boundaries.activatesSuccessorNetwork, false);
+    assert.equal(guide.live.validatorJoining.availability, "not-open");
+  });
+
+  it("dates its evidence and states its limits instead of claiming more", () => {
+    const evidence = buildNodeGuideProfile(inputs).privateNetwork.evidence;
+    assert.equal(evidence.currentFreshnessClaim, false);
+    assert.equal(evidence.date, "2026-10-17");
+    assert.match(evidence.record, new RegExp(`/blob/${inputs.sourceCommit}/skills/run-a-private-zerone-net/references/protocol\\.md$`, "u"));
+    const limits = evidence.limits.join(" ");
+    assert.match(limits, /no claim of decentralisation/u);
+    assert.match(limits, /only in automated tests/u);
+    assert.doesNotMatch(JSON.stringify(evidence), /decentrali[sz]ed\b|production-ready|guarantee/u);
+    assert.equal(evidence.matchesPinnedTool, false);
+  });
+
+  it("cites only figures that its linked run record states", () => {
+    const evidence = buildNodeGuideProfile(inputs).privateNetwork.evidence;
+    const record = readFileSync(resolve(repositoryRoot, "skills/run-a-private-zerone-net/references/protocol.md"), "utf8");
+    // Each phrase the page shows, beside the phrase in the run record that backs it.
+    for (const [shown, recorded] of [
+      [`${evidence.blocks} blocks`, `height ${evidence.blocks}`], [`${evidence.averageBlockSeconds} seconds`, `${evidence.averageBlockSeconds} s`],
+      ["all 21 heights", "all 21 shared heights"], ["half of them", "223 each"], ["1,000 test ZRN", "1,000 ZRN each"],
+    ] as const) {
+      assert.ok(evidence.summary.includes(shown), `summary lacks ${shown}`);
+      assert.ok(record.includes(recorded), `run record lacks ${recorded}`);
+    }
+  });
+
+  it("orders the roadmap from what is done to what is planned, each later stage with its gates and no date", () => {
+    const { roadmap, roadmapNote } = buildNodeGuideProfile(inputs).privateNetwork;
+    const rank = { done: 0, now: 1, planned: 2 } as const;
+    const ranks = roadmap.map((stage) => rank[stage.status]);
+    assert.ok(ranks.every((value, index) => index === 0 || value >= ranks[index - 1]!), "stages out of order");
+    assert.deepEqual([...new Set(ranks)], [0, 1, 2]);
+    assert.equal(ranks.filter((value) => value === 1).length, 1);
+    assert.equal(roadmap.at(-1)!.id, "open");
+    for (const stage of roadmap.filter((item) => item.status !== "done")) {
+      assert.ok(stage.gates.length > 0, `${stage.id} has no gates`);
+      assert.doesNotMatch(`${stage.title} ${stage.text} ${stage.gates.join(" ")}`, /\b20\d\d-\d\d-\d\d\b|\bsoon\b|\bQ[1-4]\b/u);
+    }
+    assert.match(roadmapNote, /No dates/u);
+  });
+
+  it("renders the lane without JavaScript, between the local setup and shared development", () => {
+    const html = nodeGuidePage(buildNodeGuideProfile(inputs));
+    const order = ["id=\"local\"", "id=\"beta\"", "id=\"development\"", "id=\"live\""].map((marker) => html.indexOf(marker));
+    assert.ok(order.every((index) => index > 0));
+    assert.deepEqual([...order].sort((a, b) => a - b), order);
+    assert.match(html, /<a href="#beta">Closed beta<\/a>/u);
+    assert.equal([...html.matchAll(/class="scope-row"/gu)].length, 4);
+    assert.equal([...html.matchAll(/class="roadmap-stage"/gu)].length, buildNodeGuideProfile(inputs).privateNetwork.roadmap.length);
+    assert.match(html, /The zerone-core repository is private/u);
+    assert.doesNotMatch(html, /<form\b|\sonclick=|\sstyle=/u);
   });
 });
 

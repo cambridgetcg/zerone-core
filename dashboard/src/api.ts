@@ -223,6 +223,12 @@ function normalizeLiquidityPoolPage(value: unknown): LiquidityPoolPage | null {
   if (!isRecord(value) || !Array.isArray(value.pools)) return null;
   if (value.pools.length > LIQUIDITY_POOL_PAGE_LIMIT) return null;
   const pagination = value.pagination;
+  // The live node omits pagination for an empty store and answers only
+  // {"pools":[]}. That is a complete, empty list, not a malformed page; any
+  // non-empty page without pagination stays rejected.
+  if (pagination === undefined && value.pools.length === 0) {
+    return { pools: [], nextKey: null, total: "0" };
+  }
   if (!isRecord(pagination)) return null;
   const nextKey = paginationKey(
     pagination.next_key ?? pagination.nextKey,
