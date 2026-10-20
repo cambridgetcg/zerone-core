@@ -53,6 +53,7 @@ const peerNote = byId<HTMLParagraphElement>("peer-note");
 const poolValue = byId<HTMLElement>("pool-value");
 const poolNote = byId<HTMLParagraphElement>("pool-note");
 const custodyCopy = byId<HTMLParagraphElement>("custody-copy");
+const custodyStaticCopy = custodyCopy.textContent ?? "";
 const poolHeading = byId<HTMLElement>("pool-heading");
 const poolContent = byId<HTMLDivElement>("pool-content");
 const blockRows = byId<HTMLTableSectionElement>("block-rows");
@@ -188,7 +189,7 @@ function renderLiquidityParams(params: LiquidityParams | null): void {
     : "Unavailable";
   byId("max-pools").textContent = params
     ? params.maxPools === 0
-      ? "Disabled · pre-H1"
+      ? "0 · switched off"
       : `${formatHeight(params.maxPools)} open`
     : "Unavailable";
   byId("minimum-reserve").textContent = params
@@ -269,11 +270,11 @@ function renderPoolRegistry(registry: LiquidityPoolRegistry | null): void {
   poolContent.replaceChildren();
 
   if (registry === null) {
-    poolHeading.textContent = "Registry unavailable";
+    poolHeading.textContent = "Pool list unavailable";
     const state = element("div", "pool-empty error-state");
     state.append(
       element("div", "empty-symbol", "↯"),
-      element("h3", "", "The pool registry could not be read."),
+      element("h3", "", "The pool list could not be read."),
       element("p", "", "No value has been assumed. Refresh when the mainnet endpoint returns."),
     );
     poolContent.append(state);
@@ -286,24 +287,13 @@ function renderPoolRegistry(registry: LiquidityPoolRegistry | null): void {
     const state = element("div", "pool-empty");
     state.append(
       element("div", "empty-symbol", "0"),
-      element("h3", "", "No admitted creator has opened a pool yet."),
+      element("h3", "", "No pools exist."),
       element(
         "p",
         "",
-        "There is currently no on-chain ZRN exchange rate, swap route, TVL, or APY. Governance first grants a counter-denom for one creation and admits a creator through Params; that allowlisted creator then signs and funds pool creation. A successful creation consumes the denom grant.",
+        "So there is no on-chain price for ZRN and no swap route. A pool can only be opened by a creator that governance has approved, for a token governance has admitted.",
       ),
     );
-    const notes = element("div", "empty-notes");
-    [
-      "AMM module live",
-      "Governance grants one-shot denom admission and controls pool status",
-      "Allowlisted creators sign and fund creation",
-      "Successful creation consumes its denom grant",
-      "LP exits remain permissionless",
-      "Billing oracle requires allowlist plus live eligibility gates",
-      "Closed pools remain readable tombstones",
-    ].forEach((note) => notes.append(element("span", "", note)));
-    state.append(notes);
     poolContent.append(state);
     return;
   }
@@ -407,9 +397,9 @@ function updateSnapshot(next: NetworkSnapshot): void {
   );
   onboarding.setNetwork(readiness);
   heroHeight.textContent = formatHeight(next.height);
-  heroBlockAge.textContent = `sealed ${timeAgo(next.blockTime)}`;
+  heroBlockAge.textContent = `made ${timeAgo(next.blockTime)}`;
   heroState.textContent = healthy
-    ? "Producing"
+    ? "Running"
     : regressed
       ? "Verify chain"
       : fresh
@@ -440,18 +430,18 @@ function updateSnapshot(next: NetworkSnapshot): void {
   updateMetric(validatorValue, next.validators === null ? null : String(next.validators));
   validatorNote.textContent =
     next.validators === null
-      ? "Consensus set unavailable"
+      ? "Could not read the validator set"
       : next.validators === 1
-        ? "One block producer · custodial"
-        : `${next.validators} active block producers`;
+        ? "One computer makes every block"
+        : `${next.validators} computers make blocks`;
 
   updateMetric(peerValue, next.peers === null ? null : String(next.peers));
   peerNote.textContent =
     next.peers === null
-      ? "Peer view unavailable"
+      ? "Could not read the public node"
       : next.peers === 0
-        ? "No peers visible from this RPC node"
-        : `${next.peers} ${next.peers === 1 ? "peer" : "peers"} connected to this RPC node`;
+        ? "The public node sees no other nodes"
+        : `${next.peers} other ${next.peers === 1 ? "node" : "nodes"} connected to the public node`;
 
   const poolRegistry = next.poolRegistry;
   const pools = poolRegistry?.pools ?? null;
@@ -473,17 +463,21 @@ function updateSnapshot(next: NetworkSnapshot): void {
     pools?.filter((pool) => pool.status === "PRE_V4").length ?? 0;
   poolNote.textContent =
     poolRegistry === null
-      ? "Pool registry unavailable"
+      ? "Could not read the pool list"
       : poolRegistry.pools.length === 0
-        ? "No on-chain market yet"
+        ? "None exist, so ZRN has no market here"
         : !poolRegistry.complete
           ? `${poolRegistry.pools.length} records shown of ${formatCount(poolRegistry.total)} · display cap ${poolRegistry.recordCap}`
         : preV4PoolCount > 0
           ? `${preV4PoolCount} ${preV4PoolCount === 1 ? "record has" : "records have"} no lifecycle metadata`
           : `${activePoolCount} active · ${restrictedPoolCount} restricted · ${closedPoolCount} closed`;
 
-  if (next.validators !== null && next.peers !== null) {
-    custodyCopy.textContent = `The unsealed custodial launch has ${next.validators} consensus ${next.validators === 1 ? "validator" : "validators"}; the public RPC node currently sees ${next.peers} connected ${next.peers === 1 ? "peer" : "peers"}. Block production and governance are not distributed yet, and the operator retains the disclosed ability to halt, revert, or re-genesis.`;
+  // The static copy names one validator. If the chain ever reports more,
+  // say only what this page can see rather than who runs them.
+  if (next.validators !== null && next.validators !== 1) {
+    custodyCopy.textContent = `${CHAIN_ID} now reports ${next.validators} validators. This page cannot show who runs them, so treat the founding household as still able to stop the chain, roll it back, or restart it from scratch until that is shown otherwise.`;
+  } else if (next.validators === 1) {
+    custodyCopy.textContent = custodyStaticCopy;
   }
 
   const nextParamsSignature = JSON.stringify(next.liquidityParams);
@@ -514,16 +508,16 @@ async function refreshNetwork(showFailure = true): Promise<void> {
     onboarding.setNetwork("unavailable");
     heroState.textContent = snapshot ? "Stale snapshot" : "Unavailable";
     heroBlockAge.textContent = snapshot
-      ? `last sealed ${timeAgo(snapshot.blockTime)}`
+      ? `last made ${timeAgo(snapshot.blockTime)}`
       : "No fresh block received";
     if (!snapshot) {
       updateMetric(supplyValue, null);
       updateMetric(validatorValue, null);
       updateMetric(peerValue, null);
       updateMetric(poolValue, null);
-      validatorNote.textContent = "Consensus set unavailable";
-      peerNote.textContent = "Peer view unavailable";
-      poolNote.textContent = "Pool registry unavailable";
+      validatorNote.textContent = "Could not read the validator set";
+      peerNote.textContent = "Could not read the public node";
+      poolNote.textContent = "Could not read the pool list";
       paramsSignature = "null";
       poolsSignature = "null";
       renderLiquidityParams(null);
@@ -670,7 +664,7 @@ function renderWallet(wallet: WalletState): void {
   if (wallet.frozen !== undefined) {
     identity.push(wallet.frozen ? "Frozen on-chain" : "Active on-chain");
   }
-  walletFootnote.textContent = `${identity.join(" · ")} · Balance read directly from ${CHAIN_ID}. Passport-issued accounts began as shared custody because the onboarding operator retained a copy of the key.`;
+  walletFootnote.textContent = `${identity.join(" · ")} · Balance read directly from ${CHAIN_ID}. Accounts from the earlier Passport sign-up began as shared custody: the people who ran that sign-up kept a copy of their keys.`;
   sendOpenButton.disabled = wallet.frozen === true;
   sendOpenButton.textContent = wallet.frozen === true ? "Account frozen" : "Send ZRN";
   sendOpenButton.title =
@@ -796,7 +790,7 @@ async function populateSendFeePayers(wallet: WalletState): Promise<void> {
   if (!FEEGRANT_SPONSORSHIP_ENABLED) {
     sendFeePayer.disabled = true;
     sendNoticeCopy.textContent =
-      "Sponsored spending remains disabled until the live validator enforces frozen fee granters before fee deduction. This send will use 0.20 ZRN from your wallet.";
+      "Sponsored spending is off for now. This send will use 0.20 ZRN from your wallet.";
     return;
   }
   const grants = wallet.incomingFeeGrants;
@@ -1179,17 +1173,57 @@ window.addEventListener("keplr_keystorechange", () => {
   void handleWalletConnect();
 });
 
+// The deeper views stay folded, and fetch nothing, until a visitor opens one
+// or arrives with its fragment. Each initialises once, after it is visible,
+// so its layout reads real sizes.
+const closerViews: Record<string, () => Promise<void>> = {
+  authority: () => initialiseAuthorityGeometry(authorityGeometryRoot),
+  understanding: () => initialiseKnowledgeGeometry(knowledgeGeometryRoot),
+  participate: () => initialiseFrontierParticipation(frontierParticipationRoot),
+};
+const closerReady = new Map<string, Promise<void>>();
+const loadCloserView = (view: string): Promise<void> => {
+  const initialise = closerViews[view];
+  if (!initialise) return Promise.resolve();
+  let ready = closerReady.get(view);
+  if (!ready) {
+    ready = initialise();
+    closerReady.set(view, ready);
+  }
+  return ready;
+};
+const openCloserForHash = (): Promise<void> => {
+  const view = window.location.hash.slice(1);
+  if (!view) return Promise.resolve();
+  const details = document.querySelector<HTMLDetailsElement>(
+    `details[data-closer="${CSS.escape(view)}"]`,
+  );
+  if (!details) return Promise.resolve();
+  details.open = true;
+  return loadCloserView(view);
+};
+document.querySelectorAll<HTMLDetailsElement>("details[data-closer]").forEach((details) => {
+  details.addEventListener("toggle", () => {
+    if (details.open) void loadCloserView(details.dataset.closer ?? "");
+  });
+});
+window.addEventListener("hashchange", () => void openCloserForHash());
+// Following a link to the fragment already in the URL fires no hashchange, so a
+// fold closed after arriving would stay shut; reopen it on the click instead.
+document.addEventListener("click", (event) => {
+  const link = (event.target as Element | null)?.closest<HTMLAnchorElement>('a[href^="#"]');
+  if (link && link.hash === window.location.hash) void openCloserForHash();
+});
+
 initialiseReveal();
-const authorityGeometryReady = initialiseAuthorityGeometry(authorityGeometryRoot);
-const knowledgeGeometryReady = initialiseKnowledgeGeometry(knowledgeGeometryRoot);
-void initialiseFrontierParticipation(frontierParticipationRoot);
+const initialCloserReady = openCloserForHash();
 const piPilotReady = initialisePiPilotIfEnabled();
 const initialNetworkReady = refreshNetwork(false);
 let initialHashInputsSettled = false;
 let initialHashAligned = false;
 const alignInitialHash = (): void => {
   if (!initialHashInputsSettled || initialHashAligned) return;
-  if (!["#authority", "#understanding", "#participate"].includes(window.location.hash)) return;
+  if (!["#network", "#look-closer", "#authority", "#understanding", "#liquidity", "#research", "#participate", "#more-pages"].includes(window.location.hash)) return;
   initialHashAligned = true;
   window.requestAnimationFrame(() => {
     document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: "start", behavior: "instant" });
@@ -1202,8 +1236,7 @@ const alignPiHash = (): void => {
   });
 };
 void Promise.allSettled([
-  knowledgeGeometryReady,
-  authorityGeometryReady,
+  initialCloserReady,
   initialNetworkReady,
 ]).then(() => {
   initialHashInputsSettled = true;
@@ -1218,7 +1251,7 @@ window.setInterval(() => {
     node.textContent = timeAgo(node.dataset.timestamp ?? "");
   });
   if (snapshot) {
-    const prefix = networkPill.dataset.state === "online" ? "sealed" : "last sealed";
+    const prefix = networkPill.dataset.state === "online" ? "made" : "last made";
     heroBlockAge.textContent = `${prefix} ${timeAgo(snapshot.blockTime)}`;
   }
 }, 1_000);

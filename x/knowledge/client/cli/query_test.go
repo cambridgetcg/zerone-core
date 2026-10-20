@@ -56,10 +56,15 @@ func (s *capturingKnowledgeQueryServer) Domains(_ context.Context, req *types.Qu
 
 func queryCaptureClient(t *testing.T) (client.Context, <-chan capturedKnowledgeQuery) {
 	t.Helper()
-	listener := bufconn.Listen(1024 * 1024)
 	captured := make(chan capturedKnowledgeQuery, 1)
+	return knowledgeQueryClient(t, &capturingKnowledgeQueryServer{captured: captured}), captured
+}
+
+func knowledgeQueryClient(t *testing.T, queryServer types.QueryServer) client.Context {
+	t.Helper()
+	listener := bufconn.Listen(1024 * 1024)
 	server := grpc.NewServer()
-	types.RegisterQueryServer(server, &capturingKnowledgeQueryServer{captured: captured})
+	types.RegisterQueryServer(server, queryServer)
 	go func() {
 		_ = server.Serve(listener)
 	}()
@@ -79,7 +84,7 @@ func queryCaptureClient(t *testing.T) (client.Context, <-chan capturedKnowledgeQ
 		require.NoError(t, listener.Close())
 	})
 
-	return client.Context{}.WithGRPCClient(conn), captured
+	return client.Context{}.WithGRPCClient(conn)
 }
 
 func TestPaginatedQueryCommandsExposeBoundedDefaults(t *testing.T) {

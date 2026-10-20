@@ -12,9 +12,16 @@ import (
 	"cosmossdk.io/core/appmodule"
 	"github.com/stretchr/testify/require"
 
+	zeroneapp "github.com/zerone-chain/zerone/app"
+	"github.com/zerone-chain/zerone/x/knowledge"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
+	"github.com/zerone-chain/zerone/x/qualification"
 	qualificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
 )
+
+// Pin what h.App resolves to as well as the block-step tokens below: a wrapper
+// could override the blockers without changing AdvanceBlocks itself.
+var _ *zeroneapp.ZeroneApp = TestHarness{}.App
 
 // This deliberately closed template pins the whole block step, not just named
 // hook calls: aliases, manager/module dispatch, helpers and extra control flow
@@ -115,6 +122,27 @@ func TestHarnessAdvanceBlocksContract(t *testing.T) {
 func TestHarnessBeginBlockersRegistered(t *testing.T) {
 	h := NewTestHarness(t)
 	manager := h.App.ModuleManager
+	// Implementing HasBeginBlocker is not enough: a wrapper could replay hooks.
+	// IsType pins these exact value types; pointer registrations also fail closed.
+	require.IsType(t, knowledge.AppModule{}, manager.Modules[knowledgetypes.ModuleName])
+	require.IsType(t, qualification.AppModule{}, manager.Modules[qualificationtypes.ModuleName])
+
+	// Cover every scheduled module, including those with no-op or absent hooks.
+	for _, order := range []struct {
+		name    string
+		modules []string
+	}{
+		{"OrderPreBlockers", manager.OrderPreBlockers},
+		{"OrderBeginBlockers", manager.OrderBeginBlockers},
+		{"OrderEndBlockers", manager.OrderEndBlockers},
+	} {
+		seen := make(map[string]bool, len(order.modules))
+		for _, name := range order.modules {
+			require.False(t, seen[name], "%s schedules %s more than once", order.name, name)
+			seen[name] = true
+		}
+	}
+
 	for _, name := range []string{knowledgetypes.ModuleName, qualificationtypes.ModuleName} {
 		count := 0
 		for _, scheduled := range manager.OrderBeginBlockers {
@@ -128,7 +156,7 @@ func TestHarnessBeginBlockersRegistered(t *testing.T) {
 	}
 
 	// The application entry point returns no error in the next-block context.
-	// Scheduling and interface checks above do not prove callback execution.
+	// Scheduling, identity and interface checks do not prove callback execution.
 	_, err := h.App.BeginBlocker(h.Ctx.WithBlockHeight(h.Height() + 1))
 	require.NoError(t, err)
 }
