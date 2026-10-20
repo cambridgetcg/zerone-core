@@ -14,6 +14,12 @@ export interface GenesisState {
   domains: Domain[];
   proposals: DomainProposal[];
   crossLinks: CrossStratumLink[];
+  /**
+   * Active-domain-count marker (zerone-core #124). Native genesis sets it; a
+   * file without the field imports as off. In place, only the named carrier
+   * upgrade consensus-repairs-v1 sets it.
+   */
+  activeDomainCountEnabled: boolean;
 }
 /**
  * Params defines the ontology module parameters.
@@ -44,7 +50,8 @@ function createBaseGenesisState(): GenesisState {
     strata: [],
     domains: [],
     proposals: [],
-    crossLinks: []
+    crossLinks: [],
+    activeDomainCountEnabled: false
   };
 }
 /**
@@ -71,6 +78,9 @@ export const GenesisState = {
     for (const v of message.crossLinks) {
       CrossStratumLink.encode(v!, writer.uint32(42).fork()).ldelim();
     }
+    if (message.activeDomainCountEnabled === true) {
+      writer.uint32(48).bool(message.activeDomainCountEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -95,6 +105,9 @@ export const GenesisState = {
         case 5:
           message.crossLinks.push(CrossStratumLink.decode(reader, reader.uint32()));
           break;
+        case 6:
+          message.activeDomainCountEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -109,6 +122,7 @@ export const GenesisState = {
     message.domains = object.domains?.map(e => Domain.fromPartial(e)) || [];
     message.proposals = object.proposals?.map(e => DomainProposal.fromPartial(e)) || [];
     message.crossLinks = object.crossLinks?.map(e => CrossStratumLink.fromPartial(e)) || [];
+    message.activeDomainCountEnabled = object.activeDomainCountEnabled ?? false;
     return message;
   }
 };
