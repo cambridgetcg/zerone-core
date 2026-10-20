@@ -18,6 +18,12 @@ var (
 	CorrectionKeyPrefix    = []byte{0x06}
 	CorrectionCountKey         = []byte{0x07}
 	CorrectionOutcomeKeyPrefix = []byte{0x08}
+	// UnobservedHealthEnabledKey is the consensus-repairs-v2 marker for the
+	// not-observed health state (decision zc-health-unknown-q1;
+	// keeper/unobserved_health_activation.go). The prefixes above hold
+	// 0x01-0x08 and InitChain's _iavl_init sentinel starts with 0x5F; 0x09 is
+	// unused here, on the live 2e37c4c layout and on every branch tip.
+	UnobservedHealthEnabledKey = []byte{0x09}
 )
 
 // ObservationKey returns the store key for an observation at a given height.

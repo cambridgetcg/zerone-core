@@ -91,6 +91,8 @@ func DefaultGenesis() *GenesisState {
 		State: &AlignmentState{
 			Enabled: true,
 		},
+		// A new chain starts with the consensus-repairs-v2 selection on.
+		UnobservedHealthEnabled: true,
 	}
 }
 
