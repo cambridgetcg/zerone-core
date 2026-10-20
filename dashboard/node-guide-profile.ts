@@ -3,10 +3,13 @@ import { buildDevelopmentProfile, type DevelopmentPublication } from "./developm
 
 const REPOSITORY = "https://github.com/cambridgetcg/zerone-core";
 const HELPER_PATH = "scripts/local-node.py";
+export const PRIVATE_NETWORK_TOOL_PATH = "skills/run-a-private-zerone-net/scripts/private-net.py";
+const PRIVATE_NETWORK_RECORD_PATH = "skills/run-a-private-zerone-net/references/protocol.md";
 
 export interface NodeGuideBuildInputs {
   sourceCommit: string;
   helperSha256: string;
+  privateNetworkToolSha256?: string;
   observerPublication?: ObserverPublication;
   developmentPublication?: DevelopmentPublication;
 }
@@ -25,11 +28,13 @@ function requirePin(value: string, length: number, name: string): void {
 export function buildNodeGuideProfile({
   sourceCommit,
   helperSha256,
+  privateNetworkToolSha256,
   observerPublication,
   developmentPublication,
 }: NodeGuideBuildInputs) {
   requirePin(sourceCommit, 40, "sourceCommit");
   requirePin(helperSha256, 64, "helperSha256");
+  if (privateNetworkToolSha256 !== undefined) requirePin(privateNetworkToolSha256, 64, "privateNetworkToolSha256");
   const source = (path: string) => `${REPOSITORY}/blob/${sourceCommit}/${path}`;
   const helperCommand = "python3 scripts/local-node.py";
   const localHome = '"$HOME/zerone-local"';
@@ -55,10 +60,95 @@ export function buildNodeGuideProfile({
         rawUrl: `https://raw.githubusercontent.com/cambridgetcg/zerone-core/${sourceCommit}/${HELPER_PATH}`,
         sha256: helperSha256,
       },
+      privateNetworkTool: privateNetworkToolSha256 === undefined ? null : {
+        path: PRIVATE_NETWORK_TOOL_PATH,
+        url: source(PRIVATE_NETWORK_TOOL_PATH),
+        sha256: privateNetworkToolSha256,
+        scope: "The tool this guide describes. A closed-beta seat checks its kit against the sha256 in its own invitation.",
+      },
+      access: "The zerone-core repository is private. Source links and the clone step need repository access; this guide and guide.json do not.",
       scope: "Pinned source for the local sandbox; not the installed zerone-1 executable.",
       productionBinaryProvenance: false,
     },
     development: buildDevelopmentProfile(sourceCommit, developmentPublication),
+    privateNetwork: {
+      id: "private-network",
+      title: "Run a node with other Macs",
+      availability: "closed-beta",
+      admission: "invitation-only",
+      networkScope: "own-home-network",
+      chainIdPattern: "zerone-rehearsal-lan-*",
+      valueless: true,
+      bridged: false,
+      signUp: false,
+      publishesJoinCoordinates: false,
+      summary: "A fresh, valueless Zerone chain whose validators are Macs on our own network. Each Mac makes its own keys, and they never leave it. A chain can be thrown away and started again under a new chain id.",
+      whoCanJoin: "Apple silicon Macs on our own network, each invited by the operator before the chain starts.",
+      howToAsk: "There is no sign-up form. Seats are given by invitation from the operator, and no genesis, peer address, invitation or kit is published here.",
+      admissionChecks: [
+        { id: "invited", title: "Invited seats only", text: "The genesis is built only from seat packets that answer the operator's invitations, with the role and stake each invitation fixed." },
+        { id: "own-network", title: "Our network only", text: "Every seat address must be a private home-network address: 10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16." },
+        { id: "seats-only", title: "Seats only, at the door", text: "Each node accepts inbound connections only from the other seats' node keys, which CometBFT checks in its authenticated handshake. A node that holds the genesis but no seat is turned away." },
+        { id: "fixed-at-genesis", title: "Fixed at genesis", text: "The seat list cannot change later. Adding a Mac means a new chain and a new round of invitations." },
+      ],
+      requirements: [
+        "An Apple silicon Mac on our network, with Python 3.9 or newer; the macOS Command Line Tools python works.",
+        "About 20 GiB of free disk, TCP port 36656 on the Mac's network address, and 36657 on loopback.",
+        "No Go toolchain or repository access on a seat: the kit carries the tool and the pinned zeroned.",
+        "The operator's help: carrying files between Macs, allowing zeroned through the macOS firewall, and confirming the seat table before any node starts.",
+      ],
+      flow: [
+        { id: "invite", who: "Operator", title: "Invitation and kit", text: "The coordinating Mac writes an invitation that fixes this Mac's role and stake and pins the sha256 of the tool and of zeroned. The operator carries the kit across." },
+        { id: "seat", who: "Your Mac", title: "Check and seat", text: "The kit's START-HERE.md lists this Mac's exact commands: receive the kit, pin the binary against the invitation, run preflight, then seat. The keys are made on this Mac and stay there; only the public seat packet goes back." },
+        { id: "genesis", who: "Coordinator", title: "One genesis", text: "The coordinator builds the genesis from the invited seat packets, once." },
+        { id: "install", who: "Your Mac", title: "Verify, then install", text: "install checks the genesis against this Mac's own defaults and against the sha256 the operator relays in a separate message. It then writes a configuration that listens only on this Mac's network address and admits only the other seats." },
+        { id: "start", who: "Operator", title: "Confirm and start", text: "Each seat prints the seat table. On the operator's yes, the nodes start; blocks begin once more than two thirds of the stake is online." },
+        { id: "agree", who: "Every seat", title: "Show agreement", text: "status, compare and a test transfer show that every seat sees the same chain." },
+      ],
+      evidence: {
+        kind: "dated-run-record",
+        date: "2026-10-17",
+        chainId: "zerone-rehearsal-lan-1",
+        macs: 2,
+        validators: 2,
+        stakePerValidatorZrn: 1000,
+        blocks: 446,
+        averageBlockSeconds: "2.9",
+        summary: "Two Apple silicon Macs on one home network ran a validator each with an equal 1,000 ZRN stake. They produced 446 blocks, one about every 2.9 seconds, each proposing half of them. The recorded compare agreed at all 21 heights it shared, and a 1 ZRN transfer from one validator appeared in the other's balance.",
+        limits: [
+          "One home and one operator: two Macs, not independent operators. This makes no claim of decentralisation.",
+          "A short run of about 21 minutes of blocks. Day-long uptime, a restarted seat and three or more Macs are not yet shown.",
+          "It used an earlier version of the tool with a hand-built kit. The kit flow, the firewall signing fix and the seats-only door came afterwards and have run only in automated tests on one machine.",
+          "The second Mac's firewall rule silently failed, so the chain relied on that Mac dialling out.",
+        ],
+        rehearsal: "Automated tests run the whole protocol on one machine: four validators with their own keys and a full node agree, a transfer is seen, the chain keeps finalising with one validator stopped, and a node that holds the genesis but no seat is refused.",
+        currentFreshnessClaim: false,
+        record: source(PRIVATE_NETWORK_RECORD_PATH),
+      },
+      roadmap: [
+        { id: "rehearsed", status: "done", title: "Rehearsed on one machine", text: "Four validators and a full node, each with its own keys, run the whole protocol in automated tests.", gates: [] },
+        { id: "two-macs", status: "done", title: "First run across two Macs", text: "On 2026-10-17, two validators on one home network agreed at every height compared and carried a transfer.", gates: [] },
+        { id: "closed-beta", status: "now", title: "Closed beta on our own network", text: "Invited Apple silicon Macs on our network, admitted at the door by node key. Each group runs its own new, valueless chain.", gates: [
+          "A run of the current kit and tool across three or more Macs, kept up for a day, with one seat restarted and every compare output kept.",
+          "The firewall signing fix confirmed on a second Mac.",
+        ] },
+        { id: "invited-beyond", status: "planned", title: "Invited Macs beyond our network", text: "Seats outside the home network, still by invitation.", gates: [
+          "An overlay network path proven between two Macs.",
+          "Signed invitations and kits, so a seat can check who issued them.",
+          "Each seat under its own macOS user, so other software on that Mac cannot read its keys.",
+          "A way to carry files that does not need the operator beside every Mac.",
+        ] },
+        { id: "join-running", status: "planned", title: "Join a running network", text: "A new node joins an existing chain instead of a new chain for every new member.", gates: [
+          "A way for a node to join after genesis; today the seat list is fixed at genesis.",
+          "Builds for Linux and Intel Macs, pinned per platform.",
+        ] },
+        { id: "open", status: "planned", title: "Open to everyone", text: "Anyone can verify a signed release and run a node on a public Zerone network.", gates: [
+          "A public, signed release with its provenance, since the source repository is private today.",
+          "A release-bound join packet: the exact binary digest, the genesis and authenticated peers.",
+        ] },
+      ],
+      roadmapNote: "No dates: a stage opens when its gates are met. This closed beta does not open zerone-1 validator joining, the shared development chain's validator seat, or any successor network.",
+    },
     local: {
       id: "local-sandbox",
       title: "Run your own local node",
@@ -69,6 +159,7 @@ export function buildNodeGuideProfile({
       liveNetworkConnection: false,
       funds: "Local test funds only; no live ZRN balance or reward entitlement.",
       prerequisites: [
+        "Access to the private zerone-core repository on GitHub; without it the first step cannot clone.",
         "Go 1.25.14, Git, make and the platform C build tools.",
         "Python 3.11+ and a terminal on Linux or macOS.",
         "A new, dedicated home directory and free loopback ports 47656 and 47657.",
@@ -269,6 +360,7 @@ export function buildNodeGuideProfile({
       privateStateUploadRequired: false,
       admitsValidatorsOrNewLiveAccounts: false,
       legacyAdmissionScope: "zerone-1 only; the separate development lane has its own explicit publication state",
+      privateNetworkAdmission: "invitation-only, on separate valueless zerone-rehearsal-lan-* chains; nothing on this page admits a seat",
       activatesSuccessorNetwork: false,
       provesHistoricalPayments: false,
     },

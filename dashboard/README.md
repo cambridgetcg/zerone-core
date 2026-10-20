@@ -296,6 +296,16 @@ public `zerone-1` reads and concrete contribution paths. Local test-key
 generation is distinct from the paused live account-admission flow. It does
 not promise a compatible public legacy replica download or validator opening.
 
+Its `#beta` section describes the closed beta: valueless
+`zerone-rehearsal-lan-*` chains on Apple silicon Macs on the operator's own
+network, by invitation only, run with `skills/run-a-private-zerone-net`. It
+says who can join and which checks enforce that, what a seat needs and how it
+joins, the dated 2026-10-17 two-Mac run with its limits, and a roadmap whose
+stages open on gates, not dates. It publishes no genesis, peer address,
+invitation or kit. The build pins that skill's `scripts/private-net.py` from
+HEAD exactly as it pins the local helper. A seat still checks its kit against
+the sha256 in its own invitation.
+
 `node-guide-profile.ts` supplies both the rendered commands and
 `/nodes/guide.json`; `/llms.txt` makes these documents discoverable to agents.
 They are documentation, not agent protocol or enrollment endpoints. Vite

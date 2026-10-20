@@ -10,10 +10,14 @@ import { nodeGuidePage } from "../node-guide-page";
 import { buildNodeGuideProfile } from "../node-guide-profile";
 import { buildDevelopmentProfile, type DevelopmentPublication } from "../development-profile";
 
+const privateNetworkTool = "# Private-network tool fixture; never executed\n";
+
 function developmentSources(root: string): void {
   mkdirSync(join(root, "docs"), { recursive: true });
   writeFileSync(join(root, "scripts/shared-claims.py"), "# Shared client fixture; never executed\n");
   writeFileSync(join(root, "docs/SHARED-DEVELOPMENT.md"), "# Shared development fixture\n");
+  mkdirSync(join(root, "skills/run-a-private-zerone-net/scripts"), { recursive: true });
+  writeFileSync(join(root, "skills/run-a-private-zerone-net/scripts/private-net.py"), privateNetworkTool);
 }
 
 it("keeps public-network links on zerone.ai when the guide is hosted by an observer", () => {
@@ -50,6 +54,7 @@ it("publishes committed helper bytes and refuses missing or modified install ins
     const profile = loadNodeGuideProfile(root);
     assert.equal(profile.source.commit, git("rev-parse", "HEAD"));
     assert.equal(profile.source.localNodeHelper.sha256, createHash("sha256").update(helper).digest("hex"));
+    assert.equal(profile.source.privateNetworkTool?.sha256, createHash("sha256").update(privateNetworkTool).digest("hex"));
 
     const html = nodeGuidePage(profile);
     const unescape = (value: string) => value.replace(/&amp;/gu, "&").replace(/&lt;/gu, "<").replace(/&gt;/gu, ">").replace(/&quot;/gu, '"').replace(/&#39;/gu, "'");
@@ -57,8 +62,12 @@ it("publishes committed helper bytes and refuses missing or modified install ins
     for (const step of profile.local.steps) assert.ok(commands.includes(step.command), `static HTML omits ${step.id}`);
     assert.ok(html.includes(profile.source.commit));
     assert.ok(html.includes(profile.source.localNodeHelper.sha256));
+    assert.ok(html.includes(profile.source.privateNetworkTool!.sha256));
     assert.match(html, /href="\/nodes\/guide\.json"/u);
     assert.doesNotMatch(html, /wallet-connect|<form\b|\/src\/main\.ts|\sonclick=/u);
+    writeFileSync(join(root, "skills/run-a-private-zerone-net/scripts/private-net.py"), `${privateNetworkTool}# Uncommitted drift.\n`);
+    assert.throws(() => loadNodeGuideProfile(root), /private-network tool differs from HEAD/);
+    writeFileSync(join(root, "skills/run-a-private-zerone-net/scripts/private-net.py"), privateNetworkTool);
     writeFileSync(join(root, "scripts/local-node.py"), `${helper}# Uncommitted drift.\n`);
     assert.throws(() => loadNodeGuideProfile(root), /differs from HEAD/);
   } finally {
