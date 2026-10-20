@@ -60,6 +60,11 @@ type domainCountFixture struct {
 // knowledge pacing readers; no node, signed transport or actual bank custody.
 func newDomainCountFixture(t *testing.T, domains []*types.Domain) domainCountFixture {
 	t.Helper()
+	return newDomainCountFixtureWithActivation(t, domains, true)
+}
+
+func newDomainCountFixtureWithActivation(t *testing.T, domains []*types.Domain, enabled bool) domainCountFixture {
+	t.Helper()
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	ms := store.NewCommitMultiStore(db, log.NewNopLogger(), storemetrics.NewNoOpMetrics())
@@ -75,7 +80,12 @@ func newDomainCountFixture(t *testing.T, domains []*types.Domain) domainCountFix
 	ok := keeper.NewKeeper(cdc, runtime.NewKVStoreService(keys[types.StoreKey]), bank, "authority")
 	genesis := types.DefaultGenesis()
 	genesis.Domains = domains
+	// A legacy rehearsal must explicitly opt out of native genesis activation.
+	genesis.ActiveDomainCountEnabled = false
 	ok.InitGenesis(ctx, genesis)
+	if enabled {
+		require.NoError(t, ok.EnableActiveDomainCount(ctx))
+	}
 	kk := knowledgekeeper.NewKeeper(runtime.NewKVStoreService(keys[knowledgetypes.StoreKey]), cdc, "authority", nil, nil)
 	kp := knowledgetypes.DefaultParams()
 	kp.MinReviewFee = "100000"
@@ -133,7 +143,7 @@ func TestAlignmentDomainCountLifecycleStates(t *testing.T) {
 		{name: "proposed", statuses: []string{"proposed"}},
 		{name: "deprecated", statuses: []string{"deprecated"}},
 		{name: "archived", statuses: []string{"archived"}},
-		{name: "unknown is not active", statuses: []string{"", "ACTIVE", "unknown"}},
+		{name: "unknown is not active", statuses: []string{"", "ACTIVE", "unknown", "active_pending", "active "}},
 		{name: "mixed", statuses: []string{"proposed", "active", "deprecated", "archived", "active", ""}, want: 2},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -222,7 +232,7 @@ func TestAlignmentProposedDomainsDoNotChangeHealthOrPacing(t *testing.T) {
 }
 
 func TestAlignmentDomainCountRetainsLegacyHistoryUntilNextObservation(t *testing.T) {
-	f := newDomainCountFixture(t, types.DefaultDomains())
+	f := newDomainCountFixtureWithActivation(t, types.DefaultDomains(), false)
 	for i := 0; i < 93; i++ {
 		f.propose(t, fmt.Sprintf("retained_%02d", i))
 	}
@@ -243,6 +253,9 @@ func TestAlignmentDomainCountRetainsLegacyHistoryUntilNextObservation(t *testing
 	}
 	f.alignment.SetState(f.ctx, legacyState)
 	ontologyBefore := f.rawOntology(t)
+	require.NoError(t, f.ontology.EnableActiveDomainCount(f.ctx))
+	ontologyBefore[string(types.ActiveDomainCountEnabledKey)] = []byte{1}
+	require.Equal(t, ontologyBefore, f.rawOntology(t), "activation adds only the marker, not a legacy-state rewrite")
 
 	// Merely running the corrected binary does not recompute stored pacing
 	// before the existing scheduler runs an observation.
@@ -273,6 +286,83 @@ func TestAlignmentDomainCountRetainsLegacyHistoryUntilNextObservation(t *testing
 	require.True(t, found)
 	require.True(t, proto.Equal(legacyHealth, health))
 	require.Equal(t, ontologyBefore, f.rawOntology(t), "legacy proposals remain intact")
+}
+
+// This characterizes the independent review's residual attack, not a desired
+// endorsement policy. The active-only repair closes the zero-endorsement path
+// only. Replace this expectation when the separately reviewed endorsement gate
+// is integrated; bank transfers here are synthetic, and the transaction
+// gas/ante path is not exercised.
+func TestAlignmentDomainCountResidualPermissionlessEndorsements(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("marker=%t", enabled), func(t *testing.T) {
+			f := newDomainCountFixtureWithActivation(t, types.DefaultDomains(), enabled)
+			selected, err := f.ontology.ActiveDomainCountEnabled(f.ctx)
+			require.NoError(t, err)
+			require.Equal(t, enabled, selected)
+			require.NoError(t, f.module.EndBlock(f.ctx))
+			before, found := f.alignment.GetHealthIndex(f.ctx, 100)
+			require.True(t, found)
+			require.Equal(t, uint64(49_000), before.DimensionalScores.GovernanceParticipation)
+			require.Equal(t, alignmenttypes.CategoryCritical, before.Category)
+
+			proposer := testAddr("recycled")
+			stake := sdkmath.NewInt(1_000_000)
+			f.bank.fundAccount(proposer, stake) // Fund once, not once per proposal.
+			server := keeper.NewMsgServerImpl(f.ontology)
+			for i := 0; i < 93; i++ {
+				name := fmt.Sprintf("endorsed_%02d", i)
+				response, err := server.ProposeDomain(f.ctx, &types.MsgProposeDomain{
+					Proposer: proposer, Name: name, DisplayName: name, Description: "Residual endorsement path",
+					Stratum: uint32(types.StratumEmpirical), Stake: stake.String(),
+				})
+				require.NoError(t, err)
+				for voter := uint32(0); voter < f.ontology.GetParams(f.ctx).MinEndorsements; voter++ {
+					_, err := server.VoteDomainProposal(f.ctx, &types.MsgVoteDomainProposal{
+						Voter: testAddr(fmt.Sprintf("sybil_%d", voter)), ProposalId: response.ProposalId, Approve: true,
+					})
+					require.NoError(t, err)
+				}
+				domain, found := f.ontology.GetDomain(f.ctx, name)
+				require.True(t, found)
+				require.Equal(t, "active", domain.Status)
+				require.Equal(t, stake.String(), f.bank.balances[proposer]["uzrn"].String())
+			}
+			require.Equal(t, uint64(100), f.count())
+			require.True(t, f.bank.module[types.ModuleName]["uzrn"].IsZero())
+			f.ctx = f.ctx.WithBlockHeight(200)
+			require.NoError(t, f.module.EndBlock(f.ctx))
+			after, found := f.alignment.GetHealthIndex(f.ctx, 200)
+			require.True(t, found)
+			require.Equal(t, uint64(700_000), after.DimensionalScores.GovernanceParticipation)
+			require.Equal(t, alignmenttypes.CategoryDegraded, after.Category)
+			require.Equal(t, "133333", f.knowledge.GetEffectiveMinReviewFee(f.ctx))
+			require.Equal(t, uint64(66), f.knowledge.GetEffectiveCooldown(f.ctx, "physics"))
+			f.ctx = f.ctx.WithBlockHeight(int64(101 + f.ontology.GetParams(f.ctx).ProposalVotingPeriod))
+			require.NoError(t, f.ontology.ProcessExpiredProposals(f.ctx))
+			require.Equal(t, uint64(100), f.count(), "passed domains survive proposal expiry")
+			t.Logf("marker=%t: 93 endorsed domains; count=100; governance=49000->700000; health=%s->%s; fee=133333; cooldown=66; stake=%s refunded",
+				enabled, before.Category, after.Category, f.bank.balances[proposer]["uzrn"])
+		})
+	}
+}
+
+// Expiry refunds are a pre-existing, separately scoped policy defect. Preserve
+// and surface the held balance instead of inventing a retroactive distribution.
+func TestAlignmentDomainCountExpiredStakeRemainsHeld(t *testing.T) {
+	f := newDomainCountFixture(t, types.DefaultDomains())
+	proposalID := f.propose(t, "expired_stake")
+	proposal, found := f.ontology.GetProposal(f.ctx, proposalID)
+	require.True(t, found)
+	f.ctx = f.ctx.WithBlockHeight(int64(proposal.ExpiresAt + 1))
+	require.NoError(t, f.ontology.ProcessExpiredProposals(f.ctx))
+	expired, found := f.ontology.GetProposal(f.ctx, proposalID)
+	require.True(t, found)
+	require.Equal(t, "expired", expired.Status)
+	_, found = f.ontology.GetDomain(f.ctx, "expired_stake")
+	require.False(t, found)
+	require.True(t, f.bank.balances[testAddr("count")]["uzrn"].IsZero())
+	require.Equal(t, "1000000", f.bank.module[types.ModuleName]["uzrn"].String())
 }
 
 // The app currently leaves capture-defense flags unwired. Exercise the
