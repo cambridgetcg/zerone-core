@@ -106,7 +106,12 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, _ codec.JSONCodec) json.RawMe
 func (AppModule) ConsensusVersion() uint64 { return 3 }
 
 func (am AppModule) BeginBlock(ctx context.Context) error {
-	am.keeper.BeginBlocker(sdk.UnwrapSDKContext(ctx))
+	enabled, err := am.keeper.HaltReasonScopingEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	k := am.keeper.WithHaltReasonScoping(enabled)
+	k.BeginBlocker(sdk.UnwrapSDKContext(ctx))
 	return nil
 }
 

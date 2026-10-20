@@ -31,6 +31,7 @@ var (
 	OperationsSafetyActivatedKey = []byte{0x11}
 	QuarantineReleaseBlockKey    = []byte{0x12}
 	RecoveryAuthorizationKey     = []byte{0x13}
+
 	// HaltReasonScopingEnabledKey is the consensus-repairs-v1 marker for
 	// zerone-core #125 (keeper/halt_reason_scoping_activation.go).
 	HaltReasonScopingEnabledKey = []byte{0x14}

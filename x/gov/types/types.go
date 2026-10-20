@@ -399,7 +399,9 @@ type PhaseExitConditions struct {
 }
 
 // DefaultPhaseExitConditions returns the exit conditions for each phase transition.
-// Key: phase being exited → conditions to enter the next phase.
+// Key: phase being exited → conditions to enter the next phase. After halt-reason
+// scoping activation, finalized research_fund halts initiated in the current
+// phase block exit; unknown/malformed evidence conservatively blocks it too.
 var DefaultPhaseExitConditions = map[ResearchFundPhase]PhaseExitConditions{
 	// Phase 0 → Phase 1
 	ResearchFundPhase_RESEARCH_FUND_PHASE_GENESIS_PAIR: {
@@ -409,7 +411,7 @@ var DefaultPhaseExitConditions = map[ResearchFundPhase]PhaseExitConditions{
 		MinChainAgeBlocks:      2_200_000,      // ~6 months
 		MinProposalsExecuted:   0,
 		MinCommunitySeatVotes:  0,
-		MaxEmergencyHalts:      0, // zero tolerance — any halt blocks transition
+		MaxEmergencyHalts:      0, // zero tolerance under the selected halt-evidence policy
 	},
 	// Phase 1 → Phase 2
 	ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER: {
@@ -419,7 +421,7 @@ var DefaultPhaseExitConditions = map[ResearchFundPhase]PhaseExitConditions{
 		MinChainAgeBlocks:      5_700_000, // ~18 months
 		MinProposalsExecuted:   3,
 		MinCommunitySeatVotes:  2,
-		MaxEmergencyHalts:      0, // zero tolerance — any halt blocks transition
+		MaxEmergencyHalts:      0, // zero tolerance under the selected halt-evidence policy
 	},
 	// Phase 2 → Phase 3
 	ResearchFundPhase_RESEARCH_FUND_PHASE_BALANCED: {
@@ -429,7 +431,7 @@ var DefaultPhaseExitConditions = map[ResearchFundPhase]PhaseExitConditions{
 		MinChainAgeBlocks:      12_600_000, // ~3 years
 		MinProposalsExecuted:   10,
 		MinCommunitySeatVotes:  0,
-		MaxEmergencyHalts:      0, // zero tolerance — any halt blocks transition
+		MaxEmergencyHalts:      0, // zero tolerance under the selected halt-evidence policy
 	},
 }
 
