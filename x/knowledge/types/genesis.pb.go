@@ -1415,6 +1415,9 @@ type GenesisState struct {
 	ClaimRecordsEnabled bool `protobuf:"varint,69,opt,name=claim_records_enabled,json=claimRecordsEnabled,proto3" json:"claim_records_enabled,omitempty"`
 	// Prospective explicit claim funding; import does not reprice historical claims.
 	FundSettlementEnabled bool `protobuf:"varint,70,opt,name=fund_settlement_enabled,json=fundSettlementEnabled,proto3" json:"fund_settlement_enabled,omitempty"`
+	// Claim attribution, verdict and reversal integrity (knowledge v12); requires
+	// fund settlement. Import does not invent upgrade receipts or rewrite records.
+	ClaimIntegrityEnabled bool `protobuf:"varint,71,opt,name=claim_integrity_enabled,json=claimIntegrityEnabled,proto3" json:"claim_integrity_enabled,omitempty"`
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -1683,6 +1686,13 @@ func (x *GenesisState) GetClaimRecordsEnabled() bool {
 func (x *GenesisState) GetFundSettlementEnabled() bool {
 	if x != nil {
 		return x.FundSettlementEnabled
+	}
+	return false
+}
+
+func (x *GenesisState) GetClaimIntegrityEnabled() bool {
+	if x != nil {
+		return x.ClaimIntegrityEnabled
 	}
 	return false
 }
@@ -2038,7 +2048,7 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x1badd_fact_veto_window_blocks\x18\xa0\x01 \x01(\x04R\x17addFactVetoWindowBlocks\x1aN\n" +
 	" MethodologyNormalizationBpsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\xe6\x14\n" +
+	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\x9e\x15\n" +
 	"\fGenesisState\x123\n" +
 	"\x06params\x18\x01 \x01(\v2\x1b.zerone.knowledge.v1.ParamsR\x06params\x12/\n" +
 	"\x05facts\x18\x02 \x03(\v2\x19.zerone.knowledge.v1.FactR\x05facts\x12A\n" +
@@ -2074,7 +2084,8 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x19review_neutrality_enabled\x18C \x01(\bR\x17reviewNeutralityEnabled\x12X\n" +
 	"\x13fact_relation_state\x18D \x01(\v2(.zerone.knowledge.v1.FactRelationGenesisR\x11factRelationState\x122\n" +
 	"\x15claim_records_enabled\x18E \x01(\bR\x13claimRecordsEnabled\x126\n" +
-	"\x17fund_settlement_enabled\x18F \x01(\bR\x15fundSettlementEnabled\"V\n" +
+	"\x17fund_settlement_enabled\x18F \x01(\bR\x15fundSettlementEnabled\x126\n" +
+	"\x17claim_integrity_enabled\x18G \x01(\bR\x15claimIntegrityEnabled\"V\n" +
 	"\x13FactRelationGenesis\x12?\n" +
 	"\trelations\x18\x01 \x03(\v2!.zerone.knowledge.v1.FactRelationR\trelations\"N\n" +
 	"\x17StatusTransitionCounter\x12\x17\n" +

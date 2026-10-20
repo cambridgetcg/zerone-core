@@ -586,8 +586,10 @@ func TestGenesisExportImport_WithR29State(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		height := app1.LastBlockHeight() + int64(i) + 1
 		blockCtx := app1.NewContext(true).WithBlockHeight(height).WithChainID(chainID1)
-		app1.BeginBlocker(blockCtx)
-		app1.EndBlocker(blockCtx)
+		_, err := app1.BeginBlocker(blockCtx)
+		require.NoError(t, err, "BeginBlocker at height %d", height)
+		_, err = app1.EndBlocker(blockCtx)
+		require.NoError(t, err, "EndBlocker at height %d", height)
 	}
 	t.Logf("Phase 1 complete: seeded R29 state and ran 100 blocks")
 

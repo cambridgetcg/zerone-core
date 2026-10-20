@@ -122,6 +122,9 @@ func (k Keeper) setFactWithHistory(ctx context.Context, fact *types.Fact, record
 		}
 		if priorStatus != fact.Status {
 			cause, causeID := inferStatusTransitionCause(cached, fact)
+			if c, ok := transitionCauseFor(ctx, fact.Id); ok {
+				cause, causeID = c.eventType, c.causeID
+			}
 			if err = k.recordStatusTransitionChecked(cached, &types.StatusTransition{FactId: fact.Id, PriorStatus: priorStatus, NewStatus: fact.Status, BlockHeight: uint64(cached.BlockHeight()), CauseEventType: cause, CauseId: causeID}); err != nil {
 				return err
 			}

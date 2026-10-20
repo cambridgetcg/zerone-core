@@ -5,6 +5,7 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/zerone-chain/zerone/internal/claimintegritymigration"
 	"github.com/zerone-chain/zerone/internal/claimrecordmigration"
 	"github.com/zerone-chain/zerone/internal/fundsettlementmigration"
 	"github.com/zerone-chain/zerone/internal/recordmigration"
@@ -163,5 +164,33 @@ func (m Migrator) Migrate10to11(ctx sdk.Context) error {
 		return err
 	}
 	write()
+	return nil
+}
+
+// Migrate11to12 selects claim-integrity semantics for future execution. It
+// also restores the fact edges that equal-ID augmentations replaced before
+// activation (RestoreAugmentationReplacedEdges; approved by Yu on
+// 2026-10-17). No other claim, fact, index, round or history record is
+// rewritten or rebuilt.
+func (m Migrator) Migrate11to12(ctx sdk.Context) error {
+	if err := claimintegritymigration.Require(ctx); err != nil {
+		return err
+	}
+	cache, write := ctx.CacheContext()
+	if err := m.keeper.ValidateClaimIntegrityActivation(cache); err != nil {
+		return err
+	}
+	restoration, err := m.keeper.RestoreAugmentationReplacedEdges(cache)
+	if err != nil {
+		return fmt.Errorf("claim integrity: restore augmentation-replaced fact edges: %w", err)
+	}
+	if err := m.keeper.EnableClaimIntegrity(cache); err != nil {
+		return err
+	}
+	if err := m.keeper.WriteMigrationMarker(cache, "migration_v12_complete", "true"); err != nil {
+		return err
+	}
+	write()
+	m.keeper.logAugmentationEdgeRestoration(ctx, "upgrade", restoration)
 	return nil
 }

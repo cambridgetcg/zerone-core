@@ -39,6 +39,7 @@ func newFrozenSurvivalFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {
 	t.Helper()
 	app, ctx, db := newAccountingAuthorityFixture(t)
 	freezeSurvivalCompiledTarget(app)
+	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.ClaimIntegrityEnabledStoreKey)) // No pre-v12 store has 0x87.
 	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.FundSettlementEnabledStoreKey))
 	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.ClaimRecordsEnabledStoreKey))
 	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey))

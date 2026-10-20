@@ -349,7 +349,10 @@ func (x *RelatedClaimHistory) GetLinks() []*ClaimHistoryLink {
 
 type ClaimHistoryLink struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// One of provisional_fact_id, challenged_claim_id, relations.contradicts.
+	// One of provisional_fact_id, challenged_claim_id, relations.contradicts,
+	// content_hash, canonical_hash, structure.object. The last three name the
+	// root claim as target: a resubmission or same-text claim, a canonical twin,
+	// and an attribution whose object is "zrn-content:" + the root content_hash.
 	Field         string `protobuf:"bytes,1,opt,name=field,proto3" json:"field,omitempty"`
 	TargetId      string `protobuf:"bytes,2,opt,name=target_id,json=targetId,proto3" json:"target_id,omitempty"`
 	unknownFields protoimpl.UnknownFields

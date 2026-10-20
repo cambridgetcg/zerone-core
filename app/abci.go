@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"sort"
 
+	"cosmossdk.io/log"
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -520,20 +521,7 @@ func (app *ZeroneApp) ProcessVoteExtInjection(ctx sdk.Context, data []byte) {
 			CommittedAtBlock: height,
 		}
 
-		if err := app.KnowledgeKeeper.StoreCommitmentInRound(ctx, c.RoundID, commitment); err != nil {
-			if errors.Is(err, knowledgetypes.ErrEquivocation) {
-				logger.Error("EQUIVOCATION in vote extension commitment",
-					"round_id", c.RoundID,
-					"validator", c.Validator,
-					"error", err.Error(),
-				)
-			} else {
-				logger.Debug("skipped commitment from vote extension",
-					"round_id", c.RoundID,
-					"validator", c.Validator,
-					"reason", err.Error(),
-				)
-			}
+		if !app.storeInjectedCommitment(ctx, logger, c.RoundID, commitment) {
 			continue
 		}
 		storedCommitments++
@@ -582,4 +570,29 @@ func (app *ZeroneApp) ProcessVoteExtInjection(ctx sdk.Context, data []byte) {
 			"reveals_total", len(inj.Reveals),
 		)
 	}
+}
+
+// storeInjectedCommitment stores one VRF-verified vote-extension commitment
+// through the same keeper path as MsgSubmitCommitment. A refusal skips the
+// commitment and is logged; it never fails the block. With claim integrity on
+// (knowledge v12), that includes a validator whose operator key is a party to
+// the claim (plan Task 14).
+func (app *ZeroneApp) storeInjectedCommitment(ctx sdk.Context, logger log.Logger, roundID string, commitment *knowledgetypes.CommitEntry) bool {
+	if err := app.KnowledgeKeeper.StoreCommitmentInRound(ctx, roundID, commitment); err != nil {
+		if errors.Is(err, knowledgetypes.ErrEquivocation) {
+			logger.Error("EQUIVOCATION in vote extension commitment",
+				"round_id", roundID,
+				"validator", commitment.Verifier,
+				"error", err.Error(),
+			)
+		} else {
+			logger.Debug("skipped commitment from vote extension",
+				"round_id", roundID,
+				"validator", commitment.Verifier,
+				"reason", err.Error(),
+			)
+		}
+		return false
+	}
+	return true
 }

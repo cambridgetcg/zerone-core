@@ -17,21 +17,39 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/stretchr/testify/require"
 	"github.com/zerone-chain/zerone/internal/fundsettlementmigration"
+	knowledgemodule "github.com/zerone-chain/zerone/x/knowledge"
 	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	"google.golang.org/protobuf/proto"
 )
 
-func fundSettlementSourceFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {
+// Keep this earlier release's target frozen at knowledge11; the current
+// binary owns 11->12 (knowledge-claim-integrity-v1).
+type archivedFundSettlementKnowledgeModule struct{ knowledgemodule.AppModule }
+
+func (archivedFundSettlementKnowledgeModule) ConsensusVersion() uint64 { return 11 }
+func freezeFundSettlementCompiledTarget(app *ZeroneApp) {
+	app.ModuleManager.Modules["knowledge"] = archivedFundSettlementKnowledgeModule{app.ModuleManager.Modules["knowledge"].(knowledgemodule.AppModule)}
+}
+func newFrozenFundSettlementFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {
 	t.Helper()
 	app, ctx, db := newAccountingAuthorityFixture(t)
+	freezeFundSettlementCompiledTarget(app)
+	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.ClaimIntegrityEnabledStoreKey)) // No pre-v12 store has 0x87.
+	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, fundSettlementTargetVersionMap()))
+	return app, ctx, db
+}
+
+func fundSettlementSourceFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {
+	t.Helper()
+	app, ctx, db := newFrozenFundSettlementFixture(t)
 	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.FundSettlementEnabledStoreKey))
 	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, fundSettlementSourceVersionMap()))
 	return app, ctx, db
 }
 
 func TestFundSettlementOwnsExactVersionBoundary(t *testing.T) {
-	app, _, _ := newAccountingAuthorityFixture(t)
+	app, _, _ := newFrozenFundSettlementFixture(t)
 	source, target := fundSettlementSourceVersionMap(), fundSettlementTargetVersionMap()
 	require.Equal(t, target, app.CurrentModuleVersionMap())
 	require.Equal(t, uint64(10), claimRecordsTargetVersionMap()["knowledge"])
@@ -85,7 +103,10 @@ func TestFundSettlementMigrationPreservesRecordsObligationsAndRestart(t *testing
 	require.Equal(t, plan.Height, app.CommitMultiStore().Commit().Version)
 	require.NoError(t, app.ValidateAccountingAuthorityStartup())
 	require.Error(t, app.UpgradeKeeper.ApplyUpgrade(ctx, plan))
-	restarted := NewZeroneApp(log.NewNopLogger(), db, nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(ctx.ChainID()))
+	restarted := NewZeroneApp(log.NewNopLogger(), db, nil, false, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(ctx.ChainID()))
+	freezeFundSettlementCompiledTarget(restarted)
+	require.NoError(t, restarted.LoadLatestVersion())
+	require.NoError(t, restarted.ValidateAccountingAuthorityStartup())
 	rctx := restarted.NewUncachedContext(false, cmtproto.Header{Height: plan.Height, ChainID: ctx.ChainID()})
 	retained, found := restarted.KnowledgeKeeper.GetVerificationRound(rctx, round.Id)
 	require.True(t, found)
@@ -102,7 +123,9 @@ func TestFundSettlementMigrationPreservesRecordsObligationsAndRestart(t *testing
 	require.NoError(t, err)
 	raw, err := json.Marshal(genesis)
 	require.NoError(t, err)
-	imported := NewZeroneApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID("fund-settlement-import"))
+	imported := NewZeroneApp(log.NewNopLogger(), dbm.NewMemDB(), nil, false, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID("fund-settlement-import"))
+	freezeFundSettlementCompiledTarget(imported)
+	require.NoError(t, imported.LoadLatestVersion())
 	ictx := imported.NewUncachedContext(false, cmtproto.Header{ChainID: "fund-settlement-import"})
 	_, err = imported.InitChainer(ictx, &abci.RequestInitChain{ChainId: "fund-settlement-import", AppStateBytes: raw})
 	require.NoError(t, err)
@@ -179,7 +202,7 @@ func TestFundSettlementRejectsWrongSourceAndPrematureActivation(t *testing.T) {
 func TestFundSettlementNativeSelectionAndRestartReceipt(t *testing.T) {
 	for _, scenario := range []string{"missing selection", "false selection", "missing flag", "corrupt flag", "marker only", "done only", "future done"} {
 		t.Run(scenario, func(t *testing.T) {
-			app, ctx, _ := newAccountingAuthorityFixture(t)
+			app, ctx, _ := newFrozenFundSettlementFixture(t)
 			if scenario == "missing selection" || scenario == "false selection" {
 				genesis := sdk053IBC10GenesisWithValidator(t, app)
 				var knowledge map[string]json.RawMessage

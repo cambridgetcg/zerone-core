@@ -22,6 +22,12 @@ import (
 func claimRecordsAdmissionFixture(t *testing.T) (*ZeroneApp, sdk.Context, *knowledgetypes.MsgSubmitContradiction) {
 	t.Helper()
 	app, ctx := settlementFixture(t)
+	// These tests characterize claim-records retention on knowledge-11
+	// contradiction admission (a 1 ZRN stake, flip at admission). Claim
+	// integrity (0x87) would refuse that stake as below the challenge minimum,
+	// so it is pinned off; its own tests are in
+	// x/knowledge/keeper/claim_integrity_contradiction_test.go.
+	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.ClaimIntegrityEnabledStoreKey))
 	address := settlementAddress(211)
 	fund := sdk.NewCoins(sdk.NewInt64Coin("uzrn", 3000000))
 	require.NoError(t, app.BankKeeper.MintCoins(ctx, knowledgetypes.BootstrapFundModuleName, fund))
@@ -201,6 +207,7 @@ func TestClaimRecordsActualBankAndRecordFailuresRollBack(t *testing.T) {
 
 func TestClaimRecordsLegacyBranchDoesNotInventRetainedInputs(t *testing.T) {
 	app, ctx, msg := claimRecordsAdmissionFixture(t)
+	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.ClaimIntegrityEnabledStoreKey)) // No pre-v12 store has 0x87.
 	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.FundSettlementEnabledStoreKey))
 	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.ClaimRecordsEnabledStoreKey))
 	response, err := knowledgekeeper.NewMsgServerImpl(app.KnowledgeKeeper).SubmitContradiction(ctx, msg)

@@ -1030,7 +1030,7 @@ Extended parameter update.
 - `authority` -- governance address
 
 ### zerone.knowledge.challenge_fact
-Verified fact challenged, new verification round created.
+Verified fact challenged, new verification round created. With claim integrity (knowledge v12) a CONTESTED fact can also be challenged, at the same confidence-scaled minimum stake, so a panel decides it.
 - `fact_id` -- fact identifier
 - `challenger` -- challenger address
 - `round_id` -- new verification round ID
@@ -1413,9 +1413,21 @@ Domain energy and capacity boosted by a mentorship graduation (R31-5 Water→Woo
 - `graduations` -- cumulative graduation count
 
 ### zerone.knowledge.contradiction_reversed
-Target fact restored from CONTESTED to VERIFIED after the contradicting claim failed and no other live contradictions remain.
+Target fact restored from CONTESTED to VERIFIED (PROVISIONAL for a conjecture) after the contradicting claim failed. Before claim integrity (knowledge v12): when no other live contradiction remains. With claim integrity on: when no contest reason remains (no standing accepted counter-fact, EXPIRED included, and no dependency refuted at or after the height at which the fact's last surviving challenge opened); other pending contradictions are not reasons, and the transition records `contradiction_reversed` with this claim ID. When that check cannot finish, the fact stays CONTESTED and `contest_check_incomplete` is emitted instead. With claim integrity on it is also emitted when an accepted counter-fact is disproven and no contest reason remains for a fact its CONTRADICTS edge held; that transition records `counterfact_disproven` with the counter-fact ID, and the event carries `reverted_by_fact` instead of `reverted_by_claim`.
 - `fact_id` -- fact whose status was restored
-- `reverted_by_claim` -- rejected/malformed/inconclusive claim whose side-effect was reversed
+- `reverted_by_claim` -- rejected/malformed/inconclusive claim whose side-effect was reversed (absent when `reverted_by_fact` is set)
+- `reverted_by_fact` -- claim integrity: the counter-fact whose disproval released the fact
+
+### zerone.knowledge.contradiction_accepted
+Claim integrity (knowledge v12): a claim carrying a CONTRADICTS relation was accepted, and its VERIFIED or ACTIVE target moved to CONTESTED. With claim integrity on, `MsgSubmitContradiction` is the only message that admits such a claim; a `MsgSubmitClaim` carrying CONTRADICTS is refused at admission, so one reaches this event only if it was admitted before activation. The target is contested only when the edge stored from the counter-fact to it is CONTRADICTS, the edge that later holds it CONTESTED; a claim that names the same target twice stores one edge, the last relation written. Admission alone changes no fact. The counter-fact stays VERIFIED. The target's transition records `contradiction_accepted` with the counter-claim ID.
+- `fact_id` -- target fact now CONTESTED
+- `counter_claim_id` -- the accepted contradicting claim
+- `counter_fact_id` -- the fact created from it, which carries the CONTRADICTS edge
+
+### zerone.knowledge.contest_check_incomplete
+Claim integrity (knowledge v12): the check for whether a CONTESTED fact may be released found no reason and could not finish, so the fact stays CONTESTED. A reason found by either rule (refuted dependency, read first; standing counter-fact) is conclusive and emits nothing, even after items that could not be read. Causes: an unreadable or malformed relation, fact, claim or transition record (the fact's own claim included: a fact accepted from a claim has its dependencies read from that claim), a relation naming a missing fact, a survival whose challenge claim is missing or inconsistent, or the scan bound (100,000 records / 64 MiB per check, counting incoming relations of every type). A relation entry under the fact's index prefix whose record names another fact (such as the edge of an augmentation whose ID extends the fact's) is skipped, not a cause; the prefix scan of a fact with no claim still counts it toward the bound. The same check decides how a challenge that does not refute a fact ends; if it cannot finish, the fact returns to CONTESTED, whatever its standing before the challenge. So a fact with more incoming relations than one check may read stays CONTESTED once a challenge of it ends (a disclosed limitation). When a disproven counter-fact's own relations cannot be listed, the event names the counter-fact and none of its targets is released; the disproval stands.
+- `fact_id` -- fact whose check could not finish (or the disproven counter-fact whose relations could not be listed)
+- `reason` -- why the check could not finish: up to eight failed reads per rule, a count of the rest, and the bound if a scan stopped there
 
 ### zerone.knowledge.confidence_clamped_to_floor
 On fact creation, the new fact's confidence was capped to its `dependency_confidence_floor` (ToK Wave 2). Emitted when a proof chain inherits a weaker ceiling than its own verification would give it.
@@ -1440,7 +1452,7 @@ Popperian survival counter incremented: a fact withstood a falsification attempt
 - `creed_commitment` -- "3"
 
 ### zerone.knowledge.challenge_inconclusive_restored
-A challenge closed without a decisive scientific result. Historical starvation used the EXPIRED path; after review-neutrality activation, INCONCLUSIVE and MALFORMED completions use the same restoration event. The target leaves CHALLENGED without survival, energy or calibration credit, while another active challenge keeps it locked. Established facts regain their type-appropriate status and conjectures remain PROVISIONAL. Checked failures roll back completion; the active-review scan uses the existing 100,000-record / 64 MiB inventory bounds.
+A challenge closed without a decisive scientific result. Historical starvation used the EXPIRED path; after review-neutrality activation, INCONCLUSIVE and MALFORMED completions use the same restoration event. The target leaves CHALLENGED without survival, energy or calibration credit, while another active challenge keeps it locked. Established facts regain their type-appropriate status and conjectures remain PROVISIONAL. With claim integrity (knowledge v12) an established fact returns to CONTESTED instead while a contest reason remains (a standing accepted counter-fact, or a dependency refuted at or after the height at which its last surviving challenge opened), or when that check cannot finish (`contest_check_incomplete`), and the transition records `challenge_inconclusive` with the challenge claim ID. Checked failures roll back completion; the active-review scan uses the existing 100,000-record / 64 MiB inventory bounds.
 - `fact_id` -- fact restored from CHALLENGED to its type-appropriate standing
 - `challenge_claim_id` -- the nondecisive challenge claim
 
@@ -1624,11 +1636,30 @@ A verifier cast a verdict on a reformulation round (Route B Wave 4d). Sponsor an
 - `finalized` -- boolean: did this vote finalize the verdict?
 
 ### zerone.knowledge.augmentation_verdict_finalized
-The verifier panel reached consensus on a reformulation (Route B Wave 4d). For EQUIVALENT/SUPERIOR the handler releases escrow to the submitter and writes a REFORMULATES relation; for DRIFT/INFERIOR the variant is archived for the drift corpus. Never fired by the sponsor or submitter directly.
+The verifier panel reached consensus on a reformulation (Route B Wave 4d). For EQUIVALENT/SUPERIOR the handler releases escrow to the submitter and writes a REFORMULATES relation (with the claim-integrity marker on, not for an ID in the fact ID space; see `augmentation_edge_withheld`); for DRIFT/INFERIOR the variant is archived for the drift corpus. Never fired by the sponsor or submitter directly.
 - `augmentation_id`
 - `original_fact_id`
 - `verdict` -- final panel verdict
 - `payout` -- uzrn paid (0 for DRIFT/INFERIOR/vetoed)
+
+### zerone.knowledge.augmentation_edge_withheld
+Claim integrity (knowledge v12): a passing augmentation verdict (EQUIVALENT or SUPERIOR) wrote no REFORMULATES relation, because the augmentation's ID would land in the fact ID space: it contains `/` (relation keys are `<source>/<target>`, so it would sit under another ID's index prefix), is longer than 128 bytes, or is the ID of a stored fact (its edge would overwrite that fact's own edge to the same target). The verdict, payout and acceptance are applied unchanged. Emitted only with the claim-integrity marker on; with it off the relation is written as before.
+- `augmentation_id`
+- `original_fact_id` -- the fact the variant reformulates
+- `reason` -- `augmentation id contains '/'`, `augmentation id is longer than 128 bytes`, or `augmentation id is the id of a fact`
+
+### zerone.knowledge.augmentation_edge_restored
+Claim integrity (knowledge v12): a fact edge that an augmentation whose ID equals the fact's ID replaced before activation was written again, forward and reverse entry, exactly as the fact's creation from its claim wrote it (type, inference, strength and method from the claim's last relation naming the target; creator the claim's submitter; created at the fact's `verified_at_block`). Emitted once per restored pair by the `knowledge-claim-integrity-v1` migration, which x/upgrade runs in PreBlock at the upgrade height, so the event appears among that block's FinalizeBlock events. An import whose genesis selects claim integrity (a relaunch from an export) restores the same pairs and emits the event too, but `BaseApp.InitChain` discards it (CometBFT 0.38's `ResponseInitChain` has no events): for an import the node log is the record, one info line `claim integrity: augmentation-replaced fact edges` with `origin=genesis` and the counts, then one line per pair with these attributes. The migration logs the same with `origin=upgrade`. Nothing else is written: no status, history or index changes. See `docs/specs/knowledge-claim-integrity-v1.md` §1.2, §1.5.
+- `fact_id` -- the fact whose own edge was restored
+- `target_id` -- the edge's target, the augmentation's original fact
+- `augmentation_id` -- the augmentation that replaced it (equal to `fact_id`)
+
+### zerone.knowledge.augmentation_edge_unrestorable
+Claim integrity (knowledge v12): the same migration or import found the REFORMULATES edge of a passing augmentation, whose ID is the ID of a fact, at that fact's pair, but cannot rebuild the edge it replaced exactly. The stored edge is left as it is. Emitted once per such pair each time the restoration runs (it is left, so a later import reports it again). Visible as `augmentation_edge_restored` is: among the upgrade block's FinalizeBlock events, and for an import only in the node log. A fact that cannot be traced to a claim is reported only when its `verified_at_block` is at or below the verdict's height (spec §1.5).
+- `fact_id`
+- `target_id`
+- `augmentation_id` -- equal to `fact_id`
+- `reason` -- `fact has no claim` (genesis, doctrine or authority-injected facts: whether the fact had an edge to the target is not recorded), `claim <id> of the fact is missing`, `fact id does not derive from its claim and verification height`, `reverse entry is not the augmentation's edge`, or `relation method_id is set but the claim's round does not prove record integrity at the fact's creation`
 
 ### zerone.knowledge.augmentation_sponsor_vetoed
 Sponsor vetoed a passing verdict, forfeiting the payout amount to the research fund (Route B Wave 4d). The only sponsor-held lever — deliberately costly so it cannot silently block legitimate variants.

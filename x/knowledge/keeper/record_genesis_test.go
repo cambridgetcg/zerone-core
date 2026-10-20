@@ -50,6 +50,7 @@ func TestRecordGenesisRejectsMalformedRoundCollectionsBeforeWrites(t *testing.T)
 			gs.ReviewNeutralityEnabled = false
 			gs.ClaimRecordsEnabled = false
 			gs.FundSettlementEnabled = false // This fixture retains predecessor financial terms.
+			gs.ClaimIntegrityEnabled = false // This fixture retains predecessor claim semantics.
 			gs.PendingClaims = []*types.Claim{{Id: "claim"}}
 			round := &types.VerificationRound{Id: "round", ClaimId: "claim", Phase: types.VerificationPhase_VERIFICATION_PHASE_COMMIT}
 			gs.ActiveRounds = []*types.VerificationRound{round}

@@ -63,7 +63,8 @@ export function validateHistory(value: unknown, requestedId: string): Row {
     if (seen.has(id)) throw new Error("Duplicate related claim"); seen.add(id);
     for (const link of bounded(related.links)) {
       const row = object(link);
-      if (!["provisional_fact_id", "challenged_claim_id", "relations.contradicts"].includes(String(row.field))) throw new Error("Unknown relationship field");
+      // knowledge v12 adds content_hash, canonical_hash and structure.object (target: the root claim).
+      if (!["provisional_fact_id", "challenged_claim_id", "relations.contradicts", "content_hash", "canonical_hash", "structure.object"].includes(String(row.field))) throw new Error("Unknown relationship field");
       claimId(row.target_id);
     }
   }

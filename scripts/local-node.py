@@ -20,6 +20,7 @@ import socket
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 import tomllib
 import urllib.error
@@ -27,6 +28,7 @@ import urllib.request
 
 SCHEMA = "zerone-local-node-v1"
 MARKER = ".zerone-local-node.json"
+CLI_HOME = ".cli-home"  # HOME for every zeroned call; see node_environment.
 CHAIN_PATTERN = re.compile(r"zerone-local-[a-z0-9][a-z0-9-]{0,39}\Z")
 CONTROL_FILES = ("config/genesis.json", "config/config.toml", "config/app.toml",
                  "config/client.toml")
@@ -125,8 +127,9 @@ def locked(home: Path):
 
 
 def cli(binary: Path, home: Path, *args: str, secret: bool = False) -> str:
+    environment = node_environment(home)
     result = subprocess.run([str(binary), *args, "--home", str(home)],
-                            text=True, capture_output=True, timeout=60, env=node_environment())
+                            text=True, capture_output=True, timeout=60, env=environment)
     if result.returncode:
         # Key creation can print seed phrases even on a failed invocation.
         detail = "Key operation failed; output withheld." if secret else result.stderr[-1500:]
@@ -134,10 +137,23 @@ def cli(binary: Path, home: Path, *args: str, secret: bool = False) -> str:
     return result.stdout.strip()
 
 
-def node_environment() -> dict:
+def node_environment(home: Path) -> dict:
     # SDK Viper reads ZERONED_* above config files. An operator's shell settings
     # must not replace the freshly generated sandbox's local configuration.
-    return {key: value for key, value in os.environ.items() if not key.upper().startswith("ZERONED_")}
+    environment = {key: value for key, value in os.environ.items() if not key.upper().startswith("ZERONED_")}
+    # Every zeroned command, `start` included, builds a temporary app that
+    # creates DefaultNodeHome/data, and DefaultNodeHome is $HOME/.zeroned even
+    # with --home. A sandbox-private HOME keeps the operator's real home untouched.
+    cli_home = home / CLI_HOME
+    try:
+        cli_home.mkdir(mode=0o700)
+    except FileExistsError:
+        pass
+    if (cli_home.is_symlink() or not cli_home.is_dir() or cli_home.stat().st_uid != os.getuid()
+            or cli_home.stat().st_mode & 0o077):
+        raise LocalNodeError(f"The sandbox's private HOME must be a private, non-symlink directory: {cli_home}")
+    environment["HOME"] = str(cli_home)
+    return environment
 
 
 def configure_toml(path: Path, changes: dict) -> None:
@@ -179,6 +195,19 @@ def public_info(home: Path, manifest: dict) -> dict:
                if manifest.get("knowledge_profile") else {})}
 
 
+def source_version(source: Path) -> str:
+    # The SDK root command creates its home even for `version`, and its
+    # temporary app creates $HOME/.zeroned/data whatever --home says. --home
+    # alone therefore does not protect the operator's real ~/.zeroned: HOME
+    # must point at a throwaway directory too.
+    with tempfile.TemporaryDirectory(prefix="zerone-version-probe-") as probe:
+        version = subprocess.run([str(source), "version", "--long", "--home", probe], text=True,
+                                 capture_output=True, timeout=30, env={**os.environ, "HOME": probe})
+    if version.returncode or not re.search(r"(?m)^cosmos_sdk_version:\s*v0\.53\.", version.stdout):
+        raise LocalNodeError("Use the source-built SDK 0.53 Zerone binary for this local sandbox, not a legacy network executable.")
+    return version.stdout
+
+
 def initialize(args) -> None:
     home = home_path(args.home)
     if getattr(args, "fast_review", False) and not getattr(args, "knowledge_profile", False):
@@ -192,10 +221,7 @@ def initialize(args) -> None:
     regular(source)
     if not os.access(source, os.X_OK):
         raise LocalNodeError("--binary is not executable.")
-    version = subprocess.run([str(source), "version", "--long"], text=True,
-                             capture_output=True, timeout=30)
-    if version.returncode or not re.search(r"(?m)^cosmos_sdk_version:\s*v0\.53\.", version.stdout):
-        raise LocalNodeError("Use the source-built SDK 0.53 Zerone binary for this local sandbox, not a legacy network executable.")
+    version_output = source_version(source)
     home.mkdir(mode=0o700)
     home.chmod(0o700)
     with locked(home):
@@ -262,7 +288,7 @@ def initialize(args) -> None:
             raise LocalNodeError("Generated node identity is invalid.")
         manifest = {"schema": SCHEMA, "local_only": True, "chain_id": args.chain_id,
                     "owner_uid": os.getuid(), "binary_sha256": binary_hash,
-                    "source_binary": str(source), "version_output_sha256": hashlib.sha256(version.stdout.encode()).hexdigest(),
+                    "source_binary": str(source), "version_output_sha256": hashlib.sha256(version_output.encode()).hexdigest(),
                     "darwin_acl_helper_sha256": auxiliary_hash, "node_id": node_id,
                     "rpc_port": args.rpc_port, "p2p_port": args.p2p_port,
                     "validator_address": addresses["validator"], "user_address": addresses["user"],
@@ -373,7 +399,7 @@ def start(args) -> None:
                     "--rpc.unsafe=false", "--rpc.pprof_laddr", "", "--p2p.laddr", f"tcp://127.0.0.1:{manifest['p2p_port']}",
                     "--p2p.external-address", "", "--p2p.persistent_peers", "", "--p2p.seeds", "", "--p2p.pex=false",
                     "--api.enable=false", "--grpc.enable=false", "--grpc-web.enable=false", "--log_no_color"],
-                    stdout=log, stderr=subprocess.STDOUT, start_new_session=True, env=node_environment())
+                    stdout=log, stderr=subprocess.STDOUT, start_new_session=True, env=node_environment(home))
                 ready = wait_ready(manifest, 45, process, lambda: stopped)
                 print(json.dumps({**public_info(home, manifest), **ready,
                                   "stop": "Press Ctrl-C; use the same start command to resume."}, sort_keys=True), flush=True)

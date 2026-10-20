@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"encoding/hex"
+	stderrors "errors"
+	"fmt"
 	"math"
 	"testing"
 
@@ -20,6 +22,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -33,12 +36,15 @@ import (
 	channeltypes "github.com/cosmos/ibc-go/v10/modules/core/04-channel/types"
 
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	"github.com/stretchr/testify/require"
 
 	zeroneauthkeeper "github.com/zerone-chain/zerone/x/auth/keeper"
 	zeroneauthtypes "github.com/zerone-chain/zerone/x/auth/types"
 	emergencykeeper "github.com/zerone-chain/zerone/x/emergency/keeper"
 	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
 	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
+	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
+	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
 // ---------- Mock tx types ----------
@@ -1346,4 +1352,287 @@ func TestAnteIntegration_CapabilityRejectedWhenSignerInfoOmitsPubKey(t *testing.
 	if err == nil || !zeroneauthtypes.ErrAccountCapabilityDenied.Is(err) {
 		t.Fatalf("omitted public key must not bypass account capability policy, got: %v", err)
 	}
+}
+
+// ---------- Claim-integrity dispute gate (knowledge v12) ----------
+
+// claimIntegrityDisputeMsgTypes are the dispute messages the claim-integrity
+// gate treats exactly like MsgChallengeFact. MsgPostConjecture is deliberately
+// absent (plan §8: gating it changes who may ask questions).
+var claimIntegrityDisputeMsgTypes = []string{
+	"/zerone.knowledge.v1.MsgSubmitContradiction",
+	"/zerone.knowledge.v1.MsgChallengeProvisionalFact",
+}
+
+// claimIntegrityAnteTx signs msg with key for the complete ante chain, the way
+// a client would, at the signer's current account number and sequence.
+func claimIntegrityAnteTx(t *testing.T, app *ZeroneApp, ctx sdk.Context, key *secp256k1.PrivKey, msg sdk.Msg) sdk.Tx {
+	t.Helper()
+	sender := sdk.AccAddress(key.PubKey().Address())
+	account := app.AccountKeeper.GetAccount(ctx, sender)
+	require.NotNil(t, account)
+
+	txConfig := app.TxConfig()
+	builder := txConfig.NewTxBuilder()
+	require.NoError(t, builder.SetMsgs(msg))
+	const gasLimit uint64 = 200_000
+	builder.SetGasLimit(gasLimit)
+	builder.SetFeeAmount(sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewIntFromUint64(gasLimit*MinGasPrice))))
+
+	signMode, err := authsigning.APISignModeToInternal(txConfig.SignModeHandler().DefaultMode())
+	require.NoError(t, err)
+	sig := signing.SignatureV2{PubKey: key.PubKey(), Data: &signing.SingleSignatureData{SignMode: signMode}, Sequence: account.GetSequence()}
+	require.NoError(t, builder.SetSignatures(sig))
+	signBytes, err := authsigning.GetSignBytesAdapter(context.Background(), txConfig.SignModeHandler(), signMode, authsigning.SignerData{
+		Address:       sender.String(),
+		ChainID:       ctx.ChainID(),
+		AccountNumber: account.GetAccountNumber(),
+		Sequence:      account.GetSequence(),
+		PubKey:        key.PubKey(),
+	}, builder.GetTx())
+	require.NoError(t, err)
+	signature, err := key.Sign(signBytes)
+	require.NoError(t, err)
+	sig.Data = &signing.SingleSignatureData{SignMode: signMode, Signature: signature}
+	require.NoError(t, builder.SetSignatures(sig))
+	return builder.GetTx()
+}
+
+// TestAnteIntegration_ClaimIntegrityGateWiredToKnowledgeMarker runs the
+// complete NewAnteHandler chain on an app built from DefaultGenesis, so it
+// proves the gate reads the knowledge 0x87 marker (plan §7 #10), not a stub.
+func TestAnteIntegration_ClaimIntegrityGateWiredToKnowledgeMarker(t *testing.T) {
+	app, ctx := settlementFixture(t)
+	ctx = ctx.WithIsSigverifyTx(true)
+	key := secp256k1.GenPrivKey()
+	sender := sdk.AccAddress(key.PubKey().Address())
+	fund := sdk.NewCoins(sdk.NewInt64Coin(BondDenom, 10_000_000))
+	require.NoError(t, app.BankKeeper.MintCoins(ctx, knowledgetypes.BootstrapFundModuleName, fund))
+	require.NoError(t, app.BankKeeper.SendCoinsFromModuleToAccount(ctx, knowledgetypes.BootstrapFundModuleName, sender, fund))
+	_, registered := app.ZeroneAuthKeeper.GetAccount(ctx, sender.String())
+	require.False(t, registered, "the signer must be unregistered with zerone_auth")
+	marker := []byte(knowledgekeeper.ClaimIntegrityEnabledStoreKey)
+	require.Equal(t, []byte{1}, ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Get(marker), "DefaultGenesis selects claim integrity")
+
+	anteHandler := NewAnteHandler(app)
+	for _, msg := range []sdk.Msg{
+		&knowledgetypes.MsgSubmitContradiction{Submitter: sender.String(), FactId: "target", CounterClaim: "A repeat experiment produced a counterexample.", Stake: "1", Category: "empirical"},
+		&knowledgetypes.MsgChallengeProvisionalFact{Challenger: sender.String(), FactId: "target", Stake: "1", Reason: "the conjecture fails for n = 7"},
+	} {
+		t.Run(sdk.MsgTypeURL(msg), func(t *testing.T) {
+			// Marker on: refused before any message runs, with the onboard hint.
+			cache, _ := ctx.CacheContext()
+			_, err := anteHandler(cache, claimIntegrityAnteTx(t, app, cache, key, msg), false)
+			require.Error(t, err)
+			require.True(t, zeroneauthtypes.ErrAccountCapabilityDenied.Is(err), "got: %v", err)
+			require.Contains(t, err.Error(), sender.String()+" is not registered with zerone_auth — one-shot fix: zeroned tx zerone_auth onboard agent --from <your-key>")
+
+			// Marker off: the legacy default-allow.
+			cache, _ = ctx.CacheContext()
+			cache.KVStore(app.keys[knowledgetypes.StoreKey]).Delete(marker)
+			_, err = anteHandler(cache, claimIntegrityAnteTx(t, app, cache, key, msg), false)
+			require.NoError(t, err)
+
+			// A malformed marker refuses the tx; it is never read as off.
+			cache, _ = ctx.CacheContext()
+			cache.KVStore(app.keys[knowledgetypes.StoreKey]).Set(marker, []byte{2})
+			_, err = anteHandler(cache, claimIntegrityAnteTx(t, app, cache, key, msg), false)
+			require.ErrorContains(t, err, "malformed claim integrity marker")
+
+			// MsgPostConjecture is deliberately not gated (plan §8).
+			cache, _ = ctx.CacheContext()
+			_, err = anteHandler(cache, claimIntegrityAnteTx(t, app, cache, key, &knowledgetypes.MsgPostConjecture{Proposer: sender.String(), Statement: "Every even number above 2 is a sum of two primes."}), false)
+			require.NoError(t, err)
+		})
+	}
+}
+
+// claimIntegrityGateSpy is a gate that counts its reads.
+type claimIntegrityGateSpy struct {
+	enabled bool
+	err     error
+	reads   int
+}
+
+func (s *claimIntegrityGateSpy) read(context.Context) (bool, error) {
+	s.reads++
+	return s.enabled, s.err
+}
+
+// TestAnteIntegration_ClaimIntegrityGateTreatsDisputesAsChallenges checks
+// that, with the gate on, each dispute message gets exactly MsgChallengeFact's
+// decision and text, and that with the gate off it keeps the legacy
+// default-allow. Each tx reads the gate once.
+func TestAnteIntegration_ClaimIntegrityGateTreatsDisputesAsChallenges(t *testing.T) {
+	accounts := []struct {
+		name        string
+		register    bool
+		accountType string
+		flags       *zeroneauthtypes.AccountFlags
+		allowedOn   bool
+	}{
+		{name: "Unregistered", register: false, allowedOn: false},
+		// The onboarding flags of a contract account (x/auth msg_server).
+		{name: "ContractCannotChallenge", register: true, accountType: "contract", flags: &zeroneauthtypes.AccountFlags{}, allowedOn: false},
+		{name: "ClaimsWithoutChallenge", register: true, accountType: "contract", flags: &zeroneauthtypes.AccountFlags{CanSubmitClaims: true, CanChallenge: false}, allowedOn: false},
+		{name: "HumanNilFlags", register: true, accountType: "human", flags: nil, allowedOn: false},
+		// The onboarding flags of human and agent accounts.
+		{name: "Human", register: true, accountType: "human", flags: &zeroneauthtypes.AccountFlags{CanSubmitClaims: true, CanChallenge: true}, allowedOn: true},
+		{name: "Agent", register: true, accountType: "agent", flags: &zeroneauthtypes.AccountFlags{CanSubmitClaims: true, CanChallenge: true}, allowedOn: true},
+	}
+	fee := sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000)))
+	for _, msgType := range claimIntegrityDisputeMsgTypes {
+		for _, account := range accounts {
+			for _, enabled := range []bool{true, false} {
+				name := msgType + "/" + account.name + "/GateOff"
+				if enabled {
+					name = msgType + "/" + account.name + "/GateOn"
+				}
+				t.Run(name, func(t *testing.T) {
+					ak, _, ctx := setupBothKeepers(t)
+					key := ed25519.GenPrivKey()
+					addr := sdk.AccAddress(key.PubKey().Address())
+					if account.register {
+						registerZeroneAccountWithType(t, ak, ctx, addr.String(), account.accountType, account.flags)
+					}
+					gate := &claimIntegrityGateSpy{enabled: enabled}
+					decorator := NewZeroneCapabilityDecorator(ak).WithClaimIntegrityGate(gate.read)
+
+					_, err := decorator.AnteHandle(ctx, newMockSignedTx([]*ed25519.PrivKey{key}, []sdk.Msg{mockMsg{typeURL: msgType}}, fee, 100_000), false, passThroughHandler)
+					require.Equal(t, 1, gate.reads, "a dispute message reads the gate once")
+					if !enabled || account.allowedOn {
+						require.NoError(t, err)
+						return
+					}
+					require.Error(t, err)
+					require.True(t, zeroneauthtypes.ErrAccountCapabilityDenied.Is(err), "got: %v", err)
+					// Exactly MsgChallengeFact's refusal, including the onboard hint.
+					_, challengeErr := NewZeroneCapabilityDecorator(ak).AnteHandle(ctx, newMockSignedTx([]*ed25519.PrivKey{key}, []sdk.Msg{mockMsg{typeURL: "/zerone.knowledge.v1.MsgChallengeFact"}}, fee, 100_000), false, passThroughHandler)
+					require.Error(t, challengeErr)
+					require.Equal(t, challengeErr.Error(), err.Error())
+					if !account.register {
+						require.Contains(t, err.Error(), addr.String()+" is not registered with zerone_auth — one-shot fix: zeroned tx zerone_auth onboard agent --from <your-key>")
+					}
+				})
+			}
+		}
+	}
+}
+
+// TestAnteIntegration_ClaimIntegrityGateReadErrorRejectsTx checks that an
+// unreadable gate is never treated as off: the tx is refused before the next
+// decorator, whoever signs it.
+func TestAnteIntegration_ClaimIntegrityGateReadErrorRejectsTx(t *testing.T) {
+	readErr := stderrors.New("claim integrity marker unreadable")
+	fee := sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000)))
+	for _, msgType := range claimIntegrityDisputeMsgTypes {
+		for _, register := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/registered=%t", msgType, register), func(t *testing.T) {
+				ak, _, ctx := setupBothKeepers(t)
+				key := ed25519.GenPrivKey()
+				addr := sdk.AccAddress(key.PubKey().Address())
+				if register {
+					registerZeroneAccountWithType(t, ak, ctx, addr.String(), "human", &zeroneauthtypes.AccountFlags{CanSubmitClaims: true, CanChallenge: true})
+				}
+				gate := &claimIntegrityGateSpy{enabled: true, err: readErr}
+				nextCalled := false
+				next := func(ctx sdk.Context, _ sdk.Tx, _ bool) (sdk.Context, error) {
+					nextCalled = true
+					return ctx, nil
+				}
+				_, err := NewZeroneCapabilityDecorator(ak).WithClaimIntegrityGate(gate.read).AnteHandle(ctx, newMockSignedTx([]*ed25519.PrivKey{key}, []sdk.Msg{mockMsg{typeURL: msgType}}, fee, 100_000), false, next)
+				require.ErrorIs(t, err, readErr)
+				require.False(t, nextCalled)
+				require.Equal(t, 1, gate.reads)
+			})
+		}
+	}
+}
+
+// TestAnteIntegration_ClaimIntegrityGateReadLazily checks that only dispute
+// messages read the gate, at most once per tx, and that every other message
+// keeps exactly the legacy decision.
+func TestAnteIntegration_ClaimIntegrityGateReadLazily(t *testing.T) {
+	fee := sdk.NewCoins(sdk.NewCoin(BondDenom, sdkmath.NewInt(100_000)))
+	otherTypes := []string{
+		"/zerone.knowledge.v1.MsgSubmitClaim",
+		"/zerone.knowledge.v1.MsgSubmitCommitment",
+		"/zerone.knowledge.v1.MsgSubmitReveal",
+		"/zerone.knowledge.v1.MsgChallengeFact",
+		"/zerone.knowledge.v1.MsgPostConjecture",
+		"/zerone.auth.v1.MsgRegisterAccount",
+		"/cosmos.bank.v1beta1.MsgSend",
+		"/cosmos.staking.v1beta1.MsgDelegate",
+		"/cosmos.gov.v1.MsgVote",
+		"/cosmos.unknown.v1.MsgDoSomething",
+	}
+	signers := []struct {
+		name        string
+		register    bool
+		accountType string
+		flags       *zeroneauthtypes.AccountFlags
+	}{
+		{name: "Unregistered"},
+		{name: "Contract", register: true, accountType: "contract", flags: &zeroneauthtypes.AccountFlags{}},
+		{name: "Human", register: true, accountType: "human", flags: &zeroneauthtypes.AccountFlags{CanSubmitClaims: true, CanChallenge: true}},
+	}
+	for _, msgType := range otherTypes {
+		for _, signer := range signers {
+			t.Run(msgType+"/"+signer.name, func(t *testing.T) {
+				ak, _, ctx := setupBothKeepers(t)
+				key := ed25519.GenPrivKey()
+				if signer.register {
+					registerZeroneAccountWithType(t, ak, ctx, sdk.AccAddress(key.PubKey().Address()).String(), signer.accountType, signer.flags)
+				}
+				tx := newMockSignedTx([]*ed25519.PrivKey{key}, []sdk.Msg{mockMsg{typeURL: msgType}}, fee, 100_000)
+				// A failing gate would refuse the tx if it were read.
+				gate := &claimIntegrityGateSpy{enabled: true, err: stderrors.New("gate must not be read")}
+				_, gatedErr := NewZeroneCapabilityDecorator(ak).WithClaimIntegrityGate(gate.read).AnteHandle(ctx, tx, false, passThroughHandler)
+				_, legacyErr := NewZeroneCapabilityDecorator(ak).AnteHandle(ctx, tx, false, passThroughHandler)
+				require.Zero(t, gate.reads)
+				if legacyErr == nil {
+					require.NoError(t, gatedErr)
+				} else {
+					require.Error(t, gatedErr)
+					require.Equal(t, legacyErr.Error(), gatedErr.Error())
+				}
+			})
+		}
+	}
+
+	t.Run("OncePerTxAcrossSignersAndMessages", func(t *testing.T) {
+		ak, _, ctx := setupBothKeepers(t)
+		keys := []*ed25519.PrivKey{ed25519.GenPrivKey(), ed25519.GenPrivKey()}
+		for _, key := range keys {
+			registerZeroneAccountWithType(t, ak, ctx, sdk.AccAddress(key.PubKey().Address()).String(), "agent", &zeroneauthtypes.AccountFlags{CanSubmitClaims: true, CanChallenge: true})
+		}
+		msgs := []sdk.Msg{
+			mockMsg{typeURL: "/cosmos.bank.v1beta1.MsgSend"},
+			mockMsg{typeURL: claimIntegrityDisputeMsgTypes[0]},
+			mockMsg{typeURL: claimIntegrityDisputeMsgTypes[1]},
+			mockMsg{typeURL: claimIntegrityDisputeMsgTypes[0]},
+		}
+		gate := &claimIntegrityGateSpy{enabled: true}
+		_, err := NewZeroneCapabilityDecorator(ak).WithClaimIntegrityGate(gate.read).AnteHandle(ctx, newMockSignedTx(keys, msgs, fee, 400_000), false, passThroughHandler)
+		require.NoError(t, err)
+		require.Equal(t, 1, gate.reads)
+	})
+
+	t.Run("SimulationSkipsTheDecorator", func(t *testing.T) {
+		ak, _, ctx := setupBothKeepers(t)
+		key := ed25519.GenPrivKey()
+		gate := &claimIntegrityGateSpy{enabled: true}
+		_, err := NewZeroneCapabilityDecorator(ak).WithClaimIntegrityGate(gate.read).AnteHandle(ctx, newMockSignedTx([]*ed25519.PrivKey{key}, []sdk.Msg{mockMsg{typeURL: claimIntegrityDisputeMsgTypes[0]}}, fee, 100_000), true, passThroughHandler)
+		require.NoError(t, err)
+		require.Zero(t, gate.reads)
+	})
+
+	t.Run("NoGateIsLegacy", func(t *testing.T) {
+		ak, _, ctx := setupBothKeepers(t)
+		key := ed25519.GenPrivKey()
+		for _, msgType := range claimIntegrityDisputeMsgTypes {
+			_, err := NewZeroneCapabilityDecorator(ak).AnteHandle(ctx, newMockSignedTx([]*ed25519.PrivKey{key}, []sdk.Msg{mockMsg{typeURL: msgType}}, fee, 100_000), false, passThroughHandler)
+			require.NoError(t, err)
+		}
+	})
 }

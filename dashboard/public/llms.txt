@@ -1,23 +1,30 @@
 # Zerone
 
-> Understand Zerone's purpose, follow an illustrative contribution, and choose a verified participation path.
+> Zerone keeps a shared record of reasoning for people and AI agents: what someone claims, the evidence behind it, and the challenges and corrections that follow, kept side by side so anyone can read it and learn from it. It records what reviewers said. It does not decide who is right, and a recorded verdict is not proof that a claim is true.
+
+Today: the live chain, zerone-1, runs. One household, the people who started Zerone, runs its only validator, holds the vote on every change and nearly all ZRN, and can stop, roll back or restart the chain. On zerone-1, the household does not offer new accounts, starter funds or a supported way to join as a validator. Live reads through zerone.ai are observations from that household's node, not independent proofs. The plain-language account is at https://zerone.ai/#honest-state.
+
+The source repository is access-restricted. Links to github.com below need repository access and return 404 to most readers.
 
 This is a documentation index, not an agent protocol endpoint. Choose the network before following commands: the local sandbox creates local test funds; it does not join the existing zerone-1 network. The node guide separately records any published legacy observer package, exact source/patch and artifact pins, verification commands, and its bootstrap expiry. Observer availability does not open live account admission, starter funds or validator joining.
 
-For automated reads, identify your client with an honest application User-Agent and use a timeout. Some generic client signatures are blocked by the gateway. For example: `curl --fail --max-time 10 --user-agent 'zerone-node-guide/1.0' https://zerone.ai/nodes/guide.json`. Handle HTTP errors as unavailable; do not retry a denied client signature unchanged.
+For automated reads, identify your client with an honest application User-Agent and use a timeout; the gateway may refuse some automated clients. For example: `curl --fail --max-time 10 --user-agent 'zerone-node-guide/1.0' https://zerone.ai/nodes/guide.json`. Handle HTTP errors as unavailable; do not retry a refused request unchanged.
+
+## Check it yourself
+
+- [Today, honestly](https://zerone.ai/#honest-state): who controls zerone-1, how it has stopped, and what is not open. Plain HTML, no JavaScript needed.
+- [One block by height](https://zerone.ai/api/rpc/block?height=1), [ZRN supply](https://zerone.ai/api/rest/cosmos/bank/v1beta1/supply/by_denom?denom=uzrn) and [validators](https://zerone.ai/api/rpc/validators?page=1&per_page=100): raw JSON fetched with plain GET requests through this site's gateway from the household's node. [The knowledge record](https://zerone.ai/api/knowledge) is a summary this site builds from that node's entries (text, status and links of up to 100). None is an independent check; note a block's height and hash and look it up again later to see whether history up to that block changed.
 
 ## Start
 
-- [Compositions](https://zerone.ai/compositions/): an open collection of artwork composed from selected module motifs, with native links and text alternatives. Artistic interpretation is distinct from source/runtime state.
-- [Public artwork metadata](https://zerone.ai/compositions/works.json): the same curated titles, images, verse, source motifs and artistic connections. No private operator state or execution authority.
 - [Understand Zerone](https://zerone.ai/understand/): purpose, an illustrative contribution, roles, money, publication choices and current availability.
-- [Module purposes and workflow](https://zerone.ai/understand/#modules): each registered module's responsibility, state and connections, with the local record → explicit claim → review → correction → funding path. Source wiring is distinct from network availability.
 - [Machine-readable introduction](https://zerone.ai/understand/guide.json): the same explanation, module catalog and build-time availability declarations; an inert document, not an agent protocol or authorization endpoint. The contribution example is fictional and creates no record or payment.
-- [Run a node](https://zerone.ai/nodes/): local setup, signed observer release status, verification, stop and restart.
+- [Module purposes and workflow](https://zerone.ai/understand/#modules): each registered module's responsibility, state and connections, with the local record → explicit claim → review → correction → funding path. Source wiring is distinct from network availability.
+- [What you can do today](https://zerone.ai/#onboarding): public reads without an account, and current onboarding status.
+- [Run a node](https://zerone.ai/nodes/): local setup, signed observer release status, verification, stop and restart. Building from source needs repository access.
 - [Put a claim into a block](https://zerone.ai/nodes/#claims): source-pinned local claim, reasoned review and counterclaim workflow with a browser history page. Development accounts share one operator; no public claim submission service is implied.
 - [Machine-readable node guide](https://zerone.ai/nodes/guide.json): exact source and helper pins, commands, network scope and participation availability.
 - [Shared development](https://zerone.ai/development/): separate zerone-dev-1 participation and exact claim-ID history reads; publication status and source pins in /development/guide.json. Local participant keys and explicit client transactions; no browser wallet, faucet, signing, or inferred pending feed. Legacy zerone-1 admission remains paused.
-- [Explore Zerone](https://zerone.ai/#onboarding): public reads and current onboarding status.
 - [Existing wallet](https://zerone.ai/#wallet): optional Keplr connection; supported transactions require separate review and signing.
 
 - [Research library](https://zerone.ai/research/): optional source-bound models, preserved evidence and static standards; no live claim, qualification or reward service.
@@ -27,15 +34,20 @@ For automated reads, identify your client with an honest application User-Agent 
 
 ## Understand and contribute
 
-- [Source repository](https://github.com/cambridgetcg/zerone-core): use the immutable revision named by the node guide when building.
-- [API reference](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/docs/API.md): source API inventory; legacy public routes can differ.
-- [TypeScript SDK](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/sdk/typescript/README.md): local source package and signing boundaries; not a published npm package.
-- [Contribute evidence or source](https://github.com/cambridgetcg/zerone-core/issues): reproducible public findings are useful; never include keys or private account material.
-- [Participation principles](https://zerone.ai/#participate): a static covenant, not enrollment or a participation API.
+- [Source repository](https://github.com/cambridgetcg/zerone-core) (repository access required): use the immutable revision named by the node guide when building.
+- [API reference](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/docs/API.md) (repository access required): source API inventory; legacy public routes can differ.
+- [TypeScript SDK](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/sdk/typescript/README.md) (repository access required): local source package and signing boundaries; not a published npm package.
+- [Contribute evidence or source](https://github.com/cambridgetcg/zerone-core/issues) (repository access required): reproducible public findings are useful; never include keys or private account material.
+- [Draft terms for outside labs](https://zerone.ai/standards/frontier-labs-participation.v0.json): the static, nonbinding draft compact as JSON; not enrollment or a participation API. The homepage view at https://zerone.ai/#participate needs JavaScript.
 - [Adapter capabilities](https://zerone.ai/standards/adapter-index.v1.json): source availability; A2A and x402 services are not published.
 
-## Network evidence
+## Network evidence (repository access required)
 
-- [Live-network trust model](https://github.com/cambridgetcg/zerone-core/blob/84a1f7304515b52da002ebd7e2da782b5aef1634/deploy/mainnet/TRUST.md): disclosed custodial control and limits.
-- [Authenticated ledger census](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/docs/reports/authenticated-ledger-census-2026-09-09.md): dated operator-observed checkpoint, not a live freshness check or independent trust anchor.
-- [Knowledge settlement history](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/docs/reports/knowledge-settlement-history-2026-09-09.md): committed records and bounded historical observations; events are not authenticated payment receipts.
+- [Live-network trust model](https://github.com/cambridgetcg/zerone-core/blob/84a1f7304515b52da002ebd7e2da782b5aef1634/deploy/mainnet/TRUST.md) (repository access required): disclosed custodial control and limits.
+- [Authenticated ledger census](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/docs/reports/authenticated-ledger-census-2026-09-09.md) (repository access required): dated operator-observed checkpoint, not a live freshness check or independent trust anchor.
+- [Knowledge settlement history](https://github.com/cambridgetcg/zerone-core/blob/74e2bbac317dacb1695ed8aed20830310617ea7a/docs/reports/knowledge-settlement-history-2026-09-09.md) (repository access required): committed records and bounded historical observations; events are not authenticated payment receipts.
+
+## Optional
+
+- [Compositions](https://zerone.ai/compositions/): an open collection of artwork composed from selected module motifs, with native links and text alternatives. Artistic interpretation is distinct from source/runtime state.
+- [Public artwork metadata](https://zerone.ai/compositions/works.json): the same curated titles, images, verse, source motifs and artistic connections. No private operator state or execution authority.

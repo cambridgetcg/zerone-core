@@ -6,6 +6,21 @@ Keplr wallet support, standard ZRN sends, native liquidity-pool state, recent
 blocks, supply, the disclosed custodial trust model, and a source-only
 authority observatory.
 
+## Homepage order
+
+The homepage says why Zerone exists before it shows anything live: the hero
+and `#purpose` (why, and how it works, in plain words), then the live metrics,
+`#honest-state` (the trust model carried on the page itself, because the
+repository is access-restricted and its links 404 for visitors), `#onboarding`,
+`#wallet`, `#activity`, and `#network` (raw JSON links any visitor can open).
+The authority observatory, knowledge geometry, liquidity settings and the
+participation compact sit folded under `#look-closer`. The three explorers
+initialise only when their fold is opened or their fragment is the landing
+hash, so a first visit fetches none of their artifacts. `#authority`,
+`#understanding`, `#liquidity` and `#participate` open their fold on load and
+on `hashchange`. Visible homepage links go only to places a visitor can open;
+`tests/homepage-purpose.test.ts` holds that order and these boundaries.
+
 ## Understanding Zerone
 
 `/understand/` introduces the purpose, an explicitly fictional contribution,
@@ -46,9 +61,9 @@ garden, and Frontier Commons. Their eleven controllers initialize only on
 that page. Standards JSON, evidence, status disclosures and native no-JavaScript
 accounts retain their existing content and byte protections.
 
-The homepage keeps onboarding, wallet and account tools, liquidity, activity,
-network state, live knowledge, the authority observatory and participation
-covenant. Earlier research fragments resolve through explicit links to the same
+The homepage keeps onboarding, wallet and account tools, activity and network
+state in view; liquidity, live knowledge, the authority observatory and the
+participation covenant are folded under `#look-closer`. Earlier research fragments resolve through explicit links to the same
 fragment on `/research/`. With JavaScript disabled, the targeted link remains
 visible and usable. Unknown fragments and core destinations are not redirected.
 
@@ -275,8 +290,8 @@ on and off, and verify its production page, downloads and links against the
 clean merged build. The scientific scope and same-operator attribution must
 remain visible in both modes.
 
-`/nodes/` is a separate static page, reachable from the compact header, hero
-and onboarding cards. It provides a persistent local `zerone-local-1` setup,
+`/nodes/` is a separate static page, reachable from the onboarding card "Run
+your own local node" and the More pages list under `#look-closer`. It provides a persistent local `zerone-local-1` setup,
 public `zerone-1` reads and concrete contribution paths. Local test-key
 generation is distinct from the paused live account-admission flow. It does
 not promise a compatible public legacy replica download or validator opening.
@@ -956,7 +971,7 @@ worktree. `--commit-dirty=false` records metadata; the explicit Git check is wha
 refuses local drift. A non-`main` branch creates a no-index preview.
 
 After production deployment, verify that `https://zerone.ai/#authority`
-renders the source-only status, three target pillars, `1/7`, `0/24`, `0/14`,
+opens its fold and renders the source-only status, three target pillars, `1/7`, `0/24`, `0/14`,
 and `NO-GO` as selectable text. Fetch
 `https://zerone.ai/standards/authority-geometry.v1.json` without following a
 redirect, compare its exact bytes and SHA-256 with the reviewed repository
@@ -967,7 +982,10 @@ the Authority Geometry explorer itself must request only that static JSON: no
 API query, wallet request, signature, transaction, or write is part of it.
 
 Also verify `https://zerone.ai/#onboarding` on desktop and mobile with and
-without JavaScript. The hero and compact header must reach the section; the
+without JavaScript. On `https://zerone.ai/`, the purpose must come before any
+live number, every visible link must open for an anonymous visitor, and the
+swap-pool card must read `0` rather than unavailable while the chain answers
+`{"pools":[]}`. The hero and compact header must reach the section; the
 zero-account route must remain usable; the existing-account action must be
 clearly optional; and the new-account lane must remain visibly paused. Confirm
 that the live status reports `zerone-1` only after a fresh, non-syncing block,

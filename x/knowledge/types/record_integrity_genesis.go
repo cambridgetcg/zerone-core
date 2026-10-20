@@ -6,6 +6,9 @@ import "fmt"
 // records remain scheme 0; enabling a native/imported genesis does not upgrade
 // their payload, review confidence or historical payment representation.
 func ValidateGenesisRounds(gs *GenesisState) error {
+	if gs.ClaimIntegrityEnabled && !gs.FundSettlementEnabled {
+		return fmt.Errorf("claim integrity requires fund settlement")
+	}
 	if gs.FundSettlementEnabled && !gs.ClaimRecordsEnabled {
 		return fmt.Errorf("fund settlement requires claim records")
 	}

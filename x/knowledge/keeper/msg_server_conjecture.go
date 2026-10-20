@@ -104,7 +104,23 @@ func (m *msgServer) postConjecture(ctx context.Context, msg *types.MsgPostConjec
 
 	// Dedup on the statement, same as any claim.
 	contentHash := ComputeClaimContentHash(msg.Statement, msg.Domain)
-	if existingID, exists := m.keeper.GetClaimByContentHash(ctx, contentHash); exists {
+	integrity, err := m.keeper.ClaimIntegrityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if integrity {
+		// Only an attribution may carry the attribution template (review G2 SEC-4).
+		if err := refuseReservedAttributionText("conjecture statement", msg.Domain, msg.Statement, nil); err != nil {
+			return nil, err
+		}
+		blocker, err := m.keeper.blockingDuplicate(ctx, types.ContentHashKey(contentHash))
+		if err != nil {
+			return nil, err
+		}
+		if blocker != nil {
+			return nil, fmt.Errorf("duplicate conjecture: content hash matches existing claim %s", blocker)
+		}
+	} else if existingID, exists := m.keeper.GetClaimByContentHash(ctx, contentHash); exists {
 		return nil, fmt.Errorf("duplicate conjecture: content hash matches existing claim %s", existingID)
 	}
 

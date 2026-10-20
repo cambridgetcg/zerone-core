@@ -254,6 +254,31 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(j.parse_json(result["observations"][0]["history_utf8"].encode()), value)
         self.assertNotIn("funding_terms", value["record"]["claim"])
 
+    def test_v12_discovery_links_are_retained_and_the_set_stays_closed(self):
+        # knowledge v12 ClaimHistory (plan Task 3) names the root claim as target of
+        # resubmissions, canonical twins and attributions ("who said P", §5.5).
+        packet = self.submitted()
+        value = history(packet)
+        attribution = {"id": "4" * 32, "structure": {"subject": "zrn1" + "s" * 38, "predicate": "asserted",
+                                                     "object": "zrn-content:" + "c" * 64}}
+        value["related_claims"] = [
+            {"record": {"claim_id": "2" * 32, "claim": None},
+             "links": [{"field": "content_hash", "target_id": CLAIM}]},
+            {"record": {"claim_id": "3" * 32, "claim": None},
+             "links": [{"field": "canonical_hash", "target_id": CLAIM},
+                       {"field": "content_hash", "target_id": CLAIM}]},
+            {"record": {"claim_id": "4" * 32, "claim": attribution},
+             "links": [{"field": "structure.object", "target_id": CLAIM}]}]
+        before = self.path.read_bytes()
+        for invented in ("structure.subject", "Content_Hash", "content_hash ", ""):
+            changed = copy.deepcopy(value)
+            changed["related_claims"][0]["links"][0]["field"] = invented
+            with self.assertRaisesRegex(w.Error, "unsupported claim relationship"):
+                w.refresh(self.path, self.home, self.client, lambda *_: self.snapshot(packet, changed))
+            self.assertEqual(self.path.read_bytes(), before)
+        result = w.refresh(self.path, self.home, self.client, lambda *_: self.snapshot(packet, value))
+        self.assertEqual(j.parse_json(result["observations"][0]["history_utf8"].encode()), value)
+
     def test_pin_changes_stop_before_client_execution_and_never_rewrite_home(self):
         original = self.client.read_bytes()
         before = self.path.read_bytes()

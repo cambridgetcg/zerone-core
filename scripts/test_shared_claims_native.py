@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
-"""Opt-in actual signed five-home development workflow through the real gateway.
+"""Opt-in actual signed development workflows through the real gateway.
 
-Set ZERONE_SHARED_TEST_BINARY to a current native zeroned. The chain is an
-isolated --local-test fixture with accelerated review windows. Five separate key
-homes are controlled by this test; no human/reviewer independence is asserted.
+Set ZERONE_SHARED_TEST_BINARY to a native knowledge-11 zeroned: the frozen
+zerone-dev-1 runtime and gateway refuse a knowledge-12 node until the network is
+relaunched. Each chain is an isolated --local-test fixture with accelerated review
+windows. All private key homes are controlled by this test; no human/reviewer
+independence is asserted.
 Optional ZERONE_SHARED_EVIDENCE_PARENT retains curated public observations only.
 """
 import base64
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import io
 import hashlib
 import importlib.util
 import json
@@ -19,6 +24,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest import mock
@@ -34,6 +40,73 @@ fixture = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(fixture)
 PEOPLE = ("author", "reviewer1", "reviewer2", "reviewer3", "challenger")
 REVIEWERS = PEOPLE[1:4]
+
+
+@contextmanager
+def lost_broadcast_response(upstream):
+    """Owned loopback fault fixture; no retries, redirects or ambient proxy."""
+    if not re.fullmatch(r"http://127\.0\.0\.1:[0-9]+", upstream):
+        raise ValueError("Response-loss fixture requires an owned loopback gateway")
+    observed = {"armed": False, "broadcasts": [], "dropped": []}
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), fixture.NoRedirect())
+
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *_args):
+            pass
+
+        def forward(self):
+            size = int(self.headers.get("Content-Length", "0"))
+            if not 0 <= size <= 8 * 1024 * 1024:
+                self.send_error(413)
+                return
+            data = self.rfile.read(size) if self.command == "POST" else None
+            request = json.loads(data) if data else {}
+            message = urllib.request.Request(upstream + self.path, data=data,
+                                             headers={"Content-Type": "application/json"})
+            try:
+                response = opener.open(message, timeout=25)
+            except urllib.error.HTTPError as error:
+                response = error
+            with response:
+                status = response.status
+                raw = response.read(8 * 1024 * 1024 + 1)
+            if len(raw) > 8 * 1024 * 1024:
+                self.send_error(502)
+                return
+            if request.get("method") == "broadcast_tx_sync":
+                tx = base64.b64decode(request["params"]["tx"], validate=True)
+                result = json.loads(raw).get("result", {})
+                record = {"txhash": hashlib.sha256(tx).hexdigest().upper(),
+                          "http_status": status, "check_tx": result}
+                observed["broadcasts"].append(record)
+                if observed["armed"]:
+                    observed["armed"] = False
+                    observed["dropped"].append(record)
+                    # The unchanged gateway has already replied. Lose only the
+                    # caller's response, never replace admission with a mock.
+                    self.close_connection = True
+                    self.connection.shutdown(socket.SHUT_RDWR)
+                    return
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            self.wfile.write(raw)
+
+        do_GET = forward
+        do_POST = forward
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield "http://127.0.0.1:" + str(server.server_port), observed
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+        if thread.is_alive():
+            raise RuntimeError("Response-loss fixture did not stop")
 
 
 @unittest.skipUnless(os.environ.get("ZERONE_SHARED_TEST_BINARY"), "set ZERONE_SHARED_TEST_BINARY for actual separate-home signing")
@@ -383,7 +456,7 @@ class NativeSharedClaimsTests(unittest.TestCase):
             self.assertEqual(len(base64.b64decode(reveal["salt"], validate=True)), 32)
         return row
 
-    def test_five_separate_participants_signed_rounds_gateway_and_restart(self):
+    def initialize_runtime(self):
         version = subprocess.run([str(self.binary), "version", "--long"], capture_output=True, text=True, check=True, timeout=30).stdout
         source = re.search(r"(?m)^commit:\s*([0-9a-f]{40})\s*$", version)
         self.assertIsNotNone(source)
@@ -404,6 +477,9 @@ class NativeSharedClaimsTests(unittest.TestCase):
             "--source-commit", source[1], "--local-test", "--review-window-blocks", "60", "--rpc-port", ports[0],
             "--p2p-port", ports[1], "--gateway-port", ports[2]])
         self.start()
+
+    def test_five_separate_participants_signed_rounds_gateway_and_restart(self):
+        self.initialize_runtime()
         raw = self.get("/network.json")
         descriptor_path = self.root / "network.json"
         descriptor_path.write_bytes(raw)
@@ -491,6 +567,9 @@ class NativeSharedClaimsTests(unittest.TestCase):
         relation = next(row for row in related["facts"][0]["outgoing_relations"] if row["target_fact_id"] == fact["id"])
         self.assertTrue(fixture.enum_is(relation["relation"], 2, "RELATION_TYPE_CONTRADICTS"))
         self.assertEqual(relation["creator"], self.addresses["challenger"])
+        # The frozen zerone-dev-1 tooling serves knowledge 11 only (descriptor above), so
+        # this is a knowledge-11 run: the contradiction contested the fact when admitted.
+        # test_claim_workflow_native.py checks the knowledge-12 contract (contest on acceptance).
         self.assertTrue(fixture.enum_is(final["record"]["facts"][0]["fact"]["status"], 5, "FACT_STATUS_CONTESTED"))
         inconclusive = self.history(second_id)
         self.assertFalse(inconclusive["record"].get("facts"))
@@ -573,6 +652,175 @@ class NativeSharedClaimsTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(self.binary.read_bytes()).hexdigest(), self.binary_sha)
         self.evidence.update(result="PASS", final_root_history=final, inconclusive_history=inconclusive,
                              tx_sizes=sizes, clean_restart=True, participant_node_keys_absent=True)
+
+
+class NativeResponseLossTests(NativeSharedClaimsTests):
+    # Keep this current-client scenario out of the predecessor upgrade lane.
+    test_five_separate_participants_signed_rounds_gateway_and_restart = None
+
+    def test_lost_broadcast_response_recovers_original_without_signing_again(self):
+        self.initialize_runtime()
+        with lost_broadcast_response(self.origin) as (origin, transport):
+            # Pin this explicitly owned fault endpoint before creating the home.
+            # Only its URLs differ; genesis, runtime and client bindings remain.
+            descriptor = json.loads(self.get("/network.json"))
+            descriptor.update(rpc_url=origin, genesis_url=origin + "/genesis.json", faucet_url=origin + "/faucet")
+            raw = (json.dumps(descriptor, sort_keys=True) + "\n").encode()
+            descriptor_path = self.root / "fault-network.json"
+            descriptor_path.write_bytes(raw)
+            initialized = self.client("author", "init", "--descriptor", descriptor_path,
+                "--descriptor-sha256", hashlib.sha256(raw).hexdigest(), "--binary", self.binary,
+                "--binary-sha256", self.binary_sha, "--allow-loopback-test")
+            self.addresses["author"] = initialized["address"]
+            self.assertEqual(self.client("author", "fund")["faucet_response"]["status"], "committed")
+            self.client("author", "onboard", "--type", "human")
+
+            spec = importlib.util.spec_from_file_location("response_loss_client", CLIENT)
+            shared = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(shared)
+            commands = []
+            real_run = subprocess.run
+
+            def observed_run(argv, **kwargs):
+                # Observe command families only. Signing, encoding, HTTP and
+                # chain execution still run through the unchanged native CLI.
+                commands.append(tuple(map(str, argv[1:3])))
+                return real_run(argv, **kwargs)
+
+            def invoke(command, *arguments):
+                output, error = io.StringIO(), io.StringIO()
+                previous_mask = os.umask(0o077)
+                try:
+                    with mock.patch.object(sys, "argv", [str(CLIENT), command, "--home", str(self.homes["author"]), *arguments]), \
+                         mock.patch.object(subprocess, "run", side_effect=observed_run), \
+                         redirect_stdout(output), redirect_stderr(error):
+                        code = shared.main()
+                finally:
+                    os.umask(previous_mask)
+                return code, output.getvalue(), error.getvalue()
+
+            def sequence():
+                value = self.command([self.binary, "query", "auth", "account", self.addresses["author"],
+                    "--home", self.homes["author"], "--node", self.origin, "--output", "json"])
+                self.assertEqual(value["account"]["type"], "cosmos-sdk/BaseAccount")
+                self.assertEqual(value["account"]["value"]["address"], self.addresses["author"])
+                return int(value["account"]["value"]["sequence"])
+
+            arguments = ("--content", fixture.CLAIM, "--method", "M-COMPUTATIONAL", "--reasoning", fixture.REASONING)
+            before_sequence = sequence()
+            before_balance = self.bank_snapshot()["balances"]["author"]
+            before_broadcasts = len(transport["broadcasts"])
+            transport["armed"] = True
+            code, output, error = invoke("submit", *arguments)
+            self.assertEqual(code, 1, "the admitted broadcast response must actually be lost")
+            self.assertEqual(output, "", "loss must not claim a successful receipt")
+            self.assertIn("No success is asserted", error)
+            submission_sign_calls = commands.count(("tx", "sign"))
+            self.assertEqual(submission_sign_calls, 1)
+            self.assertEqual(commands.count(("tx", "broadcast")), 1)
+            self.assertEqual(len(transport["broadcasts"]) - before_broadcasts, 1)
+            self.assertEqual(len(transport["dropped"]), 1)
+            dropped = transport["dropped"][0]
+            self.assertEqual(dropped["http_status"], 200)
+            self.assertEqual(int(dropped["check_tx"]["code"]), 0)
+            self.assertEqual(dropped["check_tx"]["hash"].upper(), dropped["txhash"])
+
+            attempts = self.homes["author"] / "claim-workflow/attempts"
+            saved = [(p, json.loads(p.read_text())) for p in attempts.glob("*.json")]
+            submits = [(p, a) for p, a in saved if a["action"] == "submit"]
+            self.assertEqual(len(submits), 1)
+            attempt_path, retained = submits[0]
+            self.assertEqual(retained["status"], "broadcasting")
+            self.assertEqual(retained["broadcast_count"], 1)
+            self.assertEqual(retained["txhash"], dropped["txhash"])
+            signed = base64.b64decode(retained["tx_bytes_base64"], validate=True)
+            self.assertEqual(hashlib.sha256(signed).hexdigest().upper(), retained["txhash"])
+
+            # Observe commitment without reconciling the participant's attempt.
+            # The durable local state must still be ambiguous until recovery.
+            deadline = time.monotonic() + 30
+            while True:
+                observed = shared.SharedWorkflow(self.homes["author"], 1).tx_observation(retained["txhash"])
+                if observed is not None:
+                    break
+                self.assertLess(time.monotonic(), deadline, "admitted transaction did not commit")
+                time.sleep(0.3)
+            self.assertEqual(int(observed["code"]), 0)
+            self.assertGreater(int(observed["height"]), 0)
+            self.assertEqual(json.loads(attempt_path.read_text())["status"], "broadcasting")
+            self.stop()
+            self.start()  # Persisted node plus unchanged participant home.
+
+            commands.clear()
+            code, output, error = invoke("retry", "--tx", retained["txhash"])
+            self.assertEqual(code, 0, error)
+            recovered = json.loads(output)
+            self.assertEqual(recovered["status"], "committed")
+            self.assertEqual(recovered["txhash"], retained["txhash"])
+            self.assertEqual(int(recovered["height"]), int(observed["height"]))
+            self.assertEqual(int(recovered["code"]), 0)
+            code, repeated, error = invoke("submit", *arguments)
+            self.assertEqual(code, 0, error)
+            self.assertEqual(json.loads(repeated), recovered)
+            self.assertEqual(commands.count(("tx", "sign")), 0, "recovery must not sign again")
+            self.assertEqual(commands.count(("tx", "broadcast")), 0, "committed recovery must not broadcast again")
+            self.assertEqual(len(transport["broadcasts"]) - before_broadcasts, 1)
+            self.assertEqual({p.name for p in attempts.glob("*.json")}, {p.name for p, _ in saved})
+            final = json.loads(attempt_path.read_text())
+            self.assertEqual(final["tx_bytes_base64"], retained["tx_bytes_base64"])
+            self.assertEqual(final["broadcast_count"], 1)
+            after_sequence = sequence()
+            self.assertEqual(after_sequence, before_sequence + 1)
+            fee = int(retained["context"]["review_fee_uzrn"]) + int(descriptor["tx_fee_uzrn"])
+            after_balance = self.bank_snapshot()["balances"]["author"]
+            self.assertEqual(after_balance, before_balance - fee)
+            public_tx = self.rpc("tx", hash=base64.b64encode(bytes.fromhex(retained["txhash"])).decode(), prove=False)
+            self.assertEqual(base64.b64decode(public_tx["tx"], validate=True), signed)
+            self.assertEqual(public_tx["tx_result"]["code"], 0)
+            block = json.loads(self.get("/block?height=" + str(recovered["height"])))
+            included = [base64.b64decode(tx, validate=True) for tx in block["result"]["block"]["data"]["txs"]]
+            self.assertEqual(included.count(signed), 1)
+            history = self.history(recovered["claim_id"])
+            self.assertEqual(history["record"]["claim"]["fact_content"], fixture.CLAIM)
+            self.evidence["response_loss"] = {"txhash": retained["txhash"], "height": recovered["height"],
+                "claim_id": recovered["claim_id"], "retained_before_recovery": retained["status"],
+                "check_tx_code": dropped["check_tx"]["code"], "execution_code": recovered["code"],
+                "submission_sign_calls": submission_sign_calls, "recovery_sign_calls": commands.count(("tx", "sign")),
+                "broadcasts": len(transport["broadcasts"]) - before_broadcasts,
+                "sequence_before": before_sequence, "sequence_after": after_sequence,
+                "balance_before_uzrn": before_balance, "balance_after_uzrn": after_balance,
+                "inclusions_at_commit_height": included.count(signed),
+                "charged_uzrn": before_balance - after_balance, "node_restarted_before_recovery": True,
+                "same_command_returns_original_receipt": json.loads(repeated) == recovered}
+            self.assertEqual({name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in self.source_hashes},
+                             self.source_hashes)
+            self.evidence["source_hashes_after"] = self.source_hashes
+
+
+class NativeScenarioCollectionTests(unittest.TestCase):
+    def test_native_scenarios_have_separate_owners(self):
+        expected = {
+            "NativeSharedClaimsTests": ["test_five_separate_participants_signed_rounds_gateway_and_restart"],
+            "NativeResponseLossTests": ["test_lost_broadcast_response_recovers_original_without_signing_again"],
+            "StagedNative": ["test_staged_upgrade_and_unchanged_participant"],
+        }
+        collected = {owner: [] for owner in expected}
+
+        def collect(suite):
+            for test in suite:
+                if isinstance(test, unittest.TestSuite):
+                    collect(test)
+                elif type(test).__name__ in collected:
+                    collected[type(test).__name__].append(test._testMethodName)
+
+        # Discover the real opt-in suites, but never run their native setup.
+        for directory, pattern in ((ROOT / "scripts", "test_shared_claims_native.py"),
+                                   (RUNTIME.parent, "test_upgrade_native.py")):
+            loader = unittest.TestLoader()
+            collect(loader.discover(str(directory), pattern=pattern))
+            self.assertEqual(loader.errors, [])
+        self.maxDiff = None
+        self.assertEqual(collected, expected)
 
 
 class NativeDiagnosticTests(unittest.TestCase):

@@ -129,6 +129,7 @@ func TestNeutralReviewActualBankAdmissionAndAtomicFeePool(t *testing.T) {
 
 func TestNeutralReviewPaysExactAccruedLegacyPlanAfterActivation(t *testing.T) {
 	app, ctx := settlementFixture(t)
+	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.ClaimIntegrityEnabledStoreKey)) // No pre-v12 store has 0x87.
 	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.FundSettlementEnabledStoreKey))
 	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey))
 	recipient := settlementAddress(181)

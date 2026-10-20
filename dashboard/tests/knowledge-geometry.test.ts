@@ -1197,7 +1197,7 @@ describe("knowledge geometry dashboard integration", () => {
     assert.equal(source.match(/initialHashAligned = true;/g)?.length, 1);
     assert.match(
       source,
-      /Promise\.allSettled\(\[\s*knowledgeGeometryReady,[\s\S]*?initialNetworkReady,\s*\]\)\.then\(\(\) => \{\s*initialHashInputsSettled = true;\s*alignInitialHash\(\);/,
+      /Promise\.allSettled\(\[\s*initialCloserReady,[\s\S]*?initialNetworkReady,\s*\]\)\.then\(\(\) => \{\s*initialHashInputsSettled = true;\s*alignInitialHash\(\);/,
     );
   });
 });
