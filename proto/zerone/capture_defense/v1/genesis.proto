@@ -24,4 +24,8 @@ message GenesisState {
   repeated DomainReputation       domain_reputations       = 4;
   repeated CaptureMetrics         capture_metrics          = 5;
   repeated CrossStratumRequirement cross_stratum_requirements = 6;
+  // Integer timing-variance marker (zerone-core #119). Native genesis sets it; a
+  // file without the field imports as off. In place, only the named carrier
+  // upgrade consensus-repairs-v1 sets it.
+  bool integer_variance_enabled = 7;
 }
