@@ -289,6 +289,29 @@ installs one identical genesis. The coordinator still chooses the seat list and
 stakes; leaving a seat out is refused only by that seat. That is why the owner
 confirms the table.
 
+## Who can join
+
+Only the Macs the owner invited, on the owner's own network:
+
+- **Invited seats only.** On `-lan-` and `-private-` chains, `genesis` refuses
+  a seat packet that has no invitation in the coordinator's outbox, or that asks
+  for a role or stake other than the one its invitation fixed. Its output lists
+  invited Macs that never seated as `invited_but_not_seated`.
+- **The owner's network only.** Every seat address on a `-lan-` chain is a
+  private home-network address: 10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16.
+  A `-private-` chain also accepts the overlay range 100.64.0.0/10, which no
+  run has used yet. `seat`, `genesis` and `install` refuse any other address,
+  and `preflight --ip` reports it.
+- **Seats only at the door.** `install` sets `max_num_inbound_peers = 0` and
+  names the other seats' node ids in `unconditional_peer_ids`. CometBFT checks
+  the node key in its authenticated handshake, so a node that holds the genesis
+  but no seat is turned away, while seats still connect in either direction.
+- **No joining later.** The seat list is fixed at genesis. Adding a Mac means a
+  new chain id and a new round of invitations.
+
+A refused stranger still learns that a node listens there. Inside the network,
+a seat's operator can still send its valueless ZRN to any address.
+
 ## Rules
 
 - A refusal is an answer. Report it and stop; do not work around it.
@@ -317,9 +340,10 @@ confirms the table.
   one may be away; with 2, neither may. Laptops are best as `--role full`. The
   `private-test-v1` profile jails a validator only after it misses 95% of
   100,000 blocks (about 66 h), and never slashes for downtime.
-- **Listening:** P2P listens only on the seat's own LAN address (port 36656),
-  and RPC only on 127.0.0.1 (36657). API and gRPC are off. A laptop off the
-  home LAN cannot start its seat; stop seats before leaving.
+- **Listening:** P2P listens only on the seat's own LAN address (port 36656)
+  and accepts inbound peers only from the other seats; RPC listens only on
+  127.0.0.1 (36657). API and gRPC are off. A laptop off the home LAN cannot
+  start its seat; stop seats before leaving.
 - **Peer addresses:** use IPv4 literals. CometBFT resolves peer names only once,
   at startup.
 - **Lost peers:** a peer away for more than about a day is no longer
@@ -335,6 +359,8 @@ confirms the table.
 | `socketfilterfw --add` prints nothing and `preflight` still warns about the firewall | the pinned `zeroned` is signed `a.out` and another `a.out` app already holds that firewall entry (see Firewall above) |
 | `REFUSED: … running inside an agent sandbox` or `REFUSED: permission denied …` | the command ran inside an agent sandbox; run it outside, with the owner's approval |
 | `REFUSED: this Mac does not hold <ip>` | off the home LAN, the IP changed (a new chain id is needed), or the wrong IP was given |
+| `REFUSED: <ip> is outside 10.0.0.0/8, …` | not a home-network address (a VPN, public or link-local one); use a LAN IPv4 that `preflight` lists |
+| `REFUSED: seat <label> was never invited` | `genesis` got a seat packet with no matching invitation in the outbox; leave it out, or invite that Mac and have it seat again |
 | `REFUSED: cannot access …/Downloads/…` | macOS privacy blocks this app from that folder; the owner moves the file into the inbox |
 | `zsh: no such file or directory: python3 …private-net.py` | `pn` was set as a variable; define it as the shell function in "Steps" |
 | `command not found: pn` | the agent's shell kept no function from an earlier call; define `pn` in the same call as the command |

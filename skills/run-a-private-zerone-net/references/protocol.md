@@ -81,9 +81,9 @@ agent's shell may keep no function or working directory between calls.
 | `invite` | a validator without a positive stake; that seat's invitation already exists. It does not refuse a pin signed `a.out` on a `-lan-` or `-private-` chain, but adds a `warning`: every seat inherits that identifier and cannot change it (`kit` repeats the warning) |
 | `kit` | the folder exists or is inside the root (compared case-insensitively); it cannot be written (the refusal says to choose another `--out`); round 0: no invitation for the seat, the seat is the coordinator, the coordinator has not seated yet, or the pinned binary or this tool is not the one the invitation names; the copied `zeroned` or `private-net.py` does not hash to the invitation's values; round 2: no genesis or network packet yet, the seat is the coordinator or not in the packet, or the outbox genesis does not hash to the packet's value. A refused kit leaves no folder behind |
 | `receive` | a source inside the root, or inside a git checkout other than the home folder; a name outside the protocol's (`invite-`, `seat-`, `status-`, `genesis-` or `network-` JSON, `zeroned`, `START-HERE.md`, `NEXT.md`, the skill folder); a symlink anywhere, `.DS_Store` and `__pycache__` included; a JSON file of the wrong format, or a genesis for another chain; a skill folder holding anything beyond `SKILL.md`, `references/protocol.md` and the two scripts, or lacking `SKILL.md` or the tool; an oversized file; the inbox holding a different file of a name that pins the chain (every such name is listed at once). A different status report, `START-HERE.md` or `NEXT.md` replaces the old copy. Every check runs before anything moves |
-| `seat` | invitation's tool or binary hash differs from this Mac's; a flag disagrees with the invitation; seat home exists; P2P port outside 1024-65534 (RPC takes the next port); IP is not an IPv4 literal held by this Mac (loopback, as `127.0.0.1`, only on `zerone-rehearsal-local-*` chains); a validator without a positive stake |
-| `genesis` | a packet has the wrong format, chain, binary or tool; a gentx memo, stake, consensus key or validator address does not match its packet; duplicate labels, node ids, endpoints, consensus keys or operator addresses; no validators; the coordinator's own packet is missing; an earlier attempt left its coordinator home, gentx directory, or outbox genesis or network file (all are named, to be moved aside only if no seat has installed); collect-gentxs drops a gentx; `genesis validate` fails; a JSON float appears (the tool rewrites genesis, so floats are refused rather than re-encoded) |
-| `install` | on a `-lan-` or `-private-` chain, no `--expect-genesis-sha256`; everything listed under "What install verifies" in SKILL.md, plus a `genesis_time` that differs from the network packet's; the genesis is read once and those exact bytes are hashed, checked and installed; the config layout lacks a key the tool sets |
+| `seat` | invitation's tool or binary hash differs from this Mac's; a flag disagrees with the invitation; seat home exists; P2P port outside 1024-65534 (RPC takes the next port); IP is not an IPv4 literal held by this Mac (loopback, as `127.0.0.1`, only on `zerone-rehearsal-local-*` chains); on a `-lan-` chain, an IP outside 10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16 (a `-private-` chain also accepts 100.64.0.0/10); a validator without a positive stake |
+| `genesis` | a packet has the wrong format, chain, binary or tool; a gentx memo, stake, consensus key or validator address does not match its packet; duplicate labels, node ids, endpoints, consensus keys or operator addresses; no validators; the coordinator's own packet is missing; a seat endpoint outside the chain's address ranges (as for `seat`); on a `-lan-` or `-private-` chain, a seat packet with no invitation in the outbox, or a role or stake other than its invitation's (on a `-local-` chain an invitation is checked when present); an earlier attempt left its coordinator home, gentx directory, or outbox genesis or network file (all are named, to be moved aside only if no seat has installed); collect-gentxs drops a gentx; `genesis validate` fails; a JSON float appears (the tool rewrites genesis, so floats are refused rather than re-encoded) |
+| `install` | on a `-lan-` or `-private-` chain, no `--expect-genesis-sha256`; everything listed under "What install verifies" in SKILL.md, plus a `genesis_time` that differs from the network packet's, another seat with a malformed node id, or another seat's endpoint outside the chain's address ranges; the genesis is read once and those exact bytes are hashed, checked and installed; the config layout lacks a key the tool sets |
 | `start` | not installed; the pinned binary is not the one the seat was made with; already running; `config/genesis.json` changed since install; the seat IP is not on this Mac; a port has a live listener (TIME_WAIT is ignored, as Go's own bind does); the process exits at once |
 | `status` | the node answering on the seat's RPC port is not this seat's (another chain's node or process); with `--wait-height`, also the seat's node not running (checked on every poll). Reaching `--timeout` (default 100 s) first is not a refusal: it exits 3 with `"reached": false`, the height and the peers so far |
 | `stop` | the pid's full command line is not `<root>/bin/zeroned start --home <seat home>`; it never escalates past SIGTERM. A node sleeping before `genesis_time` takes the signal but exits only at `genesis_time` (opening its ports for a moment, producing no block), and `stop` says so |
@@ -99,8 +99,14 @@ agent's shell may keep no function or working directory between calls.
   - drop or alter a seat's gentx;
   - turn a full seat's key into a validator.
 
-  It does choose the seat list and the stakes. Each seat prints that table, and
-  the owner confirms it before `start`.
+  It does choose the seat list, but only from the Macs it invited: `genesis`
+  refuses an uninvited seat packet, or one asking for another role or stake
+  than its invitation fixed. Each seat prints the table, and the owner confirms
+  it before `start`.
+- **A stranger on the network** that obtains the genesis cannot join. Each
+  node accepts inbound peers only from the other seats' node keys
+  (`max_num_inbound_peers = 0` plus `unconditional_peer_ids`), seats dial only
+  each other, and every seat address must be a private one.
 - **A mixed-up courier** (wrong file, stale file, another chain's file, another
   tool version) is caught by the sha256, chain-id and tool-hash checks. The
   owner-relayed genesis sha256 closes the gap where the coordinator controls
@@ -110,9 +116,11 @@ agent's shell may keep no function or working directory between calls.
   and single ownership by convention. Real isolation would need a separate
   macOS user.
 - **Not covered:**
-  - a seat that lies about its own role or stake request, which the owner sees
-    in the table;
-  - a LAN attacker (P2P is authenticated by node key, but the LAN is shared);
+  - a forged invitation: invitations are unsigned, and `genesis` trusts the
+    coordinator's own outbox;
+  - a LAN attacker beyond the connection itself: P2P is authenticated by node
+    key and strangers are refused, but the LAN is shared and the port is
+    visible;
   - the provenance of the kit itself. The tool hash proves every seat runs the
     same `private-net.py`, not that it is the reviewed one. Where a Mac has
     repository access, compare it with the file at the merged commit. A kit
@@ -173,6 +181,13 @@ gentx at genesis, because `docs/VALIDATOR-GUIDE.md` rules out the standard
     variable failed in zsh, and made the sha256 relay rule name agent channels
     explicitly.
 
+- **Seat-only admission, 2026-10-20:** the two-root courier test also starts
+  a node that holds the genesis and dials a seat, but has no seat. It gets no
+  peer, and the seat's peers stay the other seat alone. A control run with the
+  old inbound limit (40) let that node connect. Address ranges and the
+  invitation cross-check have pure tests. None of this has yet run between two
+  real Macs.
+
 ## Sources
 
 - **Gentx flow and node flags:** `scripts/local-consensus-rehearsal.sh`, CI
@@ -193,6 +208,9 @@ gentx at genesis, because `docs/VALIDATOR-GUIDE.md` rules out the standard
   - persistent peers are resolved once at startup;
   - persistent-peer redial stops after about 24.6 h;
   - blocks are rejected when timestamped more than 60 s ahead.
+  - only peers named in `unconditional_peer_ids` pass a zero
+    `max_num_inbound_peers` (`p2p/switch.go`, `acceptRoutine`), and the peer's
+    node id comes from its authenticated handshake.
 - **macOS 15 behaviour relied on:**
   - Local Network privacy gates outbound LAN connections by the responsible
     app; Terminal and SSH are exempt;

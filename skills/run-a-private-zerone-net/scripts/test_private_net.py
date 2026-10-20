@@ -19,6 +19,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -94,6 +95,21 @@ class Guards(unittest.TestCase):
         for bad in ("127.0.0.1", "0.0.0.0", "192.0.2.10"):  # 192.0.2.0/24 is TEST-NET-1, never local
             with self.assertRaises(pn.Refusal):
                 pn.check_seat_ip(bad, loopback=False)
+
+    def test_seat_addresses_stay_on_the_owners_network(self):
+        lan, private, local = "zerone-rehearsal-lan-1", "zerone-rehearsal-private-1", "zerone-rehearsal-local-1"
+        for ip in ("10.0.0.1", "172.16.0.1", "172.31.255.254", "192.168.50.176"):
+            for chain in (lan, private, local):
+                self.assertEqual(pn.check_seat_scope(chain, ip), ip)
+        for ip in ("100.64.0.1", "100.127.255.254"):  # overlay space: -private- only
+            self.assertEqual(pn.check_seat_scope(private, ip), ip)
+            with self.assertRaises(pn.Refusal):
+                pn.check_seat_scope(lan, ip)
+        for ip in ("8.8.8.8", "192.0.2.10", "172.32.0.1", "100.128.0.1", "169.254.1.1", "11.0.0.1"):
+            for chain in (lan, private):
+                with self.assertRaises(pn.Refusal, msg="%s on %s" % (ip, chain)):
+                    pn.check_seat_scope(chain, ip)
+        self.assertEqual(pn.check_seat_scope(local, "127.0.0.1"), "127.0.0.1")  # one Mac, any address
 
     def test_private_dir_refuses_git_trees_open_modes_and_home(self):
         base = private_tmp(self)
@@ -269,7 +285,7 @@ class Bech32(unittest.TestCase):
 def seat(n, role="validator", stake_zrn=1000):
     acc, val = keypair(n)
     node = hashlib.sha1(b"node-%d" % n).hexdigest()
-    endpoint = "192.0.2.%d:36656" % (10 + n)
+    endpoint = "192.168.77.%d:36656" % (10 + n)
     pub = {"@type": "/cosmos.crypto.ed25519.PubKey", "key": "KEY%d=" % n}
     p = {"format": pn.SEAT_FORMAT, "chain_id": CHAIN, "label": "seat-%d" % n, "role": role, "node_id": node,
          "consensus_pubkey": pub, "p2p_endpoint": endpoint, "binary_sha256": "f" * 64, "tool_sha256": "t" * 64}
@@ -326,6 +342,8 @@ class SeatPackets(unittest.TestCase):
         bad(lambda p: p.update(binary_sha256="e" * 64))
         bad(lambda p: p.update(tool_sha256="e" * 64))
         bad(lambda p: p.update(p2p_endpoint="studio.local:36656"))
+        bad(lambda p: (p.update(p2p_endpoint="203.0.113.5:36656"),
+                       p["gentx"]["body"].update(memo="%s@203.0.113.5:36656" % p["node_id"])))
         bad(lambda p: p.update(p2p_endpoint="192.0.2.11:65535"))
         bad(lambda p: p["gentx"]["body"].update(memo="cd" * 20 + "@192.0.2.11:36656"))
         bad(lambda p: p["gentx"]["body"]["messages"][0]["value"].update(amount="5"))
@@ -709,6 +727,44 @@ class Courier(unittest.TestCase):
                       "~/'Downloads/zerone-kit beta'" % pn.SKILL_NAME, page)
 
 
+class Invitations(unittest.TestCase):
+    """Genesis admits only seats the coordinator invited, with the role and stake each invitation fixed."""
+
+    def setUp(self):
+        base = private_tmp(self)
+        self.root = os.path.join(base, "root")
+        fake = os.path.join(base, "fake-zeroned")
+        with open(fake, "wb") as f:
+            f.write(FAKE_ZEROND)
+        os.chmod(fake, 0o700)
+        rc, _, err = cli("--root", self.root, "binary", "--from", fake, "--sha256", file_sha(fake))
+        self.assertEqual(rc, 0, err)
+        for label, extra in (("seat-1", ()), ("seat-2", ("--role", "full")), ("seat-3", ("--stake-zrn", "500"))):
+            rc, _, err = cli("--root", self.root, "invite", "--chain-id", CHAIN, "--coordinator-label", "seat-1",
+                             "--label", label, *extra)
+            self.assertEqual(rc, 0, err)
+        self.lay = pn.Layout(self.root, CHAIN)
+
+    def test_invited_seats_pass_and_the_unseated_are_listed(self):
+        pn.check_invitations(self.lay, [seat(1), seat(2, "full"), seat(3, stake_zrn=500)])
+        pn.check_invitations(self.lay, [seat(1)])
+        self.assertEqual(sorted(pn.issued_invitations(self.lay)), ["seat-1", "seat-2", "seat-3"])
+
+    def test_uninvited_seats_and_changed_terms_are_refused(self):
+        for packets, why in (([seat(1), seat(4)], "never invited"),
+                             ([seat(1, stake_zrn=2000)], "its invitation fixes 1000000000"),
+                             ([seat(2)], "its invitation fixes full"),
+                             ([seat(1, "full")], "its invitation fixes validator")):
+            with self.assertRaises(pn.Refusal) as cm:
+                pn.check_invitations(self.lay, packets)
+            self.assertIn(why, str(cm.exception))
+
+    def test_a_local_rehearsal_needs_no_invitations(self):
+        lay = pn.Layout(self.root, "zerone-rehearsal-local-inv")
+        packets = [dict(seat(n), chain_id=lay.chain_id) for n in (1, 2)]
+        pn.check_invitations(lay, packets)
+
+
 class RpcProbe(unittest.TestCase):
     """What --wait-height makes of whatever holds the seat's RPC port before genesis_time."""
 
@@ -869,6 +925,55 @@ class TwoRootCourier(unittest.TestCase):
                       "--wait-height", sent["height"] + 1, "--timeout", 60)
         after = int(self.run_tool(tool_b, b, "balance", "--chain-id", chain, "--label", "beta", "--address", to)["uzrn"])
         self.assertEqual(after - before, 777)
+
+        # Only seats may connect. Each seat names the other as its one unconditional peer and takes no
+        # other inbound peer, so a node that holds the genesis but no seat is turned away.
+        with open(os.path.join(a_out, "network-%s.json" % chain)) as f:
+            ids = {s["label"]: s["node_id"] for s in json.load(f)["seats"]}
+        with open(os.path.join(a, "nets", chain, "seats", "alpha", "config", "config.toml")) as f:
+            cfg = f.read()
+        self.assertIn("max_num_inbound_peers = 0", cfg)
+        self.assertIn('unconditional_peer_ids = "%s"' % ids["beta"], cfg)
+        outsider = os.path.join(base, "outsider")
+        pn.zd(binary, "init", "outsider", "--chain-id", chain, "--default-denom", pn.DENOM, "--home", outsider)
+        shutil.copy(os.path.join(a_out, "genesis-%s.json" % chain), os.path.join(outsider, "config", "genesis.json"))
+        o_port = port + 20
+        pn.set_toml(os.path.join(outsider, "config", "config.toml"), {
+            ("rpc", "laddr"): pn.toml_str("tcp://127.0.0.1:%d" % (o_port + 1)),
+            ("p2p", "laddr"): pn.toml_str("tcp://127.0.0.1:%d" % o_port),
+            ("p2p", "persistent_peers"): pn.toml_str("%s@127.0.0.1:%d" % (ids["alpha"], port)),
+            ("p2p", "pex"): "false", ("p2p", "addr_book_strict"): "false", ("p2p", "allow_duplicate_ip"): "true",
+        })
+        pn.set_toml(os.path.join(outsider, "config", "app.toml"), {
+            ("", "minimum-gas-prices"): pn.toml_str("1" + pn.DENOM), ("api", "enable"): "false",
+            ("grpc", "enable"): "false"})
+        o_log = os.path.join(base, "outsider.log")
+        with open(o_log, "ab") as log:
+            proc = subprocess.Popen([binary, "start", "--home", outsider], stdout=log, stderr=subprocess.STDOUT,
+                                    stdin=subprocess.DEVNULL, env=pn.clean_env())
+        self.addCleanup(proc.wait, 30)
+        self.addCleanup(proc.kill)
+
+        # Sample both sides while the outsider keeps dialling alpha. An outsider RPC that does not answer yet
+        # is not a result; at least three answers are needed, and every one must show no peer.
+        answers, deadline = [], time.time() + 90
+        while len(answers) < 5 and time.time() < deadline:
+            got = pn.rpc_or_absent(o_port + 1, "/net_info", timeout=5)
+            if got is not None:
+                answers.append(got["n_peers"])
+            time.sleep(2)
+        with open(o_log, errors="replace") as f:
+            tail = f.read()[-3000:]
+        self.assertGreaterEqual(len(answers), 3, "the outsider answered %d times\n%s" % (len(answers), tail))
+        self.assertEqual(set(answers), {"0"}, tail)
+        for _ in range(10):
+            seen = pn.rpc_or_absent(port + 1, "/net_info", timeout=5)  # alpha's own view of its peers
+            if seen is not None:
+                break
+            time.sleep(2)
+        else:
+            self.fail("alpha's RPC did not answer")
+        self.assertEqual(sorted(p["node_info"]["moniker"] for p in seen["peers"]), ["beta"])
 
 
 if __name__ == "__main__":

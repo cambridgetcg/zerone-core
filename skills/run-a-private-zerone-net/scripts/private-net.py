@@ -44,6 +44,7 @@ import argparse
 import datetime
 import errno
 import hashlib
+import ipaddress
 import json
 import platform
 import pwd
@@ -73,6 +74,11 @@ DEFAULT_STAKE_ZRN = 1000
 FLOAT_ZRN = 1000  # spendable balance on top of the stake, for test transactions
 DEFAULT_ROOT = "/Users/Shared/zerone-private"
 DEFAULT_P2P_PORT = 36656  # not 26656: keeps bare `zeroned` CLI calls and old homes off this chain
+# Where a seat may sit, by chain kind. A -lan- chain stays on the owner's home network, so every
+# seat address is a private (RFC 1918) one. A -private- chain may also use an overlay network the
+# owner runs (the shared address space 100.64.0.0/10). A -local- chain lives on one Mac.
+LAN_NETWORKS = tuple(ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
+OVERLAY_NETWORKS = (ipaddress.ip_network("100.64.0.0/10"),)
 REHEARSAL_BASE_PORT = 46656
 TX_GAS = 250000
 TX_FEE = 250000  # the ante handler requires fee >= gas x 1uzrn
@@ -380,6 +386,18 @@ def check_seat_ip(ip, loopback):
         raise Refusal("%s is not a LAN address" % ip)
     if not ip_is_local(ip):
         raise Refusal("this Mac does not hold %s right now; run preflight to list its LAN addresses" % ip)
+    return ip
+
+
+def check_seat_scope(chain_id, ip):
+    """A seat of a -lan- chain sits on the owner's home network; a -private- one may also use an overlay."""
+    if chain_id.startswith("zerone-rehearsal-local-"):
+        return ip
+    kind = "-private-" if chain_id.startswith("zerone-rehearsal-private-") else "-lan-"
+    allowed = LAN_NETWORKS + (OVERLAY_NETWORKS if kind == "-private-" else ())
+    if not any(ipaddress.ip_address(check_ipv4(ip)) in n for n in allowed):
+        raise Refusal("%s is outside %s: a %s chain admits only seats on the owner's own network"
+                      % (ip, ", ".join(str(n) for n in allowed), kind))
     return ip
 
 
@@ -707,6 +725,17 @@ def cmd_preflight(a):
             "P2P port on %s" % p2p_host)
     except Refusal as e:
         add("port-%d" % a.p2p_port, "fail", str(e))
+    if a.ip:
+        try:
+            addr = ipaddress.ip_address(check_ipv4(a.ip))
+            if any(addr in n for n in LAN_NETWORKS):
+                add("seat-address", "ok", "%s is a home-network (RFC 1918) address" % a.ip)
+            elif any(addr in n for n in OVERLAY_NETWORKS):
+                add("seat-address", "warn", "%s is overlay space (100.64.0.0/10): only a -private- chain accepts it" % a.ip)
+            else:
+                add("seat-address", "fail", "%s is not a private address; -lan- and -private- chains refuse it" % a.ip)
+        except Refusal as e:
+            add("seat-address", "fail", str(e))
     add("port-%d" % (a.p2p_port + 1), "ok" if port_free(a.p2p_port + 1, "127.0.0.1") else "fail",
         "RPC port on 127.0.0.1")
     if shutil.which("mullvad"):
@@ -906,6 +935,7 @@ def make_seat(lay, label, role, ip, p2p_port, stake_zrn, binary, loopback=False)
     if role not in ("validator", "full"):
         raise Refusal("role must be validator or full")
     check_seat_ip(ip, loopback)
+    check_seat_scope(lay.chain_id, ip)
     check_p2p_port(p2p_port)
     if role == "validator" and int(stake_zrn) <= 0:
         raise Refusal("a validator needs a positive stake")
@@ -996,7 +1026,10 @@ def validate_seat_packet(p, chain_id, binary_sha, tool_sha=None):
     if not NODE_ID_RE.fullmatch(p.get("node_id", "")):
         raise Refusal("seat %s: bad node id" % p["label"])
     ip, _, port = p.get("p2p_endpoint", "").rpartition(":")
-    check_ipv4(ip)
+    try:
+        check_seat_scope(chain_id, check_ipv4(ip))
+    except Refusal as e:
+        raise Refusal("seat %s: %s" % (p["label"], e))
     if not port.isdigit():
         raise Refusal("seat %s: bad p2p port" % p["label"])
     check_p2p_port(int(port))
@@ -1032,6 +1065,42 @@ def validate_seat_packet(p, chain_id, binary_sha, tool_sha=None):
     return p
 
 
+def issued_invitations(lay):
+    """{label: invitation} this coordinator issued for the chain, read from its outbox."""
+    issued = {}
+    for name in sorted(os.listdir(lay.outbox)):
+        m = re.fullmatch(r"invite-(%s)\.json" % LABEL_RE.pattern, name)
+        if not m:
+            continue
+        inv = read_invite(os.path.join(lay.outbox, name))
+        if inv["chain_id"] != lay.chain_id or inv["label"] != m.group(1):
+            raise Refusal("%s does not match its chain or file name" % name)
+        issued[inv["label"]] = inv
+    return issued
+
+
+def check_invitations(lay, packets):
+    """Every seat packet answers an invitation this coordinator issued, with the role and stake it fixed.
+    Required on -lan- and -private- chains; checked whenever present on a -local- one."""
+    issued = issued_invitations(lay)
+    required = not lay.chain_id.startswith("zerone-rehearsal-local-")
+    for p in packets:
+        inv = issued.get(p["label"])
+        if inv is None:
+            if required:
+                raise Refusal("seat %s was never invited (no invite-%s.json in %s); genesis admits only invited seats"
+                              % (p["label"], p["label"], lay.outbox))
+            continue
+        if p["role"] != inv["role"]:
+            raise Refusal("seat %s asks to be a %s seat; its invitation fixes %s" % (p["label"], p["role"], inv["role"]))
+        stake_zrn = inv.get("stake_zrn")
+        if not isinstance(stake_zrn, int) or isinstance(stake_zrn, bool):
+            raise Refusal("invitation for %s has no whole-ZRN stake" % p["label"])
+        want = stake_zrn * UZRN_PER_ZRN if inv["role"] == "validator" else 0
+        if int(p.get("stake_uzrn") or 0) != want:
+            raise Refusal("seat %s stakes %s uzrn; its invitation fixes %d" % (p["label"], p.get("stake_uzrn"), want))
+
+
 def build_genesis(lay, packet_paths, binary, rec, start_in_s, coordinator_label):
     bsha = sha256_file(binary)
     tsha = tool_sha256()
@@ -1049,6 +1118,7 @@ def build_genesis(lay, packet_paths, binary, rec, start_in_s, coordinator_label)
         raise Refusal("no validator seats")
     if coordinator_label not in [p["label"] for p in packets]:
         raise Refusal("the coordinator's own seat packet (%s) is missing; include it" % coordinator_label)
+    check_invitations(lay, packets)
     home = lay.coordinator_home()
     gentx_dir = os.path.join(lay.chain_dir, "coordinator-gentx")
     out_genesis = os.path.join(lay.outbox, "genesis-%s.json" % lay.chain_id)
@@ -1092,7 +1162,8 @@ def build_genesis(lay, packet_paths, binary, rec, start_in_s, coordinator_label)
         "coordinator": coordinator_label, "created_at": iso(now_utc()),
         "rules": ["valueless private test; never bridge, never reuse these keys elsewhere",
                   "keys never leave their seat; one owner agent per seat home",
-                  "RPC stays on 127.0.0.1; P2P listens only on each seat's LAN address"],
+                  "RPC stays on 127.0.0.1; P2P listens only on each seat's LAN address",
+                  "each node accepts inbound peers only from the other seats' node keys"],
     }
     write_new(out_network, json_bytes(network), 0o644)
     return out_genesis, out_network, network
@@ -1102,9 +1173,10 @@ def cmd_genesis(a):
     lay = Layout(a.root, a.chain_id)
     binary, rec = lay.pinned_binary()
     gpath, npath, net = build_genesis(lay, a.seat_packets, binary, rec, a.start_in, a.coordinator_label)
+    unseated = sorted(set(issued_invitations(lay)) - {s["label"] for s in net["seats"]})
     emit({"genesis": gpath, "genesis_sha256": net["genesis_sha256"], "network": npath,
           "network_sha256": sha256_file(npath), "genesis_time": net["genesis_time"],
-          "seats": seat_table(net),
+          "seats": seat_table(net), "invited_but_not_seated": unseated,
           "next": ("`kit --round 2 --chain-id %s --label <seat> --out <folder>` writes each other seat's courier "
                    "folder; tell the owner the genesis sha256 separately. Seats ideally start before "
                    "genesis_time; a later start is fine (blocks begin once >2/3 of the stake is online), so "
@@ -1678,7 +1750,12 @@ def install_seat(lay, label, network_path, genesis_path, binary, expect_genesis_
     zd(binary, "genesis", "validate", gfile, "--home", home)
     rpc_port = state["p2p_port"] + 1
     bind = "127.0.0.1" if state["loopback"] else state["ip"]
-    peers = ",".join("%s@%s" % (s["node_id"], s["p2p_endpoint"]) for s in net["seats"] if s["label"] != label)
+    others = [s for s in net["seats"] if s["label"] != label]
+    for s in others:
+        if not NODE_ID_RE.fullmatch(s.get("node_id", "")):
+            raise Refusal("the network packet names a bad node id for %s" % s.get("label"))
+        check_seat_scope(lay.chain_id, s["p2p_endpoint"].rpartition(":")[0])
+    peers = ",".join("%s@%s" % (s["node_id"], s["p2p_endpoint"]) for s in others)
     cfg = os.path.join(home, "config")
     set_toml(os.path.join(cfg, "config.toml"), {
         ("", "moniker"): toml_str(label),
@@ -1690,6 +1767,10 @@ def install_seat(lay, label, network_path, genesis_path, binary, expect_genesis_
         ("p2p", "external_address"): toml_str(me["p2p_endpoint"]),
         ("p2p", "seeds"): toml_str(""),
         ("p2p", "persistent_peers"): toml_str(peers),
+        # Inbound peers: none, except the other seats. CometBFT checks the authenticated node key,
+        # and only unconditional peers pass a zero inbound limit (p2p/switch.go acceptRoutine).
+        ("p2p", "max_num_inbound_peers"): "0",
+        ("p2p", "unconditional_peer_ids"): toml_str(",".join(s["node_id"] for s in others)),
         ("p2p", "pex"): "false",
         ("p2p", "addr_book_strict"): "false",
         ("p2p", "allow_duplicate_ip"): "true" if state["loopback"] else "false",
