@@ -396,6 +396,12 @@ message GenesisState {
   // genesis sets it; a file without the field imports as off. In place, only
   // the named carrier upgrade consensus-repairs-v2 sets it.
   bool zero_confidence_floor_enabled = 75;
+  // Exact training-fund accounting inventories (FX7): the remaining escrow
+  // ledger and the sponsored-claim admission counters. Presence distinguishes a
+  // complete inventory, even an empty one, from an older export that omitted
+  // them, as fact_relation_state does. Absence never authorizes reconstruction
+  // from bounty creation totals or resetting the counters.
+  KnowledgeGenesisAccounting accounting_state = 76;
 }
 
 // Exports each ordered source/target pair once, including full provenance.
@@ -420,4 +426,36 @@ message SurvivalPendingReward {
   string category       = 5;
   string partnership_id = 6;
   uint64 deadline       = 7;
+}
+
+// Exact primary accounting inventories, not reconstructed claim history.
+// Export must include every stored key, including retained inactive-bounty
+// escrow and historical epochs; import must reject duplicate identities.
+message KnowledgeGenesisAccounting {
+  repeated AugmentationEscrowBalance augmentation_escrows = 1;
+  repeated BootstrapAddressCount bootstrap_address_counts = 2;
+  repeated BootstrapEpochCount bootstrap_epoch_counts = 3;
+  // Training-fund uzrn not attributed to the exported escrow ledger. This is
+  // not necessarily spendable: it can include vesting and retained fees.
+  // Together with the ledger it must equal training_fund_allocation and the
+  // actual bank balance imported before knowledge; it never authorizes minting.
+  string training_fund_non_escrow_balance = 4;
+}
+
+// Remaining 0x6B balance, not AugmentationBounty.escrow_locked at creation.
+message AugmentationEscrowBalance {
+  string bounty_id = 1;
+  string remaining_uzrn = 2;
+}
+
+// Exact address string used by the 0x35 primary key; never normalize it.
+message BootstrapAddressCount {
+  string address = 1;
+  uint64 count = 2;
+}
+
+// The 0x36 counter is global to an epoch, not per address.
+message BootstrapEpochCount {
+  uint64 epoch = 1;
+  uint64 count = 2;
 }
