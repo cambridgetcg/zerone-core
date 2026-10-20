@@ -147,6 +147,10 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 	if state.DegradedFrequencyActive && effectiveInterval > 1 {
 		effectiveInterval = effectiveInterval / 2
 	}
+	// The modulo below panics on zero, and a panic in EndBlock halts the chain.
+	if effectiveInterval == 0 {
+		effectiveInterval = 1
+	}
 
 	if height%effectiveInterval != 0 {
 		return nil
