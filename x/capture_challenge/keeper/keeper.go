@@ -111,14 +111,16 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 
 // BeginBlocker handles phase advancement, auto-fund, and risk analysis.
 func (k Keeper) BeginBlocker(ctx context.Context) error {
+	accountingEnabled, err := k.ChallengeAccountingEnabled(ctx)
+	if err != nil {
+		return err
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	params := k.GetParams(sdkCtx)
 	height := uint64(sdkCtx.BlockHeight())
 
 	// Advance challenge phases
-	if err := k.AdvanceChallengePhases(sdkCtx, height); err != nil {
-		return err
-	}
+	k.advanceChallengePhases(sdkCtx, height, accountingEnabled)
 
 	// Periodic risk analysis
 	if height > 0 && params.RiskAnalysisInterval > 0 && height%params.RiskAnalysisInterval == 0 {
@@ -135,6 +137,16 @@ func (k Keeper) AdvanceChallengePhases(ctx sdk.Context, height uint64) error {
 	if err != nil {
 		return err
 	}
+	k.advanceChallengePhases(ctx, height, accountingEnabled)
+	return nil
+}
+
+// advanceChallengePhases uses the entry point's selection, never a per-record read.
+func (k Keeper) advanceChallengePhases(ctx sdk.Context, height uint64, accountingEnabled bool) {
+	if !accountingEnabled {
+		k.advanceChallengePhasesLegacy(ctx, height)
+		return
+	}
 	k.IterateChallenges(ctx, func(ch *types.CaptureChallenge) bool {
 		switch ch.Status {
 		case types.ChallengeStatus_CHALLENGE_STATUS_OPEN,
@@ -148,33 +160,25 @@ func (k Keeper) AdvanceChallengePhases(ctx sdk.Context, height uint64) error {
 			// With accounting enabled, overdue UNDER_REVIEW means refund-pending.
 			// Keep that durable record until payment and EXPIRED commit together.
 			if height >= ch.ReviewDeadline {
-				if !accountingEnabled {
-					// Preserve the historical writes, ignored errors and bank events
-					// exactly until the carrier enables the shared marker.
-					ch.Status = types.ChallengeStatus_CHALLENGE_STATUS_EXPIRED
-					challengerAddr, err := sdk.AccAddressFromBech32(ch.Challenger)
-					if err == nil {
-						stakeAmt, ok := new(big.Int).SetString(ch.Stake, 10)
-						if ok && stakeAmt.Sign() > 0 {
-							coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stakeAmt)))
-							_ = k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, challengerAddr, coins)
-						}
-					}
-					k.SetChallenge(ctx, ch)
-					break
-				}
 				if err := k.expireChallenge(ctx, ch); err != nil {
-					// Retry every block, but log only at the deadline and every
-					// 100 blocks after it. No new retry counter or store key.
+					// Retry every block, but announce only at the deadline and
+					// every 100 blocks after it. The failed cache is discarded;
+					// this parent-context event reports the retained obligation.
 					if (height-ch.ReviewDeadline)%100 == 0 {
 						k.Logger(ctx).Error("expiry refund pending", "challenge_id", ch.Id, "error", err)
+						ctx.EventManager().EmitEvent(sdk.NewEvent(
+							"zerone.capture_challenge.expiry_refund_pending",
+							sdk.NewAttribute("challenge_id", ch.Id),
+							sdk.NewAttribute("domain", ch.Domain),
+							sdk.NewAttribute("stake", ch.Stake),
+							sdk.NewAttribute("review_deadline", fmt.Sprintf("%d", ch.ReviewDeadline)),
+						))
 					}
 				}
 			}
 		}
 		return false
 	})
-	return nil
 }
 
 // expireChallenge commits one refund and its terminal status atomically. A bank

@@ -12,6 +12,11 @@ The sole selector is `Keeper.ChallengeAccountingEnabled`, backed by the shared
 exactly `{1}` selects the repaired behavior below. An unreadable or malformed
 marker fails closed before phase changes, resolution or automatic submission.
 The reader uses its own infinite gas meter, preserving pre-activation charged gas.
+These faults wrap `activation.ErrMarkerFault`. BeginBlock, resolution and automatic
+submission each read once at entry; phase iteration receives the selection.
+`AutoSubmitChallenge` is the capture_defense entry point, and its adapter returns
+the fault unchanged. The caller must propagate marker faults while retaining its
+historical handling of ordinary submission errors.
 
 Native `DefaultGenesis` selects the repair. Older genesis JSON without
 `challenge_accounting_enabled` imports as off, and export/import retains the
@@ -22,6 +27,8 @@ With the marker off, replay preserves the old REJECTED pool credit, unchecked
 expiry refund/write behavior, absence of a resolution deadline guard, and
 UNDER_REVIEW automatic-challenge suppression, including their errors and events.
 The repair does not silently alter history before its activation boundary.
+`keeper/challenge_accounting_legacy.go` retains the original bodies from
+`77521a0daf14420836483ae9d8ea3fbcc1ae0d40`, separate from the repaired paths.
 
 ## Stake and pool backing
 
@@ -63,9 +70,12 @@ automatic challenges require no bank send. A cache is not crash-durable commit
 and does not roll back consumed gas.
 
 Every pending record is retried each BeginBlock, with no backoff or terminal
-failure state. The Error log `expiry refund pending` is emitted at the deadline
-and every 100 blocks after it, not every retry. There is currently no separate
-pending-refund event. The existing all-challenge scan and store-key ordering
+failure state. The Error log `expiry refund pending` and parent-context event
+[`zerone.capture_challenge.expiry_refund_pending`](../../docs/EVENTS.md#zeronecapture_challengeexpiry_refund_pending)
+are emitted on failure at the deadline and every 100 blocks after it, not every
+retry. The event contains only retained record fields, not raw error text. It is
+absent with the marker off and on successful expiry; silence between announcements
+is not payment evidence. The existing all-challenge scan and store-key ordering
 remain; this is not a bounded retry queue. Malformed stakes/addresses or a
 permanently blocked recipient cannot be cleared by normal resolution: they need
 a separately reviewed upgrade handler. No automatic redistribution or clawback
@@ -113,7 +123,7 @@ It covers backed lifecycles, returned bank/store errors, retries, successful ban
 event propagation, pending-query visibility and coupled genesis round trips.
 `accounting_legacy_test.go` compares state/event digests, errors, gas and send
 counts against an executed pre-repair source oracle. `accounting_gate_test.go`
-checks marker errors, deadline timing, log throttling and the deliberately
+checks sentinel faults, deadline timing, announcement throttling and the deliberately
 unsafe legacy-pool case. Injected store-write errors test a dependency contract,
 not production disk loss. These are local tests, not a live census, independent
 acceptance, historical repayment or an upgrade rehearsal.

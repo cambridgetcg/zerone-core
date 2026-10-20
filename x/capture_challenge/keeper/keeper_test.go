@@ -17,6 +17,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/stretchr/testify/require"
 
 	"github.com/zerone-chain/zerone/x/capture_challenge/keeper"
 	"github.com/zerone-chain/zerone/x/capture_challenge/types"
@@ -592,28 +593,28 @@ func TestPhaseAdvancement(t *testing.T) {
 	k.SetChallenge(ctx, ch)
 
 	// Advance at block 140 - should NOT change
-	k.AdvanceChallengePhases(ctx, 140)
+	require.NoError(t, k.AdvanceChallengePhases(ctx, 140))
 	ch, _ = k.GetChallenge(ctx, "test-challenge-1")
 	if ch.Status != types.ChallengeStatus_CHALLENGE_STATUS_EVIDENCE {
 		t.Errorf("expected EVIDENCE at block 140, got %s", ch.Status.String())
 	}
 
 	// Advance at block 150 - should transition to UNDER_REVIEW
-	k.AdvanceChallengePhases(ctx, 150)
+	require.NoError(t, k.AdvanceChallengePhases(ctx, 150))
 	ch, _ = k.GetChallenge(ctx, "test-challenge-1")
 	if ch.Status != types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW {
 		t.Errorf("expected UNDER_REVIEW at block 150, got %s", ch.Status.String())
 	}
 
 	// Advance at block 299 - should stay UNDER_REVIEW
-	k.AdvanceChallengePhases(ctx, 299)
+	require.NoError(t, k.AdvanceChallengePhases(ctx, 299))
 	ch, _ = k.GetChallenge(ctx, "test-challenge-1")
 	if ch.Status != types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW {
 		t.Errorf("expected UNDER_REVIEW at block 299, got %s", ch.Status.String())
 	}
 
 	// Advance at block 300 - should auto-expire
-	k.AdvanceChallengePhases(ctx, 300)
+	require.NoError(t, k.AdvanceChallengePhases(ctx, 300))
 	ch, _ = k.GetChallenge(ctx, "test-challenge-1")
 	if ch.Status != types.ChallengeStatus_CHALLENGE_STATUS_EXPIRED {
 		t.Errorf("expected EXPIRED at block 300, got %s", ch.Status.String())

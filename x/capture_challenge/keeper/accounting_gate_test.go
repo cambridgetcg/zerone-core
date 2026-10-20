@@ -7,17 +7,19 @@ import (
 	"testing"
 
 	"cosmossdk.io/log"
+	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/zerone-chain/zerone/internal/activation"
 	"github.com/zerone-chain/zerone/x/capture_challenge/keeper"
 	"github.com/zerone-chain/zerone/x/capture_challenge/types"
 )
 
 func TestAccountingGatesFailClosedOnMarkerErrors(t *testing.T) {
 	for _, bad := range []string{"malformed", "unreadable"} {
-		for _, path := range []string{"begin_block", "phase_advance", "resolve", "auto_submit"} {
+		for _, path := range []string{"begin_block", "phase_advance", "resolve", "resolve_unauthorized", "resolve_missing", "auto_submit", "defense_adapter"} {
 			t.Run(bad+"/"+path, func(t *testing.T) {
 				h := newChallengeAccountingHarnessWithMarker(t, false)
 				id := h.submit(t, 1, "math")
@@ -30,20 +32,34 @@ func TestAccountingGatesFailClosedOnMarkerErrors(t *testing.T) {
 					h.writeFault.markerReadErr = true
 				}
 				before := h.snapshot(t)
+				h.ctx = h.ctx.WithGasMeter(storetypes.NewGasMeter(10_000_000))
+				h.writeFault.markerReads = 0
 				var err error
 				switch path {
 				case "begin_block":
 					err = h.module.BeginBlock(h.ctx)
 				case "phase_advance":
 					err = h.k.AdvanceChallengePhases(h.ctx, ch.ReviewDeadline)
-				case "resolve":
+				case "resolve", "resolve_unauthorized", "resolve_missing":
+					authority, challengeID := h.k.GetAuthority(), id
+					if path == "resolve_unauthorized" {
+						authority = testAddr(2)
+					}
+					if path == "resolve_missing" {
+						challengeID = "missing"
+					}
 					_, err = keeper.NewMsgServerImpl(h.k).ResolveChallenge(h.ctx, &types.MsgResolveChallenge{
-						Authority: h.k.GetAuthority(), ChallengeId: id, Outcome: types.ChallengeOutcome_CHALLENGE_OUTCOME_REJECTED,
+						Authority: authority, ChallengeId: challengeID, Outcome: types.ChallengeOutcome_CHALLENGE_OUTCOME_REJECTED,
 					})
 				case "auto_submit":
 					err = h.k.AutoSubmitChallenge(h.ctx, "math", 1, 1, "synthetic signal")
+				case "defense_adapter":
+					err = keeper.NewCaptureDefenseAutoChallenger(h.k).AutoSubmitChallenge(h.ctx, "math", 1, 1, "synthetic signal")
 				}
 				require.ErrorContains(t, err, "marker")
+				require.ErrorIs(t, err, activation.ErrMarkerFault)
+				require.Equal(t, 1, h.writeFault.markerReads)
+				require.Zero(t, h.ctx.GasMeter().GasConsumed(), "fault must precede ordinary reads as well as writes")
 				require.Equal(t, before, h.snapshot(t), "a bad selector must not choose either accounting path")
 				require.Empty(t, h.ctx.EventManager().Events())
 				require.Zero(t, h.bank.refundCalls)
@@ -81,7 +97,15 @@ func TestAccountingAutomaticReplacementAtSuccessfulExpiry(t *testing.T) {
 	}
 }
 
-func TestAccountingPendingLogsAreThrottledNotRefunds(t *testing.T) {
+func pendingRefundEvent(ch *types.CaptureChallenge) sdk.Event {
+	return sdk.NewEvent("zerone.capture_challenge.expiry_refund_pending",
+		sdk.NewAttribute("challenge_id", ch.Id),
+		sdk.NewAttribute("domain", ch.Domain),
+		sdk.NewAttribute("stake", ch.Stake),
+		sdk.NewAttribute("review_deadline", fmt.Sprintf("%d", ch.ReviewDeadline)))
+}
+
+func TestAccountingPendingAnnouncementsAreThrottledNotRefunds(t *testing.T) {
 	h := newChallengeAccountingHarness(t)
 	id := h.submit(t, 1, "math")
 	ch := h.challenge(t, id)
@@ -90,7 +114,13 @@ func TestAccountingPendingLogsAreThrottledNotRefunds(t *testing.T) {
 	var output bytes.Buffer
 	h.ctx = h.ctx.WithLogger(log.NewLogger(&output, log.OutputJSONOption()))
 	for _, offset := range []uint64{0, 1, 99, 100, 101, 200} {
+		h.ctx = h.ctx.WithEventManager(sdk.NewEventManager())
 		h.advance(t, ch.ReviewDeadline+offset)
+		if offset%100 == 0 {
+			require.Equal(t, sdk.Events{pendingRefundEvent(ch)}, h.ctx.EventManager().Events())
+		} else {
+			require.Empty(t, h.ctx.EventManager().Events())
+		}
 	}
 	require.Equal(t, 6, h.bank.refundCalls, "log throttling must not introduce payment backoff")
 	require.Equal(t, 3, strings.Count(output.String(), `"message":"expiry refund pending"`))

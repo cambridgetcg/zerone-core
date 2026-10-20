@@ -40,7 +40,12 @@ func (k Keeper) GetParams(ctx context.Context) *types.Params {
 
 // SetChallenge stores a challenge in the KV store and maintains domain index.
 func (k Keeper) SetChallenge(ctx context.Context, ch *types.CaptureChallenge) {
-	_ = k.setChallenge(ctx, ch)
+	kvStore := k.storeService.OpenKVStore(ctx)
+	bz, err := proto.Marshal(ch)
+	if err != nil {
+		panic(fmt.Sprintf("failed to marshal challenge: %v", err))
+	}
+	_ = kvStore.Set(challengeKey(ch.Id), bz)
 }
 
 // setChallenge exposes write errors to the atomic expiry path. Other callers

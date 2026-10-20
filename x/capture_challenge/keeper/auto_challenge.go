@@ -4,21 +4,25 @@ import (
 	"context"
 	"fmt"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/zerone-chain/zerone/x/capture_challenge/types"
 )
 
 // AutoSubmitChallenge creates a protocol-initiated challenge when capture defense
 // flags a domain. Uses the module account as challenger — no stake escrow needed
-// for auto-challenges.
+// for auto-challenges. This is capture_defense's entry point: read our marker
+// once per call and return marker faults (wrapping activation.ErrMarkerFault).
 func (k Keeper) AutoSubmitChallenge(ctx context.Context, domain string, riskScore, hhi uint64, evidence string) error {
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	accountingEnabled, err := k.ChallengeAccountingEnabled(ctx)
 	if err != nil {
 		return err
 	}
+	if !accountingEnabled {
+		return k.autoSubmitChallengeLegacy(ctx, domain, riskScore, hhi, evidence)
+	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	// Check if there's already an active challenge for this domain
 	existingIDs := k.GetChallengesByDomain(sdkCtx, domain)
@@ -30,7 +34,7 @@ func (k Keeper) AutoSubmitChallenge(ctx context.Context, domain string, riskScor
 		if ch.Status == types.ChallengeStatus_CHALLENGE_STATUS_EVIDENCE ||
 			ch.Status == types.ChallengeStatus_CHALLENGE_STATUS_OPEN ||
 			(ch.Status == types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW &&
-				(!accountingEnabled || uint64(sdkCtx.BlockHeight()) < ch.ReviewDeadline)) {
+				uint64(sdkCtx.BlockHeight()) < ch.ReviewDeadline) {
 			return nil // Already has an active challenge
 		}
 		// An overdue UNDER_REVIEW record only awaits its refund. Financial

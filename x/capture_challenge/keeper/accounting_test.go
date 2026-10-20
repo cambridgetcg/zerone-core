@@ -66,6 +66,7 @@ type challengeWriteFault struct {
 	key           []byte
 	mode          string
 	markerReadErr bool
+	markerReads   int
 }
 
 func (f *challengeWriteFault) OpenKVStore(ctx context.Context) corestore.KVStore {
@@ -78,8 +79,11 @@ type challengeFaultStore struct {
 }
 
 func (s challengeFaultStore) Get(key []byte) ([]byte, error) {
-	if s.fault.markerReadErr && bytes.Equal(key, types.ChallengeAccountingEnabledKey) {
-		return nil, errors.New("injected marker read failure")
+	if bytes.Equal(key, types.ChallengeAccountingEnabledKey) {
+		s.fault.markerReads++
+		if s.fault.markerReadErr {
+			return nil, errors.New("injected marker read failure")
+		}
 	}
 	return s.KVStore.Get(key)
 }
@@ -147,8 +151,11 @@ func newChallengeAccountingHarnessWithMarker(t *testing.T, enabled bool) *challe
 	k := keeper.NewKeeper(fault, cdc, authority, bank)
 	genesis := types.DefaultGenesis()
 	// Pre-carrier fixtures must opt out of native genesis's enabled marker.
-	genesis.ChallengeAccountingEnabled = enabled
+	genesis.ChallengeAccountingEnabled = false
 	k.InitGenesis(ctx, genesis)
+	if enabled {
+		require.NoError(t, k.EnableChallengeAccounting(ctx))
+	}
 	return &challengeAccountingHarness{k: k, ctx: ctx, bank: bank, auth: ak, module: capturechallenge.NewAppModule(cdc, k), keys: keys, writeFault: fault}
 }
 
@@ -312,7 +319,8 @@ func TestAccountingExpiryRefundRetriesRealBank(t *testing.T) {
 			require.Equal(t, types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW, h.challenge(t, id).Status, "overdue UNDER_REVIEW is refund-pending")
 			require.Equal(t, "10000000", h.challenge(t, id).Stake)
 			require.Equal(t, "0", h.bank.GetBalance(h.ctx, sdk.MustAccAddressFromBech32(testAddr(1)), "uzrn").Amount.String())
-			require.Equal(t, eventsBefore, len(h.ctx.EventManager().Events()), "failed refund events must not escape its cache")
+			require.Equal(t, sdk.Events{pendingRefundEvent(ch)}, h.ctx.EventManager().Events()[eventsBefore:],
+				"only the parent pending event may escape; failed bank events must stay in the discarded cache")
 			require.Equal(t, 1, h.bank.refundCalls)
 			h.assertSupply(t)
 			for _, outcome := range []types.ChallengeOutcome{types.ChallengeOutcome_CHALLENGE_OUTCOME_UPHELD, types.ChallengeOutcome_CHALLENGE_OUTCOME_REJECTED, types.ChallengeOutcome_CHALLENGE_OUTCOME_PARTIAL} {
