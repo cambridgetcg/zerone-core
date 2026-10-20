@@ -61,6 +61,8 @@ func DefaultGenesisState() *GenesisState {
 		NextSeatElectionNumber:  1,
 		ResearchFundGovernance:  DefaultResearchFundGovernanceState(),
 		AccountingSafetyEnabled: true,
+		// A new chain starts with the consensus-repairs-v1 selection on.
+		SeatRunoffOrderingEnabled: true,
 	}
 }
 

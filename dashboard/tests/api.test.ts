@@ -219,6 +219,33 @@ describe("dashboard liquidity registry pagination", () => {
     assert.equal(urls[1]?.searchParams.get("pagination.count_total"), null);
   });
 
+  it("reads the live node's bare empty answer as zero pools, not as an error", async () => {
+    globalThis.fetch = async () => Response.json({ pools: [] });
+
+    const registry = await getLiquidityPoolRegistry();
+
+    assert.equal(registry.complete, true);
+    assert.equal(registry.total, "0");
+    assert.deepEqual(registry.pools, []);
+  });
+
+  it("still refuses pools without pagination, and an empty tail that contradicts the total", async () => {
+    for (const pages of [
+      [{ pools: [closedPool(1)] }],
+      [
+        {
+          pools: [closedPool(1)],
+          pagination: { next_key: "AQID", total: "2" },
+        },
+        { pools: [] },
+      ],
+    ]) {
+      const queue = [...pages];
+      globalThis.fetch = async () => Response.json(queue.shift());
+      await assert.rejects(getLiquidityPoolRegistry());
+    }
+  });
+
   it("stops at 500 records and preserves the exact larger chain total", async () => {
     let pageNumber = 0;
     globalThis.fetch = async () => {

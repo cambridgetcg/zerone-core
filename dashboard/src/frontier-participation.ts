@@ -2536,10 +2536,14 @@ export function renderFrontierParticipation(
       "The Compact is the machine implementation of the source-only Covenant floor. Later layers must pin these exact bytes, may add protection, and cannot waive or redefine this floor.",
     ),
   );
-  const covenantIssue = el("a", "button button-ghost", "Open Layer 1 issue ↗");
-  covenantIssue.href = compact.covenantFloor.issue;
-  covenantIssue.target = "_blank";
-  covenantIssue.rel = "noreferrer";
+  // The issue tracker is in an access-restricted repository, so name the
+  // issue as text rather than link visitors to a page they cannot open.
+  const issueNumber = /\/issues\/(\d+)$/u.exec(compact.covenantFloor.issue)?.[1];
+  const covenantIssue = el(
+    "p",
+    undefined,
+    `Layer 1 is tracked${issueNumber ? ` as issue #${issueNumber}` : ""} in the Zerone source repository, which needs access to read.`,
+  );
   const covenantDimensions = cardSection(
     "Declared consent dimensions",
     compact.covenantFloor.consent.declaredDimensions,

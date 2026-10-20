@@ -93,7 +93,9 @@ func newLegacyRefundHarness(t *testing.T) *refundHarness {
 	}
 	bank := &refundBank{BaseKeeper: bk}
 	k := keeper.NewKeeper(runtime.NewKVStoreService(keys[types.StoreKey]), cdc, authority, bank)
-	k.InitGenesis(ctx, types.DefaultGenesis())
+	genesis := types.DefaultGenesis()
+	genesis.SingleRefundEnabled = false // Rehearse pre-carrier state explicitly.
+	k.InitGenesis(ctx, genesis)
 	return &refundHarness{k: k, ctx: ctx, bank: bank, key: keys[types.StoreKey], auth: ak}
 }
 
@@ -345,10 +347,10 @@ func TestStakeRefundGenesisPreservesSettlementState(t *testing.T) {
 				h.k.SetQualification(h.ctx, q)
 			}
 			require.NoError(t, h.k.BeginBlocker(h.ctx))
-			// Record fields round-trip through logical genesis, but its current
-			// schema does NOT preserve the execution marker. An authorized import
-			// carrier must restore that selector explicitly before any processing.
+			// The foundation's genesis field preserves the selector together with
+			// the records and real bank/auth state; no manual re-enabling on import.
 			genesis := h.k.ExportGenesis(h.ctx)
+			require.True(t, genesis.SingleRefundEnabled)
 			encoded, err := proto.Marshal(genesis)
 			require.NoError(t, err)
 			decoded := new(types.GenesisState)
@@ -360,8 +362,7 @@ func TestStakeRefundGenesisPreservesSettlementState(t *testing.T) {
 			restored.k.InitGenesis(restored.ctx, decoded)
 			enabled, err := restored.k.SingleRefundEnabled(restored.ctx)
 			require.NoError(t, err)
-			require.False(t, enabled, "logical genesis does not carry the activation marker")
-			require.NoError(t, restored.k.EnableSingleRefund(restored.ctx))
+			require.True(t, enabled, "logical genesis preserves the activation marker")
 			require.True(t, proto.Equal(genesis, restored.k.ExportGenesis(restored.ctx)))
 			require.Equal(t, h.escrow(), restored.escrow())
 			require.Equal(t, h.balance(a), restored.balance(a))
