@@ -111,12 +111,16 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 
 // BeginBlocker handles phase advancement, auto-fund, and risk analysis.
 func (k Keeper) BeginBlocker(ctx context.Context) error {
+	accountingEnabled, err := k.ChallengeAccountingEnabled(ctx)
+	if err != nil {
+		return err
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	params := k.GetParams(sdkCtx)
 	height := uint64(sdkCtx.BlockHeight())
 
 	// Advance challenge phases
-	k.AdvanceChallengePhases(sdkCtx, height)
+	k.advanceChallengePhases(sdkCtx, height, accountingEnabled)
 
 	// Periodic risk analysis
 	if height > 0 && params.RiskAnalysisInterval > 0 && height%params.RiskAnalysisInterval == 0 {
@@ -127,7 +131,22 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 }
 
 // AdvanceChallengePhases transitions challenges based on deadlines.
-func (k Keeper) AdvanceChallengePhases(ctx sdk.Context, height uint64) {
+// Marker errors fail closed before any challenge is changed.
+func (k Keeper) AdvanceChallengePhases(ctx sdk.Context, height uint64) error {
+	accountingEnabled, err := k.ChallengeAccountingEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	k.advanceChallengePhases(ctx, height, accountingEnabled)
+	return nil
+}
+
+// advanceChallengePhases uses the entry point's selection, never a per-record read.
+func (k Keeper) advanceChallengePhases(ctx sdk.Context, height uint64, accountingEnabled bool) {
+	if !accountingEnabled {
+		k.advanceChallengePhasesLegacy(ctx, height)
+		return
+	}
 	k.IterateChallenges(ctx, func(ch *types.CaptureChallenge) bool {
 		switch ch.Status {
 		case types.ChallengeStatus_CHALLENGE_STATUS_OPEN,
@@ -138,23 +157,57 @@ func (k Keeper) AdvanceChallengePhases(ctx sdk.Context, height uint64) {
 				k.SetChallenge(ctx, ch)
 			}
 		case types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW:
-			// Auto-expire at review deadline
+			// With accounting enabled, overdue UNDER_REVIEW means refund-pending.
+			// Keep that durable record until payment and EXPIRED commit together.
 			if height >= ch.ReviewDeadline {
-				ch.Status = types.ChallengeStatus_CHALLENGE_STATUS_EXPIRED
-				// Return stake on expiry
-				challengerAddr, err := sdk.AccAddressFromBech32(ch.Challenger)
-				if err == nil {
-					stakeAmt, ok := new(big.Int).SetString(ch.Stake, 10)
-					if ok && stakeAmt.Sign() > 0 {
-						coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stakeAmt)))
-						_ = k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, challengerAddr, coins)
+				if err := k.expireChallenge(ctx, ch); err != nil {
+					// Retry every block, but announce only at the deadline and
+					// every 100 blocks after it. The failed cache is discarded;
+					// this parent-context event reports the retained obligation.
+					if (height-ch.ReviewDeadline)%100 == 0 {
+						k.Logger(ctx).Error("expiry refund pending", "challenge_id", ch.Id, "error", err)
+						ctx.EventManager().EmitEvent(sdk.NewEvent(
+							"zerone.capture_challenge.expiry_refund_pending",
+							sdk.NewAttribute("challenge_id", ch.Id),
+							sdk.NewAttribute("domain", ch.Domain),
+							sdk.NewAttribute("stake", ch.Stake),
+							sdk.NewAttribute("review_deadline", fmt.Sprintf("%d", ch.ReviewDeadline)),
+						))
 					}
 				}
-				k.SetChallenge(ctx, ch)
 			}
 		}
 		return false
 	})
+}
+
+// expireChallenge commits one refund and its terminal status atomically. A bank
+// or record-write error discards that challenge's effects; other challenges can
+// still advance and the original record will be retried on the next block.
+func (k Keeper) expireChallenge(ctx sdk.Context, ch *types.CaptureChallenge) error {
+	stakeAmt, ok := new(big.Int).SetString(ch.Stake, 10)
+	if !ok || stakeAmt.Sign() < 0 || stakeAmt.BitLen() > sdkmath.MaxBitLen {
+		return fmt.Errorf("invalid expiry stake: %q", ch.Stake)
+	}
+
+	cacheCtx, write := ctx.CacheContext()
+	if stakeAmt.Sign() > 0 {
+		challengerAddr, err := sdk.AccAddressFromBech32(ch.Challenger)
+		if err != nil {
+			return fmt.Errorf("invalid refund address: %w", err)
+		}
+		coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stakeAmt)))
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(cacheCtx, types.ModuleName, challengerAddr, coins); err != nil {
+			return fmt.Errorf("failed to refund expiry stake: %w", err)
+		}
+	}
+	// Zero-stake automatic challenges have no refund obligation.
+	ch.Status = types.ChallengeStatus_CHALLENGE_STATUS_EXPIRED
+	if err := k.setChallenge(cacheCtx, ch); err != nil {
+		return fmt.Errorf("failed to record expiry: %w", err)
+	}
+	write()
+	return nil
 }
 
 // RunRiskAnalysis queries capture defense keeper for flagged domains.

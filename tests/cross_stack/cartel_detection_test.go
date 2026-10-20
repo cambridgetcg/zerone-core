@@ -135,7 +135,7 @@ func TestCartelDetection_EndToEndCaptureChallengeFlow(t *testing.T) {
 	// heartbeat hook.
 	h.AdvanceBlocks(5001)
 	sdkCtx := sdk.UnwrapSDKContext(h.Ctx)
-	h.CaptureChallengeKeeper.AdvanceChallengePhases(sdkCtx, uint64(sdkCtx.BlockHeight()))
+	require.NoError(t, h.CaptureChallengeKeeper.AdvanceChallengePhases(sdkCtx, uint64(sdkCtx.BlockHeight())))
 	ch, found := h.CaptureChallengeKeeper.GetChallenge(sdkCtx, submitResp.ChallengeId)
 	require.True(t, found)
 	require.Equal(t, capturechallengetypes.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW, ch.Status,
@@ -283,7 +283,7 @@ func TestCartelDetection_FalseAccusationSlashesChallenger(t *testing.T) {
 
 	h.AdvanceBlocks(5001)
 	sdkCtx := sdk.UnwrapSDKContext(h.Ctx)
-	h.CaptureChallengeKeeper.AdvanceChallengePhases(sdkCtx, uint64(sdkCtx.BlockHeight()))
+	require.NoError(t, h.CaptureChallengeKeeper.AdvanceChallengePhases(sdkCtx, uint64(sdkCtx.BlockHeight())))
 
 	// Authority resolves REJECTED.
 	authority := h.CaptureChallengeKeeper.GetAuthority()

@@ -206,6 +206,20 @@ Capture challenge resolved with capture confirmed.
 Governance parameter update.
 - `authority` -- governance address
 
+### zerone.capture_challenge.expiry_refund_pending
+With challenge accounting enabled, an overdue UNDER_REVIEW challenge could not
+commit its refund and EXPIRED status atomically. Emitted on the parent context
+after discarding the failed attempt, at the review deadline and every 100 blocks
+after that deadline while an attempt fails. Refunds are still retried every block;
+silence between announcements is not evidence of payment. No event is emitted
+for successful expiry or with the activation marker absent. Raw error text is
+logged, not included in this deterministic event. Malformed retained records can
+also remain pending; `stake` is the stored value, not a validated payment amount.
+- `challenge_id` -- retained challenge ID
+- `domain` -- challenged domain
+- `stake` -- retained stake string in uzrn
+- `review_deadline` -- review deadline block
+
 ## capture_defense
 
 ### zerone.capture_defense.verification_recorded
