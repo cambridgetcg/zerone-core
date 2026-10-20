@@ -12,6 +12,12 @@ export interface GenesisState {
   qualifications: DomainQualification[];
   endorsements: QualificationEndorsement[];
   nextEndorsementId: bigint;
+  /**
+   * Single-refund marker (zerone-core #120). Native genesis sets it; a
+   * file without the field imports as off. In place, only the named carrier
+   * upgrade consensus-repairs-v1 sets it.
+   */
+  singleRefundEnabled: boolean;
 }
 /**
  * @name Params
@@ -109,7 +115,8 @@ function createBaseGenesisState(): GenesisState {
     params: undefined,
     qualifications: [],
     endorsements: [],
-    nextEndorsementId: BigInt(0)
+    nextEndorsementId: BigInt(0),
+    singleRefundEnabled: false
   };
 }
 /**
@@ -132,6 +139,9 @@ export const GenesisState = {
     if (message.nextEndorsementId !== BigInt(0)) {
       writer.uint32(32).uint64(message.nextEndorsementId);
     }
+    if (message.singleRefundEnabled === true) {
+      writer.uint32(40).bool(message.singleRefundEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -153,6 +163,9 @@ export const GenesisState = {
         case 4:
           message.nextEndorsementId = reader.uint64();
           break;
+        case 5:
+          message.singleRefundEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -166,6 +179,7 @@ export const GenesisState = {
     message.qualifications = object.qualifications?.map(e => DomainQualification.fromPartial(e)) || [];
     message.endorsements = object.endorsements?.map(e => QualificationEndorsement.fromPartial(e)) || [];
     message.nextEndorsementId = object.nextEndorsementId !== undefined && object.nextEndorsementId !== null ? BigInt(object.nextEndorsementId.toString()) : BigInt(0);
+    message.singleRefundEnabled = object.singleRefundEnabled ?? false;
     return message;
   }
 };

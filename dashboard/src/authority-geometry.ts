@@ -2146,12 +2146,9 @@ export function renderAuthorityGeometry(
   const links = element("div");
   const rawLink = element("a", undefined, "Canonical Authority Geometry JSON");
   rawLink.href = AUTHORITY_GEOMETRY_ENDPOINT;
-  const designLink = element("a", undefined, "Accepted authoritative-state design");
-  designLink.href =
-    "https://github.com/cambridgetcg/zerone-core/blob/0558c915e34acc11ed681795ab595240018b0e76/docs/AUTHORITATIVE-STATE.md";
-  designLink.target = "_blank";
-  designLink.rel = "noreferrer";
-  links.append(rawLink, document.createTextNode(" · "), designLink);
+  // The design document lives in an access-restricted repository; the
+  // footer below names its path and digest as text instead of a dead link.
+  links.append(rawLink);
   footer.append(
     element(
       "p",

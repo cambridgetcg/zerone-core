@@ -990,6 +990,68 @@ func TestEffectiveObservationIntervalLowConfidence(t *testing.T) {
 	}
 }
 
+// --- Test: Low confidence never shortens a 1-block interval to zero ---
+
+func TestEffectiveObservationIntervalNeverZero(t *testing.T) {
+	k, _, ctx := setupKeeper(t)
+
+	params := k.GetParams(ctx)
+	params.ObservationIntervalBlocks = 1 // valid: params validation rejects only 0
+	k.SetParams(ctx, params)
+
+	for i := uint64(0); i < 10; i++ {
+		k.SetCorrectionOutcome(ctx, &types.CorrectionOutcome{
+			Height: 100 + i*100, Dimension: types.DimKnowledgeQuality,
+			ScoreBefore: 300_000, ScoreAfter: 200_000, Successful: false,
+		})
+	}
+	require.Less(t, k.GetCorrectionConfidence(ctx), uint64(300_000))
+
+	if interval := k.GetEffectiveObservationInterval(ctx); interval != 1 {
+		t.Fatalf("expected interval 1, got %d", interval)
+	}
+
+	// EndBlock takes height % interval; a zero interval would panic and halt the chain.
+	ctx = ctx.WithBlockHeight(7)
+	am := alignment.NewAppModule(nil, k)
+	require.NotPanics(t, func() {
+		if err := am.EndBlock(ctx); err != nil {
+			t.Fatalf("EndBlock failed: %v", err)
+		}
+	})
+}
+
+// --- Test: High confidence never wraps a huge interval to zero ---
+
+func TestEffectiveObservationIntervalNoOverflow(t *testing.T) {
+	k, _, ctx := setupKeeper(t)
+
+	// 0xAAAAAAAAAAAAAAAB * 3 wraps to 1 in uint64, so a plain b*3/2 yields 0.
+	params := k.GetParams(ctx)
+	params.ObservationIntervalBlocks = 0xAAAAAAAAAAAAAAAB
+	k.SetParams(ctx, params)
+
+	for i := uint64(0); i < 10; i++ {
+		k.SetCorrectionOutcome(ctx, &types.CorrectionOutcome{
+			Height: 100 + i*100, Dimension: types.DimKnowledgeQuality,
+			ScoreBefore: 300_000, ScoreAfter: 400_000, Successful: true,
+		})
+	}
+	require.Greater(t, k.GetCorrectionConfidence(ctx), uint64(800_000))
+
+	if interval := k.GetEffectiveObservationInterval(ctx); interval == 0 {
+		t.Fatal("expected a non-zero interval, got 0")
+	}
+
+	ctx = ctx.WithBlockHeight(7)
+	am := alignment.NewAppModule(nil, k)
+	require.NotPanics(t, func() {
+		if err := am.EndBlock(ctx); err != nil {
+			t.Fatalf("EndBlock failed: %v", err)
+		}
+	})
+}
+
 // --- Test: Correction confidence full lifecycle ---
 
 func TestCorrectionConfidenceFullLifecycle(t *testing.T) {
