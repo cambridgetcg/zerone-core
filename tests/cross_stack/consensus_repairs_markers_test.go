@@ -14,62 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	zeroneapp "github.com/zerone-chain/zerone/app"
-	capturechallengetypes "github.com/zerone-chain/zerone/x/capture_challenge/types"
-	capturedefensetypes "github.com/zerone-chain/zerone/x/capture_defense/types"
-	emergencytypes "github.com/zerone-chain/zerone/x/emergency/types"
-	govtypes "github.com/zerone-chain/zerone/x/gov/types"
-	ibcratelimittypes "github.com/zerone-chain/zerone/x/ibcratelimit/types"
-	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
-	ontologytypes "github.com/zerone-chain/zerone/x/ontology/types"
-	qualificationtypes "github.com/zerone-chain/zerone/x/qualification/types"
-	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
-	vestingrewardstypes "github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
 const repairsMarkersChainID = "zerone-consensus-repairs-v1-markers"
-
-// repairsMarker is one consensus-repairs-v1 activation marker: the module's
-// genesis key, its GenesisState field, and the keeper reader.
-type repairsMarker struct {
-	module  string
-	field   string
-	enabled func(*zeroneapp.ZeroneApp, sdk.Context) (bool, error)
-}
-
-func consensusRepairsV1Markers() []repairsMarker {
-	return []repairsMarker{
-		{govtypes.ModuleName, "seat_runoff_ordering_enabled", func(app *zeroneapp.ZeroneApp, ctx sdk.Context) (bool, error) {
-			return app.ZeroneGovKeeper.SeatRunoffOrderingEnabled(ctx)
-		}},
-		{knowledgetypes.ModuleName, "reformulation_vindication_ordering_enabled", func(app *zeroneapp.ZeroneApp, ctx sdk.Context) (bool, error) {
-			return app.KnowledgeKeeper.ReformulationVindicationOrderingEnabled(ctx)
-		}},
-		{capturedefensetypes.ModuleName, "integer_variance_enabled", func(app *zeroneapp.ZeroneApp, ctx sdk.Context) (bool, error) {
-			return app.CaptureDefenseKeeper.IntegerVarianceEnabled(ctx)
-		}},
-		{qualificationtypes.ModuleName, "single_refund_enabled", func(app *zeroneapp.ZeroneApp, ctx sdk.Context) (bool, error) {
-			return app.QualificationKeeper.SingleRefundEnabled(ctx)
-		}},
-		{capturechallengetypes.ModuleName, "challenge_accounting_enabled", func(app *zeroneapp.ZeroneApp, ctx sdk.Context) (bool, error) {
-			return app.CaptureChallengeKeeper.ChallengeAccountingEnabled(ctx)
-		}},
-		{vestingrewardstypes.ModuleName, "alignment_bank_supply_enabled", func(app *zeroneapp.ZeroneApp, ctx sdk.Context) (bool, error) {
-			return app.VestingRewardsKeeper.AlignmentBankSupplyEnabled(ctx)
-		}},
-		{ontologytypes.ModuleName, "active_domain_count_enabled", func(app *zeroneapp.ZeroneApp, ctx sdk.Context) (bool, error) {
-			return app.ZeroneOntologyKeeper.ActiveDomainCountEnabled(ctx)
-		}},
-		{emergencytypes.ModuleName, "halt_reason_scoping_enabled", func(app *zeroneapp.ZeroneApp, ctx sdk.Context) (bool, error) {
-			return app.EmergencyKeeper.HaltReasonScopingEnabled(ctx)
-		}},
-		{substratebridgetypes.ModuleName, "qualification_semantics_enabled", func(app *zeroneapp.ZeroneApp, ctx sdk.Context) (bool, error) {
-			return app.SubstrateBridgeKeeper.QualificationSemanticsEnabled(ctx)
-		}},
-		{ibcratelimittypes.ModuleName, "refund_identity_enabled", func(app *zeroneapp.ZeroneApp, ctx sdk.Context) (bool, error) {
-			return app.IBCRateLimitKeeper.RefundIdentityEnabled(ctx)
-		}},
-	}
-}
 
 func repairsMarkersApp(t *testing.T) *zeroneapp.ZeroneApp {
 	t.Helper()
@@ -82,26 +29,76 @@ func repairsMarkersApp(t *testing.T) *zeroneapp.ZeroneApp {
 
 // repairsMarkerField reads one marker field from module genesis JSON. Modules
 // whose encoder omits false fields leave it out, which reads as off.
-func repairsMarkerField(t *testing.T, genesis zeroneapp.GenesisState, m repairsMarker) bool {
+func repairsMarkerField(t *testing.T, genesis zeroneapp.GenesisState, m zeroneapp.ActivationMarker) bool {
 	t.Helper()
 	var fields map[string]json.RawMessage
-	require.NoError(t, json.Unmarshal(genesis[m.module], &fields), m.module)
-	value, ok := fields[m.field]
+	require.NoError(t, json.Unmarshal(genesis[m.Module], &fields), m.Module)
+	value, ok := fields[m.Name]
 	if !ok {
 		return false
 	}
 	var on bool
-	require.NoError(t, json.Unmarshal(value, &on), m.module)
+	require.NoError(t, json.Unmarshal(value, &on), m.Module)
 	return on
+}
+
+// stripRepairsMarkerFields removes every marker field from genesis, as in a
+// file written before the fields existed.
+func stripRepairsMarkerFields(t *testing.T, app *zeroneapp.ZeroneApp, genesis zeroneapp.GenesisState) {
+	t.Helper()
+	for _, m := range app.ConsensusRepairsV1Markers() {
+		var fields map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(genesis[m.Module], &fields))
+		delete(fields, m.Name)
+		stripped, err := json.Marshal(fields)
+		require.NoError(t, err)
+		genesis[m.Module] = stripped
+	}
 }
 
 func requireRepairsMarkers(t *testing.T, app *zeroneapp.ZeroneApp, ctx sdk.Context, want bool) {
 	t.Helper()
-	for _, m := range consensusRepairsV1Markers() {
-		enabled, err := m.enabled(app, ctx)
-		require.NoError(t, err, m.module)
-		require.Equal(t, want, enabled, m.module)
+	for _, m := range app.ConsensusRepairsV1Markers() {
+		enabled, err := m.Enabled(ctx)
+		require.NoError(t, err, m.Module)
+		require.Equal(t, want, enabled, m.Module)
 	}
+}
+
+func initRepairsMarkersChain(t *testing.T, app *zeroneapp.ZeroneApp, genesis zeroneapp.GenesisState) {
+	t.Helper()
+	bz, err := json.Marshal(genesis)
+	require.NoError(t, err)
+	_, err = app.InitChain(&abci.RequestInitChain{ChainId: repairsMarkersChainID, InitialHeight: 1,
+		AppStateBytes: bz, ConsensusParams: simtestutil.DefaultConsensusParams})
+	require.NoError(t, err)
+}
+
+func commitRepairsMarkersBlock(t *testing.T, app *zeroneapp.ZeroneApp) {
+	t.Helper()
+	_, err := app.FinalizeBlock(&abci.RequestFinalizeBlock{Height: 1})
+	require.NoError(t, err)
+	_, err = app.Commit()
+	require.NoError(t, err)
+}
+
+// requireExportedRepairsMarkers exports app and imports the export into a
+// fresh app, requiring every marker to follow at both ends.
+func requireExportedRepairsMarkers(t *testing.T, app *zeroneapp.ZeroneApp, want bool) {
+	t.Helper()
+	exported, err := app.ExportAppStateAndValidators(false, nil, nil)
+	require.NoError(t, err)
+	var exportedGenesis zeroneapp.GenesisState
+	require.NoError(t, json.Unmarshal(exported.AppState, &exportedGenesis))
+	for _, m := range app.ConsensusRepairsV1Markers() {
+		require.Equal(t, want, repairsMarkerField(t, exportedGenesis, m), "%s export", m.Module)
+	}
+
+	imported := repairsMarkersApp(t)
+	_, err = imported.InitChain(&abci.RequestInitChain{ChainId: repairsMarkersChainID, InitialHeight: exported.Height,
+		AppStateBytes: exported.AppState, ConsensusParams: &exported.ConsensusParams})
+	require.NoError(t, err)
+	requireRepairsMarkers(t, imported, imported.NewContextLegacy(false, cmtproto.Header{ChainID: repairsMarkersChainID, Height: exported.Height}), want)
 }
 
 // Through the real application (module manager, each module's own genesis
@@ -121,43 +118,58 @@ func TestConsensusRepairsV1MarkersFollowGenesisThroughTheApp(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			source := repairsMarkersApp(t)
 			genesis := genesisStateWithValSet(t, source, source.DefaultGenesis())
-			for _, m := range consensusRepairsV1Markers() {
-				require.True(t, repairsMarkerField(t, genesis, m), "%s default genesis selects %s", m.module, m.field)
-				if tc.strip {
-					var fields map[string]json.RawMessage
-					require.NoError(t, json.Unmarshal(genesis[m.module], &fields))
-					delete(fields, m.field)
-					stripped, err := json.Marshal(fields)
-					require.NoError(t, err)
-					genesis[m.module] = stripped
-				}
+			for _, m := range source.ConsensusRepairsV1Markers() {
+				require.True(t, repairsMarkerField(t, genesis, m), "%s default genesis selects %s", m.Module, m.Name)
 			}
-			bz, err := json.Marshal(genesis)
-			require.NoError(t, err)
-			_, err = source.InitChain(&abci.RequestInitChain{ChainId: repairsMarkersChainID, InitialHeight: 1,
-				AppStateBytes: bz, ConsensusParams: simtestutil.DefaultConsensusParams})
-			require.NoError(t, err)
+			if tc.strip {
+				stripRepairsMarkerFields(t, source, genesis)
+			}
+			initRepairsMarkersChain(t, source, genesis)
 			requireRepairsMarkers(t, source, source.NewContextLegacy(false, cmtproto.Header{ChainID: repairsMarkersChainID, Height: 1}), tc.want)
 
-			_, err = source.FinalizeBlock(&abci.RequestFinalizeBlock{Height: 1})
-			require.NoError(t, err)
-			_, err = source.Commit()
-			require.NoError(t, err)
+			commitRepairsMarkersBlock(t, source)
 			requireRepairsMarkers(t, source, source.NewContextLegacy(true, cmtproto.Header{ChainID: repairsMarkersChainID, Height: 1}), tc.want)
-
-			exported, err := source.ExportAppStateAndValidators(false, nil, nil)
-			require.NoError(t, err)
-			var exportedGenesis zeroneapp.GenesisState
-			require.NoError(t, json.Unmarshal(exported.AppState, &exportedGenesis))
-			for _, m := range consensusRepairsV1Markers() {
-				require.Equal(t, tc.want, repairsMarkerField(t, exportedGenesis, m), "%s export", m.module)
-			}
-
-			imported := repairsMarkersApp(t)
-			_, err = imported.InitChain(&abci.RequestInitChain{ChainId: repairsMarkersChainID, InitialHeight: exported.Height,
-				AppStateBytes: exported.AppState, ConsensusParams: &exported.ConsensusParams})
-			require.NoError(t, err)
-			requireRepairsMarkers(t, imported, imported.NewContextLegacy(false, cmtproto.Header{ChainID: repairsMarkersChainID, Height: exported.Height}), tc.want)
+			requireExportedRepairsMarkers(t, source, tc.want)
 		})
 	}
+}
+
+// The registry the carrier loops over lists exactly the ten
+// consensus-repairs-v1 markers, each named by the genesis field that carries
+// it. Enabling every entry on a chain that started without the fields selects
+// every repair, idempotently, and an export then carries all of them.
+func TestConsensusRepairsV1RegistryEnablesEveryMarker(t *testing.T) {
+	app := repairsMarkersApp(t)
+	var listed []string
+	for _, m := range app.ConsensusRepairsV1Markers() {
+		listed = append(listed, m.Module+"/"+m.Name)
+	}
+	require.Equal(t, []string{
+		"zerone_gov/seat_runoff_ordering_enabled",
+		"knowledge/reformulation_vindication_ordering_enabled",
+		"capture_defense/integer_variance_enabled",
+		"qualification/single_refund_enabled",
+		"capture_challenge/challenge_accounting_enabled",
+		"vesting_rewards/alignment_bank_supply_enabled",
+		"zerone_ontology/active_domain_count_enabled",
+		"emergency/halt_reason_scoping_enabled",
+		"substrate_bridge/qualification_semantics_enabled",
+		"ibcratelimit/refund_identity_enabled",
+	}, listed)
+
+	genesis := genesisStateWithValSet(t, app, app.DefaultGenesis())
+	stripRepairsMarkerFields(t, app, genesis)
+	initRepairsMarkersChain(t, app, genesis)
+	ctx := app.NewContextLegacy(false, cmtproto.Header{ChainID: repairsMarkersChainID, Height: 1})
+	requireRepairsMarkers(t, app, ctx, false)
+	for range 2 {
+		for _, m := range app.ConsensusRepairsV1Markers() {
+			require.NoError(t, m.Enable(ctx), m.Module)
+		}
+		requireRepairsMarkers(t, app, ctx, true)
+	}
+
+	commitRepairsMarkersBlock(t, app)
+	requireRepairsMarkers(t, app, app.NewContextLegacy(true, cmtproto.Header{ChainID: repairsMarkersChainID, Height: 1}), true)
+	requireExportedRepairsMarkers(t, app, true)
 }

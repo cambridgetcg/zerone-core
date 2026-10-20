@@ -1,42 +1,31 @@
 package keeper
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 
-	storetypes "cosmossdk.io/store/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/zerone-chain/zerone/internal/activation"
+	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
-// ReformulationVindicationOrderingEnabledStoreKey selects the reformulation-tie
-// and vindication-ordering repair of zerone-core #118 for the named carrier
-// upgrade consensus-repairs-v1. 0x90 is free: prefixes in types/keys.go stop at
-// 0x80, the existing markers are 0x81 and 0x84-0x87, 0x82/0x83 belong to
-// verifier settlement, and the KARMA design reserves 0x81-0x8F.
-const ReformulationVindicationOrderingEnabledStoreKey = "\x90"
-
-// ReformulationVindicationOrderingEnabled reports whether the repair is
-// selected. The marker is the only selector. Native genesis writes it and the
-// consensus-repairs-v1 carrier writes it at its height. No message or param
-// toggles it, and nothing clears it. It is independent of claim integrity.
+// ReformulationVindicationOrderingEnabledStoreKey is the marker key as a
+// string, kept so code written against this earlier keeper constant
+// (zerone-core #118) builds unchanged.
 //
-// The read uses its own gas meter, so a chain without the marker spends exactly
-// the gas it spent before this code existed. An unreadable or malformed marker
-// is an error, never legacy state; callers propagate it before choosing.
+// Deprecated: use types.ReformulationVindicationOrderingEnabledKey.
+var ReformulationVindicationOrderingEnabledStoreKey = string(types.ReformulationVindicationOrderingEnabledKey)
+
+// ReformulationVindicationOrderingEnabled reports whether the reformulation-tie
+// and vindication-ordering repair of zerone-core #118 is selected. The marker
+// at types.ReformulationVindicationOrderingEnabledKey is the only selector.
+// Native genesis writes it and the named carrier upgrade consensus-repairs-v1
+// writes it at its height. No message or param toggles it, and nothing clears
+// it. It is independent of claim integrity.
+//
+// activation.Read holds the contract: the read charges no gas, and an
+// unreadable or malformed marker is an error wrapping activation.ErrMarkerFault,
+// never legacy state. Callers propagate it before choosing.
 func (k Keeper) ReformulationVindicationOrderingEnabled(ctx context.Context) (bool, error) {
-	ungassed := sdk.UnwrapSDKContext(ctx).WithGasMeter(storetypes.NewInfiniteGasMeter())
-	bz, err := k.storeService.OpenKVStore(ungassed).Get([]byte(ReformulationVindicationOrderingEnabledStoreKey))
-	if err != nil {
-		return false, fmt.Errorf("read reformulation and vindication ordering marker: %w", err)
-	}
-	if bz == nil {
-		return false, nil
-	}
-	if !bytes.Equal(bz, []byte{1}) {
-		return false, fmt.Errorf("malformed reformulation and vindication ordering marker")
-	}
-	return true, nil
+	return activation.Read(ctx, k.storeService, types.ReformulationVindicationOrderingEnabledKey, "reformulation and vindication ordering")
 }
 
 // EnableReformulationVindicationOrdering selects the repair. It is idempotent
@@ -44,12 +33,5 @@ func (k Keeper) ReformulationVindicationOrderingEnabled(ctx context.Context) (bo
 // genesis and the consensus-repairs-v1 carrier call it; the carrier also bumps
 // this module's ConsensusVersion.
 func (k Keeper) EnableReformulationVindicationOrdering(ctx context.Context) error {
-	enabled, err := k.ReformulationVindicationOrderingEnabled(ctx)
-	if err != nil || enabled {
-		return err
-	}
-	if err := k.storeService.OpenKVStore(ctx).Set([]byte(ReformulationVindicationOrderingEnabledStoreKey), []byte{1}); err != nil {
-		return fmt.Errorf("write reformulation and vindication ordering marker: %w", err)
-	}
-	return nil
+	return activation.Enable(ctx, k.storeService, types.ReformulationVindicationOrderingEnabledKey, "reformulation and vindication ordering")
 }
