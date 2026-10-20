@@ -1,13 +1,13 @@
 package app
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 
 	upgradetypes "cosmossdk.io/x/upgrade/types"
@@ -124,7 +124,24 @@ func (app *ZeroneApp) registerConsensusRepairsUpgrade() {
 		if err != nil {
 			return nil, err
 		}
-		before, err := app.consensusRepairsSnapshot(ctx)
+		// Hash the source merged with the eleven expected writes BEFORE any
+		// migrations or marker writers run. No full image is retained at H.
+		receipt := consensusRepairsReceipt{Height: plan.Height, ChainID: ctx.ChainID(), PlanDigest: consensusRepairsPlanDigest(plan), Census: census}
+		markers := app.ConsensusRepairsV1Markers()
+		expectedWrites := make(map[string]map[string][]byte)
+		for i, loc := range consensusRepairsMarkerLocations() {
+			if expectedWrites[loc.store] == nil {
+				expectedWrites[loc.store] = make(map[string][]byte)
+			}
+			expectedWrites[loc.store][string(loc.key)] = []byte{1}
+			receipt.Markers = append(receipt.Markers, consensusRepairsMarkerReceipt{markers[i].Module, markers[i].Name, true})
+		}
+		encoded, err := json.Marshal(receipt)
+		if err != nil {
+			return nil, err
+		}
+		expectedWrites["knowledge"][string(append([]byte{0x7f, 0x01}, []byte(consensusRepairsReceiptKey)...))] = encoded
+		expected, claimBefore, err := app.consensusRepairsStream(ctx, expectedWrites, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -140,8 +157,7 @@ func (app *ZeroneApp) registerConsensusRepairsUpgrade() {
 		if !reflect.DeepEqual(to, consensusRepairsTargetVersionMap()) {
 			return nil, fmt.Errorf("consensus repairs unexpected migration target")
 		}
-		receipt := consensusRepairsReceipt{Height: plan.Height, ChainID: ctx.ChainID(), PlanDigest: consensusRepairsPlanDigest(plan), Census: census}
-		for _, marker := range app.ConsensusRepairsV1Markers() {
+		for _, marker := range markers {
 			if err := marker.Enable(cache); err != nil {
 				return nil, err
 			}
@@ -152,27 +168,17 @@ func (app *ZeroneApp) registerConsensusRepairsUpgrade() {
 			if !enabled {
 				return nil, fmt.Errorf("consensus repairs marker readback off: %s.%s", marker.Module, marker.Name)
 			}
-			receipt.Markers = append(receipt.Markers, consensusRepairsMarkerReceipt{marker.Module, marker.Name, enabled})
-		}
-		encoded, err := json.Marshal(receipt)
-		if err != nil {
-			return nil, err
 		}
 		if err := app.KnowledgeKeeper.WriteMigrationMarker(cache, consensusRepairsReceiptKey, string(encoded)); err != nil {
 			return nil, err
 		}
-		after, err := app.consensusRepairsSnapshot(cache)
+		after, claimAfter, err := app.consensusRepairsStream(cache, nil, nil)
 		if err != nil {
 			return nil, err
 		}
 		// The migrations are guarded no-ops. Verify exact bytes before committing;
 		// x/upgrade records its version map/done height only after this returns.
-		expected := cloneConsensusRepairsRows(before)
-		for _, location := range consensusRepairsMarkerLocations() {
-			expected[location.store][string(location.key)] = []byte{1}
-		}
-		expected["knowledge"][string(append([]byte{0x7f, 0x01}, []byte(consensusRepairsReceiptKey)...))] = encoded
-		if !reflect.DeepEqual(expected, after) {
+		if expected != after || claimBefore != claimAfter {
 			return nil, fmt.Errorf("consensus repairs unexpected store diff (including claim-integrity 0x87)")
 		}
 		for _, name := range consensusRepairsCensusNames {
@@ -184,11 +190,27 @@ func (app *ZeroneApp) registerConsensusRepairsUpgrade() {
 }
 
 func validateConsensusRepairsGenesisSelection(genesis GenesisState) error {
-	// Only method values are constructed; no keeper is invoked here.
-	for _, marker := range (&ZeroneApp{}).ConsensusRepairsV1Markers() {
+	return ValidateConsensusRepairsGenesisSelection(genesis)
+}
+
+// ValidateConsensusRepairsGenesisSelection is shared by InitChain and the
+// offline launch preflight. Require one exact spelling across JSON codecs.
+func ValidateConsensusRepairsGenesisSelection(genesis GenesisState) error {
+	for _, marker := range ConsensusRepairsV1GenesisSelections() {
 		var fields map[string]json.RawMessage
 		if err := json.Unmarshal(genesis[marker.Module], &fields); err != nil {
 			return fmt.Errorf("consensus repairs genesis %s: %w", marker.Module, err)
+		}
+		alias := consensusRepairsCamelCase(marker.Name)
+		names := make([]string, 0, len(fields))
+		for name := range fields {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			if (name != marker.Name && strings.EqualFold(name, marker.Name)) || strings.EqualFold(name, alias) {
+				return fmt.Errorf("native %s genesis requires explicit %s=true with exact spelling; alias %q forbidden", marker.Module, marker.Name, name)
+			}
 		}
 		var value *bool
 		if err := json.Unmarshal(fields[marker.Name], &value); err != nil || value == nil || !*value {
@@ -196,6 +218,14 @@ func validateConsensusRepairsGenesisSelection(genesis GenesisState) error {
 		}
 	}
 	return nil
+}
+
+func consensusRepairsCamelCase(name string) string {
+	parts := strings.Split(name, "_")
+	for i := 1; i < len(parts); i++ {
+		parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
+	}
+	return strings.Join(parts, "")
 }
 
 func (app *ZeroneApp) validateConsensusRepairsStartupVersions(ctx sdk.Context, vm module.VersionMap, latest int64) error {
@@ -285,14 +315,4 @@ type consensusRepairsMarkerLocation struct {
 
 func consensusRepairsMarkerLocations() []consensusRepairsMarkerLocation {
 	return []consensusRepairsMarkerLocation{{"zerone_gov", []byte{0x18}}, {"knowledge", []byte{0x90}}, {"capture_defense", []byte{0x08}}, {"qualification", []byte{0x40}}, {"capture_challenge", []byte{0x05}}, {"vesting_rewards", []byte{0x0c}}, {"zerone_ontology", []byte{0x06}}, {"emergency", []byte{0x14}}, {"substrate_bridge", []byte{0x90}}, {"zerone_ibcrl", []byte{0x04}}}
-}
-func cloneConsensusRepairsRows(rows map[string]map[string][]byte) map[string]map[string][]byte {
-	copyRows := make(map[string]map[string][]byte, len(rows))
-	for store, entries := range rows {
-		copyRows[store] = make(map[string][]byte, len(entries))
-		for key, value := range entries {
-			copyRows[store][key] = bytes.Clone(value)
-		}
-	}
-	return copyRows
 }

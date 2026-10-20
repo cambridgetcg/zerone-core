@@ -2,9 +2,11 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 
 	"cosmossdk.io/core/appmodule"
@@ -41,6 +43,22 @@ type archivedConsensusSibling struct {
 
 func (m archivedConsensusSibling) ConsensusVersion() uint64 { return m.version }
 
+// Version pinning must not silently remove real block hooks from historical
+// release fixtures. Modules without a hook still do nothing.
+func (m archivedConsensusSibling) BeginBlock(ctx context.Context) error {
+	if hook, ok := m.AppModule.(appmodule.HasBeginBlocker); ok {
+		return hook.BeginBlock(ctx)
+	}
+	return nil
+}
+
+func (m archivedConsensusSibling) EndBlock(ctx context.Context) error {
+	if hook, ok := m.AppModule.(appmodule.HasEndBlocker); ok {
+		return hook.EndBlock(ctx)
+	}
+	return nil
+}
+
 type archivedClaimIntegrityKnowledgeModule struct{ knowledgemodule.AppModule }
 
 func (archivedClaimIntegrityKnowledgeModule) ConsensusVersion() uint64 { return 12 }
@@ -70,12 +88,13 @@ func consensusRepairsFixture(t *testing.T, skip ...int) (*ZeroneApp, sdk.Context
 	for _, loc := range consensusRepairsMarkerLocations() {
 		ctx.KVStore(app.keys[loc.store]).Delete(loc.key)
 	}
-	// Synthetic custom registry; not a claim that dev-1 has one. Q1's missing
-	// empty-registry semantics is a deliberate census blocker in this draft.
+	// Synthetic registry and nonzero ledger, not a dev-1 measurement. Empty or
+	// inactive registries alone do not change the zero-stake sensor reading.
 	validator := &staking.Validator{OperatorAddress: settlementAddress(240).String(), TotalStake: "0", SelfDelegation: "0", DelegatedStake: "0"}
 	raw, err := json.Marshal(validator)
 	require.NoError(t, err)
 	ctx.KVStore(app.keys["zerone_staking"]).Set(append([]byte{1}, []byte(validator.OperatorAddress)...), raw)
+	ctx.KVStore(app.keys["vesting_rewards"]).Set([]byte{0x0b}, []byte("1"))
 	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, consensusRepairsSourceVersionMap()))
 	return app, ctx, db
 }
@@ -187,7 +206,7 @@ func TestConsensusRepairsAtomicUpgradeDiffAndRestart(t *testing.T) {
 	require.NoError(t, imported.ValidateAccountingAuthorityStartup())
 }
 func TestConsensusRepairsCensusBlockersLeaveEveryMarkerOff(t *testing.T) {
-	for _, scenario := range []string{"pool deficit", "NUL bounty", "NUL augmentation", "empty marker", "corrupt marker", "empty registry", "occupied generation", "corrupt halt"} {
+	for _, scenario := range []string{"pool deficit", "bounty identity", "augmentation identity", "empty marker", "corrupt marker", "neutral discontinuity", "occupied generation", "corrupt halt"} {
 		t.Run(scenario, func(t *testing.T) {
 			app, ctx, _ := consensusRepairsFixture(t)
 			switch scenario {
@@ -195,20 +214,20 @@ func TestConsensusRepairsCensusBlockersLeaveEveryMarkerOff(t *testing.T) {
 				raw, err := proto.Marshal(&cc.DomainBountyPool{Domain: "physics", Balance: "1"})
 				require.NoError(t, err)
 				ctx.KVStore(app.keys["capture_challenge"]).Set([]byte("\x02physics"), raw)
-			case "NUL bounty":
+			case "bounty identity":
 				raw, err := proto.Marshal(&knowledge.AugmentationBounty{Id: "bad\x00id"})
 				require.NoError(t, err)
-				ctx.KVStore(app.keys["knowledge"]).Set([]byte("\x62bad\x00id"), raw)
-			case "NUL augmentation":
+				ctx.KVStore(app.keys["knowledge"]).Set([]byte("\x62different"), raw)
+			case "augmentation identity":
 				raw, err := proto.Marshal(&knowledge.Augmentation{Id: "bad\x00id"})
 				require.NoError(t, err)
-				ctx.KVStore(app.keys["knowledge"]).Set([]byte("\x63bad\x00id"), raw)
+				ctx.KVStore(app.keys["knowledge"]).Set([]byte("\x63different"), raw)
 			case "empty marker":
 				ctx.KVStore(app.keys["qualification"]).Set([]byte{0x40}, []byte{})
 			case "corrupt marker":
 				ctx.KVStore(app.keys["qualification"]).Set([]byte{0x40}, []byte{2})
-			case "empty registry":
-				ctx.KVStore(app.keys["zerone_staking"]).Delete(append([]byte{1}, []byte(settlementAddress(240).String())...))
+			case "neutral discontinuity":
+				ctx.KVStore(app.keys["vesting_rewards"]).Delete([]byte{0x0b})
 			case "occupied generation":
 				ctx.KVStore(app.keys["zerone_ibcrl"]).Set([]byte("\x03channel-0\x00uzrn"), make([]byte, 8))
 			case "corrupt halt":
@@ -252,18 +271,36 @@ func TestConsensusRepairsRequiresAllExplicitGenesisSelections(t *testing.T) {
 	app, _, _ := newAccountingAuthorityFixture(t)
 	require.Len(t, app.ConsensusRepairsV1Markers(), 10)
 	for _, marker := range app.ConsensusRepairsV1Markers() {
-		for _, selection := range []string{"absent", "false", "null"} {
+		for _, selection := range []string{"absent", "false", "null", "uppercase", "mixed-case", "camelCase", "alias-after-canonical"} {
 			t.Run(marker.Module+"/"+selection, func(t *testing.T) {
 				genesis := sdk053IBC10GenesisWithValidator(t, app)
 				var fields map[string]json.RawMessage
 				require.NoError(t, json.Unmarshal(genesis[marker.Module], &fields))
 				delete(fields, marker.Name)
-				if selection != "absent" {
+				switch selection {
+				case "uppercase":
+					fields[marker.Name] = json.RawMessage("true")
+					fields[strings.ToUpper(marker.Name)] = json.RawMessage("false")
+				case "mixed-case":
+					fields[marker.Name] = json.RawMessage("true")
+					fields[strings.ToUpper(marker.Name[:1])+marker.Name[1:]] = json.RawMessage("false")
+				case "camelCase":
+					fields[marker.Name] = json.RawMessage("true")
+					fields[consensusRepairsCamelCase(marker.Name)] = json.RawMessage("false")
+				case "alias-after-canonical":
+					fields[marker.Name] = json.RawMessage("true")
+				case "false", "null":
 					fields[marker.Name] = json.RawMessage(selection)
 				}
 				var err error
 				genesis[marker.Module], err = json.Marshal(fields)
 				require.NoError(t, err)
+				if selection == "alias-after-canonical" {
+					// Pin the review's exact last-value-wins bypass, independent
+					// of encoding/json's sorted map serialization order.
+					original := genesis[marker.Module]
+					genesis[marker.Module] = json.RawMessage(fmt.Sprintf(`%s,%q:false}`, original[:len(original)-1], strings.ToUpper(marker.Name)))
+				}
 				raw, err := json.Marshal(genesis)
 				require.NoError(t, err)
 				fresh := NewZeroneApp(log.NewNopLogger(), dbm.NewMemDB(), nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()))

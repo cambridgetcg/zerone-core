@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"strings"
+
 	"testing"
 
 	"cosmossdk.io/core/header"
@@ -136,18 +136,27 @@ func TestConsensusRepairsCensusRefusesSemanticCorruption(t *testing.T) {
 		})
 	}
 }
-func TestConsensusRepairsCensusReservesReceiptHeadroom(t *testing.T) {
+func TestConsensusRepairsCensusBoundsOnlySelectedPrefixes(t *testing.T) {
 	app, ctx, _ := consensusRepairsFixture(t)
 	report, err := app.CensusConsensusRepairsV1(ctx)
 	require.NoError(t, err)
 	cache, _ := ctx.CacheContext()
 	store := cache.KVStore(app.keys["knowledge"])
-	for i := 0; i < consensusRepairsMaxRecords-report.Records-10; i++ {
-		store.Set([]byte(fmt.Sprintf("census-headroom/%d", i)), []byte{1})
+	for i := 0; i <= consensusRepairsMaxRecords; i++ {
+		// Unrelated history is hashed and measured, not retained or bounded.
+		store.Set([]byte(fmt.Sprintf("unrelated/%d", i)), []byte{1})
+	}
+	large, err := app.CensusConsensusRepairsV1(cache)
+	require.NoError(t, err)
+	require.Equal(t, report.Records+consensusRepairsMaxRecords+1, large.Records)
+	require.Equal(t, report.Censuses, large.Censuses)
+	require.Equal(t, report.Digests, large.Digests)
+	require.NotEqual(t, report.Digest, large.Digest)
+	for i := 0; i <= consensusRepairsMaxRecords; i++ {
+		store.Set([]byte(fmt.Sprintf("\x62bounded/%d", i)), []byte{1})
 	}
 	_, err = app.CensusConsensusRepairsV1(cache)
-	require.ErrorContains(t, err, "headroom")
-	require.False(t, strings.Contains(err.Error(), "scan knowledge"), "source itself is below the snapshot ceiling")
+	require.ErrorContains(t, err, "reformulations census resource ceiling")
 }
 
 // Assert the public census method's context shape independently of callers.

@@ -26,6 +26,28 @@ type ActivationMarker struct {
 	Enable  func(context.Context) error
 }
 
+// ActivationSelection is the native/imported genesis contract, independent of
+// keeper construction. Tests pin this static list to the production registry.
+type ActivationSelection struct {
+	Module string
+	Name   string
+}
+
+func ConsensusRepairsV1GenesisSelections() []ActivationSelection {
+	return []ActivationSelection{
+		{zeronegovtypes.ModuleName, "seat_runoff_ordering_enabled"},
+		{zeroneknowledgetypes.ModuleName, "reformulation_vindication_ordering_enabled"},
+		{zeronecdtypes.ModuleName, "integer_variance_enabled"},
+		{zeronequalificationtypes.ModuleName, "single_refund_enabled"},
+		{zeronecctypes.ModuleName, "challenge_accounting_enabled"},
+		{vestingrewardstypes.ModuleName, "alignment_bank_supply_enabled"},
+		{zeroneontologytypes.ModuleName, "active_domain_count_enabled"},
+		{zeroneemergencytypes.ModuleName, "halt_reason_scoping_enabled"},
+		{substratebridgetypes.ModuleName, "qualification_semantics_enabled"},
+		{zeroneibcrltypes.ModuleName, "refund_identity_enabled"},
+	}
+}
+
 // ConsensusRepairsV1Markers lists every consensus-repairs-v1 marker in the
 // order of the repairs' zerone-core pull requests (#117-#127). Native genesis
 // selects each one through its module's genesis field; the carrier upgrade

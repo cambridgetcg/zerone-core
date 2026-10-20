@@ -30,7 +30,8 @@ func requireClaimRecordsTransitionOwner(name string, fromVM, targetVM module.Ver
 	}
 	from, fromOK := fromVM["knowledge"]
 	target, targetOK := targetVM["knowledge"]
-	if !fromOK || !targetOK || from < 6 || from > 13 || target < 6 || target > 13 {
+	// Knowledge 13 is handed to the exact carrier owner above.
+	if !fromOK || !targetOK || from < 6 || from > 12 || target < 6 || target > 12 {
 		return fmt.Errorf("claim records requires complete known knowledge versions")
 	}
 	if (from == 10 && target == 11) || (from == 11 && target == 12) {

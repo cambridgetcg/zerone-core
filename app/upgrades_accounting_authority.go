@@ -488,15 +488,16 @@ type accountingModuleVersions struct {
 }
 
 var (
-	accountingLegacyVersions = accountingModuleVersions{staking: 1, gov: 2}
-	accountingTargetVersions = accountingModuleVersions{staking: 2, gov: 3}
+	accountingLegacyVersions           = accountingModuleVersions{staking: 1, gov: 2}
+	accountingTargetVersions           = accountingModuleVersions{staking: 2, gov: 3}
+	accountingConsensusRepairsVersions = accountingModuleVersions{staking: 2, gov: 4}
 )
 
 func accountingVersions(vm module.VersionMap) (accountingModuleVersions, error) {
 	staking, hasStaking := vm[zeronestakingtypes.ModuleName]
 	gov, hasGov := vm[zeronegovtypes.ModuleName]
 	pair := accountingModuleVersions{staking: staking, gov: gov}
-	if !hasStaking || !hasGov || (pair != accountingLegacyVersions && pair != accountingTargetVersions && pair != (accountingModuleVersions{staking: 2, gov: 4})) {
+	if !hasStaking || !hasGov || (pair != accountingLegacyVersions && pair != accountingTargetVersions && pair != accountingConsensusRepairsVersions) {
 		return pair, fmt.Errorf("accounting authority requires one complete known version pair: zerone_staking=%d (present=%t), zerone_gov=%d (present=%t)", staking, hasStaking, gov, hasGov)
 	}
 	return pair, nil
@@ -553,6 +554,17 @@ func validateAccountingGenesisSelection(genesis map[string]json.RawMessage) erro
 // initializeAccountingAuthority runs only after the entire application genesis,
 // including bank backing and both custom modules, has initialized successfully.
 func (app *ZeroneApp) initializeAccountingAuthority(ctx sdk.Context, genesis GenesisState) error {
+	// InitGenesis has run. Check actual keeper state, not just JSON selection:
+	// no codec alias or future module regression may silently leave a marker off.
+	for _, marker := range app.ConsensusRepairsV1Markers() {
+		on, err := marker.Enabled(ctx)
+		if err != nil {
+			return fmt.Errorf("consensus repairs genesis %s.%s readback: %w", marker.Module, marker.Name, err)
+		}
+		if !on {
+			return fmt.Errorf("consensus repairs genesis %s.%s readback off", marker.Module, marker.Name)
+		}
+	}
 	lineage, err := parseAccountingAuthorityGenesis(genesis[accountingAuthorityGenesisKey])
 	if err != nil {
 		return err
