@@ -8,6 +8,8 @@ func DefaultGenesis() *GenesisState {
 		Params:  &params,
 		Strata:  DefaultStrata(),
 		Domains: DefaultDomains(),
+		// A new chain starts with the consensus-repairs-v1 selection on.
+		ActiveDomainCountEnabled: true,
 	}
 }
 
