@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"cosmossdk.io/core/store"
@@ -10,6 +11,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/zerone-chain/zerone/internal/activation"
 	"github.com/zerone-chain/zerone/x/capture_defense/types"
 )
 
@@ -112,6 +114,10 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 // BeginBlocker runs reputation decay and auto-analysis.
 func (k Keeper) BeginBlocker(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	integerVariance, err := k.IntegerVarianceEnabled(sdkCtx)
+	if err != nil {
+		return err
+	}
 	params := k.GetParams(sdkCtx)
 
 	height := uint64(sdkCtx.BlockHeight())
@@ -135,7 +141,7 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		}
 	}
 	if height > 0 && effectiveInterval > 0 && height%effectiveInterval == 0 {
-		k.RunAutoAnalysis(sdkCtx, params)
+		return k.RunAutoAnalysis(sdkCtx, params, integerVariance)
 	}
 
 	return nil
@@ -143,10 +149,12 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 
 // RunAutoAnalysis runs capture detection on all domains with recent history.
 // When a domain is flagged, it auto-submits a challenge to capture_challenge.
-func (k Keeper) RunAutoAnalysis(ctx sdk.Context, params *types.Params) {
+// Only activation marker faults propagate; all pre-existing challenge errors
+// retain their log-and-continue handling. The entry point supplies the selection.
+func (k Keeper) RunAutoAnalysis(ctx sdk.Context, params *types.Params, integerVariance bool) error {
 	domains := k.GetDomainsWithHistory(ctx)
 	for _, domain := range domains {
-		metrics := k.AnalyzeCaptureRisk(ctx, domain, params)
+		metrics := k.AnalyzeCaptureRisk(ctx, domain, params, integerVariance)
 		if metrics == nil {
 			continue
 		}
@@ -157,11 +165,15 @@ func (k Keeper) RunAutoAnalysis(ctx sdk.Context, params *types.Params) {
 			if k.challengeKeeper != nil {
 				evidence := formatMetricsAsEvidence(metrics)
 				if err := k.challengeKeeper.AutoSubmitChallenge(ctx, domain, metrics.RiskScore, metrics.HerfindahlIndex, evidence); err != nil {
+					if errors.Is(err, activation.ErrMarkerFault) {
+						return fmt.Errorf("auto-challenge for domain %q: %w", domain, err)
+					}
 					k.Logger(ctx).Error("auto-challenge submission failed", "domain", domain, "err", err)
 				}
 			}
 		}
 	}
+	return nil
 }
 
 // formatMetricsAsEvidence creates a human-readable evidence string from capture metrics.

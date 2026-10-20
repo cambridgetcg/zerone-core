@@ -17,6 +17,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/zerone-chain/zerone/internal/activation"
 	"github.com/zerone-chain/zerone/x/capture_defense/keeper"
 	"github.com/zerone-chain/zerone/x/capture_defense/types"
 )
@@ -37,8 +38,11 @@ func TestCaptureTimingMarkerSelectsArithmetic(t *testing.T) {
 			t.Run(fmt.Sprintf("enabled=%t/automatic=%t", enabled, automatic), func(t *testing.T) {
 				k, ctx := setupTimingKeeper(t)
 				gs := types.DefaultGenesis()
-				gs.IntegerVarianceEnabled = enabled
+				gs.IntegerVarianceEnabled = false
 				k.InitGenesis(ctx, gs)
+				if enabled {
+					require.NoError(t, k.EnableIntegerVariance(ctx))
+				}
 				server := keeper.NewMsgServerImpl(k)
 				_, err := server.RecordVerification(ctx, &types.MsgRecordVerification{
 					Authority: k.GetAuthority(), Domain: "timing", RoundId: "overflow",
@@ -134,10 +138,17 @@ func (s unreadableTimingMarkerStore) Get(key []byte) ([]byte, error) {
 
 func TestCaptureTimingBadMarkerFailsClosed(t *testing.T) {
 	for _, unreadable := range []bool{false, true} {
-		for _, path := range []string{"analysis", "wrapper", "message", "automatic"} {
+		for _, path := range []string{"message", "invalid message", "automatic", "decay only", "empty block"} {
 			t.Run(fmt.Sprintf("unreadable=%t/%s", unreadable, path), func(t *testing.T) {
 				f := newIntegerVarianceFixture(t)
+				gs := types.DefaultGenesis()
+				gs.IntegerVarianceEnabled = false
+				gs.Params.DecayEpochBlocks = 100
+				f.k.InitGenesis(f.ctx, gs)
 				f.ctx = f.ctx.WithBlockHeight(1000)
+				f.k.SetGlobalReputation(f.ctx, &types.GlobalReputation{
+					Validator: testAddr(1), Score: types.BPSScale, LastUpdatedBlock: 1,
+				})
 				f.k.SetVerificationHistory(f.ctx, &types.VerificationHistoryEntry{
 					Domain: "timing", RoundId: "existing", Validators: []string{testAddr(1), testAddr(2)},
 					SubmitBlocks: []uint64{1, 1},
@@ -150,18 +161,25 @@ func TestCaptureTimingBadMarkerFailsClosed(t *testing.T) {
 					wantError = "read integer variance marker: injected marker read failure"
 				}
 				before := f.snapshot(t)
-				require.PanicsWithError(t, wantError, func() {
+				f.ctx = f.ctx.WithEventManager(sdk.NewEventManager()).WithGasMeter(storetypes.NewGasMeter(1_000_000))
+				var err error
+				require.NotPanics(t, func() {
 					switch path {
-					case "analysis":
-						f.k.AnalyzeCaptureRisk(f.ctx, "timing", types.DefaultParams())
-					case "wrapper":
-						f.k.RunCaptureDetection(f.ctx, "timing", types.DefaultParams())
 					case "message":
-						_, _ = keeper.NewMsgServerImpl(f.k).AnalyzeDomain(f.ctx, &types.MsgAnalyzeDomain{Domain: "timing"})
+						_, err = keeper.NewMsgServerImpl(f.k).AnalyzeDomain(f.ctx, &types.MsgAnalyzeDomain{Domain: "timing"})
+					case "invalid message":
+						_, err = keeper.NewMsgServerImpl(f.k).AnalyzeDomain(f.ctx, &types.MsgAnalyzeDomain{})
 					case "automatic":
-						_ = f.k.BeginBlocker(f.ctx)
+						err = f.k.BeginBlocker(f.ctx)
+					case "decay only":
+						err = f.k.BeginBlocker(f.ctx.WithBlockHeight(100))
+					case "empty block":
+						err = f.k.BeginBlocker(f.ctx.WithBlockHeight(1))
 					}
 				})
+				require.ErrorIs(t, err, activation.ErrMarkerFault)
+				require.ErrorContains(t, err, wantError)
+				require.Zero(t, f.ctx.GasMeter().GasConsumed(), "fault must return before any metered work")
 				require.Equal(t, before, f.snapshot(t), "never overwrite state after an unreadable selector")
 				require.Empty(t, f.ctx.EventManager().Events())
 			})

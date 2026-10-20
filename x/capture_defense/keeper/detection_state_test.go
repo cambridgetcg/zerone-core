@@ -138,7 +138,9 @@ func TestCaptureTimingRetainsLegacyMetricsUntilAnalysis(t *testing.T) {
 	assertRetained() // activation writes only the marker, not historical metrics
 	// There is no verification-history field in this module's genesis. Analysis
 	// without retained observations must not invent or erase historical metrics.
-	require.Nil(t, k.AnalyzeCaptureRisk(ctx, legacy.Domain, k.GetParams(ctx)))
+	integerVariance, err := k.IntegerVarianceEnabled(ctx)
+	require.NoError(t, err)
+	require.Nil(t, k.AnalyzeCaptureRisk(ctx, legacy.Domain, k.GetParams(ctx), integerVariance))
 	require.NoError(t, k.BeginBlocker(ctx))
 	assertRetained()
 	exported := k.ExportGenesis(ctx)

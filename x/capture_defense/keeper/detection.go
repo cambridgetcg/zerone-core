@@ -11,13 +11,9 @@ import (
 )
 
 // AnalyzeCaptureRisk computes capture metrics for a domain from its verification history.
-// An unreadable or malformed activation marker panics, like ExportGenesis:
-// this API has no error return, and must not silently select legacy semantics.
-func (k Keeper) AnalyzeCaptureRisk(ctx sdk.Context, domain string, params *types.Params) *types.CaptureMetrics {
-	integerVariance, err := k.IntegerVarianceEnabled(ctx)
-	if err != nil {
-		panic(err)
-	}
+// The entry point reads IntegerVarianceEnabled once, before any writes, and
+// passes that selection here; domain iteration must not re-read the marker.
+func (k Keeper) AnalyzeCaptureRisk(ctx sdk.Context, domain string, params *types.Params, integerVariance bool) *types.CaptureMetrics {
 	history := k.GetHistoryByDomain(ctx, domain)
 	if len(history) == 0 {
 		return nil
@@ -115,8 +111,9 @@ func (k Keeper) AnalyzeCaptureRisk(ctx sdk.Context, domain string, params *types
 }
 
 // RunCaptureDetection is a convenience wrapper that calls AnalyzeCaptureRisk.
-func (k Keeper) RunCaptureDetection(ctx sdk.Context, domain string, params *types.Params) *types.CaptureMetrics {
-	return k.AnalyzeCaptureRisk(ctx, domain, params)
+// Like AnalyzeCaptureRisk, it uses the entry point's already-read selection.
+func (k Keeper) RunCaptureDetection(ctx sdk.Context, domain string, params *types.Params, integerVariance bool) *types.CaptureMetrics {
+	return k.AnalyzeCaptureRisk(ctx, domain, params, integerVariance)
 }
 
 // getEffectiveHHIThreshold computes the HHI threshold adjusted for domain depth
