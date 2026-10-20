@@ -27,7 +27,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/zerone-chain/zerone/app"
+	gov "github.com/zerone-chain/zerone/x/gov/types"
+	knowledge "github.com/zerone-chain/zerone/x/knowledge/types"
 	customstaking "github.com/zerone-chain/zerone/x/staking/types"
+	"google.golang.org/protobuf/proto"
 )
 
 func sourceCopy(t *testing.T, badMarker bool, extraStore ...bool) (string, int64, string) {
@@ -76,6 +79,16 @@ func sourceCopy(t *testing.T, badMarker bool, extraStore ...bool) (string, int64
 		vm[name] = version
 	}
 	require.NoError(t, a.UpgradeKeeper.SetModuleVersionMap(ctx, vm))
+	// Detailed held records belong in the offline JSON, not the permanent receipt.
+	bounty, err := proto.Marshal(&knowledge.AugmentationBounty{Id: "offline\x00bounty"})
+	require.NoError(t, err)
+	ctx.KVStore(a.GetStoreKeyForTests("knowledge")).Set(knowledge.AugmentationBountyKey("offline\x00bounty"), bounty)
+	rollback, err := json.Marshal(&gov.PhaseTransitionProposal{LipID: "offline-rollback", TargetPhase: gov.ResearchFundPhase_RESEARCH_FUND_PHASE_GENESIS_PAIR, IsRollback: true, Stage: gov.PhaseTransitionStagePending})
+	require.NoError(t, err)
+	ctx.KVStore(a.GetStoreKeyForTests("zerone_gov")).Set([]byte("\x14offline-rollback"), rollback)
+	lip, err := json.Marshal(&gov.LIP{Id: "offline-rollback", Category: gov.CategoryPhaseRollback})
+	require.NoError(t, err)
+	ctx.KVStore(a.GetStoreKeyForTests("zerone_gov")).Set(gov.LIPKey("offline-rollback"), lip)
 	commit := a.CommitMultiStore().Commit()
 	require.NoError(t, db.Close())
 	return home, commit.Version, hex.EncodeToString(commit.Hash)
@@ -116,6 +129,16 @@ func TestReadOnlyCopiedDBCensus(t *testing.T) {
 			var report map[string]interface{}
 			require.NoError(t, json.Unmarshal(out.Bytes(), &report))
 			require.Equal(t, !fault, report["passed"])
+			var details struct {
+				Census app.ConsensusRepairsCensus `json:"census"`
+			}
+			require.NoError(t, json.Unmarshal(out.Bytes(), &details))
+			require.Len(t, details.Census.PendingRollbacks, 1)
+			require.Equal(t, "offline-rollback", details.Census.PendingRollbacks[0].LIPID)
+			require.Equal(t, 1, bytes.Count(out.Bytes(), []byte(`"lip_id": "offline-rollback"`)))
+			require.NotContains(t, out.String(), "pending legacy rollback")
+			require.Contains(t, out.String(), hex.EncodeToString(knowledge.AugmentationBountyKey("offline\x00bounty")))
+			require.Contains(t, out.String(), "NUL bounty ID")
 			if fault {
 				require.Contains(t, out.String(), "present-empty")
 			}

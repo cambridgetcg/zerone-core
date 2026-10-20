@@ -903,7 +903,8 @@ func checkAdapterQualificationMinima(c *checker, g map[string]interface{}) {
 			valid = value == 0 || value == 1 || value == 2
 		}
 		if !valid {
-			c.fail("adapter[%d] %v has unsupported minimum %v: only UNSPECIFIED, PROBATIONARY or ACTIVE is satisfiable", i, adapter["adapter_id"], minimum)
+			id, _, _ := qualificationJSONField(adapter, "adapter_id", "adapterId")
+			c.fail("adapter[%d] %v has unsupported minimum %v: only UNSPECIFIED, PROBATIONARY or ACTIVE is satisfiable", i, id, minimum)
 		} else {
 			c.pass("adapter[%d] qualification minimum is supported", i)
 		}
@@ -939,6 +940,28 @@ func checkConsensusRepairsMarkers(c *checker, g map[string]interface{}) {
 // ════════════════════════════════════════════════════════════════════════
 //  Main
 // ════════════════════════════════════════════════════════════════════════
+
+func runChecks(c *checker, genesis map[string]interface{}) {
+	checkRevenueSplit(c, genesis)
+	checkProtocolSubSplit(c, genesis)
+	checkFounderShare(c, genesis)
+	checkResearchFundVoters(c, genesis)
+	checkKnowledgeFitnessWeights(c, genesis)
+	checkDemandFitnessCoupling(c, genesis)
+	checkKnowledgeDemandTracking(c, genesis)
+	checkMetabolismConsistency(c, genesis)
+	checkEnergyCap(c, genesis)
+	checkCompetitionParams(c, genesis)
+	checkBootstrapFund(c, genesis)
+	checkStakingTierBoundaries(c, genesis)
+	checkGovernancePeriods(c, genesis)
+	checkVoteExtensions(c, genesis)
+	checkBankBalances(c, genesis)
+	checkAxiomSeeds(c, genesis)
+	checkChainMetadata(c, genesis)
+	checkAdapterQualificationMinima(c, genesis)
+	checkConsensusRepairsMarkers(c, genesis)
+}
 
 func main() {
 	genesisPath := flag.String("genesis", "", "Path to genesis.json")
@@ -980,26 +1003,7 @@ func main() {
 	fmt.Println("═══════════════════════════════════════════════")
 
 	c := &checker{profile: *profile}
-
-	checkRevenueSplit(c, genesis)
-	checkProtocolSubSplit(c, genesis)
-	checkFounderShare(c, genesis)
-	checkResearchFundVoters(c, genesis)
-	checkKnowledgeFitnessWeights(c, genesis)
-	checkDemandFitnessCoupling(c, genesis)
-	checkKnowledgeDemandTracking(c, genesis)
-	checkMetabolismConsistency(c, genesis)
-	checkEnergyCap(c, genesis)
-	checkCompetitionParams(c, genesis)
-	checkBootstrapFund(c, genesis)
-	checkStakingTierBoundaries(c, genesis)
-	checkGovernancePeriods(c, genesis)
-	checkVoteExtensions(c, genesis)
-	checkBankBalances(c, genesis)
-	checkAxiomSeeds(c, genesis)
-	checkChainMetadata(c, genesis)
-	checkAdapterQualificationMinima(c, genesis)
-	checkConsensusRepairsMarkers(c, genesis)
+	runChecks(c, genesis)
 
 	fmt.Println()
 	fmt.Println("═══════════════════════════════════════════════")

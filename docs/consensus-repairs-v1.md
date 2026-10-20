@@ -69,8 +69,10 @@ new boundary to the exact full-map owner check.
    each entry immediately and require true. There is no partial-success mode.
 5. Write `upgrade_receipt_consensus-repairs-v1` through the knowledge migration
    marker API: height, chain ID, SHA-256 of the canonical JSON plan, all ten
-   marker readbacks, held findings, counts and digests. #119 histories and #127
-   flows are summarized by counts and digests, not one finding per record.
+   marker readbacks and a compact census receipt. Every named census has one
+   fixed-shape summary containing record/byte counts, its digest, held-finding
+   count, zero blockers and pending-rollback count. No per-record finding,
+   rollback identity or arbitrary status string is permanently receipted.
 6. Compare the streamed SHA-256 of every mounted persistent store with the
    streamed source merged with exactly ten marker keys and that receipt. The
    expected digest is computed **before** migrations/marker writers. A separate
@@ -86,6 +88,9 @@ coherent receipt/done history, or native/imported genesis with neither invented
 receipt nor done height. Source state is admitted only at the exact local and
 on-chain H-1 plan, and the census runs again there. Earlier heights are refused.
 The handler repeats source validation at H because a preflight is not a lock.
+At H, the full state is read three times (census, expected merged image and
+post-image); startup at H-1 adds a fourth pass. Include these reads in the
+stopped-copy wall-time and memory measurements.
 
 ## Census contract and outcomes
 
@@ -125,10 +130,19 @@ alignment and staking history, without imposing a ceiling on those histories.
 Each finding is `held` or `blocker`. `held` means retained without redistribution;
 the reason distinguishes a real execution hold from retained history or a
 prospective input discontinuity. It never establishes an escrow entitlement.
-Decode failures, bad key/identity joins, malformed amounts, iterator errors and
+Decode failures in inspected records, bad key/identity joins, malformed amounts, iterator errors and
 resource exhaustion refuse activation. Present-but-empty markers are faults.
 
-| Census | Held / retained and receipted | Blockers |
+The offline JSON retains per-record findings and the complete status histogram.
+Each finding names its census (marker faults are outside the nine censuses).
+The permanent receipt contains only global height/digest/size and nine compact
+`censuses` summaries. `held_findings` counts findings, including aggregate
+findings, not distinct held records; `pending_rollbacks` is a separate count
+under `halt_reasons`. The offline rollback list appears once, not again in
+findings. This receipt format supersedes the unactivated draft's detailed
+receipt; it is a consensus-changing carrier revision, not a live-state migration.
+
+| Census | Held / retained (details offline, counts/digests receipted) | Blockers |
 |---|---|---|
 | #117 seat runoffs | Original IDs and history remain unchanged | Bad key/ID, duplicate/missing/wrong-seat parents, incomplete child pairs, orphan parents, counter at/below a stored ID or exhausted allocation headroom |
 | #118 reformulations | Pending invalid ballots/top ties; NUL bounty/augmentation IDs and ambiguous indexes held under zc-reformulation-id-delimiter, with counts; pooled escrow unchanged | Decode/identity faults, missing/dangling/foreign or malformed index values; indexes are matched to primary identities, not split on ambiguous NULs |
@@ -136,7 +150,7 @@ resource exhaustion refuse activation. Present-but-empty markers are faults.
 | #120 qualification | Each EXPIRED record with a **positive** retained amount, its amount, module balance and ambiguous payment history; zero/empty amounts are not per-record holds | Invalid amount/key, StakeLockPeriod addition overflow; no historical refund is inferred |
 | #121 challenge backing | Backing total and balance; all records untouched | Any RESOLVED+REJECTED record, inconsistent status/resolution, or balance below pools plus OPEN/EVIDENCE/UNDER_REVIEW refundable stakes |
 | #122/#124 alignment inputs | Bank supply, legacy mint ledger, registry/active stake/count, both staking ratios, all/active domains and full status histogram; every status other than exact `active` is held, including `archived` and arbitrary strings | Malformed inputs; zero active stake AND zero mint ledger AND positive bank supply |
-| #125 halt reasons | Legacy/scoped counts and unknown evidence; each pending rollback's LIP ID, activation block, due-now flag and execute/cancel prediction on current state | Malformed envelopes/metadata or identity/LIP mismatch, not the mere existence of a pending rollback |
+| #125 halt reasons | Legacy/scoped counts and unknown evidence; each pending rollback's LIP ID, activation block, due-now flag and execute/cancel prediction on current state; out-of-window finalized halt payloads retained without decoding | Malformed envelopes/metadata or identity/LIP mismatch; malformed or mismatched halt payloads only inside the inclusive phase-start/current-height window, not the mere existence of a pending rollback |
 | #126 adapter minima | Unsupported required-domain minima retained; new work refused by the selected semantics | Malformed registration/key; fresh-genesis unsupported minima separately fail `tools/genesis-check` |
 | #127 IBC refunds | Count plus digest of legacy flows retained, no quota debit on refund; capacity retained until window reset | Occupied `0x03` generation prefix, malformed generation/flow/rule, pre-carrier charge identity, invalid amounts or overflow-prone window |
 
@@ -205,8 +219,10 @@ Exit 1: invalid arguments, identity mismatch, open/load/close/output fault.
 The chain ID is explicitly an assertion supplied by the operator, not something
 an application DB proves. The expected AppHash is the one committed at the
 supplied height (`last_block_app_hash`), not the pre-state hash in that height's
-block header. Both LastCommitID and the loaded stores' recomputed WorkingHash
-must match. A copy for activation is at most H-1; at/after H its markers block.
+block header. Both LastCommitID and WorkingHash must match. WorkingHash binds
+the loaded per-store roots to the AppHash; it is not a full Merkle
+re-verification of the stored tree or each leaf value read by the census.
+A copy for activation is at most H-1; at/after H its markers block.
 The offline census uses committed height, while the receipt uses H. Do not
 compare their JSON byte-for-byte: height differs, and StartBlock,
 PhaseStartedAtBlock or rollback activation at a boundary can change findings.

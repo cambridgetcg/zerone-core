@@ -56,12 +56,53 @@ type consensusRepairsMarkerReceipt struct {
 	Name    string `json:"name"`
 	Enabled bool   `json:"enabled"`
 }
+
+// Permanent receipts contain one fixed-shape summary per census. Detailed
+// findings, arbitrary status strings and rollback identities stay offline.
+type consensusRepairsCensusSummary struct {
+	ConsensusRepairsSize
+	Digest           string `json:"digest"`
+	HeldFindings     int    `json:"held_findings"`
+	Blockers         int    `json:"blockers"`
+	PendingRollbacks int    `json:"pending_rollbacks"`
+}
+
+type consensusRepairsCensusReceipt struct {
+	Height   int64                                    `json:"height"`
+	Digest   string                                   `json:"digest"`
+	Records  int                                      `json:"records"`
+	Bytes    int                                      `json:"bytes"`
+	Censuses map[string]consensusRepairsCensusSummary `json:"censuses"`
+}
+
+func (report ConsensusRepairsCensus) receipt() (consensusRepairsCensusReceipt, error) {
+	compact := consensusRepairsCensusReceipt{
+		Height: report.Height, Digest: report.Digest, Records: report.Records, Bytes: report.Bytes,
+		Censuses: make(map[string]consensusRepairsCensusSummary, len(consensusRepairsCensusNames)),
+	}
+	for _, name := range consensusRepairsCensusNames {
+		compact.Censuses[name] = consensusRepairsCensusSummary{ConsensusRepairsSize: report.Censuses[name], Digest: report.Digests[name]}
+	}
+	for _, finding := range report.Findings {
+		summary, ok := compact.Censuses[finding.Census]
+		if !ok || finding.Outcome != "held" {
+			return compact, fmt.Errorf("consensus repairs cannot receipt unclassified or blocking finding")
+		}
+		summary.HeldFindings++
+		compact.Censuses[finding.Census] = summary
+	}
+	summary := compact.Censuses["halt_reasons"]
+	summary.PendingRollbacks = len(report.PendingRollbacks)
+	compact.Censuses["halt_reasons"] = summary
+	return compact, nil
+}
+
 type consensusRepairsReceipt struct {
 	Height     int64                           `json:"height"`
 	ChainID    string                          `json:"chain_id"`
 	PlanDigest string                          `json:"plan_digest"`
 	Markers    []consensusRepairsMarkerReceipt `json:"markers"`
-	Census     ConsensusRepairsCensus          `json:"census"`
+	Census     consensusRepairsCensusReceipt   `json:"census"`
 }
 
 func consensusRepairsPlanDigest(plan upgradetypes.Plan) string {
@@ -126,7 +167,11 @@ func (app *ZeroneApp) registerConsensusRepairsUpgrade() {
 		}
 		// Hash the source merged with the eleven expected writes BEFORE any
 		// migrations or marker writers run. No full image is retained at H.
-		receipt := consensusRepairsReceipt{Height: plan.Height, ChainID: ctx.ChainID(), PlanDigest: consensusRepairsPlanDigest(plan), Census: census}
+		compact, err := census.receipt()
+		if err != nil {
+			return nil, err
+		}
+		receipt := consensusRepairsReceipt{Height: plan.Height, ChainID: ctx.ChainID(), PlanDigest: consensusRepairsPlanDigest(plan), Census: compact}
 		markers := app.ConsensusRepairsV1Markers()
 		expectedWrites := make(map[string]map[string][]byte)
 		for i, loc := range consensusRepairsMarkerLocations() {
@@ -134,6 +179,7 @@ func (app *ZeroneApp) registerConsensusRepairsUpgrade() {
 				expectedWrites[loc.store] = make(map[string][]byte)
 			}
 			expectedWrites[loc.store][string(loc.key)] = []byte{1}
+			// These expected true values commit only after every Enable/readback succeeds.
 			receipt.Markers = append(receipt.Markers, consensusRepairsMarkerReceipt{markers[i].Module, markers[i].Name, true})
 		}
 		encoded, err := json.Marshal(receipt)
@@ -265,13 +311,17 @@ func (app *ZeroneApp) validateConsensusRepairsStartupVersions(ctx sdk.Context, v
 		if err != nil || len(digest) != sha256.Size {
 			return fmt.Errorf("consensus repairs invalid census digest")
 		}
-		if len(receipt.Census.Digests) != len(consensusRepairsCensusNames) {
-			return fmt.Errorf("consensus repairs incomplete census digests")
+		if len(receipt.Census.Censuses) != len(consensusRepairsCensusNames) {
+			return fmt.Errorf("consensus repairs incomplete census summaries")
 		}
 		for _, name := range consensusRepairsCensusNames {
-			digest, err := hex.DecodeString(receipt.Census.Digests[name])
+			summary := receipt.Census.Censuses[name]
+			digest, err := hex.DecodeString(summary.Digest)
 			if err != nil || len(digest) != sha256.Size {
 				return fmt.Errorf("consensus repairs invalid %s census digest", name)
+			}
+			if summary.Blockers != 0 || summary.HeldFindings < 0 || summary.PendingRollbacks < 0 || summary.Records < 0 || summary.Bytes < 0 || summary.Records > consensusRepairsMaxRecords || summary.Bytes > consensusRepairsMaxBytes {
+				return fmt.Errorf("consensus repairs invalid %s census counts or blocker", name)
 			}
 		}
 		markers := app.ConsensusRepairsV1Markers()
@@ -281,11 +331,6 @@ func (app *ZeroneApp) validateConsensusRepairsStartupVersions(ctx sdk.Context, v
 		for i, marker := range markers {
 			if receipt.Markers[i] != (consensusRepairsMarkerReceipt{marker.Module, marker.Name, true}) {
 				return fmt.Errorf("consensus repairs marker receipt mismatch")
-			}
-		}
-		for _, finding := range receipt.Census.Findings {
-			if finding.Outcome != "held" {
-				return fmt.Errorf("consensus repairs receipt contains census blocker")
 			}
 		}
 		return nil

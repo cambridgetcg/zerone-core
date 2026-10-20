@@ -9,8 +9,9 @@ contact a node, schedule an upgrade or repair a finding.
 
 The tuple must come from independent evidence: the AppHash committed at that
 height (`last_block_app_hash`), not the pre-state hash in that block's header.
-Both LastCommitID and recomputed WorkingHash must match; stored commit metadata
-alone cannot establish that the loaded stores form that image. Chain ID remains
+Both LastCommitID and WorkingHash must match. WorkingHash binds the loaded
+per-store roots to the AppHash; it is not a full Merkle re-verification of the
+stored tree or each leaf value read by the census. Chain ID remains
 an explicitly labelled operator assertion. Only
 `data/application.db` is opened, with `ReadOnly` and `ErrorIfMissing`. Symlink
 path components and protected default/private home names are refused. The
@@ -41,7 +42,11 @@ consume these budgets. Q1 blocks only zero active stake AND zero mint ledger
 AND positive bank supply. Other valid readings are held, not rejected merely
 because the registry is empty. Reports include both staking ratios, the domain
 status histogram, NUL counts and each pending rollback's current-state forecast.
-Histories and packet flows have count/digest summaries, not per-record receipts.
+The permanent receipt stores one fixed-shape record/byte count and digest
+summary for every census, plus held-finding and pending-rollback counts. Detailed
+findings and the full status histogram stay in this offline JSON; rollback
+forecasts appear once, in `pending_rollbacks`, not again in `findings`.
+Histories and packet flows retain their count/digest summaries.
 Read the full
 [carrier contract and unresolved prerequisites](../../docs/consensus-repairs-v1.md).
 

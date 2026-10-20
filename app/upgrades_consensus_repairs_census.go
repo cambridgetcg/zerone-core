@@ -31,6 +31,7 @@ import (
 var consensusRepairsCensusNames = []string{"seat_runoffs", "reformulations", "verification_histories", "qualification_escrow", "challenge_backing", "alignment_inputs", "halt_reasons", "adapter_minima", "ibc_refunds"}
 
 type ConsensusRepairsFinding struct {
+	Census  string `json:"census,omitempty"`
 	Module  string `json:"module"`
 	Key     string `json:"key_hex"`
 	Outcome string `json:"outcome"`
@@ -98,8 +99,9 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 		return report, err
 	}
 
+	censusName := "" // Marker faults are outside the nine named censuses.
 	add := func(module, key, outcome, reason string) {
-		report.Findings = append(report.Findings, ConsensusRepairsFinding{module, hex.EncodeToString([]byte(key)), outcome, reason})
+		report.Findings = append(report.Findings, ConsensusRepairsFinding{censusName, module, hex.EncodeToString([]byte(key)), outcome, reason})
 	}
 	scan := func(module string, prefix byte, inspect func(string, []byte) error) {
 		keys := make([]string, 0)
@@ -142,6 +144,7 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 	}
 
 	// #117: retain original IDs and check historical parent/child relationships.
+	censusName = "seat_runoffs"
 	seats := make(map[uint64]*gov.SeatElectionProposal)
 	var maxID uint64
 	scan("zerone_gov", 0x10, func(key string, value []byte) error {
@@ -223,6 +226,7 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 	}
 
 	// #118: bounded equivalent of CensusReformulationHolds, including index completeness.
+	censusName = "reformulations"
 	params := knowledge.DefaultParams()
 	if value, ok := rows["knowledge"][string(knowledge.ParamsKey)]; ok {
 		if e := proto.Unmarshal(value, &params); e != nil {
@@ -284,6 +288,7 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 		return nil
 	})
 	add("knowledge", "", "held", fmt.Sprintf("NUL IDs retained: bounties=%d augmentations_or_bounty_references=%d", nulBounties, nulAugmentations))
+	censusName = "verification_histories"
 	histories := 0
 	scan("capture_defense", 0x05, func(key string, value []byte) error {
 		var p cd.VerificationHistoryEntry
@@ -302,6 +307,7 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 		return nil
 	})
 	add("capture_defense", "", "held", fmt.Sprintf("histories retained; integer variance prospective; histories_with_multiple_samples=%d digest=%s", histories, report.Digests["verification_histories"]))
+	censusName = "qualification_escrow"
 	qparams := qualification.DefaultParams()
 	if value, ok := rows["qualification"][string(qualification.ParamsKey)]; ok {
 		if e := proto.Unmarshal(value, qparams); e != nil {
@@ -336,6 +342,7 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 	qbalance := app.BankKeeper.GetBalance(ctx, authtypes.NewModuleAddress("qualification"), "uzrn").Amount.String()
 	add("qualification", "", "held", "escrow balance="+qbalance+"; EXPIRED retained amounts="+expired.String()+"; neither proves unpaid entitlement")
 
+	censusName = "challenge_backing"
 	required := new(big.Int)
 	scan("capture_challenge", 0x02, func(key string, value []byte) error {
 		var p cc.DomainBountyPool
@@ -391,6 +398,7 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 	}
 
 	// #122/#124: preserve raw inputs and surface the denominator/count discontinuity.
+	censusName = "alignment_inputs"
 	registry, active, domains, activeDomains := 0, 0, 0, 0
 	report.DomainStatuses = make(map[string]int)
 	stake := new(big.Int)
@@ -449,6 +457,7 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 		add("alignment", "", "blocker", "Q1 not-observed/neutral pacing is absent: zero active stake and mint ledger with positive bank supply changes neutral to zero")
 	}
 
+	censusName = "halt_reasons"
 	phase := *gov.DefaultResearchFundGovernanceState()
 	if value, present := rows["zerone_gov"]["\x0d"]; present {
 		if err := json.Unmarshal(value, &phase); err != nil {
@@ -470,15 +479,16 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 		}
 		if p.Type == string(emergency.CeremonyHalt) && p.Phase == string(emergency.PhaseFinalized) {
 			legacyHalts++
-			var halt emergency.EmergencyHaltProposal
-			if e := proto.Unmarshal(p.ProposalData, &halt); e != nil {
-				return e
-			}
-			if halt.Id != p.Id {
-				return fmt.Errorf("halt proposal/ceremony ID mismatch")
-			}
 			reason := "out-of-window finalized halt retained; not current gate evidence"
 			if p.StartBlock >= phase.PhaseStartedAtBlock && p.StartBlock <= uint64(ctx.BlockHeight()) {
+				// Match CountResearchFundHalts: old/future payloads are not evidence.
+				var halt emergency.EmergencyHaltProposal
+				if e := proto.Unmarshal(p.ProposalData, &halt); e != nil {
+					return e
+				}
+				if halt.Id != p.Id {
+					return fmt.Errorf("halt proposal/ceremony ID mismatch")
+				}
 				if halt.Reason == emergency.HaltReasonResearchFund {
 					scopedHalts++
 					reason = "scoped research_fund halt retained"
@@ -546,7 +556,6 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 				}
 			}
 			report.PendingRollbacks = append(report.PendingRollbacks, ConsensusRepairsRollback{p.LipID, p.ActivationBlock, p.ActivationBlock != 0 && p.ActivationBlock <= uint64(ctx.BlockHeight()), outcome, reason})
-			add("zerone_gov", key, "held", fmt.Sprintf("pending legacy rollback lip_id=%q activation_block=%d outcome_on_current_state=%s: %s; revalidated at activation, no historical admission inferred", p.LipID, p.ActivationBlock, outcome, reason))
 		}
 		return nil
 	})
@@ -555,6 +564,7 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 		forwardCount++
 	}
 	add("emergency", "", "held", fmt.Sprintf("halt history retained: legacy_count=%d scoped_valid=%d unknown=%t conservative_forward_count=%d since_block=%d; pending rollback admission is not reconstructible", legacyHalts, scopedHalts, unknownHalt, forwardCount, phase.PhaseStartedAtBlock))
+	censusName = "adapter_minima"
 	scan("substrate_bridge", 0x84, func(key string, value []byte) error {
 		var p bridge.AdapterRegistration
 		if e := proto.Unmarshal(value, &p); e != nil {
@@ -572,6 +582,7 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 		}
 		return nil
 	})
+	censusName = "ibc_refunds"
 	scan("zerone_ibcrl", 0x01, func(key string, value []byte) error {
 		var p ibcrl.RateLimit
 		if e := json.Unmarshal(value, &p); e != nil {

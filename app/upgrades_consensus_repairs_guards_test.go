@@ -17,9 +17,13 @@ import (
 )
 
 func TestConsensusRepairsLaterFailureDiscardsEnabledMarkers(t *testing.T) {
-	for _, fault := range []string{"fourth marker faults", "unexpected migration write"} {
+	for _, fault := range []string{"fourth marker faults", "unexpected migration write", "capture_challenge insert", "bank insert", "existing row delete", "same-length rewrite"} {
 		t.Run(fault, func(t *testing.T) {
 			app, ctx, _ := consensusRepairsFixture(t)
+			// A non-marker, unselected row pins deletion and byte replacement,
+			// independently of the separate knowledge 0x87 digest.
+			existingKey := []byte("\xffpostcondition-existing")
+			ctx.KVStore(app.keys["capture_challenge"]).Set(existingKey, []byte{1, 2})
 			// Isolated configurator fault injection. All real production migrations
 			// are guarded no-ops; simulate an accidental future side effect/error.
 			cfg := module.NewConfigurator(app.appCodec, app.MsgServiceRouter(), app.GRPCQueryRouter())
@@ -30,10 +34,25 @@ func TestConsensusRepairsLaterFailureDiscardsEnabledMarkers(t *testing.T) {
 						return err
 					}
 					if name == "alignment" {
-						if fault == "fourth marker faults" {
+						switch fault {
+						case "fourth marker faults":
 							cache.KVStore(app.keys["qualification"]).Set([]byte{0x40}, []byte{2})
-						} else {
+						case "unexpected migration write":
 							cache.KVStore(app.keys["knowledge"]).Set([]byte{0x87}, []byte{2})
+						case "capture_challenge insert":
+							key := []byte("\xffunexpected-insert")
+							require.False(t, cache.KVStore(app.keys["capture_challenge"]).Has(key))
+							cache.KVStore(app.keys["capture_challenge"]).Set(key, []byte{3})
+						case "bank insert":
+							key := []byte("\xffunexpected-insert")
+							require.False(t, cache.KVStore(app.keys["bank"]).Has(key))
+							cache.KVStore(app.keys["bank"]).Set(key, []byte{3})
+						case "existing row delete":
+							require.True(t, cache.KVStore(app.keys["capture_challenge"]).Has(existingKey))
+							cache.KVStore(app.keys["capture_challenge"]).Delete(existingKey)
+						case "same-length rewrite":
+							require.Len(t, cache.KVStore(app.keys["capture_challenge"]).Get(existingKey), 2)
+							cache.KVStore(app.keys["capture_challenge"]).Set(existingKey, []byte{3, 4})
 						}
 					}
 					return nil
@@ -113,7 +132,7 @@ func TestConsensusRepairsRejectsWrongSourcePlanAndHistory(t *testing.T) {
 }
 
 func TestConsensusRepairsReceiptFaultsRefuseRestart(t *testing.T) {
-	for _, scenario := range []string{"missing receipt", "missing done", "wrong height", "false marker readback", "missing readback", "census blocker", "invalid digest", "wrong chain"} {
+	for _, scenario := range []string{"missing receipt", "missing done", "wrong height", "false marker readback", "missing readback", "census blocker", "missing census", "invalid census digest", "negative census count", "invalid digest", "wrong chain"} {
 		t.Run(scenario, func(t *testing.T) {
 			app, ctx, _ := consensusRepairsFixture(t)
 			latest := app.CommitMultiStore().Commit().Version
@@ -138,7 +157,19 @@ func TestConsensusRepairsReceiptFaultsRefuseRestart(t *testing.T) {
 			case "missing readback":
 				receipt.Markers = receipt.Markers[:9]
 			case "census blocker":
-				receipt.Census.Findings[0].Outcome = "blocker"
+				summary := receipt.Census.Censuses["reformulations"]
+				summary.Blockers = 1
+				receipt.Census.Censuses["reformulations"] = summary
+			case "missing census":
+				delete(receipt.Census.Censuses, "seat_runoffs")
+			case "invalid census digest":
+				summary := receipt.Census.Censuses["seat_runoffs"]
+				summary.Digest = "not-a-digest"
+				receipt.Census.Censuses["seat_runoffs"] = summary
+			case "negative census count":
+				summary := receipt.Census.Censuses["seat_runoffs"]
+				summary.Records = -1
+				receipt.Census.Censuses["seat_runoffs"] = summary
 			case "invalid digest":
 				receipt.Census.Digest = "not-a-digest"
 			case "wrong chain":

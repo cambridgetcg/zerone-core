@@ -339,6 +339,11 @@ func TestConsensusRepairsLargeUnselectedStateActivates(t *testing.T) {
 	for i := 0; i < 10_000; i++ {
 		ctx.KVStore(app.keys["staking"]).Set(binary.BigEndian.AppendUint64([]byte{0x50}, uint64(i)), []byte("synthetic historical info"))
 	}
+	var scanReport ConsensusRepairsCensus
+	rows, err := app.consensusRepairsCensusRows(ctx, &scanReport)
+	require.NoError(t, err)
+	require.Empty(t, rows["alignment"], "unselected alignment history must never be retained")
+	require.Empty(t, rows["staking"], "unselected SDK staking history must never be retained")
 	report, err := app.CensusConsensusRepairsV1(ctx)
 	require.NoError(t, err)
 	require.Greater(t, report.Records, consensusRepairsMaxRecords)
