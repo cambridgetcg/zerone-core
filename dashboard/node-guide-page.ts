@@ -54,9 +54,9 @@ export function nodeGuidePage(profile: NodeGuideProfile): string {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#09090c" />
-  <meta name="description" content="Build and run a Zerone node on your computer, see the closed beta for invited Macs on our home network, read the existing network, and find a way to contribute." />
+  <meta name="description" content="Build and run a Zerone node on your computer, see the closed beta on our own Macs and its roadmap, read the existing network, and find a way to contribute." />
   <meta property="og:title" content="Run a node — Zerone" />
-  <meta property="og:description" content="Your own local node. A closed beta for invited Macs on our home network. A clear view of the live network. A place to build." />
+  <meta property="og:description" content="Your own local node. A closed beta on our own Macs, with a roadmap to everyone. A clear view of the live network. A place to build." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="${escape(profile.documentation.humanGuide)}" />
   <link rel="canonical" href="${escape(profile.documentation.humanGuide)}" />
@@ -78,7 +78,7 @@ export function nodeGuidePage(profile: NodeGuideProfile): string {
       <div class="hero-copy">
         <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> Local sandbox · closed beta</p>
         <h1 id="guide-title">Run your own<br /><em>node.</em></h1>
-        <p class="lede">Build a local chain on your computer and watch it produce blocks. On ${escape(beta.evidence.date)}, two Macs on one home network ran one chain together; invited Macs on our home network can now run a private chain in the closed beta. Check what each network is before you start.</p>
+        <p class="lede">Build a local chain on your computer and watch it produce blocks. On ${escape(beta.evidence.date)}, two Macs on one home network ran one chain together; in the closed beta, our own Macs can now run a private chain, with a roadmap for opening it to others. Check what each network is before you start.</p>
         <div class="hero-actions"><a class="button button-acid" href="#local">Set up a local node <span aria-hidden="true">↓</span></a><a class="text-link" href="#beta">See the closed beta <span aria-hidden="true">↓</span></a></div>
         <p class="terminal-note">New to the project? <a href="/understand/">Understand Zerone</a>: its purpose, one contribution, and how knowledge, money and control fit together.</p>
       </div>
@@ -86,7 +86,7 @@ export function nodeGuidePage(profile: NodeGuideProfile): string {
         <div class="scope-row"><span class="scope-label">On your computer</span><strong>${escape(local.chainId)}</strong><p>A fresh local chain with disposable keys and test funds. You control the process and its files.</p></div>
         <div class="scope-row scope-row-live"><span class="scope-label">Existing public network</span><strong>${escape(live.chainId)}</strong><p>${observer ? "Read public records. Validator joining remains closed." : "Public records are available to read. A supported live replica installation and validator joining are not open."}</p></div>
         <div class="scope-row"><span class="scope-label">Separate shared development</span><strong>${escape(development.chainId)}</strong><p>${escape(development.status)}</p><a href="#development">Read the development lane ↓</a></div>
-        <div class="scope-row"><span class="scope-label">Closed beta · our home network</span><strong>${escape(beta.chainIdPattern)}</strong><p>Invited Apple silicon Macs on our home network run a valueless chain together.</p><a href="#beta">Read the closed beta ↓</a></div><p class="scope-footnote">These are separate networks. The local sandbox does not connect to zerone-1, and a closed-beta chain connects only its invited Macs.</p>
+        <div class="scope-row"><span class="scope-label">Closed beta · our own Macs</span><strong>${escape(beta.chainIdPattern)}</strong><p>For now, only our own Apple silicon Macs on our home network can run a valueless chain together.</p><a href="#beta">Read the closed beta ↓</a></div><p class="scope-footnote">These are separate networks. The local sandbox does not connect to zerone-1, and a closed-beta chain connects only its invited Macs.</p>
       </aside>
     </section>
 
@@ -105,11 +105,11 @@ export function nodeGuidePage(profile: NodeGuideProfile): string {
 
     <section class="guide-section" id="beta" aria-labelledby="beta-title">
       <div class="section-intro"><div><p class="eyebrow">Closed beta · by invitation</p><h2 id="beta-title">Run a node<br /><em>with other Macs.</em></h2></div><div class="section-intro-copy"><p>${escape(beta.summary)}</p><dl class="beta-terms">${beta.terms.map((item) => `<div><dt>${escape(item.term)}</dt><dd>${escape(item.text)}</dd></div>`).join("")}</dl></div></div>
-      <div class="live-grid"><article><p class="card-label">Who can join</p><h3>Invited Macs<br />on our home network</h3><p>${escape(beta.whoCanJoin)}</p>${betaChecks}</article><article class="live-availability"><p class="card-label">First LAN run · ${escape(beta.evidence.date)} · ${escape(beta.evidence.chainId)}</p><h3>Two Macs,<br />one chain</h3><p>${escape(beta.evidence.summary)}</p>${betaList(beta.evidence.limits)}<p>Automated tests also cover:</p>${betaList(beta.evidence.rehearsal)}<div class="related-links"><a href="${escape(beta.evidence.record)}">Run record (repository access) ↗</a></div></article></div>
+      <div class="live-grid"><article><p class="card-label">Who can join</p><h3>Our own Macs,<br />for now</h3><p>${escape(beta.whoCanJoin)}</p>${betaChecks}</article><article class="live-availability"><p class="card-label">First LAN run · ${escape(beta.evidence.date)} · ${escape(beta.evidence.chainId)}</p><h3>Two Macs,<br />one chain</h3><p>${escape(beta.evidence.summary)}</p>${betaList(beta.evidence.limits)}<p>Automated tests also cover:</p>${betaList(beta.evidence.rehearsal)}<div class="related-links"><a href="${escape(beta.evidence.record)}">Run record (repository access) ↗</a></div></article></div>
       <div class="prerequisites beta-needs"><h3>What a seat needs</h3><ul>${beta.requirements.map((item) => `<li>${escape(item)}</li>`).join("")}</ul></div>
       <h3 class="beta-heading">How a Mac joins</h3>
       <ol class="beta-flow">${betaFlow}</ol>
-      <p class="terminal-note">${escape(beta.howToAsk)} Not on our home network? You can still <a href="#local">run a local node</a>, <a href="#live">read zerone-1</a>, and follow the roadmap below.</p>
+      <p class="terminal-note">${escape(beta.howToAsk)} Not one of our Macs? You can still <a href="#local">run a local node</a>, <a href="#live">read zerone-1</a>, and follow the roadmap below.</p>
       <div class="roadmap" id="roadmap"><h3 class="beta-heading">From closed beta to everyone</h3><ol class="roadmap-stages">${roadmap}</ol><p class="census-note">${escape(beta.roadmapNote)}</p></div>
     </section>
 

@@ -78,27 +78,28 @@ export function buildNodeGuideProfile({
       availability: "closed-beta",
       admission: "invitation-only",
       networkScope: "private-addresses-by-invitation",
+      seatOwnership: "our-own-macs-only",
       chainIdPattern: "zerone-rehearsal-lan-*",
       valueless: true,
       bridged: false,
       signUp: false,
       publishesJoinCoordinates: false,
-      summary: "A fresh, valueless Zerone chain whose validators are invited Macs on our home network. Each Mac makes its own keys, and they never leave it. A chain can be thrown away and started again under a new chain id.",
-      whoCanJoin: "Apple silicon Macs on our home network, each invited by the operator before the chain starts.",
+      summary: "A fresh, valueless Zerone chain whose validators are our own Macs on our home network. Each Mac makes its own keys, and they never leave it. A chain can be thrown away and started again under a new chain id.",
+      whoCanJoin: "For now, only our own Apple silicon Macs on our home network, each invited by the operator before the chain starts. Other people's Macs cannot join yet; they are a later stage of the roadmap.",
       terms: [
         { term: "Seat", text: "One Mac running one node, with keys made on that Mac." },
         { term: "Coordinator", text: "The seat that writes the invitations and builds the genesis." },
         { term: "Genesis", text: "The chain's first record: its settings, its validators and their stakes." },
       ],
-      howToAsk: "There is no sign-up form. Seats are given by invitation from the operator, and no genesis, peer address, invitation or kit is published here.",
+      howToAsk: "There is no sign-up form. For now the operator invites only our own Macs, and no genesis, peer address, invitation or kit is published here.",
       admissionChecks: [
         { id: "invited", title: "Invited seats only", text: "The genesis is built only from seat packets whose label, role and stake match an invitation the operator issued." },
-        { id: "private-addresses", title: "Private addresses only", text: "Every seat address must be a private address (10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16), so seats reach each other only inside a private network. The check cannot tell one home network from another: the invitations decide which Macs are seats." },
+        { id: "private-addresses", title: "Private addresses only", text: "Every seat address must be a private address (10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16), so seats reach each other only inside a private network. The check cannot tell one home network from another, or our Macs from anyone else's: the invitations decide which Macs are seats, and for now they go only to our own." },
         { id: "seats-only", title: "Seats only, at the door", text: "Each node accepts inbound connections only from the other seats' node keys, which CometBFT checks in its authenticated handshake. A node that holds the genesis but no seat is turned away." },
         { id: "fixed-at-genesis", title: "Fixed at genesis", text: "The seat list cannot change later. Adding a Mac means a new chain and a new round of invitations." },
       ],
       requirements: [
-        "An Apple silicon Mac on our home network, with Python 3.9 or newer; the macOS Command Line Tools python works.",
+        "One of our own Apple silicon Macs on our home network, with Python 3.9 or newer; the macOS Command Line Tools python works.",
         "A fixed address on that network: a DHCP reservation, with Private Wi-Fi Address set to Fixed or Off. A changed address needs a new chain.",
         "A validator Mac stays awake and on the network while the chain runs; with two validators, neither may be away. A laptop is better as a full seat, which follows the chain without voting.",
         "About 20 GiB of free disk, TCP port 36656 on the Mac's network address, and 36657 on loopback.",
@@ -140,14 +141,17 @@ export function buildNodeGuideProfile({
       roadmap: [
         { id: "rehearsed", status: "done", title: "Rehearsed on one machine", text: "Four validators and a full seat, each with its own keys, run the protocol on loopback in automated tests.", gates: [] },
         { id: "two-macs", status: "done", title: "First run across two Macs", text: "On 2026-10-17, two validators on one home network agreed at every height compared and carried a transfer.", gates: [] },
-        { id: "closed-beta", status: "now", title: "Closed beta on our home network", text: "Invited Apple silicon Macs on our home network, admitted at the door by node key. Each group runs its own new, valueless chain.", gates: [
+        { id: "closed-beta", status: "now", title: "Closed beta on our own Macs", text: "Only our own Apple silicon Macs on our home network, each invited and admitted at the door by node key. Each run starts its own new, valueless chain.", gates: [
           "A run of the current kit and tool across three or more Macs, kept up for a day, with one seat restarted and every compare output kept.",
           "The firewall signing fix confirmed on a second Mac.",
         ] },
-        { id: "invited-beyond", status: "planned", title: "Invited Macs beyond our home network", text: "Seats outside the home network, still by invitation.", gates: [
-          "An overlay network path proven between two Macs.",
+        { id: "others-at-home", status: "planned", title: "Other people's Macs on our home network", text: "Macs that are not ours join as seats, still by invitation and still on our home network.", gates: [
           "Signed invitations and kits, so a seat can check who issued them.",
           "Each seat under its own macOS user, so other software on that Mac cannot read its keys.",
+          "A plain note for each invited person: what the seat runs on their Mac, what it shares on the network, and how to remove it.",
+        ] },
+        { id: "invited-beyond", status: "planned", title: "Invited Macs beyond our home network", text: "Seats outside our home network, still by invitation.", gates: [
+          "An overlay network path proven between two Macs.",
           "A way to carry files that does not need the operator beside every Mac.",
         ] },
         { id: "more-devices", status: "planned", title: "More kinds of devices", text: "Seats on Linux computers and Intel Macs, not only Apple silicon.", gates: [
@@ -162,7 +166,7 @@ export function buildNodeGuideProfile({
           "A separate, signed decision to open that network.",
         ] },
       ],
-      roadmapNote: "No dates: a stage opens when its gates are met. This closed beta does not open zerone-1 validator joining, the shared development chain's validator seat, or any successor network.",
+      roadmapNote: "No dates: a stage opens when its own gates and those of every earlier stage are met. This closed beta does not open zerone-1 validator joining, the shared development chain's validator seat, or any successor network.",
     },
     local: {
       id: "local-sandbox",
