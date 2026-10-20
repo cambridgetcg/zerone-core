@@ -153,7 +153,9 @@ describe("closed-beta private network lane", () => {
     assert.equal(beta.valueless, true);
     assert.equal(beta.bridged, false);
     assert.equal(beta.chainIdPattern, "zerone-rehearsal-lan-*");
-    assert.deepEqual(beta.admissionChecks.map((check) => check.id), ["invited", "own-network", "seats-only", "fixed-at-genesis"]);
+    assert.deepEqual(beta.admissionChecks.map((check) => check.id), ["invited", "private-addresses", "seats-only", "fixed-at-genesis"]);
+    assert.equal(guide.source.repositoryAccess, "restricted");
+    assert.match(guide.source.accessNote, /private/u);
     const text = JSON.stringify({ ...beta, evidence: { ...beta.evidence, record: "" } });
     // Address ranges may be named; no host address, endpoint, node id, genesis hash or key may appear.
     for (const match of text.matchAll(/\b\d{1,3}(?:\.\d{1,3}){3}\b(?!\/\d)/gu)) assert.fail(`host address ${match[0]} in the beta lane`);
@@ -173,13 +175,29 @@ describe("closed-beta private network lane", () => {
     assert.match(limits, /no claim of decentralisation/u);
     assert.match(limits, /only in automated tests/u);
     assert.doesNotMatch(JSON.stringify(evidence), /decentrali[sz]ed\b|production-ready|guarantee/u);
+    assert.equal(evidence.matchesPinnedTool, false);
+  });
+
+  it("cites only figures that its linked run record states", () => {
+    const evidence = buildNodeGuideProfile(inputs).privateNetwork.evidence;
+    const record = readFileSync(resolve(repositoryRoot, "skills/run-a-private-zerone-net/references/protocol.md"), "utf8");
+    // Each phrase the page shows, beside the phrase in the run record that backs it.
+    for (const [shown, recorded] of [
+      [`${evidence.blocks} blocks`, `height ${evidence.blocks}`], [`${evidence.averageBlockSeconds} seconds`, `${evidence.averageBlockSeconds} s`],
+      ["all 21 heights", "all 21 shared heights"], ["half of them", "223 each"], ["1,000 test ZRN", "1,000 ZRN each"],
+    ] as const) {
+      assert.ok(evidence.summary.includes(shown), `summary lacks ${shown}`);
+      assert.ok(record.includes(recorded), `run record lacks ${recorded}`);
+    }
   });
 
   it("orders the roadmap from what is done to what is planned, each later stage with its gates and no date", () => {
     const { roadmap, roadmapNote } = buildNodeGuideProfile(inputs).privateNetwork;
-    const statuses = roadmap.map((stage) => stage.status);
-    assert.deepEqual([...new Set(statuses)], ["done", "now", "planned"]);
-    assert.equal(statuses.filter((status) => status === "now").length, 1);
+    const rank = { done: 0, now: 1, planned: 2 } as const;
+    const ranks = roadmap.map((stage) => rank[stage.status]);
+    assert.ok(ranks.every((value, index) => index === 0 || value >= ranks[index - 1]!), "stages out of order");
+    assert.deepEqual([...new Set(ranks)], [0, 1, 2]);
+    assert.equal(ranks.filter((value) => value === 1).length, 1);
     assert.equal(roadmap.at(-1)!.id, "open");
     for (const stage of roadmap.filter((item) => item.status !== "done")) {
       assert.ok(stage.gates.length > 0, `${stage.id} has no gates`);

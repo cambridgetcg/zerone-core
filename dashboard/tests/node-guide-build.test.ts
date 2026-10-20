@@ -48,6 +48,9 @@ it("publishes committed helper bytes and refuses missing or modified install ins
     mkdirSync(join(root, "scripts"));
     const helper = "# A local test fixture, never a runnable installer.\n";
     writeFileSync(join(root, "scripts/local-node.py"), helper);
+    git("add", ".");
+    git("-c", "user.name=Guide test", "-c", "user.email=guide@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "Helper only");
+    assert.throws(() => loadNodeGuideProfile(root), /run-a-private-zerone-net\/scripts\/private-net\.py committed at HEAD/);
     developmentSources(root);
     git("add", ".");
     git("-c", "user.name=Guide test", "-c", "user.email=guide@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "Helper fixture");
