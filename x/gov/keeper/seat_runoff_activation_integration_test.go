@@ -1,7 +1,9 @@
 package keeper_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -10,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/zerone-chain/zerone/internal/activation"
 	"github.com/zerone-chain/zerone/x/gov/types"
 )
 
@@ -133,21 +136,90 @@ func TestSeatRunoffMarkerOffRetainsLegacyOutcomeSet(t *testing.T) {
 	require.Equal(t, legacy, gated, "off must preserve old raw bytes, event order and gas for both allocations")
 }
 
-func TestSeatRunoffMalformedMarkerFailsClosed(t *testing.T) {
-	for _, bad := range [][]byte{{0}, {2}, {1, 1}, {0xff}} {
-		t.Run(fmt.Sprintf("%x", bad), func(t *testing.T) {
-			f := newSeatRunoffReplayFixture(t, []uint32{1, 0}, false)
+// Observe the real SDK store adapter without replacing marker reads or tally
+// behavior. Count writes as well as final bytes so write-then-restore cannot pass.
+type seatRunoffStoreTrace struct {
+	storetypes.MultiStore
+	markerReads int
+	writes      int
+}
+
+func (s *seatRunoffStoreTrace) GetKVStore(key storetypes.StoreKey) storetypes.KVStore {
+	return seatRunoffKVTrace{KVStore: s.MultiStore.GetKVStore(key), trace: s}
+}
+
+type seatRunoffKVTrace struct {
+	storetypes.KVStore
+	trace *seatRunoffStoreTrace
+}
+
+func (s seatRunoffKVTrace) Get(key []byte) []byte {
+	if bytes.Equal(key, types.SeatRunoffOrderingEnabledKey) {
+		s.trace.markerReads++
+	}
+	return s.KVStore.Get(key)
+}
+
+func (s seatRunoffKVTrace) Set(key, value []byte) {
+	s.trace.writes++
+	s.KVStore.Set(key, value)
+}
+
+func (s seatRunoffKVTrace) Delete(key []byte) {
+	s.trace.writes++
+	s.KVStore.Delete(key)
+}
+
+func TestSeatRunoffTallyReadsMarkerOnce(t *testing.T) {
+	for _, ordered := range []bool{false, true} {
+		t.Run(fmt.Sprintf("ordered=%t", ordered), func(t *testing.T) {
+			f := newSeatRunoffReplayFixture(t, []uint32{2, 0, 1}, ordered)
 			ctx := f.replayContext()
-			ctx.KVStore(f.key).Set(types.SeatRunoffOrderingEnabledKey, bad)
-			before := seatRunoffStoreBytes(t, ctx, f.key)
-			metered := ctx.WithGasMeter(storetypes.NewGasMeter(1))
-			require.PanicsWithError(t, "malformed seat-runoff ordering marker", func() { f.keeper.TallySeatElections(metered) })
-			require.Zero(t, metered.GasMeter().GasConsumed())
-			require.Equal(t, before, seatRunoffStoreBytes(t, ctx, f.key))
-			require.Empty(t, ctx.EventManager().Events())
-			require.PanicsWithError(t, "malformed seat-runoff ordering marker", func() { _ = f.module.BeginBlock(ctx) })
-			require.Equal(t, before, seatRunoffStoreBytes(t, ctx, f.key))
+			trace := &seatRunoffStoreTrace{MultiStore: ctx.MultiStore()}
+			f.keeper.TallySeatElections(ctx.WithMultiStore(trace))
+			require.Equal(t, 1, trace.markerReads, "one selector read, not one per seat")
+			require.Positive(t, trace.writes, "the trace must observe real tally writes")
 		})
+	}
+}
+
+func TestSeatRunoffMalformedMarkerFailsClosed(t *testing.T) {
+	for _, bad := range [][]byte{{}, {0}, {2}, {1, 1}, {0xff}} {
+		for _, entry := range []string{"tally", "begin_block"} {
+			t.Run(fmt.Sprintf("%x/%s", bad, entry), func(t *testing.T) {
+				f := newSeatRunoffReplayFixture(t, []uint32{1, 0}, false)
+				ctx := f.replayContext()
+				ctx.KVStore(f.key).Set(types.SeatRunoffOrderingEnabledKey, bad)
+				before := seatRunoffStoreBytes(t, ctx, f.key)
+				trace := &seatRunoffStoreTrace{MultiStore: ctx.MultiStore()}
+				ctx = ctx.WithMultiStore(trace)
+				if entry == "tally" {
+					ctx = ctx.WithGasMeter(storetypes.NewGasMeter(1))
+				}
+				var recovered any
+				func() {
+					defer func() { recovered = recover() }()
+					if entry == "tally" {
+						f.keeper.TallySeatElections(ctx)
+					} else {
+						// This fixture has no earlier block transitions. The pinned
+						// hook may write before the tally in other governance states.
+						_ = f.module.BeginBlock(ctx)
+					}
+				}()
+				fault, ok := recovered.(error)
+				require.Truef(t, ok, "panic must carry an error, got %T: %v", recovered, recovered)
+				require.True(t, errors.Is(fault, activation.ErrMarkerFault), "panic must retain the marker-fault sentinel")
+				require.EqualError(t, fault, "malformed seat-runoff ordering marker")
+				require.Equal(t, 1, trace.markerReads)
+				require.Zero(t, trace.writes, "a marker fault must precede all tally writes")
+				if entry == "tally" {
+					require.Zero(t, ctx.GasMeter().GasConsumed())
+				}
+				require.Equal(t, before, seatRunoffStoreBytes(t, ctx.WithGasMeter(storetypes.NewInfiniteGasMeter()), f.key))
+				require.Empty(t, ctx.EventManager().Events())
+			})
+		}
 	}
 }
 

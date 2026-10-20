@@ -253,8 +253,9 @@ func (k Keeper) VoteSeatElection(ctx sdk.Context, msg *types.MsgVoteSeatElection
 func (k Keeper) TallySeatElections(ctx sdk.Context) {
 	ordered, err := k.SeatRunoffOrderingEnabled(ctx)
 	if err != nil {
-		// This void block hook cannot return an error. Never interpret a corrupt
-		// activation marker as permission to execute either consensus rule.
+		// The void caller in abci.go is authority-pinned. Under activation
+		// convention (2b), halt before tally writes with the reader's error,
+		// preserving its activation.ErrMarkerFault identity (not a string).
 		panic(err)
 	}
 	currentHeight := uint64(ctx.BlockHeight())
@@ -287,11 +288,11 @@ func (k Keeper) TallySeatElections(ctx sdk.Context) {
 			if quorumMet && passed {
 				prop.Stage = types.SeatStagePassed
 				k.SetSeatElection(ctx, prop)
-				if err := k.InstallCommunitySeat(ctx, prop.SeatIndex, prop.Candidate, currentHeight); err != nil {
+				if installErr := k.InstallCommunitySeat(ctx, prop.SeatIndex, prop.Candidate, currentHeight); installErr != nil {
 					k.Logger(ctx).Error("failed to install community seat",
 						"proposal_id", prop.ProposalId,
 						"candidate", prop.Candidate,
-						"error", err,
+						"error", installErr,
 					)
 				}
 			} else {
