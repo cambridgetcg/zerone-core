@@ -11,6 +11,12 @@ export interface GenesisState {
     qualifications: DomainQualification[];
     endorsements: QualificationEndorsement[];
     nextEndorsementId: bigint;
+    /**
+     * Single-refund marker (zerone-core #120). Native genesis sets it; a
+     * file without the field imports as off. In place, only the named carrier
+     * upgrade consensus-repairs-v1 sets it.
+     */
+    singleRefundEnabled: boolean;
 }
 /**
  * @name Params
