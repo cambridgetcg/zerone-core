@@ -157,7 +157,7 @@ func TestReformulationGasIndependentOfUnrelatedAugmentations(t *testing.T) {
 
 func TestReformulationMarkerFaultsPropagateBeforeWrites(t *testing.T) {
 	for _, malformed := range []bool{false, true} {
-		for _, operation := range []string{"vote", "veto", "begin-block", "expiry", "prune"} {
+		for _, operation := range []string{"create-bounty", "submit", "vote", "veto", "begin-block", "expiry", "prune"} {
 			t.Run(fmt.Sprintf("malformed=%t/%s", malformed, operation), func(t *testing.T) {
 				probe := &reformulationReadProbe{}
 				k, ctx, _, _ := newKnowledgeOrderFixtureWithStore(t, func(s corestore.KVStoreService) corestore.KVStoreService { return reformulationProbeService{s, probe} })
@@ -168,6 +168,10 @@ func TestReformulationMarkerFaultsPropagateBeforeWrites(t *testing.T) {
 				}
 				var err error
 				switch operation {
+				case "create-bounty":
+					_, err = keeper.NewMsgServerImpl(k).CreateAugmentationBounty(ctx, nil)
+				case "submit":
+					_, err = keeper.NewMsgServerImpl(k).SubmitAugmentation(ctx, nil)
 				case "vote":
 					_, err = keeper.NewMsgServerImpl(k).VoteOnAugmentation(ctx, nil)
 				case "veto":
@@ -228,7 +232,9 @@ func TestReformulationHoldEventsOnlyOnTransitions(t *testing.T) {
 }
 
 func TestReformulationIndexFailsClosed(t *testing.T) {
-	for _, corruption := range []string{"missing-record", "bad-record", "wrong-bounty", "wrong-id", "bad-index"} {
+	// Readable foreign records are deliberately skipped (delimiter isolation
+	// regression); genuinely unreadable or inconsistent records still refuse.
+	for _, corruption := range []string{"missing-record", "bad-record", "wrong-id", "bad-index"} {
 		t.Run(corruption, func(t *testing.T) {
 			f := newKnowledgeStoreFixture(t, "hold-index")
 			require.NoError(t, f.k.EnableReformulationVindicationOrdering(f.ctx))
@@ -240,9 +246,7 @@ func TestReformulationIndexFailsClosed(t *testing.T) {
 				store.Delete(types.AugmentationKey("a"))
 			case "bad-record":
 				store.Set(types.AugmentationKey("a"), []byte{0xff})
-			case "wrong-bounty":
-				aug.BountyId = "another"
-				require.NoError(t, f.k.SetAugmentation(f.ctx, aug))
+
 			case "wrong-id":
 				require.NoError(t, f.k.SetAugmentation(f.ctx, &types.Augmentation{Id: "b", BountyId: "pool"}))
 				store.Set(types.AugmentationKey("a"), store.Get(types.AugmentationKey("b")))

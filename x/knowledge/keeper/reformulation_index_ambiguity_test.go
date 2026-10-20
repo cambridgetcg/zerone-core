@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"cosmossdk.io/store/rootmulti"
+	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 
@@ -11,15 +13,15 @@ import (
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
-// BLOCKER for the indexed candidate: the existing 0x65 key encoding has no
-// escape/length boundary for bounty IDs. These IDs are accepted by the real
-// message handlers, even after the 0x90 marker is enabled. This desired-behavior
-// regression deliberately remains RED until the identifier/index contract has
-// an authorized solution. Do not remove the assertion merely to publish.
+// zc-reformulation-id-delimiter retains OFF admission and requires NUL-free
+// prospective IDs ON. Readable foreign legacy index entries do not hold this
+// bounty. The carrier separately refuses any retained NUL ID before activation;
+// this fixture is not permission to enable the marker over ambiguous state.
 func TestReformulationIndexBountyDelimiterIsolation(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		t.Run(fmt.Sprint(enabled), func(t *testing.T) {
 			k, ctx, bank, staking := newKnowledgeOrderFixture(t)
+			initReformulationAdmissionGenesis(t, k, ctx)
 			params, err := k.GetParams(ctx)
 			require.NoError(t, err)
 			params.ReformulationMinPanelVotes = 1
@@ -34,21 +36,43 @@ func TestReformulationIndexBountyDelimiterIsolation(t *testing.T) {
 			require.NoError(t, bank.SendCoinsFromModuleToAccount(ctx, orderTestMint, sponsor, coins))
 			require.NoError(t, k.SetFact(ctx, &types.Fact{Id: "original", Submitter: author.String()}))
 			server := keeper.NewMsgServerImpl(k)
-			for _, id := range []string{"pool", "pool\x00evil"} {
-				_, err := server.CreateAugmentationBounty(ctx, &types.MsgCreateAugmentationBounty{Id: id, Sponsor: sponsor.String(), TargetFactId: "original", RewardPerVariant: 1000, MaxVariants: 1})
-				require.NoError(t, err, "existing admission permits the exact bounty identifier %q", id)
+			_, err = server.CreateAugmentationBounty(ctx, &types.MsgCreateAugmentationBounty{Id: "pool", Sponsor: sponsor.String(), TargetFactId: "original", RewardPerVariant: 1000, MaxVariants: 1})
+			require.NoError(t, err)
+			before := reformulationAdmissionSnapshot(t, ctx)
+			ctx = ctx.WithEventManager(sdk.NewEventManager())
+			_, err = server.CreateAugmentationBounty(ctx, &types.MsgCreateAugmentationBounty{Id: "pool\x00evil", Sponsor: sponsor.String(), TargetFactId: "original", RewardPerVariant: 1000, MaxVariants: 1})
+			if enabled {
+				require.EqualError(t, err, "bounty id must not contain NUL")
+				require.Equal(t, before, reformulationAdmissionSnapshot(t, ctx))
+				require.Empty(t, ctx.EventManager().Events())
+			} else {
+				require.NoError(t, err, "OFF retains NUL bounty admission")
 			}
-			for _, pair := range [][2]string{{"target", "pool"}, {"variant", "pool\x00evil"}} {
-				_, err := server.SubmitAugmentation(ctx, &types.MsgSubmitAugmentation{Id: pair[0], BountyId: pair[1], OriginalFactId: "original", Submitter: author.String(), VariantContent: "synthetic variant"})
+			_, err = server.SubmitAugmentation(ctx, &types.MsgSubmitAugmentation{Id: "target", BountyId: "pool", OriginalFactId: "original", Submitter: author.String(), VariantContent: "synthetic variant"})
+			require.NoError(t, err)
+			if enabled {
+				// A readable record belongs to another pool, even when a retained
+				// index entry places it under this prefix. Its invalid ballot must
+				// neither hold nor error the target's finalization/payout.
+				require.NoError(t, k.SetAugmentation(ctx, &types.Augmentation{Id: "foreign", BountyId: "other", VerdictVotes: []types.AugmentationVerdict{7}}))
+				store := ctx.MultiStore().(*rootmulti.Store).GetStoreByName(types.StoreKey).(storetypes.KVStore)
+				store.Set(types.AugmentationByBountyKey("pool", "foreign"), []byte{1})
+			} else {
+				_, err = server.SubmitAugmentation(ctx, &types.MsgSubmitAugmentation{Id: "variant", BountyId: "pool\x00evil", OriginalFactId: "original", Submitter: author.String(), VariantContent: "synthetic variant"})
 				require.NoError(t, err)
 			}
 			holds, err := k.CensusReformulationHolds(ctx)
-			require.NoError(t, err, "the candidate's full census and index-completeness check accept this state")
-			require.Empty(t, holds)
+			if enabled {
+				require.NoError(t, err)
+				require.Equal(t, []keeper.ReformulationHold{{AugmentationID: "foreign", BountyID: "other", Reason: "invalid_retained_vote"}}, holds)
+			} else {
+				require.ErrorContains(t, err, `bounty id "pool\x00evil" contains NUL`)
+				require.Nil(t, holds, "the prospective census holds activation, not legacy transactions")
+			}
 			staking.addValidator("voter", 100_000, "bonded")
 			cached, write := ctx.CacheContext()
 			response, err := server.VoteOnAugmentation(cached, &types.MsgVoteOnAugmentation{AugmentationId: "target", Verifier: "voter", Vote: 1})
-			t.Logf("AW118b_DELIMITER enabled=%t holds=%d vote_error=%v", enabled, len(holds), err)
+			t.Logf("AW118c_DELIMITER enabled=%t vote_error=%v", enabled, err)
 			require.NoError(t, err, "an unrelated bounty must not freeze the target pool")
 			require.True(t, response.VerdictFinalized)
 			write()

@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"google.golang.org/protobuf/proto"
@@ -110,10 +111,16 @@ type ReformulationHold struct {
 }
 
 // CensusReformulationHolds scans in store-key order and fails closed on unreadable
-// records. The carrier must run this BEFORE activation, record the census and
-// resolve/accept holds under its separate authority. No marker is required for
-// this prospective read, and no state or events are changed by it.
+// records or NUL-containing bounty/augmentation IDs (including finalized,
+// inactive and volunteer records). The carrier must run this BEFORE activation,
+// hold activation on any error, and surface the offending ID for a separately
+// governed decision. A successful census still requires recording and resolving
+// or accepting ballot holds. No marker is required for this prospective read;
+// no state, index or events are changed by it. This is not an index migration.
 func (k Keeper) CensusReformulationHolds(ctx context.Context) ([]ReformulationHold, error) {
+	if err := k.censusReformulationBountyIDs(ctx); err != nil {
+		return nil, err
+	}
 	store := k.storeService.OpenKVStore(ctx)
 	params, err := k.reformulationHoldParams(ctx)
 	if err != nil {
@@ -138,6 +145,12 @@ func (k Keeper) CensusReformulationHolds(ctx context.Context) ([]ReformulationHo
 		if aug.Id == "" || string(iter.Key()) != string(types.AugmentationKey(aug.Id)) {
 			return nil, fmt.Errorf("reformulation census: augmentation key/id mismatch")
 		}
+		if strings.ContainsRune(aug.Id, '\x00') {
+			return nil, fmt.Errorf("reformulation census: augmentation id %q contains NUL; activation must remain on hold", aug.Id)
+		}
+		if strings.ContainsRune(aug.BountyId, '\x00') {
+			return nil, fmt.Errorf("reformulation census: augmentation %q references bounty id %q containing NUL; activation must remain on hold", aug.Id, aug.BountyId)
+		}
 		// The carrier must verify index completeness before enabling indexed
 		// consumers. Ordinary calls deliberately do not scan unrelated records.
 		if aug.BountyId != "" {
@@ -160,6 +173,37 @@ func (k Keeper) CensusReformulationHolds(ctx context.Context) ([]ReformulationHo
 		return nil, err
 	}
 	return holds, nil
+}
+
+// Scan bounty records too: a bounty with no augmentations would otherwise be
+// invisible to the carrier's delimiter precondition. Do not use the legacy
+// iterator, which intentionally skips unreadable records.
+func (k Keeper) censusReformulationBountyIDs(ctx context.Context) error {
+	store := k.storeService.OpenKVStore(ctx)
+	iter, err := store.Iterator(types.AugmentationBountyKeyPrefix, prefixEndBytes(types.AugmentationBountyKeyPrefix))
+	if err != nil {
+		return err
+	}
+	closed := false
+	defer func() {
+		if !closed {
+			_ = iter.Close()
+		}
+	}()
+	for ; iter.Valid(); iter.Next() {
+		var bounty types.AugmentationBounty
+		if err := proto.Unmarshal(iter.Value(), &bounty); err != nil {
+			return fmt.Errorf("reformulation census: malformed bounty: %w", err)
+		}
+		if bounty.Id == "" || string(iter.Key()) != string(types.AugmentationBountyKey(bounty.Id)) {
+			return fmt.Errorf("reformulation census: bounty key/id mismatch")
+		}
+		if strings.ContainsRune(bounty.Id, '\x00') {
+			return fmt.Errorf("reformulation census: bounty id %q contains NUL; activation must remain on hold", bounty.Id)
+		}
+	}
+	closed = true
+	return closeSurvivalIterator(iter)
 }
 
 // emitReformulationHoldTransition is called only after a successful ballot
@@ -242,8 +286,15 @@ func (k Keeper) reformulationBountyHold(ctx context.Context, bountyID string) (*
 		if err := proto.Unmarshal(bz, &aug); err != nil {
 			return nil, fmt.Errorf("reformulation hold: malformed augmentation: %w", err)
 		}
-		if aug.Id != id || aug.BountyId != bountyID {
+		if aug.Id != id {
 			return nil, fmt.Errorf("reformulation hold: bounty index/augmentation mismatch")
+		}
+		// A retained index entry is not proof of bounty membership. Skip
+		// readable foreign records without letting their ballots hold this
+		// pool. Missing/malformed records still fail closed; the carrier must
+		// reject delimiter-bearing legacy IDs before enabling this reader.
+		if aug.BountyId != bountyID {
+			continue
 		}
 		if reason := ReformulationHoldReason(&aug, params); reason != "" {
 			hold = &ReformulationHold{aug.Id, aug.OriginalFactId, aug.BountyId, reason}
