@@ -63,8 +63,9 @@ func (b *challengeAccountingBank) SendCoinsFromModuleToAccount(ctx context.Conte
 // These faults test our dependency contract, not a production disk-error claim.
 type challengeWriteFault struct {
 	corestore.KVStoreService
-	key  []byte
-	mode string
+	key           []byte
+	mode          string
+	markerReadErr bool
 }
 
 func (f *challengeWriteFault) OpenKVStore(ctx context.Context) corestore.KVStore {
@@ -74,6 +75,13 @@ func (f *challengeWriteFault) OpenKVStore(ctx context.Context) corestore.KVStore
 type challengeFaultStore struct {
 	corestore.KVStore
 	fault *challengeWriteFault
+}
+
+func (s challengeFaultStore) Get(key []byte) ([]byte, error) {
+	if s.fault.markerReadErr && bytes.Equal(key, types.ChallengeAccountingEnabledKey) {
+		return nil, errors.New("injected marker read failure")
+	}
+	return s.KVStore.Get(key)
 }
 
 func (s challengeFaultStore) Set(key, value []byte) error {
@@ -101,6 +109,10 @@ type challengeAccountingHarness struct {
 }
 
 func newChallengeAccountingHarness(t *testing.T) *challengeAccountingHarness {
+	return newChallengeAccountingHarnessWithMarker(t, true)
+}
+
+func newChallengeAccountingHarnessWithMarker(t *testing.T, enabled bool) *challengeAccountingHarness {
 	t.Helper()
 	keys := storetypes.NewKVStoreKeys(types.StoreKey, authtypes.StoreKey, banktypes.StoreKey)
 	db := dbm.NewMemDB()
@@ -133,7 +145,10 @@ func newChallengeAccountingHarness(t *testing.T) *challengeAccountingHarness {
 	bank := &challengeAccountingBank{BaseKeeper: bk}
 	fault := &challengeWriteFault{KVStoreService: runtime.NewKVStoreService(keys[types.StoreKey])}
 	k := keeper.NewKeeper(fault, cdc, authority, bank)
-	k.InitGenesis(ctx, types.DefaultGenesis())
+	genesis := types.DefaultGenesis()
+	// Pre-carrier fixtures must opt out of native genesis's enabled marker.
+	genesis.ChallengeAccountingEnabled = enabled
+	k.InitGenesis(ctx, genesis)
 	return &challengeAccountingHarness{k: k, ctx: ctx, bank: bank, auth: ak, module: capturechallenge.NewAppModule(cdc, k), keys: keys, writeFault: fault}
 }
 
@@ -316,7 +331,17 @@ func TestAccountingExpiryRefundRetriesRealBank(t *testing.T) {
 				h.bank.failRefund = ""
 				h.writeFault.mode = ""
 			}
+			h.ctx = h.ctx.WithEventManager(sdk.NewEventManager())
 			h.advance(t, ch.ReviewDeadline+2)
+			require.Equal(t, sdk.Events{
+				banktypes.NewCoinSpentEvent(authtypes.NewModuleAddress(types.ModuleName), coins),
+				banktypes.NewCoinReceivedEvent(sdk.MustAccAddressFromBech32(testAddr(1)), coins),
+				sdk.NewEvent(banktypes.EventTypeTransfer,
+					sdk.NewAttribute(banktypes.AttributeKeyRecipient, testAddr(1)),
+					sdk.NewAttribute(banktypes.AttributeKeySender, authtypes.NewModuleAddress(types.ModuleName).String()),
+					sdk.NewAttribute(sdk.AttributeKeyAmount, coins.String())),
+				sdk.NewEvent(sdk.EventTypeMessage, sdk.NewAttribute(sdk.AttributeKeySender, authtypes.NewModuleAddress(types.ModuleName).String())),
+			}, h.ctx.EventManager().Events(), "successful expiry must publish the bank events to the parent context")
 			require.Equal(t, types.ChallengeStatus_CHALLENGE_STATUS_EXPIRED, h.challenge(t, id).Status)
 			require.Equal(t, "10000000", h.bank.GetBalance(h.ctx, sdk.MustAccAddressFromBech32(testAddr(1)), "uzrn").Amount.String())
 			require.Equal(t, 3, h.bank.refundCalls)

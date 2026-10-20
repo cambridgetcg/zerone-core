@@ -1,129 +1,119 @@
-# Capture-challenge accounting repair (draft)
+# Capture challenge: accounting and expiry contract
 
-This is a **consensus-changing, prospective source repair**, not an activated
-upgrade or a repair of historical financial state. It must not be deployed as an
-unscheduled binary replacement. No protobuf fields, store keys, module version,
-upgrade handler or migration are changed here.
+`x/capture_challenge` holds challenge stakes and domain bounty funding. These
+are separate liabilities even though the same SDK module account holds the coins.
+`FundBountyPool` is the explicit funded-pool entry point; challenge escrow is not
+bounty funding. The documented per-fact contribution hook is not wired here.
 
-## Rejected stakes have one destination
+## Selected accounting semantics
 
-A rejected challenger's stake goes only to `development_fund`. It does not also
-increase `DomainBountyPool.Balance`. The retained routing requirement explicitly
-says “Failed challenge stake: route to development fund instead of burning” in
-[`R16-3`](../../prompts/R16/R16-3-module-revenue-splits.md#8-xcapture_challenge--challenge-resolution).
-That agrees with the existing REJECTED transfer/comment and PARTIAL's forfeited
-half. The older [R6 brief](../../prompts/R6/R6-3-capture.md#implementation) requires
-forfeiture but does not select a destination. Removing the second, unbacked credit
-preserves the explicit routing decision rather than silently redirecting money.
+The sole selector is `Keeper.ChallengeAccountingEnabled`, backed by the shared
+`types.ChallengeAccountingEnabledKey`. Absence selects historical behavior;
+exactly `{1}` selects the repaired behavior below. An unreadable or malformed
+marker fails closed before phase changes, resolution or automatic submission.
+The reader uses its own infinite gas meter, preserving pre-activation charged gas.
 
-UPHELD and PARTIAL rewards still consume their domain's funded pool. The module
-account also holds refundable challenge stakes: those escrows are not bounty
-funding. `FundBountyPool` remains the explicit funded-pool entry point. This repair
-does not activate the documented but unwired per-fact contribution hook.
+Native `DefaultGenesis` selects the repair. Older genesis JSON without
+`challenge_accounting_enabled` imports as off, and export/import retains the
+selection. Pre-carrier fixtures built from `DefaultGenesis` must explicitly set
+that field false. There is no transaction or parameter toggle.
 
-## Expiry is payment followed by a terminal record, atomically
+With the marker off, replay preserves the old REJECTED pool credit, unchecked
+expiry refund/write behavior, absence of a resolution deadline guard, and
+UNDER_REVIEW automatic-challenge suppression, including their errors and events.
+The repair does not silently alter history before its activation boundary.
 
-The existing fields encode refund-pending without a new enum or key:
+## Stake and pool backing
 
-- `UNDER_REVIEW` with `height < review_deadline`: adjudication is still open.
-- `UNDER_REVIEW` with `height >= review_deadline`: expiry/refund is due; the
-  retained challenger and stake are the pending financial obligation. The record
-  remains visible in `Challenge`, `ActiveChallenges` and genesis export.
-- `EXPIRED`: this binary completed the refund, or a zero-stake challenge expired.
-  Historical EXPIRED records **do not** acquire that payment assurance retroactively.
+With the marker on, a rejected challenger's stake goes only to
+`development_fund`. It does not also increase `DomainBountyPool.Balance`. This
+preserves the routing specified in
+[R16-3](../../prompts/R16/R16-3-module-revenue-splits.md#8-xcapture_challenge--challenge-resolution),
+including PARTIAL's forfeited half. UPHELD and PARTIAL rewards still trust and
+consume the stored domain pool; enabling the marker does not validate its backing.
 
-Each due refund uses its own SDK cache. The bank transfer, checked challenge
-write and their events commit together. A returned bank or write error leaves
-all those effects unchanged, logs the pending challenge ID, and retries on later
-BeginBlocks. It neither returns a BeginBlock error nor prevents other challenges
-from advancing. Zero-stake automatic challenges need no bank send. Malformed
-stake/address records remain pending rather than being silently declared paid.
-A cache is not crash-durable commit, and it does not roll back consumed gas.
-
-`ResolveChallenge` refuses all outcomes at or after the review deadline: a
-failed expiry refund cannot subsequently be forfeited or rewarded by governance.
-An overdue financial obligation no longer suppresses a new automatic challenge
-for the same domain; the new, still-live adjudication retains the existing
-deduplication. Since capture defense runs before capture challenge, this also
-permits automatic replacement at the deadline rather than waiting another block.
-The financial-pending query status is not an invitation to adjudicate it.
-
-The existing all-challenge scan remains; each due record is attempted once per
-call in store-key order. This is not a new bounded retry queue or a throughput
-claim. Other setters and resolution's existing caller-owned transaction contract
-are unchanged: the checked-write guarantee introduced here is expiry-only.
-
-## Existing state and activation gate
-
-No mechanical schema migration is needed for still-open records: their existing
-status, deadline, stake and challenger already preserve the retry obligation.
-Export/import with the corresponding SDK auth/bank state retains that obligation.
-This does **not** mean an affected existing chain needs no reconciliation:
-
-1. Old REJECTED resolutions may already have inflated pool balances; deleting
-   the future credit does not reduce those records or restore coins spent on
-   rewards. Rewards still trust the stored pool, so stale overstatements can
-   continue consuming other escrows. **Activation is blocked until an authenticated
-   complete census and an explicitly approved reconciliation establish backing.**
-2. Old EXPIRED records do not distinguish successful from failed refunds. This
-   draft never retries them automatically; doing so could pay an already-refunded
-   challenger twice. Historical payment evidence and approved, exact unpaid
-   obligations are required before a separate repair can requeue or compensate.
-3. Do not infer entitlement from a pooled balance, blindly subtract every old
-   rejected stake, zero pools, mint a deficit, or refund every EXPIRED record.
-   Already-consumed rewards and explicit funding must be reconciled separately.
-
-The existing [consolidation sequence](../../docs/MODULE-CONSOLIDATION-SEQUENCE.md#sequence-and-completion-evidence)
-requires the financial census before custody retirement. This draft performs no
-live census and includes no migration: those operations are outside this lane.
-Yu must approve the historical-state policy and upgrade carrier before adoption.
-A possible carrier is `knowledge-claim-integrity-v1` (knowledge 11→12), **only
-if that release remains unfrozen and its reviewed scope is explicitly expanded**;
-its [current specification](../../docs/specs/knowledge-claim-integrity-v1.md#13-migration-and-named-upgrade)
-is not authorization for this repair. Otherwise use a separately reviewed
-`capture-challenge-accounting-v1` successor rung (a proposed name, not an existing
-handler). Never graft it into frozen H1/H2/H3 artifacts or treat the existing
-`accounting-authority-v1` custom staking/governance repair as a capture-challenge
-migration. No carrier is registered or scheduled by this patch.
-
-## Genesis backing recommendation
-
-**Yes: imported bounty pools should be checked against actual module custody,
-with outstanding challenge stakes included.** At the coupled auth/bank/module
-import boundary, after bank state is available, require:
+At a coupled auth/bank/module import or activation boundary, require:
 
     bank(capture_challenge, uzrn)
         >= sum(domain pool balances) + sum(refundable open/pending stakes)
 
-Equality holds in a closed fixture with no surplus; unsolicited bank transfers
-can create a legitimate surplus. Checking each pool alone against the whole
-account, or comparing pools to the account without reserving escrows, is not
-sufficient. Validate nonnegative bounded integer amounts, record identities and
-uniqueness as well. Historical ambiguous EXPIRED claims require the preceding
-census; they cannot be safely reconstructed from this inequality.
+Unsolicited transfers can create valid surplus. Comparing a pool alone to the
+entire account ignores other pools and refundable escrows. Validate bounded,
+nonnegative amounts, identities and uniqueness as well. `GenesisState.Validate`
+currently checks only Params; `InitGenesis` does not enforce this backing
+invariant. A successful import is not evidence of solvency.
 
-Currently `types.GenesisState.Validate` checks only Params, and `InitGenesis`
-stores challenge/pool records without a bank-backing check. This draft does not
-change that import contract. A separately reviewed coupled import/upgrade audit
-is a prerequisite for claiming existing-state solvency, not a consequence of the
-passing lifecycle tests below.
+## Refund-pending is non-terminal, not a live adjudication
 
-## Local evidence and limits
+With the marker on, existing fields carry the obligation without a new enum:
 
-Run from the repository root with a writable, explicitly selected scratch TMPDIR:
+- `UNDER_REVIEW` with `height < review_deadline`: adjudication remains open.
+- `UNDER_REVIEW` with `height >= review_deadline`: expiry/refund is pending.
+  The challenger and stake remain visible in `Challenge`, `ActiveChallenges`
+  and genesis export. gRPC, REST, CLI and explorer consumers must compare query
+  height with `review_deadline`; the query does not distinguish them otherwise.
+- New `EXPIRED`: refund and terminal write succeeded together, or the stake was
+  zero. Historical EXPIRED records do not gain that payment assurance.
 
-    GOFLAGS=-mod=readonly GOPROXY=off go test ./x/capture_challenge/... -count=1
-    GOFLAGS=-mod=readonly GOPROXY=off go vet ./x/capture_challenge/...
+Each due refund uses its own SDK cache. Bank effects, the checked EXPIRED write
+and bank events (`coin_spent`, `coin_received`, `transfer`, `message`) commit to
+the parent context together. Returned bank or write errors discard those effects
+and leave the obligation pending. Other challenges can still advance. Zero-stake
+automatic challenges require no bank send. A cache is not crash-durable commit
+and does not roll back consumed gas.
 
-`keeper/accounting_test.go` uses the real SDK auth/bank stores and module
-BeginBlock wrapper with synthetic funding. It covers unfunded/funded
-REJECTED→UPHELD and REJECTED→PARTIAL sequences with another challenger's escrow,
-actual insufficient funds, before/after-transfer and before/after-record faults,
-repeated failures, later single payment, deadline refusal, unaffected peers,
-automatic admission, malformed records, zero stakes, terminal legacy records,
-and a coupled logical genesis round-trip. Every closed lifecycle reconciles bank
-coins with pools plus refundable stakes and checks total bank supply. The SDK
-store adapter normally returns nil after its underlying void Set; injected
-returned write errors are dependency-contract tests, not a production disk-loss
-reproduction. No node, signed governance transport, live account, scientific
-verdict or historical repayment is established by these tests.
+Every pending record is retried each BeginBlock, with no backoff or terminal
+failure state. The Error log `expiry refund pending` is emitted at the deadline
+and every 100 blocks after it, not every retry. There is currently no separate
+pending-refund event. The existing all-challenge scan and store-key ordering
+remain; this is not a bounded retry queue. Malformed stakes/addresses or a
+permanently blocked recipient cannot be cleared by normal resolution: they need
+a separately reviewed upgrade handler. No automatic redistribution or clawback
+is performed.
+
+`ResolveChallenge` refuses every outcome at/after the review deadline. An overdue
+financial obligation no longer suppresses a new automatic adjudication for the
+domain. Because capture defense runs first in BeginBlock, a persistently flagged
+domain can be re-challenged at the deadline, even when expiry succeeds, rather
+than at the next analysis interval. Live cases still deduplicate.
+
+## Retained historical state
+
+The policy is prospective only: census before activation, fail closed on an
+unsafe census, hold and surface obligations, and no clawback or automatic
+redistribution. Enabling the marker writes only the marker, not old challenges,
+pools or bank balances. Open records need no schema conversion. Historical
+EXPIRED records are never replayed; their payment success cannot be inferred
+from their terminal status.
+
+Before first activation, the exact cumulative phantom credit per domain is the
+sum of `Stake` over its `RESOLVED` records with `Resolution.Outcome == REJECTED`:
+both the old burn and
+development-fund eras credited exactly the stake. This amount is computable;
+how to cover any deficit already paid out as rewards is a separate policy
+question. Rejections after activation create no phantom credit and must not be
+included in a later historical census. An affected pool still threatens other
+escrows after the marker is on.
+Do not activate an unreconciled chain merely because future rejected credits
+have been stopped. The carrier's census must inspect every challenge, every
+pool and actual module custody, and hold activation for reviewed reconciliation
+if any rejected resolution or backing shortfall exists. Any use of
+`development_fund` to cover a deficit requires explicit authorization, not an
+inference of available funds. An export for relaunch requires the same audit.
+
+## Verification
+
+From the repository root, with an explicitly selected scratch TMPDIR:
+
+    GOFLAGS=-mod=readonly GOPROXY=off go test -p 4 ./x/capture_challenge/... -count=1
+    GOFLAGS=-mod=readonly GOPROXY=off go vet -p 4 ./x/capture_challenge/...
+
+`keeper/accounting_test.go` uses real SDK auth/bank stores with synthetic funding.
+It covers backed lifecycles, returned bank/store errors, retries, successful bank
+event propagation, pending-query visibility and coupled genesis round trips.
+`accounting_legacy_test.go` compares state/event digests, errors, gas and send
+counts against an executed pre-repair source oracle. `accounting_gate_test.go`
+checks marker errors, deadline timing, log throttling and the deliberately
+unsafe legacy-pool case. Injected store-write errors test a dependency contract,
+not production disk loss. These are local tests, not a live census, independent
+acceptance, historical repayment or an upgrade rehearsal.

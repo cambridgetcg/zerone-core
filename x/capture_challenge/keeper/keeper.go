@@ -116,7 +116,9 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 	height := uint64(sdkCtx.BlockHeight())
 
 	// Advance challenge phases
-	k.AdvanceChallengePhases(sdkCtx, height)
+	if err := k.AdvanceChallengePhases(sdkCtx, height); err != nil {
+		return err
+	}
 
 	// Periodic risk analysis
 	if height > 0 && params.RiskAnalysisInterval > 0 && height%params.RiskAnalysisInterval == 0 {
@@ -127,7 +129,12 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 }
 
 // AdvanceChallengePhases transitions challenges based on deadlines.
-func (k Keeper) AdvanceChallengePhases(ctx sdk.Context, height uint64) {
+// Marker errors fail closed before any challenge is changed.
+func (k Keeper) AdvanceChallengePhases(ctx sdk.Context, height uint64) error {
+	accountingEnabled, err := k.ChallengeAccountingEnabled(ctx)
+	if err != nil {
+		return err
+	}
 	k.IterateChallenges(ctx, func(ch *types.CaptureChallenge) bool {
 		switch ch.Status {
 		case types.ChallengeStatus_CHALLENGE_STATUS_OPEN,
@@ -138,16 +145,36 @@ func (k Keeper) AdvanceChallengePhases(ctx sdk.Context, height uint64) {
 				k.SetChallenge(ctx, ch)
 			}
 		case types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW:
-			// Past the review deadline, UNDER_REVIEW means refund-pending.
+			// With accounting enabled, overdue UNDER_REVIEW means refund-pending.
 			// Keep that durable record until payment and EXPIRED commit together.
 			if height >= ch.ReviewDeadline {
+				if !accountingEnabled {
+					// Preserve the historical writes, ignored errors and bank events
+					// exactly until the carrier enables the shared marker.
+					ch.Status = types.ChallengeStatus_CHALLENGE_STATUS_EXPIRED
+					challengerAddr, err := sdk.AccAddressFromBech32(ch.Challenger)
+					if err == nil {
+						stakeAmt, ok := new(big.Int).SetString(ch.Stake, 10)
+						if ok && stakeAmt.Sign() > 0 {
+							coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stakeAmt)))
+							_ = k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, challengerAddr, coins)
+						}
+					}
+					k.SetChallenge(ctx, ch)
+					break
+				}
 				if err := k.expireChallenge(ctx, ch); err != nil {
-					k.Logger(ctx).Error("expiry refund pending", "challenge_id", ch.Id, "error", err)
+					// Retry every block, but log only at the deadline and every
+					// 100 blocks after it. No new retry counter or store key.
+					if (height-ch.ReviewDeadline)%100 == 0 {
+						k.Logger(ctx).Error("expiry refund pending", "challenge_id", ch.Id, "error", err)
+					}
 				}
 			}
 		}
 		return false
 	})
+	return nil
 }
 
 // expireChallenge commits one refund and its terminal status atomically. A bank

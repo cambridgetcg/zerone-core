@@ -15,6 +15,10 @@ import (
 // for auto-challenges.
 func (k Keeper) AutoSubmitChallenge(ctx context.Context, domain string, riskScore, hhi uint64, evidence string) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	accountingEnabled, err := k.ChallengeAccountingEnabled(ctx)
+	if err != nil {
+		return err
+	}
 
 	// Check if there's already an active challenge for this domain
 	existingIDs := k.GetChallengesByDomain(sdkCtx, domain)
@@ -25,11 +29,14 @@ func (k Keeper) AutoSubmitChallenge(ctx context.Context, domain string, riskScor
 		}
 		if ch.Status == types.ChallengeStatus_CHALLENGE_STATUS_EVIDENCE ||
 			ch.Status == types.ChallengeStatus_CHALLENGE_STATUS_OPEN ||
-			(ch.Status == types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW && uint64(sdkCtx.BlockHeight()) < ch.ReviewDeadline) {
+			(ch.Status == types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW &&
+				(!accountingEnabled || uint64(sdkCtx.BlockHeight()) < ch.ReviewDeadline)) {
 			return nil // Already has an active challenge
 		}
 		// An overdue UNDER_REVIEW record only awaits its refund. Financial
 		// retry must not indefinitely suppress another automatic adjudication.
+		// This also admits a replacement at the deadline on successful expiry:
+		// capture_defense runs before capture_challenge in BeginBlock.
 	}
 
 	// Use module account as auto-challenger

@@ -459,6 +459,9 @@ func TestResolveUpheld(t *testing.T) {
 
 func TestResolveRejected(t *testing.T) {
 	k, ctx, bk := setupKeeper(t)
+	if err := k.EnableChallengeAccounting(ctx); err != nil {
+		t.Fatal(err)
+	}
 
 	challenger := testAddr(1)
 	bk.setBalance(challenger, "uzrn", 100_000_000)

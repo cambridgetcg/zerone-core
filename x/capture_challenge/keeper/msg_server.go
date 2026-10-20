@@ -171,10 +171,14 @@ func (m msgServer) ResolveChallenge(goCtx context.Context, msg *types.MsgResolve
 	}
 
 	currentBlock := uint64(ctx.BlockHeight())
+	accountingEnabled, err := m.ChallengeAccountingEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 	// An overdue UNDER_REVIEW record is awaiting its expiry refund, not a
 	// verdict. In particular, a failed BeginBlock refund must not expose its
 	// retained stake to a later governance resolution.
-	if currentBlock >= challenge.ReviewDeadline {
+	if accountingEnabled && currentBlock >= challenge.ReviewDeadline {
 		return nil, fmt.Errorf("%w: review deadline %d reached; expiry refund pending", types.ErrChallengeNotOpen, challenge.ReviewDeadline)
 	}
 	scale := new(big.Int).SetUint64(1_000_000)
@@ -293,6 +297,22 @@ func (m msgServer) ResolveChallenge(goCtx context.Context, msg *types.MsgResolve
 			if err := m.bankKeeper.SendCoinsFromModuleToModule(ctx, types.ModuleName, "development_fund", stakeCoins); err != nil {
 				return nil, fmt.Errorf("failed to route stake to development fund: %w", err)
 			}
+		}
+
+		if !accountingEnabled {
+			// Historical unbacked credit, retained only for pre-carrier replay.
+			pool, poolFound := m.GetBountyPool(ctx, challenge.Domain)
+			if !poolFound {
+				pool = &types.DomainBountyPool{
+					Domain:  challenge.Domain,
+					Balance: "0",
+				}
+			}
+			poolBal := new(big.Int)
+			poolBal.SetString(pool.Balance, 10)
+			poolBal.Add(poolBal, stakeAmt)
+			pool.Balance = poolBal.String()
+			m.SetBountyPool(ctx, pool)
 		}
 
 		rewardAmount = "0"
