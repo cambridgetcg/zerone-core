@@ -453,6 +453,8 @@ func DefaultGenesis() *GenesisState {
 		ClaimIntegrityEnabled:   true,
 		// A new chain starts with the consensus-repairs-v1 selection on.
 		ReformulationVindicationOrderingEnabled: true,
+		// And with the consensus-repairs-v2 selections on.
+		InconclusiveRoundAccountingEnabled: true,
 	}
 }
 

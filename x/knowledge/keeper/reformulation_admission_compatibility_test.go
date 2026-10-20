@@ -28,6 +28,9 @@ func initReformulationAdmissionGenesis(t *testing.T, k keeper.Keeper, ctx sdk.Co
 	gs.ClaimRecordsEnabled = false
 	gs.FundSettlementEnabled = false
 	gs.ClaimIntegrityEnabled = false
+	// The predecessor digests below cover the whole store, which predates the
+	// consensus-repairs-v2 markers (0x91 onwards).
+	gs.InconclusiveRoundAccountingEnabled = false
 	gs.BootstrapFundAllocation = "0"
 	require.NoError(t, k.InitGenesis(ctx, gs))
 }

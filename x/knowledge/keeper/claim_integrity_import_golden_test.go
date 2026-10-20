@@ -21,6 +21,8 @@ func v11ImportGenesis() *types.GenesisState {
 	gs.ClaimIntegrityEnabled = false // knowledge 11 has no claim-integrity flag.
 	// Nor the consensus-repairs-v1 marker (0x90) that native genesis now sets.
 	gs.ReformulationVindicationOrderingEnabled = false
+	// Nor the consensus-repairs-v2 markers (0x91 onwards).
+	gs.InconclusiveRoundAccountingEnabled = false
 	structure := func(subject string, tags ...string) *types.ClaimStructure {
 		return &types.ClaimStructure{Subject: subject, Predicate: "has dry mass in grams", Object: "3.5", Scope: "dry sample at 20 C", Tags: tags}
 	}

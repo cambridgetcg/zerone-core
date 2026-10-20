@@ -384,6 +384,10 @@ message GenesisState {
   // file without the field imports as off. In place, only the named carrier
   // upgrade consensus-repairs-v1 sets it.
   bool reformulation_vindication_ordering_enabled = 72;
+  // Inconclusive-round accounting marker (decision zc-panel-unanimity-q2).
+  // Native genesis sets it; a file without the field imports as off. In place,
+  // only the named carrier upgrade consensus-repairs-v2 sets it.
+  bool inconclusive_round_accounting_enabled = 73;
 }
 
 // Exports each ordered source/target pair once, including full provenance.
