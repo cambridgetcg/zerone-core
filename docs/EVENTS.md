@@ -1635,6 +1635,52 @@ A verifier cast a verdict on a reformulation round (Route B Wave 4d). Sponsor an
 - `vote` -- one of PENDING / EQUIVALENT / SUPERIOR / INFERIOR / DRIFT
 - `finalized` -- boolean: did this vote finalize the verdict?
 
+### zerone.knowledge.reformulation_held
+With `ReformulationVindicationOrderingEnabled` selected (knowledge key `0x90`),
+a pending augmentation has an invalid retained ballot or a positive top-weight
+tie after the minimum panel count. No enum preference breaks a tie, including
+a tie below the consensus threshold. The record and its ballots are retained.
+No hold key or entitlement is created. Any remaining escrow is pooled per
+bounty: expiry refunds, sibling payouts and sponsor forfeitures cannot spend
+that bounty while a hold remains. Other bounties are not held by this record.
+New voting weight can break a tie; invalid retained ballots require a separately
+governed resolution. Already finalized verdicts/payments/graph records are not
+reconciled, and deleted vindication obligations are not recreated.
+
+Emitted on a successful vote that leaves a tie, on a vote whose passing
+finalization is deferred by a held sibling (naming that sibling), and for every held record in
+store-key order on each BeginBlock Route B lifecycle pass. The latter supplies
+durable visibility for invalid ballots: an event in a rejected voting
+transaction would be discarded. Repeated events describe a continuing hold,
+not repeated custody or payment. Volunteers have an empty bounty ID.
+Tie-breaking ballots are retained even while a sibling holds the bounty;
+passing finalization waits for another vote after that peer hold resolves.
+This prevents mutually blocking ties without releasing held escrow. The query's
+`held` describes the named record, not every sibling sharing its bounty.
+
+- `augmentation_id`
+- `original_fact_id`
+- `bounty_id`
+- `reason` -- `invalid_retained_vote` or `tied_top_weight`
+
+Read-only operator query: `zeroned query knowledge reformulation-hold <id>`.
+It reads the existing marker, augmentation, params and pooled escrow at one
+snapshot height (or `--height`), emits JSON, and refuses unreadable/malformed
+state. `held` is false before activation; `prospective_reason` supports a
+pre-activation census. The displayed bounty escrow is not a per-record balance.
+`CensusReformulationHolds` provides the carrier's checked, read-only full scan;
+the carrier must census before enabling the marker and must budget the scan.
+
+### zerone.knowledge.reformulation_processing_refused
+The void BeginBlock consumer refused to choose semantics or release funds.
+Malformed/unreadable activation state never means "off". No affected pruning
+transfer/deletion or bounty refund/deactivation is performed; unrelated Route B
+vesting/manifest work continues. This event repeats until the state is resolved
+through a separately authorized path, not by automatically repairing a marker.
+- `operation` -- `vindication_pruning` or `bounty_expiry`
+- `reason` -- `activation_marker_unreadable` (both operations), or
+  `hold_census_unreadable` (bounty expiry)
+
 ### zerone.knowledge.augmentation_verdict_finalized
 The verifier panel reached consensus on a reformulation (Route B Wave 4d). For EQUIVALENT/SUPERIOR the handler releases escrow to the submitter and writes a REFORMULATES relation (with the claim-integrity marker on, not for an ID in the fact ID space; see `augmentation_edge_withheld`); for DRIFT/INFERIOR the variant is archived for the drift corpus. Never fired by the sponsor or submitter directly.
 - `augmentation_id`

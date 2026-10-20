@@ -1,7 +1,6 @@
 package keeper_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -16,21 +15,21 @@ import (
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
-func TestEconomicDeterminismMarker(t *testing.T) {
+func TestReformulationActivationCache(t *testing.T) {
 	f := newKnowledgeStoreFixture(t, "economic-determinism-test")
-	key := []byte(keeper.EconomicDeterminismEnabledStoreKey)
-	require.Equal(t, []byte{0x88}, key)
-	on, err := f.k.EconomicDeterminismEnabled(f.ctx)
+	key := []byte(keeper.ReformulationVindicationOrderingEnabledStoreKey)
+	require.Equal(t, []byte{0x90}, key)
+	on, err := f.k.ReformulationVindicationOrderingEnabled(f.ctx)
 	require.NoError(t, err)
 	require.False(t, on)
 	before := relationContractSnapshot(t, f.ctx, f.key)
 	cached, _ := f.ctx.CacheContext()
-	require.NoError(t, f.k.EnableEconomicDeterminism(cached))
+	require.NoError(t, f.k.EnableReformulationVindicationOrdering(cached))
 	require.Equal(t, before, relationContractSnapshot(t, f.ctx, f.key), "discarded activation cache changes nothing")
 	cached, write := f.ctx.CacheContext()
-	require.NoError(t, f.k.EnableEconomicDeterminism(cached))
+	require.NoError(t, f.k.EnableReformulationVindicationOrdering(cached))
 	write()
-	on, err = f.k.EconomicDeterminismEnabled(f.ctx)
+	on, err = f.k.ReformulationVindicationOrderingEnabled(f.ctx)
 	require.NoError(t, err)
 	require.True(t, on)
 	after := relationContractSnapshot(t, f.ctx, f.key)
@@ -38,23 +37,23 @@ func TestEconomicDeterminismMarker(t *testing.T) {
 	delete(after, string(key))
 	require.Equal(t, before, after, "activation changes only its selector")
 	before = relationContractSnapshot(t, f.ctx, f.key)
-	require.NoError(t, f.k.EnableEconomicDeterminism(f.ctx))
+	require.NoError(t, f.k.EnableReformulationVindicationOrdering(f.ctx))
 	require.Equal(t, before, relationContractSnapshot(t, f.ctx, f.key), "idempotent, not an upgrade receipt")
 
 	for _, bad := range [][]byte{{0}, {2}, {1, 1}} {
 		t.Run(fmt.Sprintf("malformed-%x", bad), func(t *testing.T) {
 			f.ctx.KVStore(f.key).Set(key, bad)
 			before := relationContractSnapshot(t, f.ctx, f.key)
-			on, err := f.k.EconomicDeterminismEnabled(f.ctx)
-			require.ErrorContains(t, err, "malformed economic determinism marker")
+			on, err := f.k.ReformulationVindicationOrderingEnabled(f.ctx)
+			require.ErrorContains(t, err, "malformed reformulation and vindication ordering marker")
 			require.False(t, on)
-			require.Error(t, f.k.EnableEconomicDeterminism(f.ctx))
+			require.Error(t, f.k.EnableReformulationVindicationOrdering(f.ctx))
 			require.Equal(t, before, relationContractSnapshot(t, f.ctx, f.key), "never repair a malformed marker implicitly")
 		})
 	}
 }
 
-func TestEconomicDeterminismMarkerErrors(t *testing.T) {
+func TestReformulationActivationMarkerErrors(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		store markerErrorStore
@@ -65,7 +64,7 @@ func TestEconomicDeterminismMarkerErrors(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			k := keeper.NewKeeper(markerStoreService{store: tc.store}, nil, "", nil, nil)
-			err := k.EnableEconomicDeterminism(context.Background())
+			err := k.EnableReformulationVindicationOrdering(sdk.Context{})
 			require.Error(t, err)
 			if tc.store.getErr != nil {
 				require.ErrorIs(t, err, tc.store.getErr)
@@ -78,19 +77,20 @@ func TestEconomicDeterminismMarkerErrors(t *testing.T) {
 	}
 }
 
-func TestEconomicDeterminismMalformedMarkerStopsConsumers(t *testing.T) {
+func TestReformulationActivationMalformedMarkerStopsConsumers(t *testing.T) {
 	f := newKnowledgeStoreFixture(t, "economic-determinism-test")
 	require.NoError(t, f.k.SetAugmentation(f.ctx, &types.Augmentation{Id: "pending", Submitter: "author"}))
 	require.NoError(t, f.k.SetVindicationPending(f.ctx, "expired", []types.VindicationEntry{{FactId: "expired", Height: 1, SlashAmount: "3"}}))
-	f.ctx.KVStore(f.key).Set([]byte(keeper.EconomicDeterminismEnabledStoreKey), []byte{2})
+	f.ctx.KVStore(f.key).Set([]byte(keeper.ReformulationVindicationOrderingEnabledStoreKey), []byte{2})
 	before := relationContractSnapshot(t, f.ctx, f.key)
 	f.ctx = f.ctx.WithEventManager(sdk.NewEventManager())
 	response, err := f.server.VoteOnAugmentation(f.ctx, &types.MsgVoteOnAugmentation{AugmentationId: "pending", Verifier: "voter", Vote: types.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT})
-	require.ErrorContains(t, err, "malformed economic determinism marker")
+	require.ErrorContains(t, err, "malformed reformulation and vindication ordering marker")
 	require.Nil(t, response)
 	f.k.PruneExpiredVindications(f.ctx, 100, 10)
 	require.Equal(t, before, relationContractSnapshot(t, f.ctx, f.key))
-	require.Empty(t, f.ctx.EventManager().Events())
+	require.Equal(t, sdk.Events{sdk.NewEvent("zerone.knowledge.reformulation_processing_refused",
+		sdk.NewAttribute("operation", "vindication_pruning"), sdk.NewAttribute("reason", "activation_marker_unreadable"))}, f.ctx.EventManager().Events())
 }
 
 func TestAugmentationVoteRange(t *testing.T) {
@@ -100,7 +100,7 @@ func TestAugmentationVoteRange(t *testing.T) {
 				t.Run(fmt.Sprintf("enabled=%t/message=%t/vote=%d", enabled, throughMessage, vote), func(t *testing.T) {
 					k, ctx, bank, staking := newKnowledgeOrderFixture(t)
 					if enabled {
-						require.NoError(t, k.EnableEconomicDeterminism(ctx))
+						require.NoError(t, k.EnableReformulationVindicationOrdering(ctx))
 					}
 					params, err := k.GetParams(ctx)
 					require.NoError(t, err)
@@ -141,7 +141,7 @@ func TestAugmentationVoteRange(t *testing.T) {
 	}
 }
 
-func TestEconomicDeterminismLegacyAndActivation(t *testing.T) {
+func TestReformulationActivationLegacyAndActivation(t *testing.T) {
 	equivalent := types.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT
 	drift := types.AugmentationVerdict_AUGMENTATION_VERDICT_DRIFT
 	for _, enabled := range []bool{false, true} {
@@ -167,7 +167,7 @@ func TestEconomicDeterminismLegacyAndActivation(t *testing.T) {
 				}
 				before, _ := k.GetAugmentation(ctx, "variant")
 				if enabled {
-					require.NoError(t, k.EnableEconomicDeterminism(ctx))
+					require.NoError(t, k.EnableReformulationVindicationOrdering(ctx))
 				}
 				after, _ := k.GetAugmentation(ctx, "variant")
 				require.True(t, proto.Equal(before, after), "activation retains all old ballot snapshots")
@@ -198,7 +198,7 @@ func TestEconomicDeterminismLegacyAndActivation(t *testing.T) {
 	}
 }
 
-func TestEconomicDeterminismPreservesInvalidHistory(t *testing.T) {
+func TestReformulationActivationPreservesInvalidHistory(t *testing.T) {
 	for _, finalized := range []bool{false, true} {
 		for _, invalid := range []types.AugmentationVerdict{-1, 0, 7} {
 			t.Run(fmt.Sprintf("finalized=%t/vote=%d", finalized, invalid), func(t *testing.T) {
@@ -210,7 +210,7 @@ func TestEconomicDeterminismPreservesInvalidHistory(t *testing.T) {
 					aug.PayoutAmount = "1500"
 				}
 				require.NoError(t, f.k.SetAugmentation(f.ctx, aug))
-				require.NoError(t, f.k.EnableEconomicDeterminism(f.ctx))
+				require.NoError(t, f.k.EnableReformulationVindicationOrdering(f.ctx))
 				before := relationContractSnapshot(t, f.ctx, f.key)
 				response, err := f.server.VoteOnAugmentation(f.ctx, &types.MsgVoteOnAugmentation{AugmentationId: "legacy", Verifier: "new-voter", Vote: types.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT})
 				if finalized {
@@ -226,9 +226,9 @@ func TestEconomicDeterminismPreservesInvalidHistory(t *testing.T) {
 	}
 }
 
-func TestEconomicDeterminismVindicationLegacy(t *testing.T) {
+func TestReformulationActivationVindicationLegacy(t *testing.T) {
 	k, ctx, bank, _ := newKnowledgeOrderFixture(t)
-	on, err := k.EconomicDeterminismEnabled(ctx)
+	on, err := k.ReformulationVindicationOrderingEnabled(ctx)
 	require.NoError(t, err)
 	require.False(t, on)
 	coins := sdk.NewCoins(sdk.NewInt64Coin("uzrn", 5))

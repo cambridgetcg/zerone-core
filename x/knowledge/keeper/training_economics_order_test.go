@@ -13,9 +13,8 @@ import (
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
-// The companion deterministic_order_test.py forces both map traversal orders
-// through compiler overlays. Reversing ballot insertion alone does not force
-// Go map iteration and is not relied on as the regression's RED proof.
+// Pure selection permutations are covered by reformulation_selection_test.go;
+// these fixtures exercise the real message, bank and stored-ballot paths.
 func TestReformulationOrderTies(t *testing.T) {
 	verdicts := []types.AugmentationVerdict{
 		types.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT,
@@ -74,7 +73,7 @@ func TestReformulationOrderControls(t *testing.T) {
 func checkReformulationOrder(t *testing.T, votes []types.AugmentationVerdict, stakes []uint64, threshold uint64, neutral bool, want types.AugmentationVerdict) {
 	t.Helper()
 	k, ctx, bank, staking := newKnowledgeOrderFixture(t)
-	require.NoError(t, k.EnableEconomicDeterminism(ctx))
+	require.NoError(t, k.EnableReformulationVindicationOrdering(ctx))
 	params, err := k.GetParams(ctx)
 	require.NoError(t, err)
 	params.ReformulationConsensusBps = threshold

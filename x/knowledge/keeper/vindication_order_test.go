@@ -83,7 +83,7 @@ func TestVindicationOrderTransfers(t *testing.T) {
 		for _, reverseInsert := range []bool{false, true} {
 			t.Run(fmt.Sprintf("funding=%d/reverse-insert=%t", funding, reverseInsert), func(t *testing.T) {
 				k, ctx, bank, _ := newKnowledgeOrderFixture(t)
-				require.NoError(t, k.EnableEconomicDeterminism(ctx))
+				require.NoError(t, k.EnableReformulationVindicationOrdering(ctx))
 				if funding > 0 {
 					coins := sdk.NewCoins(sdk.NewInt64Coin("uzrn", funding))
 					require.NoError(t, bank.MintCoins(ctx, orderTestMint, coins))
@@ -150,9 +150,11 @@ func TestVindicationOrderTransfers(t *testing.T) {
 
 // Nine facts make accidental ordered map traversal unlikely, not impossible.
 // This narrow source guard makes a reverted sort fail on EVERY plain go test
-// run, without relying on map randomness or the optional Python overlay runner.
+// run, without relying on map randomness or an external overlay runner.
 // The bank-backed test above establishes behavior; this is only a backstop for
 // the reviewed enabled-sort-before-processing structure, not a general proof.
+// Its brittleness is intentional: a renamed variable or slices.Sort refactor
+// must update this structural backstop as well as pass the behavioral test.
 func TestVindicationOrderSortGuard(t *testing.T) {
 	source, err := os.ReadFile("vindication.go")
 	require.NoError(t, err)

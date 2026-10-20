@@ -49,6 +49,29 @@ func (k Keeper) ProcessRouteBLifecycle(ctx context.Context) {
 // whose expires_at_block has passed. Minus the kept-market-open fee.
 func (k Keeper) expireBountiesBelow(ctx context.Context, height uint64) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	enabled, err := k.ReformulationVindicationOrderingEnabled(ctx)
+	if err != nil {
+		k.Logger(ctx).Error("bounty expiry refused", "error", err)
+		emitReformulationRefusal(ctx, "bounty_expiry", "activation_marker_unreadable")
+		return
+	}
+	heldBounties := map[string]bool{}
+	if enabled {
+		holds, err := k.CensusReformulationHolds(ctx)
+		if err != nil {
+			k.Logger(ctx).Error("bounty expiry refused", "error", err)
+			emitReformulationRefusal(ctx, "bounty_expiry", "hold_census_unreadable")
+			return
+		}
+		// Emit in census key order, including invalid ballots whose rejected
+		// transaction cannot commit an event. No hold records are persisted.
+		for _, hold := range holds {
+			emitReformulationHold(ctx, &types.Augmentation{Id: hold.AugmentationID, OriginalFactId: hold.OriginalFactID, BountyId: hold.BountyID}, hold.Reason)
+			if hold.BountyID != "" {
+				heldBounties[hold.BountyID] = true
+			}
+		}
+	}
 	params, _ := k.GetParams(ctx)
 	feeBps := params.AugmentationExpiryFeeBps
 	if feeBps == 0 {
@@ -68,6 +91,9 @@ func (k Keeper) expireBountiesBelow(ctx context.Context, height uint64) {
 	})
 
 	for _, b := range toExpire {
+		if heldBounties[b.Id] {
+			continue // prospective hold: no refund, fee, deactivation or redistribution
+		}
 		remaining := k.GetEscrowLocked(ctx, b.Id)
 		if remaining.IsPositive() {
 			if err := k.ReturnEscrowToSponsor(ctx, b.Id, b.SponsorAddress, remaining, feeBps); err != nil {

@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 
@@ -24,41 +23,6 @@ import (
 // signal that the PoT adjudication layer has already produced.
 
 const bps uint64 = 1_000_000
-
-// EconomicDeterminismEnabledStoreKey selects prospective augmentation vote
-// safety and vindication key ordering. Absent means predecessor semantics;
-// only {1} enables it. No message, param, genesis default or existing upgrade
-// sets it. A separately reviewed upgrade carrier must enable it at its height
-// and preserve it across genesis export/import before this can be released.
-// It is independent of claim integrity and never rewrites historical records.
-const EconomicDeterminismEnabledStoreKey = "\x88"
-
-func (k Keeper) EconomicDeterminismEnabled(ctx context.Context) (bool, error) {
-	bz, err := k.storeService.OpenKVStore(ctx).Get([]byte(EconomicDeterminismEnabledStoreKey))
-	if err != nil {
-		return false, fmt.Errorf("read economic determinism marker: %w", err)
-	}
-	if bz == nil {
-		return false, nil
-	}
-	if !bytes.Equal(bz, []byte{1}) {
-		return false, fmt.Errorf("malformed economic determinism marker")
-	}
-	return true, nil
-}
-
-// EnableEconomicDeterminism is a one-way, idempotent selection for the future
-// upgrade carrier's transaction cache, not an upgrade completion receipt.
-func (k Keeper) EnableEconomicDeterminism(ctx context.Context) error {
-	enabled, err := k.EconomicDeterminismEnabled(ctx)
-	if err != nil || enabled {
-		return err
-	}
-	if err := k.storeService.OpenKVStore(ctx).Set([]byte(EconomicDeterminismEnabledStoreKey), []byte{1}); err != nil {
-		return fmt.Errorf("write economic determinism marker: %w", err)
-	}
-	return nil
-}
 
 // ─── Training-value weight (TVW) ────────────────────────────────────────
 
@@ -345,6 +309,9 @@ func (k Keeper) ReleaseAugmentationPayout(ctx context.Context, bountyID, recipie
 	if amount.IsZero() {
 		return nil
 	}
+	if err := k.requireReformulationBountyUnheld(ctx, bountyID); err != nil {
+		return err
+	}
 	recipAddr, err := sdk.AccAddressFromBech32(recipient)
 	if err != nil {
 		return fmt.Errorf("invalid recipient address: %w", err)
@@ -361,6 +328,9 @@ func (k Keeper) ReleaseAugmentationPayout(ctx context.Context, bountyID, recipie
 func (k Keeper) ForfeitAugmentationDeposit(ctx context.Context, bountyID string, amount sdkmath.Int) error {
 	if amount.IsZero() {
 		return nil
+	}
+	if err := k.requireReformulationBountyUnheld(ctx, bountyID); err != nil {
+		return err
 	}
 	coins := sdk.NewCoins(sdk.NewCoin("uzrn", amount))
 	// Send from training fund → module-level deposit; reuse research fund
@@ -595,7 +565,7 @@ func (k Keeper) RecordAugmentationVote(ctx context.Context, augID, verifier stri
 	if _, err := k.ReviewNeutralityEnabled(ctx); err != nil {
 		return false, types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING, err
 	}
-	safe, err := k.EconomicDeterminismEnabled(ctx)
+	safe, err := k.ReformulationVindicationOrderingEnabled(ctx)
 	if err != nil {
 		return false, types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING, err
 	}
@@ -722,56 +692,44 @@ func (k Keeper) RecordAugmentationVote(ctx context.Context, augID, verifier stri
 	// The calibration floor prevents lockup in the early chain state
 	// before anyone has built up a record; it also means NO stake-
 	// bearing verifier ever drops to zero weight (stake × floor > 0).
-	const panelCalibrationFloorBps uint64 = 200_000 // 20% — bare minimum signal credibility
-	stakeTally := make(map[types.AugmentationVerdict]uint64)
-	var totalStake uint64
-	for i, v := range aug.VerdictVotes {
-		stake := uint64(0)
-		if i < len(aug.VerdictVoteStakes) {
-			stake = aug.VerdictVoteStakes[i]
-		}
-		cal := uint64(0)
-		if i < len(aug.VerdictVoteCalibrationBps) {
-			cal = aug.VerdictVoteCalibrationBps[i]
-		}
-		if cal < panelCalibrationFloorBps {
-			cal = panelCalibrationFloorBps
-		}
-		// Effective weight = stake × calibration / BPS. A 100M stake at
-		// 50% calibration weighs the same as a 50M stake at 100%.
-		effectiveWeight := safeMulDiv(stake, cal, bps)
-		stakeTally[v] += effectiveWeight
-		totalStake += effectiveWeight
-	}
+	stakeTally, totalStake := reformulationStakeTally(aug)
 	if totalStake == 0 {
 		// No stake-bearing votes yet; wait for more.
 		return false, aug.Verdict, nil
 	}
 	var winner types.AugmentationVerdict
-	var winnerStake uint64
-	tied := false
-	for v, s := range stakeTally {
-		var share uint64
-		if safe {
-			share = safeMulDiv(s, bps, totalStake)
-		} else {
-			share = s * bps / totalStake // predecessor arithmetic until activation
+	if safe {
+		var tied bool
+		winner, tied = selectReformulationWinner(reformulationCandidates(stakeTally), totalStake, consensusBps)
+		if tied {
+			emitReformulationHold(ctx, aug, "tied_top_weight")
+			return false, aug.Verdict, nil
 		}
-		if share < consensusBps {
-			continue
-		}
-		if s > winnerStake {
-			winner = v
-			winnerStake = s
-			tied = false // a larger candidate clears any lower-weight tie
-		} else if safe && s == winnerStake {
-			tied = true
+	} else {
+		// Keep the predecessor's arithmetic and map traversal until activation.
+		var winnerStake uint64
+		for v, s := range stakeTally {
+			if s*bps/totalStake >= consensusBps && s > winnerStake {
+				winner = v
+				winnerStake = s
+			}
 		}
 	}
-	// An exact top tie is not a verdict or payout entitlement. This result
-	// is independent of map traversal, without privileging an enum value.
-	if tied || winner == types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING {
+	if winner == types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING {
 		return false, aug.Verdict, nil
+	}
+	if safe && aug.BountyId != "" && (winner == types.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT || winner == types.AugmentationVerdict_AUGMENTATION_VERDICT_SUPERIOR) {
+		hold, err := k.reformulationBountyHold(ctx, aug.BountyId)
+		if err != nil {
+			return false, aug.Verdict, err
+		}
+		if hold != nil {
+			// Keep the new ballot, not a finalized verdict/payout. Otherwise
+			// the payout refusal would roll back this tie-breaking vote and
+			// two held siblings could prevent each other making progress.
+			emitReformulationHold(ctx, &types.Augmentation{Id: hold.AugmentationID, OriginalFactId: hold.OriginalFactID, BountyId: hold.BountyID}, hold.Reason)
+			return false, aug.Verdict, nil
+		}
 	}
 	// Finalize.
 	return true, winner, nil
