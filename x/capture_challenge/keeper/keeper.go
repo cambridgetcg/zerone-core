@@ -85,14 +85,25 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
 	for _, bp := range gs.BountyPools {
 		k.SetBountyPool(ctx, bp)
 	}
+	// Only an explicit true writes the marker; absence keeps legacy semantics.
+	if gs.ChallengeAccountingEnabled {
+		if err := k.EnableChallengeAccounting(ctx); err != nil {
+			panic("invalid capture_challenge genesis: " + err.Error())
+		}
+	}
 }
 
 // ExportGenesis exports the current state.
 func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
+	challengeAccounting, err := k.ChallengeAccountingEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 	return &types.GenesisState{
-		Params:      k.GetParams(ctx),
-		Challenges:  k.GetAllChallenges(ctx),
-		BountyPools: k.GetAllBountyPools(ctx),
+		Params:                     k.GetParams(ctx),
+		Challenges:                 k.GetAllChallenges(ctx),
+		BountyPools:                k.GetAllBountyPools(ctx),
+		ChallengeAccountingEnabled: challengeAccounting,
 	}
 }
 

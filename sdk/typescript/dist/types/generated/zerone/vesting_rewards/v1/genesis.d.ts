@@ -15,6 +15,12 @@ export interface GenesisState {
     clawbackRecords: ClawbackRecord[];
     blockRewardDistributions: BlockRewardDistribution[];
     claimScheduleIndexes: ClaimScheduleIndex[];
+    /**
+     * Alignment bank-supply marker (zerone-core #122). Native genesis sets it; a
+     * file without the field imports as off. In place, only the named carrier
+     * upgrade consensus-repairs-v1 sets it.
+     */
+    alignmentBankSupplyEnabled: boolean;
 }
 /**
  * Params defines the vesting_rewards module parameters.

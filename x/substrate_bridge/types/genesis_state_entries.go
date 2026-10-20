@@ -223,11 +223,6 @@ func validateGenesisStateEntries(gs *GenesisState) error {
 				return fmt.Errorf("state entry at index %d dedupe marker must be exactly 0x01", index)
 			}
 			dedupeArmed = true
-
-		case QualificationSemanticsKey[0]:
-			if !isGenesisIndexMarker(entry.Value) {
-				return fmt.Errorf("state entry at index %d qualification semantics marker must be exactly 0x01", index)
-			}
 		}
 	}
 

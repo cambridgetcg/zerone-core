@@ -701,8 +701,12 @@ describe("Authority Geometry v1", () => {
     }
     assert.match(sourceRaw, /createElement/);
     assert.match(sourceRaw, /textContent/);
-    assert.match(sourceRaw, /target = "_blank"/);
-    assert.match(sourceRaw, /rel = "noreferrer"/);
+    // The observatory links only to its own static artifact now; any link
+    // that opens a new tab must still drop the referrer.
+    assert.equal(
+      sourceRaw.match(/target = "_blank"/g)?.length ?? 0,
+      sourceRaw.match(/rel = "noreferrer"/g)?.length ?? 0,
+    );
   });
 
   it("renders both the seven-surface gate and every relationship as accessible text", () => {

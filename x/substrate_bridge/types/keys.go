@@ -33,9 +33,10 @@ var (
 
 	DedupeArmedKey = []byte{0x8F}
 
-	// QualificationSemanticsKey selects meaning-based admission only when a
-	// separately authorized upgrade carrier writes the exact marker 0x01.
-	QualificationSemanticsKey = []byte{0x90}
+	// QualificationSemanticsEnabledKey is the consensus-repairs-v1 marker for
+	// zerone-core #126 (keeper/qualification_semantics_activation.go). Genesis
+	// carries it as a typed field, never as a raw state entry.
+	QualificationSemanticsEnabledKey = []byte{0x90}
 )
 
 // SourceRefKey indexes the one attestation holding an external source

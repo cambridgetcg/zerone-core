@@ -76,12 +76,23 @@ func (k Keeper) InitGenesis(ctx context.Context, genState *types.GenesisState) {
 	for _, rl := range genState.RateLimits {
 		k.SetRateLimit(ctx, rl)
 	}
+	// Only an explicit true writes the marker; absence keeps legacy semantics.
+	if genState.RefundIdentityEnabled {
+		if err := k.EnableRefundIdentity(ctx); err != nil {
+			panic("invalid ibcratelimit genesis: " + err.Error())
+		}
+	}
 }
 
 func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
+	refundIdentity, err := k.RefundIdentityEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 	return &types.GenesisState{
-		Params:     k.GetParams(ctx),
-		RateLimits: k.GetAllRateLimits(ctx),
+		Params:                k.GetParams(ctx),
+		RateLimits:            k.GetAllRateLimits(ctx),
+		RefundIdentityEnabled: refundIdentity,
 	}
 }
 

@@ -57,7 +57,9 @@ func newQualificationFixture(t *testing.T) qualificationFixture {
 	bridge := keeper.NewKeeper(cdc, bridgeKey, "authority-addr", nil,
 		qualificationkeeper.NewSubstrateBridgeQualificationAdapter(native), bank, nil)
 	ctx := sdk.NewContext(cms, cmtproto.Header{Height: 100}, false, log.NewNopLogger())
-	require.NoError(t, bridge.SetParams(ctx, types.DefaultParams()))
+	gs := types.DefaultGenesis()
+	gs.QualificationSemanticsEnabled = false // Rehearse pre-carrier state explicitly.
+	require.NoError(t, bridge.InitGenesis(ctx, gs))
 	bridge.SetDedupeArmed(ctx)
 	return qualificationFixture{bridge, native, ctx, bridgeKey, nativeKey, bank}
 }
@@ -237,18 +239,17 @@ func TestSubmitExternalAttestation_QualificationAvailability(t *testing.T) {
 
 func TestQualificationSemanticsActivation(t *testing.T) {
 	f := newQualificationFixture(t)
-	require.Equal(t, []byte{0x90}, types.QualificationSemanticsKey)
-	require.NoError(t, f.bridge.InitGenesis(f.ctx, types.DefaultGenesis()))
+	require.Equal(t, []byte{0x90}, types.QualificationSemanticsEnabledKey)
 	enabled, err := f.bridge.QualificationSemanticsEnabled(f.ctx)
 	require.NoError(t, err)
-	require.False(t, enabled, "default genesis must not activate a consensus change")
+	require.False(t, enabled, "explicit legacy genesis must leave the marker absent")
 	before := qualificationStoreSnapshot(t, f.ctx, f.bridgeKey)
 	beforeNative := qualificationStoreSnapshot(t, f.ctx, f.nativeKey)
 	require.NoError(t, f.bridge.EnableQualificationSemantics(f.ctx))
 	enabled, err = f.bridge.QualificationSemanticsEnabled(f.ctx)
 	require.NoError(t, err)
 	require.True(t, enabled)
-	before[string(types.QualificationSemanticsKey)] = []byte{1}
+	before[string(types.QualificationSemanticsEnabledKey)] = []byte{1}
 	require.Equal(t, before, qualificationStoreSnapshot(t, f.ctx, f.bridgeKey), "activation writes only its marker")
 	require.NoError(t, f.bridge.EnableQualificationSemantics(f.ctx))
 	require.Equal(t, before, qualificationStoreSnapshot(t, f.ctx, f.bridgeKey), "activation is idempotent")
@@ -265,15 +266,15 @@ func TestQualificationSemanticsMalformedMarkerRefuses(t *testing.T) {
 			f.native.SetQualification(f.ctx, &qualificationtypes.DomainQualification{
 				Validator: msg.Submitter, Domain: "physics", Status: qualificationtypes.QualificationStatus_QUALIFICATION_STATUS_ACTIVE,
 			})
-			f.ctx.KVStore(f.bridgeKey).Set(types.QualificationSemanticsKey, marker)
+			f.ctx.KVStore(f.bridgeKey).Set(types.QualificationSemanticsEnabledKey, marker)
 			before := qualificationStoreSnapshot(t, f.ctx, f.bridgeKey)
 			enabled, err := f.bridge.QualificationSemanticsEnabled(f.ctx)
 			require.False(t, enabled)
-			require.ErrorContains(t, err, "malformed substrate bridge qualification semantics marker")
+			require.ErrorContains(t, err, "malformed qualification semantics marker")
 			require.Error(t, f.bridge.EnableQualificationSemantics(f.ctx), "activation must not repair corrupt state")
 			resp, err := keeper.NewMsgServerImpl(f.bridge).SubmitExternalAttestation(sdk.WrapSDKContext(f.ctx), msg)
 			require.Nil(t, resp)
-			require.ErrorContains(t, err, "malformed substrate bridge qualification semantics marker")
+			require.ErrorContains(t, err, "malformed qualification semantics marker")
 			require.Equal(t, before, qualificationStoreSnapshot(t, f.ctx, f.bridgeKey))
 			require.Zero(t, f.bank.deposits)
 			require.Empty(t, f.ctx.EventManager().Events())
@@ -351,7 +352,7 @@ func TestQualificationSemanticsActivationPreservesLegacyAttestation(t *testing.T
 	before := qualificationStoreSnapshot(t, f.ctx, f.bridgeKey)
 	beforeNative := qualificationStoreSnapshot(t, f.ctx, f.nativeKey)
 	require.NoError(t, f.bridge.EnableQualificationSemantics(f.ctx))
-	before[string(types.QualificationSemanticsKey)] = []byte{1}
+	before[string(types.QualificationSemanticsEnabledKey)] = []byte{1}
 	require.Equal(t, before, qualificationStoreSnapshot(t, f.ctx, f.bridgeKey))
 	require.Equal(t, beforeNative, qualificationStoreSnapshot(t, f.ctx, f.nativeKey))
 	gs := f.bridge.ExportGenesis(f.ctx)
