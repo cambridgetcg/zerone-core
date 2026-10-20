@@ -11,6 +11,8 @@ var (
 	ParamsKey          = []byte{0x00}
 	RateLimitKeyPrefix = []byte{0x01}
 	PacketFlowPrefix   = []byte{0x02}
+	// RuleGenerationPrefix retains a generation even after a rule is removed.
+	RuleGenerationPrefix = []byte{0x03}
 	// RefundIdentityEnabledKey is the consensus-repairs-v1 marker for
 	// zerone-core #127 (keeper/refund_identity_activation.go). 0x03 is left
 	// for the rule-generation prefix that #127 adds.

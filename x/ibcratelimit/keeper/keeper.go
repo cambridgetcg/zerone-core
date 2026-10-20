@@ -68,19 +68,27 @@ func (k Keeper) GetParams(ctx context.Context) *types.Params {
 // ---- Genesis ----
 
 func (k Keeper) InitGenesis(ctx context.Context, genState *types.GenesisState) {
+	// Enable/read before any rule write, then pass one decision through the loop.
+	// Enable already performs the shared read; do not read a second time.
+	refundIdentity := genState.RefundIdentityEnabled
+	if refundIdentity {
+		if err := k.EnableRefundIdentity(ctx); err != nil {
+			panic("invalid ibcratelimit genesis: " + err.Error())
+		}
+	} else {
+		var err error
+		refundIdentity, err = k.RefundIdentityEnabled(ctx)
+		if err != nil {
+			panic(err)
+		}
+	}
 	if genState.Params != nil {
 		k.SetParams(ctx, genState.Params)
 	} else {
 		k.SetParams(ctx, types.DefaultParams())
 	}
 	for _, rl := range genState.RateLimits {
-		k.SetRateLimit(ctx, rl)
-	}
-	// Only an explicit true writes the marker; absence keeps legacy semantics.
-	if genState.RefundIdentityEnabled {
-		if err := k.EnableRefundIdentity(ctx); err != nil {
-			panic("invalid ibcratelimit genesis: " + err.Error())
-		}
+		k.SetRateLimitForActivation(ctx, refundIdentity, rl)
 	}
 }
 
