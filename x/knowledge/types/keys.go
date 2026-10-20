@@ -857,3 +857,8 @@ var InconclusiveRoundAccountingEnabledKey = []byte{0x91}
 // decision zc-calibration-cliff-q5
 // (keeper/calibration_smoothing_activation.go), unused like 0x91.
 var CalibrationSmoothingEnabledKey = []byte{0x92}
+
+// ZeroConfidenceFloorEnabledKey is the consensus-repairs-v2 marker for
+// decision zc-pr37-frontier-fixes
+// (keeper/zero_confidence_floor_activation.go), unused like 0x91.
+var ZeroConfidenceFloorEnabledKey = []byte{0x93}

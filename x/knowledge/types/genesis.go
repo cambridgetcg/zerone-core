@@ -456,6 +456,7 @@ func DefaultGenesis() *GenesisState {
 		// And with the consensus-repairs-v2 selections on.
 		InconclusiveRoundAccountingEnabled: true,
 		CalibrationSmoothingEnabled:        true,
+		ZeroConfidenceFloorEnabled:         true,
 	}
 }
 

@@ -50,6 +50,11 @@ var knowledgeV2Markers = []knowledgeV2Marker{
 		enabled: keeper.Keeper.CalibrationSmoothingEnabled, enable: keeper.Keeper.EnableCalibrationSmoothing,
 		genesis: func(gs *types.GenesisState) *bool { return &gs.CalibrationSmoothingEnabled },
 	},
+	{
+		field: "zero_confidence_floor_enabled", pinned: 0x93, key: types.ZeroConfidenceFloorEnabledKey,
+		enabled: keeper.Keeper.ZeroConfidenceFloorEnabled, enable: keeper.Keeper.EnableZeroConfidenceFloor,
+		genesis: func(gs *types.GenesisState) *bool { return &gs.ZeroConfidenceFloorEnabled },
+	},
 }
 
 type knowledgeV2MarkerFixture struct {

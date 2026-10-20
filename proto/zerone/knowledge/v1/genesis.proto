@@ -392,6 +392,10 @@ message GenesisState {
   // genesis sets it; a file without the field imports as off. In place, only
   // the named carrier upgrade consensus-repairs-v2 sets it.
   bool calibration_smoothing_enabled = 74;
+  // Zero-confidence floor marker (decision zc-pr37-frontier-fixes). Native
+  // genesis sets it; a file without the field imports as off. In place, only
+  // the named carrier upgrade consensus-repairs-v2 sets it.
+  bool zero_confidence_floor_enabled = 75;
 }
 
 // Exports each ordered source/target pair once, including full provenance.

@@ -308,6 +308,11 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 			return err
 		}
 	}
+	if gs.ZeroConfidenceFloorEnabled {
+		if err := k.EnableZeroConfidenceFloor(ctx); err != nil {
+			return err
+		}
+	}
 	claims := gs.PendingClaims
 	if gs.ClaimIntegrityEnabled {
 		// Each claim's first save below takes its dedup entries, and the file
@@ -505,6 +510,10 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	if err != nil {
 		panic(err)
 	}
+	zeroConfidenceFloor, err := k.ZeroConfidenceFloorEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 	transitions, cascades, historyCounters, err := k.ExportKnowledgeHistory(ctx)
 	if err != nil {
 		panic(fmt.Errorf("export knowledge history: %w", err))
@@ -659,6 +668,7 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		ReformulationVindicationOrderingEnabled: reformulationVindicationOrdering,
 		InconclusiveRoundAccountingEnabled:      inconclusiveRoundAccounting,
 		CalibrationSmoothingEnabled:             calibrationSmoothing,
+		ZeroConfidenceFloorEnabled:              zeroConfidenceFloor,
 	}
 }
 
