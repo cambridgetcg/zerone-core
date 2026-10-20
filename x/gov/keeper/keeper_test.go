@@ -1922,7 +1922,7 @@ type mockEmergencyKeeper struct {
 	halted bool
 }
 
-func (m *mockEmergencyKeeper) CountHaltsForReason(_ context.Context, reason string, _ uint64) uint64 {
+func (m *mockEmergencyKeeper) CountHaltsForReason(_ context.Context, reason string) uint64 {
 	if m.halts != nil {
 		return m.halts[reason]
 	}
@@ -1931,6 +1931,14 @@ func (m *mockEmergencyKeeper) CountHaltsForReason(_ context.Context, reason stri
 
 func (m *mockEmergencyKeeper) IsHalted(_ context.Context) bool {
 	return m.halted
+}
+
+func (m *mockEmergencyKeeper) HaltReasonScopingEnabled(context.Context) (bool, error) {
+	return false, nil
+}
+
+func (m *mockEmergencyKeeper) CountResearchFundHalts(context.Context, uint64) (uint64, error) {
+	return m.halts["research_fund"], nil
 }
 
 // ---------- Phase Exit Condition Tests ----------

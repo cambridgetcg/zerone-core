@@ -33,6 +33,9 @@ func (k Keeper) CountConsecutiveExpiredProposals(ctx sdk.Context) int {
 
 // ValidatePhaseRollback checks whether a phase rollback is justified.
 func (k Keeper) ValidatePhaseRollback(ctx sdk.Context) error {
+	if !k.haltReasonScopingSelected() {
+		return k.validatePhaseRollbackLegacy(ctx)
+	}
 	state := k.GetResearchFundGovernanceState(ctx)
 
 	if state.CurrentPhase <= types.ResearchFundPhase_RESEARCH_FUND_PHASE_GENESIS_PAIR {
@@ -43,15 +46,26 @@ func (k Keeper) ValidatePhaseRollback(ctx sdk.Context) error {
 	if k.HasActivePhaseTransitionLIP(ctx) {
 		return types.ErrPendingTransitionExists
 	}
+	return k.validateScopedRollbackEvidence(ctx, state)
+}
 
+// Activation revalidation excludes the pending proposal itself, but checks
+// current phase, target and evidence rather than trusting legacy admission.
+func (k Keeper) validateScopedRollbackEvidence(ctx sdk.Context, state *types.ResearchFundGovernanceState) error {
+	if state.CurrentPhase <= types.ResearchFundPhase_RESEARCH_FUND_PHASE_GENESIS_PAIR {
+		return types.ErrCannotRollbackGenesis
+	}
 	// Check gridlock: 3+ consecutive expired proposals.
 	gridlocked := k.CountConsecutiveExpiredProposals(ctx) >= types.RollbackGridlockThreshold
 
-	// Check research-fund halts initiated in the current governance phase.
-	// The emergency keeper preserves legacy semantics until its activation.
+	// Unknown evidence never authorizes rollback, even alongside gridlock.
 	haltTriggered := false
 	if k.emergencyKeeper != nil {
-		haltTriggered = k.emergencyKeeper.CountHaltsForReason(ctx, "research_fund", state.PhaseStartedAtBlock) > 0
+		count, err := k.emergencyKeeper.CountResearchFundHalts(ctx, state.PhaseStartedAtBlock)
+		if err != nil {
+			return err
+		}
+		haltTriggered = count > 0
 	}
 
 	if !gridlocked && !haltTriggered {

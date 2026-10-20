@@ -75,12 +75,20 @@ type govMockEmergencyKeeper struct {
 	halts map[string]uint64
 }
 
-func (m *govMockEmergencyKeeper) CountHaltsForReason(_ context.Context, reason string, _ uint64) uint64 {
+func (m *govMockEmergencyKeeper) CountHaltsForReason(_ context.Context, reason string) uint64 {
 	return m.halts[reason]
 }
 
 func (m *govMockEmergencyKeeper) IsHalted(_ context.Context) bool {
 	return false
+}
+
+func (m *govMockEmergencyKeeper) HaltReasonScopingEnabled(context.Context) (bool, error) {
+	return false, nil
+}
+
+func (m *govMockEmergencyKeeper) CountResearchFundHalts(context.Context, uint64) (uint64, error) {
+	return m.halts["research_fund"], nil
 }
 
 // govMockVestingKeeper implements govtypes.VestingRewardsKeeper.

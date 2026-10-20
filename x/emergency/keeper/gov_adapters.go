@@ -1,10 +1,12 @@
 package keeper
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"google.golang.org/protobuf/proto"
 
 	govtypes "github.com/zerone-chain/zerone/x/gov/types"
 
@@ -25,54 +27,62 @@ func NewGovEmergencyAdapter(k Keeper) *GovEmergencyAdapter {
 // Compile-time interface check.
 var _ govtypes.EmergencyKeeper = (*GovEmergencyAdapter)(nil)
 
-// CountHaltsForReason preserves the legacy all-reasons, all-history count until
-// HaltReasonFilterEnabled is selected by a coordinated upgrade. Once enabled,
-// only finalized halts with an exact, nonempty recorded reason and StartBlock
-// in [sinceBlock, current height] count. Governance supplies its current phase's
-// start, not a rolling TTL. StartBlock is the ceremony initiation height, not
-// its finalization height; the ceremony schema has no finalization timestamp.
-// Malformed in-window halt payloads fail closed rather than authorizing either
-// rollback or a forward phase transition from an invented zero count.
-func (a *GovEmergencyAdapter) CountHaltsForReason(ctx context.Context, reason string, sinceBlock uint64) uint64 {
+// HaltReasonScopingEnabled delegates to the sole foundation marker reader.
+func (a *GovEmergencyAdapter) HaltReasonScopingEnabled(ctx context.Context) (bool, error) {
+	return a.k.HaltReasonScopingEnabled(ctx)
+}
+
+// CountResearchFundHalts is the enabled evidence API. The caller has already
+// selected the marker once at its entry point. StartBlock (not finalization)
+// is scoped inclusively to [sinceBlock, current height]. Unknown/prose reasons
+// and malformed evidence return ErrHaltEvidence, never zero or a panic. They
+// block forward progress without manufacturing positive rollback evidence.
+func (a *GovEmergencyAdapter) CountResearchFundHalts(ctx context.Context, sinceBlock uint64) (count uint64, resultErr error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	enabled, err := a.k.HaltReasonFilterEnabled(sdkCtx)
+	if sdkCtx.BlockHeight() < 0 {
+		return 0, fmt.Errorf("%w: negative current height", types.ErrHaltEvidence)
+	}
+	currentHeight := uint64(sdkCtx.BlockHeight())
+	store := a.k.storeService.OpenKVStore(ctx)
+	iter, err := store.Iterator(types.CeremonyKeyPrefix, prefixEndBytes(types.CeremonyKeyPrefix))
 	if err != nil {
-		panic(err)
+		return 0, fmt.Errorf("%w: iterate ceremonies: %v", types.ErrHaltEvidence, err)
 	}
-	var currentHeight uint64
-	if enabled {
-		if sdkCtx.BlockHeight() < 0 {
-			panic("cannot count reason-specific halts at a negative height")
+	defer func() {
+		if err := iter.Close(); err != nil && resultErr == nil {
+			count, resultErr = 0, fmt.Errorf("%w: close ceremonies: %v", types.ErrHaltEvidence, err)
 		}
-		currentHeight = uint64(sdkCtx.BlockHeight())
-		if reason == "" || sinceBlock > currentHeight {
-			return 0
+	}()
+	for ; iter.Valid(); iter.Next() {
+		var c types.EmergencyCeremony
+		if err := proto.Unmarshal(iter.Value(), &c); err != nil {
+			return 0, fmt.Errorf("%w: decode ceremony: %v", types.ErrHaltEvidence, err)
 		}
-	}
-	var count uint64
-	a.k.IterateCeremonies(sdkCtx, func(c *types.EmergencyCeremony) bool {
+		if !bytes.Equal(iter.Key(), types.CeremonyKey(c.Id)) {
+			return 0, fmt.Errorf("%w: ceremony key/id mismatch", types.ErrHaltEvidence)
+		}
 		if c.Type != string(types.CeremonyHalt) || c.Phase != string(types.PhaseFinalized) {
-			return false
+			continue
 		}
-		if enabled {
-			if c.StartBlock < sinceBlock || c.StartBlock > currentHeight {
-				return false
-			}
-			var proposal types.EmergencyHaltProposal
-			if err := unmarshalProposal(c.ProposalData, &proposal); err != nil {
-				panic(fmt.Errorf("decode halt %q for reason count: %w", c.Id, err))
-			}
-			if proposal.Id != c.Id {
-				panic(fmt.Sprintf("halt %q reason payload has mismatched proposal id %q", c.Id, proposal.Id))
-			}
-			if proposal.Reason != reason {
-				return false
-			}
+		if c.StartBlock < sinceBlock || c.StartBlock > currentHeight {
+			continue
+		}
+		var proposal types.EmergencyHaltProposal
+		if err := unmarshalProposal(c.ProposalData, &proposal); err != nil {
+			return 0, fmt.Errorf("%w: decode halt %q: %v", types.ErrHaltEvidence, c.Id, err)
+		}
+		if proposal.Id != c.Id {
+			return 0, fmt.Errorf("%w: halt %q payload id mismatch", types.ErrHaltEvidence, c.Id)
+		}
+		if proposal.Reason != types.HaltReasonResearchFund {
+			return 0, fmt.Errorf("%w: halt %q has an unclassified reason", types.ErrHaltEvidence, c.Id)
 		}
 		count++
-		return false
-	})
-	return count
+	}
+	if err := terminalIteratorError(iter); err != nil {
+		return 0, fmt.Errorf("%w: iterate ceremonies: %v", types.ErrHaltEvidence, err)
+	}
+	return count, nil
 }
 
 // IsHalted reports application-transaction quarantine, including the

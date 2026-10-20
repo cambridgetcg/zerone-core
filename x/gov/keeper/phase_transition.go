@@ -2,12 +2,14 @@ package keeper
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	storetypes "cosmossdk.io/store/types"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	"github.com/zerone-chain/zerone/internal/activation"
 	"github.com/zerone-chain/zerone/x/gov/types"
 )
 
@@ -216,6 +218,10 @@ func (k Keeper) HandlePhaseTransitionFail(ctx sdk.Context, lipID string) {
 
 // BeginBlockPhaseTransition checks for pending phase transitions ready to activate.
 func (k Keeper) BeginBlockPhaseTransition(ctx sdk.Context) {
+	if !k.haltReasonScopingSelected() {
+		k.beginBlockPhaseTransitionLegacy(ctx)
+		return
+	}
 	currentHeight := uint64(ctx.BlockHeight())
 
 	k.IteratePhaseTransitionMeta(ctx, func(meta *types.PhaseTransitionProposal) bool {
@@ -229,6 +235,19 @@ func (k Keeper) BeginBlockPhaseTransition(ctx sdk.Context) {
 
 		// Ready to activate.
 		if meta.IsRollback {
+			state := k.GetResearchFundGovernanceState(ctx)
+			if state.CurrentPhase <= types.ResearchFundPhase_RESEARCH_FUND_PHASE_GENESIS_PAIR || meta.TargetPhase != state.CurrentPhase-1 {
+				k.CancelPhaseTransition(ctx, meta, "rollback target no longer valid")
+				return false
+			}
+			if err := k.validateScopedRollbackEvidence(ctx, state); err != nil {
+				if errors.Is(err, activation.ErrMarkerFault) {
+					// Convention (2b): propagate through the pinned void abci.go.
+					panic(err)
+				}
+				k.CancelPhaseTransition(ctx, meta, err.Error())
+				return false
+			}
 			k.ExecuteRollback(ctx)
 			meta.Stage = types.PhaseTransitionStageActivated
 			k.SetPhaseTransitionMeta(ctx, meta)

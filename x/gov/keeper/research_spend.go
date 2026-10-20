@@ -502,9 +502,7 @@ func (k Keeper) CheckPhaseExitConditions(ctx sdk.Context) (*types.PhaseTransitio
 
 	var emergencyHalts uint64
 	if k.emergencyKeeper != nil {
-		// Match the rollback window: a crisis from an earlier phase must not
-		// permanently prevent a later phase's exit after halt-reason activation.
-		emergencyHalts = k.emergencyKeeper.CountHaltsForReason(ctx, "research_fund", state.PhaseStartedAtBlock)
+		emergencyHalts = k.emergencyKeeper.CountHaltsForReason(ctx, "research_fund")
 	}
 
 	conditions := &types.PhaseTransitionConditions{
