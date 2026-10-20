@@ -120,6 +120,7 @@ func (k Keeper) expireQualification(ctx context.Context, q *types.DomainQualific
 		// the lock ends. Do not retry from BeginBlock or mark it EXPIRED: legacy
 		// EXPIRED records with an amount have an ambiguous refund history.
 		q.Status = types.QualificationStatus_QUALIFICATION_STATUS_SUSPENDED
+		q.ProbationUntil = 0
 		k.SetQualification(ctx, q)
 		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 			"zerone.qualification.stake_refund_pending",

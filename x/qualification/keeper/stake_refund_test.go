@@ -56,6 +56,7 @@ type refundHarness struct {
 	ctx  sdk.Context
 	bank *refundBank
 	key  *storetypes.KVStoreKey
+	keys map[string]*storetypes.KVStoreKey
 	auth authkeeper.AccountKeeper
 }
 
@@ -96,7 +97,7 @@ func newLegacyRefundHarness(t *testing.T) *refundHarness {
 	genesis := types.DefaultGenesis()
 	genesis.SingleRefundEnabled = false // Rehearse pre-carrier state explicitly.
 	k.InitGenesis(ctx, genesis)
-	return &refundHarness{k: k, ctx: ctx, bank: bank, key: keys[types.StoreKey], auth: ak}
+	return &refundHarness{k: k, ctx: ctx, bank: bank, key: keys[types.StoreKey], keys: keys, auth: ak}
 }
 
 func (h *refundHarness) stake(t *testing.T, name string) string {
