@@ -24,11 +24,14 @@ import (
 )
 
 // These tests hold the consensus-repairs-v1 marker for zerone-core #120 to the
-// shared activation contract: absent reads as off, only {1} reads as on, any
-// other value is an error, a read charges no gas, EnableSingleRefund is idempotent and
-// writes only the marker, native genesis selects it, and genesis JSON carries
-// it exactly, with a file written before the field existing importing as off.
-// Every import and export goes through the module's own genesis JSON path.
+// module's side of the activation contract (internal/activation tests the reads
+// and writes): the key is pinned, native genesis selects the marker, the
+// genesis field writes the marker and nothing else, genesis JSON carries it
+// exactly with a file written before the field existing importing as off, and
+// a malformed marker is never exported as off. Every import and export goes
+// through the module's own genesis JSON path. The repair's own tests can build
+// on the fixture: genesisJSON(t, &off) turns the marker off and
+// EnableSingleRefund turns it on.
 
 const singleRefundGenesisField = "single_refund_enabled"
 
@@ -114,66 +117,31 @@ func singleRefundExported(t *testing.T, raw json.RawMessage) bool {
 	return on
 }
 
-func TestSingleRefundMarkerReadsAreExact(t *testing.T) {
-	require.Equal(t, []byte{0x40}, types.SingleRefundEnabledKey)
+func TestSingleRefundGenesisFieldWritesOnlyTheMarker(t *testing.T) {
+	enabled, disabled := true, false
+	on, off := newSingleRefundFixture(t), newSingleRefundFixture(t)
+	on.initGenesis(t, on.genesisJSON(t, &enabled))
+	off.initGenesis(t, off.genesisJSON(t, &disabled))
+	want := off.snapshot(t)
+	want[string(types.SingleRefundEnabledKey)] = "\x01"
+	require.Equal(t, want, on.snapshot(t), "the genesis field writes the marker and nothing else")
+}
+
+// A marker that is neither absent nor {1} is a fault, so ExportGenesis panics
+// rather than export it as off.
+func TestSingleRefundExportRefusesMalformedMarker(t *testing.T) {
 	f := newSingleRefundFixture(t)
 	f.initGenesis(t, f.genesisJSON(t, nil))
-	require.Nil(t, f.marker(), "a genesis file without the field writes no marker")
-	require.False(t, f.enabled(t), "absent reads as off")
-	require.NotPanics(t, func() { f.am.ExportGenesis(f.ctx, f.cdc) })
-
-	kv := f.ctx.KVStore(f.key)
-	for _, bad := range [][]byte{{0}, {2}, {1, 1}, {0xff}} {
+	for _, bad := range [][]byte{{0}, {2}} {
 		t.Run(fmt.Sprintf("%x", bad), func(t *testing.T) {
-			kv.Set(types.SingleRefundEnabledKey, bad)
-			enabled, err := f.k.SingleRefundEnabled(f.ctx)
-			require.ErrorContains(t, err, "malformed")
-			require.False(t, enabled, "a malformed marker is never read as on")
-			require.Error(t, f.k.EnableSingleRefund(f.ctx), "a malformed marker is never repaired")
-			require.Equal(t, bad, f.marker())
+			f.ctx.KVStore(f.key).Set(types.SingleRefundEnabledKey, bad)
 			require.Panics(t, func() { f.am.ExportGenesis(f.ctx, f.cdc) }, "a malformed marker is never exported as off")
 		})
 	}
-
-	kv.Set(types.SingleRefundEnabledKey, []byte{1})
-	require.True(t, f.enabled(t))
-}
-
-func TestSingleRefundMarkerReadChargesNoGas(t *testing.T) {
-	f := newSingleRefundFixture(t)
-	for _, present := range []bool{false, true} {
-		if present {
-			require.NoError(t, f.k.EnableSingleRefund(f.ctx))
-		}
-		metered := f.ctx.WithGasMeter(storetypes.NewGasMeter(1_000_000))
-		enabled, err := f.k.SingleRefundEnabled(metered)
-		require.NoError(t, err)
-		require.Equal(t, present, enabled)
-		require.Zero(t, metered.GasMeter().GasConsumed(), "present=%t: the marker read charged gas", present)
-
-		// Control: the same read through the metered store is charged.
-		metered.KVStore(f.key).Get(types.SingleRefundEnabledKey)
-		require.NotZero(t, metered.GasMeter().GasConsumed())
-	}
-}
-
-func TestEnableSingleRefundIsIdempotentAndWritesOnlyTheMarker(t *testing.T) {
-	f := newSingleRefundFixture(t)
-	f.initGenesis(t, f.genesisJSON(t, nil))
-	before := f.snapshot(t)
-	require.NotContains(t, before, string(types.SingleRefundEnabledKey))
-
-	require.NoError(t, f.k.EnableSingleRefund(f.ctx))
-	after := f.snapshot(t)
-	before[string(types.SingleRefundEnabledKey)] = "\x01"
-	require.Equal(t, before, after, "enabling writes the marker and nothing else")
-	require.True(t, f.enabled(t))
-
-	require.NoError(t, f.k.EnableSingleRefund(f.ctx), "enabling an enabled marker is a no-op")
-	require.Equal(t, after, f.snapshot(t))
 }
 
 func TestSingleRefundNativeGenesisSelectsMarker(t *testing.T) {
+	require.Equal(t, []byte{0x40}, types.SingleRefundEnabledKey)
 	gs := types.DefaultGenesis()
 	require.True(t, gs.SingleRefundEnabled, "a new chain starts with the repair selected")
 	require.NoError(t, gs.Validate())
