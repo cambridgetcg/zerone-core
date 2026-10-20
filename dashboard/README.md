@@ -297,8 +297,9 @@ generation is distinct from the paused live account-admission flow. It does
 not promise a compatible public legacy replica download or validator opening.
 
 Its `#beta` section describes the closed beta: valueless
-`zerone-rehearsal-lan-*` chains on invited Apple silicon Macs on the
-operator's home network, run with `skills/run-a-private-zerone-net`. It says
+`zerone-rehearsal-lan-*` chains on the operator's own Apple silicon Macs on
+their home network (for now no one else's: `seatOwnership` is
+`our-own-macs-only`), run with `skills/run-a-private-zerone-net`. It says
 who can join and which checks apply (invitations decide; addresses must be
 private; only seat node keys may connect), what a seat needs and how it joins, the dated 2026-10-17 two-Mac run with its limits, and a roadmap whose
 stages open on gates, not dates. It publishes no genesis, peer address,

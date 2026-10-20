@@ -166,6 +166,20 @@ describe("closed-beta private network lane", () => {
     assert.equal(guide.live.validatorJoining.availability, "not-open");
   });
 
+  it("seats only our own Macs for now, and leaves other people's Macs to a later gated stage", () => {
+    const guide = buildNodeGuideProfile(inputs);
+    const beta = guide.privateNetwork;
+    assert.equal(beta.seatOwnership, "our-own-macs-only");
+    assert.match(beta.whoCanJoin, /only our own/u);
+    const ids = beta.roadmap.map((stage) => stage.id);
+    const now = beta.roadmap.find((stage) => stage.status === "now")!;
+    assert.match(`${now.title} ${now.text}`, /our own Macs/u);
+    const others = beta.roadmap.find((stage) => stage.id === "others-at-home");
+    assert.equal(others?.status, "planned");
+    assert.ok(ids.indexOf("others-at-home") > ids.indexOf(now.id), "other people's Macs come after the current stage");
+    assert.match(nodeGuidePage(guide), /Closed beta · our own Macs/u);
+  });
+
   it("dates its evidence and states its limits instead of claiming more", () => {
     const evidence = buildNodeGuideProfile(inputs).privateNetwork.evidence;
     assert.equal(evidence.currentFreshnessClaim, false);
