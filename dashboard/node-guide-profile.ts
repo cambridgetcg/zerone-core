@@ -166,7 +166,7 @@ export function buildNodeGuideProfile({
           "A separate, signed decision to open that network.",
         ] },
       ],
-      roadmapNote: "No dates: a stage opens when its gates are met. This closed beta does not open zerone-1 validator joining, the shared development chain's validator seat, or any successor network.",
+      roadmapNote: "No dates: a stage opens when its own gates and those of every earlier stage are met. This closed beta does not open zerone-1 validator joining, the shared development chain's validator seat, or any successor network.",
     },
     local: {
       id: "local-sandbox",

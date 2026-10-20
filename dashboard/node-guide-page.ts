@@ -78,7 +78,7 @@ export function nodeGuidePage(profile: NodeGuideProfile): string {
       <div class="hero-copy">
         <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span> Local sandbox · closed beta</p>
         <h1 id="guide-title">Run your own<br /><em>node.</em></h1>
-        <p class="lede">Build a local chain on your computer and watch it produce blocks. On ${escape(beta.evidence.date)}, two Macs on one home network ran one chain together; a closed beta now runs private chains on our own Macs, with a roadmap for opening it to others. Check what each network is before you start.</p>
+        <p class="lede">Build a local chain on your computer and watch it produce blocks. On ${escape(beta.evidence.date)}, two Macs on one home network ran one chain together; in the closed beta, our own Macs can now run a private chain, with a roadmap for opening it to others. Check what each network is before you start.</p>
         <div class="hero-actions"><a class="button button-acid" href="#local">Set up a local node <span aria-hidden="true">↓</span></a><a class="text-link" href="#beta">See the closed beta <span aria-hidden="true">↓</span></a></div>
         <p class="terminal-note">New to the project? <a href="/understand/">Understand Zerone</a>: its purpose, one contribution, and how knowledge, money and control fit together.</p>
       </div>
@@ -86,7 +86,7 @@ export function nodeGuidePage(profile: NodeGuideProfile): string {
         <div class="scope-row"><span class="scope-label">On your computer</span><strong>${escape(local.chainId)}</strong><p>A fresh local chain with disposable keys and test funds. You control the process and its files.</p></div>
         <div class="scope-row scope-row-live"><span class="scope-label">Existing public network</span><strong>${escape(live.chainId)}</strong><p>${observer ? "Read public records. Validator joining remains closed." : "Public records are available to read. A supported live replica installation and validator joining are not open."}</p></div>
         <div class="scope-row"><span class="scope-label">Separate shared development</span><strong>${escape(development.chainId)}</strong><p>${escape(development.status)}</p><a href="#development">Read the development lane ↓</a></div>
-        <div class="scope-row"><span class="scope-label">Closed beta · our own Macs</span><strong>${escape(beta.chainIdPattern)}</strong><p>For now, only our own Apple silicon Macs on our home network run a valueless chain together.</p><a href="#beta">Read the closed beta ↓</a></div><p class="scope-footnote">These are separate networks. The local sandbox does not connect to zerone-1, and a closed-beta chain connects only its invited Macs.</p>
+        <div class="scope-row"><span class="scope-label">Closed beta · our own Macs</span><strong>${escape(beta.chainIdPattern)}</strong><p>For now, only our own Apple silicon Macs on our home network can run a valueless chain together.</p><a href="#beta">Read the closed beta ↓</a></div><p class="scope-footnote">These are separate networks. The local sandbox does not connect to zerone-1, and a closed-beta chain connects only its invited Macs.</p>
       </aside>
     </section>
 
