@@ -11,7 +11,13 @@ import (
 )
 
 // AnalyzeCaptureRisk computes capture metrics for a domain from its verification history.
+// An unreadable or malformed activation marker panics, like ExportGenesis:
+// this API has no error return, and must not silently select legacy semantics.
 func (k Keeper) AnalyzeCaptureRisk(ctx sdk.Context, domain string, params *types.Params) *types.CaptureMetrics {
+	integerVariance, err := k.IntegerVarianceEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 	history := k.GetHistoryByDomain(ctx, domain)
 	if len(history) == 0 {
 		return nil
@@ -42,7 +48,12 @@ func (k Keeper) AnalyzeCaptureRisk(ctx sdk.Context, domain string, params *types
 	top3 := top3Share(participations, totalParticipations)
 
 	// 4. Timing correlation
-	timing := timingCorrelation(history)
+	var timing uint64
+	if integerVariance {
+		timing = timingCorrelation(history)
+	} else {
+		timing = timingCorrelationLegacy(history)
+	}
 
 	// 5. Verdict correlation
 	verdict := verdictCorrelation(history)

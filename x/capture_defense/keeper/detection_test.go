@@ -3,13 +3,12 @@ package keeper
 import (
 	"fmt"
 	"go/ast"
+	"go/build"
 	"go/parser"
 	"go/token"
 	"math/big"
 	"math/rand"
-	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/zerone-chain/zerone/x/capture_defense/types"
@@ -29,6 +28,8 @@ func TestTimingCorrelationExact(t *testing.T) {
 		{"exact threshold", []uint64{0, 4}, 0},
 		{"above threshold", []uint64{0, 5}, 0},
 		{"fractional mean below", []uint64{0, 0, 4}, types.BPSScale},
+		{"numerator one below threshold", []uint64{0, 2, 2, 3, 4, 4, 5, 7}, types.BPSScale},
+		{"floor mean would reject", []uint64{0, 4, 4}, types.BPSScale},
 		{"fractional mean above", []uint64{0, 0, 5}, 0},
 		{"population not sample variance", []uint64{0, 2, 4}, types.BPSScale},
 		// Exact variance is 324/81 = 4. The old float accumulation can
@@ -162,10 +163,11 @@ func TestTimingCorrelationAgainstPairwiseOracle(t *testing.T) {
 	}
 }
 
-// The capture-defense keeper and its state types must not reintroduce native
-// floating-point arithmetic. This is a source guard, not a transitive audit of
-// SDK dependencies: reject float/complex types, literals and common float APIs,
-// including aliases of math and math/big. Comments and strings are not code.
+// This syntactic source guard rejects named float/complex types, literals and
+// common float APIs, including aliases of math and math/big. It is not a type
+// check or a transitive audit: unnamed float results such as Duration.Seconds
+// can evade it. The frozen pre-activation implementation is explicitly exempt.
+// Comments and strings are not code.
 func floatSyntax(fset *token.FileSet, file *ast.File) []string {
 	var violations []string
 	bigNames := map[string]bool{}
@@ -206,23 +208,24 @@ func floatSyntax(fset *token.FileSet, file *ast.File) []string {
 	return violations
 }
 
-func TestCaptureDefenseStatePathHasNoFloat(t *testing.T) {
+func TestCaptureDefenseFloatSyntaxGuard(t *testing.T) {
 	for _, dir := range []string{".", "../types"} {
 		fset := token.NewFileSet()
-		packages, err := parser.ParseDir(fset, dir, func(info os.FileInfo) bool {
-			return !strings.HasSuffix(info.Name(), "_test.go")
-		}, 0)
+		pkg, err := build.Default.ImportDir(dir, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(packages) != 1 {
-			t.Fatalf("%s: expected one production package, got %d", dir, len(packages))
-		}
-		for _, pkg := range packages {
-			for name, file := range pkg.Files {
-				for _, violation := range floatSyntax(fset, file) {
-					t.Errorf("%s: %s", filepath.Clean(name), violation)
-				}
+		for _, name := range pkg.GoFiles {
+			if dir == "." && name == "detection_legacy.go" {
+				continue // deliberately retained until the carrier's marker is on
+			}
+			path := filepath.Join(dir, name)
+			file, err := parser.ParseFile(fset, path, nil, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, violation := range floatSyntax(fset, file) {
+				t.Errorf("%s: %s", path, violation)
 			}
 		}
 	}

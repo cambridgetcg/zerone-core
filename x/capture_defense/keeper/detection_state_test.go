@@ -26,8 +26,11 @@ func setupTimingKeeper(t *testing.T) (keeper.Keeper, sdk.Context) {
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	state := store.NewCommitMultiStore(db, log.NewNopLogger(), storemetrics.NewNoOpMetrics())
-	// Own the fixture lifecycle without asynchronous IAVL pruning workers.
-	state.SetIAVLSyncPruning(true)
+	// v1.1.1 (the legacy SDK lineage) does not expose sync pruning. Use it
+	// where supported without making this fixture require the newer API.
+	if syncPruning, ok := any(state).(interface{ SetIAVLSyncPruning(bool) }); ok {
+		syncPruning.SetIAVLSyncPruning(true)
+	}
 	state.MountStoreWithDB(key, storetypes.StoreTypeIAVL, db)
 	require.NoError(t, state.LoadLatestVersion())
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
@@ -55,6 +58,7 @@ func TestCaptureTimingStatePaths(t *testing.T) {
 			}
 			t.Run(tc.name+"/"+path, func(t *testing.T) {
 				k, ctx := setupTimingKeeper(t)
+				require.NoError(t, k.EnableIntegerVariance(ctx))
 				server := keeper.NewMsgServerImpl(k)
 				msg := &types.MsgRecordVerification{
 					Authority: k.GetAuthority(), Domain: "timing", RoundId: "round-1",
@@ -116,6 +120,7 @@ func TestCaptureTimingRetainsLegacyMetricsUntilAnalysis(t *testing.T) {
 		RiskScore: 123456, AnalyzedAtBlock: 50,
 	}
 	genesis := types.DefaultGenesis()
+	genesis.IntegerVarianceEnabled = false // rehearse a pre-carrier import
 	genesis.CaptureMetrics = []*types.CaptureMetrics{legacy}
 	k.InitGenesis(ctx, genesis)
 	wantBytes, err := proto.Marshal(legacy)
@@ -129,6 +134,8 @@ func TestCaptureTimingRetainsLegacyMetricsUntilAnalysis(t *testing.T) {
 		require.Equal(t, wantBytes, gotBytes)
 	}
 	assertRetained()
+	require.NoError(t, k.EnableIntegerVariance(ctx))
+	assertRetained() // activation writes only the marker, not historical metrics
 	// There is no verification-history field in this module's genesis. Analysis
 	// without retained observations must not invent or erase historical metrics.
 	require.Nil(t, k.AnalyzeCaptureRisk(ctx, legacy.Domain, k.GetParams(ctx)))
