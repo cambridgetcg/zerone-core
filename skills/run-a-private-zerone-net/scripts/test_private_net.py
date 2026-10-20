@@ -98,9 +98,11 @@ class Guards(unittest.TestCase):
 
     def test_seat_addresses_stay_on_the_owners_network(self):
         lan, private, local = "zerone-rehearsal-lan-1", "zerone-rehearsal-private-1", "zerone-rehearsal-local-1"
-        for ip in ("10.0.0.1", "172.16.0.1", "172.31.255.254", "192.168.50.176"):
-            for chain in (lan, private, local):
+        for ip in ("10.0.0.1", "172.16.0.1", "172.31.255.254", "192.168.1.10"):
+            for chain in (lan, private):
                 self.assertEqual(pn.check_seat_scope(chain, ip), ip)
+            with self.assertRaises(pn.Refusal):  # a -local- chain lives on one Mac
+                pn.check_seat_scope(local, ip)
         for ip in ("100.64.0.1", "100.127.255.254"):  # overlay space: -private- only
             self.assertEqual(pn.check_seat_scope(private, ip), ip)
             with self.assertRaises(pn.Refusal):
@@ -109,7 +111,7 @@ class Guards(unittest.TestCase):
             for chain in (lan, private):
                 with self.assertRaises(pn.Refusal, msg="%s on %s" % (ip, chain)):
                     pn.check_seat_scope(chain, ip)
-        self.assertEqual(pn.check_seat_scope(local, "127.0.0.1"), "127.0.0.1")  # one Mac, any address
+        self.assertEqual(pn.check_seat_scope(local, "127.0.0.1"), "127.0.0.1")
 
     def test_private_dir_refuses_git_trees_open_modes_and_home(self):
         base = private_tmp(self)
@@ -746,8 +748,11 @@ class Invitations(unittest.TestCase):
         self.lay = pn.Layout(self.root, CHAIN)
 
     def test_invited_seats_pass_and_the_unseated_are_listed(self):
-        pn.check_invitations(self.lay, [seat(1), seat(2, "full"), seat(3, stake_zrn=500)])
-        pn.check_invitations(self.lay, [seat(1)])
+        pn.check_invitations(self.lay, [seat(1), seat(2, "full"), seat(3, stake_zrn=500)], "seat-1")
+        pn.check_invitations(self.lay, [seat(1)], "seat-1")
+        with self.assertRaises(pn.Refusal) as cm:
+            pn.check_invitations(self.lay, [seat(1)], "seat-9")
+        self.assertIn("names coordinator seat-1", str(cm.exception))
         self.assertEqual(sorted(pn.issued_invitations(self.lay)), ["seat-1", "seat-2", "seat-3"])
 
     def test_uninvited_seats_and_changed_terms_are_refused(self):
@@ -756,13 +761,13 @@ class Invitations(unittest.TestCase):
                              ([seat(2)], "its invitation fixes full"),
                              ([seat(1, "full")], "its invitation fixes validator")):
             with self.assertRaises(pn.Refusal) as cm:
-                pn.check_invitations(self.lay, packets)
+                pn.check_invitations(self.lay, packets, "seat-1")
             self.assertIn(why, str(cm.exception))
 
     def test_a_local_rehearsal_needs_no_invitations(self):
         lay = pn.Layout(self.root, "zerone-rehearsal-local-inv")
         packets = [dict(seat(n), chain_id=lay.chain_id) for n in (1, 2)]
-        pn.check_invitations(lay, packets)
+        pn.check_invitations(lay, packets, "seat-1")
 
 
 class RpcProbe(unittest.TestCase):

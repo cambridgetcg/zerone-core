@@ -74,9 +74,10 @@ DEFAULT_STAKE_ZRN = 1000
 FLOAT_ZRN = 1000  # spendable balance on top of the stake, for test transactions
 DEFAULT_ROOT = "/Users/Shared/zerone-private"
 DEFAULT_P2P_PORT = 36656  # not 26656: keeps bare `zeroned` CLI calls and old homes off this chain
-# Where a seat may sit, by chain kind. A -lan- chain stays on the owner's home network, so every
-# seat address is a private (RFC 1918) one. A -private- chain may also use an overlay network the
-# owner runs (the shared address space 100.64.0.0/10). A -local- chain lives on one Mac.
+# Where a seat may sit, by chain kind. A -lan- seat address must be a private (RFC 1918) one, so
+# seats reach each other only inside a private network; the invitations decide which Macs are seats.
+# A -private- chain may also use an overlay network the owner runs (the shared address space
+# 100.64.0.0/10). A -local- chain lives on one Mac, on loopback.
 LAN_NETWORKS = tuple(ipaddress.ip_network(n) for n in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
 OVERLAY_NETWORKS = (ipaddress.ip_network("100.64.0.0/10"),)
 REHEARSAL_BASE_PORT = 46656
@@ -390,13 +391,15 @@ def check_seat_ip(ip, loopback):
 
 
 def check_seat_scope(chain_id, ip):
-    """A seat of a -lan- chain sits on the owner's home network; a -private- one may also use an overlay."""
+    """A -lan- seat has a private address, a -private- one may also use an overlay, a -local- one is loopback."""
     if chain_id.startswith("zerone-rehearsal-local-"):
+        if not check_ipv4(ip).startswith("127."):
+            raise Refusal("%s is not loopback: a -local- chain lives on one Mac; use a -lan- chain across Macs" % ip)
         return ip
     kind = "-private-" if chain_id.startswith("zerone-rehearsal-private-") else "-lan-"
     allowed = LAN_NETWORKS + (OVERLAY_NETWORKS if kind == "-private-" else ())
     if not any(ipaddress.ip_address(check_ipv4(ip)) in n for n in allowed):
-        raise Refusal("%s is outside %s: a %s chain admits only seats on the owner's own network"
+        raise Refusal("%s is outside %s: a %s chain admits only seats with private addresses"
                       % (ip, ", ".join(str(n) for n in allowed), kind))
     return ip
 
@@ -729,9 +732,10 @@ def cmd_preflight(a):
         try:
             addr = ipaddress.ip_address(check_ipv4(a.ip))
             if any(addr in n for n in LAN_NETWORKS):
-                add("seat-address", "ok", "%s is a home-network (RFC 1918) address" % a.ip)
+                add("seat-address", "ok", "%s is a private (RFC 1918) address" % a.ip)
             elif any(addr in n for n in OVERLAY_NETWORKS):
-                add("seat-address", "warn", "%s is overlay space (100.64.0.0/10): only a -private- chain accepts it" % a.ip)
+                add("seat-address", "warn", "%s is overlay space (100.64.0.0/10): only a -private- chain accepts it, "
+                    "and preflight never lists it under lan-ipv4" % a.ip)
             else:
                 add("seat-address", "fail", "%s is not a private address; -lan- and -private- chains refuse it" % a.ip)
         except Refusal as e:
@@ -1079,9 +1083,10 @@ def issued_invitations(lay):
     return issued
 
 
-def check_invitations(lay, packets):
-    """Every seat packet answers an invitation this coordinator issued, with the role and stake it fixed.
-    Required on -lan- and -private- chains; checked whenever present on a -local- one."""
+def check_invitations(lay, packets, coordinator_label):
+    """Every seat packet's label matches an invitation this coordinator issued, with the role and stake it
+    fixed. Required on -lan- and -private- chains; checked whenever present on a -local- one. This guards
+    against a careless coordinator or courier, not a hostile one: invitations are unsigned."""
     issued = issued_invitations(lay)
     required = not lay.chain_id.startswith("zerone-rehearsal-local-")
     for p in packets:
@@ -1091,6 +1096,9 @@ def check_invitations(lay, packets):
                 raise Refusal("seat %s was never invited (no invite-%s.json in %s); genesis admits only invited seats"
                               % (p["label"], p["label"], lay.outbox))
             continue
+        if inv.get("coordinator") != coordinator_label:
+            raise Refusal("the invitation for %s names coordinator %s, not %s"
+                          % (p["label"], inv.get("coordinator"), coordinator_label))
         if p["role"] != inv["role"]:
             raise Refusal("seat %s asks to be a %s seat; its invitation fixes %s" % (p["label"], p["role"], inv["role"]))
         stake_zrn = inv.get("stake_zrn")
@@ -1118,7 +1126,7 @@ def build_genesis(lay, packet_paths, binary, rec, start_in_s, coordinator_label)
         raise Refusal("no validator seats")
     if coordinator_label not in [p["label"] for p in packets]:
         raise Refusal("the coordinator's own seat packet (%s) is missing; include it" % coordinator_label)
-    check_invitations(lay, packets)
+    check_invitations(lay, packets, coordinator_label)
     home = lay.coordinator_home()
     gentx_dir = os.path.join(lay.chain_dir, "coordinator-gentx")
     out_genesis = os.path.join(lay.outbox, "genesis-%s.json" % lay.chain_id)
@@ -1185,8 +1193,10 @@ def cmd_genesis(a):
 
 
 def seat_table(net):
+    """What the owner confirms. Node ids decide who may connect, and only validators' are bound to the
+    relayed genesis sha256, so every seat's table must show the same node ids."""
     return [{"label": s["label"], "role": s["role"], "stake_zrn": int(s.get("stake_uzrn") or 0) // UZRN_PER_ZRN,
-             "p2p_endpoint": s["p2p_endpoint"]} for s in net["seats"]]
+             "p2p_endpoint": s["p2p_endpoint"], "node_id": s["node_id"][:12]} for s in net["seats"]]
 
 
 # ── courier: kits out, arrivals in ─────────────────────────────────────────────
