@@ -212,8 +212,10 @@ avoid this by spelling out every command with absolute paths.
      The coordinator uses its own `nets/<id>/outbox/` copies. On a
      `-lan-` or `-private-` chain, `install` refuses without
      `--expect-genesis-sha256`.
-   - Show the owner the printed seat table. Start only on the owner's yes:
-     `pn start --chain-id <id> --label <label>`.
+   - Show the owner the printed seat table. Every seat's table must list the
+     same labels, roles, stakes and node ids: a seat admits peers by those node
+     ids, and only validators' ids are bound to the relayed genesis sha256.
+     Start only on the owner's yes: `pn start --chain-id <id> --label <label>`.
    - Starting before `genesis_time` is ideal. **Starting later is fine:** the
      node starts at once, and blocks begin when more than 2/3 of the stake is
      online. Never re-run genesis or change the chain id because the time
@@ -291,17 +293,23 @@ confirms the table.
 
 ## Who can join
 
-Only the Macs the owner invited, on the owner's own network:
+Only Macs the owner invited, each with a private address:
 
 - **Invited seats only.** On `-lan-` and `-private-` chains, `genesis` refuses
-  a seat packet that has no invitation in the coordinator's outbox, or that asks
-  for a role or stake other than the one its invitation fixed. Its output lists
-  invited Macs that never seated as `invited_but_not_seated`.
-- **The owner's network only.** Every seat address on a `-lan-` chain is a
-  private home-network address: 10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16.
-  A `-private-` chain also accepts the overlay range 100.64.0.0/10, which no
-  run has used yet. `seat`, `genesis` and `install` refuse any other address,
-  and `preflight --ip` reports it.
+  a seat packet whose label has no invitation in the coordinator's outbox, or
+  whose role or stake differs from the one the invitation fixed, or whose
+  invitation names another coordinator. Its output lists invited Macs that
+  never seated as `invited_but_not_seated`. Invitations are unsigned, so this
+  guards against a careless coordinator or courier, not a hostile one.
+- **Private addresses only.** Every seat address on a `-lan-` chain is a
+  private (RFC 1918) address: 10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16, so
+  seats can reach each other only inside a private network. A `-private-`
+  chain also accepts the overlay range 100.64.0.0/10, which no run has used
+  yet; `preflight` never lists an overlay address under `lan-ipv4`, so give it
+  by hand (`preflight --ip` then warns, as expected). A `-local-` chain accepts
+  loopback only. `seat`, `genesis` and `install` refuse any other address. The
+  check cannot tell one private network from another: the invitations decide
+  which Macs are seats.
 - **Seats only at the door.** `install` sets `max_num_inbound_peers = 0` and
   names the other seats' node ids in `unconditional_peer_ids`. CometBFT checks
   the node key in its authenticated handshake, so a node that holds the genesis
@@ -309,8 +317,16 @@ Only the Macs the owner invited, on the owner's own network:
 - **No joining later.** The seat list is fixed at genesis. Adding a Mac means a
   new chain id and a new round of invitations.
 
-A refused stranger still learns that a node listens there. Inside the network,
-a seat's operator can still send its valueless ZRN to any address.
+What this does not stop:
+
+- A refused node still completes the handshake, so it learns the seat's node
+  id, label, chain id and software version. Use seat labels that are not host
+  or person names. A node set to keep dialling a seat makes that seat's run log
+  grow quickly.
+- A device on the LAN can hold a seat's few connection slots open (there are as
+  many as there are other seats) and delay peering. The LAN itself is trusted.
+- Inside the network, a seat's operator can still send its valueless ZRN to any
+  address.
 
 ## Rules
 
@@ -359,8 +375,9 @@ a seat's operator can still send its valueless ZRN to any address.
 | `socketfilterfw --add` prints nothing and `preflight` still warns about the firewall | the pinned `zeroned` is signed `a.out` and another `a.out` app already holds that firewall entry (see Firewall above) |
 | `REFUSED: … running inside an agent sandbox` or `REFUSED: permission denied …` | the command ran inside an agent sandbox; run it outside, with the owner's approval |
 | `REFUSED: this Mac does not hold <ip>` | off the home LAN, the IP changed (a new chain id is needed), or the wrong IP was given |
-| `REFUSED: <ip> is outside 10.0.0.0/8, …` | not a home-network address (a VPN, public or link-local one); use a LAN IPv4 that `preflight` lists |
-| `REFUSED: seat <label> was never invited` | `genesis` got a seat packet with no matching invitation in the outbox; leave it out, or invite that Mac and have it seat again |
+| `REFUSED: <ip> is outside 10.0.0.0/8, …` | not a private (RFC 1918) address (a public, link-local or overlay one); use a LAN IPv4 that `preflight` lists |
+| `REFUSED: <ip> is not loopback: a -local- chain lives on one Mac` | a `-local-` chain id across Macs; use a `-lan-` chain id |
+| `REFUSED: seat <label> was never invited` | `genesis` got a seat packet with no matching invitation in the outbox. Leave it out; or, if that Mac belongs, invite it under the label, role and stake it seated with (a Mac cannot seat twice on one chain id) |
 | `REFUSED: cannot access …/Downloads/…` | macOS privacy blocks this app from that folder; the owner moves the file into the inbox |
 | `zsh: no such file or directory: python3 …private-net.py` | `pn` was set as a variable; define it as the shell function in "Steps" |
 | `command not found: pn` | the agent's shell kept no function from an earlier call; define `pn` in the same call as the command |

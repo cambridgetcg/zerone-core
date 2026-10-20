@@ -764,6 +764,18 @@ class Invitations(unittest.TestCase):
                 pn.check_invitations(self.lay, packets, "seat-1")
             self.assertIn(why, str(cm.exception))
 
+    def test_genesis_refuses_an_uninvited_seat_before_running_zeroned(self):
+        pins = {"binary_sha256": file_sha(os.path.join(self.root, "bin", "zeroned")), "tool_sha256": pn.tool_sha256()}
+        paths = []
+        for packet in (dict(seat(1), **pins), dict(seat(4), **pins)):
+            paths.append(os.path.join(self.root, "inbox", "%s.json" % packet["label"]))
+            with open(paths[-1], "w") as f:
+                json.dump(packet, f)
+        rc, _, err = cli("--root", self.root, "genesis", "--chain-id", CHAIN, "--coordinator-label", "seat-1", *paths)
+        self.assertEqual(rc, 2, err)
+        self.assertIn("seat seat-4 was never invited", err)
+        self.assertFalse(os.path.exists(os.path.join(self.root, "nets", CHAIN, "coordinator")))
+
     def test_a_local_rehearsal_needs_no_invitations(self):
         lay = pn.Layout(self.root, "zerone-rehearsal-local-inv")
         packets = [dict(seat(n), chain_id=lay.chain_id) for n in (1, 2)]
@@ -932,13 +944,17 @@ class TwoRootCourier(unittest.TestCase):
         self.assertEqual(after - before, 777)
 
         # Only seats may connect. Each seat names the other as its one unconditional peer and takes no
-        # other inbound peer, so a node that holds the genesis but no seat is turned away.
+        # other inbound peer. A node that holds the genesis and dials both seats, but has no seat, is
+        # turned away. Whichever seat dialled the other has its one connection slot free, so that seat's
+        # node-key check (CometBFT acceptRoutine) must refuse the outsider by name in its log.
         with open(os.path.join(a_out, "network-%s.json" % chain)) as f:
             ids = {s["label"]: s["node_id"] for s in json.load(f)["seats"]}
         with open(os.path.join(a, "nets", chain, "seats", "alpha", "config", "config.toml")) as f:
             cfg = f.read()
         self.assertIn("max_num_inbound_peers = 0", cfg)
         self.assertIn('unconditional_peer_ids = "%s"' % ids["beta"], cfg)
+        seat_logs = [os.path.join(a, "nets", chain, "run", "alpha.log"), os.path.join(b, "nets", chain, "run", "beta.log")]
+        log_starts = [os.path.getsize(path) for path in seat_logs]
         outsider = os.path.join(base, "outsider")
         pn.zd(binary, "init", "outsider", "--chain-id", chain, "--default-denom", pn.DENOM, "--home", outsider)
         shutil.copy(os.path.join(a_out, "genesis-%s.json" % chain), os.path.join(outsider, "config", "genesis.json"))
@@ -946,40 +962,43 @@ class TwoRootCourier(unittest.TestCase):
         pn.set_toml(os.path.join(outsider, "config", "config.toml"), {
             ("rpc", "laddr"): pn.toml_str("tcp://127.0.0.1:%d" % (o_port + 1)),
             ("p2p", "laddr"): pn.toml_str("tcp://127.0.0.1:%d" % o_port),
-            ("p2p", "persistent_peers"): pn.toml_str("%s@127.0.0.1:%d" % (ids["alpha"], port)),
+            ("p2p", "persistent_peers"): pn.toml_str("%s@127.0.0.1:%d,%s@127.0.0.1:%d"
+                                                     % (ids["alpha"], port, ids["beta"], port + 10)),
             ("p2p", "pex"): "false", ("p2p", "addr_book_strict"): "false", ("p2p", "allow_duplicate_ip"): "true",
         })
         pn.set_toml(os.path.join(outsider, "config", "app.toml"), {
             ("", "minimum-gas-prices"): pn.toml_str("1" + pn.DENOM), ("api", "enable"): "false",
             ("grpc", "enable"): "false"})
-        o_log = os.path.join(base, "outsider.log")
+        o_log = os.path.join(a, "nets", chain, "run", "outsider.log")  # kept with the seats' evidence
         with open(o_log, "ab") as log:
             proc = subprocess.Popen([binary, "start", "--home", outsider], stdout=log, stderr=subprocess.STDOUT,
                                     stdin=subprocess.DEVNULL, env=pn.clean_env())
         self.addCleanup(proc.wait, 30)
         self.addCleanup(proc.kill)
-
-        # Sample both sides while the outsider keeps dialling alpha. An outsider RPC that does not answer yet
-        # is not a result; at least three answers are needed, and every one must show no peer.
-        answers, deadline = [], time.time() + 90
-        while len(answers) < 5 and time.time() < deadline:
-            got = pn.rpc_or_absent(o_port + 1, "/net_info", timeout=5)
-            if got is not None:
-                answers.append(got["n_peers"])
-            time.sleep(2)
-        with open(o_log, errors="replace") as f:
-            tail = f.read()[-3000:]
-        self.assertGreaterEqual(len(answers), 3, "the outsider answered %d times\n%s" % (len(answers), tail))
-        self.assertEqual(set(answers), {"0"}, tail)
-        for _ in range(10):
-            seen = pn.rpc_or_absent(port + 1, "/net_info", timeout=5)  # alpha's own view of its peers
-            if seen is not None:
+        for _ in range(60):
+            if pn.rpc_or_absent(o_port + 1, "/status", timeout=5) is not None:
                 break
-            time.sleep(2)
+            time.sleep(1)
         else:
-            self.fail("alpha's RPC did not answer")
-        self.assertEqual(sorted(p["node_info"]["moniker"] for p in seen["peers"]), ["beta"])
+            self.fail("the outsider node never answered on RPC")
 
+        def seat_peers(rpc_port):
+            for _ in range(10):  # a loaded machine can answer slowly; no answer is not a result
+                seen = pn.rpc_or_absent(rpc_port, "/net_info", timeout=5)
+                if seen is not None:
+                    return sorted(p["node_info"]["moniker"] for p in seen["peers"])
+                time.sleep(2)
+            self.fail("seat RPC 127.0.0.1:%d did not answer" % rpc_port)
+
+        for _ in range(4):  # the outsider redials at once; sample the seats while it does
+            self.assertEqual((seat_peers(port + 1), seat_peers(port + 11)), (["beta"], ["alpha"]))
+            time.sleep(2)
+        refused = []
+        for path, offset in zip(seat_logs, log_starts):
+            with open(path, "rb") as f:
+                f.seek(offset)
+                refused.append(b"Ignoring inbound connection" in f.read())
+        self.assertTrue(any(refused), "no seat logged refusing the outsider at its node-key check")
 
 if __name__ == "__main__":
     unittest.main()

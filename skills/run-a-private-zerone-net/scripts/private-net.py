@@ -1346,8 +1346,9 @@ from the owner, stop and ask.
    ```
    {install_cmd}
    ```
-3. Show the owner the seat table that `install` prints. Only after they say
-   yes, start the node:
+3. Show the owner the seat table that `install` prints. Every seat's table
+   must list the same seats and node ids. Only after they say yes, start the
+   node:
    ```
    {start_cmd}
    ```
@@ -1812,7 +1813,8 @@ def cmd_install(a):
     st, net = install_seat(lay, a.label, a.network, a.genesis, binary, a.expect_genesis_sha256)
     emit({"installed": a.label, "genesis_sha256": st["genesis_sha256"], "genesis_time": st["genesis_time"],
           "rpc": "127.0.0.1:%d" % st["rpc_port"], "seats": seat_table(net),
-          "next": ("show the owner this seat table and the genesis sha256; on their yes, `start`. The node "
+          "next": ("show the owner this seat table and the genesis sha256; every seat's table must list the same "
+                   "seats and node ids. On their yes, `start`. The node "
                    "waits for genesis_time, then needs >2/3 of the stake online")})
     return 0
 
