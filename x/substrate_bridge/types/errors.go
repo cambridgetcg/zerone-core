@@ -39,4 +39,7 @@ var (
 	// Lineage errors (M6).
 	ErrLineageCycle            = errors.Register(codespace, 30, "lineage cycle: upstream.created_at_block >= downstream.created_at_block (UW + M6)")
 	ErrSelfCitationCapExceeded = errors.Register(codespace, 31, "self-citation contribution_share_bps exceeds self_citation_cap_bps (UW + M6)")
+
+	// Registration after qualification-semantics activation.
+	ErrInvalidQualificationMinimum = errors.Register(codespace, 32, "adapter qualification minimum is unsupported (UW + M3)")
 )
