@@ -170,3 +170,7 @@ func TestReformulationVindicationOrderingGenesisRoundTripsMarker(t *testing.T) {
 		})
 	}
 }
+
+func TestReformulationVindicationOrderingStoreKeyAliasMatchesTypes(t *testing.T) {
+	require.Equal(t, string(types.ReformulationVindicationOrderingEnabledKey), keeper.ReformulationVindicationOrderingEnabledStoreKey)
+}

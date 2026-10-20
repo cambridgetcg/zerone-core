@@ -5,6 +5,12 @@
 // nothing clears one, so a fault means the store no longer holds what consensus
 // wrote. Callers read a marker once per entry point and propagate a fault,
 // never treating it as off.
+//
+// The gas-free read applies to the consensus-repairs-v1 markers only. Older
+// knowledge markers (ClaimIntegrityEnabled at 0x87, record integrity, review
+// neutrality, claim records, fund settlement) read through the caller's gas
+// meter on live chains; moving them onto Read would change gas and needs its
+// own upgrade.
 package activation
 
 import (

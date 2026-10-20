@@ -11,8 +11,10 @@ import (
 // string, kept so code written against this earlier keeper constant
 // (zerone-core #118) builds unchanged.
 //
+// It must equal types.ReformulationVindicationOrderingEnabledKey; a test pins that.
+//
 // Deprecated: use types.ReformulationVindicationOrderingEnabledKey.
-var ReformulationVindicationOrderingEnabledStoreKey = string(types.ReformulationVindicationOrderingEnabledKey)
+const ReformulationVindicationOrderingEnabledStoreKey = "\x90"
 
 // ReformulationVindicationOrderingEnabled reports whether the reformulation-tie
 // and vindication-ordering repair of zerone-core #118 is selected. The marker

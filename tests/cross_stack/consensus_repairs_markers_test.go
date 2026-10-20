@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"cosmossdk.io/log"
+	storetypes "cosmossdk.io/store/types"
 	abci "github.com/cometbft/cometbft/abci/types"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	dbm "github.com/cosmos/cosmos-db"
@@ -172,4 +173,40 @@ func TestConsensusRepairsV1RegistryEnablesEveryMarker(t *testing.T) {
 	commitRepairsMarkersBlock(t, app)
 	requireRepairsMarkers(t, app, app.NewContextLegacy(true, cmtproto.Header{ChainID: repairsMarkersChainID, Height: 1}), true)
 	requireExportedRepairsMarkers(t, app, true)
+}
+
+// Each registry entry is bound to its own marker and genesis field: from a
+// chain with every repair off, enabling one entry turns on that entry's reader
+// and that module's genesis field and nothing else, so a swapped Enable, reader
+// or Name cannot pass. Every reader is gas-free whether its marker is absent or
+// on, so a read added to an existing path cannot change gas before activation.
+func TestConsensusRepairsV1RegistryEntriesAreIndependentAndGasFree(t *testing.T) {
+	app := repairsMarkersApp(t)
+	genesis := genesisStateWithValSet(t, app, app.DefaultGenesis())
+	stripRepairsMarkerFields(t, app, genesis)
+	initRepairsMarkersChain(t, app, genesis)
+	ctx := app.NewContextLegacy(false, cmtproto.Header{ChainID: repairsMarkersChainID, Height: 1})
+	markers := app.ConsensusRepairsV1Markers()
+
+	requireGasFree := func(ctx sdk.Context, m zeroneapp.ActivationMarker, want bool) {
+		t.Helper()
+		meter := storetypes.NewGasMeter(1_000_000)
+		enabled, err := m.Enabled(ctx.WithGasMeter(meter))
+		require.NoError(t, err, m.Module)
+		require.Equal(t, want, enabled, m.Module)
+		require.Zero(t, meter.GasConsumed(), "%s reader charged gas", m.Module)
+	}
+
+	for i, target := range markers {
+		cached, _ := ctx.CacheContext()
+		requireGasFree(cached, target, false)
+		require.NoError(t, target.Enable(cached), target.Module)
+		exported, err := app.ModuleManager.ExportGenesisForModules(cached, app.AppCodec(), nil)
+		require.NoError(t, err)
+		for j, m := range markers {
+			requireGasFree(cached, m, i == j)
+			require.Equal(t, i == j, repairsMarkerField(t, exported, m),
+				"enabling %s/%s: %s/%s genesis field", target.Module, target.Name, m.Module, m.Name)
+		}
+	}
 }
