@@ -923,6 +923,11 @@ export interface Fact {
      * chain's standing invitation to destroy it.
      */
     falsificationPredicate: string;
+    /**
+     * True when an actual calibration record was captured at acceptance,
+     * including score zero; absent/false retains legacy fallback semantics.
+     */
+    hasCalibrationSnapshot: boolean;
 }
 /**
  * TokenizerSpec is the governance-ratified contract that names the special

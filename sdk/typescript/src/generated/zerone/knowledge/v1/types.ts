@@ -2068,6 +2068,11 @@ export interface Fact {
    * chain's standing invitation to destroy it.
    */
   falsificationPredicate: string;
+  /**
+   * True when an actual calibration record was captured at acceptance,
+   * including score zero; absent/false retains legacy fallback semantics.
+   */
+  hasCalibrationSnapshot: boolean;
 }
 /**
  * TokenizerSpec is the governance-ratified contract that names the special
@@ -4483,7 +4488,8 @@ function createBaseFact(): Fact {
     trainingRevenueEarnedRecent: "",
     revenueClawbackBlock: BigInt(0),
     probeInvitedAtBlock: BigInt(0),
-    falsificationPredicate: ""
+    falsificationPredicate: "",
+    hasCalibrationSnapshot: false
   };
 }
 /**
@@ -4691,6 +4697,9 @@ export const Fact = {
     if (message.falsificationPredicate !== "") {
       writer.uint32(602).string(message.falsificationPredicate);
     }
+    if (message.hasCalibrationSnapshot === true) {
+      writer.uint32(616).bool(message.hasCalibrationSnapshot);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): Fact {
@@ -4895,6 +4904,9 @@ export const Fact = {
         case 75:
           message.falsificationPredicate = reader.string();
           break;
+        case 77:
+          message.hasCalibrationSnapshot = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -4969,6 +4981,7 @@ export const Fact = {
     message.revenueClawbackBlock = object.revenueClawbackBlock !== undefined && object.revenueClawbackBlock !== null ? BigInt(object.revenueClawbackBlock.toString()) : BigInt(0);
     message.probeInvitedAtBlock = object.probeInvitedAtBlock !== undefined && object.probeInvitedAtBlock !== null ? BigInt(object.probeInvitedAtBlock.toString()) : BigInt(0);
     message.falsificationPredicate = object.falsificationPredicate ?? "";
+    message.hasCalibrationSnapshot = object.hasCalibrationSnapshot ?? false;
     return message;
   }
 };
