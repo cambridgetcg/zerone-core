@@ -170,6 +170,12 @@ func relationContractRetainedAugmentationEndpointMismatch(t *testing.T, enabled 
 					RewardPerVariant: 1000, MaxVariants: 1, ExpiresAtBlock: 200,
 				})
 				require.NoError(t, err)
+				// This tracking mock records account-to-module sends without
+				// applying them. Supply the declared backing explicitly; FX7
+				// must not allow the later export to certify an unbacked ledger.
+				bank.moduleBalances[types.TrainingFundModuleName] = sdk.NewCoins(
+					sdk.NewCoin("uzrn", k.GetEscrowLocked(ctx, bountyID)),
+				)
 			}
 			_, err := server.SubmitAugmentation(ctx, &types.MsgSubmitAugmentation{
 				Id: augID, BountyId: bountyID, OriginalFactId: "target-a", VariantContent: "A retained reformulation fixture.", Submitter: submitter,
