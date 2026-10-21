@@ -21,7 +21,8 @@ from typing import Any
 import provenance as p
 
 HERE = Path(__file__).resolve().parent
-DB_FILE = re.compile(r"(?:CURRENT|LOCK|LOG(?:\.old)?|MANIFEST-[0-9]+|[0-9]+\.(?:log|ldb|sst)|OPTIONS-[0-9]+)")
+# GoLevelDB retains CURRENT.bak when switching manifests; both inventories use this allowlist.
+DB_FILE = re.compile(r"(?:CURRENT(?:\.bak)?|LOCK|LOG(?:\.old)?|MANIFEST-[0-9]+|[0-9]+\.(?:log|ldb|sst)|OPTIONS-[0-9]+)")
 
 
 def inventory(source):

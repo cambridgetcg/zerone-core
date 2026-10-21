@@ -64,10 +64,15 @@ The explicit differences from the forensic observer recipe are intentional:
 
 Requirements: Python 3.11+, local Git objects, Docker with a local Unix socket,
 the pinned builder already available, and a prepopulated public Go module cache.
-An actual build requires a **native Linux/amd64 host**, as in the observer
-recipe. Dry runs work on other platforms. A Darwin/arm64 Studio with Colima
-does **not** satisfy that host check, even with Rosetta enabled. Use a native
-Linux/amd64 build host; permitting emulated builds would need a separate decision.
+By default an actual build requires a **native Linux/amd64 host**, as in the
+observer recipe. Dry runs work on other platforms. The explicit
+`--allow-emulated` alternative permits a Darwin/arm64 Studio's local VM/emulator,
+but requires **both** fresh-cache binaries to equal the pinned H1 cross-build:
+`f35c98b59aba9d9b77062dede87bbe18a688ee26adad5c0b961f156598633495`.
+It records `native_platform: "emulated"`, even if the flag is supplied on a native
+host. Reproducing a different hash twice is not sufficient: mismatch fails before
+OCI packaging, with `status: build-failed` and `reproduced: false`. This opt-in
+does not change the source, builder, build flags, offline rules or runtime gates.
 A missing prerequisite fails closed; these tools never install or fetch it.
 All outputs must be NEW directories under an explicitly selected scratch parent.
 
@@ -91,7 +96,11 @@ python3 "$KIT/provenance.py" --repository "$PWD" --module-cache "$WORK/gomod" \
   go mod download all)
 ```
 
-Use installed Go 1.25.14. Downloading can add lines to this export's `go.sum`;
+Use an installed compatible Go 1.25.x and record `go version`; the cache-fill
+review used Go 1.25.7. Go 1.25.14 is the **pinned image builder's** version, not
+a requirement that the host cache-population command use that patch release.
+`GOTOOLCHAIN=local` prevents automatic compiler downloads.
+Downloading can add lines to this export's `go.sum`;
 discard that export after filling the cache. Never build from it or copy its
 `go.sum` back: the image recipe exports fresh pinned source and verifies modules
 offline. Builder-image acquisition is also a separately authorized host step.
@@ -102,10 +111,11 @@ No pulls, automatic toolchain downloads or network fallback occur in this kit.
 `--docker-host` accepts only a literal `unix:///<absolute socket path>` (no TCP,
 SSH, URL authority/query/fragment, relative path or escaping). It is recorded in
 `provenance.json` and used for **every** run and timeout cleanup. `DOCKER_HOST`
-and inherited Docker contexts cannot override it. For example, a Studio dry run
+and inherited Docker contexts cannot override it. For example, a Studio run
 may use `--docker-host "unix://$HOME/.colima/default/docker.sock"`; a native
 Linux host may use its rootless Docker socket. No `/var/run/docker.sock` symlink
-or sudo is needed. Socket selection does not waive the native-host build gate.
+or sudo is needed. Socket selection alone does not waive the native-host gate;
+an actual emulated build also requires `--allow-emulated` and the exact hash match.
 
 From the repository root (set `WORK` to an authorized scratch directory):
 
@@ -117,7 +127,9 @@ python3 "$KIT/provenance.py" --repository "$PWD" \
 
 This exports real source and writes `source-closure.json`, `source.tar`, `src/`
 and a command plan. `binary_sha256` and `image_digest` remain **null**;
-`reproduced` is false. It does not call Docker.
+`reproduced` is false. It does not call Docker. With `--allow-emulated`, the plan
+records the opt-in and `expected_binary_sha256`, but `native_platform` remains
+null: no execution platform has been exercised.
 
 On a separately authorized build host with prerequisites already available:
 
@@ -127,13 +139,29 @@ python3 "$KIT/provenance.py" --repository "$PWD" \
   --module-cache /path/to/public-go-module-cache --output "$WORK/image-build"
 ```
 
+For the separately authorized Studio build, with the pinned builder and public
+module cache already available and the local VM already configured by the host:
+
+```sh
+python3 "$KIT/provenance.py" --repository "$PWD" --allow-emulated \
+  --docker-host "unix://$HOME/.colima/default/docker.sock" \
+  --module-cache /path/to/public-go-module-cache --output "$WORK/image-build-emulated"
+```
+
+Use that output directory in place of `$WORK/image-build` below. The kit does
+not install or start Colima, configure Rosetta, pull a builder or grant build
+authorization. The hash pin is an integrity condition, not a claim that emulation
+has been exercised on this machine.
+
 Success produces `provenance.json` (`status: built-local`, `reproduced: true`),
 `build-1/zeroned`, `build-2/zeroned`, and `image.oci.tar`. The receipt records
 source and executable SHA-256, exact builder/environment/commands, OCI archive
 SHA-256 and the **OCI image manifest digest** (not the Docker config/image ID).
 It also records both `go version -m /out/zeroned` outputs, the native platform,
-the socket and the public CA-bundle hash. Both metadata and CA extraction run
-in the pinned builder with no network; the two CA copies must match.
+the socket and the public CA-bundle hash. `build-step-N.log` contains **stdout
+only**; Docker/compiler diagnostics are retained in `build-step-N.stderr.log`.
+Both metadata and CA extraction run in the pinned builder with no network;
+the two CA copies must match, without any stderr warnings in the bundle.
 Retain logs and failure receipts; do not reuse an interrupted output directory.
 
 The OCI image is a static `scratch` runtime containing `/usr/local/bin/zeroned`
@@ -181,6 +209,7 @@ provided-copy/
   copy.json
   application.db/
     CURRENT
+    CURRENT.bak  (optional GoLevelDB previous-manifest pointer)
     MANIFEST-...
     ... LevelDB files only ...
 ```
@@ -255,6 +284,51 @@ image startup. Never return its mutated working home to a real validator.
 
 ## Packaged runtime proof, before proposing H
 
+### Make the manifest-pinned name available locally (host step)
+
+The build outputs an OCI archive, not a Docker repository-digest association.
+Do **not** assume `docker load` or tagging a config ID makes
+`name@sha256:<manifest>` resolvable with `--pull=never`. The host must transfer
+without rewriting the manifest, pull the exact digest once into the selected
+daemon's store, then verify that exact name. This is outside the offline kit.
+
+One option is an **already provisioned, separately authorized loopback-only
+registry**. The following commands require installed `skopeo`, `jq`, `shasum`
+and Docker, a registry at `127.0.0.1:5000`, and permission for that local transfer.
+Run the transfer/pull commands on the **Linux daemon host (or inside its VM)**,
+with the archive and receipt locally available there. On Colima, macOS loopback
+and the daemon VM's loopback are not the same endpoint; do not expose the
+registry on a public interface to work around that distinction. Set `SOCK` to
+that daemon's literal Unix-socket URL and `WORK` to the transferred build parent.
+No registry creation, public publication or image acquisition is implied here.
+
+```sh
+(
+  set -eu
+  DIGEST=$(jq -er '.image_digest' "$WORK/image-build/provenance.json")
+  NAME=127.0.0.1:5000/zerone/h1
+  IMAGE="$NAME@$DIGEST"
+  skopeo copy --preserve-digests --dest-tls-verify=false \
+    "oci-archive:$WORK/image-build/image.oci.tar" "docker://$NAME:rehearsal"
+  skopeo inspect --tls-verify=false --raw "docker://$IMAGE" > "$WORK/registry-manifest.json"
+  MANIFEST_SHA=$(shasum -a 256 "$WORK/registry-manifest.json")
+  test "sha256:${MANIFEST_SHA%% *}" = "$DIGEST"
+  docker --host "$SOCK" pull --platform linux/amd64 "$IMAGE"
+  docker --host "$SOCK" image inspect "$IMAGE" --format '{{json .RepoDigests}}' > "$WORK/local-repodigests.json"
+  jq -e --arg image "$IMAGE" 'index($image) != null' "$WORK/local-repodigests.json"
+)
+```
+
+The subshell stops on **any** failed command or digest/name mismatch. `--preserve-digests`
+must fail rather than silently convert the manifest. The insecure HTTP option
+is only for this loopback registry. Registry pulls are an explicit host step;
+the smoke still uses `--pull=never --network=none`. An authorized remote registry
+can instead be used with TLS and the same raw-manifest hash and exact-name
+checks; public publication needs its own authorization. The loopback image name
+is only for this local smoke, not a deployable reference for a remote node.
+These transfer instructions still need host execution; offline tests do not
+prove registry or Docker-store behavior.
+
 After the provided-copy drill and after the exact manifest-pinned image is
 already available in the authorized host's local Docker store, run:
 
@@ -322,6 +396,40 @@ never overwrites the installed copy. It fixes the four defects:
    A dark RPC is never a halt.
    Output distinguishes **pre-H stall (H−1,H−1)** from **staged-H stall (H,H−1)**;
    the former is safe for a pre-H replacement but does not prove an upgrade error.
+
+### Build the H1 operator CLI on Darwin/arm64
+
+Build from a **fresh frozen-source export**, not the kit branch's working tree
+and not the export whose `go.sum` was touched by cache population. This produces
+a host CLI only, not the Linux shipping executable or image. Its hash is not
+expected to equal the Linux cross-build pin. With a complete public cache and
+an installed compatible Go 1.25.x, from the repository root:
+
+```sh
+(
+  set -eu
+  python3 "$KIT/provenance.py" --repository "$PWD" \
+    --module-cache /path/to/public-go-module-cache --output "$WORK/cli-export" --dry-run
+  mkdir "$WORK/cli" "$WORK/cli-home"
+  cd "$WORK/cli-export/src"
+  export GOTOOLCHAIN=local GOWORK=off GOFLAGS=-mod=readonly GOPROXY=off GOSUMDB=off
+  export GOENV=off GOPRIVATE= GONOPROXY=none GONOSUMDB=none GOVCS='*:off'
+  export GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 GOMAXPROCS=4
+  export GOMODCACHE=/path/to/public-go-module-cache GOCACHE="$WORK/cli-go-cache" HOME="$WORK/cli-home"
+  go mod verify
+  go build -p 4 -buildvcs=false -trimpath \
+    -ldflags '-s -w -X github.com/cosmos/cosmos-sdk/version.Name=zerone -X github.com/cosmos/cosmos-sdk/version.AppName=zeroned -X github.com/cosmos/cosmos-sdk/version.Version=h1-testnet-65c19cd8 -X github.com/cosmos/cosmos-sdk/version.Commit=65c19cd8b00bdfff9b80705b776fd0d49719398a' \
+    -o "$WORK/cli/zeroned" ./cmd/zeroned
+  "$WORK/cli/zeroned" version --long --output json --home "$WORK/cli-home"
+  shasum -a 256 "$WORK/cli/zeroned"
+)
+```
+
+Use an absolute `WORK` path; stop if export, verification or build fails. Check
+`name=zerone`, `server_name=zeroned`, `version=h1-testnet-65c19cd8` and the full
+H1 commit above, then pass `--zeroned "$WORK/cli/zeroned"` only after operator
+adoption. No existing home or key is used by these build/version commands.
+The helper executables from the state-copy drill cannot substitute for this CLI.
 
 All paths, endpoints and proposal height are explicit. Default invocation prints
 an offline JSON plan and accesses no CLI, home, config, keys or network:

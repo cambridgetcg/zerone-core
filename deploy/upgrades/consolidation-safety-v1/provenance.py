@@ -26,6 +26,8 @@ SOURCE_ARCHIVE_SHA256 = "2ab7a6b96ad6f2294ad7bbb7ddf5140c47763b8fca3ad9ae864e239
 SOURCE_FILE_COUNT = 674
 OLD_COMMIT = "2e37c4c86c31e67515d6aa07b6fd406083e012ea"
 BUILDER_IMAGE = "registry-1.docker.io/library/golang@sha256:c268a04d59aea0b180ed9946a658cfab9e7b3391dc90eed6e4969ccff98c851f"
+# Authorized emulation must reproduce the frozen H1 cross-build, not merely itself.
+CROSS_BUILD_SHA256 = "f35c98b59aba9d9b77062dede87bbe18a688ee26adad5c0b961f156598633495"
 RESOURCES = {"go.mod", "go.sum", "Makefile", "LICENSE", "docs/swagger-ui/embed.go",
              "docs/swagger-ui/index.html", "docs/swagger-ui/swagger.json"}
 VERSION = "h1-testnet-65c19cd8"
@@ -207,9 +209,9 @@ def package_oci(binary, output, source_sha, ca_bundle):
             "binary_sha256": sha256(binary), "ca_bundle_sha256": sha256(ca_bundle)}
 
 
-def build(repository, destination, modules, dry_run, docker_host=DOCKER_HOST):
+def build(repository, destination, modules, dry_run, docker_host=DOCKER_HOST, *, allow_emulated=False):
     validate_docker_host(docker_host)
-    if not dry_run:
+    if not dry_run and not allow_emulated:
         require_native_host()
     output = new_output(destination)
     receipt = export_source(repository, output)
@@ -223,7 +225,10 @@ def build(repository, destination, modules, dry_run, docker_host=DOCKER_HOST):
     report = {"schema": "zerone-h1-testnet-image/v1", "source_commit": SOURCE_COMMIT,
               "source_sha256": receipt["source_sha256"], "builder_image": BUILDER_IMAGE,
               "build_environment": BUILD_ENV, "commands": commands, "docker_host": docker_host,
-              "native_platform": None if dry_run else "linux/amd64", "binary_go_metadata": [],
+              "native_platform": None if dry_run else "emulated" if allow_emulated else "linux/amd64",
+              "allow_emulated": allow_emulated,
+              "expected_binary_sha256": CROSS_BUILD_SHA256 if allow_emulated else None,
+              "binary_go_metadata": [],
               "status": "dry-run", "reproduced": False, "binary_sha256": None,
               "image_digest": None, "published": False, "signed": False}
     write_json(output / "provenance.json", report)
@@ -236,28 +241,34 @@ def build(repository, destination, modules, dry_run, docker_host=DOCKER_HOST):
     try:
         for step, argv in enumerate(commands, 1):
             try:
-                with (output / f"build-step-{step}.log").open("wb") as log:
-                    subprocess.run(argv, check=True, stdout=log, stderr=subprocess.STDOUT, timeout=1800)
+                # Metadata and CA bytes are stdout artifacts, never Docker diagnostics.
+                with (output / f"build-step-{step}.log").open("wb") as log, \
+                     (output / f"build-step-{step}.stderr.log").open("wb") as errors:
+                    subprocess.run(argv, check=True, stdout=log, stderr=errors, timeout=1800)
             except (KeyboardInterrupt, subprocess.TimeoutExpired):
                 cid = Path(argv[argv.index("--cidfile") + 1])
                 if cid.is_file() and re.fullmatch(r"[0-9a-f]{64}", cid.read_text().strip()):
                     subprocess.run(["docker", "--host", docker_host, "stop", "--time", "10",
                                     cid.read_text().strip()], check=False, timeout=30, stdout=subprocess.DEVNULL)
                 raise
-    except (OSError, subprocess.SubprocessError, KeyboardInterrupt):
+        first, second = output / "build-1/zeroned", output / "build-2/zeroned"
+        report["binary_sha256"] = sha256(first)
+        require(report["binary_sha256"] == sha256(second), "fresh-cache binary builds differ")
+        if allow_emulated:
+            require(report["binary_sha256"] == CROSS_BUILD_SHA256,
+                    "emulated binary SHA-256 differs from the pinned cross-build")
+        for item in receipt["files"]:
+            require(sha256(output / "src" / item["path"]) == item["sha256"], "source changed during build")
+        require((output / "build-step-4.log").read_bytes() == (output / "build-step-8.log").read_bytes(),
+                "pinned-builder CA bundles differ")
+        report["binary_go_metadata"] = [(output / f"build-step-{step}.log").read_text() for step in (3, 7)]
+        require(all("GOOS=linux" in text and "GOARCH=amd64" in text and "CGO_ENABLED=0" in text
+                    for text in report["binary_go_metadata"]), "binary Go metadata differs from build profile")
+        report.update(package_oci(first, output, receipt["source_sha256"], output / "build-step-4.log"))
+    except (OSError, ValueError, subprocess.SubprocessError, KeyboardInterrupt):
         report["status"] = "build-failed"
         write_json(ppath, report)
         raise
-    first, second = output / "build-1/zeroned", output / "build-2/zeroned"
-    require(sha256(first) == sha256(second), "fresh-cache binary builds differ")
-    for item in receipt["files"]:
-        require(sha256(output / "src" / item["path"]) == item["sha256"], "source changed during build")
-    require((output / "build-step-4.log").read_bytes() == (output / "build-step-8.log").read_bytes(),
-            "pinned-builder CA bundles differ")
-    report["binary_go_metadata"] = [(output / f"build-step-{step}.log").read_text() for step in (3, 7)]
-    require(all("GOOS=linux" in text and "GOARCH=amd64" in text and "CGO_ENABLED=0" in text
-                for text in report["binary_go_metadata"]), "binary Go metadata differs from build profile")
-    report.update(package_oci(first, output, receipt["source_sha256"], output / "build-step-4.log"))
     report.update(status="built-local", reproduced=True)
     write_json(output / "provenance.json", report)
     return report
@@ -271,10 +282,13 @@ def main():
     parser.add_argument("--module-cache", type=Path, required=True,
                         help="explicit prepopulated public module cache; mounted read-only")
     parser.add_argument("--docker-host", default=DOCKER_HOST, help="literal local unix:///<absolute socket path>")
+    parser.add_argument("--allow-emulated", action="store_true",
+                        help="allow emulation only if both binaries match the pinned H1 cross-build SHA-256")
     parser.add_argument("--dry-run", action="store_true", help="export real source; never invoke Docker")
     args = parser.parse_args()
     try:
-        print(json.dumps(build(args.repository, args.output, args.module_cache, args.dry_run, args.docker_host), sort_keys=True))
+        print(json.dumps(build(args.repository, args.output, args.module_cache, args.dry_run, args.docker_host,
+                               allow_emulated=args.allow_emulated), sort_keys=True))
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         print(f"REFUSED: {error}", file=sys.stderr)
         return 1

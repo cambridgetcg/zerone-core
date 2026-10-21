@@ -265,7 +265,8 @@ def finish_halt(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--chain-id", choices=[CHAIN], required=True)
-    parser.add_argument("--zeroned", type=Path, required=True, help="explicit CURRENT verified CLI executable")
+    parser.add_argument("--zeroned", type=Path, required=True,
+                        help="explicit frozen H1 CLI with kit version/commit fields; see TESTNET.md Darwin build")
     parser.add_argument("--ops-home", type=Path, required=True)
     parser.add_argument("--operator", required=True, help="bonded validator operator key, used for BOTH submission and vote")
     parser.add_argument("--keyring-backend", choices=["file", "os", "test"], default="file")
