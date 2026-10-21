@@ -9,7 +9,10 @@ import (
 
 // UnobservedHealthEnabled reports whether the not-observed health repair of
 // decision zc-health-unknown-q1 is selected: an empty sensor reads as "not
-// known yet" with neutral pacing, not as "critical". The marker at
+// known yet" with neutral pacing, not as "critical". It also selects the
+// first-observation critical event and DegradedThreshold hysteresis banding.
+// EndBlock reads it once; pacing consumers only read the stored category.
+// The marker at
 // types.UnobservedHealthEnabledKey is the only selector. Native genesis writes
 // it and the named carrier upgrade consensus-repairs-v2 writes it at its
 // height. No message or parameter toggles it, and nothing clears it.
