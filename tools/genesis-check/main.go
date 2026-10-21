@@ -15,7 +15,11 @@ import (
 	"strings"
 	"time"
 
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/zerone-chain/zerone/app"
+	gov "github.com/zerone-chain/zerone/x/gov/types"
+	knowledge "github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
 // ════════════════════════════════════════════════════════════════════════
@@ -934,12 +938,107 @@ func checkConsensusRepairsMarkers(c *checker, g map[string]interface{}) {
 		c.fail("%v", err)
 		return
 	}
-	c.pass("All ten consensus-repairs-v1 markers explicitly true with exact spelling")
+	c.pass("All fourteen consensus-repairs-v1/v2 markers explicitly true with exact spelling")
 }
 
 // ════════════════════════════════════════════════════════════════════════
 //  Main
 // ════════════════════════════════════════════════════════════════════════
+
+// FX7/FX8 are presence-selected inventories, not activation markers. Keep this
+// in main.go: the hash-pinned Makefile supports `go run .../main.go`.
+func checkRepairsV2RetainedGenesis(c *checker, g map[string]interface{}) {
+	c.section("Consensus Repairs V2 Retained Genesis")
+	codec := app.MakeEncodingConfig().Codec
+	decode := func(name string, target interface {
+		ProtoMessage()
+		Reset()
+		String() string
+	}) error {
+		value, ok := dig(g, "app_state", name)
+		if !ok {
+			return fmt.Errorf("missing %s genesis", name)
+		}
+		raw, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+		return codec.UnmarshalJSON(raw, target)
+	}
+	var kg knowledge.GenesisState
+	if err := decode("knowledge", &kg); err != nil {
+		c.fail("FX7 decode: %v", err)
+		return
+	}
+	if err := knowledge.ValidateGenesisAccounting(&kg); err != nil {
+		c.fail("FX7: %v", err)
+		return
+	}
+	if kg.AccountingState != nil {
+		var bank banktypes.GenesisState
+		if err := decode("bank", &bank); err != nil {
+			c.fail("FX7 bank decode: %v", err)
+			return
+		}
+		address := authtypes.NewModuleAddress(knowledge.TrainingFundModuleName).String()
+		balance, seen := "0", false
+		for _, entry := range bank.Balances {
+			if entry.Address == address {
+				if seen {
+					c.fail("FX7 duplicate training-fund bank balance")
+					return
+				}
+				seen = true
+				if err := entry.Coins.Validate(); err != nil {
+					c.fail("FX7 bank coins: %v", err)
+					return
+				}
+				balance = entry.Coins.AmountOf("uzrn").String()
+			}
+		}
+		if balance != kg.TrainingFundAllocation {
+			c.fail("FX7 training allocation differs from imported bank balance")
+			return
+		}
+	}
+	// Governance uses encoding/json, not protojson. Its older parameter checks
+	// are separate; here decode exactly the retained fields and reject aliases
+	// that could otherwise disappear on import.
+	fields, ok := digMap(g, "app_state", "zerone_gov")
+	if !ok {
+		c.fail("FX8 missing governance genesis")
+		return
+	}
+	retained := map[string]interface{}{}
+	governanceRaw, err := json.Marshal(fields)
+	if err == nil {
+		err = gov.ValidateRetainedGenesisFieldNames(governanceRaw)
+	}
+	if err != nil {
+		c.fail("FX8: %v", err)
+		return
+	}
+	for _, name := range gov.RetainedGenesisFields() {
+		if value, present := fields[name]; present {
+			retained[name] = value
+		}
+	}
+	raw, err := json.Marshal(retained)
+	if err != nil {
+		c.fail("FX8 encode: %v", err)
+		return
+	}
+	var gg gov.GenesisState
+	if err := json.Unmarshal(raw, &gg); err != nil {
+		c.fail("FX8 decode: %v", err)
+		return
+	}
+	if err := gg.ValidateRetainedRecords(); err != nil {
+		c.fail("FX8: %v", err)
+		return
+	}
+	c.pass("FX7/FX8 retained fields valid; absence remains legacy, not completeness evidence")
+}
 
 func runChecks(c *checker, genesis map[string]interface{}) {
 	checkRevenueSplit(c, genesis)
@@ -961,6 +1060,7 @@ func runChecks(c *checker, genesis map[string]interface{}) {
 	checkChainMetadata(c, genesis)
 	checkAdapterQualificationMinima(c, genesis)
 	checkConsensusRepairsMarkers(c, genesis)
+	checkRepairsV2RetainedGenesis(c, genesis)
 }
 
 func main() {

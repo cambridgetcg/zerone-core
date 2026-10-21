@@ -221,12 +221,14 @@ one-height database repair is not a network recovery protocol.
   exists; log what you change.
 - **Permission reconciliation belongs to the handler's reviewed write set.**
   Historical broad handlers keep `ReconcileModuleAccountPerms`. The exact
-  claim-integrity and `consensus-repairs-v1` rungs deliberately do not call it:
+  claim-integrity, `consensus-repairs-v1` and `consensus-repairs-v2` rungs deliberately do not call it:
   it could write unrelated accounts. The carrier checks a streamed all-store
   digest against the source merged with exactly its expected writes, plus an
   explicit knowledge `0x87` digest, before releasing its cache. Its census runs
   in a discarded cache with per-census selected-prefix bounds, not a whole-state
-  ceiling; see [the carrier contract](consensus-repairs-v1.md).
+  ceiling; see [the v1 carrier contract](consensus-repairs-v1.md) and
+  [the v2 successor contract](consensus-repairs-v2.md). V2 adds only alignment
+  2→3 and knowledge 13→14; Q5 scores and marker 0x92 commit in the same cache.
 - **Never edit an old handler after it ran anywhere.** New change = new name.
 - **Never fetch a validator binary at H.** Pin Cosmovisor, keep downloads off,
   verify the staged digest, and retain the H−1 backup.

@@ -156,6 +156,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 	app.registerFundSettlementUpgrade()
 	app.registerClaimIntegrityUpgrade()
 	app.registerConsensusRepairsUpgrade()
+	app.registerConsensusRepairsV2Upgrade()
 	// v1.0.0-testnet — initial testnet launch.
 	// Runs all module migrations from ConsensusVersion 1 → 2.
 	app.UpgradeKeeper.SetUpgradeHandler(

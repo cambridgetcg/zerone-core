@@ -193,7 +193,7 @@ class Node:
             raise GatewayError("RPC genesis names a different chain")
         versions = parse(self.cli("query", "upgrade", "module-versions", "--node", self.rpc, "--output", "json"))
         knowledge = [row.get("version") for row in versions.get("module_versions", []) if row.get("name") == "knowledge"]
-        if len(knowledge) != 1 or str(knowledge[0]) not in ("10", "11", "12", "13"):
+        if len(knowledge) != 1 or str(knowledge[0]) not in ("10", "11", "12", "13", "14"):
             raise GatewayError("Unsupported current knowledge module version")
         knowledge_version = int(knowledge[0])
         if self.upgrade_packet is not None and knowledge_version != self.upgrade_packet["target"]["knowledge_version"]:
@@ -202,6 +202,13 @@ class Node:
             raise GatewayError("Upgraded ledger requires the explicit staged gateway path")
         if knowledge_version >= 12 and self.upgrade_packet is None and genesis.get("app_state", {}).get("knowledge", {}).get("claim_integrity_enabled") is not True:
             raise GatewayError("Claim-integrity ledger requires the explicit staged gateway path")
+        if knowledge_version >= 14 and self.upgrade_packet is None:
+            selections = {"alignment": ("unobserved_health_enabled",), "knowledge": (
+                "inconclusive_round_accounting_enabled", "calibration_smoothing_enabled", "zero_confidence_floor_enabled")}
+            for module, names in selections.items():
+                fields = genesis.get("app_state", {}).get(module, {})
+                if not isinstance(fields, dict) or any(fields.get(name) is not True for name in names):
+                    raise GatewayError("Consensus-repairs-v2 ledger requires the explicit staged gateway path")
         local_test = self.manifest.get("local_test") is True
         endpoint = (f"http://127.0.0.1:{self.manifest['gateway_port']}" if local_test else "https://zerone-dev-1.fly.dev")
         value = {"schema": "zerone-shared-development/v1", "chain_id": CHAIN,

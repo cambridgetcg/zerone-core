@@ -16,6 +16,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
+	"github.com/zerone-chain/zerone/app/consensusrepairsv2migration"
 	"github.com/zerone-chain/zerone/internal/consensusrepairsmigration"
 	"github.com/zerone-chain/zerone/x/alignment/client/cli"
 	"github.com/zerone-chain/zerone/x/alignment/keeper"
@@ -89,6 +90,9 @@ func (am AppModule) IsAppModule()        {}
 
 // RegisterServices registers module services.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
+	if err := cfg.RegisterMigration(types.ModuleName, 2, consensusrepairsv2migration.Require); err != nil {
+		panic(err)
+	}
 	if err := cfg.RegisterMigration(types.ModuleName, 1, consensusrepairsmigration.Require); err != nil {
 		panic(err)
 	}
@@ -116,8 +120,9 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 	return bz
 }
 
-// ConsensusVersion returns the module's consensus version.
-func (AppModule) ConsensusVersion() uint64 { return 2 }
+// Version 3 selects Q1's stored not_observed category, threshold/event and
+// observation-cadence behavior. Downstream pacing and governance read that state.
+func (AppModule) ConsensusVersion() uint64 { return 3 }
 
 // BeginBlock is a no-op for alignment.
 func (am AppModule) BeginBlock(_ context.Context) error {
@@ -183,7 +188,7 @@ func (am AppModule) endBlockUnobservedHealth(ctx context.Context) error {
 	// active stake is not absence: registered inactive validators are observed.
 	observed, err := am.keeper.HasHealthObservation(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: %w", types.ErrHealthObservationFault, err)
 	}
 
 	// 1. Observe

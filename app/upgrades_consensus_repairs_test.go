@@ -73,13 +73,18 @@ func freezeConsensusRepairsSiblingTargets(app *ZeroneApp) {
 }
 func freezeClaimIntegrityCompiledTarget(app *ZeroneApp) {
 	freezeConsensusRepairsSiblingTargets(app)
-	app.ModuleManager.Modules["knowledge"] = archivedClaimIntegrityKnowledgeModule{app.ModuleManager.Modules["knowledge"].(knowledgemodule.AppModule)}
+	current := app.ModuleManager.Modules["knowledge"]
+	if frozen, ok := current.(archivedRepairsV1KnowledgeModule); ok {
+		current = frozen.AppModule
+	}
+	app.ModuleManager.Modules["knowledge"] = archivedClaimIntegrityKnowledgeModule{current.(knowledgemodule.AppModule)}
 }
 
 func consensusRepairsFixture(t *testing.T, skip ...int) (*ZeroneApp, sdk.Context, dbm.DB) {
 	t.Helper()
 	db := dbm.NewMemDB()
 	app := NewZeroneApp(log.NewNopLogger(), db, nil, true, simtestutil.AppOptionsMap{flags.FlagHome: t.TempDir(), server.FlagUnsafeSkipUpgrades: skip}, baseapp.SetChainID("zerone-dev-1"))
+	freezeConsensusRepairsV1CompiledTarget(app)
 	genesis, err := json.Marshal(sdk053IBC10GenesisWithValidator(t, app))
 	require.NoError(t, err)
 	ctx := app.NewUncachedContext(false, cmtproto.Header{ChainID: "zerone-dev-1"})
@@ -182,7 +187,9 @@ func TestConsensusRepairsAtomicUpgradeDiffAndRestart(t *testing.T) {
 	require.Equal(t, consensusRepairsTargetVersionMap(), module.VersionMap(vm))
 	app.CommitMultiStore().Commit()
 	require.NoError(t, app.ValidateAccountingAuthorityStartup())
-	restarted := NewZeroneApp(log.NewNopLogger(), db, nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(ctx.ChainID()))
+	restarted := NewZeroneApp(log.NewNopLogger(), db, nil, false, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(ctx.ChainID()))
+	freezeConsensusRepairsV1CompiledTarget(restarted)
+	require.NoError(t, restarted.LoadLatestVersion())
 	require.NoError(t, restarted.ValidateAccountingAuthorityStartup())
 	require.Error(t, app.UpgradeKeeper.ApplyUpgrade(ctx, plan))
 	genesis, err := app.ModuleManager.ExportGenesis(ctx, app.appCodec)

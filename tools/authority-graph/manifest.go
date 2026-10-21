@@ -16,7 +16,7 @@ const (
 	manifestPath            = "dashboard/public/standards/authority-geometry.v1.json"
 	manifestSchema          = "zerone.authority-geometry/v1"
 	checkerSchema           = "zerone.authority-graph-check/v1"
-	canonicalManifestSHA256 = "ab671304a271c34ebd2f72e48547642523010f403c5a146940ca183e627bc661"
+	canonicalManifestSHA256 = "5a39bc4b1067d2aad42a24bb8ac8d44223afb62dad9f2b2bfbe3faf367e8a7db"
 	canonicalDesignSHA256   = "1ec84986d2e14b8f938e76d5187266c3e23a6881818d59bbba420ba663f5176a"
 )
 
@@ -347,6 +347,24 @@ var expectedAnchors = []expectedAnchor{
 		Forbidden: []string{},
 	},
 	{
+		ID:   "knowledge-vindication-slash-callsite",
+		Path: "x/knowledge/keeper/vindication.go",
+		Required: []string{
+			"func (k Keeper) ExecuteVindication(ctx context.Context, factId, disprovenBy string) error {",
+			"slashed, err := k.stakingKeeper.SlashValidatorToModule(ctx, voter, params.VindicationSlashBps, types.ModuleName)",
+		},
+		Forbidden: []string{},
+	},
+	{
+		ID:   "knowledge-missed-verification-slash-callsite",
+		Path: "x/knowledge/keeper/validator_selection.go",
+		Required: []string{
+			"func (k Keeper) SlashMissedVerification(ctx context.Context, verifierAddr string, slashBps uint64) error {",
+			"return k.stakingKeeper.SlashValidator(ctx, verifierAddr, slashBps)",
+		},
+		Forbidden: []string{},
+	},
+	{
 		ID:   "alignment-staking-adapter",
 		Path: "x/staking/keeper/alignment_adapters.go",
 		Required: []string{
@@ -485,7 +503,7 @@ var expectedCurrentEdges = []expectedEdge{
 	{"current-liquid-to-custom-stake", "bank-balance", "custom-staking", "FUNDS_LEGACY_DELEGATION", "ECONOMIC_INFLUENCE", []string{"app-wiring"}},
 	{"current-custom-stake-to-custom-policy", "custom-staking", "custom-gov", "SUPPLIES_LIP_VOTING_POWER", "ECONOMIC_INFLUENCE", []string{"app-wiring", "custom-gov-resolution"}},
 	{"current-custom-stake-to-knowledge", "custom-staking", "knowledge", "SUPPLIES_SELECTION_INPUTS", "EPISTEMIC_INFLUENCE", []string{"app-wiring", "knowledge-staking-adapter"}},
-	{"current-knowledge-to-custom-stake-slash", "knowledge", "custom-staking", "EXECUTES_VERIFIER_SLASH_AND_COIN_ROUTE", "VALUE_WRITE", []string{"app-wiring", "knowledge-staking-adapter", "knowledge-slash-callsites", "knowledge-expiry-slash-callsite"}},
+	{"current-knowledge-to-custom-stake-slash", "knowledge", "custom-staking", "EXECUTES_VERIFIER_SLASH_AND_COIN_ROUTE", "VALUE_WRITE", []string{"app-wiring", "knowledge-staking-adapter", "knowledge-slash-callsites", "knowledge-expiry-slash-callsite", "knowledge-vindication-slash-callsite", "knowledge-missed-verification-slash-callsite"}},
 	{"current-liquid-to-qualification", "bank-balance", "qualification", "GRANTS_STAKE_PATHWAY", "EPISTEMIC_INFLUENCE", []string{"app-wiring", "qualification-stake-pathway"}},
 	{"current-custom-stake-to-emergency", "custom-staking", "emergency", "SUPPLIES_GUARDIAN_POWER", "CONTROL_INFLUENCE", []string{"app-wiring", "custom-emergency-electorate"}},
 	{"current-custom-stake-to-alignment", "custom-staking", "alignment", "SUPPLIES_ALIGNMENT_HEALTH_INPUTS", "SYSTEM_SIGNAL_INFLUENCE", []string{"app-wiring", "alignment-staking-adapter", "alignment-staking-callsites"}},
@@ -643,8 +661,8 @@ func validateManifest(m manifest, issues *issueSet) {
 	if m.Schema != manifestSchema {
 		issues.add("MANIFEST_SCHEMA_INVALID", "schema must be zerone.authority-geometry/v1")
 	}
-	if m.Revision != "1.0.9" {
-		issues.add("MANIFEST_REVISION_INVALID", "revision must be 1.0.9")
+	if m.Revision != "1.0.10" {
+		issues.add("MANIFEST_REVISION_INVALID", "revision must be 1.0.10")
 	}
 	if m.SnapshotDate != "2026-10-21" {
 		issues.add("MANIFEST_SNAPSHOT_INVALID", "snapshotDate must match the reviewed current-source binding date")

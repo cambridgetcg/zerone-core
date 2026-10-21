@@ -56,7 +56,11 @@ func TestGovRetainedRecordsSurviveModuleJSON(t *testing.T) {
 			require.NoError(t, json.Unmarshal(data, &restored))
 			require.True(t, proto.Equal(gs, &restored), "every retained record and the counter's presence survive")
 			require.Equal(t, tc.counter != nil, restored.NextResearchSpendNumber != nil)
-			require.NoError(t, restored.Validate())
+			if tc.counter != nil && *tc.counter == 0 {
+				require.ErrorContains(t, restored.Validate(), "allocation headroom", "wire presence survives, but unsafe selection is refused")
+			} else {
+				require.NoError(t, restored.Validate())
+			}
 		})
 	}
 }

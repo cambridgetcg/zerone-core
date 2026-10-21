@@ -14,6 +14,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/zerone-chain/zerone/internal/consensusrepairsmigration"
+	gov "github.com/zerone-chain/zerone/x/gov/types"
 )
 
 const UpgradeNameConsensusRepairsV1 = consensusrepairsmigration.UpgradeName
@@ -33,6 +34,9 @@ func consensusRepairsVersions() module.VersionMap {
 
 // Every caller, including older broad migrations, must respect the complete rung.
 func requireConsensusRepairsTransitionOwner(name string, from, target module.VersionMap) error {
+	if from["knowledge"] >= 14 || target["knowledge"] >= 14 || from["alignment"] >= 3 || target["alignment"] >= 3 {
+		return requireConsensusRepairsV2TransitionOwner(name, from, target)
+	}
 	selected := false
 	for key, version := range consensusRepairsVersions() {
 		if from[key] >= version || target[key] >= version {
@@ -76,11 +80,15 @@ type consensusRepairsCensusReceipt struct {
 }
 
 func (report ConsensusRepairsCensus) receipt() (consensusRepairsCensusReceipt, error) {
+	return report.receiptFor(consensusRepairsCensusNames)
+}
+
+func (report ConsensusRepairsCensus) receiptFor(names []string) (consensusRepairsCensusReceipt, error) {
 	compact := consensusRepairsCensusReceipt{
 		Height: report.Height, Digest: report.Digest, Records: report.Records, Bytes: report.Bytes,
-		Censuses: make(map[string]consensusRepairsCensusSummary, len(consensusRepairsCensusNames)),
+		Censuses: make(map[string]consensusRepairsCensusSummary, len(names)),
 	}
-	for _, name := range consensusRepairsCensusNames {
+	for _, name := range names {
 		compact.Censuses[name] = consensusRepairsCensusSummary{ConsensusRepairsSize: report.Censuses[name], Digest: report.Digests[name]}
 	}
 	for _, finding := range report.Findings {
@@ -91,9 +99,10 @@ func (report ConsensusRepairsCensus) receipt() (consensusRepairsCensusReceipt, e
 		summary.HeldFindings++
 		compact.Censuses[finding.Census] = summary
 	}
-	summary := compact.Censuses["halt_reasons"]
-	summary.PendingRollbacks = len(report.PendingRollbacks)
-	compact.Censuses["halt_reasons"] = summary
+	if summary, ok := compact.Censuses["halt_reasons"]; ok {
+		summary.PendingRollbacks = len(report.PendingRollbacks)
+		compact.Censuses["halt_reasons"] = summary
+	}
 	return compact, nil
 }
 
@@ -242,7 +251,7 @@ func validateConsensusRepairsGenesisSelection(genesis GenesisState) error {
 // ValidateConsensusRepairsGenesisSelection is shared by InitChain and the
 // offline launch preflight. Require one exact spelling across JSON codecs.
 func ValidateConsensusRepairsGenesisSelection(genesis GenesisState) error {
-	for _, marker := range ConsensusRepairsV1GenesisSelections() {
+	for _, marker := range append(ConsensusRepairsV1GenesisSelections(), ConsensusRepairsV2GenesisSelections()...) {
 		var fields map[string]json.RawMessage
 		if err := json.Unmarshal(genesis[marker.Module], &fields); err != nil {
 			return fmt.Errorf("consensus repairs genesis %s: %w", marker.Module, err)
@@ -263,7 +272,7 @@ func ValidateConsensusRepairsGenesisSelection(genesis GenesisState) error {
 			return fmt.Errorf("native %s genesis requires explicit %s=true", marker.Module, marker.Name)
 		}
 	}
-	return nil
+	return gov.ValidateRetainedGenesisFieldNames(genesis["zerone_gov"])
 }
 
 func consensusRepairsCamelCase(name string) string {

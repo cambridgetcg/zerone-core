@@ -14,6 +14,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
 
+	"github.com/zerone-chain/zerone/app/consensusrepairsv2migration"
 	"github.com/zerone-chain/zerone/internal/consensusrepairsmigration"
 	"github.com/zerone-chain/zerone/x/knowledge/client/cli"
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
@@ -99,6 +100,9 @@ func (AppModule) Name() string { return types.ModuleName }
 
 // RegisterServices registers the module's msg and query servers.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
+	if err := cfg.RegisterMigration(types.ModuleName, 13, consensusrepairsv2migration.Require); err != nil {
+		panic(err)
+	}
 	if err := cfg.RegisterMigration(types.ModuleName, 12, consensusrepairsmigration.Require); err != nil {
 		panic(err)
 	}
@@ -179,4 +183,6 @@ func (am AppModule) BeginBlock(ctx context.Context) error {
 // (neutral review admission and settlement) → v10 (contradiction input retention)
 // → v11 (explicit future claim funding terms and terminal fund settlement) → v12
 // (claim-integrity selection: marker 0x87 only; no record rewritten).
-func (AppModule) ConsensusVersion() uint64 { return 13 }
+// Version 14 selects Q2 accounting, Q5 calibration/snapshots and PR37 floors/growth.
+// FX7 is genesis-only and does not independently require a version step.
+func (AppModule) ConsensusVersion() uint64 { return 14 }

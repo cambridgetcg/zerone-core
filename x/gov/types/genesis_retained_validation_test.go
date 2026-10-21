@@ -25,6 +25,17 @@ func validRetainedGenesis() *types.GenesisState {
 }
 
 func TestRetainedGenesisValidation(t *testing.T) {
+	for _, value := range []uint64{0, 1<<63 + 1, math.MaxUint64 - 1, math.MaxUint64} {
+		for _, gs := range []*types.GenesisState{types.DefaultGenesisState(), validRetainedGenesis()} {
+			gs.NextResearchSpendNumber = proto.Uint64(value)
+			require.ErrorContains(t, gs.Validate(), "allocation headroom")
+		}
+	}
+	for _, value := range []uint64{1, 1 << 63} {
+		gs := types.DefaultGenesisState()
+		gs.NextResearchSpendNumber = proto.Uint64(value)
+		require.NoError(t, gs.Validate())
+	}
 	require.NoError(t, validRetainedGenesis().Validate())
 	cases := []struct {
 		name   string

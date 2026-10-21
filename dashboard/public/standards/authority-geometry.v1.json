@@ -1,6 +1,6 @@
 {
   "schema": "zerone.authority-geometry/v1",
-  "revision": "1.0.9",
+  "revision": "1.0.10",
   "snapshotDate": "2026-10-21",
   "status": "SOURCE_OBSERVATORY_ONLY",
   "title": "Authority Geometry",
@@ -385,9 +385,9 @@
       "relationship": "EXECUTES_VERIFIER_SLASH_AND_COIN_ROUTE",
       "scope": "CURRENT_SOURCE",
       "effect": "VALUE_WRITE",
-      "evidence": ["app-wiring", "knowledge-staking-adapter", "knowledge-slash-callsites", "knowledge-expiry-slash-callsite"],
+      "evidence": ["app-wiring", "knowledge-staking-adapter", "knowledge-slash-callsites", "knowledge-expiry-slash-callsite", "knowledge-vindication-slash-callsite", "knowledge-missed-verification-slash-callsite"],
       "protections": {
-        "consentBoundary": "UNAVAILABLE: knowledge verdict processing can invoke custom-staking slash authority and route slashed coins; missed-reveal expiry processing can also invoke slash authority. The target design does not authorize that legacy writer.",
+        "consentBoundary": "UNAVAILABLE: knowledge verdict and vindication processing can invoke custom-staking slash authority and route slashed coins; missed-reveal expiry processing can also invoke slash authority. The retained SlashMissedVerification helper exposes another slash callsite, with no production caller found in this snapshot. The target design does not authorize that legacy writer.",
         "challengeRoute": "Knowledge challenge and vindication records do not establish an accepted target adjudication boundary for custom-ledger slashes.",
         "repairRoute": "H4 must freeze custom-ledger writes and reconcile slash effects, routed coins, and liabilities with receipt-complete migration evidence.",
         "exitRoute": "A legacy claimant exit cannot erase a finalized slash; unresolved slash disputes must remain explicit migration liabilities."
@@ -848,7 +848,7 @@
     {
       "id": "knowledge-slash-callsites",
       "path": "x/knowledge/keeper/rounds.go",
-      "sha256": "a27e90dbb8f52d04fd334337791900f3409df98e132127b1c861cc2c1c78262e",
+      "sha256": "30be15c650cb93160deefd8757636da57019929b18d2a8c2b34320c5801bd69e",
       "requiredSnippets": [
         "for _, slash := range result.Slashes {",
         "slashedAmt, err := k.stakingKeeper.SlashValidatorToModule(ctx, slash.Verifier, slash.SlashBps, types.VindicationEscrowModuleName)",
@@ -865,6 +865,26 @@
         "case types.VerificationPhase_VERIFICATION_PHASE_EXPIRED:",
         "for _, slash := range missedRevealSlashes(round, params) {",
         "_ = k.stakingKeeper.SlashValidator(ctx, slash.Verifier, slash.SlashBps)"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "knowledge-vindication-slash-callsite",
+      "path": "x/knowledge/keeper/vindication.go",
+      "sha256": "d74aba3c1713f943be919a478688174a79de4dada42f51cc969428f02dc6c29a",
+      "requiredSnippets": [
+        "func (k Keeper) ExecuteVindication(ctx context.Context, factId, disprovenBy string) error {",
+        "slashed, err := k.stakingKeeper.SlashValidatorToModule(ctx, voter, params.VindicationSlashBps, types.ModuleName)"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "knowledge-missed-verification-slash-callsite",
+      "path": "x/knowledge/keeper/validator_selection.go",
+      "sha256": "6720aa0d852c99ef59c2b555812594cbe95ce49bed4807705fa17b941db7683d",
+      "requiredSnippets": [
+        "func (k Keeper) SlashMissedVerification(ctx context.Context, verifierAddr string, slashBps uint64) error {",
+        "return k.stakingKeeper.SlashValidator(ctx, verifierAddr, slashBps)"
       ],
       "forbiddenSnippets": []
     },

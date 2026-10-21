@@ -34,6 +34,9 @@
     },
     "knowledge": {
       "reformulation_vindication_ordering_enabled": true,
+      "inconclusive_round_accounting_enabled": true,
+      "calibration_smoothing_enabled": true,
+      "zero_confidence_floor_enabled": true,
       "params": {
         "fitness_epoch_blocks": "100",
         "fitness_weight_query_bps": "150000",
@@ -103,6 +106,7 @@
         }
       }
     },
+    "alignment": {"unobserved_health_enabled": true},
     "capture_defense": {"integer_variance_enabled": true},
     "qualification": {"single_refund_enabled": true},
     "capture_challenge": {"challenge_accounting_enabled": true},

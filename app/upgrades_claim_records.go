@@ -25,7 +25,7 @@ func claimRecordsTargetVersionMap() module.VersionMap {
 }
 
 func requireClaimRecordsTransitionOwner(name string, fromVM, targetVM module.VersionMap) error {
-	if fromVM["knowledge"] == 13 || targetVM["knowledge"] == 13 {
+	if fromVM["knowledge"] >= 13 || targetVM["knowledge"] >= 13 {
 		return requireConsensusRepairsTransitionOwner(name, fromVM, targetVM)
 	}
 	from, fromOK := fromVM["knowledge"]

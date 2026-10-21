@@ -3,7 +3,7 @@
 export const AUTHORITY_GEOMETRY_ENDPOINT =
   "/standards/authority-geometry.v1.json";
 export const AUTHORITY_GEOMETRY_SHA256 =
-  "ab671304a271c34ebd2f72e48547642523010f403c5a146940ca183e627bc661";
+  "5a39bc4b1067d2aad42a24bb8ac8d44223afb62dad9f2b2bfbe3faf367e8a7db";
 export const AUTHORITY_GEOMETRY_MAX_BYTES = 65_536;
 export const AUTHORITY_GEOMETRY_TIMEOUT_MS = 8_000;
 
@@ -192,6 +192,8 @@ export const AUTHORITY_GEOMETRY_SOURCE_ANCHOR_IDS = [
   "knowledge-staking-adapter",
   "knowledge-slash-callsites",
   "knowledge-expiry-slash-callsite",
+  "knowledge-vindication-slash-callsite",
+  "knowledge-missed-verification-slash-callsite",
   "alignment-staking-adapter",
   "alignment-staking-callsites",
   "claiming-pot-staking-adapter",
@@ -422,7 +424,7 @@ export interface AuthorityGeometryReleaseAssessmentRecord {
 
 export interface AuthorityGeometry {
   schema: "zerone.authority-geometry/v1";
-  revision: "1.0.9";
+  revision: "1.0.10";
   snapshotDate: string;
   status: "SOURCE_OBSERVATORY_ONLY";
   title: string;
@@ -770,6 +772,7 @@ function parseEdge(
     requireExactIdSequence(evidence, [
       "app-wiring", "knowledge-staking-adapter", "knowledge-slash-callsites",
       "knowledge-expiry-slash-callsite",
+      "knowledge-vindication-slash-callsite", "knowledge-missed-verification-slash-callsite",
     ], `${path}.evidence`);
   }
   const expectedTargetEffect = (
@@ -888,6 +891,22 @@ function parseSourceAnchor(
   );
   if (forbiddenSnippets.some((snippet) => requiredSnippets.includes(snippet))) {
     fail(path, "a snippet cannot be both required and forbidden");
+  }
+  if (id === "knowledge-vindication-slash-callsite") {
+    requireLiteral(source.path, "x/knowledge/keeper/vindication.go", `${path}.path`);
+    requireExactIdSequence(requiredSnippets, [
+      "func (k Keeper) ExecuteVindication(ctx context.Context, factId, disprovenBy string) error {",
+      "slashed, err := k.stakingKeeper.SlashValidatorToModule(ctx, voter, params.VindicationSlashBps, types.ModuleName)",
+    ], `${path}.requiredSnippets`);
+    requireExactIdSequence(forbiddenSnippets, [], `${path}.forbiddenSnippets`);
+  }
+  if (id === "knowledge-missed-verification-slash-callsite") {
+    requireLiteral(source.path, "x/knowledge/keeper/validator_selection.go", `${path}.path`);
+    requireExactIdSequence(requiredSnippets, [
+      "func (k Keeper) SlashMissedVerification(ctx context.Context, verifierAddr string, slashBps uint64) error {",
+      "return k.stakingKeeper.SlashValidator(ctx, verifierAddr, slashBps)",
+    ], `${path}.requiredSnippets`);
+    requireExactIdSequence(forbiddenSnippets, [], `${path}.forbiddenSnippets`);
   }
   if (id === "knowledge-expiry-slash-callsite") {
     requireLiteral(source.path, "x/knowledge/keeper/inconclusive_round_accounting.go", `${path}.path`);
@@ -1287,7 +1306,7 @@ export function parseAuthorityGeometry(value: unknown): AuthorityGeometry {
   const root = asObject(value, "$");
   exactKeys(root, TOP_LEVEL_KEYS, "$");
   requireLiteral(root.schema, "zerone.authority-geometry/v1", "$.schema");
-  requireLiteral(root.revision, "1.0.9", "$.revision");
+  requireLiteral(root.revision, "1.0.10", "$.revision");
   requireLiteral(root.status, "SOURCE_OBSERVATORY_ONLY", "$.status");
 
   const sourceDesignSource = asObject(root.sourceDesign, "$.sourceDesign");
@@ -1533,7 +1552,7 @@ export function parseAuthorityGeometry(value: unknown): AuthorityGeometry {
 
   const geometry: AuthorityGeometry = {
     schema: "zerone.authority-geometry/v1",
-    revision: "1.0.9",
+    revision: "1.0.10",
     snapshotDate: asIsoDate(root.snapshotDate, "$.snapshotDate"),
     status: "SOURCE_OBSERVATORY_ONLY",
     title: asString(root.title, "$.title", 128),
