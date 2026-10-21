@@ -1,7 +1,6 @@
 package app
 
 import (
-	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -17,6 +16,7 @@ import (
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	"github.com/cosmos/cosmos-sdk/runtime"
 	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
@@ -37,11 +37,18 @@ func freezeConsensusRepairsV1CompiledTarget(a *ZeroneApp) {
 	a.ModuleManager.Modules["alignment"] = archivedConsensusSibling{original.(appmodule.AppModule), original.(module.HasGenesis), 2}
 }
 
-func consensusRepairsV2Fixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {
+func consensusRepairsV2Fixture(t *testing.T, calibrations ...*knowledge.AgentCalibration) (*ZeroneApp, sdk.Context, dbm.DB) {
 	t.Helper()
 	db := dbm.NewMemDB()
 	a := NewZeroneApp(log.NewNopLogger(), db, nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID("zerone-dev-1"))
-	raw, err := json.Marshal(sdk053IBC10GenesisWithValidator(t, a))
+	g := sdk053IBC10GenesisWithValidator(t, a)
+	if len(calibrations) > 0 {
+		var kg knowledge.GenesisState
+		require.NoError(t, a.appCodec.UnmarshalJSON(g["knowledge"], &kg))
+		kg.AgentCalibrations = calibrations
+		g["knowledge"] = a.appCodec.MustMarshalJSON(&kg)
+	}
+	raw, err := json.Marshal(g)
 	require.NoError(t, err)
 	ctx := a.NewUncachedContext(false, cmtproto.Header{ChainID: "zerone-dev-1"})
 	_, err = a.InitChainer(ctx, &abci.RequestInitChain{ChainId: ctx.ChainID(), AppStateBytes: raw})
@@ -240,19 +247,44 @@ func TestConsensusRepairsV2CensusBlockersAndReadOnly(t *testing.T) {
 			report, err := a.CensusConsensusRepairsV2(ctx)
 			require.Error(t, err)
 			require.NotEmpty(t, report.Findings)
-			require.Error(t, a.ValidateAccountingAuthorityStartup())
-			require.Error(t, a.UpgradeKeeper.ApplyUpgrade(ctx, plan))
 			require.Equal(t, before, claimIntegrityAllStores(t, a, ctx))
+			if fault == "calibration" || fault == "marker" {
+				require.Error(t, a.ValidateAccountingAuthorityStartup())
+				require.Error(t, a.UpgradeKeeper.ApplyUpgrade(ctx, plan))
+				require.Equal(t, before, claimIntegrityAllStores(t, a, ctx))
+				return
+			}
+			held, _, err := a.censusConsensusRepairsV2(ctx, false)
+			require.NoError(t, err)
+			for _, f := range held.Findings {
+				require.Equal(t, "held", f.Outcome)
+			}
+			require.NoError(t, a.ValidateAccountingAuthorityStartup())
+			require.NoError(t, a.UpgradeKeeper.ApplyUpgrade(ctx, plan))
+			var receipt consensusRepairsReceipt
+			require.NoError(t, json.Unmarshal([]byte(a.KnowledgeKeeper.ReadMigrationMarker(ctx, consensusRepairsV2ReceiptKey)), &receipt))
+			want, err := held.receiptFor(consensusRepairsV2CensusNames)
+			require.NoError(t, err)
+			require.Equal(t, want, receipt.Census, "every held inconsistency is counted")
+			after := claimIntegrityAllStores(t, a, ctx)
+			for key, value := range before {
+				if !strings.HasPrefix(key, "upgrade:") && key != "knowledge:"+string(knowledge.AgentCalibrationKey("author")) {
+					require.Equal(t, value, after[key], "retained %x", key)
+				}
+			}
 		})
 	}
 	a, ctx, _ := consensusRepairsV2Fixture(t)
-	a.BankKeeper = writingCensusBank{a.BankKeeper, func(c context.Context) {
-		sdk.UnwrapSDKContext(c).KVStore(a.keys["knowledge"]).Set([]byte("unwanted"), []byte{1})
-	}}
+	calls := 0
+	service := writingV2CensusStoreService{runtime.NewKVStoreService(a.keys["knowledge"]), &calls}
+	a.KnowledgeKeeper = knowledgekeeper.NewKeeper(service, a.appCodec, a.KnowledgeKeeper.GetAuthority(), a.BankKeeper, a.KnowledgeKeeper.GetStakingKeeper())
 	before := claimIntegrityAllStores(t, a, ctx)
+	events := append(sdk.Events{}, ctx.EventManager().Events()...)
 	_, err := a.CensusConsensusRepairsV2(ctx)
 	require.NoError(t, err)
+	require.Positive(t, calls, "the injected writing helper must actually execute")
 	require.Equal(t, before, claimIntegrityAllStores(t, a, ctx))
+	require.Equal(t, events, ctx.EventManager().Events())
 }
 
 func TestConsensusRepairsV2LargeStateAndSelectedBounds(t *testing.T) {
@@ -296,6 +328,9 @@ func TestConsensusRepairsV2GenesisAliasesRegistryAndReadback(t *testing.T) {
 		delete(after, key)
 		require.Equal(t, before, after)
 		for _, alias := range []string{strings.ToUpper(marker.Name), consensusRepairsCamelCase(marker.Name), strings.Replace(marker.Name, "s", "ſ", 1)} {
+			if alias == marker.Name {
+				continue // zero_confidence_floor_enabled has no s to fold.
+			}
 			g := sdk053IBC10GenesisWithValidator(t, a)
 			raw := g[marker.Module]
 			g[marker.Module] = json.RawMessage(fmt.Sprintf(`%s,%q:false}`, raw[:len(raw)-1], alias))

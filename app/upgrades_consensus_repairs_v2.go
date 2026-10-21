@@ -50,6 +50,18 @@ func (app *ZeroneApp) validateConsensusRepairsV1Completed(ctx sdk.Context, lates
 	return app.validateConsensusRepairsStartupVersions(ctx, consensusRepairsTargetVersionMap(), latest)
 }
 
+// ValidateConsensusRepairsV2SourceEligibility checks the offline source rung,
+// not a scheduled H-1 boundary or permission to activate. Census/export readiness
+// is reported separately. Native v1 selection and applied v1 receipts use the
+// same completed-history contract as the handler.
+func (app *ZeroneApp) ValidateConsensusRepairsV2SourceEligibility(ctx sdk.Context) error {
+	stored, err := app.UpgradeKeeper.GetModuleVersionMap(ctx)
+	if err != nil || !reflect.DeepEqual(stored, consensusRepairsV2SourceVersionMap()) {
+		return fmt.Errorf("consensus repairs v2 source eligibility requires exact source map: %v", err)
+	}
+	return app.validateConsensusRepairsV1Completed(ctx, app.CommitMultiStore().LastCommitID().Version)
+}
+
 func (app *ZeroneApp) validateConsensusRepairsV2Source(ctx sdk.Context, plan upgradetypes.Plan, from module.VersionMap) (ConsensusRepairsCensus, []*knowledge.AgentCalibration, error) {
 	var empty ConsensusRepairsCensus
 	fail := func(err error) (ConsensusRepairsCensus, []*knowledge.AgentCalibration, error) { return empty, nil, err }
@@ -92,7 +104,7 @@ func (app *ZeroneApp) validateConsensusRepairsV2Source(ctx sdk.Context, plan upg
 	if err != nil || !reflect.DeepEqual(scheduled, plan) {
 		return fail(fmt.Errorf("consensus repairs v2 requires exact on-chain plan: %v", err))
 	}
-	return app.censusConsensusRepairsV2(ctx)
+	return app.censusConsensusRepairsV2(ctx, false)
 }
 
 func (app *ZeroneApp) registerConsensusRepairsV2Upgrade() {

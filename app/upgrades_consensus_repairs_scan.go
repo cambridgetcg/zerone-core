@@ -168,6 +168,12 @@ func (app *ZeroneApp) consensusRepairsCensusRows(ctx sdk.Context, report *Consen
 }
 
 func (app *ZeroneApp) consensusRepairsCensusRowsFor(ctx sdk.Context, report *ConsensusRepairsCensus, names []string, reads map[string][]consensusRepairsRead) (map[string]map[string][]byte, error) {
+	return app.consensusRepairsCensusRowsWithVisitor(ctx, report, names, reads, nil)
+}
+
+// A visitor observes streamed rows without retaining or charging them to a
+// selected-input budget. V1 uses no visitor and keeps its original read manifest.
+func (app *ZeroneApp) consensusRepairsCensusRowsWithVisitor(ctx sdk.Context, report *ConsensusRepairsCensus, names []string, reads map[string][]consensusRepairsRead, visit func(string, []byte, []byte)) (map[string]map[string][]byte, error) {
 	rows := make(map[string]map[string][]byte)
 	report.Stores = make(map[string]ConsensusRepairsSize)
 	report.Prefixes = make(map[string]map[string]ConsensusRepairsSize)
@@ -221,6 +227,10 @@ func (app *ZeroneApp) consensusRepairsCensusRowsFor(ctx sdk.Context, report *Con
 				selected = true
 				break // charge a row only once per census
 			}
+		}
+		// Charge every selected budget before a visitor can decode the row.
+		if visit != nil {
+			visit(store, key, value)
 		}
 		if selected {
 			if rows[store] == nil {

@@ -48,7 +48,7 @@ func run(args []string, out, diagnostics io.Writer) (code int) {
 	}
 	decoded, err := hex.DecodeString(*hash)
 	if f.NArg() != 0 || !*copied || *chain == "" || *height <= 0 || err != nil || len(decoded) != 32 || strings.ToLower(*hash) != *hash || (*repairs != "v1" && *repairs != "v2") {
-		fmt.Fprintln(diagnostics, "require --copied-db, --home, --chain-id, --expected-height and lowercase --expected-app-hash")
+		fmt.Fprintln(diagnostics, "require --copied-db, --home, --chain-id, --expected-height, lowercase --expected-app-hash and --repairs v1|v2 (default v1)")
 		return 1
 	}
 	data, err := copiedDataDirectory(*home)
@@ -84,8 +84,16 @@ func run(args []string, out, diagnostics io.Writer) (code int) {
 	ctx := candidate.NewUncachedContext(true, cmtproto.Header{Height: *height, ChainID: *chain})
 	var report app.ConsensusRepairsCensus
 	var censusErr error
+	var sourceEligible *bool
+	var sourceError string
 	if *repairs == "v2" {
 		report, censusErr = candidate.CensusConsensusRepairsV2(ctx)
+		err := candidate.ValidateConsensusRepairsV2SourceEligibility(ctx)
+		eligible := err == nil
+		sourceEligible = &eligible
+		if err != nil {
+			sourceError = err.Error()
+		}
 	} else {
 		report, censusErr = candidate.CensusConsensusRepairsV1(ctx)
 	}
@@ -97,14 +105,16 @@ func run(args []string, out, diagnostics io.Writer) (code int) {
 		return 1
 	}
 	value := struct {
-		Schema   string                     `json:"schema"`
-		ChainID  string                     `json:"asserted_chain_id"`
-		AppHash  string                     `json:"app_hash"`
-		Versions map[string]uint64          `json:"module_versions"`
-		Census   app.ConsensusRepairsCensus `json:"census"`
-		Passed   bool                       `json:"passed"`
-		Error    string                     `json:"error,omitempty"`
-	}{Schema: "zerone.consensus-repairs-census/" + *repairs, ChainID: *chain, AppHash: *hash, Versions: versions, Census: report, Passed: censusErr == nil}
+		Schema         string                     `json:"schema"`
+		ChainID        string                     `json:"asserted_chain_id"`
+		AppHash        string                     `json:"app_hash"`
+		Versions       map[string]uint64          `json:"module_versions"`
+		Census         app.ConsensusRepairsCensus `json:"census"`
+		Passed         bool                       `json:"passed"`
+		Error          string                     `json:"error,omitempty"`
+		SourceEligible *bool                      `json:"source_eligible,omitempty"`
+		SourceError    string                     `json:"source_error,omitempty"`
+	}{Schema: "zerone.consensus-repairs-census/" + *repairs, ChainID: *chain, AppHash: *hash, Versions: versions, Census: report, Passed: censusErr == nil, SourceEligible: sourceEligible, SourceError: sourceError}
 	if censusErr != nil {
 		value.Error = censusErr.Error()
 	}

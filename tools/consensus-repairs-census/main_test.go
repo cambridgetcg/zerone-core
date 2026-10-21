@@ -35,6 +35,11 @@ import (
 
 func sourceCopy(t *testing.T, badMarker bool, extraStore ...bool) (string, int64, string) {
 	t.Helper()
+	return sourceCopyMutated(t, badMarker, extraStore, nil)
+}
+
+func sourceCopyMutated(t *testing.T, badMarker bool, extraStore []bool, mutate func(*app.ZeroneApp, sdk.Context)) (string, int64, string) {
+	t.Helper()
 	home, err := filepath.EvalSymlinks(t.TempDir())
 	require.NoError(t, err)
 	data := filepath.Join(home, "data")
@@ -103,6 +108,9 @@ func sourceCopy(t *testing.T, badMarker bool, extraStore ...bool) (string, int64
 		vm := a.CurrentModuleVersionMap()
 		vm["alignment"], vm["knowledge"] = 2, 13
 		require.NoError(t, a.UpgradeKeeper.SetModuleVersionMap(ctx, vm))
+	}
+	if mutate != nil {
+		mutate(a, ctx)
 	}
 	commit := a.CommitMultiStore().Commit()
 	require.NoError(t, db.Close())

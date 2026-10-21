@@ -954,11 +954,17 @@ func checkRepairsV2RetainedGenesis(c *checker, g map[string]interface{}) {
 		ProtoMessage()
 		Reset()
 		String() string
-	}) error { value, ok := dig(g, "app_state", name); if !ok {
-		return fmt.Errorf("missing %s genesis", name)
-	}; raw, err := json.Marshal(value); if err != nil {
-		return err
-	}; return codec.UnmarshalJSON(raw, target) }
+	}) error {
+		value, ok := dig(g, "app_state", name)
+		if !ok {
+			return fmt.Errorf("missing %s genesis", name)
+		}
+		raw, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+		return codec.UnmarshalJSON(raw, target)
+	}
 	var kg knowledge.GenesisState
 	if err := decode("knowledge", &kg); err != nil {
 		c.fail("FX7 decode: %v", err)
@@ -1004,18 +1010,15 @@ func checkRepairsV2RetainedGenesis(c *checker, g map[string]interface{}) {
 		return
 	}
 	retained := map[string]interface{}{}
-	for _, name := range []string{"lips", "research_spend_proposals", "next_research_spend_number", "research_community_votes", "distinct_voters", "phase_transitions"} {
-		parts := strings.Split(name, "_")
-		for i := 1; i < len(parts); i++ {
-			parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
-		}
-		camel := strings.Join(parts, "")
-		for key := range fields {
-			if key != name && (strings.EqualFold(key, name) || strings.EqualFold(key, camel)) {
-				c.fail("FX8 alias %q forbidden; use %s", key, name)
-				return
-			}
-		}
+	governanceRaw, err := json.Marshal(fields)
+	if err == nil {
+		err = gov.ValidateRetainedGenesisFieldNames(governanceRaw)
+	}
+	if err != nil {
+		c.fail("FX8: %v", err)
+		return
+	}
+	for _, name := range gov.RetainedGenesisFields() {
 		if value, present := fields[name]; present {
 			retained[name] = value
 		}

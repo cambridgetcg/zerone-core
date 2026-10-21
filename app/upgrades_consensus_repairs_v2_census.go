@@ -9,6 +9,7 @@ import (
 	"io"
 	"math/big"
 	"sort"
+	"unicode/utf8"
 
 	"cosmossdk.io/collections"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -32,7 +33,7 @@ func consensusRepairsV2Reads() (map[string][]consensusRepairsRead, error) {
 	return map[string][]consensusRepairsRead{
 		"q1_health":      {{"alignment", []byte{1}, true}, {"alignment", []byte{2}, true}, {"zerone_staking", []byte{1}, false}},
 		"q2_rounds":      {{"knowledge", []byte{2}, false}, {"knowledge", []byte{3}, false}, {"knowledge", []byte{6}, true}, {"knowledge", []byte{0x21}, false}},
-		"q5_calibration": {{"knowledge", []byte{0x5a}, false}, {"knowledge", []byte{1}, false}},
+		"q5_calibration": {{"knowledge", []byte{0x5a}, false}},
 		"pr37_support":   {{"knowledge", []byte{1}, false}, {"knowledge", []byte{2}, false}},
 		"fx7_accounting": {{"knowledge", []byte{0x62}, false}, {"knowledge", []byte{0x6b}, false}, {"knowledge", []byte{0x35}, false}, {"knowledge", []byte{0x36}, false}, {"bank", balance, true}},
 		"fx8_retained":   {{"zerone_gov", []byte{1}, false}, {"zerone_gov", []byte{6}, false}, {"zerone_gov", []byte{8}, true}, {"zerone_gov", []byte{0x0e}, false}, {"zerone_gov", []byte{0x0f}, false}, {"zerone_gov", []byte{0x14}, false}},
@@ -44,7 +45,9 @@ func consensusRepairsV2Reads() (map[string][]consensusRepairsRead, error) {
 // Full-state hashing is streamed and is not bounded by the selected-row limits.
 // Held means unchanged history/input, not entitlement or permission to redistribute.
 func (app *ZeroneApp) CensusConsensusRepairsV2(ctx sdk.Context) (ConsensusRepairsCensus, error) {
-	report, _, err := app.censusConsensusRepairsV2(ctx)
+	// Offline/export readiness is deliberately stricter than activation. FX7/8
+	// inventory faults must still refuse this pre-export check.
+	report, _, err := app.censusConsensusRepairsV2(ctx, true)
 	return report, err
 }
 
@@ -77,7 +80,7 @@ func consensusRepairsCanonicalProto(raw []byte, value proto.Message) error {
 	return nil
 }
 
-func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context) (report ConsensusRepairsCensus, recalibrated []*knowledge.AgentCalibration, err error) {
+func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context, strict bool) (report ConsensusRepairsCensus, recalibrated []*knowledge.AgentCalibration, err error) {
 	report.Height = ctx.BlockHeight()
 	report.Findings = []ConsensusRepairsFinding{}
 	if report.Height < 0 {
@@ -95,13 +98,39 @@ func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context) (report Consensu
 	if err != nil {
 		return report, nil, err
 	}
-	rows, err := app.consensusRepairsCensusRowsFor(ctx, &report, consensusRepairsV2CensusNames, reads)
+	legacyZero, presentZero, unreadableFacts := 0, 0, 0
+	rows, err := app.consensusRepairsCensusRowsWithVisitor(ctx, &report, consensusRepairsV2CensusNames, reads, func(store string, key, value []byte) {
+		if store != "knowledge" || len(key) == 0 || key[0] != 1 {
+			return
+		}
+		var f knowledge.Fact
+		if proto.Unmarshal(value, &f) != nil || f.Id == "" || string(key[1:]) != f.Id {
+			unreadableFacts++ // PR37 reports the exact failing key below.
+			return
+		}
+		if f.SubmitterCalibrationSnapshotBps == 0 {
+			if f.HasCalibrationSnapshot {
+				presentZero++
+			} else {
+				legacyZero++
+			}
+		}
+	})
 	if err != nil {
 		return report, nil, err
 	}
 	name := ""
 	add := func(store, key, outcome, reason string) {
 		report.Findings = append(report.Findings, ConsensusRepairsFinding{name, store, hex.EncodeToString([]byte(key)), outcome, reason})
+	}
+	invalid := func(store, key string, err error) {
+		outcome := "held"
+		// The carrier decodes/writes only 0x5a. Other inventories enable no
+		// state and cannot turn reachable historical inconsistencies into halts.
+		if strict || (store == "knowledge" && len(key) > 0 && key[0] == 0x5a) {
+			outcome = "blocker"
+		}
+		add(store, key, outcome, err.Error())
 	}
 	scan := func(store string, prefix byte, inspect func(string, []byte) error) {
 		var keys []string
@@ -113,7 +142,7 @@ func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context) (report Consensu
 		sort.Strings(keys)
 		for _, key := range keys {
 			if e := inspect(key, rows[store][key]); e != nil {
-				add(store, key, "blocker", e.Error())
+				invalid(store, key, e)
 			}
 		}
 	}
@@ -157,7 +186,7 @@ func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context) (report Consensu
 	}{{"\x01", new(alignment.Params)}, {"\x02", new(alignment.AlignmentState)}} {
 		if value, ok := rows["alignment"][entry.key]; ok {
 			if e := consensusRepairsStrictJSON(value, entry.target); e != nil {
-				add("alignment", entry.key, "blocker", e.Error())
+				invalid("alignment", entry.key, e)
 			}
 		}
 	}
@@ -178,7 +207,7 @@ func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context) (report Consensu
 	})
 	if raw, ok := rows["knowledge"]["\x06"]; ok {
 		if e := proto.Unmarshal(raw, new(knowledge.Params)); e != nil {
-			add("knowledge", "\x06", "blocker", e.Error())
+			invalid("knowledge", "\x06", e)
 		}
 	}
 	rounds := map[string]*knowledge.VerificationRound{}
@@ -227,14 +256,19 @@ func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context) (report Consensu
 		}
 		old := c.CalibrationScoreBps
 		c.CalibrationScoreBps = knowledgekeeper.ComputeSmoothedAgentCalibrationScore(&c)
+		if c.CalibrationScoreBps < old {
+			add("knowledge", key, "held", fmt.Sprintf("stored_score=%d smoothed_score=%d submissions=%d; C2 hold: proposed decrease, entire record unchanged", old, c.CalibrationScoreBps, c.TotalSubmissions))
+			return nil
+		}
 		add("knowledge", key, "held", fmt.Sprintf("stored_score=%d smoothed_score=%d submissions=%d genuine_zero=%t; score-only recompute, counters retained", old, c.CalibrationScoreBps, c.TotalSubmissions, c.TotalSubmissions > 0 && c.CalibrationScoreBps == 0))
 		if old != c.CalibrationScoreBps {
 			recalibrated = append(recalibrated, &c)
 		}
 		return nil
 	})
+	add("knowledge", "", "held", fmt.Sprintf("retained fact snapshots (streamed): legacy_or_unknown_zero=%d present_zero=%d unreadable=%d; no historical resnapshot", legacyZero, presentZero, unreadableFacts))
+	name = "pr37_support"
 	facts := map[string]*knowledge.Fact{}
-	legacyZero, presentZero := 0, 0
 	scan("knowledge", 1, func(key string, value []byte) error {
 		var f knowledge.Fact
 		if e := proto.Unmarshal(value, &f); e != nil {
@@ -244,17 +278,8 @@ func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context) (report Consensu
 			return e
 		}
 		facts[f.Id] = &f
-		if f.SubmitterCalibrationSnapshotBps == 0 {
-			if f.HasCalibrationSnapshot {
-				presentZero++
-			} else {
-				legacyZero++
-			}
-		}
 		return nil
 	})
-	add("knowledge", "", "held", fmt.Sprintf("retained fact snapshots: legacy_or_unknown_zero=%d present_zero=%d; no historical resnapshot", legacyZero, presentZero))
-	name = "pr37_support"
 	zeroFacts := 0
 	for _, f := range facts {
 		if f.Confidence == 0 {
@@ -320,6 +345,7 @@ func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context) (report Consensu
 
 	name = "fx7_accounting"
 	kg := &knowledge.GenesisState{AccountingState: &knowledge.KnowledgeGenesisAccounting{}}
+	bounties := map[string]bool{}
 	scan("knowledge", 0x62, func(key string, value []byte) error {
 		var b knowledge.AugmentationBounty
 		if e := consensusRepairsCanonicalProto(value, &b); e != nil {
@@ -328,10 +354,29 @@ func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context) (report Consensu
 		if e := identity(key, 0x62, b.Id); e != nil {
 			return e
 		}
+		if !utf8.ValidString(b.Id) {
+			return fmt.Errorf("bounty identity must be UTF-8")
+		}
+		bounties[b.Id] = true
 		kg.AugmentationBounties = append(kg.AugmentationBounties, &b)
 		return nil
 	})
-	balance := app.BankKeeper.GetBalance(ctx, authtypes.NewModuleAddress(knowledge.TrainingFundModuleName), "uzrn").Amount.BigInt()
+	// GetBalance masks collection/decode errors as zero, and panics for a
+	// negative decoded amount. Inspect the exact selected row instead, using
+	// the SDK's legacy-compatible codec. Absence is zero; corruption is not.
+	balance := new(big.Int)
+	bankKey := string(reads[name][4].key)
+	var balanceErr error
+	if raw, present := rows["bank"][bankKey]; present {
+		amount, e := banktypes.BalanceValueCodec.Decode(raw)
+		if e != nil || len(raw) == 0 || amount.IsNil() {
+			balanceErr = fmt.Errorf("FX7 invalid training-fund bank amount: bytes=%d decode_error=%v; backing unknown", len(raw), e)
+		} else if amount.IsNegative() {
+			balanceErr = fmt.Errorf("FX7 negative training-fund bank amount: balance_uzrn=%s; backing unknown", amount)
+		} else {
+			balance = amount.BigInt()
+		}
+	}
 	kg.TrainingFundAllocation = balance.String()
 	nonEscrow := new(big.Int).Set(balance)
 	scan("knowledge", 0x6b, func(key string, value []byte) error {
@@ -342,13 +387,22 @@ func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context) (report Consensu
 		if amount.String() != string(value) {
 			return fmt.Errorf("noncanonical accounting escrow amount")
 		}
+		if amount.BitLen() > 256 {
+			return fmt.Errorf("accounting escrow exceeds 256 bits: amount=%s", amount)
+		}
 		nonEscrow.Sub(nonEscrow, amount)
+		if !bounties[key[1:]] {
+			invalid("knowledge", key, fmt.Errorf("orphan escrow: amount=%s bounty_key_hex=%x", amount, knowledge.AugmentationBountyKey(key[1:])))
+		}
 		kg.AccountingState.AugmentationEscrows = append(kg.AccountingState.AugmentationEscrows, &knowledge.AugmentationEscrowBalance{BountyId: key[1:], RemainingUzrn: string(value)})
 		return nil
 	})
 	scan("knowledge", 0x35, func(key string, value []byte) error {
 		if len(value) != 8 {
 			return fmt.Errorf("bootstrap address counter must have exactly eight bytes")
+		}
+		if len(key) == 1 || !utf8.ValidString(key[1:]) {
+			return fmt.Errorf("bootstrap address key must be nonempty UTF-8")
 		}
 		kg.AccountingState.BootstrapAddressCounts = append(kg.AccountingState.BootstrapAddressCounts, &knowledge.BootstrapAddressCount{Address: key[1:], Count: binary.BigEndian.Uint64(value)})
 		return nil
@@ -361,8 +415,18 @@ func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context) (report Consensu
 		return nil
 	})
 	kg.AccountingState.TrainingFundNonEscrowBalance = nonEscrow.String()
-	if e := knowledge.ValidateGenesisAccounting(kg); e != nil {
-		add("knowledge", "", "blocker", e.Error())
+	if balanceErr != nil {
+		invalid("bank", bankKey, balanceErr)
+	} else if nonEscrow.Sign() < 0 {
+		// This is a backing deficit, not a malformed signed amount. Name the
+		// bank key and every retained escrow key contributing to the exact sum.
+		escrowKeys := make([]string, 0, len(kg.AccountingState.AugmentationEscrows))
+		for _, entry := range kg.AccountingState.AugmentationEscrows {
+			escrowKeys = append(escrowKeys, hex.EncodeToString(knowledge.TrainingFundEscrowLockedKey(entry.BountyId)))
+		}
+		invalid("bank", bankKey, fmt.Errorf("FX7 underbacked: balance_uzrn=%s escrow_uzrn=%s deficit_uzrn=%s escrow_keys_hex=%v; inventory unchanged", balance, new(big.Int).Sub(balance, nonEscrow), new(big.Int).Neg(nonEscrow), escrowKeys))
+	} else if e := knowledge.ValidateGenesisAccounting(kg); e != nil {
+		invalid("knowledge", "", e)
 	}
 	add("knowledge", "", "held", "FX7 inventory retained; no reconstructed escrow, counter normalization or proof against historical export loss")
 
@@ -392,7 +456,7 @@ func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context) (report Consensu
 	})
 	if value, ok := rows["zerone_gov"]["\x08"]; ok {
 		if len(value) != 8 {
-			add("zerone_gov", "\x08", "blocker", "research counter must have exactly eight bytes")
+			invalid("zerone_gov", "\x08", fmt.Errorf("research counter must have exactly eight bytes (got %d)", len(value)))
 		} else {
 			next := binary.BigEndian.Uint64(value)
 			gg.NextResearchSpendNumber = &next
@@ -423,8 +487,8 @@ func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context) (report Consensu
 		gg.PhaseTransitions = append(gg.PhaseTransitions, &gov.GenesisPhaseTransition{LipId: p.LipID, TargetPhase: p.TargetPhase, ConditionsSnapshot: p.ConditionsSnapshot, Stage: p.Stage, ActivationBlock: p.ActivationBlock, IsRollback: p.IsRollback, CancelReason: p.CancelReason})
 		return nil
 	})
-	if e := gg.ValidateRetainedRecords(); e != nil {
-		add("zerone_gov", "", "blocker", e.Error())
+	for _, finding := range gg.RetainedRecordFindings() {
+		invalid("zerone_gov", string(finding.Key), finding.Err)
 	}
 	add("zerone_gov", "", "held", "FX8 retained proposals, votes, counters and phase history; no replay of current eligibility or governance execution")
 	sort.SliceStable(report.Findings, func(i, j int) bool {

@@ -14,6 +14,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/zerone-chain/zerone/internal/consensusrepairsmigration"
+	gov "github.com/zerone-chain/zerone/x/gov/types"
 )
 
 const UpgradeNameConsensusRepairsV1 = consensusrepairsmigration.UpgradeName
@@ -271,7 +272,7 @@ func ValidateConsensusRepairsGenesisSelection(genesis GenesisState) error {
 			return fmt.Errorf("native %s genesis requires explicit %s=true", marker.Module, marker.Name)
 		}
 	}
-	return nil
+	return gov.ValidateRetainedGenesisFieldNames(genesis["zerone_gov"])
 }
 
 func consensusRepairsCamelCase(name string) string {
