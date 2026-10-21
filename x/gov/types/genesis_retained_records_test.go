@@ -1,22 +1,25 @@
 package types_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/gov/types"
 )
 
-// FX8 adds only the retained-records schema; export and import are its fix
-// lane's work. This pins what that work relies on: the module's genesis JSON
+// This pins the retained-records schema: the module's genesis JSON
 // path (encoding/json, as x/gov/module.go uses) keeps every retained record
 // and the research-spend counter's presence, including an explicitly stored
 // zero, and native genesis carries none of them.
 func TestGovRetainedRecordsSurviveModuleJSON(t *testing.T) {
 	zero, five := uint64(0), uint64(5)
+	proposer := sdk.AccAddress(bytes.Repeat([]byte{1}, 20)).String()
+	seat := sdk.AccAddress(bytes.Repeat([]byte{2}, 20)).String()
 	native := types.DefaultGenesisState()
 	require.Nil(t, native.NextResearchSpendNumber, "native genesis stores no counter")
 	require.Empty(t, native.ResearchSpendProposals)
@@ -37,9 +40,10 @@ func TestGovRetainedRecordsSurviveModuleJSON(t *testing.T) {
 			gs := types.DefaultGenesisState()
 			gs.NextResearchSpendNumber = tc.counter
 			if tc.records {
-				gs.ResearchSpendProposals = []*types.ResearchSpendProposal{{ProposalId: 4, Proposer: "zrn1proposer", Amount: "1000", Stage: "voting", CreatedAt: 10}}
-				gs.ResearchCommunityVotes = []*types.GenesisResearchCommunityVote{{ProposalId: 4, Voter: "zrn1seat", Vote: "yes"}}
-				gs.DistinctVoters = []*types.GenesisDistinctVoter{{Voter: "zrn1voter", FirstVotedAtBlock: 77}}
+				gs.ResearchSpendProposals = []*types.ResearchSpendProposal{{ProposalId: 4, Proposer: proposer, Recipient: seat, Amount: "1000", Stage: "voting", CreatedAt: 10}}
+				gs.ResearchCommunityVotes = []*types.GenesisResearchCommunityVote{{ProposalId: 4, Voter: seat, Vote: "yes"}}
+				gs.DistinctVoters = []*types.GenesisDistinctVoter{{Voter: proposer, FirstVotedAtBlock: 77}}
+				gs.Lips = []*types.LIP{{Id: "LIP-9", Category: types.CategoryPhaseRollback}}
 				gs.PhaseTransitions = []*types.GenesisPhaseTransition{{
 					LipId: "LIP-9", TargetPhase: types.ResearchFundPhase_RESEARCH_FUND_PHASE_OBSERVER,
 					ConditionsSnapshot: &types.PhaseTransitionConditions{DistinctLipVoters: 3, ResearchFundBalance: "42"},
