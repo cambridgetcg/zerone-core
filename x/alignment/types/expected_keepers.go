@@ -29,6 +29,13 @@ type StakingKeeper interface {
 	GetTargetValidatorCount(ctx context.Context) uint64
 }
 
+// StakingRegistry extends the alignment adapter without changing the legacy
+// sensor contract. Count all registry entries, including inactive validators;
+// malformed occupied entries must never masquerade as an empty registry.
+type StakingRegistry interface {
+	GetRegisteredValidatorCount(ctx context.Context) (uint64, error)
+}
+
 // OntologyKeeper defines the expected ontology module interface.
 type OntologyKeeper interface {
 	// GetDomainCount returns the number of active domains.

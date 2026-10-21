@@ -13,11 +13,10 @@ import (
 	stakingtypes "github.com/zerone-chain/zerone/x/staking/types"
 )
 
-// This is an activation BLOCKER characterization, not acceptance of zero as
-// missing data. Replace the expectations with Q1's not-observed/neutral behavior
-// when an explicit registry-presence API reaches the installed staking adapter.
-// Zero active count AND zero active stake cannot establish registry emptiness.
-func TestInputSelectionEmptyRegistryRequiresQ1(t *testing.T) {
+// Pin the marker-off characterization. Q1's on-path matrix lives in
+// unobserved_health_integration_test.go: active count and stake alone still
+// cannot distinguish these two registries.
+func TestInputSelectionEmptyRegistryLegacyBeforeQ1(t *testing.T) {
 	empty := newInputHarness(t, true, true, false)
 	inactive := newInputHarness(t, true, true, true)
 	operator := sdk.AccAddress("input_operator______").String()
@@ -55,8 +54,8 @@ func TestInputSelectionEmptyRegistryRequiresQ1(t *testing.T) {
 				criticalEvents++
 			}
 		}
-		require.Zero(t, criticalEvents, "the first-critical event repair is still pending Q1")
-		t.Logf("BLOCKER registry_records=%d active=0 bonded=0 ledger=0 economic=%d staking=%d composite=%d category=%s pacing=%d/%d first_critical_events=%d",
+		require.Zero(t, criticalEvents, "Q1 is off: preserve the missing first-critical event")
+		t.Logf("LEGACY registry_records=%d active=0 bonded=0 ledger=0 economic=%d staking=%d composite=%d category=%s pacing=%d/%d first_critical_events=%d",
 			records, obs.EconomicStability, obs.StakingRatio, health.CompositeScore, health.Category, creation, analysis, criticalEvents)
 	}
 }
