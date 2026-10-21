@@ -65,6 +65,28 @@ const (
 // records do not materialize this value. Disproven facts and normative IDs
 // return zero; factors and final value use the historical BPS scale.
 func (k Keeper) ComputeTrainingValueWeight(ctx context.Context, factID string) TrainingValueWeightBreakdown {
+	value, err := k.ComputeTrainingValueWeightChecked(ctx, factID)
+	if err != nil {
+		// Compatibility API has no error return. Production message and query
+		// paths use the checked entry or pass their snapshot to the worker.
+		panic(err)
+	}
+	return value
+}
+
+func (k Keeper) ComputeTrainingValueWeightChecked(ctx context.Context, factID string) (TrainingValueWeightBreakdown, error) {
+	enabled, err := k.CalibrationSmoothingEnabled(ctx)
+	if err != nil {
+		return TrainingValueWeightBreakdown{}, err
+	}
+	return k.computeTrainingValueWeight(ctx, factID, enabled), nil
+}
+
+// Marker-free worker: callers select once outside any fact loop.
+func (k Keeper) computeTrainingValueWeight(ctx context.Context, factID string, calibrationSmoothing bool) TrainingValueWeightBreakdown {
+	if !calibrationSmoothing {
+		return k.computeTrainingValueWeightLegacy(ctx, factID)
+	}
 	var out TrainingValueWeightBreakdown
 
 	// Is-ought wall: ids resolving to NormativeCommitments earn nothing.
@@ -130,12 +152,10 @@ func (k Keeper) ComputeTrainingValueWeight(ctx context.Context, factID string) T
 	}
 
 	// Calibration snapshot at submission (frozen at fact acceptance; non-gameable).
-	// Facts created via createFactFromClaim always carry a snapshot. Legacy
-	// records (pre-snapshot) or facts seeded via authority injection default
-	// to neutral so they neither farm retroactive calibration nor punish the
-	// submitter for it.
+	// A present zero is a genuine historical score. Only an unknown legacy
+	// zero retains the neutral fallback; never consult current calibration.
 	out.SubmitterCalibration = fact.SubmitterCalibrationSnapshotBps
-	if out.SubmitterCalibration == 0 {
+	if out.SubmitterCalibration == 0 && !fact.HasCalibrationSnapshot {
 		out.SubmitterCalibration = bps / 2
 	}
 

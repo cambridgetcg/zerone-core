@@ -2293,7 +2293,10 @@ func (q *queryServer) TrainingValueWeight(ctx context.Context, req *types.QueryT
 	if req == nil || req.FactId == "" {
 		return nil, status.Error(codes.InvalidArgument, "fact_id required")
 	}
-	b := q.keeper.ComputeTrainingValueWeight(ctx, req.FactId)
+	b, err := q.keeper.ComputeTrainingValueWeightChecked(ctx, req.FactId)
+	if err != nil {
+		return nil, knowledgeRecordQueryError(err)
+	}
 	return &types.QueryTrainingValueWeightResponse{
 		TvwBps:                   b.Final,
 		BaseWeight:               b.BaseWeight,
@@ -2508,6 +2511,10 @@ func (q *queryServer) MethodologyApplicationTrace(ctx context.Context, req *type
 // MethodologyApplicationTraces streams traces filtered by method / tier /
 // corroboration. Mirrors StructuredCorpus filters for pipeline parity.
 func (q *queryServer) MethodologyApplicationTraces(ctx context.Context, req *types.QueryMethodologyApplicationTracesRequest) (*types.QueryMethodologyApplicationTracesResponse, error) {
+	calibrationSmoothing, err := q.keeper.CalibrationSmoothingEnabled(ctx)
+	if err != nil {
+		return nil, knowledgeRecordQueryError(err)
+	}
 	if req == nil {
 		req = &types.QueryMethodologyApplicationTracesRequest{}
 	}
@@ -2556,7 +2563,7 @@ func (q *queryServer) MethodologyApplicationTraces(ctx context.Context, req *typ
 		if uint32(len(out)) >= limit {
 			return false
 		}
-		trace, found, err := keeper.BuildMethodologyApplicationTraceChecked(ctx, f.Id)
+		trace, found, err := keeper.buildMethodologyApplicationTraceChecked(ctx, f.Id, calibrationSmoothing)
 		if err != nil {
 			traceErr = err
 			return true

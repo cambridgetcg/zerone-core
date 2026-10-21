@@ -16,7 +16,7 @@ const (
 	manifestPath            = "dashboard/public/standards/authority-geometry.v1.json"
 	manifestSchema          = "zerone.authority-geometry/v1"
 	checkerSchema           = "zerone.authority-graph-check/v1"
-	canonicalManifestSHA256 = "a046c5df6b8f59c0886f8981f6a12e5afa0205bf53e9dd66283d525381fe3f9b"
+	canonicalManifestSHA256 = "ab671304a271c34ebd2f72e48547642523010f403c5a146940ca183e627bc661"
 	canonicalDesignSHA256   = "1ec84986d2e14b8f938e76d5187266c3e23a6881818d59bbba420ba663f5176a"
 )
 
@@ -336,6 +336,17 @@ var expectedAnchors = []expectedAnchor{
 		Forbidden: []string{},
 	},
 	{
+		ID:   "knowledge-expiry-slash-callsite",
+		Path: "x/knowledge/keeper/inconclusive_round_accounting.go",
+		Required: []string{
+			"func (k roundsExecution) advanceRoundPhasesInconclusiveAccounting(ctx context.Context, enabled bool) error {",
+			"case types.VerificationPhase_VERIFICATION_PHASE_EXPIRED:",
+			"for _, slash := range missedRevealSlashes(round, params) {",
+			"_ = k.stakingKeeper.SlashValidator(ctx, slash.Verifier, slash.SlashBps)",
+		},
+		Forbidden: []string{},
+	},
+	{
 		ID:   "alignment-staking-adapter",
 		Path: "x/staking/keeper/alignment_adapters.go",
 		Required: []string{
@@ -474,7 +485,7 @@ var expectedCurrentEdges = []expectedEdge{
 	{"current-liquid-to-custom-stake", "bank-balance", "custom-staking", "FUNDS_LEGACY_DELEGATION", "ECONOMIC_INFLUENCE", []string{"app-wiring"}},
 	{"current-custom-stake-to-custom-policy", "custom-staking", "custom-gov", "SUPPLIES_LIP_VOTING_POWER", "ECONOMIC_INFLUENCE", []string{"app-wiring", "custom-gov-resolution"}},
 	{"current-custom-stake-to-knowledge", "custom-staking", "knowledge", "SUPPLIES_SELECTION_INPUTS", "EPISTEMIC_INFLUENCE", []string{"app-wiring", "knowledge-staking-adapter"}},
-	{"current-knowledge-to-custom-stake-slash", "knowledge", "custom-staking", "EXECUTES_VERIFIER_SLASH_AND_COIN_ROUTE", "VALUE_WRITE", []string{"app-wiring", "knowledge-staking-adapter", "knowledge-slash-callsites"}},
+	{"current-knowledge-to-custom-stake-slash", "knowledge", "custom-staking", "EXECUTES_VERIFIER_SLASH_AND_COIN_ROUTE", "VALUE_WRITE", []string{"app-wiring", "knowledge-staking-adapter", "knowledge-slash-callsites", "knowledge-expiry-slash-callsite"}},
 	{"current-liquid-to-qualification", "bank-balance", "qualification", "GRANTS_STAKE_PATHWAY", "EPISTEMIC_INFLUENCE", []string{"app-wiring", "qualification-stake-pathway"}},
 	{"current-custom-stake-to-emergency", "custom-staking", "emergency", "SUPPLIES_GUARDIAN_POWER", "CONTROL_INFLUENCE", []string{"app-wiring", "custom-emergency-electorate"}},
 	{"current-custom-stake-to-alignment", "custom-staking", "alignment", "SUPPLIES_ALIGNMENT_HEALTH_INPUTS", "SYSTEM_SIGNAL_INFLUENCE", []string{"app-wiring", "alignment-staking-adapter", "alignment-staking-callsites"}},
@@ -632,10 +643,10 @@ func validateManifest(m manifest, issues *issueSet) {
 	if m.Schema != manifestSchema {
 		issues.add("MANIFEST_SCHEMA_INVALID", "schema must be zerone.authority-geometry/v1")
 	}
-	if m.Revision != "1.0.8" {
-		issues.add("MANIFEST_REVISION_INVALID", "revision must be 1.0.8")
+	if m.Revision != "1.0.9" {
+		issues.add("MANIFEST_REVISION_INVALID", "revision must be 1.0.9")
 	}
-	if m.SnapshotDate != "2026-10-17" {
+	if m.SnapshotDate != "2026-10-21" {
 		issues.add("MANIFEST_SNAPSHOT_INVALID", "snapshotDate must match the reviewed current-source binding date")
 	}
 	if m.Status != "SOURCE_OBSERVATORY_ONLY" {
@@ -969,7 +980,7 @@ func hasDirectedInfluencePath(adjacency map[string][]string, source, target stri
 
 func validateAnchorDeclarations(anchors []sourceAnchor, edges []authorityEdge, findings []currentFinding, issues *issueSet) {
 	if len(anchors) != len(expectedAnchors) {
-		issues.add("SOURCE_ANCHOR_SET_INVALID", "exactly eighteen ordered source anchors are required")
+		issues.add("SOURCE_ANCHOR_SET_INVALID", "exactly nineteen ordered source anchors are required")
 	}
 	used := make(map[string]bool)
 	for _, edge := range edges {

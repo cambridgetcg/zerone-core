@@ -146,7 +146,7 @@ describe("Authority Geometry v1", () => {
     assert.equal(geometry.nodes.length, 18);
     assert.equal(geometry.edges.length, 26);
     assert.equal(geometry.currentFindings.length, 7);
-    assert.equal(geometry.sourceAnchors.length, 18);
+    assert.equal(geometry.sourceAnchors.length, 19);
   });
 
   it("computes the current NO-GO assessment instead of promoting a green report", () => {
@@ -411,13 +411,41 @@ describe("Authority Geometry v1", () => {
       geometry,
       repositoryRoot,
     );
-    assert.equal(summary.sourceAnchorCount, 18);
+    assert.equal(summary.sourceAnchorCount, 19);
     assert.ok(summary.requiredSnippetCount >= 30);
     assert.equal(summary.forbiddenSnippetCount, 1);
 
     const full = validateAuthorityGeometryRaw(canonicalRaw, { repositoryRoot });
     assert.equal(full.manifestSha256, AUTHORITY_GEOMETRY_SHA256);
     assert.equal(full.overall, "NO_GO");
+  });
+
+  it("binds the expiry slash source and requires it on the slash edge", () => {
+    const anchorId = "knowledge-expiry-slash-callsite";
+    for (const mutation of ["path", "snippet", "missing", "edge", "direction", "digest"]) {
+      const document = copyManifest();
+      const anchor = document.sourceAnchors.find((a: MutableDocument) => a.id === anchorId);
+      assert.ok(anchor);
+      if (mutation === "path") anchor.path = "x/knowledge/keeper/rounds.go";
+      if (mutation === "snippet") anchor.requiredSnippets.pop();
+      if (mutation === "missing") {
+        document.sourceAnchors = document.sourceAnchors.filter((a: MutableDocument) => a.id !== anchorId);
+      }
+      if (mutation === "edge") {
+        // Referencing it elsewhere cannot compensate for a missing slash binding.
+        document.currentFindings[6].evidence.push(anchorId);
+        const edge = edgeById(document, "current-knowledge-to-custom-stake-slash");
+        edge.evidence = edge.evidence.filter((id: string) => id !== anchorId);
+      }
+      if (mutation === "direction") {
+        const edge = edgeById(document, "current-knowledge-to-custom-stake-slash");
+        [edge.from, edge.to] = [edge.to, edge.from];
+      }
+      if (mutation === "digest") anchor.sha256 = "0".repeat(64);
+      assert.throws(() => validateAuthorityGeometryRaw(JSON.stringify(document), {
+        repositoryRoot, requireCanonicalDigest: false,
+      }), Error, mutation);
+    }
   });
 
   it("rejects a structurally valid but false source-anchor digest", () => {

@@ -1,7 +1,7 @@
 {
   "schema": "zerone.authority-geometry/v1",
-  "revision": "1.0.8",
-  "snapshotDate": "2026-10-17",
+  "revision": "1.0.9",
+  "snapshotDate": "2026-10-21",
   "status": "SOURCE_OBSERVATORY_ONLY",
   "title": "Authority Geometry",
   "summary": "A source-pinned map of Zerone authority, influence, challenge, repair, and exit. It reports the current split honestly and describes the accepted target without claiming that H4 or H5 is implemented or live.",
@@ -385,9 +385,9 @@
       "relationship": "EXECUTES_VERIFIER_SLASH_AND_COIN_ROUTE",
       "scope": "CURRENT_SOURCE",
       "effect": "VALUE_WRITE",
-      "evidence": ["app-wiring", "knowledge-staking-adapter", "knowledge-slash-callsites"],
+      "evidence": ["app-wiring", "knowledge-staking-adapter", "knowledge-slash-callsites", "knowledge-expiry-slash-callsite"],
       "protections": {
-        "consentBoundary": "UNAVAILABLE: knowledge verdict processing can invoke custom-staking slash authority and route slashed coins; the target design does not authorize that legacy writer.",
+        "consentBoundary": "UNAVAILABLE: knowledge verdict processing can invoke custom-staking slash authority and route slashed coins; missed-reveal expiry processing can also invoke slash authority. The target design does not authorize that legacy writer.",
         "challengeRoute": "Knowledge challenge and vindication records do not establish an accepted target adjudication boundary for custom-ledger slashes.",
         "repairRoute": "H4 must freeze custom-ledger writes and reconcile slash effects, routed coins, and liabilities with receipt-complete migration evidence.",
         "exitRoute": "A legacy claimant exit cannot erase a finalized slash; unresolved slash disputes must remain explicit migration liabilities."
@@ -848,10 +848,22 @@
     {
       "id": "knowledge-slash-callsites",
       "path": "x/knowledge/keeper/rounds.go",
-      "sha256": "74ed7a1396044926a93059efea8fb4ee2b912e328eb4051357ae4fffd77bf9cd",
+      "sha256": "a27e90dbb8f52d04fd334337791900f3409df98e132127b1c861cc2c1c78262e",
       "requiredSnippets": [
         "for _, slash := range result.Slashes {",
         "slashedAmt, err := k.stakingKeeper.SlashValidatorToModule(ctx, slash.Verifier, slash.SlashBps, types.VindicationEscrowModuleName)",
+        "_ = k.stakingKeeper.SlashValidator(ctx, slash.Verifier, slash.SlashBps)"
+      ],
+      "forbiddenSnippets": []
+    },
+    {
+      "id": "knowledge-expiry-slash-callsite",
+      "path": "x/knowledge/keeper/inconclusive_round_accounting.go",
+      "sha256": "ccc0214cb23993720cb10d8e6d16d1718648d37dfe456f9f03e6944d289c4c5b",
+      "requiredSnippets": [
+        "func (k roundsExecution) advanceRoundPhasesInconclusiveAccounting(ctx context.Context, enabled bool) error {",
+        "case types.VerificationPhase_VERIFICATION_PHASE_EXPIRED:",
+        "for _, slash := range missedRevealSlashes(round, params) {",
         "_ = k.stakingKeeper.SlashValidator(ctx, slash.Verifier, slash.SlashBps)"
       ],
       "forbiddenSnippets": []

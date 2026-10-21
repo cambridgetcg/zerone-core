@@ -52,7 +52,7 @@ type inconclusiveCaptureDefense struct{ types.CaptureDefenseKeeper }
 
 func (inconclusiveCaptureDefense) UpdateReputation(context.Context, string, string, string, bool) {}
 
-func (k Keeper) performAggregationInconclusiveAccounting(ctx context.Context, round *types.VerificationRound, enabled bool) error {
+func (k roundsExecution) performAggregationInconclusiveAccounting(ctx context.Context, round *types.VerificationRound, enabled bool) error {
 	if !enabled {
 		return k.performAggregation(ctx, round)
 	}
@@ -70,7 +70,7 @@ func (k Keeper) performAggregationInconclusiveAccounting(ctx context.Context, ro
 // AdvanceRoundPhases at 6a56b621. Phase selection, pre-existing errors, events
 // and expiry side effects are unchanged. Only aggregation accounting and the
 // missed-reveal slash on the separate EXPIRED path differ.
-func (k Keeper) advanceRoundPhasesInconclusiveAccounting(ctx context.Context, enabled bool) error {
+func (k roundsExecution) advanceRoundPhasesInconclusiveAccounting(ctx context.Context, enabled bool) error {
 	if !enabled {
 		return k.AdvanceRoundPhases(ctx)
 	}

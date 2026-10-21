@@ -422,6 +422,10 @@ func putUint64(buf []byte, x uint64) {
 // fully-resolved content with the child's delta. The derived root uses
 // the composed-domain commitment.
 func (k Keeper) AssembleManifestBundle(ctx context.Context, manifestID string) (*types.QueryTrainingManifestBundleResponse, error) {
+	calibrationSmoothing, err := k.CalibrationSmoothingEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 	m, ok := k.GetTrainingManifest(ctx, manifestID)
 	if !ok || m == nil {
 		return nil, fmt.Errorf("manifest %s not found", manifestID)
@@ -445,7 +449,9 @@ func (k Keeper) AssembleManifestBundle(ctx context.Context, manifestID string) (
 	// Resolve traces.
 	var traces []*types.MethodologyApplicationTrace
 	for _, fid := range unionFactIDs {
-		if t, found := k.BuildMethodologyApplicationTrace(ctx, fid); found {
+		// Preserve historical skipping of trace resource/decode errors. The
+		// activation fault was already propagated before entering this loop.
+		if t, found, err := k.buildMethodologyApplicationTraceChecked(ctx, fid, calibrationSmoothing); found && err == nil {
 			traces = append(traces, t)
 		}
 	}
