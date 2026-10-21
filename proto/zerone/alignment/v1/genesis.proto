@@ -13,6 +13,10 @@ message GenesisState {
   repeated DimensionScores scores = 4;
   repeated AlignmentHealthIndex health_indices = 5;
   repeated CorrectionRecord corrections = 6;
+  // Unobserved-health marker (decision zc-health-unknown-q1). Native genesis
+  // sets it; a file without the field imports as off. In place, only the
+  // named carrier upgrade consensus-repairs-v2 sets it.
+  bool unobserved_health_enabled = 7;
 }
 
 // Params defines the alignment module parameters.

@@ -40,6 +40,31 @@ message GenesisCreedAmendmentPin {
   bytes  commitments_json = 3;
 }
 
+// GenesisResearchCommunityVote retains the full proposal/voter key and ballot.
+message GenesisResearchCommunityVote {
+  uint64 proposal_id = 1;
+  string voter = 2;
+  string vote = 3;
+}
+
+// GenesisDistinctVoter preserves the first recorded height, not the import height.
+message GenesisDistinctVoter {
+  string voter = 1;
+  uint64 first_voted_at_block = 2;
+}
+
+// GenesisPhaseTransition retains the existing phase metadata without replaying
+// submission or approval. Its lifecycle remains owned by the existing keeper.
+message GenesisPhaseTransition {
+  string lip_id = 1;
+  ResearchFundPhase target_phase = 2;
+  PhaseTransitionConditions conditions_snapshot = 3;
+  string stage = 4;
+  uint64 activation_block = 5;
+  bool is_rollback = 6;
+  string cancel_reason = 7;
+}
+
 // EmergencyTransitionHold is the durable post-incident review gate for every
 // automatic custom-governance transition. It is created when transaction
 // quarantine is observed and is not cleared by an ordinary resume ceremony.
@@ -77,4 +102,13 @@ message GenesisState {
   // file without the field imports as off. In place, only the named carrier
   // upgrade consensus-repairs-v1 sets it.
   bool seat_runoff_ordering_enabled = 13;
+  // Retained research-fund records (FX8). Export carries every stored record;
+  // import restores them directly, never by replaying submission, ballots,
+  // approval or phase advancement. Creed payloads use creed_amendment_pins.
+  repeated ResearchSpendProposal research_spend_proposals = 14;
+  // Presence distinguishes a legacy omission from an explicitly stored counter.
+  optional uint64 next_research_spend_number = 15;
+  repeated GenesisResearchCommunityVote research_community_votes = 16;
+  repeated GenesisDistinctVoter distinct_voters = 17;
+  repeated GenesisPhaseTransition phase_transitions = 18;
 }

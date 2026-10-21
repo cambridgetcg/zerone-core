@@ -844,3 +844,21 @@ var ProbeScanCursorKey = []byte{0x80}
 // 0x82/0x83 belong to verifier settlement, and the KARMA design reserves
 // 0x81-0x8F.
 var ReformulationVindicationOrderingEnabledKey = []byte{0x90}
+
+// InconclusiveRoundAccountingEnabledKey is the consensus-repairs-v2 marker for
+// decision zc-panel-unanimity-q2
+// (keeper/inconclusive_round_accounting_activation.go). The consensus-repairs
+// markers continue after 0x90: 0x91 is unused on this branch and on the live
+// 2e37c4c layout. Only three branch tips that never merged into trunk (their
+// knowledge layout diverged on 2026-03-01) use 0x91-0xFA, for legacy prefixes.
+var InconclusiveRoundAccountingEnabledKey = []byte{0x91}
+
+// CalibrationSmoothingEnabledKey is the consensus-repairs-v2 marker for
+// decision zc-calibration-cliff-q5
+// (keeper/calibration_smoothing_activation.go), unused like 0x91.
+var CalibrationSmoothingEnabledKey = []byte{0x92}
+
+// ZeroConfidenceFloorEnabledKey is the consensus-repairs-v2 marker for
+// decision zc-pr37-frontier-fixes
+// (keeper/zero_confidence_floor_activation.go), unused like 0x91.
+var ZeroConfidenceFloorEnabledKey = []byte{0x93}

@@ -1,5 +1,5 @@
 //@ts-nocheck
-import { ResearchFundVoters, UpgradePlan, LIP, Vote, ResearchFundGovernanceState, SeatElectionProposal, SeatElectionVote } from "./types";
+import { ResearchFundVoters, UpgradePlan, ResearchFundPhase, PhaseTransitionConditions, LIP, Vote, ResearchFundGovernanceState, SeatElectionProposal, SeatElectionVote, ResearchSpendProposal } from "./types";
 import { BinaryReader, BinaryWriter } from "../../../binary";
 import { DeepPartial } from "../../../helpers";
 /**
@@ -87,6 +87,43 @@ export interface GenesisCreedAmendmentPin {
   commitmentsJson: Uint8Array;
 }
 /**
+ * GenesisResearchCommunityVote retains the full proposal/voter key and ballot.
+ * @name GenesisResearchCommunityVote
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.GenesisResearchCommunityVote
+ */
+export interface GenesisResearchCommunityVote {
+  proposalId: bigint;
+  voter: string;
+  vote: string;
+}
+/**
+ * GenesisDistinctVoter preserves the first recorded height, not the import height.
+ * @name GenesisDistinctVoter
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.GenesisDistinctVoter
+ */
+export interface GenesisDistinctVoter {
+  voter: string;
+  firstVotedAtBlock: bigint;
+}
+/**
+ * GenesisPhaseTransition retains the existing phase metadata without replaying
+ * submission or approval. Its lifecycle remains owned by the existing keeper.
+ * @name GenesisPhaseTransition
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.GenesisPhaseTransition
+ */
+export interface GenesisPhaseTransition {
+  lipId: string;
+  targetPhase: ResearchFundPhase;
+  conditionsSnapshot?: PhaseTransitionConditions;
+  stage: string;
+  activationBlock: bigint;
+  isRollback: boolean;
+  cancelReason: string;
+}
+/**
  * EmergencyTransitionHold is the durable post-incident review gate for every
  * automatic custom-governance transition. It is created when transaction
  * quarantine is observed and is not cleared by an ordinary resume ceremony.
@@ -142,6 +179,19 @@ export interface GenesisState {
    * upgrade consensus-repairs-v1 sets it.
    */
   seatRunoffOrderingEnabled: boolean;
+  /**
+   * Retained research-fund records (FX8). Export carries every stored record;
+   * import restores them directly, never by replaying submission, ballots,
+   * approval or phase advancement. Creed payloads use creed_amendment_pins.
+   */
+  researchSpendProposals: ResearchSpendProposal[];
+  /**
+   * Presence distinguishes a legacy omission from an explicitly stored counter.
+   */
+  nextResearchSpendNumber?: bigint;
+  researchCommunityVotes: GenesisResearchCommunityVote[];
+  distinctVoters: GenesisDistinctVoter[];
+  phaseTransitions: GenesisPhaseTransition[];
 }
 function createBaseParams(): Params {
   return {
@@ -424,6 +474,205 @@ export const GenesisCreedAmendmentPin = {
     return message;
   }
 };
+function createBaseGenesisResearchCommunityVote(): GenesisResearchCommunityVote {
+  return {
+    proposalId: BigInt(0),
+    voter: "",
+    vote: ""
+  };
+}
+/**
+ * GenesisResearchCommunityVote retains the full proposal/voter key and ballot.
+ * @name GenesisResearchCommunityVote
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.GenesisResearchCommunityVote
+ */
+export const GenesisResearchCommunityVote = {
+  typeUrl: "/zerone.gov.v1.GenesisResearchCommunityVote",
+  encode(message: GenesisResearchCommunityVote, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.proposalId !== BigInt(0)) {
+      writer.uint32(8).uint64(message.proposalId);
+    }
+    if (message.voter !== "") {
+      writer.uint32(18).string(message.voter);
+    }
+    if (message.vote !== "") {
+      writer.uint32(26).string(message.vote);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): GenesisResearchCommunityVote {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGenesisResearchCommunityVote();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.proposalId = reader.uint64();
+          break;
+        case 2:
+          message.voter = reader.string();
+          break;
+        case 3:
+          message.vote = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<GenesisResearchCommunityVote>): GenesisResearchCommunityVote {
+    const message = createBaseGenesisResearchCommunityVote();
+    message.proposalId = object.proposalId !== undefined && object.proposalId !== null ? BigInt(object.proposalId.toString()) : BigInt(0);
+    message.voter = object.voter ?? "";
+    message.vote = object.vote ?? "";
+    return message;
+  }
+};
+function createBaseGenesisDistinctVoter(): GenesisDistinctVoter {
+  return {
+    voter: "",
+    firstVotedAtBlock: BigInt(0)
+  };
+}
+/**
+ * GenesisDistinctVoter preserves the first recorded height, not the import height.
+ * @name GenesisDistinctVoter
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.GenesisDistinctVoter
+ */
+export const GenesisDistinctVoter = {
+  typeUrl: "/zerone.gov.v1.GenesisDistinctVoter",
+  encode(message: GenesisDistinctVoter, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.voter !== "") {
+      writer.uint32(10).string(message.voter);
+    }
+    if (message.firstVotedAtBlock !== BigInt(0)) {
+      writer.uint32(16).uint64(message.firstVotedAtBlock);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): GenesisDistinctVoter {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGenesisDistinctVoter();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.voter = reader.string();
+          break;
+        case 2:
+          message.firstVotedAtBlock = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<GenesisDistinctVoter>): GenesisDistinctVoter {
+    const message = createBaseGenesisDistinctVoter();
+    message.voter = object.voter ?? "";
+    message.firstVotedAtBlock = object.firstVotedAtBlock !== undefined && object.firstVotedAtBlock !== null ? BigInt(object.firstVotedAtBlock.toString()) : BigInt(0);
+    return message;
+  }
+};
+function createBaseGenesisPhaseTransition(): GenesisPhaseTransition {
+  return {
+    lipId: "",
+    targetPhase: 0,
+    conditionsSnapshot: undefined,
+    stage: "",
+    activationBlock: BigInt(0),
+    isRollback: false,
+    cancelReason: ""
+  };
+}
+/**
+ * GenesisPhaseTransition retains the existing phase metadata without replaying
+ * submission or approval. Its lifecycle remains owned by the existing keeper.
+ * @name GenesisPhaseTransition
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.GenesisPhaseTransition
+ */
+export const GenesisPhaseTransition = {
+  typeUrl: "/zerone.gov.v1.GenesisPhaseTransition",
+  encode(message: GenesisPhaseTransition, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.lipId !== "") {
+      writer.uint32(10).string(message.lipId);
+    }
+    if (message.targetPhase !== 0) {
+      writer.uint32(16).int32(message.targetPhase);
+    }
+    if (message.conditionsSnapshot !== undefined) {
+      PhaseTransitionConditions.encode(message.conditionsSnapshot, writer.uint32(26).fork()).ldelim();
+    }
+    if (message.stage !== "") {
+      writer.uint32(34).string(message.stage);
+    }
+    if (message.activationBlock !== BigInt(0)) {
+      writer.uint32(40).uint64(message.activationBlock);
+    }
+    if (message.isRollback === true) {
+      writer.uint32(48).bool(message.isRollback);
+    }
+    if (message.cancelReason !== "") {
+      writer.uint32(58).string(message.cancelReason);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): GenesisPhaseTransition {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseGenesisPhaseTransition();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.lipId = reader.string();
+          break;
+        case 2:
+          message.targetPhase = reader.int32() as any;
+          break;
+        case 3:
+          message.conditionsSnapshot = PhaseTransitionConditions.decode(reader, reader.uint32());
+          break;
+        case 4:
+          message.stage = reader.string();
+          break;
+        case 5:
+          message.activationBlock = reader.uint64();
+          break;
+        case 6:
+          message.isRollback = reader.bool();
+          break;
+        case 7:
+          message.cancelReason = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<GenesisPhaseTransition>): GenesisPhaseTransition {
+    const message = createBaseGenesisPhaseTransition();
+    message.lipId = object.lipId ?? "";
+    message.targetPhase = object.targetPhase ?? 0;
+    message.conditionsSnapshot = object.conditionsSnapshot !== undefined && object.conditionsSnapshot !== null ? PhaseTransitionConditions.fromPartial(object.conditionsSnapshot) : undefined;
+    message.stage = object.stage ?? "";
+    message.activationBlock = object.activationBlock !== undefined && object.activationBlock !== null ? BigInt(object.activationBlock.toString()) : BigInt(0);
+    message.isRollback = object.isRollback ?? false;
+    message.cancelReason = object.cancelReason ?? "";
+    return message;
+  }
+};
 function createBaseEmergencyTransitionHold(): EmergencyTransitionHold {
   return {
     incidentId: "",
@@ -514,7 +763,12 @@ function createBaseGenesisState(): GenesisState {
     creedAmendmentPins: [],
     emergencyTransitionHold: undefined,
     accountingSafetyEnabled: false,
-    seatRunoffOrderingEnabled: false
+    seatRunoffOrderingEnabled: false,
+    researchSpendProposals: [],
+    nextResearchSpendNumber: undefined,
+    researchCommunityVotes: [],
+    distinctVoters: [],
+    phaseTransitions: []
   };
 }
 /**
@@ -565,6 +819,21 @@ export const GenesisState = {
     if (message.seatRunoffOrderingEnabled === true) {
       writer.uint32(104).bool(message.seatRunoffOrderingEnabled);
     }
+    for (const v of message.researchSpendProposals) {
+      ResearchSpendProposal.encode(v!, writer.uint32(114).fork()).ldelim();
+    }
+    if (message.nextResearchSpendNumber !== undefined) {
+      writer.uint32(120).uint64(message.nextResearchSpendNumber);
+    }
+    for (const v of message.researchCommunityVotes) {
+      GenesisResearchCommunityVote.encode(v!, writer.uint32(130).fork()).ldelim();
+    }
+    for (const v of message.distinctVoters) {
+      GenesisDistinctVoter.encode(v!, writer.uint32(138).fork()).ldelim();
+    }
+    for (const v of message.phaseTransitions) {
+      GenesisPhaseTransition.encode(v!, writer.uint32(146).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -613,6 +882,21 @@ export const GenesisState = {
         case 13:
           message.seatRunoffOrderingEnabled = reader.bool();
           break;
+        case 14:
+          message.researchSpendProposals.push(ResearchSpendProposal.decode(reader, reader.uint32()));
+          break;
+        case 15:
+          message.nextResearchSpendNumber = reader.uint64();
+          break;
+        case 16:
+          message.researchCommunityVotes.push(GenesisResearchCommunityVote.decode(reader, reader.uint32()));
+          break;
+        case 17:
+          message.distinctVoters.push(GenesisDistinctVoter.decode(reader, reader.uint32()));
+          break;
+        case 18:
+          message.phaseTransitions.push(GenesisPhaseTransition.decode(reader, reader.uint32()));
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -635,6 +919,11 @@ export const GenesisState = {
     message.emergencyTransitionHold = object.emergencyTransitionHold !== undefined && object.emergencyTransitionHold !== null ? EmergencyTransitionHold.fromPartial(object.emergencyTransitionHold) : undefined;
     message.accountingSafetyEnabled = object.accountingSafetyEnabled ?? false;
     message.seatRunoffOrderingEnabled = object.seatRunoffOrderingEnabled ?? false;
+    message.researchSpendProposals = object.researchSpendProposals?.map(e => ResearchSpendProposal.fromPartial(e)) || [];
+    message.nextResearchSpendNumber = object.nextResearchSpendNumber !== undefined && object.nextResearchSpendNumber !== null ? BigInt(object.nextResearchSpendNumber.toString()) : undefined;
+    message.researchCommunityVotes = object.researchCommunityVotes?.map(e => GenesisResearchCommunityVote.fromPartial(e)) || [];
+    message.distinctVoters = object.distinctVoters?.map(e => GenesisDistinctVoter.fromPartial(e)) || [];
+    message.phaseTransitions = object.phaseTransitions?.map(e => GenesisPhaseTransition.fromPartial(e)) || [];
     return message;
   }
 };

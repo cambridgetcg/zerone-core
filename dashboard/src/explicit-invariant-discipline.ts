@@ -3,7 +3,7 @@ export const EXPLICIT_INVARIANT_DISCIPLINE_ENDPOINT =
 export const EXPLICIT_INVARIANT_DISCIPLINE_MAX_BYTES = 262_144;
 export const EXPLICIT_INVARIANT_DISCIPLINE_TIMEOUT_MS = 8_000;
 export const EXPLICIT_INVARIANT_DISCIPLINE_SHA256 =
-  "3f069931be2212cb6ef28f8de20db9dd057fd677ed5d152b17a2fc89d40d3b55";
+  "ff926cb67c43c7eba4b86abcf3a595468563e30f09d5173bc499983cc1780246";
 
 const EXPLICIT_INVARIANT_DISCIPLINE_SCHEMA =
   "zerone.explicit-invariant-discipline/v1";
@@ -1593,7 +1593,7 @@ const EXPECTED_SOURCE_BINDINGS = [
   {
     id: "correspondence-geometry",
     path: "dashboard/public/standards/correspondence-geometry.v0.json",
-    rawSha256: "5758bf7d746246fdc8f334bf3ed1c6ef331cd7e56de13450fa6c48f78be46497",
+    rawSha256: "cf1745825e3e024a1a0c8ec3abb99bf190fb449514ff353cd2187365c6fe7133",
   },
   {
     id: "knowledge-methodologies",
@@ -1603,7 +1603,7 @@ const EXPECTED_SOURCE_BINDINGS = [
   {
     id: "knowledge-types",
     path: "proto/zerone/knowledge/v1/types.proto",
-    rawSha256: "8f3175e0a3678298fd483d96922e325d48548245ab337309970419be7fabd34c",
+    rawSha256: "03b34c08d582a05f8b5cb0a0c1a66fc5ab78c2a8c694caeb682acb0283b93a6f",
   },
 ] as const;
 
