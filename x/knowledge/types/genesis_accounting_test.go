@@ -11,8 +11,7 @@ import (
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
-// FX7 adds only the accounting_state schema; export and import are its fix
-// lane's work. This pins what that work relies on: the module's own genesis
+// FX7 imports and exports accounting_state. This pins the module's own genesis
 // JSON codec keeps the field's presence (absent, present but empty) and every
 // inventory value, including a zero epoch and a retained inactive balance,
 // and native genesis carries no inventory.
@@ -39,6 +38,15 @@ func TestKnowledgeGenesisAccountingSurvivesModuleJSON(t *testing.T) {
 			gs := types.DefaultGenesis()
 			require.Nil(t, gs.AccountingState, "native genesis carries no inventory")
 			gs.AccountingState = tc.state
+			if tc.state != nil {
+				gs.TrainingFundAllocation = "0"
+				if tc.name == "present and empty" {
+					tc.state.TrainingFundNonEscrowBalance = "0"
+				} else {
+					gs.TrainingFundAllocation = "4501"
+					gs.AugmentationBounties = []*types.AugmentationBounty{{Id: "active", Active: true}, {Id: "inactive-retained"}}
+				}
+			}
 			data, err := cdc.MarshalJSON(gs)
 			require.NoError(t, err)
 			var restored types.GenesisState
