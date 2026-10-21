@@ -9,8 +9,11 @@ import (
 
 func markerGenesis() map[string]interface{} {
 	state := make(map[string]interface{})
-	for _, marker := range app.ConsensusRepairsV1GenesisSelections() {
-		state[marker.Module] = map[string]interface{}{marker.Name: true}
+	for _, marker := range append(app.ConsensusRepairsV1GenesisSelections(), app.ConsensusRepairsV2GenesisSelections()...) {
+		if state[marker.Module] == nil {
+			state[marker.Module] = map[string]interface{}{}
+		}
+		state[marker.Module].(map[string]interface{})[marker.Name] = true
 	}
 	return map[string]interface{}{"app_state": state}
 }
@@ -19,9 +22,9 @@ func TestConsensusRepairsGenesisMarkers(t *testing.T) {
 	c := &checker{}
 	checkConsensusRepairsMarkers(c, markerGenesis())
 	if c.failed != 0 {
-		t.Fatal("all ten exact true selections must pass")
+		t.Fatal("all fourteen exact true selections must pass")
 	}
-	for _, marker := range app.ConsensusRepairsV1GenesisSelections() {
+	for _, marker := range append(app.ConsensusRepairsV1GenesisSelections(), app.ConsensusRepairsV2GenesisSelections()...) {
 		for _, invalid := range []string{"absent", "false", "null", "case alias", "camel alias", "null module"} {
 			t.Run(marker.Module+"/"+invalid, func(t *testing.T) {
 				g := markerGenesis()

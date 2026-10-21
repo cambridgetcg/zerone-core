@@ -48,6 +48,10 @@ func (gs *GenesisState) ValidateRetainedRecords() error {
 	}
 	// Never guess a missing counter from retained IDs, or normalize an explicit
 	// zero in an empty store. Presence is part of the wire/storage contract.
+	// Zero is not a valid proposal ID; MaxUint64 wraps the next live allocation.
+	if gs.NextResearchSpendNumber != nil && (*gs.NextResearchSpendNumber == 0 || *gs.NextResearchSpendNumber == ^uint64(0)) {
+		return fmt.Errorf("next_research_spend_number must be positive with allocation headroom")
+	}
 	if len(proposals) > 0 && (gs.NextResearchSpendNumber == nil || *gs.NextResearchSpendNumber <= maxID) {
 		return fmt.Errorf("next_research_spend_number must be present and greater than every retained proposal id")
 	}

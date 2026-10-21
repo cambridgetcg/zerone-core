@@ -83,7 +83,7 @@ func (app *ZeroneApp) ConsensusRepairsV1Markers() []ActivationMarker {
 // order of their decisions in the decision ledger: zc-health-unknown-q1,
 // zc-panel-unanimity-q2, zc-calibration-cliff-q5 and zc-pr37-frontier-fixes.
 // Native genesis selects each one through its module's genesis field; the
-// consensus-repairs-v2 carrier will enable each one by looping over this list.
+// consensus-repairs-v2 carrier enables each one by looping over this list.
 // It shares no module/field pair or store key with ConsensusRepairsV1Markers.
 // The genesis-only FX7 and FX8 schemas change export and import, never a live
 // state transition, so they have no marker here.
@@ -97,5 +97,14 @@ func (app *ZeroneApp) ConsensusRepairsV2Markers() []ActivationMarker {
 			app.KnowledgeKeeper.CalibrationSmoothingEnabled, app.KnowledgeKeeper.EnableCalibrationSmoothing},
 		{zeroneknowledgetypes.ModuleName, "zero_confidence_floor_enabled",
 			app.KnowledgeKeeper.ZeroConfidenceFloorEnabled, app.KnowledgeKeeper.EnableZeroConfidenceFloor},
+	}
+}
+
+func ConsensusRepairsV2GenesisSelections() []ActivationSelection {
+	return []ActivationSelection{
+		{zeronealignmenttypes.ModuleName, "unobserved_health_enabled"},
+		{zeroneknowledgetypes.ModuleName, "inconclusive_round_accounting_enabled"},
+		{zeroneknowledgetypes.ModuleName, "calibration_smoothing_enabled"},
+		{zeroneknowledgetypes.ModuleName, "zero_confidence_floor_enabled"},
 	}
 }

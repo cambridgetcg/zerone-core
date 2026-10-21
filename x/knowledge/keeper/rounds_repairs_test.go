@@ -191,7 +191,7 @@ func TestKR2SnapshotPresenceAndFreezing(t *testing.T) {
 					t.Run(fmt.Sprintf("q5=%t/pr37=%t/neutral=%t/score=%d", enabled, floor, neutral, score), func(t *testing.T) {
 						f := newKR2Fixture(t, enabled, floor, false)
 						if score >= 0 {
-							require.NoError(t, f.k.SetAgentCalibration(f.ctx, &types.AgentCalibration{Address: "author", CalibrationScoreBps: uint64(score)}))
+							require.NoError(t, f.k.SetAgentCalibration(f.ctx, &types.AgentCalibration{Address: "author", TotalSubmissions: 1, CalibrationScoreBps: uint64(score)}))
 						}
 						round := &types.VerificationRound{}
 						if neutral {

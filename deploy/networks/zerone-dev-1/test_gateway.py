@@ -130,7 +130,7 @@ class DescriptorUpgradeTest(unittest.TestCase):
                 "review_window_blocks": 3600, "local_test": True, "gateway_port": 8080}
             node.ready = lambda: 10
             node.call = lambda method: {"genesis": {"chain_id": g.CHAIN, "app_state": {"knowledge": {}}}}
-            for version in (12, 13):
+            for version in (12, 13, 14):
                 node.cli = lambda *args: g.canonical({"module_versions": [{"name": "knowledge", "version": str(version)}]})
                 node.upgrade_packet = None
                 with self.assertRaisesRegex(g.GatewayError, "explicit staged"):
@@ -154,13 +154,42 @@ class DescriptorUpgradeTest(unittest.TestCase):
             node.call = lambda method: {"genesis": {"chain_id": g.CHAIN,
                 "app_state": {"knowledge": {"fund_settlement_enabled": True}}}}
             node.upgrade_packet = None
-            for version in (12, 13):
+            for version in (12, 13, 14):
                 with self.subTest(version=version):
                     node.cli = lambda *args: g.canonical({"module_versions": [
                         {"name": "knowledge", "version": str(version)}]})
                     with self.assertRaisesRegex(g.GatewayError, "Claim-integrity ledger"):
                         node.descriptor()
                     self.assertFalse((node.home / "public").exists())
+
+
+    def test_native_v2_descriptor_requires_each_selection(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            node = g.Node.__new__(g.Node)
+            node.home = Path(temporary)
+            node.rpc = "http://127.0.0.1:26657"
+            node.genesis_hash = "a" * 64
+            node.manifest = {"source_commit": "b" * 40, "binary_sha256": "c" * 64,
+                "advertised_peer": "d" * 40 + "@127.0.0.1:26656", "node_id": "d" * 40,
+                "review_window_blocks": 3600, "local_test": True, "gateway_port": 8080}
+            node.ready = lambda: 10
+            node.upgrade_packet = None
+            state = {"alignment": {"unobserved_health_enabled": True}, "knowledge": {
+                "fund_settlement_enabled": True, "claim_integrity_enabled": True,
+                "inconclusive_round_accounting_enabled": True, "calibration_smoothing_enabled": True,
+                "zero_confidence_floor_enabled": True}}
+            node.call = lambda method: {"genesis": {"chain_id": g.CHAIN, "app_state": state}}
+            node.cli = lambda *args: g.canonical({"module_versions": [{"name": "knowledge", "version": "14"}]})
+            for module, name in (("alignment", "unobserved_health_enabled"),
+                                 ("knowledge", "inconclusive_round_accounting_enabled"),
+                                 ("knowledge", "calibration_smoothing_enabled"),
+                                 ("knowledge", "zero_confidence_floor_enabled")):
+                state[module][name] = False
+                with self.assertRaisesRegex(g.GatewayError, "Consensus-repairs-v2 ledger"):
+                    node.descriptor()
+                self.assertFalse((node.home / "public").exists())
+                state[module][name] = True
+            self.assertEqual(node.descriptor()["knowledge_version"], 14)
 
 
 class FaucetTest(unittest.TestCase):

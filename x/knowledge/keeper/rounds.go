@@ -658,9 +658,9 @@ func (k roundsExecution) createFactFromClaim(ctx context.Context, claim *types.C
 	if !neutral {
 		if cal, ok := k.GetAgentCalibration(ctx, claim.Submitter); ok && cal != nil {
 			calibrationSnapshot = cal.CalibrationScoreBps
-			hasCalibrationSnapshot = k.calibrationSmoothing
+			hasCalibrationSnapshot = k.calibrationSmoothing && cal.TotalSubmissions > 0
 		}
-		// A found zero is evidence, not the absence of a snapshot. With Q5
+		// A found zero with submissions is evidence, not a challenger-only record. With Q5
 		// off, including when only PR37 is on, retain the old sentinel.
 		if calibrationSnapshot == 0 && !hasCalibrationSnapshot {
 			calibrationSnapshot = 500_000 // legacy default

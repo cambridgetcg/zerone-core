@@ -164,6 +164,10 @@ func (app *ZeroneApp) consensusRepairsCensusRows(ctx sdk.Context, report *Consen
 	if err != nil {
 		return nil, err
 	}
+	return app.consensusRepairsCensusRowsFor(ctx, report, consensusRepairsCensusNames, reads)
+}
+
+func (app *ZeroneApp) consensusRepairsCensusRowsFor(ctx sdk.Context, report *ConsensusRepairsCensus, names []string, reads map[string][]consensusRepairsRead) (map[string]map[string][]byte, error) {
 	rows := make(map[string]map[string][]byte)
 	report.Stores = make(map[string]ConsensusRepairsSize)
 	report.Prefixes = make(map[string]map[string]ConsensusRepairsSize)
@@ -175,7 +179,7 @@ func (app *ZeroneApp) consensusRepairsCensusRows(ctx sdk.Context, report *Consen
 		report.Prefixes[store] = make(map[string]ConsensusRepairsSize)
 	}
 	hashes := make(map[string]hash.Hash)
-	for _, name := range consensusRepairsCensusNames {
+	for _, name := range names {
 		hashes[name] = sha256.New()
 		report.Censuses[name] = ConsensusRepairsSize{}
 		for _, read := range reads[name] {
@@ -199,7 +203,7 @@ func (app *ZeroneApp) consensusRepairsCensusRows(ctx sdk.Context, report *Consen
 		size.Bytes += n
 		report.Prefixes[store][prefix] = size
 		selected := false
-		for _, name := range consensusRepairsCensusNames {
+		for _, name := range names {
 			for i, read := range reads[name] {
 				if store != read.store || !bytes.HasPrefix(key, read.key) || (read.exact && !bytes.Equal(key, read.key)) {
 					continue
@@ -230,7 +234,7 @@ func (app *ZeroneApp) consensusRepairsCensusRows(ctx sdk.Context, report *Consen
 		return nil, err
 	}
 	report.Digest = digest
-	for _, name := range consensusRepairsCensusNames {
+	for _, name := range names {
 		report.Digests[name] = hex.EncodeToString(hashes[name].Sum(nil))
 	}
 	return rows, nil

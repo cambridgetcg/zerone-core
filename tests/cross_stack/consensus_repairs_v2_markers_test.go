@@ -75,9 +75,8 @@ func repairsV2Markers(app *zeroneapp.ZeroneApp) []zeroneapp.ActivationMarker {
 
 // Through the real application (module manager, each module's own genesis
 // codec, InitChain, commit, export and a second InitChain), a native genesis
-// selects every consensus-repairs-v2 marker and an export carries it. Until the
-// v2 carrier adds its own genesis selection check, a genesis written before the
-// fields existed starts with every v2 marker off and keeps the v1 selection.
+// selects every consensus-repairs-v2 marker and an export carries it. An older
+// genesis without those selections is refused rather than silently activated.
 func TestConsensusRepairsV2MarkersFollowGenesisThroughTheApp(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
@@ -100,6 +99,13 @@ func TestConsensusRepairsV2MarkersFollowGenesisThroughTheApp(t *testing.T) {
 					require.NoError(t, err)
 					genesis[m.Module] = stripped
 				}
+			}
+			if tc.strip {
+				raw, err := json.Marshal(genesis)
+				require.NoError(t, err)
+				_, err = source.InitChain(&abci.RequestInitChain{ChainId: repairsMarkersChainID, AppStateBytes: raw})
+				require.ErrorContains(t, err, "requires explicit")
+				return
 			}
 			initRepairsMarkersChain(t, source, genesis)
 			ctx := source.NewContextLegacy(false, cmtproto.Header{ChainID: repairsMarkersChainID, Height: 1})

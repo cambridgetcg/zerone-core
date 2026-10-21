@@ -179,7 +179,7 @@ func TestRetainedGenesisLegacyImport(t *testing.T) {
 }
 
 func TestRetainedGenesisCounterPresence(t *testing.T) {
-	for _, value := range []*uint64{nil, proto.Uint64(0), proto.Uint64(1), proto.Uint64(99)} {
+	for _, value := range []*uint64{nil, proto.Uint64(1), proto.Uint64(99)} {
 		f := newSeatRunoffOrderingFixture(t)
 		gs := types.DefaultGenesisState()
 		gs.NextResearchSpendNumber = value

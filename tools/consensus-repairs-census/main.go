@@ -42,11 +42,12 @@ func run(args []string, out, diagnostics io.Writer) (code int) {
 	height := f.Int64("expected-height", 0, "independently observed committed height")
 	hash := f.String("expected-app-hash", "", "exact lowercase 32-byte committed AppHash")
 	copied := f.Bool("copied-db", false, "attest this is a disposable copy, not a live or only database")
+	repairs := f.String("repairs", "v1", "census selection: v1 or v2 (never inferred from binary)")
 	if err := f.Parse(args); err != nil {
 		return 1
 	}
 	decoded, err := hex.DecodeString(*hash)
-	if f.NArg() != 0 || !*copied || *chain == "" || *height <= 0 || err != nil || len(decoded) != 32 || strings.ToLower(*hash) != *hash {
+	if f.NArg() != 0 || !*copied || *chain == "" || *height <= 0 || err != nil || len(decoded) != 32 || strings.ToLower(*hash) != *hash || (*repairs != "v1" && *repairs != "v2") {
 		fmt.Fprintln(diagnostics, "require --copied-db, --home, --chain-id, --expected-height and lowercase --expected-app-hash")
 		return 1
 	}
@@ -81,7 +82,13 @@ func run(args []string, out, diagnostics io.Writer) (code int) {
 		return 1
 	}
 	ctx := candidate.NewUncachedContext(true, cmtproto.Header{Height: *height, ChainID: *chain})
-	report, censusErr := candidate.CensusConsensusRepairsV1(ctx)
+	var report app.ConsensusRepairsCensus
+	var censusErr error
+	if *repairs == "v2" {
+		report, censusErr = candidate.CensusConsensusRepairsV2(ctx)
+	} else {
+		report, censusErr = candidate.CensusConsensusRepairsV1(ctx)
+	}
 	versions, versionErr := candidate.UpgradeKeeper.GetModuleVersionMap(ctx)
 	closeErr := db.Close()
 	closed = true
@@ -97,7 +104,7 @@ func run(args []string, out, diagnostics io.Writer) (code int) {
 		Census   app.ConsensusRepairsCensus `json:"census"`
 		Passed   bool                       `json:"passed"`
 		Error    string                     `json:"error,omitempty"`
-	}{Schema: "zerone.consensus-repairs-census/v1", ChainID: *chain, AppHash: *hash, Versions: versions, Census: report, Passed: censusErr == nil}
+	}{Schema: "zerone.consensus-repairs-census/" + *repairs, ChainID: *chain, AppHash: *hash, Versions: versions, Census: report, Passed: censusErr == nil}
 	if censusErr != nil {
 		value.Error = censusErr.Error()
 	}

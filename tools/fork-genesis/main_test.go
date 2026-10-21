@@ -91,7 +91,7 @@ func newFixture(t *testing.T) fixture {
 	// Synthetic current-native selection only. The fork compiler must preserve
 	// these explicit fields, never infer them for an old production export.
 	defaults := zeroneapp.ModuleBasics.DefaultGenesis(encodingConfig.Codec)
-	for _, marker := range (&zeroneapp.ZeroneApp{}).ConsensusRepairsV1Markers() {
+	for _, marker := range append(zeroneapp.ConsensusRepairsV1GenesisSelections(), zeroneapp.ConsensusRepairsV2GenesisSelections()...) {
 		raw := appState[marker.Module]
 		if len(raw) == 0 {
 			raw = defaults[marker.Module]

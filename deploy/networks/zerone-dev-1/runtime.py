@@ -37,6 +37,7 @@ UPGRADE_VERSIONS = {
     UPGRADE_NAME: (10, 11),
     "knowledge-claim-integrity-v1": (11, 12),
     "consensus-repairs-v1": (12, 13),
+    "consensus-repairs-v2": (13, 14),
 }
 CONSENSUS_REPAIRS_VERSIONS = {
     "zerone_gov": 4, "knowledge": 13, "capture_defense": 2,
@@ -44,6 +45,7 @@ CONSENSUS_REPAIRS_VERSIONS = {
     "alignment": 2, "zerone_ontology": 2, "emergency": 3,
     "substrate_bridge": 2, "ibcratelimit": 2, "home": 1, "zerone_staking": 2,
 }
+CONSENSUS_REPAIRS_V2_VERSIONS = {**CONSENSUS_REPAIRS_VERSIONS, "alignment": 3, "knowledge": 14}
 
 
 class RuntimeError(Exception):
@@ -504,7 +506,9 @@ def verify_applied_upgrade(binary, home, manifest, packet):
     applied = upgrade_query(binary, home, manifest, "applied", packet["plan"]["name"])
     if mapped.get("knowledge") != packet["target"]["knowledge_version"] or integer(applied.get("height"), "applied upgrade height", 1) != int(packet["plan"]["height"]):
         raise RuntimeError("Target has not applied the exact pinned successor upgrade.")
-    if packet["plan"]["name"] == "consensus-repairs-v1" and any(mapped.get(name) != version for name, version in CONSENSUS_REPAIRS_VERSIONS.items()):
+    carrier_versions = {"consensus-repairs-v1": CONSENSUS_REPAIRS_VERSIONS,
+                        "consensus-repairs-v2": CONSENSUS_REPAIRS_V2_VERSIONS}.get(packet["plan"]["name"], {})
+    if any(mapped.get(name) != version for name, version in carrier_versions.items()):
         raise RuntimeError("Target has an incomplete or mixed consensus-repairs version map.")
     return {"module_versions": mapped, "applied_height": str(applied["height"])}
 
