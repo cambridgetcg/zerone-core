@@ -14,6 +14,7 @@ import io
 import json
 import os
 from pathlib import Path
+import platform
 import re
 import subprocess
 import sys
@@ -28,6 +29,9 @@ BUILDER_IMAGE = "registry-1.docker.io/library/golang@sha256:c268a04d59aea0b180ed
 RESOURCES = {"go.mod", "go.sum", "Makefile", "LICENSE", "docs/swagger-ui/embed.go",
              "docs/swagger-ui/index.html", "docs/swagger-ui/swagger.json"}
 VERSION = "h1-testnet-65c19cd8"
+DOCKER_HOST = "unix:///var/run/docker.sock"
+CA_PATH = "/etc/ssl/certs/ca-certificates.crt"
+MIN_GAS_PRICES = "0.025uzrn"
 BUILD_ENV = {"GOTOOLCHAIN": "local", "GOWORK": "off", "GOMAXPROCS": "4",
              "GOCACHE": "/cache", "GOMODCACHE": "/modules", "GOPATH": "/gopath",
              "CGO_ENABLED": "0", "GOOS": "linux", "GOARCH": "amd64", "GOAMD64": "v1",
@@ -122,10 +126,27 @@ def export_source(repository, output, commit=SOURCE_COMMIT):
     return receipt
 
 
-def build_argv(output, modules, run, verify=False):
+def validate_docker_host(value):
+    # No contexts, TCP, SSH, URL authorities, escapes or relative socket names.
+    require(isinstance(value, str) and value.startswith("unix:///"),
+            "--docker-host must be unix:///<absolute socket path>")
+    path = value[len("unix://"):]
+    require(all(part not in ("", ".", "..") for part in path.split("/")[1:]) and
+            not any(c in value for c in "?#%\\") and not any(ord(c) < 32 or ord(c) == 127 for c in value),
+            "--docker-host must be a literal absolute Unix socket path, without URL components")
+    return value
+
+
+def require_native_host():
+    require(platform.system() == "Linux" and platform.machine() in ("x86_64", "amd64"),
+            "build requires a native Linux/amd64 host; Darwin/ARM and emulation do not qualify")
+
+
+def build_argv(output, modules, run, verify=False, docker_host=DOCKER_HOST, metadata=False, ca=False):
     # An explicit local socket, no pull and no network. A missing input is fatal.
-    argv = ["docker", "--host", "unix:///var/run/docker.sock", "run", "--rm", "--pull=never",
-            "--cidfile", str(output / f"container-{run}{'-verify' if verify else ''}.cid"),
+    suffix = "-verify" if verify else "-metadata" if metadata else "-ca" if ca else ""
+    argv = ["docker", "--host", validate_docker_host(docker_host), "run", "--rm", "--pull=never",
+            "--cidfile", str(output / f"container-{run}{suffix}.cid"),
             "--platform", "linux/amd64", "--network=none", "--read-only", "--cap-drop=ALL",
             "--security-opt=no-new-privileges:true", "--user", f"{os.getuid()}:{os.getgid()}",
             "--cpus=4", "--memory=6g", "--pids-limit=1024", "--tmpfs", "/tmp:rw,nosuid,nodev",
@@ -137,16 +158,25 @@ def build_argv(output, modules, run, verify=False):
         argv += ["--env", name + "=" + value]
     if verify:
         return argv + [BUILDER_IMAGE, "go", "mod", "verify"]
+    if metadata:
+        return argv + [BUILDER_IMAGE, "go", "version", "-m", "/out/zeroned"]
+    if ca:
+        return argv + [BUILDER_IMAGE, "cat", CA_PATH]
     return argv + [BUILDER_IMAGE, "go", "build", "-p", "4", "-buildvcs=false", "-trimpath",
                    "-ldflags", LDFLAGS, "-o", "/out/zeroned", "./cmd/zeroned"]
 
 
-def package_oci(binary, output, source_sha):
+def package_oci(binary, output, source_sha, ca_bundle):
     """Deterministic scratch OCI image; manifest digest is NOT a Docker config ID."""
     require(binary.is_file() and not binary.is_symlink(), "binary must be regular")
     executable = binary.read_bytes()
     require(executable[:4] == b"\x7fELF", "runtime must be a Linux ELF")
-    layer = tar_bytes([("usr/local/bin/zeroned", 0o755, executable)])
+    require(ca_bundle.is_file() and not ca_bundle.is_symlink(), "public CA bundle must be regular")
+    certificates = ca_bundle.read_bytes()
+    require(b"-----BEGIN CERTIFICATE-----" in certificates and b"PRIVATE KEY" not in certificates,
+            "builder did not supply a public PEM CA bundle")
+    layer = tar_bytes([("usr/local/bin/zeroned", 0o755, executable),
+                       (CA_PATH.lstrip("/"), 0o644, certificates)])
     def encoded(value):
         return json.dumps(value, sort_keys=True, separators=(",", ":")).encode()
     blobs = {}
@@ -157,7 +187,8 @@ def package_oci(binary, output, source_sha):
     layer_desc = descriptor(layer, "application/vnd.oci.image.layer.v1.tar")
     config = {"architecture": "amd64", "os": "linux", "created": "1970-01-01T00:00:00Z",
               "config": {"Entrypoint": ["/usr/local/bin/zeroned"],
-                         "Cmd": ["start", "--home", "/data/.zeroned"], "WorkingDir": "/",
+                         "Cmd": ["start", "--home", "/data/.zeroned", "--minimum-gas-prices", MIN_GAS_PRICES],
+                         "Env": ["SSL_CERT_FILE=" + CA_PATH], "WorkingDir": "/",
                          "Labels": {"org.opencontainers.image.revision": SOURCE_COMMIT,
                                     "money.zerone.profile": "h1-testnet-unsigned",
                                     "money.zerone.source-sha256": source_sha,
@@ -173,10 +204,13 @@ def package_oci(binary, output, source_sha):
     archive = output / "image.oci.tar"
     archive.write_bytes(tar_bytes([(name, 0o644, body) for name, body in blobs.items()]))
     return {"image_digest": manifest_desc["digest"], "oci_archive_sha256": sha256(archive),
-            "binary_sha256": sha256(binary)}
+            "binary_sha256": sha256(binary), "ca_bundle_sha256": sha256(ca_bundle)}
 
 
-def build(repository, destination, modules, dry_run):
+def build(repository, destination, modules, dry_run, docker_host=DOCKER_HOST):
+    validate_docker_host(docker_host)
+    if not dry_run:
+        require_native_host()
     output = new_output(destination)
     receipt = export_source(repository, output)
     for run in (1, 2):
@@ -184,10 +218,12 @@ def build(repository, destination, modules, dry_run):
             (output / name).mkdir()
     modules = modules.absolute()
     require("," not in str(modules) and "," not in str(output), "Docker mount paths cannot contain commas")
-    commands = [build_argv(output, modules, run, verify) for run in (1, 2) for verify in (True, False)]
+    commands = [build_argv(output, modules, run, docker_host=docker_host, **mode)
+                for run in (1, 2) for mode in ({"verify": True}, {}, {"metadata": True}, {"ca": True})]
     report = {"schema": "zerone-h1-testnet-image/v1", "source_commit": SOURCE_COMMIT,
               "source_sha256": receipt["source_sha256"], "builder_image": BUILDER_IMAGE,
-              "build_environment": BUILD_ENV, "commands": commands,
+              "build_environment": BUILD_ENV, "commands": commands, "docker_host": docker_host,
+              "native_platform": None if dry_run else "linux/amd64", "binary_go_metadata": [],
               "status": "dry-run", "reproduced": False, "binary_sha256": None,
               "image_digest": None, "published": False, "signed": False}
     write_json(output / "provenance.json", report)
@@ -205,7 +241,7 @@ def build(repository, destination, modules, dry_run):
             except (KeyboardInterrupt, subprocess.TimeoutExpired):
                 cid = Path(argv[argv.index("--cidfile") + 1])
                 if cid.is_file() and re.fullmatch(r"[0-9a-f]{64}", cid.read_text().strip()):
-                    subprocess.run(["docker", "--host", "unix:///var/run/docker.sock", "stop", "--time", "10",
+                    subprocess.run(["docker", "--host", docker_host, "stop", "--time", "10",
                                     cid.read_text().strip()], check=False, timeout=30, stdout=subprocess.DEVNULL)
                 raise
     except (OSError, subprocess.SubprocessError, KeyboardInterrupt):
@@ -216,7 +252,12 @@ def build(repository, destination, modules, dry_run):
     require(sha256(first) == sha256(second), "fresh-cache binary builds differ")
     for item in receipt["files"]:
         require(sha256(output / "src" / item["path"]) == item["sha256"], "source changed during build")
-    report.update(package_oci(first, output, receipt["source_sha256"]))
+    require((output / "build-step-4.log").read_bytes() == (output / "build-step-8.log").read_bytes(),
+            "pinned-builder CA bundles differ")
+    report["binary_go_metadata"] = [(output / f"build-step-{step}.log").read_text() for step in (3, 7)]
+    require(all("GOOS=linux" in text and "GOARCH=amd64" in text and "CGO_ENABLED=0" in text
+                for text in report["binary_go_metadata"]), "binary Go metadata differs from build profile")
+    report.update(package_oci(first, output, receipt["source_sha256"], output / "build-step-4.log"))
     report.update(status="built-local", reproduced=True)
     write_json(output / "provenance.json", report)
     return report
@@ -229,10 +270,11 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--module-cache", type=Path, required=True,
                         help="explicit prepopulated public module cache; mounted read-only")
+    parser.add_argument("--docker-host", default=DOCKER_HOST, help="literal local unix:///<absolute socket path>")
     parser.add_argument("--dry-run", action="store_true", help="export real source; never invoke Docker")
     args = parser.parse_args()
     try:
-        print(json.dumps(build(args.repository, args.output, args.module_cache, args.dry_run), sort_keys=True))
+        print(json.dumps(build(args.repository, args.output, args.module_cache, args.dry_run, args.docker_host), sort_keys=True))
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         print(f"REFUSED: {error}", file=sys.stderr)
         return 1

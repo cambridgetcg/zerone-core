@@ -74,8 +74,10 @@ class KitTests(unittest.TestCase):
     def test_oci_manifest_digest_not_config_id(self):
         binary = self.root / "synthetic-elf"
         binary.write_bytes(b"\x7fELFunit-test-only-not-executable")
-        first = p.package_oci(binary, self.root, "b" * 64)
-        second = p.package_oci(binary, self.root, "b" * 64)
+        ca = self.root / "synthetic-public-ca"
+        ca.write_bytes(b"-----BEGIN CERTIFICATE-----\nunit-test-packaging-only\n-----END CERTIFICATE-----\n")
+        first = p.package_oci(binary, self.root, "b" * 64, ca)
+        second = p.package_oci(binary, self.root, "b" * 64, ca)
         self.assertEqual(first, second)
         with tarfile.open(self.root / "image.oci.tar") as archive:
             index = json.loads(archive_bytes(archive, "index.json"))
@@ -85,7 +87,11 @@ class KitTests(unittest.TestCase):
             manifest = json.loads(body)
             self.assertNotEqual(first["image_digest"], manifest["config"]["digest"])
             config = json.loads(archive_bytes(archive, "blobs/sha256/" + manifest["config"]["digest"].split(":")[1]))
-            self.assertEqual(config["config"]["Cmd"], ["start", "--home", "/data/.zeroned"])
+            self.assertEqual(config["config"]["Cmd"], ["start", "--home", "/data/.zeroned", "--minimum-gas-prices", p.MIN_GAS_PRICES])
+            self.assertEqual(config["config"]["Env"], ["SSL_CERT_FILE=" + p.CA_PATH])
+            layer = archive_bytes(archive, "blobs/sha256/" + manifest["layers"][0]["digest"].split(":")[1])
+            with tarfile.open(fileobj=io.BytesIO(layer)) as contents:
+                self.assertEqual(archive_bytes(contents, p.CA_PATH.lstrip("/")), ca.read_bytes())
 
     def test_build_never_pulls_or_networks(self):
         command = p.build_argv(self.root, self.root / "modules", 1)
@@ -180,7 +186,9 @@ class KitTests(unittest.TestCase):
                   "source_commit": p.SOURCE_COMMIT, "source_sha256": p.SOURCE_ARCHIVE_SHA256}
         p.write_json(image, built)
         p.write_json(state, report)
-        ship.readiness(IMAGE, image, state)
+        with mock.patch.object(ship.runtime_smoke, "validate_receipt") as checked:
+            ship.readiness(IMAGE, image, state, self.root / "runtime.json")
+            checked.assert_called_once()
         for value in (None, "wrong", "a" * 64):
             p.write_json(image, dict(built, source_sha256=value))
             p.write_json(state, dict(report, source_sha256=value))
@@ -242,11 +250,15 @@ class KitTests(unittest.TestCase):
         args = argparse.Namespace(image=IMAGE, image_available=True, zeroned=executable, ops_home=self.root,
                                   operator="validator", keyring_backend="test", image_receipt=self.root / "image.json",
                                   drill_receipt=self.root / "drill.json", fly_config=config, height=200,
-                                  node="tcp://unit-test.invalid:26657", proposal=self.root / "proposal.json")
+                                  node="tcp://unit-test.invalid:26657", proposal=self.root / "proposal.json",
+                                  runtime_receipt=self.root / "runtime.json", resume_proposal=None,
+                                  gas="450000", fees="400000uzrn", halt_polls=4)
         calls, heights = [], iter([1, 199, 199, 199, 199])
         def fake_output(argv, **_):
             calls.append(argv)
             command = argv[1:]
+            if command[:2] == ["version", "--long"]:
+                return json.dumps({"name": "zerone", "server_name": "zeroned", "commit": p.SOURCE_COMMIT, "version": p.VERSION})
             if command[:2] == ["keys", "show"]:
                 return "zrnvaloper1fixture\n"
             if command[0] == "status":
@@ -255,7 +267,7 @@ class KitTests(unittest.TestCase):
                 value = {"validator": {"operator_address": "zrnvaloper1fixture", "jailed": False,
                                        "status": "BOND_STATUS_BONDED", "tokens": "1000000"}}
             elif command[:3] == ["query", "auth", "module-account"]:
-                value = {"account": {"base_account": {"address": "zrn1govfixture"}}}
+                value = {"account": {"type": "cosmos-sdk/ModuleAccount", "value": {"name": "gov", "address": "zrn1govfixture"}}}
             elif command[:3] == ["query", "upgrade", "plan"]:
                 submitted = any(c[1:4] == ["tx", "gov", "submit-proposal"] for c in calls)
                 value = {"plan": {"name": ship.NAME, "height": "200", "info": ship.plan_info(IMAGE)}} if submitted else {}
@@ -276,16 +288,19 @@ class KitTests(unittest.TestCase):
              mock.patch.object(ship.time, "sleep"), contextlib.redirect_stdout(io.StringIO()) as output:
             # wait_halt's default sleep is bound at definition time: use explicit no-wait adapter.
             original = ship.wait_halt
-            with mock.patch.object(ship, "wait_halt", side_effect=lambda reader, target: original(reader, target, sleep=lambda _: None)):
+            with mock.patch.object(ship, "wait_halt", side_effect=lambda reader, target, **kw: original(reader, target, sleep=lambda _: None, **kw)):
                 ship.execute(args)
         transactions = [c for c in calls if c[1] == "tx"]
         self.assertEqual(len(transactions), 2)
         for command in transactions:
             self.assertEqual(command[command.index("--from") + 1], "validator")
             self.assertEqual(command[0], str(executable))
+            self.assertEqual(command[command.index("--gas") + 1], "450000")
+            self.assertEqual(command[command.index("--fees") + 1], "400000uzrn")
         self.assertIn("--image " + IMAGE, output.getvalue())
         self.assertFalse(any(c[0] == "fly" for c in calls))
         self.assertEqual(json.loads(args.proposal.read_text())["deposit"], "10000000uzrn")
+        self.assertIn("pre-H stall (H-1, H-1)", output.getvalue())
 
 
 @unittest.skipUnless(os.environ.get("H1K_HELPERS") and os.environ.get("H1K_FIXTURE"), "run test-offline.py for real two-source fixtures")

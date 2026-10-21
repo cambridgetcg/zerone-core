@@ -89,6 +89,28 @@ def build_helpers(repository, destination):
     return receipt
 
 
+def working_inventory(home):
+    """Closed, keyless output contract for the subsequent packaged-runtime smoke."""
+    p.require(home.is_dir() and not home.is_symlink(), "drilled home must be regular")
+    p.require({x.name for x in home.iterdir()} == {".h1-disposable-copy", "data"}, "unexpected drilled home files")
+    data = home / "data"
+    p.require(data.is_dir() and not data.is_symlink(), "drilled data must be regular")
+    p.require({x.name for x in data.iterdir()} <= {"application.db", "upgrade-info.json"}, "unexpected drilled data files")
+    database = data / "application.db"
+    p.require(database.is_dir() and not database.is_symlink(), "missing drilled database")
+    files = [home / ".h1-disposable-copy", *sorted(database.iterdir())]
+    if (data / "upgrade-info.json").exists() or (data / "upgrade-info.json").is_symlink():
+        files.append(data / "upgrade-info.json")
+    for path in files:
+        info = path.lstat()
+        p.require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1, "linked or special drilled file")
+        if path.parent == database:
+            p.require(DB_FILE.fullmatch(path.name), "unexpected drilled database filename")
+    p.require((database / "CURRENT").is_file(), "missing drilled CURRENT")
+    p.require((home / ".h1-disposable-copy").read_text() == "local-only; never a validator home\n", "wrong drill marker")
+    return {str(path.relative_to(home)): p.sha256(path) for path in files}
+
+
 def drill(source, helpers, destination, synthetic=False):
     # No output or subprocess until every input passes the closed allowlist.
     before = inventory(source)
@@ -138,6 +160,7 @@ def drill(source, helpers, destination, synthetic=False):
             expected_height, expected_hash = phase["after"]["height"], phase["after"]["app_hash"]
         report["input_unchanged"] = inventory(source) == before
         p.require(report["input_unchanged"], "provided source copy changed")
+        report["working_file_sha256"] = working_inventory(home)
         report["passed"] = True
     finally:
         p.write_json(output / "drill.json", report)

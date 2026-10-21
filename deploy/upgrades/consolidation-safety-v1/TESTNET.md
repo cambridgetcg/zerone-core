@@ -12,7 +12,7 @@ The preserve branches are immutable review references. A PR based on
 | --- | --- | --- |
 | Source/image | Frozen H1 source, reproducible build, recorded source/binary SHA-256, manifest-digest image; no signing ceremony | Signed annotated `v*` tag, authorized signer, reproducible digest-pinned image **and attestation** |
 | State rehearsal | Pass on a **provided current key-scrubbed testnet copy**; retain input identity and results | In-place mainnet-state rehearsal retaining chain ID **`zerone-1`**; no export/import or relabelled synthetic chain substitute |
-| Before H | Build, verify and make the exact image available **before proposing/arming H**, not during the halt | Full release packet and coordinated readiness |
+| Before H | Build twice, run the packaged `version --long` and a keyless start on a clone of the drilled copy with `--network=none`, and make the exact image available **before proposing/arming H** | Full release packet and coordinated readiness |
 | Authority | One explicit yes from Yu for the testnet halt; may be the same yes as the testnet mint seal | Separate mainnet authorization; testnet success grants none |
 
 Fetching a state copy needs a separate yes from Yu. Nothing here fetches it.
@@ -64,8 +64,48 @@ The explicit differences from the forensic observer recipe are intentional:
 
 Requirements: Python 3.11+, local Git objects, Docker with a local Unix socket,
 the pinned builder already available, and a prepopulated public Go module cache.
+An actual build requires a **native Linux/amd64 host**, as in the observer
+recipe. Dry runs work on other platforms. A Darwin/arm64 Studio with Colima
+does **not** satisfy that host check, even with Rosetta enabled. Use a native
+Linux/amd64 build host; permitting emulated builds would need a separate decision.
 A missing prerequisite fails closed; these tools never install or fetch it.
 All outputs must be NEW directories under an explicitly selected scratch parent.
+
+### Populate the public module cache (separately authorized network step)
+
+A host may fill a NEW cache from a **throwaway export of the frozen closure**.
+`go mod download all` includes otherwise-unused metadata (notably
+`cosmossdk.io/x/circuit@v0.1.1`) and Linux-only dependencies such as
+`github.com/prometheus/procfs`. A cache sufficient for a Darwin build is not
+necessarily complete. These are instructions for the host, not actions performed
+by the kit or offline tests:
+
+```sh
+KIT=deploy/upgrades/consolidation-safety-v1
+python3 "$KIT/provenance.py" --repository "$PWD" --module-cache "$WORK/gomod" \
+  --output "$WORK/module-export" --dry-run
+(cd "$WORK/module-export/src" && \
+  GOMODCACHE="$WORK/gomod" GOPROXY=https://proxy.golang.org \
+  GOSUMDB=sum.golang.org GOTOOLCHAIN=local GOFLAGS=-mod=readonly \
+  GOENV=off GOWORK=off GOPRIVATE= GONOPROXY=none GONOSUMDB=none GOVCS='*:off' \
+  go mod download all)
+```
+
+Use installed Go 1.25.14. Downloading can add lines to this export's `go.sum`;
+discard that export after filling the cache. Never build from it or copy its
+`go.sum` back: the image recipe exports fresh pinned source and verifies modules
+offline. Builder-image acquisition is also a separately authorized host step.
+No pulls, automatic toolchain downloads or network fallback occur in this kit.
+
+### Select a socket without sudo
+
+`--docker-host` accepts only a literal `unix:///<absolute socket path>` (no TCP,
+SSH, URL authority/query/fragment, relative path or escaping). It is recorded in
+`provenance.json` and used for **every** run and timeout cleanup. `DOCKER_HOST`
+and inherited Docker contexts cannot override it. For example, a Studio dry run
+may use `--docker-host "unix://$HOME/.colima/default/docker.sock"`; a native
+Linux host may use its rootless Docker socket. No `/var/run/docker.sock` symlink
+or sudo is needed. Socket selection does not waive the native-host build gate.
 
 From the repository root (set `WORK` to an authorized scratch directory):
 
@@ -83,6 +123,7 @@ On a separately authorized build host with prerequisites already available:
 
 ```sh
 python3 "$KIT/provenance.py" --repository "$PWD" \
+  --docker-host unix:///absolute/path/to/docker.sock \
   --module-cache /path/to/public-go-module-cache --output "$WORK/image-build"
 ```
 
@@ -90,14 +131,36 @@ Success produces `provenance.json` (`status: built-local`, `reproduced: true`),
 `build-1/zeroned`, `build-2/zeroned`, and `image.oci.tar`. The receipt records
 source and executable SHA-256, exact builder/environment/commands, OCI archive
 SHA-256 and the **OCI image manifest digest** (not the Docker config/image ID).
+It also records both `go version -m /out/zeroned` outputs, the native platform,
+the socket and the public CA-bundle hash. Both metadata and CA extraction run
+in the pinned builder with no network; the two CA copies must match.
 Retain logs and failure receipts; do not reuse an interrupted output directory.
 
-The OCI image is a static `scratch` runtime containing only `/usr/local/bin/zeroned`.
-Its default argv is `start --home /data/.zeroned`, matching the legacy mount
-layout. It includes no genesis, keys, copied state, shell, CA bundle, Fly config,
-initialization logic, signing ceremony or remote services. Existing home
-configuration/volume compatibility and starting the packaged image remain
-separate rehearsal checks. H1's startup lineage wall is unchanged.
+The OCI image is a static `scratch` runtime containing `/usr/local/bin/zeroned`
+and `/etc/ssl/certs/ca-certificates.crt`, copied from the digest-pinned builder.
+`SSL_CERT_FILE` points at that bundle. Its default argv is
+`start --home /data/.zeroned --minimum-gas-prices 0.025uzrn`, retaining the old
+testnet entrypoint's price, not introducing a new fee policy. Adding the bundle
+and explicit argv **changes the image manifest digest**; the old review's image
+digest is no longer the expected result. The frozen binary build is unchanged.
+
+There is no shell, genesis, key, copied state, Fly config or initialization logic.
+The old entrypoint's environment rewriting is deliberately not reproduced:
+
+- Set `minimum-gas-prices = "0.025uzrn"` in the reviewed home `config/app.toml`
+  too: SDK config validation occurs before the start flag override.
+- Translate `MONIKER` into reviewed `config.toml` `moniker` or `--moniker`.
+- Translate `EXTERNAL_ADDRESS` into `[p2p] external_address` or
+  `--p2p.external-address` in explicit process argv.
+- Replace `EXTRA_START_FLAGS` with individually reviewed literal start arguments;
+  no shell expansion or automatic unsafe-upgrade flags. If overriding image Cmd,
+  include `start`, `--home` and the explicit minimum-gas-prices again.
+
+The ship script refuses those three legacy variables in Fly TOML `[env]`.
+It cannot inspect hosted secrets or other environment injection: the operator
+must separately audit/remove those and approve the real volume/config/argv.
+The keyless smoke below does not establish production-volume compatibility,
+P2P reachability, signing or outbound TLS. H1's startup lineage wall is unchanged.
 
 Registry publication is a **separate authorized action**, not implemented here.
 Use a transfer that preserves the OCI manifest digest, then read the registry
@@ -183,12 +246,56 @@ The driver preserves the copied application's records and chain ID. It:
    no pending plan, completed-lineage restart, one further block, and another restart.
 
 `drill.json` records input hashes, provenance, phases, starting/final app hashes,
-explicit block times, and limitations. Blocks have empty transactions, votes,
+explicit block times, final working-file hashes, and limitations. Blocks have empty transactions, votes,
 evidence and proposer, with one-second intervals after the provided block time.
 Those synthetic inputs affect ordinary block hooks/economics and are **not live
 replay**. The drill tests migration compatibility of that copy, not validator
 signing, quorum, networking, governance, exact production app hashes or packaged
 image startup. Never return its mutated working home to a real validator.
+
+## Packaged runtime proof, before proposing H
+
+After the provided-copy drill and after the exact manifest-pinned image is
+already available in the authorized host's local Docker store, run:
+
+```sh
+python3 "$KIT/runtime_smoke.py" --image registry/name@sha256:<actual-manifest-digest> \
+  --image-receipt "$WORK/image-build/provenance.json" \
+  --drill-receipt "$WORK/state-drill/drill.json" \
+  --docker-host unix:///absolute/path/to/docker.sock --output "$WORK/runtime-proof" --execute
+```
+
+Without `--execute` this writes only an offline plan. It never loads, pulls,
+publishes or fetches an image. Image transfer to the local store remains a host
+action and must preserve the manifest digest. The smoke:
+
+1. Validates the completed provided-state drill and its closed, keyless working
+   file inventory before touching Docker. Synthetic fixture receipts cannot pass.
+2. Runs the exact image's `version --long --output json`, with a temporary home
+   and `--network=none`; checks the H1 name, version and full commit.
+3. Clones the drilled application DB into a NEW disposable home. It writes only
+   a chain-ID JSON stub (not imported genesis state) and an explicit local
+   `app.toml` with minimum gas prices, API/gRPC/oracle disabled.
+4. Runs the packaged `start --with-comet=false` with `--network=none` and a Unix
+   ABCI listener inside the container. There is no Comet, signer, key generation,
+   InitChain or block production. It requires the post-listen ABCI log and a
+   running container observed for at least ten seconds, then stops/removes only
+   the CIDs it created (including the version container on timeout). It inspects
+   again after reading logs, so a stale observation cannot certify an exited
+   process. A failed start or failed cleanup never produces a pass.
+5. Records both exact command arrays, version JSON, startup log, inspected
+   network/image/entrypoint state, file hashes and the exact drill-receipt hash.
+   The original drilled home must remain byte-identical. Execution UID/GID and
+   timed running observations are retained; another account can verify the
+   receipt without substituting its own UID/GID into the recorded commands.
+
+Supply `runtime-proof/runtime.json` to the ship script as `--runtime-receipt`.
+Readiness reopens and hashes the evidence files and checks the version, exact
+network-none command contract, running-state observation and image/drill binding.
+Keep the receipt and adjacent evidence together. These are local observations,
+not signed authentication or independent review. This proves a **standalone ABCI
+startup**, not a validator/Comet rehearsal; the latter still needs separately
+authorized configuration and evidence. Never reuse this smoke home on a chain.
 
 ## Ship-script fixes and authorization
 
@@ -198,7 +305,11 @@ never overwrites the installed copy. It fixes the four defects:
 
 1. Requires `--zeroned /explicit/current/verified/CLI`; no deleted
    `$HOME/go/bin/zeroned` fallback. The installed CLI location is operator input,
-   not guessed by this offline preparation run.
+   not guessed by this offline preparation run. Before contacting RPC or opening
+   an operator key, `version --long --output json` runs in a NEW temporary home
+   and must match the frozen H1 commit and `h1-testnet-65c19cd8` version/name.
+   Build/adopt this CLI with the documented H1 linker fields, not an unstamped
+   `dev` binary. A matching self-reported version is not a signature.
 2. Uses the same explicit bonded `--operator` for proposing and voting, rejects
    `faucet`, and checks the operator is unjailed/bonded with voting power.
 3. Emits `fly deploy --config <reviewed-testnet-config> --app zerone-testnet-1
@@ -209,6 +320,8 @@ never overwrites the installed copy. It fixes the four defects:
    Darkness, invalid responses, movement and early stalls reset the streak;
    ABCI reaching H (or Comet passing H) refuses deployment. Waiting is bounded.
    A dark RPC is never a halt.
+   Output distinguishes **pre-H stall (H−1,H−1)** from **staged-H stall (H,H−1)**;
+   the former is safe for a pre-H replacement but does not prove an upgrade error.
 
 All paths, endpoints and proposal height are explicit. Default invocation prints
 an offline JSON plan and accesses no CLI, home, config, keys or network:
@@ -224,15 +337,31 @@ bash "$KIT/ship-consolidation-safety.sh" --chain-id zerone-testnet-1 \
 
 Do not execute the placeholder command verbatim. `--execute` additionally
 requires `SHIP_ACK=zerone-testnet-1` after Yu's explicit testnet halt yes,
-`--image-receipt`, `--drill-receipt` and `--image-available`. The last flag is the
+`--image-receipt`, `--drill-receipt`, `--runtime-receipt` and `--image-available`. The last flag is the
 operator's verification that the prebuilt digest is available before proposing;
 it is not a registry check by the script. The real provided-state drill and
 image must identify the same frozen source. Dry runs/fixtures cannot qualify.
 Review the voting period, block cadence and chosen H; the simple height-headroom
 check is not a timing guarantee. Failed/ambiguous transactions require exact
 reconciliation, never blind resubmission. Proposal ID comes from the included
-submit transaction, not the latest voting proposal. Fees/gas retain the old
-script's 300000 values; the deposit is read from governance params.
+submit transaction, not the latest voting proposal. `--gas` (default `300000`)
+and `--fees` (default `300000uzrn`) are independently configurable positive
+integers; `auto` simulation is refused. The same selections apply to submission
+and vote. Select them before authorizing transactions; no fee policy or assertion
+is adjusted just to make a test pass. The deposit is read from governance params.
+
+The halt wait is bounded (`--halt-polls`, default 600, eight seconds per poll).
+After timeout, keep the exact proposal ID printed after submission/vote, reconcile
+its status and rerun with the same image/H/receipts and `--resume-proposal <id>`
+instead of `--proposal`. Resume still needs `--execute` and the existing ACK and
+readiness gates, but performs only queries and halt polling: **no key lookup,
+proposal-file write, submission or vote**. It requires that exact proposal to be
+PASSED with one matching H1 message and checks the committed upgrade plan again.
+The pinned CLI's Amino message envelope and default deprecated plan time are
+handled explicitly; protobuf JSON is accepted too, but unknown message types,
+non-default deprecated fields and altered plan values are refused.
+It does not apply the new-submission headroom gate. Wrong plans, committed H and
+unpassed proposals still refuse; resuming never authorizes a blind resubmission.
 
 The script stops after confirmed halt and prints the pinned deployment command.
 Deployment is a separate operator action. After deployment, verify applied H,
@@ -242,6 +371,7 @@ Mainnet is not accepted by this lighter-profile executable.
 ## Offline checks and remaining release work
 
 ```sh
+python3 -m unittest discover -s "$KIT" -p 'test_*.py' -v
 python3 "$KIT/test-offline.py" --repository "$PWD" --output "$WORK/offline-tests"
 ```
 
@@ -250,6 +380,12 @@ public data (no private key), tests the actual migration/restarts and negative
 startup/hash paths, and tests the ship adapter with mocks plus its real offline
 wrapper. It also performs two real H1 source exports and checks the old export
 against trunk's known hash. Outputs are retained, not a success-shaped transcript.
+The first command runs the Python suite without Docker or a node; the three
+historical integration tests skip unless helper/fixture paths are supplied.
+Docker build/runtime adapter tests use explicitly labelled mocks, not image
+execution. The full runner retains its `go mod verify` gate and fails closed on
+an incomplete cache; use the separately authorized cache-fill instructions above
+and rerun into a NEW output directory rather than weakening dependency checks.
 
 A passing fixture suite does not finish the testnet bar. Outstanding until
 separately performed and reviewed: pinned Docker build and executable hashes,

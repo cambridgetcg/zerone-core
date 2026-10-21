@@ -15,12 +15,14 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 import time
 import tomllib
 import urllib.parse
 import urllib.request
 
 import provenance as p
+import runtime_smoke
 
 CHAIN = "zerone-testnet-1"
 NAME = "consolidation-safety-v1"
@@ -64,7 +66,7 @@ def wait_halt(read_heights, target, *, polls=600, interval=8, sleep=time.sleep):
     raise ValueError("no confirmed halt: failed/moving/early polls do not authorize deployment")
 
 
-def readiness(image, image_receipt, drill_receipt):
+def readiness(image, image_receipt, drill_receipt, runtime_receipt=None):
     built = json.loads(image_receipt.read_text())
     drill = json.loads(drill_receipt.read_text())
     p.require(built.get("schema") == "zerone-h1-testnet-image/v1" and
@@ -81,6 +83,26 @@ def readiness(image, image_receipt, drill_receipt):
     p.require(drill.get("source_commit") == p.SOURCE_COMMIT and
               drill.get("source_sha256") == built.get("source_sha256") == p.SOURCE_ARCHIVE_SHA256,
               "drill/image source differs from frozen closure pin")
+    p.require(runtime_receipt is not None, "packaged version and network-none start proof required BEFORE H")
+    runtime_smoke.validate_receipt(runtime_receipt, image, built, drill_receipt)
+
+
+def verify_cli(args):
+    # Version runs in a NEW home, not the operator's key/config directory.
+    with tempfile.TemporaryDirectory(prefix="h1-cli-version-") as home:
+        value = json.loads(subprocess.check_output([str(args.zeroned), "version", "--long", "--output", "json",
+                                                   "--home", home], text=True, timeout=30))
+    runtime_smoke.check_version(value)
+
+
+def validate_gas(value):
+    p.require(re.fullmatch(r"[1-9][0-9]*", value), "--gas must be an explicit positive integer (no auto simulation)")
+    return value
+
+
+def validate_fees(value):
+    p.require(re.fullmatch(r"[1-9][0-9]*uzrn", value), "--fees must be an explicit positive integer amount of uzrn")
+    return value
 
 
 def cli(args, *command):
@@ -112,7 +134,7 @@ def application_height(args):
 
 def tx(args, *command):
     response = cli(args, "tx", *command, "--from", args.operator, "--keyring-backend", args.keyring_backend,
-                   "--chain-id", CHAIN, "--gas", "300000", "--fees", "300000uzrn", "--yes",
+                   "--chain-id", CHAIN, "--gas", validate_gas(args.gas), "--fees", validate_fees(args.fees), "--yes",
                    "--broadcast-mode", "sync")
     p.require(int(response.get("code", -1)) == 0, "transaction rejected by CheckTx; do not retry blindly")
     txhash = response.get("txhash", "")
@@ -139,16 +161,61 @@ def proposal_id(result):
     return value
 
 
+def matching_plan(plan, args):
+    return (isinstance(plan, dict) and set(plan) <= {"name", "height", "info", "time", "upgraded_client_state"} and
+            plan.get("name") == NAME and str(plan.get("height")) == str(args.height) and
+            plan.get("info") == plan_info(args.image) and
+            plan.get("time") in (None, "", "0001-01-01T00:00:00Z") and plan.get("upgraded_client_state") is None)
+
+
+def proposal_plan(message):
+    # Frozen AutoCLI beta.3 emits Amino Any envelopes; manual SDK queries can
+    # emit protobuf JSON. Never accept an untyped/ambiguous message envelope.
+    if not isinstance(message, dict):
+        return None
+    if message.get("type") == "cosmos-sdk/MsgSoftwareUpgrade" and set(message) == {"type", "value"}:
+        value = message["value"]
+        return value.get("plan") if isinstance(value, dict) else None
+    if message.get("@type") == "/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade" and "type" not in message:
+        return message.get("plan")
+    return None
+
+
+def gov_authority(account):
+    # The same AutoCLI Amino envelope appears on auth's Any account response.
+    if account.get("type") == "cosmos-sdk/ModuleAccount" and set(account) == {"type", "value"}:
+        account = account["value"]
+    p.require(isinstance(account, dict), "invalid gov module account")
+    address = account.get("base_account", account).get("address")
+    p.require(account.get("name") == "gov" and isinstance(address, str) and address.startswith("zrn1"),
+              "cannot resolve gov authority")
+    return address
+
+
 def execute(args):
     p.require(os.environ.get("SHIP_ACK") == CHAIN, "Yu's separate testnet halt yes is required (SHIP_ACK)")
     p.require(args.image_available, "operator must verify the pre-built digest is available BEFORE proposing H")
     args.zeroned = args.zeroned.resolve()
     p.require(args.zeroned.is_file() and os.access(args.zeroned, os.X_OK), "explicit current CLI is not executable")
+    verify_cli(args)
     p.require(args.operator and args.operator.lower() != "faucet", "use the validator operator, never the zero-power faucet")
     p.require(args.image_receipt and args.drill_receipt, "image and provided-state drill receipts required")
-    readiness(args.image, args.image_receipt, args.drill_receipt)
+    readiness(args.image, args.image_receipt, args.drill_receipt, args.runtime_receipt)
     config = tomllib.loads(args.fly_config.read_text())
     p.require(config.get("app") == CHAIN, "reviewed testnet Fly config required; retired/mainnet configs refused")
+    ignored = {"MONIKER", "EXTERNAL_ADDRESS", "EXTRA_START_FLAGS"} & config.get("env", {}).keys()
+    p.require(not ignored, "scratch runtime ignores legacy environment variables: " + ", ".join(sorted(ignored)) +
+              "; translate them to reviewed config/explicit argv")
+    if args.resume_proposal:
+        # Read-only recovery: no key lookup, proposal write, tx submission or vote.
+        height(args)  # Still authenticate the RPC chain before reading its plan.
+        proposal = cli(args, "query", "gov", "proposal", args.resume_proposal)["proposal"]
+        p.require(proposal.get("status") == "PROPOSAL_STATUS_PASSED", "resume requires the exact PASSED proposal")
+        messages = proposal.get("messages", [])
+        p.require(len(messages) == 1 and matching_plan(proposal_plan(messages[0]), args),
+                  "resume proposal differs from requested H1/image/height")
+        finish_halt(args)
+        return
     current = int(height(args))
     p.require(args.height > current + 100, "H must leave voting/coordination headroom; inspect cadence separately")
     # Confirm the selected key is the bonded operator, not merely a funded proposer.
@@ -158,9 +225,7 @@ def execute(args):
     p.require(validator.get("operator_address") == valoper and not validator.get("jailed") and
               validator.get("status") == "BOND_STATUS_BONDED" and int(validator.get("tokens", 0)) >= 1000000,
               "selected operator has no bonded voting power")
-    authority = cli(args, "query", "auth", "module-account", "gov")["account"]
-    authority = authority.get("base_account", authority).get("address")
-    p.require(authority and authority.startswith("zrn1"), "cannot resolve gov authority")
+    authority = gov_authority(cli(args, "query", "auth", "module-account", "gov")["account"])
     pending = cli(args, "query", "upgrade", "plan").get("plan")
     p.require(not pending, "a pending plan already exists; refuse to overwrite")
     params = cli(args, "query", "gov", "params")["params"]
@@ -169,10 +234,12 @@ def execute(args):
                 "metadata": "", "deposit": ",".join(c["amount"] + c["denom"] for c in params["min_deposit"]),
                 "title": NAME, "summary": "H1 testnet: frozen source " + p.SOURCE_COMMIT}
     # Never overwrite a past proposal: an ambiguous submission must be reconciled.
+    p.require(args.proposal is not None, "--proposal is required for a NEW submission")
     with args.proposal.open("x") as stream:
         json.dump(proposal, stream, sort_keys=True)
     pid = proposal_id(tx(args, "gov", "submit-proposal", args.proposal))
     tx(args, "gov", "vote", pid, "yes")  # SAME bonded operator, not faucet.
+    print(f"Proposal {pid}; after a wait timeout, reconcile it then use --resume-proposal {pid}; never resubmit.", flush=True)
     for _ in range(240):
         status = cli(args, "query", "gov", "proposal", pid)["proposal"]["status"]
         if status == "PROPOSAL_STATUS_PASSED":
@@ -181,11 +248,16 @@ def execute(args):
         time.sleep(5)
     else:
         raise ValueError("proposal did not pass in time")
+    finish_halt(args)
+
+
+def finish_halt(args):
     armed = cli(args, "query", "upgrade", "plan")["plan"]
-    p.require(armed["name"] == NAME and int(armed["height"]) == args.height and armed["info"] == plan_info(args.image),
+    p.require(matching_plan(armed, args),
               "committed plan differs; do not deploy")
-    halted = wait_halt(lambda: (height(args), application_height(args)), args.height)
-    print(f"Four frozen-height polls: Comet={halted[0]}, ABCI={halted[1]}; deployment NOT performed.")
+    halted = wait_halt(lambda: (height(args), application_height(args)), args.height, polls=args.halt_polls)
+    state = "pre-H stall (H-1, H-1); H has not been staged" if halted[0] == args.height - 1 else "staged-H stall (H, H-1); H is not committed"
+    print(f"Four frozen-height polls: {state}; Comet={halted[0]}, ABCI={halted[1]}; deployment NOT performed.")
     print(shlex.join(deployment_command(args.fly_config, args.image)))
     print("Separate operator deployment only; verify applied H, K6/P2/L5/V1 and resumed blocks afterward.")
 
@@ -201,9 +273,14 @@ def main():
     parser.add_argument("--image", required=True)
     parser.add_argument("--fly-config", type=Path, required=True, help="separately reviewed non-retired TESTNET config")
     parser.add_argument("--height", type=int, required=True)
-    parser.add_argument("--proposal", type=Path, required=True, help="new local proposal output, never overwritten")
+    parser.add_argument("--proposal", type=Path, help="new local proposal output, required unless resuming; never overwritten")
+    parser.add_argument("--resume-proposal", help="exact PASSED proposal ID; recheck plan and wait only, NEVER submit or vote")
+    parser.add_argument("--halt-polls", type=int, default=600, help="bounded halt wait, 8 seconds per poll; resume after timeout")
+    parser.add_argument("--gas", default="300000", help="positive integer gas limit; no auto simulation")
+    parser.add_argument("--fees", default="300000uzrn", help="positive integer uzrn fee, selected separately from gas")
     parser.add_argument("--image-receipt", type=Path)
     parser.add_argument("--drill-receipt", type=Path)
+    parser.add_argument("--runtime-receipt", type=Path, help="runtime_smoke.py proof for this image and exact drill")
     parser.add_argument("--image-available", action="store_true", help="operator verified registry availability BEFORE H")
     parser.add_argument("--execute", action="store_true", help="LIVE testnet governance; separate Yu authorization mandatory")
     args = parser.parse_args()
@@ -212,10 +289,16 @@ def main():
         validate_image(args.image)
         p.require(args.operator.lower() != "faucet", "validator operator required, not faucet")
         p.require(args.height > 1, "positive future H required")
+        p.require(args.halt_polls >= 4, "at least four halt polls required")
+        validate_gas(args.gas)
+        validate_fees(args.fees)
+        p.require(args.resume_proposal is None or re.fullmatch(r"[1-9][0-9]*", args.resume_proposal), "invalid resume proposal ID")
         if args.execute:
             execute(args)
         else:
             print(json.dumps({"status": "offline-plan-only", "cli": str(args.zeroned), "voter": args.operator,
+                              "mode": "resume-wait-only" if args.resume_proposal else "new-proposal",
+                              "resume_proposal": args.resume_proposal, "gas": args.gas, "fees": args.fees,
                               "plan_info": plan_info(args.image), "deploy_argv": deployment_command(args.fly_config, args.image),
                               "network_contact": False, "authorization": "not granted by this plan"}, sort_keys=True))
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:

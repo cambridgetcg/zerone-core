@@ -33,7 +33,7 @@ def main():
         [str(out / "fixture-maker"), "--output", str(out / "fixture")],
         [sys.executable, str(HERE / "state-copy-drill.py"), "drill", "--provided-copy", str(out / "fixture"),
          "--helpers", str(out / "helpers"), "--output", str(out / "drill"), "--synthetic-fixture"],
-        [sys.executable, str(HERE / "test_kit.py")],
+        [sys.executable, "-m", "unittest", "discover", "-s", str(HERE), "-p", "test_*.py", "-v"],
     ]
     env.update(H1K_HELPERS=str(out / "helpers"), H1K_FIXTURE=str(out / "fixture"))
     for index, command in enumerate(commands):
