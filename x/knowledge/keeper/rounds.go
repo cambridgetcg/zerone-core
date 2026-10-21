@@ -121,7 +121,7 @@ func (k Keeper) CreateVerificationRound(ctx context.Context, claim *types.Claim)
 }
 
 // CompleteRound finalizes a verification round based on the aggregated result.
-func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRound, result *VerificationResult) error {
+func (k roundsExecution) CompleteRound(ctx context.Context, round *types.VerificationRound, result *VerificationResult) error {
 	enabled, err := k.RecordIntegrityEnabled(ctx)
 	if err != nil {
 		return err
@@ -188,7 +188,7 @@ func (k Keeper) CompleteRound(ctx context.Context, round *types.VerificationRoun
 	return nil
 }
 
-func (k Keeper) completeRound(ctx context.Context, round *types.VerificationRound, result *VerificationResult, recordIntegrity bool) error {
+func (k roundsExecution) completeRound(ctx context.Context, round *types.VerificationRound, result *VerificationResult, recordIntegrity bool) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 	neutral := round.ReviewPolicyVersion == types.ReviewPolicyNeutral
@@ -625,7 +625,10 @@ func (k Keeper) forwardWithheldToDevelopmentFund(ctx context.Context, amount uin
 
 // createFactFromClaim creates a new Fact from an accepted claim.
 // Returns the generated factID and any error.
-func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, round *types.VerificationRound, confidence uint64) (string, error) {
+func (k roundsExecution) createFactFromClaim(ctx context.Context, claim *types.Claim, round *types.VerificationRound, confidence uint64) (string, error) {
+	if !k.calibrationSmoothing && !k.zeroConfidenceFloor {
+		return k.createFactFromClaimLegacy(ctx, claim, round, confidence)
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 	neutral := round.ReviewPolicyVersion == types.ReviewPolicyNeutral
@@ -651,11 +654,15 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	// after the fact lands and retroactively harvest more training value
 	// — the gate has to bite at creation, not at payout.
 	var calibrationSnapshot uint64
+	var hasCalibrationSnapshot bool
 	if !neutral {
 		if cal, ok := k.GetAgentCalibration(ctx, claim.Submitter); ok && cal != nil {
 			calibrationSnapshot = cal.CalibrationScoreBps
+			hasCalibrationSnapshot = k.calibrationSmoothing
 		}
-		if calibrationSnapshot == 0 {
+		// A found zero is evidence, not the absence of a snapshot. With Q5
+		// off, including when only PR37 is on, retain the old sentinel.
+		if calibrationSnapshot == 0 && !hasCalibrationSnapshot {
 			calibrationSnapshot = 500_000 // legacy default
 		}
 	}
@@ -694,6 +701,7 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 		// Popper-weighted TVW: calibration snapshot frozen here. Any future
 		// calibration drift has no retroactive effect on this fact's TVW.
 		SubmitterCalibrationSnapshotBps: calibrationSnapshot,
+		HasCalibrationSnapshot:          hasCalibrationSnapshot,
 	}
 
 	// A conjecture enters at PROVISIONAL with zero confidence. Zero is not a
@@ -761,11 +769,20 @@ func (k Keeper) createFactFromClaim(ctx context.Context, claim *types.Claim, rou
 	// edge loop below — one IAVL read per distinct target on this
 	// BeginBlocker path, not two.
 	citedTargets := k.fetchCitedTargets(ctx, claim)
-	dist, floor := computeProvenance(claim, citedTargets)
+	var dist uint32
+	var floor uint64
+	var floorSet bool
+	if k.zeroConfidenceFloor {
+		dist, floor, floorSet = computeProvenanceWithFloor(claim, citedTargets)
+	} else {
+		dist, floor = computeProvenance(claim, citedTargets)
+		floorSet = floor > 0
+	}
 	fact.AxiomDistance = dist
 	fact.DependencyConfidenceFloor = floor
-	// Clamp the fact's own confidence to the inherited floor if it exists.
-	if floor > 0 && fact.Confidence > floor {
+	// A resolved supporting edge can contribute exactly zero. That is a
+	// real floor, unlike missing or contradiction-only support (PR37(b)).
+	if floorSet && fact.Confidence > floor {
 		fact.Confidence = floor
 		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
 			"zerone.knowledge.confidence_clamped_to_floor",
@@ -1059,7 +1076,7 @@ func (k Keeper) fetchCitedTargets(ctx context.Context, claim *types.Claim) map[s
 	return targets
 }
 
-// computeProvenance walks the claim's citations (References + Relations) and
+// computeProvenanceWithFloor walks the claim's citations (References + Relations) and
 // returns the axiom distance and dependency confidence floor for the new
 // fact (ToK Waves 2 + 6).
 //
@@ -1073,12 +1090,12 @@ func (k Keeper) fetchCitedTargets(ctx context.Context, claim *types.Claim) map[s
 //     the contribution by 30%. The floor is the minimum contribution across
 //     all edges. References-only cites have no declared strength and default
 //     to full BPS (pure citation preserves the cited fact's confidence).
-//     Facts with no cites have floor 0 (= no cap).
+//     floorSet distinguishes a real zero floor from no resolved support.
 //
 // targets carries the pre-fetched cited facts (fetchCitedTargets); a nil or
 // absent entry means the cite did not resolve and is ignored, exactly as the
 // former in-function GetFact miss was.
-func computeProvenance(claim *types.Claim, targets map[string]*types.Fact) (uint32, uint64) {
+func computeProvenanceWithFloor(claim *types.Claim, targets map[string]*types.Fact) (uint32, uint64, bool) {
 	const bps uint64 = 1_000_000
 
 	// Per-edge contributions: (factID → strengthBps). References default to
@@ -1113,7 +1130,7 @@ func computeProvenance(claim *types.Claim, targets map[string]*types.Fact) (uint
 	}
 
 	if len(edges) == 0 {
-		return 0, 0
+		return 0, 0, false
 	}
 
 	var minDist uint32 = ^uint32(0)
@@ -1142,14 +1159,14 @@ func computeProvenance(claim *types.Claim, targets map[string]*types.Fact) (uint
 	}
 
 	if minDist == ^uint32(0) {
-		return 0, 0
+		return 0, 0, false
 	}
-	return minDist + 1, minFloor
+	return minDist + 1, minFloor, floorInitialized
 }
 
 // handleChallengeSurvival restores a challenged fact and grants survival energy
 // when a challenge claim is rejected (the original fact survived).
-func (k Keeper) handleChallengeSurvival(ctx context.Context, challengeClaim *types.Claim) error {
+func (k roundsExecution) handleChallengeSurvival(ctx context.Context, challengeClaim *types.Claim) error {
 	policy, err := k.ClaimReviewPolicyVersion(ctx, challengeClaim)
 	if err != nil {
 		return err

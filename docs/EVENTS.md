@@ -1466,6 +1466,7 @@ Claim integrity (knowledge v12): the check for whether a CONTESTED fact may be r
 
 ### zerone.knowledge.confidence_clamped_to_floor
 On fact creation, the new fact's confidence was capped to its `dependency_confidence_floor` (ToK Wave 2). Emitted when a proof chain inherits a weaker ceiling than its own verification would give it.
+With the consensus-repairs-v2 zero-confidence-floor marker (0x93), resolved supporting citations that contribute zero also clamp and emit this event with `dependency_floor_bps=0`. Missing/unresolved or contradiction-only citations do not create a floor. Marker off retains the historical positive-floor-only event behavior. This is prospective; existing facts are not rewritten.
 - `fact_id` -- newly created fact
 - `dependency_floor_bps` -- inherited floor in BPS
 - `axiom_distance` -- minimum hops to a genesis axiom
@@ -1584,6 +1585,7 @@ Emitted when a fact's escrowed submitter reward is cancelled because the fact wa
 
 ### zerone.knowledge.agent_calibration_updated
 Submitter's track record changed — Phase 5 feedback loop. Emitted after round outcomes, corroborations earned, and disprovals. Closes the loop between training-pipeline output and on-chain evaluation.
+When calibration smoothing (0x92) is selected, `calibration_score_bps` uses the disproval penalty `DisprovenCount*BPS/(Accepted+1)`. The score remains a panel-history heuristic, not truth. Marker off preserves the historical formula and event bytes; review-neutrality retirement still suppresses these producers. The carrier's score-only recomputation does not replay these events or rewrite fact snapshots.
 - `address` -- submitter address
 - `account_type` -- "agent" / "human" / "hybrid"
 - `total_submissions` -- lifetime submission count
@@ -1624,6 +1626,7 @@ Governance amended the on-chain tokenizer contract (Route B Wave 3a). The caller
 
 ### zerone.knowledge.contributions_attributed
 Model owner declared the fact IDs consumed by training, creating the reverse fact→model index. New policy-1 records are declarations without computed valuation: `computed_tvw` is zero, calibration snapshots are absent, and any `total_weight` is owner-declared. Historical policy-0 records used corroboration/calibration heuristics.
+With calibration smoothing (0x92), newly computed policy-0 TVW honors a present zero calibration snapshot (`Fact.has_calibration_snapshot`), while unknown legacy zeros retain the neutral fallback. Existing contribution records and policy-1 behavior are unchanged; this does not enable disbursement.
 - `model_id` -- ModelCard being attributed
 - `attributed_by` -- owner (must equal ModelCard.owner_address)
 - `fact_count` -- deduplicated fact count actually recorded

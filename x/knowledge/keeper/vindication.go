@@ -216,7 +216,7 @@ func (k Keeper) pruneExpiredVindications(ctx context.Context, currentHeight, win
 // handleChallengeDisproven transitions the challenged fact to DISPROVEN
 // when a challenge claim is accepted. Triggers vindication for the original
 // fact's minority voters who were slashed during its verification round.
-func (k Keeper) handleChallengeDisproven(ctx context.Context, challengeClaim *types.Claim, newFactId string) error {
+func (k roundsExecution) handleChallengeDisproven(ctx context.Context, challengeClaim *types.Claim, newFactId string) error {
 	policy, err := k.ClaimReviewPolicyVersion(ctx, challengeClaim)
 	if err != nil {
 		return err
@@ -332,7 +332,7 @@ func (k Keeper) handleChallengeDisproven(ctx context.Context, challengeClaim *ty
 	return nil
 }
 
-func (k Keeper) legacyHandleChallengeDisproven(ctx context.Context, challengeClaim *types.Claim, newFactId string) error {
+func (k roundsExecution) legacyHandleChallengeDisproven(ctx context.Context, challengeClaim *types.Claim, newFactId string) error {
 	if challengeClaim.ProvisionalFactId == "" {
 		return nil
 	}

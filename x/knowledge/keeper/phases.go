@@ -12,6 +12,10 @@ import (
 // BeginBlocker runs knowledge module begin-block logic.
 // Advances verification round phases by deadline and triggers fitness epoch updates.
 func (k Keeper) BeginBlocker(ctx context.Context) error {
+	execution, err := k.selectRoundsExecution(ctx)
+	if err != nil {
+		return err
+	}
 	// Select Q2 once, before any begin-block write. The shared reader is
 	// gas-free; malformed or unreadable state wraps activation.ErrMarkerFault.
 	inconclusiveAccounting, err := k.InconclusiveRoundAccountingEnabled(ctx)
@@ -19,12 +23,12 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		return err
 	}
 	if !inconclusiveAccounting {
-		return k.beginBlockInconclusiveAccountingLegacy(ctx)
+		return execution.beginBlockInconclusiveAccountingLegacy(ctx)
 	}
-	return k.beginBlockInconclusiveAccounting(ctx, inconclusiveAccounting)
+	return execution.beginBlockInconclusiveAccounting(ctx, inconclusiveAccounting)
 }
 
-func (k Keeper) beginBlockInconclusiveAccounting(ctx context.Context, inconclusiveAccounting bool) error {
+func (k roundsExecution) beginBlockInconclusiveAccounting(ctx context.Context, inconclusiveAccounting bool) error {
 	// This marker is read once, before ANY begin-block write. Its reader
 	// wraps activation.ErrMarkerFault; ordinary historical errors below keep
 	// their existing handling rather than becoming new consensus halts.
@@ -145,7 +149,7 @@ func (k Keeper) beginBlockInconclusiveAccounting(ctx context.Context, inconclusi
 
 // AdvanceRoundPhases iterates all active rounds and transitions phases by
 // deadline — or early, once a round's reveal set is closed (see GetExpectedPhase).
-func (k Keeper) AdvanceRoundPhases(ctx context.Context) error {
+func (k roundsExecution) AdvanceRoundPhases(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
@@ -392,7 +396,7 @@ func GetExpectedPhase(round *types.VerificationRound, height uint64, params *typ
 }
 
 // performAggregation aggregates votes and completes the round.
-func (k Keeper) performAggregation(ctx context.Context, round *types.VerificationRound) error {
+func (k roundsExecution) performAggregation(ctx context.Context, round *types.VerificationRound) error {
 	result, err := k.AggregateVerificationResult(ctx, round)
 	if err != nil {
 		return err

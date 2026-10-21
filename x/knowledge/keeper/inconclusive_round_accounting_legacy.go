@@ -11,8 +11,9 @@ import (
 // beginBlockInconclusiveAccountingLegacy preserves the BeginBlocker body verbatim
 // from 6a56b621082064483af1ced7718462766d9ae756. AdvanceRoundPhases,
 // performAggregation, AggregateVerificationResult and CompleteRound retain their
-// original bodies too; the activated path does not modify those helpers.
-func (k Keeper) beginBlockInconclusiveAccountingLegacy(ctx context.Context) error {
+// original bodies too. KR2 passes its independent booleans on roundsExecution;
+// with both false the changed leaves dispatch to their frozen legacy bodies.
+func (k roundsExecution) beginBlockInconclusiveAccountingLegacy(ctx context.Context) error {
 	// This marker is read once, before ANY begin-block write. Its reader
 	// wraps activation.ErrMarkerFault; ordinary historical errors below keep
 	// their existing handling rather than becoming new consensus halts.

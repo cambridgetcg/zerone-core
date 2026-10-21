@@ -47,9 +47,10 @@ func (s *q2Staking) SlashValidator(_ context.Context, addr string, bps uint64) e
 }
 
 type q2StoreProbe struct {
-	reads, writes int
-	failOp        string
-	failPrefix    []byte
+	reads, writes                int
+	calibrationReads, floorReads int
+	failOp                       string
+	failPrefix                   []byte
 }
 
 type q2StoreService struct {
@@ -67,6 +68,12 @@ type q2Store struct {
 }
 
 func (s q2Store) Get(key []byte) ([]byte, error) {
+	if bytes.Equal(key, types.CalibrationSmoothingEnabledKey) {
+		s.probe.calibrationReads++
+	}
+	if bytes.Equal(key, types.ZeroConfidenceFloorEnabledKey) {
+		s.probe.floorReads++
+	}
 	if bytes.Equal(key, types.InconclusiveRoundAccountingEnabledKey) {
 		s.probe.reads++
 	}
@@ -113,6 +120,8 @@ func newQ2Fixture(t *testing.T, enabled bool) *q2Fixture {
 	k := NewKeeper(q2StoreService{runtime.NewKVStoreService(keys[0]), probe}, cdc, "authority", nil, staking)
 	gs := types.DefaultGenesis()
 	gs.InconclusiveRoundAccountingEnabled = false
+	gs.CalibrationSmoothingEnabled = false
+	gs.ZeroConfidenceFloorEnabled = false
 	gs.RecordIntegrityEnabled = false
 	gs.ReviewNeutralityEnabled = false
 	gs.ClaimRecordsEnabled = false
@@ -149,6 +158,7 @@ func (f *q2Fixture) seed(t *testing.T, id string, votes []string) *types.Verific
 func (f *q2Fixture) resetObservation() {
 	f.ctx = f.ctx.WithGasMeter(storetypes.NewInfiniteGasMeter()).WithEventManager(sdk.NewEventManager())
 	f.probe.reads, f.probe.writes = 0, 0
+	f.probe.calibrationReads, f.probe.floorReads = 0, 0
 	f.staking.slashes = nil
 }
 

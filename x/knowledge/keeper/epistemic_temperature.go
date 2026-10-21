@@ -180,7 +180,7 @@ func (k Keeper) UpdateEpistemicTemperature(ctx context.Context, domain string) e
 // AdvanceConfidence grows confidence for all active/verified facts by
 // ConfidenceGrowthPerEpochBps, modulated by epistemic temperature.
 // Called from BeginBlocker at ConfidenceGrowthEpoch intervals.
-func (k Keeper) AdvanceConfidence(ctx context.Context) error {
+func (k Keeper) advanceConfidenceWithZeroFloor(ctx context.Context) error {
 	params, err := k.GetParams(ctx)
 	if err != nil {
 		return err
@@ -198,11 +198,9 @@ func (k Keeper) AdvanceConfidence(ctx context.Context) error {
 		// Only grow confidence for active/verified facts.
 		//
 		// PROVISIONAL is deliberately excluded. Growth below is
-		// `confidence += confidence * rate`, floored at a minimum of 1 —
-		// so a node sitting at zero does not stay at zero, it climbs one
-		// unit every epoch on the passage of time alone. For an ordinary
-		// fact that floor is a rounding convenience. For a conjecture it
-		// would be the chain manufacturing belief in a proposition nobody
+		// `confidence += confidence * rate`, floored at a minimum of 1 for
+		// small positive confidence only. Historically that floor applied
+		// at zero too. For a conjecture it would manufacture belief nobody
 		// has verified, which is the precise failure commitment 3 names:
 		// popularity, not Popper. A conjecture's standing may only move
 		// when something actually happens to it.
@@ -237,6 +235,11 @@ func (k Keeper) AdvanceConfidence(ctx context.Context) error {
 		// Apply growth: confidence += confidence * growthRate / BPS
 		growth := safeMulDiv(fact.Confidence, growthRate, BPS)
 		if growth == 0 {
+			// PR37(b)'s zero foundation must not acquire confidence just
+			// because time passed. Preserve minimum growth for positive values.
+			if fact.Confidence == 0 {
+				return false
+			}
 			growth = 1 // minimum 1 BPS growth per epoch
 		}
 		fact.Confidence += growth
