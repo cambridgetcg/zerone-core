@@ -1,6 +1,6 @@
 # consolidation-safety-v1 (H1) — ignition kit
 
-The activation path for the staged pre-SDK upgrade ladder, drilled end-to-end
+Historical activation path for the staged pre-SDK upgrade ladder, drilled end-to-end
 locally on 2026-08-03/04. H1 is the upgrade that **ignites the conjecture
 engine** on the live networks: after it, `MsgPostConjecture` and
 `OpenQuestions` answer, and the register's 9 `open_conjecture` entries
@@ -32,6 +32,12 @@ Do not combine, reorder, or improvise.
 | H1 | `release/consolidation-safety-v1-sdk050-source` | `65c19cd8b00bdfff9b80705b776fd0d49719398a` | source ACCEPTED by independent review; activation NO-GO until tag ceremony |
 | H2 | `release/founder-renunciation-v1-sdk050-replacement-source` | `36728afbf71905a077a0863b41536fa9279109dd` | corrective candidate; final acceptance pending external audit |
 | H3 | `main` | tip at activation time | trunk |
+
+The H1 status above records the original release bar. The later testnet-only
+decision `zc-h1-testnet-bar` permits the unsigned reproducible profile in
+[TESTNET.md](TESTNET.md); mainnet still requires its signed `v*` tag,
+attestation and in-place `zerone-1` state rehearsal. Neither profile authorizes
+a halt. No live-network state is asserted by this preparation kit.
 
 ⛔ **Rejected provenance — never tag, build, or deploy:**
 `release/founder-renunciation-v1-sdk050-source` @ `4bffb6d2` (old H2, unsafe
@@ -103,16 +109,30 @@ K5/P1/L3/V1):
 
 - `drill.sh` — the full local lineage drill (init → 3 legs → ignition check).
 - `proposal.template.json` — canonical-info gov proposal template.
-- Live-net ritual script (operator home): `~/.zerone-agent/ship-consolidation-safety.sh`
-  (refuses to run without `SHIP_ACK=<chain-id>`; testnet first, then mainnet).
+- `TESTNET.md` — lighter testnet bar, source/build pins, supplied-copy contract,
+  evidence limits, and outstanding operator gates.
+- `provenance.py` — frozen source export, offline two-build recipe, digest-pinned
+  OCI packaging; `--dry-run` never claims a binary/image exists.
+- `state-copy-drill.py`, `rehearsal.go` — keyless two-source application drill on
+  an explicitly provided scrubbed copy, never a fetch or a node startup.
+- `ship-consolidation-safety.sh` / `.py` — repository-owned testnet replacement
+  for the historical operator-home ritual; offline plan by default. Requires an
+  explicit current CLI, bonded operator, prebuilt image and confirmed frozen
+  halt. The installed operator-home script is not modified by this kit.
+- `test-offline.py`, `test_kit.py`, `test-fixture.go` — offline unit/adapter tests
+  and a real synthetic old→H1 migration/restart fixture, not current testnet state.
 
 ## Still needs the operator (nothing here ships without it)
 
-1. Signed annotated `v*` tag at `65c19cd8` + reproducible image via
-   `deploy/mainnet/build-image.sh` (digest-pinned, authorized signer).
+1. Testnet: pass every lighter-profile gate in `TESTNET.md`, pre-build and verify
+   the digest-pinned image before H, and obtain Yu's explicit testnet halt yes
+   (which may be the same yes as the testnet mint seal). Fetching a current
+   scrubbed state copy is separately authorized. Mainnet: signed annotated `v*`
+   tag at `65c19cd8`, reproducible digest-pinned image, authorized signer and
+   attestation; the testnet exception does not apply.
 2. Re-cut decision if trunk fixes inside the v6 boundary (e.g. the 2026-08-03
    conformity-cooling and provenance-floor fixes) are to ride H1 — that means
    a new reviewed release commit, not an amended one.
-3. Mainnet-state-copy rehearsal (constraint 6).
+3. In-place mainnet-state rehearsal keeping chain ID `zerone-1` (constraint 6).
 4. Governance proposal + coordinated halt window on zerone-testnet-1, verify,
    then zerone-1.
