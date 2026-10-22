@@ -101,6 +101,25 @@ class RehearsalCIContractTests(unittest.TestCase):
                         allowed = ["\n          ZERONE_PRIVATE_NET_EVIDENCE_PARENT: ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/shared-participant-reports"]
                     self.assertEqual(environment, allowed)
 
+    def test_guide_ports_are_reserved_before_the_rehearsal_opens_any_socket(self):
+        helper = (Path(__file__).resolve().parent / "local-node.py").read_text()
+        rpc = re.search(r'"--rpc-port", type=port, default=(\d+)\)', helper)
+        p2p = re.search(r'"--p2p-port", type=port, default=(\d+)\)', helper)
+        self.assertIsNotNone(rpc)
+        self.assertIsNotNone(p2p)
+        assert rpc is not None and p2p is not None
+        low, high = sorted((int(rpc[1]), int(p2p[1])))
+        self.assertEqual(high - low, 1, "reserve one contiguous range for both guide ports")
+        job_steps = steps(self.jobs["consensus-rehearsal"])
+        first = job_steps[0]
+        self.assertTrue(first.startswith("      - name: Reserve the local node guide's loopback ports\n"))
+        self.assertNotRegex(first, r"(?m)^        (?:continue-on-error|if):")
+        self.assertIn(f"sudo sysctl -w net.ipv4.ip_local_reserved_ports={low}-{high}\n", first)
+        self.assertIn(f'test "$(cat /proc/sys/net/ipv4/ip_local_reserved_ports)" = {low}-{high}\n', first)
+        rehearsal = [index for index, step in enumerate(job_steps) if "local-consensus-rehearsal.sh" in step]
+        self.assertEqual(len(rehearsal), 1)
+        self.assertLess(0, rehearsal[0])
+
     def test_frozen_evidence_context_is_written_before_any_checkout_or_build(self):
         first = steps(self.jobs["consensus-shared-workflows"])[0]
         self.assertTrue(first.startswith("      - name: Initialize shared workflow evidence\n"))
