@@ -8,6 +8,7 @@ windows. All private key homes are controlled by this test; no human/reviewer
 independence is asserted.
 Optional ZERONE_SHARED_EVIDENCE_PARENT retains curated public observations only.
 """
+import ast
 import base64
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from email.message import Message
@@ -41,6 +42,23 @@ fixture = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(fixture)
 PEOPLE = ("author", "reviewer1", "reviewer2", "reviewer3", "challenger")
 REVIEWERS = PEOPLE[1:4]
+# Only reviewed literal public errors may leave the GET diagnostic boundary.
+# The offline AST contract below detects new/reworded GET-reachable messages;
+# it never automatically exports new gateway text.
+PUBLIC_GET_ERRORS = frozenset({
+    "Node RPC unavailable or malformed", "Node returned an RPC error",
+    "Node response exceeds the read bound", "Unexpected upstream redirect",
+    "Development node is not ready", "Development node has no valid block time",
+    "Development blocks are stale or ahead of local time",
+    "Development command failed; no success is asserted",
+    "Development command response exceeds bound",
+    "History response context differs from its requested block",
+    "History reader busy; try again", "Gateway busy", "RPC request rate exceeded",
+    "Development service unavailable; no success asserted",
+    "Malformed request or response; no success asserted", "Unknown development read route",
+    "Invalid client address", "Request path too long", "Invalid request path",
+    "Read requests must not have bodies",
+})
 
 
 @contextmanager
@@ -273,21 +291,9 @@ class NativeSharedClaimsTests(unittest.TestCase):
     def capture_read_failure(self, path, error, started):
         # Only literal public gateway errors are exportable. Do not copy an
         # arbitrary upstream body, headers, node logs or private home contents.
-        public_errors = {
-            "Node RPC unavailable or malformed", "Node returned an RPC error",
-            "Node response exceeds the read bound", "Unexpected upstream redirect",
-            "Development node is not ready", "Development node has no valid block time",
-            "Development blocks are stale or ahead of local time",
-            "Development command failed; no success is asserted",
-            "Development command response exceeds bound",
-            "History response context differs from its requested block",
-            "History reader busy; try again", "Gateway busy", "RPC request rate exceeded",
-            "Development service unavailable; no success asserted",
-            "Malformed request or response; no success asserted", "Unknown development read route",
-        }
         # This records one get() call. The existing startup readiness loop may
         # separately poll /network.json again; no new retry is introduced here.
-        row = {"method": "GET", "http_status": error.code, "get_retried": False,
+        row = {"method": "GET", "http_status": error.code, "retried_within_get": False,
                "path": path if re.fullmatch(r"/(?:network\.json|status|claims/[0-9a-f]{32}|block\?height=[0-9]+)", path) else "omitted",
                "elapsed_seconds": round(time.monotonic() - started, 3)}
         self.evidence.setdefault("http_read_failures", []).append(row)
@@ -297,7 +303,7 @@ class NativeSharedClaimsTests(unittest.TestCase):
             if len(raw) <= 4096:
                 value = json.loads(raw)
                 message = value.get("error") if isinstance(value, dict) else None
-                if isinstance(message, str) and message in public_errors:
+                if isinstance(message, str) and message in PUBLIC_GET_ERRORS:
                     row["gateway_error"] = message
                 else:
                     row["body_omitted"] = True
@@ -879,6 +885,75 @@ class NativeScenarioCollectionTests(unittest.TestCase):
 
 
 class NativeDiagnosticTests(unittest.TestCase):
+    def gateway_get_errors(self, source):
+        """Follow this gateway's direct GET calls, without importing/running it.
+
+        Resolve self, self.server and self.server.node against their source
+        owners. Include the opener's redirect hook explicitly. The dispatch
+        shape is pinned so a routing refactor requires reviewing this boundary.
+        Startup/descriptor construction and POST/faucet code are not GET calls.
+        """
+        tree = ast.parse(source)
+        definitions = {}
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef):
+                definitions["", node.name] = node
+            elif isinstance(node, ast.ClassDef):
+                for method in node.body:
+                    if isinstance(method, ast.FunctionDef):
+                        definitions[node.name, method.name] = method
+        dispatch = definitions["Handler", "dispatch"]
+        branches = [(index, node) for index, node in enumerate(dispatch.body)
+                    if isinstance(node, ast.If) and ast.unparse(node.test) == "self.command in ('GET', 'HEAD')"]
+        self.assertEqual(len(branches), 1, "review GET reachability after dispatch changes")
+        index, read = branches[0]
+        self.assertEqual(read.orelse, [], "review GET reachability after dispatch changes")
+        definitions["Handler", "dispatch"] = ast.Module(body=dispatch.body[:index] + read.body, type_ignores=[])
+        pending = [("Handler", "handle_request"), ("NoRedirect", "redirect_request")]
+        visited, messages = set(), set()
+        while pending:
+            owner, name = pending.pop()
+            if (owner, name) in visited:
+                continue
+            visited.add((owner, name))
+            for node in ast.walk(definitions[owner, name]):
+                if isinstance(node, ast.Call):
+                    call = ast.unparse(node.func)
+                    if call == "GatewayError":
+                        message = ast.literal_eval(node.args[0])
+                        self.assertIsInstance(message, str, "only literal public errors may be allowlisted")
+                        messages.add(message)
+                    target = ("", call)
+                    for prefix, target_owner in (("self.server.node.", "Node"), ("self.server.", "Server"), ("self.", owner)):
+                        if call.startswith(prefix):
+                            target = (target_owner, call[len(prefix):])
+                            break
+                    if target in definitions:
+                        pending.append(target)
+                elif isinstance(node, ast.Dict):
+                    # handle_request also returns two fixed exception categories
+                    # directly rather than constructing GatewayError instances.
+                    for key, value in zip(node.keys, node.values):
+                        if isinstance(key, ast.Constant) and key.value == "error" and isinstance(value, ast.Constant):
+                            self.assertIsInstance(value.value, str)
+                            messages.add(value.value)
+        return messages
+
+    def test_get_error_allowlist_tracks_gateway_ast(self):
+        self.assertEqual(self.gateway_get_errors(GATEWAY.read_text()), PUBLIC_GET_ERRORS)
+
+    def test_gateway_ast_collector_detects_reworded_and_new_helper_errors(self):
+        source = GATEWAY.read_text()
+        reworded = source.replace('GatewayError("Development command failed; no success is asserted")',
+                                 'GatewayError("Synthetic reworded GET failure")')
+        helper = source.replace("    def history(self, identifier):\n",
+            '    def synthetic_get_helper(self):\n        raise GatewayError("Synthetic new GET failure")\n\n'
+            '    def history(self, identifier):\n        self.synthetic_get_helper()\n')
+        for changed, message in ((reworded, "Synthetic reworded GET failure"), (helper, "Synthetic new GET failure")):
+            with self.subTest(message=message):
+                self.assertNotEqual(changed, source)
+                self.assertEqual(self.gateway_get_errors(changed) - PUBLIC_GET_ERRORS, {message})
+
     def read_fixture(self):
         native = NativeSharedClaimsTests("test_five_separate_participants_signed_rounds_gateway_and_restart")
         native.evidence = {}
@@ -916,7 +991,7 @@ class NativeDiagnosticTests(unittest.TestCase):
         node.history.assert_called_once_with("a" * 32)
         row, = native.evidence["http_read_failures"]
         self.assertEqual((row["path"], row["gateway_error"], row["method"]), (path, message, "GET"))
-        self.assertFalse(row["get_retried"])
+        self.assertFalse(row["retried_within_get"])
         self.assertIn(message, output.getvalue())
 
     def test_http_failure_diagnostics_are_bounded_and_redact_unknown_bodies(self):
