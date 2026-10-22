@@ -10,6 +10,7 @@ Optional ZERONE_SHARED_EVIDENCE_PARENT retains curated public observations only.
 """
 import base64
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from email.message import Message
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import io
 import hashlib
@@ -249,10 +250,64 @@ class NativeSharedClaimsTests(unittest.TestCase):
                     diagnostic["persistence_error_type"] = type(error).__name__
 
     def get(self, path):
-        with self.opener.open(self.origin + path, timeout=25) as response:
-            raw = response.read(8 * 1024 * 1024 + 1)
+        started = time.monotonic()
+        try:
+            with self.opener.open(self.origin + path, timeout=25) as response:
+                raw = response.read(8 * 1024 * 1024 + 1)
+        except urllib.error.HTTPError as error:
+            # A 503 can mean a failed history query, not just startup latency.
+            # Retain a bounded public diagnostic, then fail the SAME request;
+            # never retry an unclassified failure or any write-side operation.
+            try:
+                self.capture_read_failure(path, error, started)
+            except Exception:
+                pass  # Diagnostics must not replace the original HTTP failure.
+            try:
+                error.close()
+            except Exception:
+                pass  # Nor may cleanup replace it (e.g. a broken response stream).
+            raise
         self.assertLessEqual(len(raw), 8 * 1024 * 1024)
         return raw
+
+    def capture_read_failure(self, path, error, started):
+        # Only literal public gateway errors are exportable. Do not copy an
+        # arbitrary upstream body, headers, node logs or private home contents.
+        public_errors = {
+            "Node RPC unavailable or malformed", "Node returned an RPC error",
+            "Node response exceeds the read bound", "Unexpected upstream redirect",
+            "Development node is not ready", "Development node has no valid block time",
+            "Development blocks are stale or ahead of local time",
+            "Development command failed; no success is asserted",
+            "Development command response exceeds bound",
+            "History response context differs from its requested block",
+            "History reader busy; try again", "Gateway busy", "RPC request rate exceeded",
+            "Development service unavailable; no success asserted",
+            "Malformed request or response; no success asserted", "Unknown development read route",
+        }
+        # This records one get() call. The existing startup readiness loop may
+        # separately poll /network.json again; no new retry is introduced here.
+        row = {"method": "GET", "http_status": error.code, "get_retried": False,
+               "path": path if re.fullmatch(r"/(?:network\.json|status|claims/[0-9a-f]{32}|block\?height=[0-9]+)", path) else "omitted",
+               "elapsed_seconds": round(time.monotonic() - started, 3)}
+        self.evidence.setdefault("http_read_failures", []).append(row)
+        try:
+            raw = error.read(4097)
+            row["body_exceeds_bound"] = len(raw) > 4096
+            if len(raw) <= 4096:
+                value = json.loads(raw)
+                message = value.get("error") if isinstance(value, dict) else None
+                if isinstance(message, str) and message in public_errors:
+                    row["gateway_error"] = message
+                else:
+                    row["body_omitted"] = True
+        except Exception as diagnostic_error:
+            row["diagnostic_error_type"] = type(diagnostic_error).__name__
+        # Keep the original HTTPError authoritative even if CI stderr is closed.
+        try:
+            print("shared-claims read failure: " + json.dumps(row, sort_keys=True), file=sys.stderr, flush=True)
+        except (OSError, ValueError):
+            pass
 
     def rpc(self, method, **params):
         data = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
@@ -824,6 +879,108 @@ class NativeScenarioCollectionTests(unittest.TestCase):
 
 
 class NativeDiagnosticTests(unittest.TestCase):
+    def read_fixture(self):
+        native = NativeSharedClaimsTests("test_five_separate_participants_signed_rounds_gateway_and_restart")
+        native.evidence = {}
+        native.origin = "http://127.0.0.1:12345"
+        opener = mock.Mock()
+        native.opener = opener
+        return native, opener
+
+    def test_real_gateway_503_is_retained_and_never_retried(self):
+        spec = importlib.util.spec_from_file_location("read_failure_gateway", GATEWAY)
+        assert spec is not None and spec.loader is not None
+        gateway = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gateway)
+        node = mock.Mock()
+        message = "Development command failed; no success is asserted"
+        node.history.side_effect = gateway.GatewayError(message)
+        server = gateway.Server(("127.0.0.1", 0), node, mock.Mock())
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        native, _ = self.read_fixture()
+        native.origin = "http://127.0.0.1:" + str(server.server_port)
+        native.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), fixture.NoRedirect())
+        path = "/claims/" + "a" * 32
+        output = io.StringIO()
+        try:
+            with redirect_stderr(output), self.assertRaises(urllib.error.HTTPError) as caught:
+                native.get(path)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(caught.exception.code, 503)
+        self.assertTrue(caught.exception.closed)
+        node.history.assert_called_once_with("a" * 32)
+        row, = native.evidence["http_read_failures"]
+        self.assertEqual((row["path"], row["gateway_error"], row["method"]), (path, message, "GET"))
+        self.assertFalse(row["get_retried"])
+        self.assertIn(message, output.getvalue())
+
+    def test_http_failure_diagnostics_are_bounded_and_redact_unknown_bodies(self):
+        for body in (b'{"error":"private-shaped sentinel"}', b'{"error":[]}', b'[]', b'not JSON', b'x' * 5000):
+            with self.subTest(body_bytes=len(body)):
+                native, opener = self.read_fixture()
+                stream = io.BytesIO(body)
+                error = urllib.error.HTTPError(native.origin, 503, "unavailable", Message(), stream)
+                opener.open.side_effect = error
+                output = io.StringIO()
+                with redirect_stderr(output), self.assertRaises(urllib.error.HTTPError) as caught:
+                    native.get("/unknown?private-shaped-sentinel")
+                self.assertIs(caught.exception, error)
+                self.assertTrue(stream.closed)
+                opener.open.assert_called_once()
+                row, = native.evidence["http_read_failures"]
+                self.assertEqual(row["path"], "omitted")
+                self.assertEqual(row["body_exceeds_bound"], len(body) > 4096)
+                self.assertNotIn("gateway_error", row)
+                self.assertNotIn("private-shaped", json.dumps(row) + output.getvalue())
+
+    def test_diagnostic_body_timeout_preserves_original_http_failure(self):
+        native, opener = self.read_fixture()
+        stream = mock.Mock()
+        stream.read.side_effect = TimeoutError("unexportable diagnostic detail")
+        error = urllib.error.HTTPError(native.origin, 503, "unavailable", Message(), stream)
+        opener.open.side_effect = error
+        with redirect_stderr(io.StringIO()), self.assertRaises(urllib.error.HTTPError) as caught:
+            native.get("/status")
+        self.assertIs(caught.exception, error)
+        stream.read.assert_called_once_with(4097)
+        stream.close.assert_called_once()
+        self.assertEqual(native.evidence["http_read_failures"][0]["diagnostic_error_type"], "TimeoutError")
+        opener.open.assert_called_once()
+
+    def test_successful_get_is_unchanged_and_write_rpc_is_still_refused(self):
+        native, opener = self.read_fixture()
+        response = io.BytesIO(b'{"ok":true}')
+        opener.open.return_value = response
+        self.assertEqual(native.get("/network.json"), b'{"ok":true}')
+        self.assertEqual(native.evidence, {})
+        for method in ("broadcast_tx_sync", "faucet"):
+            with self.assertRaisesRegex(AssertionError, "must never cover a broadcast or faucet"):
+                native.rpc(method)
+        opener.open.assert_called_once()
+
+    def test_diagnostic_capture_or_close_failure_never_masks_http_error(self):
+        for broken_capture in (False, True):
+            with self.subTest(broken_capture=broken_capture):
+                native, opener = self.read_fixture()
+                stream = mock.Mock()
+                stream.read.return_value = b'{}'
+                stream.close.side_effect = OSError("synthetic cleanup failure")
+                error = urllib.error.HTTPError(native.origin, 503, "unavailable", Message(), stream)
+                opener.open.side_effect = error
+                with mock.patch.object(native, "capture_read_failure", wraps=native.capture_read_failure) as capture:
+                    if broken_capture:
+                        capture.side_effect = RuntimeError("synthetic diagnostic failure")
+                    with redirect_stderr(io.StringIO()), self.assertRaises(urllib.error.HTTPError) as caught:
+                        native.get("/status")
+                self.assertIs(caught.exception, error)
+                stream.close.assert_called_once()
+                opener.open.assert_called_once()
+
     def test_failed_client_retains_public_execution_and_preserves_original_assertion(self):
         with tempfile.TemporaryDirectory(prefix="zerone-shared-diagnostic-") as temporary:
             root = Path(temporary)
