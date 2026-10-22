@@ -30,7 +30,8 @@ one `REFUSED:` line.
   genesis. It sees only public files.
 - **Owner (Yu):** the courier and the authority. The owner carries files
   between Macs (AirDrop or another chosen channel), approves macOS permission
-  prompts, and confirms the seat list before nodes start.
+  prompts, and confirms the seat list before nodes start. The person whose
+  Mac it is must also agree before setup and start, and may ask to pause or leave.
 
 Exactly one agent owns each seat home. Other agents on that Mac may run
 `status`, and nothing else, against that seat.
@@ -42,7 +43,7 @@ round 0  coordinator: build/binary, invite ×N (own included), seat (own), kit �
                       ──kit──▶ each other Mac  (owner carries)
 round 1  each other Mac: receive, preflight, binary, seat ──seat-<label>.json──▶ coordinator
 round 2  coordinator: receive, genesis, kit --round 2 ──genesis + network packet──▶ each Mac
-         each Mac:    receive, install → owner confirms seat table → start → status
+         each Mac:    receive, install → owner AND Mac's person confirm seat table → start → status
 ```
 
 Each Mac's **kit** contains:
@@ -52,17 +53,22 @@ Each Mac's **kit** contains:
 - the pinned `zeroned`;
 - that Mac's `invite-<label>.json`;
 - `YOUR-MAC.md`, a short note for the person whose Mac it is, naming their
-  seat, chain and role, the program and storage, sharing and removal;
+  seat and role, setup requests, the helper, program and storage, sharing,
+  pause and removal (its commands name the chain);
 - a `START-HERE.md` with that Mac's commands.
 
 Give the person `YOUR-MAC.md` before setup, answer their questions, and wait
 for their agreement. The note is not consent and the tool cannot check who
 agreed. It distinguishes operator rules (including only our own Macs for now)
 from code checks. Preparing this note does not open the next beta stage.
-Its command explicitly selects the standard root; if a seat uses another
-root, explain that location and correct the removal command before agreement.
+Its commands explicitly select the standard root; if a seat uses another
+root, explain that location and correct both commands before agreement.
 The per-copy program size is calculated from the kit's binary; ~5 GB/node/month
 is the existing preflight planning estimate, not a measured bound or disk cap.
+The note uses decimal MB, rounded up. About 20 GB free is setup planning;
+preflight's warning threshold is 20 GiB, not a capacity guarantee. Explain the
+admin-password/firewall, helper-app Local Network, Mullvad and fixed-address
+requests before agreement, and keep track of the earlier settings for leaving.
 
 `pn kit` writes it as one folder and checks both pinned hashes in the copy.
 Run as a script, the tool drops its own folder from Python's import path, so a
@@ -223,10 +229,11 @@ avoid this by spelling out every command with absolute paths.
      The coordinator uses its own `nets/<id>/outbox/` copies. On a
      `-lan-` or `-private-` chain, `install` refuses without
      `--expect-genesis-sha256`.
-   - Show the owner the printed seat table. Every seat's table must list the
+   - Show the owner AND the person whose Mac it is the printed seat table,
+     including the other Macs' names and addresses. Every seat's table must list the
      same labels, roles, stakes and node ids: a seat admits peers by those node
      ids, and only validators' ids are bound to the relayed genesis sha256.
-     Start only on the owner's yes: `pn start --chain-id <id> --label <label>`.
+     Start only after both say yes: `pn start --chain-id <id> --label <label>`.
    - Starting before `genesis_time` is ideal. **Starting later is fine:** the
      node starts at once, and blocks begin when more than 2/3 of the stake is
      online. Never re-run genesis or change the chain id because the time
@@ -250,17 +257,25 @@ avoid this by spelling out every command with absolute paths.
      checkpoints every 100 heights from the last ~80 minutes.
    - Optionally, from a validator seat, run `pn send … --to <another validator's operator address>`,
      then `pn balance … --address <it>` on any other seat.
-8. **Stop:** `pn stop --chain-id <id> --label <label>`. It stops only the
+8. **Stop (reversible pause):** `pn stop --chain-id <id> --label <label>`.
+   Stop when the owner OR the person whose Mac it is asks; the helper can
+   start it again. It stops only the
    process whose full command line is this seat's. A node still sleeping
    before `genesis_time` cannot stop at once: it takes the signal, exits at
    `genesis_time` after opening its ports for a moment, and produces no block.
    `stop` says so. Never kill it with -9.
-9. **Leave:** `pn leave --chain-id <id> --label <label>` previews every file
-   and directory it would permanently delete. It creates nothing (even with
+9. **Leave:** `pn leave --chain-id <id> --label <label>` starts with a summary
+   (file count and decimal MB), then per-target totals and every file and
+   directory it would permanently delete. It creates nothing (even with
    an absent chain), sends no signal and needs no working binary. Read the
    complete list with the person whose Mac it is. Only on their confirmation,
-   repeat with `--yes`; that prints the plan again, tries SIGTERM if needed,
-   checks again that the node is gone, and removes only the listed seat data.
+   repeat with `--yes` at the end. That prints the current inventory, tries
+   SIGTERM if needed, proves the node is gone, then takes a fresh guarded
+   inventory and removes whatever is then in this seat's own paths. The preview
+   shows what is there now, not a binding list: new files and shutdown writes
+   inside those paths are included. It still refuses links, special files and
+   paths resolving outside the seat's own paths. Output `would_remove` is the
+   pre-stop list; `removed`, the summary and target totals describe actual removal.
    - Removed: that seat's home (keys, chain data and config), its state,
      default genesis and gentx records, PID/log, and outbox seat/status packets.
    - Kept even for the last seat: shared `bin/`, the entire `inbox/`,
@@ -271,25 +286,39 @@ avoid this by spelling out every command with absolute paths.
      guarantee. Trash would write outside the root and retain signing keys;
      restoring those keys can double-sign. For a reversible pause use `stop`
      instead. Never restore a seat home or reuse its chain id after leaving.
-   - Refusals: a non-private/missing root, symlink root or any link in a
-     removal path (even a link inside the root), hard-linked files, special
-     files, other-owned paths, mount boundaries, a state home/label mismatch,
+   - Refusals: a missing/non-private root or one inside the account's home
+     or a git tree; a root whose final component is a symlink (intermediate
+     components resolve through realpath); invalid chain/label; any symlink
+     in a removal path (even inside the root), hard-linked or special files,
+     other-owned paths or mount boundaries; malformed state/PID input,
+     non-object state, state home/label mismatch, oversized (>16 MiB), non-plain
+     or swapped state/PID records, or records changed before signalling;
      failed process inspection, an unidentifiable running process (including
-     a missing/stale PID), a node that does not stop, or paths that change.
+     a missing/stale PID or ambiguous command), a node that does not stop or
+     restarts, or a path/inode that changes during guarded traversal/removal.
      A pre-genesis sleeper may take SIGTERM but stay alive until genesis time;
      no files are removed then. Wait and preview again; never kill -9.
    - Run alone: no other agent may start or change that seat during removal.
-     A stopped node can have created new files since the preview; that causes
-     a refusal and needs a new preview. Deletion is not a transaction: an I/O
+     Shutdown writes are allowed after the stop is proven; every fresh entry
+     still passes the same path guards. Deletion is not a transaction: an I/O
      error or concurrent path change after deletion begins may leave a partial
      removal. Stop, inspect and preview what remains; do not blindly retry.
    - It never runs `sudo`. It prints the exact, shell-quoted
      `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --remove <root>/bin/zeroned`
      for the owner, who runs it only if no other seat needs that rule. It
-     does not change Local Network or VPN permissions for other apps.
-   - It cannot remove copies on other Macs, AirDrop copies in `~/Downloads`,
+     does not change Local Network, VPN, router or Wi-Fi settings. With the
+     person, turn off the helper app under System Settings > Privacy & Security
+     > Local Network and restore earlier Mullvad/router/Wi-Fi settings only
+     when nothing else needs them.
+   - After successful removal, if this was the last seat on this Mac, run the
+     printed firewall command first, then drag the whole root folder to the
+     Trash (this seat's keys are already gone). Delete any kit folders still
+     in Downloads. These are conditional manual steps, printed even in preview;
+     the tool does not infer that every seat on the Mac has left.
+   - It cannot remove copies on other Macs, any kit copies still in `~/Downloads`,
      backups or the coordinator's records, or erase this seat from their
      chain history. The owner deals with those separately; leaving is local.
+     Before setup, declining only needs deleting the kit folder from Downloads.
 
 **Rehearse first.** `pn rehearse` runs every step on one Mac with 4 loopback
 validators and 1 full seat. It checks agreement, a transfer seen from the full

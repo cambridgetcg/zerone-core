@@ -72,29 +72,46 @@ agent's shell may keep no function or working directory between calls.
 
 `receive` takes these folders, or single files, into the inbox.
 
-`YOUR-MAC.md` is generated from the seat invitation and binary byte size. It
-describes the validator/full-seat distinction, background lifetime, default
-storage paths, estimated growth (not a cap), public data and handshake leakage,
-the readiness check's time-server/router traffic, and local removal. It names
+`YOUR-MAC.md` is generated from the seat invitation and binary byte size
+(decimal MB, rounded up). It defines seat/operator/helper, discloses setup's
+permissions/address/free-space requests and same-user access, and describes
+the validator/full-seat distinction, background lifetime, default folder,
+estimated growth (not a cap), public data and handshake leakage,
+the readiness check's time-server/router traffic, pause and local removal. It names
 operator promises as promises, not enforcement. Read it with the person before
 setup; the tool does not authenticate their consent. Like the other pages it
-is replaceable on receipt, not signed evidence. It contains only one command,
-a `leave` preview with explicit default root/chain/label; a nonstandard root
-needs a corrected command before agreement. Admission and the beta stage are
+is replaceable on receipt, not signed evidence. Its two commands are a `stop`
+pause and a `leave` preview with explicit default root/chain/label; a nonstandard
+root needs corrected commands before agreement. NEXT.md requires the seat
+table be shown to the owner AND the person whose Mac it is before both agree
+to start, and says to stop when either asks. Admission and the beta stage are
 unchanged: only our own Macs, pending separate gates and authorization.
 
 ## Local departure
 
-`leave --chain-id <id> --label <label>` is read-only unless the owner confirms
-with `--yes`. It lists each file and directory, not just a recursive wildcard.
+`leave --chain-id <id> --label <label>` is read-only unless the person whose
+Mac it is confirms with `--yes`. It starts with a file-count/decimal-MB summary
+and per-target totals, then lists each file and directory, not a recursive wildcard.
+The preview shows what is there now, not a binding list. `--yes` stops the node
+if running, proves it is stopped, then takes a fresh guarded inventory and
+removes whatever is then in this seat's own paths, including new files and
+shutdown writes. Links, special files and paths resolving outside those paths
+still refuse. `would_remove` describes the pre-stop inventory; `removed`, the
+summary and target totals in the success output describe what was actually removed.
 It removes the seat home, the seat's state/default-genesis/gentx records,
 PID/log, and outbox seat/status packets. Shared `bin/` and the whole `inbox/`
 stay even for the last chain; the tool cannot assign every arrival to a seat
 from its filename. Coordinator homes, invitations and shared genesis/network
 records, other seats/chains, and empty parent folders stay too. It cannot
-retract history or remove other Macs' copies, Downloads/AirDrop copies or
+retract history or remove other Macs' copies, any kit copies still in Downloads or
 backups. These are listed in its output, along with the exact firewall-removal
-command for the owner; it never executes sudo or edits other apps' permissions.
+command for the owner; it never executes sudo or edits permissions or network
+settings. After successful removal, only if this was the last seat on the Mac,
+run that firewall command first, then drag the whole root folder to the Trash
+(this seat's keys are already gone), and delete any kit folders still in Downloads.
+The output gives these as conditional manual steps, not a claim to have found
+every seat on the Mac. Restore earlier Local Network/Mullvad/router/Wi-Fi
+settings with the person only if nothing else needs them (see SKILL.md).
 
 Deletion is permanent, not Trash: no write outside the root, and no retained
 signing keys presented as safe to restore. Use `stop` for a reversible pause.
@@ -107,11 +124,14 @@ files, special files, other owners and filesystem crossings before any signal
 or deletion. The state home must be exactly the computed seat home, never a
 removal path supplied by JSON. Only the state/PID contents are read; a seat
 home is inventoried by names and inode identities, not by reading keys.
-Process inspection must succeed; a home match without an exact PID/command
+Process inspection must succeed; home matches use path boundaries so a sibling
+`mac-b` does not match `mac`, while ambiguous matches involving spaces still
+refuse. A home match without an exact PID/command
 match refuses, including a lost PID file. The same SIGTERM-only stop helper as
-`stop` runs on the checked records, followed by another process check and an
-inventory comparison. A node still sleeping until genesis time, a restart,
-or a changed inventory prevents deletion. Every removal rechecks the inode
+`stop` runs on the checked records (rechecked before signalling), followed by
+another process check and the fresh inventory. A node still sleeping until
+genesis time, a restart, or an unsafe path prevents deletion. Ordinary shutdown
+file additions/replacements inside the fixed seat paths do not. Every removal rechecks the inode
 through a no-follow parent descriptor. This is not isolation from a hostile
 same-user writer, and there is no multi-file transaction: run alone, and after
 a partial I/O failure inspect and preview the remainder rather than retrying
@@ -133,7 +153,7 @@ blindly. Other commands retain the existing single-agent-per-seat convention.
 | `start` | not installed; the pinned binary is not the one the seat was made with; already running; `config/genesis.json` changed since install; the seat IP is not on this Mac; a port has a live listener (TIME_WAIT is ignored, as Go's own bind does); the process exits at once |
 | `status` | the node answering on the seat's RPC port is not this seat's (another chain's node or process); with `--wait-height`, also the seat's node not running (checked on every poll). Reaching `--timeout` (default 100 s) first is not a refusal: it exits 3 with `"reached": false`, the height and the peers so far |
 | `stop` | the pid's full command line is not `<root>/bin/zeroned start --home <seat home>`; it never escalates past SIGTERM. A node sleeping before `genesis_time` takes the signal but exits only at `genesis_time` (opening its ports for a moment, producing no block), and `stop` says so |
-| `leave` | root missing/non-private or a symlink; invalid chain/label; links (including internal symlinks and hard links), special files, other-owned paths or mount boundaries; state home/label differs; process inspection fails or cannot identify the running seat; SIGTERM does not stop it; it is running on the second check; inventory/inode changes. No mutation without `--yes`; no deletion while a stop is unproven. See Local departure for retained files and partial-failure limits |
+| `leave` | root missing/non-private, inside the account's home or a git tree, or with a symlink as its final component (intermediates resolve through realpath); invalid chain/label; links (including internal symlinks and hard links), special files, other-owned paths or mount boundaries; malformed state/PID input, non-object state, state home/label differs, oversized (>16 MiB)/non-plain/swapped state or PID record, or a record changed before signalling; process inspection fails or cannot identify the running seat (including missing/stale PID and ambiguous command); SIGTERM does not stop it; it is running on the second check; path/inode changes during guarded traversal/removal. No mutation without `--yes`; no deletion while a stop is unproven. Ordinary shutdown writes are included, not a reason to refuse. See Local departure for retained files and partial-failure limits |
 | `rehearse` | chain id not `zerone-rehearsal-local-*` or its directory already exists; a node cannot be stopped (the directory is then kept and the run fails) |
 
 ## Threat model, briefly
