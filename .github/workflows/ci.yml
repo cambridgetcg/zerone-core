@@ -750,12 +750,66 @@ jobs:
         run: |
           go mod download
           go mod verify
+      - name: Verify rehearsal suite ownership and scope
+        run: python3 -B scripts/test_consensus_rehearsal_ci.py
       - name: Isolated four-validator consensus rehearsal
         env:
           TMPDIR: ${{ runner.temp }}/zerone-consensus-rehearsal-evidence
         run: |
           mkdir -p "$TMPDIR"
           bash scripts/local-consensus-rehearsal.sh --keep
+      - name: Select the rehearsed candidate binary
+        env:
+          ZERONE_CONSENSUS_EVIDENCE: ${{ runner.temp }}/zerone-consensus-rehearsal-evidence
+        run: |
+          binaries=("$ZERONE_CONSENSUS_EVIDENCE"/zerone-consensus-rehearsal.*/bin/zeroned)
+          test "${#binaries[@]}" -eq 1
+          test -x "${binaries[0]}"
+          echo "ZERONE_LOCAL_NODE_TEST_BINARY=${binaries[0]}" >> "$GITHUB_ENV"
+          echo "ZERONE_PRIVATE_NET_TEST_BINARY=${binaries[0]}" >> "$GITHUB_ENV"
+      - name: Verify persistent local node setup and restart
+        run: test -x "$ZERONE_LOCAL_NODE_TEST_BINARY" && python3 -B -m unittest discover -s scripts -p 'test_local_node.py' -v
+      - name: Verify signed local claim workflows
+        run: test -x "$ZERONE_LOCAL_NODE_TEST_BINARY" && python3 -B -m unittest discover -s scripts -p 'test_claim_workflow*.py' -v
+      - name: Verify private network participants and outsider rejection
+        env:
+          ZERONE_PRIVATE_NET_EVIDENCE_PARENT: ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/shared-participant-reports
+        run: test -x "$ZERONE_PRIVATE_NET_TEST_BINARY" && mkdir -p "$ZERONE_PRIVATE_NET_EVIDENCE_PARENT" && python3 -B -m unittest discover -s skills/run-a-private-zerone-net/scripts -p 'test_*.py' -v
+      - name: Retain consensus reports and logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: consensus-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/**
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/logs/**
+            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/shared-participant-reports/**
+          if-no-files-found: error
+          retention-days: 30
+
+  # Keep the two binary owners parallel: neither job rebuilds the other's binary.
+  # Both use the ORIGINAL scope output, including its main/failure/draft behaviour.
+  consensus-shared-workflows:
+    needs: scope
+    if: ${{ always() && !cancelled() && !github.event.pull_request.draft && (github.event_name != 'pull_request' || needs.scope.result != 'success' || needs.scope.outputs.consensus_rehearsal != 'false') }}
+    name: "Consensus shared workflows"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Initialize shared workflow evidence
+        run: |
+          mkdir -p "$RUNNER_TEMP/zerone-shared-workflows-evidence"
+          printf '%s\n' \
+            "job=$GITHUB_JOB" "run_id=$GITHUB_RUN_ID" "run_attempt=$GITHUB_RUN_ATTEMPT" \
+            "candidate_sha=$GITHUB_SHA" "status=started; suite success is not asserted" \
+            > "$RUNNER_TEMP/zerone-shared-workflows-evidence/job-context.txt"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
       # zerone-dev-1 is a frozen knowledge-11 network: its gateway accepts knowledge 10/11 only.
       # Its runtime, shared-claims and research-workflow suites therefore run against a pinned
       # knowledge-11 build of main's base (a4272bfa), never against the candidate.
@@ -781,40 +835,28 @@ jobs:
           )
           rm -rf knowledge-11-source
           test -z "$(git status --porcelain)"
-      - name: Verify persistent local node setup and restart
-        env:
-          ZERONE_CONSENSUS_EVIDENCE: ${{ runner.temp }}/zerone-consensus-rehearsal-evidence
+      - name: Select frozen binary and public evidence directory
         run: |
-          binaries=("$ZERONE_CONSENSUS_EVIDENCE"/zerone-consensus-rehearsal.*/bin/zeroned)
-          test "${#binaries[@]}" -eq 1
-          test -x "${binaries[0]}"
-          knowledge11="$RUNNER_TEMP/zerone-knowledge-11/zeroned"
-          test -x "$knowledge11"
-          ZERONE_LOCAL_NODE_TEST_BINARY="${binaries[0]}" \
-            python3 -m unittest discover -s scripts -p 'test_local_node.py' -v
-          ZERONE_LOCAL_NODE_TEST_BINARY="${binaries[0]}" \
-            python3 -m unittest discover -s scripts -p 'test_claim_workflow*.py' -v
-          ZERONE_SHARED_TEST_BINARY="$knowledge11" \
-            python3 -m unittest discover -s deploy/networks/zerone-dev-1 -p 'test_*.py' -v
-          mkdir -p "$ZERONE_CONSENSUS_EVIDENCE/shared-participant-reports"
-          ZERONE_PRIVATE_NET_EVIDENCE_PARENT="$ZERONE_CONSENSUS_EVIDENCE/shared-participant-reports" \
-          ZERONE_PRIVATE_NET_TEST_BINARY="${binaries[0]}" \
-            python3 -B -m unittest discover -s skills/run-a-private-zerone-net/scripts -p 'test_*.py' -v
-          ZERONE_SHARED_EVIDENCE_PARENT="$ZERONE_CONSENSUS_EVIDENCE/shared-participant-reports" \
-          ZERONE_SHARED_TEST_BINARY="$knowledge11" \
-            python3 -m unittest discover -s scripts -p 'test_shared_claims*.py' -v
-          ZERONE_RESEARCH_EVIDENCE_PARENT="$ZERONE_CONSENSUS_EVIDENCE/shared-participant-reports" \
-          ZERONE_RESEARCH_TEST_BINARY="$knowledge11" \
-            python3 -B -m unittest discover -s tools/research-review -p 'test_workflow_native.py' -v
-      - name: Retain consensus reports and logs
+          test -x "$RUNNER_TEMP/zerone-knowledge-11/zeroned"
+          mkdir -p "$RUNNER_TEMP/zerone-shared-workflows-evidence"
+          {
+            echo "ZERONE_SHARED_TEST_BINARY=$RUNNER_TEMP/zerone-knowledge-11/zeroned"
+            echo "ZERONE_RESEARCH_TEST_BINARY=$RUNNER_TEMP/zerone-knowledge-11/zeroned"
+            echo "ZERONE_SHARED_EVIDENCE_PARENT=$RUNNER_TEMP/zerone-shared-workflows-evidence"
+            echo "ZERONE_RESEARCH_EVIDENCE_PARENT=$RUNNER_TEMP/zerone-shared-workflows-evidence"
+          } >> "$GITHUB_ENV"
+      - name: Verify frozen development runtime
+        run: test -x "$ZERONE_SHARED_TEST_BINARY" && python3 -B -m unittest discover -s deploy/networks/zerone-dev-1 -p 'test_*.py' -v
+      - name: Verify shared claims and lost-response recovery
+        run: test -x "$ZERONE_SHARED_TEST_BINARY" && python3 -B -m unittest discover -s scripts -p 'test_shared_claims*.py' -v
+      - name: Verify native research workflow
+        run: test -x "$ZERONE_RESEARCH_TEST_BINARY" && python3 -B -m unittest discover -s tools/research-review -p 'test_workflow_native.py' -v
+      - name: Retain shared workflow observations
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: consensus-rehearsal-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/reports/**
-            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/zerone-consensus-rehearsal.*/logs/**
-            ${{ runner.temp }}/zerone-consensus-rehearsal-evidence/shared-participant-reports/**
+          name: consensus-shared-workflows-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/zerone-shared-workflows-evidence/**
           if-no-files-found: error
           retention-days: 30
 
@@ -1511,6 +1553,7 @@ jobs:
       - lint
       - test
       - consensus-rehearsal
+      - consensus-shared-workflows
       - typescript-sdk
       - frontier-intake
       - frontier-intake-macos
