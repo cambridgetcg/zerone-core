@@ -1,10 +1,10 @@
 ---
 name: run-a-private-zerone-net
 description: >-
-  Set up, check, and stop a private, valueless Zerone test network across a
+  Set up, check, stop, and leave a private, valueless Zerone test network across a
   few of the owner's own Macs (one node per Mac) with
   scripts/private-net.py. Use when an agent is asked to join, coordinate,
-  start, check, or stop a private Zerone rehearsal net (chain ids
+  start, check, stop, or leave a private Zerone rehearsal net (chain ids
   zerone-rehearsal-lan-*, -private-*, -local-*), or to rehearse one on a
   single Mac. Never use it for zerone-1, zerone-testnet-1, zerone-dev-1 or
   zerone-2; run-a-zerone-node covers those and is fail-closed.
@@ -51,7 +51,18 @@ Each Mac's **kit** contains:
   scripts, and nothing else;
 - the pinned `zeroned`;
 - that Mac's `invite-<label>.json`;
+- `YOUR-MAC.md`, a short note for the person whose Mac it is, naming their
+  seat, chain and role, the program and storage, sharing and removal;
 - a `START-HERE.md` with that Mac's commands.
+
+Give the person `YOUR-MAC.md` before setup, answer their questions, and wait
+for their agreement. The note is not consent and the tool cannot check who
+agreed. It distinguishes operator rules (including only our own Macs for now)
+from code checks. Preparing this note does not open the next beta stage.
+Its command explicitly selects the standard root; if a seat uses another
+root, explain that location and correct the removal command before agreement.
+The per-copy program size is calculated from the kit's binary; ~5 GB/node/month
+is the existing preflight planning estimate, not a measured bound or disk cap.
 
 `pn kit` writes it as one folder and checks both pinned hashes in the copy.
 Run as a script, the tool drops its own folder from Python's import path, so a
@@ -96,7 +107,7 @@ avoid this by spelling out every command with absolute paths.
      - `receive` accepts only this protocol's file names and formats, and
        moves nothing unless everything passes. It takes arrivals only, never a
        file inside the root or a git checkout.
-     - A re-sent status report, `START-HERE.md` or `NEXT.md` replaces the old
+     - A re-sent status report, `YOUR-MAC.md`, `START-HERE.md` or `NEXT.md` replaces the old
        copy. Every other file pins the chain, so `receive` never replaces it;
        it names every such clash at once.
    - Run `pn preflight --ip <this Mac's LAN IPv4>` and fix every `fail`
@@ -134,7 +145,7 @@ avoid this by spelling out every command with absolute paths.
      seats first (step 4), so each kit can name its address.
    - `pn kit --chain-id <id> --label <mac> --out ~/Desktop/zerone-kit-<mac>`
      writes each other Mac's kit: the skill folder, the pinned `zeroned`, its
-     invitation, and a `START-HERE.md` with that Mac's exact commands. The
+     invitation, `YOUR-MAC.md` for the person, and a `START-HERE.md` with that Mac's exact commands. The
      owner AirDrops the folder. `kit` refuses until the coordinator has
      seated.
 3. **Owner steps on each Mac, once its binary is pinned.** Re-run `preflight`
@@ -244,6 +255,41 @@ avoid this by spelling out every command with absolute paths.
    before `genesis_time` cannot stop at once: it takes the signal, exits at
    `genesis_time` after opening its ports for a moment, and produces no block.
    `stop` says so. Never kill it with -9.
+9. **Leave:** `pn leave --chain-id <id> --label <label>` previews every file
+   and directory it would permanently delete. It creates nothing (even with
+   an absent chain), sends no signal and needs no working binary. Read the
+   complete list with the person whose Mac it is. Only on their confirmation,
+   repeat with `--yes`; that prints the plan again, tries SIGTERM if needed,
+   checks again that the node is gone, and removes only the listed seat data.
+   - Removed: that seat's home (keys, chain data and config), its state,
+     default genesis and gentx records, PID/log, and outbox seat/status packets.
+   - Kept even for the last seat: shared `bin/`, the entire `inbox/`,
+     coordinator records (including invitations and shared genesis/network
+     files), other seats/chains and empty parent folders. The inbox may hold
+     another chain's arrivals; its names alone cannot establish ownership.
+   - This is permanent deletion, not Trash, with no undo or secure-erasure
+     guarantee. Trash would write outside the root and retain signing keys;
+     restoring those keys can double-sign. For a reversible pause use `stop`
+     instead. Never restore a seat home or reuse its chain id after leaving.
+   - Refusals: a non-private/missing root, symlink root or any link in a
+     removal path (even a link inside the root), hard-linked files, special
+     files, other-owned paths, mount boundaries, a state home/label mismatch,
+     failed process inspection, an unidentifiable running process (including
+     a missing/stale PID), a node that does not stop, or paths that change.
+     A pre-genesis sleeper may take SIGTERM but stay alive until genesis time;
+     no files are removed then. Wait and preview again; never kill -9.
+   - Run alone: no other agent may start or change that seat during removal.
+     A stopped node can have created new files since the preview; that causes
+     a refusal and needs a new preview. Deletion is not a transaction: an I/O
+     error or concurrent path change after deletion begins may leave a partial
+     removal. Stop, inspect and preview what remains; do not blindly retry.
+   - It never runs `sudo`. It prints the exact, shell-quoted
+     `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --remove <root>/bin/zeroned`
+     for the owner, who runs it only if no other seat needs that rule. It
+     does not change Local Network or VPN permissions for other apps.
+   - It cannot remove copies on other Macs, AirDrop copies in `~/Downloads`,
+     backups or the coordinator's records, or erase this seat from their
+     chain history. The owner deals with those separately; leaving is local.
 
 **Rehearse first.** `pn rehearse` runs every step on one Mac with 4 loopback
 validators and 1 full seat. It checks agreement, a transfer seen from the full

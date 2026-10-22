@@ -4,7 +4,8 @@
 
 The protocol's packets are JSON and hold no secret. All but the invitation
 contain LAN addresses. Kit folders also carry the skill, `zeroned` and a
-generated `START-HERE.md`, which names the coordinator's address. All of them
+generated `YOUR-MAC.md` for the person and `START-HERE.md` for the agent,
+which names the coordinator's address. All of them
 move only by courier.
 
 **Invitation** (`invite-<label>.json`, coordinator → one Mac, round 0)
@@ -57,8 +58,8 @@ shared, with identical hashes at every shared height.
 
 - round 0, `zerone-kit-<label>/`: the skill folder (exactly `SKILL.md`,
   `references/protocol.md` and the two scripts), the pinned `zeroned`,
-  `invite-<label>.json` and a generated `START-HERE.md` with that seat's
-  commands and the coordinator's address;
+  `invite-<label>.json`, a generated `YOUR-MAC.md` for the person, and a
+  `START-HERE.md` with that seat's commands and the coordinator's address;
 - round 2, `zerone-round2-<label>/`: `genesis-<chain>.json`,
   `network-<chain>.json` and a generated `NEXT.md`. The network packet carries
   the coordinator's own `genesis_sha256`, and the genesis can be hashed, so
@@ -71,6 +72,51 @@ agent's shell may keep no function or working directory between calls.
 
 `receive` takes these folders, or single files, into the inbox.
 
+`YOUR-MAC.md` is generated from the seat invitation and binary byte size. It
+describes the validator/full-seat distinction, background lifetime, default
+storage paths, estimated growth (not a cap), public data and handshake leakage,
+the readiness check's time-server/router traffic, and local removal. It names
+operator promises as promises, not enforcement. Read it with the person before
+setup; the tool does not authenticate their consent. Like the other pages it
+is replaceable on receipt, not signed evidence. It contains only one command,
+a `leave` preview with explicit default root/chain/label; a nonstandard root
+needs a corrected command before agreement. Admission and the beta stage are
+unchanged: only our own Macs, pending separate gates and authorization.
+
+## Local departure
+
+`leave --chain-id <id> --label <label>` is read-only unless the owner confirms
+with `--yes`. It lists each file and directory, not just a recursive wildcard.
+It removes the seat home, the seat's state/default-genesis/gentx records,
+PID/log, and outbox seat/status packets. Shared `bin/` and the whole `inbox/`
+stay even for the last chain; the tool cannot assign every arrival to a seat
+from its filename. Coordinator homes, invitations and shared genesis/network
+records, other seats/chains, and empty parent folders stay too. It cannot
+retract history or remove other Macs' copies, Downloads/AirDrop copies or
+backups. These are listed in its output, along with the exact firewall-removal
+command for the owner; it never executes sudo or edits other apps' permissions.
+
+Deletion is permanent, not Trash: no write outside the root, and no retained
+signing keys presented as safe to restore. Use `stop` for a reversible pause.
+Deletion is not secure erasure and cannot defeat backups or snapshots. A new
+invitation on a new chain, not restoration of keys, is the way back.
+
+The leave layout creates nothing. Traversal uses directory descriptors rooted
+at the checked root and `O_NOFOLLOW`; stat checks reject symlinks, hard-linked
+files, special files, other owners and filesystem crossings before any signal
+or deletion. The state home must be exactly the computed seat home, never a
+removal path supplied by JSON. Only the state/PID contents are read; a seat
+home is inventoried by names and inode identities, not by reading keys.
+Process inspection must succeed; a home match without an exact PID/command
+match refuses, including a lost PID file. The same SIGTERM-only stop helper as
+`stop` runs on the checked records, followed by another process check and an
+inventory comparison. A node still sleeping until genesis time, a restart,
+or a changed inventory prevents deletion. Every removal rechecks the inode
+through a no-follow parent descriptor. This is not isolation from a hostile
+same-user writer, and there is no multi-file transaction: run alone, and after
+a partial I/O failure inspect and preview the remainder rather than retrying
+blindly. Other commands retain the existing single-agent-per-seat convention.
+
 ## Checks, by step
 
 | Step | Refuses when |
@@ -80,13 +126,14 @@ agent's shell may keep no function or working directory between calls.
 | `binary` | no expected hash (`--invite` or `--sha256`); sha256 differs; the binary does not run on this Mac (exec fails, or `zeroned version` exits non-zero or is killed at exec, as for a code signature macOS rejects); a different binary is already pinned; `bin/zeroned` and `bin/zeroned.json` do not exist together |
 | `invite` | a validator without a positive stake; that seat's invitation already exists. It does not refuse a pin signed `a.out` on a `-lan-` or `-private-` chain, but adds a `warning`: every seat inherits that identifier and cannot change it (`kit` repeats the warning) |
 | `kit` | the folder exists or is inside the root (compared case-insensitively); it cannot be written (the refusal says to choose another `--out`); round 0: no invitation for the seat, the seat is the coordinator, the coordinator has not seated yet, or the pinned binary or this tool is not the one the invitation names; the copied `zeroned` or `private-net.py` does not hash to the invitation's values; round 2: no genesis or network packet yet, the seat is the coordinator or not in the packet, or the outbox genesis does not hash to the packet's value. A refused kit leaves no folder behind |
-| `receive` | a source inside the root, or inside a git checkout other than the home folder; a name outside the protocol's (`invite-`, `seat-`, `status-`, `genesis-` or `network-` JSON, `zeroned`, `START-HERE.md`, `NEXT.md`, the skill folder); a symlink anywhere, `.DS_Store` and `__pycache__` included; a JSON file of the wrong format, or a genesis for another chain; a skill folder holding anything beyond `SKILL.md`, `references/protocol.md` and the two scripts, or lacking `SKILL.md` or the tool; an oversized file; the inbox holding a different file of a name that pins the chain (every such name is listed at once). A different status report, `START-HERE.md` or `NEXT.md` replaces the old copy. Every check runs before anything moves |
+| `receive` | a source inside the root, or inside a git checkout other than the home folder; a name outside the protocol's (`invite-`, `seat-`, `status-`, `genesis-` or `network-` JSON, `zeroned`, `YOUR-MAC.md`, `START-HERE.md`, `NEXT.md`, the skill folder); a symlink anywhere, `.DS_Store` and `__pycache__` included; a JSON file of the wrong format, or a genesis for another chain; a skill folder holding anything beyond `SKILL.md`, `references/protocol.md` and the two scripts, or lacking `SKILL.md` or the tool; an oversized file; the inbox holding a different file of a name that pins the chain (every such name is listed at once). A different status report, `YOUR-MAC.md`, `START-HERE.md` or `NEXT.md` replaces the old copy. Every check runs before anything moves |
 | `seat` | invitation's tool or binary hash differs from this Mac's; a flag disagrees with the invitation; seat home exists; P2P port outside 1024-65534 (RPC takes the next port); IP is not an IPv4 literal held by this Mac; on a `-local-` chain, any IP but loopback (`127.0.0.1`); on a `-lan-` chain, an IP outside 10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16 (a `-private-` chain also accepts 100.64.0.0/10); a validator without a positive stake |
 | `genesis` | a packet has the wrong format, chain, binary or tool; a gentx memo, stake, consensus key or validator address does not match its packet; duplicate labels, node ids, endpoints, consensus keys or operator addresses; no validators; the coordinator's own packet is missing; a seat endpoint outside the chain's address ranges (as for `seat`); on a `-lan-` or `-private-` chain, a seat packet with no invitation in the outbox, a role or stake other than its invitation's, or an invitation naming another coordinator (on a `-local-` chain an invitation is checked when present); an earlier attempt left its coordinator home, gentx directory, or outbox genesis or network file (all are named, to be moved aside only if no seat has installed); collect-gentxs drops a gentx; `genesis validate` fails; a JSON float appears (the tool rewrites genesis, so floats are refused rather than re-encoded) |
 | `install` | on a `-lan-` or `-private-` chain, no `--expect-genesis-sha256`; everything listed under "What install verifies" in SKILL.md, plus a `genesis_time` that differs from the network packet's, another seat with a malformed node id, or another seat's endpoint outside the chain's address ranges; the genesis is read once and those exact bytes are hashed, checked and installed; the config layout lacks a key the tool sets |
 | `start` | not installed; the pinned binary is not the one the seat was made with; already running; `config/genesis.json` changed since install; the seat IP is not on this Mac; a port has a live listener (TIME_WAIT is ignored, as Go's own bind does); the process exits at once |
 | `status` | the node answering on the seat's RPC port is not this seat's (another chain's node or process); with `--wait-height`, also the seat's node not running (checked on every poll). Reaching `--timeout` (default 100 s) first is not a refusal: it exits 3 with `"reached": false`, the height and the peers so far |
 | `stop` | the pid's full command line is not `<root>/bin/zeroned start --home <seat home>`; it never escalates past SIGTERM. A node sleeping before `genesis_time` takes the signal but exits only at `genesis_time` (opening its ports for a moment, producing no block), and `stop` says so |
+| `leave` | root missing/non-private or a symlink; invalid chain/label; links (including internal symlinks and hard links), special files, other-owned paths or mount boundaries; state home/label differs; process inspection fails or cannot identify the running seat; SIGTERM does not stop it; it is running on the second check; inventory/inode changes. No mutation without `--yes`; no deletion while a stop is unproven. See Local departure for retained files and partial-failure limits |
 | `rehearse` | chain id not `zerone-rehearsal-local-*` or its directory already exists; a node cannot be stopped (the directory is then kept and the run fails) |
 
 ## Threat model, briefly

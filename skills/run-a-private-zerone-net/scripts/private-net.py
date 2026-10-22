@@ -4,7 +4,7 @@
 Protocol zerone-private-net/v1. One coordinator, N seats (one seat per Mac in normal use).
 Keys are born on their seat and never move. Only public files travel, each pinned by sha256:
 
-  round 0  coordinator ──kit (skill, zeroned, invite-<label>.json, START-HERE.md)──▶ each Mac
+  round 0  coordinator ──kit (skill, zeroned, invitation, YOUR-MAC.md, START-HERE.md)──▶ each Mac
   round 1  seat     ──seat-<label>.json──▶ coordinator
   round 2  coordinator ──genesis-<chain>.json + network-<chain>.json + NEXT.md──▶ every seat
 
@@ -20,6 +20,7 @@ Subcommands (`private-net.py <command> --help` for details):
   genesis     coordinator only: build genesis + network packet from every seat packet
   install     verify the genesis and network packet, then write this seat's node config
   start/stop  run or stop this seat's node (detached; stop checks the exact command line)
+  leave       preview local seat removal; --yes stops it and permanently deletes the listed files
   status      this seat's view of the chain as JSON (--wait-height waits for blocks)
   compare     compare status reports from several seats
   send        one test transfer from this seat's operator key; balance reads one back
@@ -41,6 +42,7 @@ if __name__ == "__main__" and sys.path and \
     del sys.path[0]
 
 import argparse
+import contextlib
 import datetime
 import errno
 import hashlib
@@ -58,6 +60,7 @@ import subprocess
 import time
 import urllib.error
 import urllib.request
+from typing import Union
 
 SEAT_FORMAT = "zerone-private-net-seat/v1"
 NETWORK_FORMAT = "zerone-private-net/v1"
@@ -98,9 +101,9 @@ SKILL_FILES = ("SKILL.md", os.path.join("references", "protocol.md"),
                os.path.join("scripts", "private-net.py"), os.path.join("scripts", "test_private_net.py"))
 # Everything a courier may carry into an inbox. Anything else is refused by `receive`.
 COURIER_NAME_RE = re.compile(r"(invite|seat|status)-(?:%s)\.json|(genesis|network)-(?:%s)\.json"
-                             r"|zeroned|START-HERE\.md|NEXT\.md" % (LABEL_RE.pattern, CHAIN_RE.pattern))
+                             r"|zeroned|YOUR-MAC\.md|START-HERE\.md|NEXT\.md" % (LABEL_RE.pattern, CHAIN_RE.pattern))
 # Reports and pages that may be re-sent within one chain; every other arrival pins something.
-REPLACEABLE_RE = re.compile(r"status-.*\.json|START-HERE\.md|NEXT\.md")
+REPLACEABLE_RE = re.compile(r"status-.*\.json|YOUR-MAC\.md|START-HERE\.md|NEXT\.md")
 MAX_COURIER_JSON = 16 << 20
 MAX_COURIER_BINARY = 1 << 30
 
@@ -464,20 +467,25 @@ def probe_tcp(ip, port, timeout=2.0):
 # ── layout ─────────────────────────────────────────────────────────────────────
 
 class Layout:
-    def __init__(self, root, chain_id=None):
-        self.root = check_private_dir(root)
+    def __init__(self, root, chain_id=None, create=True):
+        self.root = check_private_dir(root, create=create)
+
+        def directory(*parts):
+            path = os.path.join(self.root, *parts)
+            return check_private_dir(path) if create else path
+
         self.bin_dir = os.path.join(self.root, "bin")
         self.binary = os.path.join(self.bin_dir, "zeroned")
         self.binary_record = os.path.join(self.bin_dir, "zeroned.json")
-        self.inbox = check_private_dir(os.path.join(self.root, "inbox"))
+        self.inbox = directory("inbox")
         self.chain_id = chain_id
         if chain_id:
             check_chain_id(chain_id)
-            nets = check_private_dir(os.path.join(self.root, "nets"))
-            self.chain_dir = check_private_dir(os.path.join(nets, chain_id))
-            self.outbox = check_private_dir(os.path.join(self.chain_dir, "outbox"))
-            self.run_dir = check_private_dir(os.path.join(self.chain_dir, "run"))
-            self.seats_dir = check_private_dir(os.path.join(self.chain_dir, "seats"))
+            directory("nets")
+            self.chain_dir = directory("nets", chain_id)
+            self.outbox = directory("nets", chain_id, "outbox")
+            self.run_dir = directory("nets", chain_id, "run")
+            self.seats_dir = directory("nets", chain_id, "seats")
 
     def seat_home(self, label):
         return os.path.join(self.seats_dir, check_label(label))
@@ -1233,6 +1241,78 @@ PAGE_ROOT_NOTE = ("The commands assume this Mac's root is `%s`. If `ZERONE_PRIVA
                   "instead everywhere." % DEFAULT_ROOT)
 
 
+def your_mac_text(inv, binary_bytes):
+    """A person's note, not agent instructions. Round 0 cannot know the final peer list yet."""
+    label, chain = inv["label"], inv["chain_id"]
+    if inv["role"] == "validator":
+        role = ("Your Mac is a validator: it votes on blocks. Keep it awake and connected while you agree to "
+                "help run the chain; leaving or sleeping may halt it for everyone. You can still leave.")
+    else:
+        role = ("Your Mac is a full seat: it checks and relays blocks but does not vote. "
+                "It can sleep or leave without taking away a validator's vote; it must catch up when restarted.")
+    command = page_cmd("--root", DEFAULT_ROOT, "leave", "--chain-id", chain, "--label", label)
+    return """# Your Mac: {label}
+
+Seat {label}, chain {chain}, coordinator seat {coordinator}.
+You can decline, pause or leave. Only our own Macs for now is an operator rule;
+this note does not open the beta to other people.
+
+What runs
+
+A program called zeroned keeps this test chain's data. Your helper starts it
+after you agree; the program does not check that agreement. It runs in the
+background after Terminal closes, until stopped, it exits, or the Mac shuts
+down. This kit installs no login or automatic-restart service.
+{role} Running it uses storage, network traffic, memory and electricity.
+
+What stays here
+
+The standard folder is {root}, outside your home folder and restricted to
+your login: bin/ holds the program, inbox/ the delivered files, and
+nets/{chain}/seats/{label}/ the keys and chain data. Seat records sit beside
+that folder; logs are in nets/{chain}/run/.
+The delivered and installed program copies are about {mib} MiB each. Allow
+roughly 5 GB per running month: a planning estimate, not a measurement or
+limit. There is no disk cap on growing data/logs. Software using your login
+can read these files too.
+
+What is shared
+
+The coordinator and other seats receive your label, network address, public
+identifiers and, for a validator, test account and voting weight. Seats exchange
+blocks, votes and test transactions; shared status reports show progress and
+peers. Generated public packets contain no private keys or personal documents.
+Never put private material in a transaction.
+Peer connections use the listed seats' identities and private addresses. The
+operator must show you that list; code cannot tell whose Macs they are or
+whether they are on our home network. Even refused connections can learn the
+label, node id, chain id and software version. Local controls listen only on
+this Mac; web API and gRPC are off. The readiness check asks time.apple.com for
+the time and probes the router or named peers.
+This is not money, a bridge or a sign-up service. Keeping the test valueless
+and never bridging it are operator rules, not code guarantees.
+
+Leaving
+
+Ask your helper, or preview every seat file it would permanently delete in
+Terminal (nothing stops or changes):
+
+    {command}
+
+Only if you agree, repeat with --yes added. It tries to stop the node and
+refuses deletion if stopping is unproven. Deletion is not Trash: no undo.
+It refuses links and paths outside the root. Shared bin/ and inbox/ stay,
+even for the last seat, as do coordinator records and empty parent folders.
+Copies on other Macs, AirDrop copies in ~/Downloads and backups remain.
+It prints your firewall-removal command but never runs sudo; keep that rule
+if another seat needs it. Other apps' network permissions are unchanged.
+For a different root folder, ask for a corrected removal command before
+agreeing. Do not restore old signing keys or reuse this chain id; rejoin
+with a fresh invitation on a new chain.
+""".format(label=label, chain=chain, coordinator=inv["coordinator"], role=role,
+           root=DEFAULT_ROOT, mib=(binary_bytes + (1 << 20) - 1) // (1 << 20), command=command)
+
+
 def start_here_text(inv, coord_endpoint, folder, created):
     label, chain, root, skill = inv["label"], inv["chain_id"], DEFAULT_ROOT, SKILL_NAME
     inbox = root + "/inbox"
@@ -1243,7 +1323,8 @@ def start_here_text(inv, coord_endpoint, folder, created):
 Written by `private-net.py kit` on the coordinator at {created}.
 This page is peer information: the owner is the authority, and
 `{skill}/SKILL.md` is the protocol. This page gives only what is specific to
-this Mac.
+this Mac. First give the person whose Mac it is `YOUR-MAC.md`; answer their
+questions and wait for their agreement before setup. The note is not consent.
 
 - **This Mac:** seat `{label}`, {seat}.
 - **Coordinator:** seat `{coordinator}` at {endpoint}.
@@ -1452,7 +1533,8 @@ def kit_round0(lay, label):
                       "that wrote it" % (tool_sha256()[:12], inv["tool_sha256"][:12]))
     with open(path, "rb") as f:
         inv_bytes = f.read()
-    files = [(os.path.join(SKILL_NAME, rel), full, 0o644) for rel, full in skill_files()]
+    files: list[tuple[str, Union[str, bytes], int]] = [
+        (os.path.join(SKILL_NAME, rel), full, 0o644) for rel, full in skill_files()]
     files += [("zeroned", binary, 0o755), (os.path.basename(path), inv_bytes, 0o644)]
     expect = {os.path.join(SKILL_NAME, "scripts", "private-net.py"): inv["tool_sha256"],
               "zeroned": inv["binary_sha256"]}
@@ -1489,11 +1571,13 @@ def cmd_kit(a):
     folder, created = os.path.basename(real), iso(now_utc())
     if a.round == 0:
         inv, coord_endpoint, files, expect = kit_round0(lay, a.label)
+        files.append(("YOUR-MAC.md", your_mac_text(inv, os.path.getsize(lay.binary)).encode("utf-8"), 0o644))
         files.append(("START-HERE.md", start_here_text(inv, coord_endpoint, folder, created).encode("utf-8"), 0o644))
         write_courier_dir(real, files, expect)
         out = {"kit": real, "round": 0, "label": a.label, "files": sorted(rel for rel, _, _ in files),
                "binary_sha256": inv["binary_sha256"], "tool_sha256": inv["tool_sha256"],
-               "next": "the owner AirDrops this folder to %s; the agent there follows START-HERE.md" % a.label}
+               "next": ("the owner AirDrops this folder to %s; the person reads YOUR-MAC.md before agreeing, "
+                        "then the agent follows START-HERE.md" % a.label)}
         warning = aout_pin_warning(lay)
         if warning:
             out["warning"] = warning
@@ -1588,7 +1672,7 @@ def arrival_hash(src, name):
         return tree_hashes(src)
     if not COURIER_NAME_RE.fullmatch(name):
         raise Refusal("%s is not a file this protocol couriers (expected invite-, seat-, status-, genesis- or "
-                      "network- JSON, zeroned, START-HERE.md, NEXT.md or the %s folder)" % (src, SKILL_NAME))
+                      "network- JSON, zeroned, YOUR-MAC.md, START-HERE.md, NEXT.md or the %s folder)" % (src, SKILL_NAME))
     limit = MAX_COURIER_BINARY if name == "zeroned" else MAX_COURIER_JSON
     if os.path.getsize(src) > limit:
         raise Refusal("%s is larger than any %s this protocol couriers" % (src, name))
@@ -1871,19 +1955,16 @@ def cmd_start(a):
     return 0
 
 
-def stop_seat(lay, label, binary, timeout=30):
-    state = load_json(lay.seat_state(label), allow_floats=True)
-    pid = owned_pid(lay, label, binary, state["home"])
-    if not pid:
+def stop_process(label, pid, expected_command, gtime=None, timeout=30):
+    """Stop only an exact command match; no file reads or writes, and no escalation."""
+    if pid <= 1 or pid_command(pid) != expected_command:
         raise Refusal("no running node owned by seat %s (pid file missing or command line differs)" % label)
     os.kill(pid, signal.SIGTERM)
     deadline = time.time() + timeout
     while time.time() < deadline:
         if not pid_command(pid):
-            os.unlink(lay.pid_file(label))
             return pid
         time.sleep(0.5)
-    gtime = state.get("genesis_time")
     if gtime and datetime.datetime.strptime(gtime, "%Y-%m-%dT%H:%M:%SZ").replace(
             tzinfo=datetime.timezone.utc) > now_utc():
         # zeroned takes SIGTERM during its sleep before genesis_time but acts on it only then.
@@ -1893,11 +1974,194 @@ def stop_seat(lay, label, binary, timeout=30):
     raise Refusal("node %s (pid %d) did not stop within %ds; it was not killed" % (label, pid, timeout))
 
 
+def stop_seat(lay, label, binary, timeout=30):
+    state = load_json(lay.seat_state(label), allow_floats=True)
+    pid = owned_pid(lay, label, binary, state["home"])
+    if not pid:
+        raise Refusal("no running node owned by seat %s (pid file missing or command line differs)" % label)
+    stop_process(label, pid, "%s start --home %s" % (binary, state["home"]), state.get("genesis_time"), timeout)
+    os.unlink(lay.pid_file(label))
+    return pid
+
+
 def cmd_stop(a):
     lay = Layout(a.root, a.chain_id)
     # Only the path matters for the command-line match, so stop works even if the pin changed.
     emit({"stopped": a.label, "pid": stop_seat(lay, a.label, lay.binary)})
     return 0
+
+
+# ── leaving: no creation, no link following, no shared-root cleanup ─────────────
+
+def leave_identity(st):
+    return st.st_dev, st.st_ino, stat.S_IFMT(st.st_mode)
+
+
+def leave_stat(parent, name, device):
+    st = os.stat(name, dir_fd=parent, follow_symlinks=False)
+    if stat.S_ISLNK(st.st_mode):
+        raise Refusal("leave refuses symlinks (including links outside the root): %s" % name)
+    if st.st_dev != device or st.st_uid != os.getuid():
+        raise Refusal("leave refuses a mount or a path owned by another user: %s" % name)
+    if not (stat.S_ISDIR(st.st_mode) or stat.S_ISREG(st.st_mode)):
+        raise Refusal("leave accepts only plain files and directories: %s" % name)
+    if stat.S_ISREG(st.st_mode) and st.st_nlink != 1:
+        raise Refusal("leave refuses hard-linked files: %s" % name)
+    return st
+
+
+@contextlib.contextmanager
+def leave_parent(root_fd, rel):
+    """Walk from the open root without following any link, including a swapped ancestor.
+    All reads/unlinks/rmdirs below use these directory descriptors, never resolved strings.
+    """
+    parts = rel.split(os.sep)
+    if os.path.isabs(rel) or any(p in ("", ".", "..") for p in parts):
+        raise Refusal("leave path is outside the root or not canonical: %s" % rel)
+    fd = os.dup(root_fd)
+    try:
+        for part in parts[:-1]:
+            before = leave_stat(fd, part, os.fstat(root_fd).st_dev)
+            nxt = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            os.close(fd)
+            fd = nxt
+            if leave_identity(os.fstat(fd)) != leave_identity(before):
+                raise Refusal("leave path changed during inspection; nothing more will be removed")
+        yield fd, parts[-1]
+    finally:
+        os.close(fd)
+
+
+def leave_snapshot(root_fd, targets):
+    """Exact names and inode identities; never read the contents of a seat home."""
+    found = {}
+
+    def visit(rel):
+        try:
+            with leave_parent(root_fd, rel) as (parent, name):
+                st = leave_stat(parent, name, os.fstat(root_fd).st_dev)
+                found[rel] = leave_identity(st)
+                if stat.S_ISDIR(st.st_mode):
+                    fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+                    try:
+                        if leave_identity(os.fstat(fd)) != found[rel]:
+                            raise Refusal("leave path changed during inspection: %s" % rel)
+                        children = sorted(os.listdir(fd))
+                    finally:
+                        os.close(fd)
+                    for child in children:
+                        visit(os.path.join(rel, child))
+        except FileNotFoundError:
+            return  # missing/incomplete seats need no directories created
+
+    for rel in targets:
+        visit(rel)
+    return found
+
+
+def leave_read(root_fd, rel, identity):
+    """Read only the small state/PID records, through the same no-follow guard."""
+    with leave_parent(root_fd, rel) as (parent, name):
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
+        with os.fdopen(fd, "rb") as f:
+            st = os.fstat(f.fileno())
+            if leave_identity(st) != identity or not stat.S_ISREG(st.st_mode) or st.st_size > MAX_COURIER_JSON:
+                raise Refusal("leave record changed or is not a small plain file: %s" % rel)
+            return f.read(MAX_COURIER_JSON + 1)
+
+
+def leave_processes(home):
+    """Fail closed if ps fails; also find a node whose PID record was lost or changed.
+    ps does not quote paths containing spaces, so an ambiguous home match is refused,
+    never used to choose a process to signal.
+    """
+    found = {}
+    for line in run(["ps", "-axww", "-o", "pid=,command="]).splitlines():
+        parts = line.strip().split(None, 1)
+        if len(parts) == 2 and home in parts[1]:
+            found[int(parts[0])] = parts[1]
+    return found
+
+
+def leave_remove(root_fd, snapshot):
+    # Children first; every syscall is relative to a freshly guarded parent descriptor.
+    # Never chmod, overwrite, use rmtree, or cross into another filesystem.
+    for rel in sorted(snapshot, key=lambda p: (-p.count(os.sep), p)):
+        with leave_parent(root_fd, rel) as (parent, name):
+            st = leave_stat(parent, name, os.fstat(root_fd).st_dev)
+            if leave_identity(st) != snapshot[rel]:
+                raise Refusal("leave path changed; stopped removing at %s (earlier removals are permanent)" % rel)
+            if stat.S_ISDIR(st.st_mode):
+                os.rmdir(name, dir_fd=parent)
+            else:
+                os.unlink(name, dir_fd=parent)
+
+
+def cmd_leave(a):
+    check_chain_id(a.chain_id)
+    check_label(a.label)
+    if os.path.islink(os.path.normpath(a.root)):
+        raise Refusal("leave refuses a symlink root")
+    lay = Layout(a.root, a.chain_id, create=False)
+    home = lay.seat_home(a.label)
+    paths = [home] + [lay.seat_file(a.label, kind) for kind in ("state", "default-genesis", "gentx")]
+    paths += [lay.pid_file(a.label), lay.log_file(a.label)]
+    paths += [os.path.join(lay.outbox, "%s-%s.json" % (kind, a.label)) for kind in ("seat", "status")]
+    targets = [os.path.relpath(p, lay.root) for p in paths]
+    state_rel = os.path.relpath(lay.seat_file(a.label, "state"), lay.root)
+    pid_rel = os.path.relpath(lay.pid_file(a.label), lay.root)
+    root_fd = os.open(lay.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        plan = leave_snapshot(root_fd, targets)
+        state = {}
+        if state_rel in plan:
+            state = parse_json(leave_read(root_fd, state_rel, plan[state_rel]), allow_floats=True)
+            if state.get("home") != home or state.get("label") != a.label:
+                raise Refusal("leave state home/label differs from this seat (outside-root paths are refused)")
+        running = leave_processes(home)
+        pid = int(leave_read(root_fd, pid_rel, plan[pid_rel]).strip()) if pid_rel in plan else None
+        expected = "%s start --home %s" % (lay.binary, home)
+        if running and (pid is None or running != {pid: expected} or state_rel not in plan):
+            raise Refusal("leave cannot safely identify the running seat; missing/stale PID or unexpected command; "
+                          "no signal or removal attempted")
+        result = {
+            "label": a.label, "chain_id": a.chain_id, "dry_run": not a.yes,
+            "would_remove": [{"path": os.path.join(lay.root, p),
+                              "kind": "directory" if ident[2] == stat.S_IFDIR else "file"}
+                             for p, ident in sorted(plan.items())],
+            "would_stop_pid": pid if running else None,
+            "kept": [lay.bin_dir, lay.inbox, "coordinator records, other seats/chains and empty parent folders"],
+            "cannot_remove": ["copies on other Macs", "AirDrop copies in ~/Downloads", "backups",
+                              "the coordinator's records", "macOS Local Network or VPN permissions"],
+            "firewall_command_for_owner": "sudo %s --remove %s" % (SOCKETFILTERFW, shlex.quote(lay.binary)),
+            "warning": ("Permanent deletion, not Trash; no undo or secure-erasure guarantee. Shared bin/ and inbox/ "
+                        "stay even after the last seat. Only remove the firewall rule if no other seat needs it. "
+                        "Do not restore signing keys or reuse this chain id; rejoin on a new chain."),
+        }
+        if not a.yes:
+            result["next"] = "Review every path; only the Mac owner may confirm by repeating with --yes."
+            emit(result)
+            return 0
+        # Show the exact plan before the first side effect, including if stopping later refuses.
+        print(json.dumps(result, indent=2), file=sys.stderr, flush=True)
+        if running:
+            # The stop uses only the guarded records already read, never a path from a fresh JSON read.
+            if leave_snapshot(root_fd, targets) != plan:
+                raise Refusal("leave paths changed; run the preview again")
+            stop_process(a.label, pid, expected, state.get("genesis_time"))
+        if leave_processes(home):
+            raise Refusal("seat is still running after the stop attempt; no seat files removed")
+        remaining = leave_snapshot(root_fd, targets)
+        if remaining != plan:
+            raise Refusal("leave paths changed while stopping; node may be stopped, but no further files removed; "
+                          "run the preview again")
+        leave_remove(root_fd, remaining)
+        result["removed"] = [entry["path"] for entry in result["would_remove"]]
+        result["stopped_pid"] = pid if running else None
+        emit(result)
+        return 0
+    finally:
+        os.close(root_fd)
 
 
 def installed_state(lay, label):
@@ -2221,7 +2485,7 @@ def main(argv=None):
     p.add_argument("--label", required=True, help="the seat the folder is for")
     p.add_argument("--out", required=True, help="a new folder outside the root, e.g. ~/Desktop/zerone-kit-<label>")
     p.add_argument("--round", type=int, choices=[0, 2], default=0,
-                   help="0: skill, zeroned, invitation, START-HERE.md; 2: genesis, network packet, NEXT.md")
+                   help="0: skill, zeroned, invitation, YOUR-MAC.md, START-HERE.md; 2: genesis, network packet, NEXT.md")
     p.set_defaults(fn=cmd_kit)
 
     p = sub.add_parser("receive", help="move couriered files or a kit folder into the inbox")
@@ -2258,6 +2522,12 @@ def main(argv=None):
         p.add_argument("--chain-id", required=True)
         p.add_argument("--label", required=True)
         p.set_defaults(fn=fn)
+
+    p = sub.add_parser("leave", help="preview seat removal; only --yes stops and permanently deletes it")
+    p.add_argument("--chain-id", required=True)
+    p.add_argument("--label", required=True)
+    p.add_argument("--yes", action="store_true", help="owner confirms permanent deletion of the listed seat files")
+    p.set_defaults(fn=cmd_leave)
 
     p = sub.add_parser("status", help="this seat's view of the chain")
     p.add_argument("--chain-id", required=True)
