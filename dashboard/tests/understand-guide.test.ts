@@ -38,10 +38,23 @@ describe("shared explanatory guide", () => {
     assert.equal(today.rows[0].availability, node.live.availability);
     assert.equal(today.rows[1].availability, node.live.replicaInstallation.availability);
     assert.equal(today.rows[2].availability, node.local.availability);
-    assert.equal(today.rows[3].availability, node.live.newAccountAdmission.availability);
+    assert.equal(today.rows[3].availability, node.privateNetwork.availability);
+    assert.equal(today.rows[4].availability, node.live.newAccountAdmission.availability);
     assert.equal(today.freshNetworkCheck, false);
     assert.equal(today.availabilityKind, "build-time-declaration");
     assert.doesNotMatch(understandPage(guide), /href="https:\/\/zerone\.ai\/nodes\/#observer"/u);
+  });
+
+  it("lists the closed beta on our own Macs with the node guide's own words", () => {
+    const { node, guide } = build();
+    const beta = guide.sections[5].rows[3];
+    assert.equal(beta.availability, "closed-beta");
+    assert.ok(beta.text.startsWith(node.privateNetwork.whoCanJoin));
+    assert.match(beta.text, /valueless/u);
+    assert.equal(beta.link.url, "https://zerone.ai/nodes/#beta");
+    const html = understandPage(guide);
+    assert.ok(html.includes('href="https://zerone.ai/nodes/#beta"'));
+    assert.match(html, /data-availability="closed-beta">closed beta</u);
   });
 
   it("carries a published bootstrap deadline without turning publication into a fresh readiness check", () => {
