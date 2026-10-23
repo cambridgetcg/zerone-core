@@ -559,7 +559,7 @@ class Courier(unittest.TestCase):
                          "this seat's keys are already gone", "kit folders still in Downloads", "earlier deletions are permanent",
                          "only your account can open them, but any program running as you can read them",
                          "To leave, pause first",
-                         "including the program itself, still has this seat's files open",
+                         "including the program itself, still has this seat's keys or data",
                          "it refuses and deletes nothing",
                          "Before setup, deleting the kit is all declining needs", "doesn't undo permissions or network settings",
                          "restore previous Mullvad, router and Wi-Fi settings", "only if nothing else needs them",

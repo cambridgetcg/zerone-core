@@ -278,8 +278,8 @@ avoid this by spelling out every command with absolute paths.
    first: if any process, the node included, has a file open under the seat
    home, both the preview and `--yes` refuse before any signal. Only on their
    confirmation, repeat with `--yes` at the end. That prints the current
-   inventory, sends SIGTERM to a recorded node still running with no seat file
-   open, proves the node is gone, then takes a fresh guarded
+   inventory, sends SIGTERM to a recorded node still running with no file
+   open under the seat home, proves the node is gone, then takes a fresh guarded
    inventory and removes whatever is then in this seat's own paths. The preview
    shows what is there now, not a binding list: new files and shutdown writes
    inside those paths are included. It still refuses links, special files and

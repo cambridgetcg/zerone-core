@@ -1317,12 +1317,12 @@ helper (nothing changes):
     {leave}
 
 If you agree, repeat it with `--yes` at the end of the leave command. If
-anything, including the program itself, still has this seat's files open, it
-refuses and deletes nothing; close those first. Otherwise it permanently
-deletes this seat's files, including its keys, data, logs and any new files
-since the preview. Unsafe files cause a refusal. This is not Trash and there
-is no undo. If removal stops partway, earlier deletions are permanent;
-preview again with your helper.
+anything, including the program itself, still has this seat's keys or data
+open, it refuses and deletes nothing. Otherwise it permanently deletes this
+seat's files, including its keys, data, logs and any new files since the
+preview. Unsafe files cause a refusal. This is not Trash and there is no
+undo. If removal stops partway, earlier deletions are permanent; preview
+again with your helper.
 
 Shared program and setup files stay. After success, if this was the last
 seat on this Mac, run the printed `firewall_command_for_mac_person` first.
