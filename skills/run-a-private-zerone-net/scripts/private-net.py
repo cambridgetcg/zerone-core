@@ -1244,8 +1244,8 @@ def your_mac_text(inv, binary_bytes):
     """A person's note, not agent instructions. Round 0 cannot know the final peer list yet."""
     label, chain = inv["label"], inv["chain_id"]
     if inv["role"] == "validator":
-        role = ("Your Mac is a validator: it votes. Sleep, restart, pausing or leaving may\n"
-                "stall the test. Keep it awake and connected.")
+        role = ("Your Mac is a validator: it votes on the shared record. Sleep, restart,\n"
+                "pausing or leaving may stall the test. Keep it awake and connected.")
     else:
         role = ("Your Mac is a full seat: it checks and passes on the record but does not\n"
                 "vote. When restarted, it catches up by itself.")
@@ -1255,7 +1255,7 @@ def your_mac_text(inv, binary_bytes):
 Yu, the operator, is testing Zerone, a blockchain, on a private network
 of their own Macs. Your Mac would run the program zeroned, keeping a copy
 of the shared record. A "seat" means this Mac ({label}). Your helper is
-the operator's AI agent. The kit holds the setup files.
+the operator's AI agent. The kit is a folder of setup files.
 
 For now only the operator's own Macs take part; other people's Macs cannot
 join yet. If this Mac isn't one of the operator's, stop here: this note

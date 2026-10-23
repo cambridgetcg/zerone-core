@@ -532,7 +532,7 @@ class Courier(unittest.TestCase):
             plain = " ".join(note.split())
             for text in ("this Mac (" + label + ")", CHAIN, "Your Mac is a " + role,
                          "Yu, the operator, is testing Zerone, a blockchain", "copy of the shared record",
-                         'A "seat" means this Mac', "helper is the operator's AI agent", "kit holds the setup files",
+                         'A "seat" means this Mac', "helper is the operator's AI agent", "kit is a folder of setup files",
                          "only the operator's own Macs",
                          "other people's Macs cannot join yet", "stop here: this note doesn't invite it",
                          "20 GiB of free storage", "admin password", "firewall", "Local Network permission", "Mullvad",
