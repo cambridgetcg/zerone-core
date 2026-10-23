@@ -97,8 +97,11 @@ permissions. START-HERE, NEXT.md and install's `next` use these same roles.
 Mac it is confirms with `--yes`. It starts with a file-count/decimal-MB summary,
 the firewall command and conditional last-seat steps, then per-target totals
 and each file and directory, not a recursive wildcard.
-The preview shows what is there now, not a binding list. `--yes` stops the node
-if running, proves it is stopped, then takes a fresh guarded inventory and
+The preview shows what is there now, not a binding list. Pause the seat with
+`stop` first: any process with a file open under the seat home, the node
+included, makes both the preview and `--yes` refuse before any signal. `--yes`
+sends SIGTERM to a recorded node still running with no seat file open, proves
+it is stopped, then takes a fresh guarded inventory and
 removes whatever is then in this seat's own paths, including new files and
 shutdown writes. Links, special files and paths resolving outside those paths
 still refuse. `would_remove` describes the pre-stop inventory; `removed`, the

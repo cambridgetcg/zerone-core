@@ -552,13 +552,15 @@ class Courier(unittest.TestCase):
                          "separate from zerone's main network", "earns nothing", "operator's rule",
                          "After setup begins and the kit arrives", "To pause", "helper can restart",
                          "`--yes` at the end of the leave command", "any new files since the preview",
-                         "If it cannot prove the program stopped, it deletes nothing", "Unsafe files cause a refusal",
+                         "Unsafe files cause a refusal",
                          "not Trash", "no undo", "Shared program and setup files stay", "last seat on this Mac",
                          "`firewall_command_for_mac_person` first", "Go > Go to Folder", "select only that folder",
                          "Delete Immediately",
                          "this seat's keys are already gone", "kit folders still in Downloads", "earlier deletions are permanent",
                          "only your account can open them, but any program running as you can read them",
-                         "Open files block leaving: pause first and close programs using them",
+                         "To leave, pause first",
+                         "including the program itself, still has this seat's files open",
+                         "it refuses and deletes nothing",
                          "Before setup, deleting the kit is all declining needs", "doesn't undo permissions or network settings",
                          "restore previous Mullvad, router and Wi-Fi settings", "only if nothing else needs them",
                          "Other Macs' copies and backups", "Time Machine", "Never restore this seat from a backup",
@@ -567,7 +569,8 @@ class Courier(unittest.TestCase):
             self.assertLessEqual(len(note.split()), 720)  # about 700 words, with room for whole sentences
             self.assertLess(plain.index("This seat's keys are already gone"), plain.index("drag it to the Trash"))
             for jargon in ("not a binding list", "bin/ and inbox/", "bridged", "seat/test identifiers",
-                           "Links, special files and outside paths refuse", "Unproven stop:"):
+                           "Links, special files and outside paths refuse", "Unproven stop:",
+                           "Otherwise it stops the program", "If it cannot prove the program stopped"):
                 self.assertNotIn(jargon, note)
             for heading in ("Before you agree", "What runs and stays here", "What is shared", "Pause or leave"):
                 self.assertIn("\n## " + heading + "\n", note)

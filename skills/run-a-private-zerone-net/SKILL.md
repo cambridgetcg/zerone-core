@@ -274,9 +274,12 @@ avoid this by spelling out every command with absolute paths.
    command, then per-target totals and every file and
    directory it would permanently delete. It creates nothing (even with
    an absent chain), sends no signal and needs no working binary. Read the
-   complete list with the person whose Mac it is. Only on their confirmation,
-   repeat with `--yes` at the end. That prints the current inventory, tries
-   SIGTERM if needed, proves the node is gone, then takes a fresh guarded
+   complete list with the person whose Mac it is. Pause the seat with `stop`
+   first: if any process, the node included, has a file open under the seat
+   home, both the preview and `--yes` refuse before any signal. Only on their
+   confirmation, repeat with `--yes` at the end. That prints the current
+   inventory, sends SIGTERM to a recorded node still running with no seat file
+   open, proves the node is gone, then takes a fresh guarded
    inventory and removes whatever is then in this seat's own paths. The preview
    shows what is there now, not a binding list: new files and shutdown writes
    inside those paths are included. It still refuses links, special files and

@@ -20,7 +20,7 @@ Subcommands (`private-net.py <command> --help` for details):
   genesis     coordinator only: build genesis + network packet from every seat packet
   install     verify the genesis and network packet, then write this seat's node config
   start/stop  run or stop this seat's node (detached; stop checks the exact command line)
-  leave       preview local seat removal; --yes stops it and deletes a fresh seat inventory
+  leave       preview local seat removal (pause with stop first); --yes deletes a fresh seat inventory
   status      this seat's view of the chain as JSON (--wait-height waits for blocks)
   compare     compare status reports from several seats
   send        one test transfer from this seat's operator key; balance reads one back
@@ -1311,17 +1311,18 @@ or you can paste them into Terminal. To pause (your helper can restart it):
 
     {stop}
 
-To preview leaving (nothing stops or changes):
+To leave, pause first. Then preview what would be deleted, with your
+helper (nothing changes):
 
     {leave}
 
-If you agree, add `--yes` at the end of the leave command. Open files block
-leaving: pause first and close programs using them. Otherwise it stops the
-program if running. If it cannot prove the program stopped, it deletes
-nothing. It then checks and permanently deletes this seat's files, including
-its keys, data, logs and any new files since the preview. Unsafe files cause
-a refusal. This is not Trash and there is no undo. If removal stops partway,
-earlier deletions are permanent; preview again with your helper.
+If you agree, repeat it with `--yes` at the end of the leave command. If
+anything, including the program itself, still has this seat's files open, it
+refuses and deletes nothing; close those first. Otherwise it permanently
+deletes this seat's files, including its keys, data, logs and any new files
+since the preview. Unsafe files cause a refusal. This is not Trash and there
+is no undo. If removal stops partway, earlier deletions are permanent;
+preview again with your helper.
 
 Shared program and setup files stay. After success, if this was the last
 seat on this Mac, run the printed `firewall_command_for_mac_person` first.
@@ -2149,8 +2150,8 @@ def leave_open_files(home):
                               stderr=subprocess.PIPE, text=True, errors="replace",
                               env=clean_env(), timeout=30)
     except (OSError, subprocess.TimeoutExpired) as e:
-        raise Refusal("leave cannot check open files with %s; no seat files removed. "
-                      "Restore the system lsof check and preview again. (%s)" % (binary, e)) from e
+        raise Refusal("leave cannot check open files with %s (missing, not runnable or timed out); "
+                      "no seat files removed. Preview again; it needs the system lsof. (%s)" % (binary, e)) from e
     lines = proc.stdout.splitlines()
     if proc.returncode == 1 and not lines and not proc.stderr:
         return set()
@@ -2669,7 +2670,7 @@ def main(argv=None):
         p.add_argument("--label", required=True)
         p.set_defaults(fn=fn)
 
-    p = sub.add_parser("leave", help="preview seat removal; only --yes stops and permanently deletes it")
+    p = sub.add_parser("leave", help="preview seat removal (pause with stop first); only --yes permanently deletes it")
     p.add_argument("--chain-id", required=True)
     p.add_argument("--label", required=True)
     p.add_argument("--yes", action="store_true",
