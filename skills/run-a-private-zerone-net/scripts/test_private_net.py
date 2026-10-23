@@ -500,7 +500,7 @@ class Courier(unittest.TestCase):
     def test_kit_carries_exactly_the_pinned_files_and_a_start_page(self):
         out, (rc, doc, err) = self.kit()
         self.assertEqual(rc, 0, err)
-        self.assertEqual(sorted(os.listdir(out)), ["START-HERE.md", "invite-beta.json", pn.SKILL_NAME, "zeroned"])
+        self.assertEqual(sorted(os.listdir(out)), ["START-HERE.md", "YOUR-MAC.md", "invite-beta.json", pn.SKILL_NAME, "zeroned"])
         self.assertEqual(os.listdir(self.dl), ["zerone-kit-beta"])  # nothing half-built beside it
         with open(os.path.join(out, "invite-beta.json")) as f:
             inv = json.load(f)
@@ -518,6 +518,81 @@ class Courier(unittest.TestCase):
                      "%s binary --from %s/zeroned --invite %s/invite-beta.json" % (self.INBOX_TOOL, inbox, inbox),
                      "--peer 192.0.2.10:36656", "If the `firewall` check warns", "This page, the seat packet"):
             self.assertIn(text, page)
+        self.assertIn("ask the person whose Mac it is to approve that", " ".join(page.split()))
+        self.assertNotIn("ask the owner to approve", page)
+        for text in ("Yu is the operator", "Ask the person whose Mac it is to make these local changes",
+                     "that person runs the two", "that person allows the app", "that person runs `mullvad",
+                     "The operator carries", "the operator brings"):
+            self.assertIn(text, " ".join(page.split()))
+
+    def test_person_note_for_validator_and_full_seat_is_carried_and_replaceable(self):
+        rc, _, err = cli("--root", self.root, "invite", "--chain-id", CHAIN, "--coordinator-label", "alpha",
+                         "--label", "laptop", "--role", "full")
+        self.assertEqual(rc, 0, err)
+        for label, role in (("beta", "validator"), ("laptop", "full seat")):
+            out, (rc, _, err) = self.kit(label)
+            self.assertEqual(rc, 0, err)
+            note = Path(out, "YOUR-MAC.md").read_text()
+            plain = " ".join(note.split())
+            for text in ("this Mac (" + label + ")", CHAIN, "Your Mac is a " + role,
+                         "Yu, the operator, is testing Zerone, a blockchain", "copy of the shared record",
+                         'A "seat" means this Mac', "helper is the operator's AI agent", "kit is a folder of setup files",
+                         "only the operator's own Macs",
+                         "other people's Macs cannot join yet", "stop here: this note doesn't invite it",
+                         "20 GiB of free storage", "admin password", "firewall", "Local Network permission", "Mullvad",
+                         "reserved home-network address", "Private Wi-Fi Address Fixed or Off",
+                         "outside its sandbox", "zeroned also runs as you", "can read what your account can read",
+                         "operator must start a new test network", "operator promises to show you",
+                         "names and addresses before starting", "you can still say no",
+                         "program cannot check who agreed or whose Mac", "Logging out may", "shutdown or restart",
+                         "does not restart automatically", "5 GB", "estimate, not a measurement or a storage limit",
+                         "secret keys", "personal documents",
+                         "time.apple.com", "control port answers only this Mac", "web interfaces are off",
+                         "Every seat keeps a copy of the shared record",
+                         "separate from zerone's main network", "earns nothing", "operator's rule",
+                         "After setup begins and the kit arrives", "To pause", "helper can restart",
+                         "`--yes` at the end of the leave command", "any new files since the preview",
+                         "Unsafe files cause a refusal",
+                         "not Trash", "no undo", "Shared program and setup files stay", "last seat on this Mac",
+                         "`firewall_command_for_mac_person` first", "Go > Go to Folder", "select only that folder",
+                         "Delete Immediately",
+                         "this seat's keys are already gone", "kit folders still in Downloads", "earlier deletions are permanent",
+                         "only your account can open them, but any program running as you can read them",
+                         "To leave, pause first",
+                         "including the program itself, still has this seat's keys or data",
+                         "it refuses and deletes nothing",
+                         "Before setup, deleting the kit is all declining needs", "doesn't undo permissions or network settings",
+                         "restore previous Mullvad, router and Wi-Fi settings", "only if nothing else needs them",
+                         "Other Macs' copies and backups", "Time Machine", "Never restore this seat from a backup",
+                         "corrected commands before agreeing"):
+                self.assertIn(text.lower(), plain.lower())
+            self.assertLessEqual(len(note.split()), 720)  # about 700 words, with room for whole sentences
+            self.assertLess(plain.index("This seat's keys are already gone"), plain.index("drag it to the Trash"))
+            for jargon in ("not a binding list", "bin/ and inbox/", "bridged", "seat/test identifiers",
+                           "Links, special files and outside paths refuse", "Unproven stop:",
+                           "Otherwise it stops the program", "If it cannot prove the program stopped"):
+                self.assertNotIn(jargon, note)
+            for heading in ("Before you agree", "What runs and stays here", "What is shared", "Pause or leave"):
+                self.assertIn("\n## " + heading + "\n", note)
+            self.assertEqual("Keep it awake" in note, role == "validator")
+            self.assertEqual("does not vote" in plain, role == "full seat")
+            self.assertEqual("catches up by itself" in note, role == "full seat")
+            commands = [line.strip() for line in note.splitlines() if line.startswith("    python3")]
+            self.assertEqual(commands, ["%s --root %s %s --chain-id %s --label %s" %
+                                       (self.INBOX_TOOL, pn.DEFAULT_ROOT, cmd, CHAIN, label) for cmd in ("stop", "leave")])
+            self.assertNotIn("--yes", " ".join(commands))  # pause and preview, never pre-confirmed deletion
+            self.assertNotIn("sudo /", note)
+            root = os.path.join(self.base, label + "-root")
+            self.assertEqual(cli("--root", root, "receive", out)[0], 0)
+            self.assertEqual(Path(root, "inbox", "YOUR-MAC.md").read_text(), note)
+            self.assertEqual(pn.your_mac_text({"label": label, "chain_id": CHAIN, "coordinator": "alpha",
+                                             "role": "validator" if role == "validator" else "full"}, 2000000)
+                             .count("about 2 MB each"), 1)
+            self.assertIn("about 3 MB each", pn.your_mac_text({"label": label, "chain_id": CHAIN,
+                          "coordinator": "alpha", "role": "full"}, 2000001))
+        note_path = self.write(os.path.join(self.dl, "YOUR-MAC.md"), "corrected person note")
+        rc, doc, err = cli("--root", root, "receive", note_path)
+        self.assertEqual((rc, doc["replaced"]), (0, ["YOUR-MAC.md"]), err)
 
     def test_invite_and_kit_warn_about_an_a_out_pin_on_a_lan_chain(self):
         cases = ((pn.GO_DEFAULT_IDENTIFIER, CHAIN, True), (pn.SIGN_IDENTIFIER, CHAIN, False),
@@ -592,14 +667,14 @@ class Courier(unittest.TestCase):
         shutil.copytree(out, again)
         rc, doc, err = self.receive(out + "/")  # a trailing slash, as tab completion writes it
         self.assertEqual(rc, 0, err)
-        self.assertEqual(sorted(doc["received"]), ["START-HERE.md", "invite-beta.json", pn.SKILL_NAME, "zeroned"])
+        self.assertEqual(sorted(doc["received"]), ["START-HERE.md", "YOUR-MAC.md", "invite-beta.json", pn.SKILL_NAME, "zeroned"])
         self.assertFalse(os.path.exists(out))  # the emptied courier folder goes too
         inbox = os.path.join(self.root2, "inbox")
         self.assertEqual(os.stat(os.path.join(inbox, "zeroned")).st_mode & 0o777, 0o600)
         self.assertEqual(os.stat(os.path.join(inbox, pn.SKILL_NAME)).st_mode & 0o777, 0o700)
         # The same kit again is left where it is.
         rc, doc, err = self.receive(again)
-        self.assertEqual((rc, doc["received"], len(doc["already_in_inbox"])), (0, [], 4), err)
+        self.assertEqual((rc, doc["received"], len(doc["already_in_inbox"])), (0, [], 5), err)
         # A re-taken report or a re-made page replaces the old one; files that pin the chain never do.
         status = {"format": pn.STATUS_FORMAT, "label": "beta", "latest_height": 1}
         self.write(os.path.join(self.dl, "status-beta.json"), json.dumps(status))
@@ -687,8 +762,10 @@ class Courier(unittest.TestCase):
             page = f.read()
         self.assertNotIn(gsha, page)
         for text in ("Never copy\nit from `network-%s.json`" % CHAIN, "stop and ask",
-                     "--expect-genesis-sha256 <sha256 from the owner's message>",
+                     "--expect-genesis-sha256 <sha256 from the operator's message>",
                      "%s status --chain-id %s --label beta --wait-height 3 --timeout 100" % (self.INBOX_TOOL, CHAIN),
+                     "Show the operator AND the person whose Mac it is", "other Macs' names and addresses",
+                     "Start only after both say yes", "Stop when the operator or the person whose Mac it is asks",
                      "Never kill it with -9"):
             self.assertIn(text, page)
         _, (rc, _, err) = self.kit("alpha", os.path.join(self.dl, "r2-alpha"), "--round", "2")
@@ -703,6 +780,18 @@ class Courier(unittest.TestCase):
                          "--network", "n.json", "--genesis", "g.json")
         self.assertEqual(rc, 2)
         self.assertIn("give --expect-genesis-sha256", err)
+
+    def test_install_next_requires_both_people_before_start(self):
+        state = {"genesis_sha256": "a" * 64, "genesis_time": "2026-10-17T14:36:12Z", "rpc_port": 36657}
+        with mock.patch.object(pn, "install_seat", return_value=(state, {})), \
+                mock.patch.object(pn, "seat_table", return_value=[]):
+            rc, doc, err = cli("--root", self.root, "install", "--chain-id", CHAIN, "--label", "beta",
+                               "--network", "n.json", "--genesis", "g.json", "--expect-genesis-sha256", "a" * 64)
+        self.assertEqual(rc, 0, err)
+        assert isinstance(doc, dict)
+        for text in ("the operator AND the person whose Mac it is", "names and addresses",
+                     "Only after both say yes, `start`"):
+            self.assertIn(text, doc["next"])
 
     def test_loopback_seats_only_on_local_chains(self):
         rc, _, err = cli("--root", self.root, "seat", "--chain-id", CHAIN, "--label", "gamma", "--ip", "127.0.0.1")
@@ -727,6 +816,876 @@ class Courier(unittest.TestCase):
             page = f.read()
         self.assertIn("python3 -I ~/'Downloads/zerone-kit beta'/%s/scripts/private-net.py receive "
                       "~/'Downloads/zerone-kit beta'" % pn.SKILL_NAME, page)
+
+
+class Leave(unittest.TestCase):
+    """Real files, synthetic records/process observations: no node binary, sockets or keys."""
+
+    def setUp(self):
+        self.base = private_tmp(self)
+        self.root = os.path.join(self.base, "root with spaces")
+        self.lay = pn.Layout(self.root, CHAIN)
+        self.home = self.lay.seat_home("beta")
+        self.root = self.lay.root
+        self.write(os.path.join(self.home, "data", "blocks"), b"synthetic chain data")
+        self.write(os.path.join(self.home, "config", "key-placeholder"), b"not a key")
+        self.state = {"home": self.home, "label": "beta", "role": "validator"}
+        self.write(self.lay.seat_file("beta", "state"), pn.json_bytes(self.state))
+        for kind in ("gentx", "default-genesis"):
+            self.write(self.lay.seat_file("beta", kind), b"{}")
+        self.write(self.lay.pid_file("beta"), b"12345\n")
+        self.write(self.lay.log_file("beta"), b"synthetic log")
+        for kind in ("seat", "status"):
+            self.write(os.path.join(self.lay.outbox, kind + "-beta.json"), b"{}")
+        self.kept = [self.lay.binary, self.lay.binary_record, os.path.join(self.lay.inbox, "invite-beta.json"),
+                     os.path.join(self.lay.outbox, "invite-beta.json"),
+                     os.path.join(self.lay.coordinator_home(), "record"),
+                     os.path.join(self.lay.seat_home("other"), "keep"),
+                     os.path.join(self.root, "nets", "zerone-rehearsal-lan-other", "keep"),
+                     os.path.join(self.base, "Downloads", "keep")]
+        for path in self.kept:
+            self.write(path, b"keep exactly")
+        self.processes = self.enter_patch("leave_processes", return_value={})
+        self.open_files = self.enter_patch("leave_open_files", return_value=set())
+        self.kill = self.enter_patch("os.kill")
+        self.subprocess_run = self.enter_patch("run", side_effect=AssertionError("unexpected subprocess"))
+
+    def enter_patch(self, target, **kw):
+        # spec_from_file_location is deliberately not in sys.modules; patch via the loaded owner instead.
+        owner, name = (pn.os, "kill") if target == "os.kill" else (pn, target)
+        patcher = mock.patch.object(owner, name, **kw)
+        self.addCleanup(patcher.stop)
+        return patcher.start()
+
+    def write(self, path, data):
+        os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
+        with open(path, "wb") as f:
+            f.write(data)
+        return path
+
+    def snapshot(self):
+        return {str(p.relative_to(self.base)): (p.lstat().st_mode, p.read_bytes() if p.is_file() else None)
+                for p in Path(self.base).rglob("*") if not p.is_symlink()}
+
+    def leave(self, *extra):
+        return cli("--root", self.root, "leave", "--chain-id", CHAIN, "--label", "beta", *extra)
+
+    def expected_command(self):
+        return "%s start --home %s" % (self.lay.binary, self.home)
+
+    def test_dry_run_lists_every_file_without_stopping_or_writing(self):
+        before = self.snapshot()
+        self.processes.return_value = {12345: self.expected_command()}
+        rc, doc, err = self.leave()
+        self.assertEqual(rc, 0, err)
+        assert isinstance(doc, dict)
+        self.assertTrue(doc["dry_run"])
+        self.assertEqual(doc["would_stop_pid"], 12345)
+        paths = {e["path"] for e in doc["would_remove"]}
+        expected = {str(p) for p in Path(self.home).rglob("*")} | {self.home}
+        expected |= {self.lay.seat_file("beta", k) for k in ("state", "gentx", "default-genesis")}
+        expected |= {self.lay.pid_file("beta"), self.lay.log_file("beta")}
+        expected |= {os.path.join(self.lay.outbox, k + "-beta.json") for k in ("seat", "status")}
+        self.assertEqual(paths, expected)
+        self.assertEqual(len(paths), len(doc["would_remove"]))
+        self.assertEqual(next(iter(doc)), "summary")
+        self.assertEqual(list(doc)[:3], ["summary", "firewall_command_for_mac_person", "after_last_seat"])
+        self.assertIn("only the person whose Mac it is may confirm", doc["next"])
+        self.assertTrue(doc["summary"].startswith("Would delete seat beta:"))
+        files = [e["path"] for e in doc["would_remove"] if e["kind"] == "file"]
+        self.assertEqual(sum(t["files"] for t in doc["targets"]), len(files))
+        self.assertEqual(sum(t["bytes"] for t in doc["targets"]), sum(os.stat(p).st_size for p in files))
+        self.assertEqual({t["path"] for t in doc["targets"]}, paths - {str(p) for p in Path(self.home).rglob("*")})
+        self.assertIn("not a binding list", doc["confirmation"])
+        self.assertEqual(self.snapshot(), before)
+        self.assertIn("no undo", doc["warning"])
+        self.assertEqual(doc["firewall_command_for_mac_person"],
+                         "sudo %s --remove %s" % (pn.SOCKETFILTERFW, pn.shlex.quote(self.lay.binary)))
+        self.assertIn("the coordinator's records", doc["cannot_remove"])
+        self.kill.assert_not_called()
+        self.subprocess_run.assert_not_called()
+
+    def test_confirmed_removal_keeps_shared_files_other_seats_and_other_chains(self):
+        rc, plan, err = self.leave()
+        self.assertEqual(rc, 0, err)
+        rc, doc, err = self.leave("--yes")
+        self.assertEqual(rc, 0, err)
+        self.assertFalse(doc["dry_run"])
+        self.assertEqual(set(doc["removed"]), {p["path"] for p in plan["would_remove"]})
+        for path in doc["removed"]:
+            self.assertFalse(os.path.lexists(path), path)
+        for path in self.kept:
+            self.assertEqual(Path(path).read_bytes(), b"keep exactly", path)
+        rc, doc, err = self.leave("--yes")
+        self.assertEqual((rc, doc["removed"]), (0, []), err)
+        self.kill.assert_not_called()
+        self.subprocess_run.assert_not_called()
+
+    def test_running_seat_gets_only_sigterm_then_files_are_removed(self):
+        self.processes.side_effect = [{12345: self.expected_command()}, {}]
+        with mock.patch.object(pn, "pid_command", side_effect=[self.expected_command(), ""]):
+            rc, doc, err = self.leave("--yes")
+        self.assertEqual(rc, 0, err)
+        self.assertEqual(doc["stopped_pid"], 12345)
+        self.kill.assert_called_once_with(12345, pn.signal.SIGTERM)
+        self.assertFalse(os.path.exists(self.home))
+        self.subprocess_run.assert_not_called()
+
+    def test_stop_adapter_still_removes_only_the_pid_record(self):
+        before = self.snapshot()
+        with mock.patch.object(pn, "pid_command", side_effect=[self.expected_command(), self.expected_command(), ""]):
+            rc, doc, err = cli("--root", self.root, "stop", "--chain-id", CHAIN, "--label", "beta")
+        self.assertEqual((rc, doc["stopped"], doc["pid"]), (0, "beta", 12345), err)
+        self.kill.assert_called_once_with(12345, pn.signal.SIGTERM)
+        after = self.snapshot()
+        pid_key = next(k for k in before if k.endswith("/run/beta.pid"))
+        before.pop(pid_key)
+        self.assertEqual(after, before)
+
+    def test_last_seat_keeps_bin_inbox_and_empty_parent_folders(self):
+        root = os.path.join(self.base, "last-seat-root")
+        lay = pn.Layout(root, CHAIN)
+        self.write(os.path.join(lay.seat_home("beta"), "data"), b"synthetic data")
+        for path in (lay.binary, os.path.join(lay.inbox, "YOUR-MAC.md")):
+            self.write(path, b"keep")
+        rc, doc, err = cli("--root", root, "leave", "--chain-id", CHAIN, "--label", "beta", "--yes")
+        self.assertEqual(rc, 0, err)
+        assert isinstance(doc, dict)
+        self.assertEqual(len(doc["removed"]), 2)
+        self.assertEqual(Path(lay.binary).read_bytes(), b"keep")
+        self.assertEqual(Path(lay.inbox, "YOUR-MAC.md").read_bytes(), b"keep")
+        self.assertEqual(os.listdir(lay.seats_dir), [])
+        self.assertIn("only if this was the last seat on this Mac", doc["after_last_seat"])
+        self.assertIn("then drag %s to the Trash" % lay.root, doc["after_last_seat"])
+        self.assertIn("the person whose Mac it is runs firewall_command_for_mac_person first", doc["after_last_seat"])
+        self.assertIn("keys are already gone", doc["after_last_seat"])
+        self.assertIn("kit folders still in Downloads", doc["after_last_seat"])
+
+    def test_still_running_after_stop_timeout_refuses_without_removal(self):
+        before = self.snapshot()
+        self.processes.return_value = {12345: self.expected_command()}
+        with mock.patch.object(pn, "pid_command", return_value=self.expected_command()), \
+                mock.patch.object(pn.time, "time", side_effect=[0, 31]):
+            rc, _, err = self.leave("--yes")
+        self.assertEqual(rc, 2)
+        self.assertIn("did not stop", err)
+        self.assertIn("would_remove", err)  # plan is printed even when the stop refuses
+        self.assertEqual(self.snapshot(), before)
+        self.kill.assert_called_once_with(12345, pn.signal.SIGTERM)
+
+    def test_pre_genesis_sleep_refuses_without_removal(self):
+        self.state["genesis_time"] = "2999-01-01T00:00:00Z"
+        self.write(self.lay.seat_file("beta", "state"), pn.json_bytes(self.state))
+        before = self.snapshot()
+        self.processes.return_value = {12345: self.expected_command()}
+        with mock.patch.object(pn, "pid_command", return_value=self.expected_command()), \
+                mock.patch.object(pn.time, "time", side_effect=[0, 31]):
+            rc, _, err = self.leave("--yes")
+        self.assertEqual(rc, 2)
+        self.assertIn("sleeps until genesis_time", err)
+        self.assertEqual(self.snapshot(), before)
+
+    def test_second_process_check_catches_a_restart(self):
+        before = self.snapshot()
+        self.processes.side_effect = [{}, {12346: self.expected_command()}]
+        rc, _, err = self.leave("--yes")
+        self.assertEqual(rc, 2)
+        self.assertIn("still running", err)
+        self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_missing_or_stale_pid_is_not_proof_of_a_stopped_node(self):
+        self.processes.return_value = {12346: self.expected_command()}
+        for missing in (False, True):
+            if missing:
+                os.unlink(self.lay.pid_file("beta"))
+            before = self.snapshot()
+            rc, _, err = self.leave("--yes")
+            self.assertEqual(rc, 2)
+            self.assertIn("cannot safely identify", err)
+            self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_stale_pid_refusal_names_process_and_safe_next_step(self):
+        self.processes.return_value = {12345: "/bin/sleep 60"}
+        before = self.snapshot()
+        for extra in ((), ("--yes",)):
+            rc, _, err = self.leave(*extra)
+            self.assertEqual(rc, 2, err)
+            for text in ("12345", "/bin/sleep 60", "do not signal an unrelated process",
+                         "Only after verifying the seat is stopped", self.lay.pid_file("beta"), "preview again"):
+                self.assertIn(text, err)
+            self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_any_open_file_refuses_before_signal_even_for_the_recorded_node(self):
+        self.processes.return_value = {12345: self.expected_command()}
+        before = self.snapshot()
+        for pids in ({12345}, {12346}, {12345, 12346}):
+            self.open_files.return_value = pids
+            for extra in ((), ("--yes",)):
+                rc, _, err = self.leave(*extra)
+                self.assertEqual(rc, 2, err)
+                self.assertIn("open files", err)
+                for pid in pids:
+                    self.assertIn(str(pid), err)
+                self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_open_file_after_proven_stop_refuses_before_removal(self):
+        before = self.snapshot()
+        self.processes.side_effect = [{12345: self.expected_command()}, {}]
+        self.open_files.side_effect = [set(), {12346}]
+        with mock.patch.object(pn, "pid_command", side_effect=[self.expected_command(), ""]):
+            rc, _, err = self.leave("--yes")
+        self.assertEqual(rc, 2, err)
+        self.assertIn("open files", err)
+        self.assertEqual(self.snapshot(), before)
+        self.kill.assert_called_once_with(12345, pn.signal.SIGTERM)
+        self.assertEqual(self.open_files.call_args_list, [mock.call(self.home), mock.call(self.home)])
+
+    def test_failed_open_file_check_never_permits_deletion(self):
+        before = self.snapshot()
+        for after_stop in (False, True):
+            self.processes.side_effect = None
+            self.processes.return_value = {}
+            failure = pn.Refusal("open-file inspection failed")
+            self.open_files.side_effect = [set(), failure] if after_stop else failure
+            rc, _, err = self.leave("--yes")
+            self.assertEqual(rc, 2, err)
+            self.assertIn("open-file inspection failed", err)
+            self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_new_home_is_checked_on_the_post_stop_inventory(self):
+        shutil.rmtree(self.home)
+        def scan(home, recorded_pid=None):
+            if self.processes.call_count == 2:
+                self.write(os.path.join(home, "new-data"), b"new")
+            return {}
+        self.processes.side_effect = scan
+        self.open_files.return_value = {12346}
+        rc, _, err = self.leave("--yes")
+        self.assertEqual(rc, 2, err)
+        self.assertIn("open files", err)
+        self.open_files.assert_called_once_with(self.home)
+        self.assertEqual(Path(self.home, "new-data").read_bytes(), b"new")
+        self.assertTrue(os.path.exists(self.lay.pid_file("beta")))
+        self.kill.assert_not_called()
+
+    def test_changed_command_is_never_signalled(self):
+        self.processes.return_value = {12345: self.expected_command()}
+        before = self.snapshot()
+        with mock.patch.object(pn, "pid_command", return_value="unrelated process"):
+            rc, _, err = self.leave("--yes")
+        self.assertEqual(rc, 2)
+        self.assertIn("command line differs", err)
+        self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_outside_root_state_is_refused_even_in_preview(self):
+        for home in (self.base, self.lay.seat_home("other"), os.path.join(self.home, "..", "other")):
+            self.write(self.lay.seat_file("beta", "state"), pn.json_bytes(dict(self.state, home=home)))
+            before = self.snapshot()
+            for extra in ((), ("--yes",)):
+                rc, _, err = self.leave(*extra)
+                self.assertEqual(rc, 2)
+                self.assertIn("outside-root", err)
+                self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_symlink_escapes_at_every_level_are_refused_without_removal(self):
+        outside = os.path.join(self.base, "outside")
+        self.write(os.path.join(outside, "untouched"), b"outside")
+        targets = [os.path.join(self.root, "nets"), self.lay.chain_dir, self.lay.seats_dir,
+                   self.home, os.path.join(self.home, "data"), self.lay.seat_file("beta", "state"),
+                   self.lay.pid_file("beta"), self.lay.log_file("beta"), self.lay.outbox]
+        for path in targets:
+            with self.subTest(path=path):
+                saved = path + ".saved"
+                os.rename(path, saved)
+                os.symlink(outside, path)
+                try:
+                    for extra in ((), ("--yes",)):
+                        rc, _, err = self.leave(*extra)
+                        self.assertEqual(rc, 2)
+                        self.assertIn("symlink", err)
+                    self.assertEqual(Path(outside, "untouched").read_bytes(), b"outside")
+                finally:
+                    os.unlink(path)
+                    os.rename(saved, path)
+        self.kill.assert_not_called()
+
+    def test_internal_links_hardlinks_and_special_files_are_refused(self):
+        path = os.path.join(self.home, "unusual")
+        for kind in ("symlink", "hardlink", "fifo"):
+            with self.subTest(kind=kind):
+                if kind == "symlink":
+                    os.symlink(self.kept[0], path)
+                elif kind == "hardlink":
+                    os.link(self.kept[0], path)
+                else:
+                    os.mkfifo(path)
+                try:
+                    self.assertEqual(self.leave("--yes")[0], 2)
+                finally:
+                    os.unlink(path)
+        self.assertEqual(Path(self.kept[0]).read_bytes(), b"keep exactly")
+        self.kill.assert_not_called()
+
+    def test_missing_root_and_missing_chain_create_nothing(self):
+        root = os.path.join(self.base, "missing")
+        rc, _, err = cli("--root", root, "leave", "--chain-id", CHAIN, "--label", "beta")
+        self.assertEqual(rc, 2)
+        self.assertIn("does not exist", err)
+        self.assertFalse(os.path.exists(root))
+        os.mkdir(root, 0o700)
+        rc, doc, err = cli("--root", root, "leave", "--chain-id", CHAIN, "--label", "beta", "--yes")
+        self.assertEqual((rc, doc["removed"]), (0, []), err)
+        self.assertEqual(os.listdir(root), [])
+
+    def test_stop_never_creates_missing_folders_even_after_leaving(self):
+        root = os.path.join(self.base, "missing-stop-root")
+        command = ("--root", root, "stop", "--chain-id", CHAIN, "--label", "beta")
+        self.assertEqual(cli(*command)[0], 2)
+        self.assertFalse(os.path.exists(root))
+        os.mkdir(root, 0o700)
+        self.assertEqual(cli(*command)[0], 2)
+        self.assertEqual(os.listdir(root), [])
+        self.assertEqual(self.leave("--yes")[0], 0)
+        before = self.snapshot()
+        self.assertEqual(cli("--root", self.root, "stop", "--chain-id", CHAIN, "--label", "beta")[0], 2)
+        self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_unwritable_or_unsearchable_folder_refuses_before_any_deletion(self):
+        before = self.snapshot()
+        for path in (self.root, self.lay.seats_dir, self.home, os.path.join(self.home, "config")):
+            original = os.stat(path).st_mode
+            for mode in (0o500, 0o600, 0o400, 0o300, 0o100, 0o000):
+                with self.subTest(path=path, mode=oct(mode)):
+                    os.chmod(path, mode)
+                    try:
+                        for extra in ((), ("--yes",)):
+                            rc, _, err = self.leave(*extra)
+                            self.assertEqual(rc, 2, err)
+                            self.assertNotIn("Have the owner move", err)
+                            self.assertNotIn("macOS privacy", err)
+                    finally:
+                        os.chmod(path, original)
+                    self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_confirmation_help_names_the_person_whose_mac_it_is(self):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), self.assertRaises(SystemExit) as caught:
+            pn.main(["leave", "--help"])
+        self.assertEqual(caught.exception.code, 0)
+        self.assertIn("the person whose Mac it is confirms", " ".join(output.getvalue().split()))
+
+    @unittest.skipUnless(hasattr(os, "chflags"), "filesystem flags need chflags")
+    def test_immutable_and_append_only_entries_refuse_before_any_deletion(self):
+        before = self.snapshot()
+        for path in (os.path.join(self.home, "config", "key-placeholder"), self.home, self.root):
+            original = os.stat(path).st_flags
+            for flag in (pn.stat.UF_IMMUTABLE, pn.stat.UF_APPEND):
+                with self.subTest(path=path, flag=flag):
+                    os.chflags(path, flag)
+                    try:
+                        for extra in ((), ("--yes",)):
+                            rc, _, err = self.leave(*extra)
+                            self.assertEqual(rc, 2, err)
+                            self.assertIn("immutable or append-only", err)
+                            self.assertNotIn("Have the owner move", err)
+                    finally:
+                        os.chflags(path, original)
+                    self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_system_immutable_and_append_only_flags_are_also_refused(self):
+        for name in ("UF_IMMUTABLE", "UF_APPEND", "SF_IMMUTABLE", "SF_APPEND"):
+            flag = getattr(pn.stat, name, 0)
+            if not flag:
+                continue
+            st = mock.Mock(st_mode=pn.stat.S_IFREG | 0o600, st_uid=os.getuid(), st_dev=1,
+                           st_nlink=1, st_flags=flag)
+            with mock.patch.object(pn.os, "stat", return_value=st):
+                with self.assertRaisesRegex(pn.Refusal, "immutable or append-only"):
+                    pn.leave_stat(0, "synthetic", 1)
+
+    def test_partial_removal_error_never_advises_moving_a_key(self):
+        original_unlink = os.unlink
+        deleted = []
+        def fail_second(name, *, dir_fd):
+            if deleted:
+                raise PermissionError(13, "Permission denied", name)
+            original_unlink(name, dir_fd=dir_fd)
+            deleted.append(name)
+        with mock.patch.object(pn.os, "unlink", side_effect=fail_second):
+            rc, _, err = self.leave("--yes")
+        self.assertEqual(rc, 2, err)
+        self.assertEqual(len(deleted), 1)
+        self.assertIn("removal stopped partway", err)
+        self.assertIn("earlier deletions are permanent", err)
+        self.assertIn("preview again", err)
+        self.assertNotIn("Have the owner move", err)
+        self.assertNotIn("macOS privacy", err)
+        self.assertTrue(os.path.isdir(self.home))
+        self.assertEqual(self.leave()[0], 0)
+        self.kill.assert_not_called()
+
+    def test_folder_moved_during_removal_has_partial_removal_message(self):
+        original_remove = pn.leave_remove
+        def move_then_remove(root_fd, snapshot):
+            os.rename(self.home, self.home + ".saved")
+            original_remove(root_fd, snapshot)
+        with mock.patch.object(pn, "leave_remove", side_effect=move_then_remove):
+            rc, _, err = self.leave("--yes")
+        self.assertEqual(rc, 2, err)
+        self.assertIn("removal stopped partway", err)
+        self.assertIn("earlier deletions are permanent", err)
+        self.assertIn("preview again", err)
+        self.assertNotIn("Have the owner move", err)
+        self.assertEqual(Path(self.home + ".saved", "config", "key-placeholder").read_bytes(), b"not a key")
+        self.kill.assert_not_called()
+
+    def test_symlink_root_and_bad_identifiers_are_refused(self):
+        link = os.path.join(self.base, "linked-root")
+        os.symlink(self.root, link)
+        self.assertEqual(cli("--root", link, "leave", "--chain-id", CHAIN, "--label", "beta", "--yes")[0], 2)
+        for chain, label in (("zerone-1", "beta"), (CHAIN, "../beta"), ("../" + CHAIN, "beta")):
+            self.assertEqual(cli("--root", self.root, "leave", "--chain-id", chain, "--label", label, "--yes")[0], 2)
+        self.kill.assert_not_called()
+
+    def test_shutdown_writes_are_inventoried_and_removed_after_proven_stop(self):
+        self.processes.side_effect = [{12345: self.expected_command()}, {}]
+        new = os.path.join(self.home, "new-file")
+        replaced = os.path.join(self.home, "data", "blocks")
+        def stopped(*args):
+            self.write(new, b"new")
+            self.write(replaced + ".tmp", b"replacement at shutdown")
+            os.replace(replaced + ".tmp", replaced)
+            os.unlink(self.lay.log_file("beta"))
+        with mock.patch.object(pn, "stop_process", side_effect=stopped):
+            rc, doc, err = self.leave("--yes")
+        self.assertEqual(rc, 0, err)
+        self.assertIn(new, doc["removed"])
+        self.assertIn(replaced, doc["removed"])
+        self.assertNotIn(self.lay.log_file("beta"), doc["removed"])
+        self.assertNotIn(new, [e["path"] for e in doc["would_remove"]])
+        self.assertTrue(doc["summary"].startswith("Deleted seat beta:"))
+        self.assertFalse(os.path.exists(self.home))
+
+    def test_confirmation_is_not_bound_to_an_earlier_preview(self):
+        rc, preview, err = self.leave()
+        self.assertEqual(rc, 0, err)
+        added = self.write(os.path.join(self.home, "after-preview"), b"new")
+        self.assertNotIn(added, [e["path"] for e in preview["would_remove"]])
+        rc, doc, err = self.leave("--yes")
+        self.assertEqual(rc, 0, err)
+        self.assertIn(added, doc["removed"])
+        self.assertFalse(os.path.exists(added))
+
+    def test_unsafe_shutdown_additions_still_refuse_before_any_removal(self):
+        path = os.path.join(self.home, "new-file")
+        for kind in ("internal-symlink", "outside-symlink", "hardlink", "fifo"):
+            with self.subTest(kind=kind):
+                before = self.snapshot()
+                self.processes.side_effect = [{12345: self.expected_command()}, {}]
+                def stopped(*args):
+                    if kind == "internal-symlink":
+                        os.symlink(self.kept[0], path)
+                    elif kind == "outside-symlink":
+                        os.symlink(self.base, path)
+                    elif kind == "hardlink":
+                        os.link(self.kept[0], path)
+                    else:
+                        os.mkfifo(path)
+                try:
+                    with mock.patch.object(pn, "stop_process", side_effect=stopped):
+                        rc, _, err = self.leave("--yes")
+                    self.assertEqual(rc, 2, err)
+                finally:
+                    os.unlink(path)
+                self.assertEqual(self.snapshot(), before)
+
+    def test_non_object_state_refuses_without_traceback_or_mutation(self):
+        for state in ([], None, "not an object", 1, True):
+            with self.subTest(state=state):
+                self.write(self.lay.seat_file("beta", "state"), pn.json_bytes(state))
+                before = self.snapshot()
+                for extra in ((), ("--yes",)):
+                    rc, _, err = self.leave(*extra)
+                    self.assertEqual(rc, 2, err)
+                    self.assertIn("state is not a JSON object", err)
+                    self.assertNotIn("Traceback", err)
+                    self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_malformed_pid_refuses_without_mutation(self):
+        for content in (b"", b"[]", b"not a pid", b"123 456"):
+            self.write(self.lay.pid_file("beta"), content)
+            before = self.snapshot()
+            for extra in ((), ("--yes",)):
+                rc, _, err = self.leave(*extra)
+                self.assertEqual(rc, 2, err)
+                self.assertIn("malformed input", err)
+                self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_oversized_or_swapped_records_refuse(self):
+        for path in (self.lay.seat_file("beta", "state"), self.lay.pid_file("beta")):
+            original = Path(path).read_bytes()
+            with open(path, "wb") as stream:
+                stream.truncate(pn.MAX_COURIER_JSON + 1)
+            for extra in ((), ("--yes",)):
+                rc, _, err = self.leave(*extra)
+                self.assertEqual(rc, 2, err)
+                self.assertIn("not a small plain file", err)
+            self.write(path, original)
+            root_fd = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY)
+            try:
+                rel = os.path.relpath(path, self.root)
+                plan = pn.leave_snapshot(root_fd, [rel])
+                self.write(path + ".tmp", original)
+                os.replace(path + ".tmp", path)
+                with self.assertRaisesRegex(pn.Refusal, "record changed"):
+                    pn.leave_read(root_fd, rel, plan[rel])
+            finally:
+                os.close(root_fd)
+        self.kill.assert_not_called()
+
+    def test_record_changed_before_signal_refuses(self):
+        def scan(home, recorded_pid=None):
+            self.write(self.lay.seat_file("beta", "state"), pn.json_bytes(dict(self.state, role="full")))
+            return {12345: self.expected_command()}
+        self.processes.side_effect = scan
+        rc, _, err = self.leave("--yes")
+        self.assertEqual(rc, 2)
+        self.assertIn("state/PID record changed", err)
+        self.assertTrue(os.path.exists(self.lay.seat_file("beta", "state")))
+        self.kill.assert_not_called()
+
+    def test_deletion_rejects_an_ancestor_swapped_for_an_outside_symlink(self):
+        outside = os.path.join(self.base, "outside")
+        victim = self.write(os.path.join(outside, "victim"), b"untouched")
+        root_fd = os.open(self.root, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            plan = pn.leave_snapshot(root_fd, [os.path.relpath(self.home, self.root)])
+            os.rename(self.home, self.home + ".saved")
+            os.symlink(outside, self.home)
+            with self.assertRaises(pn.Refusal):
+                pn.leave_remove(root_fd, plan)
+            self.assertEqual(Path(victim).read_bytes(), b"untouched")
+        finally:
+            os.close(root_fd)
+
+
+class LeaveProcessScan(unittest.TestCase):
+    def hand_started_process(self, variant):
+        root = private_tmp(self)
+        lay = pn.Layout(os.path.join(root, "root"), CHAIN)
+        home = lay.seat_home("mac")
+        os.mkdir(home, 0o700)
+        marker = Path(home, "key-placeholder")
+        marker.write_text("not a key")
+        state = Path(lay.seat_file("mac", "state"))
+        if variant != "E9c":
+            state.write_bytes(pn.json_bytes({"home": home, "label": "mac"}))
+        command_root = lay.root
+        spelling = home
+        if variant == "E9c":
+            command_root = os.path.join(root, "ROOT")
+            if not os.path.exists(command_root) or not os.path.samefile(command_root, lay.root):
+                self.skipTest("E9c needs a case-insensitive filesystem")
+        elif variant == "E9d":
+            spelling = home.replace("/seats/mac", "/seats//mac")
+        elif variant == "dot-and-trailing":
+            spelling = home.replace("/seats/mac", "/./seats/./mac/")
+        elif variant == "unmatched-live-pid":
+            spelling = os.path.join(root, "unrelated")
+        script = Path(root, "sleeper.py")
+        script.write_text("import time\nprint('ready', flush=True)\ntime.sleep(60)\n")
+        proc = subprocess.Popen([sys.executable, "-B", str(script), "--home", spelling],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            assert proc.stdout is not None
+            self.assertEqual(proc.stdout.readline().strip(), "ready")
+            Path(lay.pid_file("mac")).write_text(str(proc.pid))
+            before = {str(p): p.read_bytes() for p in Path(lay.root).rglob("*") if p.is_file()}
+            with mock.patch.object(pn.os, "kill") as kill:
+                for extra in ((), ("--yes",)):
+                    rc, _, err = cli("--root", command_root, "leave", "--chain-id", CHAIN,
+                                     "--label", "mac", *extra)
+                    self.assertEqual(rc, 2, err)
+                    self.assertIn("cannot safely identify", err)
+                    self.assertEqual({str(p): p.read_bytes() for p in Path(lay.root).rglob("*") if p.is_file()}, before)
+                    self.assertIsNone(proc.poll())
+                kill.assert_not_called()
+        finally:
+            proc.terminate()
+            proc.communicate(timeout=10)
+
+    def test_e9c_case_alias_without_state_refuses_and_sends_no_signal(self):
+        self.hand_started_process("E9c")
+
+    def test_e9d_repeated_slash_refuses_and_sends_no_signal(self):
+        self.hand_started_process("E9d")
+
+    def test_dot_and_trailing_slash_refuse_and_send_no_signal(self):
+        self.hand_started_process("dot-and-trailing")
+
+    def test_live_recorded_pid_without_home_match_refuses_and_sends_no_signal(self):
+        self.hand_started_process("unmatched-live-pid")
+
+    def test_home_spellings_are_discovery_only_not_signal_permission(self):
+        home = "/synthetic/root.with spaces/seats/mac"
+        commands = {100: "zeroned start --home " + home.upper(),
+                    101: "wrapper --home=" + home.replace("/", "//./") + "/",
+                    102: "editor " + home.upper() + "-b",
+                    103: "unrelated live process"}
+        with mock.patch.object(pn, "run", return_value="\n".join("%d %s" % item for item in commands.items())):
+            self.assertEqual(pn.leave_processes(home), {100: commands[100], 101: commands[101]})
+            self.assertEqual(pn.leave_processes(home, 103),
+                             {100: commands[100], 101: commands[101], 103: commands[103]})
+
+    def test_single_pid_lookup_uses_system_ps(self):
+        with mock.patch.object(pn, "run", return_value="expected command\n") as run:
+            self.assertEqual(pn.pid_command(123), "expected command")
+        run.assert_called_once_with(["/bin/ps", "-ww", "-p", "123", "-o", "command="], check=False)
+
+    def test_live_recorded_pid_with_unreadable_command_is_not_lost(self):
+        with mock.patch.object(pn, "run", return_value="123\n124 unrelated\n"):
+            self.assertEqual(pn.leave_processes("/synthetic/seat", 123), {123: ""})
+
+    def test_real_sibling_process_does_not_block_leaving_a_stopped_seat(self):
+        root = private_tmp(self)
+        lay = pn.Layout(root, CHAIN)
+        home = lay.seat_home("mac")
+        sibling = lay.seat_home("mac-b")
+        os.mkdir(home, 0o700)
+        os.mkdir(sibling, 0o700)
+        Path(home, "synthetic").write_text("remove")
+        Path(sibling, "synthetic").write_text("keep")
+        script = Path(root, "sleeper.py")
+        script.write_text("import time\nprint('ready', flush=True)\ntime.sleep(60)\n")
+        proc = subprocess.Popen([sys.executable, "-B", str(script), "--home", sibling],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            assert proc.stdout is not None
+            self.assertEqual(proc.stdout.readline().strip(), "ready")
+            self.assertIn(proc.pid, pn.leave_processes(sibling))
+            self.assertEqual(pn.leave_processes(home), {})
+            # Process-boundary regression; open-file discovery is exercised separately.
+            with mock.patch.object(pn, "leave_open_files", return_value=set()):
+                rc, doc, err = cli("--root", root, "leave", "--chain-id", CHAIN, "--label", "mac", "--yes")
+            self.assertEqual(rc, 0, err)
+            self.assertFalse(os.path.exists(home))
+            self.assertEqual(Path(sibling, "synthetic").read_text(), "keep")
+            self.assertIsNone(proc.poll())
+        finally:
+            proc.terminate()
+            proc.communicate(timeout=10)
+
+    def test_home_match_has_path_boundaries_not_sibling_prefixes(self):
+        home = "/synthetic/root.with spaces/seats/mac"
+        commands = {
+            100: "zeroned start --home " + home,
+            101: "wrapper --home=" + home,
+            102: "tail " + home + "/log",
+            103: "editor " + home + " notes",
+            104: "zeroned query --home " + home,
+            105: "zeroned start --home " + home + "-b",
+            106: "editor " + home + ".saved",
+            107: "wrapper /prefix" + home,
+            108: "zeroned start --home /synthetic/rootXwith spaces/seats/mac",
+        }
+        lines = "\n".join("%d %s" % pair for pair in commands.items())
+        with mock.patch.object(pn, "run", return_value=lines):
+            self.assertEqual(pn.leave_processes(home), {pid: commands[pid] for pid in range(100, 105)})
+
+    def test_real_cli_removes_synthetic_files_without_a_node_binary(self):
+        root = private_tmp(self)
+        lay = pn.Layout(root, CHAIN)
+        os.mkdir(lay.seat_home("beta"), 0o700)
+        Path(lay.seat_home("beta"), "synthetic-data").write_text("no keys or node binary")
+        command = [sys.executable, "-B", str(SCRIPT), "--root", root,
+                   "leave", "--chain-id", CHAIN, "--label", "beta"]
+        preview = subprocess.run(command, capture_output=True, text=True, timeout=30)
+        lsof = "/usr/sbin/lsof" if sys.platform == "darwin" else "/usr/bin/lsof"
+        if not os.path.isfile(lsof):
+            self.assertEqual(preview.returncode, 2, preview.stderr)
+            self.assertIn("cannot check open files", preview.stderr)
+            acted = subprocess.run(command + ["--yes"], capture_output=True, text=True, timeout=30)
+            self.assertEqual(acted.returncode, 2, acted.stderr)
+            self.assertTrue(Path(lay.seat_home("beta"), "synthetic-data").is_file())
+            return
+        self.assertEqual(preview.returncode, 0, preview.stderr)
+        self.assertTrue(os.path.isdir(lay.seat_home("beta")))
+        acted = subprocess.run(command + ["--yes"], capture_output=True, text=True, timeout=30)
+        self.assertEqual(acted.returncode, 0, acted.stderr)
+        self.assertEqual(set(json.loads(acted.stdout)["removed"]),
+                         {entry["path"] for entry in json.loads(preview.stdout)["would_remove"]})
+        self.assertFalse(os.path.exists(lay.seat_home("beta")))
+        self.assertFalse(os.path.exists(lay.binary))
+
+    def test_ps_failure_is_not_an_empty_process_list(self):
+        with mock.patch.object(pn, "run", side_effect=pn.Refusal("ps failed")):
+            with self.assertRaises(pn.Refusal):
+                pn.leave_processes("/synthetic/seat")
+
+    def test_unrecorded_and_ambiguous_home_matches_are_found(self):
+        home = "/synthetic/root with spaces/seats/beta"
+        lines = "123 /synthetic/bin/zeroned start --home %s\n124 wrapper --home=%s --extra\n125 other\n" % (home, home)
+        with mock.patch.object(pn, "run", return_value=lines) as run:
+            result = pn.leave_processes(home)
+        self.assertEqual(set(result), {123, 124})
+        run.assert_called_once_with(["/bin/ps", "-axww", "-o", "pid=,command="])
+
+
+class LeaveOpenFiles(unittest.TestCase):
+    """Real file-holding Python stand-ins; no zeroned, signing keys or sockets."""
+
+    def test_lsof_status_and_diagnostics_are_fail_closed(self):
+        cases = [(1, "", "", set()), (0, "123\n456\n123\n", "", {123, 456}),
+                 (0, "", "", None), (2, "", "", None), (-9, "", "", None),
+                 (1, "123\n", "", {123}), (0, "not a PID\n", "", None),
+                 (0, "0\n", "", None), (0, "-1\n", "", None),
+                 (1, "", "WARNING: cannot stat", None),
+                 (0, "123\n", "WARNING: output may be incomplete", None)]
+        for platform, binary in (("darwin", "/usr/sbin/lsof"), ("linux", "/usr/bin/lsof")):
+            for rc, out, err, expected in cases:
+                with self.subTest(platform=platform, rc=rc, out=out, err=err), \
+                        mock.patch.object(pn.sys, "platform", platform), \
+                        mock.patch.object(pn.subprocess, "run", return_value=
+                                          subprocess.CompletedProcess([], rc, out, err)) as run:
+                    if expected is None:
+                        with self.assertRaises(pn.Refusal):
+                            pn.leave_open_files("/synthetic/seat")
+                    else:
+                        self.assertEqual(pn.leave_open_files("/synthetic/seat"), expected)
+                    self.assertEqual(run.call_args[0][0],
+                                     [binary, "-n", "-P", "-t", "+w", "+D", "/synthetic/seat"])
+                    self.assertEqual(run.call_args[1]["timeout"], 30)
+
+    def test_unavailable_or_timed_out_lsof_is_not_stop_proof(self):
+        for error in (FileNotFoundError("lsof absent"), PermissionError("not executable"),
+                      subprocess.TimeoutExpired("lsof", 30)):
+            with self.subTest(error=error), mock.patch.object(pn.subprocess, "run", side_effect=error):
+                with self.assertRaisesRegex(pn.Refusal, "cannot check open files"):
+                    pn.leave_open_files("/synthetic/seat")
+
+    def check_spelling(self, variant):
+        base = private_tmp(self)
+        lay = pn.Layout(os.path.join(base, "root with spaces"), CHAIN)
+        home = lay.seat_home("mac")
+        os.mkdir(home, 0o700)
+        Path(home, "data").mkdir(mode=0o700)
+        Path(home, "data", "held-file").write_bytes(b"synthetic data, not a key")
+        Path(lay.seat_file("mac", "state")).write_bytes(pn.json_bytes({"home": home, "label": "mac"}))
+        # Python accepts a script named 'start', without compiling a node binary.
+        os.mkdir(lay.bin_dir, 0o700)
+        os.symlink(sys.executable, lay.binary)
+        Path(lay.root, "start").write_text(
+            "import os, sys, time\n"
+            "home = sys.argv[sys.argv.index('--home') + 1]\n"
+            "held = open(os.path.join(home, 'data', 'held-file'), 'rb') if os.environ.get('HOLD') == 'yes' else None\n"
+            "print('ready', flush=True)\n"
+            "time.sleep(60)\n")
+        spelling = home
+        if variant in ("B3", "B7c"):
+            alias = os.path.join(base, "alias")
+            os.symlink(lay.root, alias)
+            spelling = alias + home[len(lay.root):]
+        elif variant == "B3v":
+            if home.startswith(("/private/var/", "/private/tmp/")):
+                spelling = home[len("/private"):]
+            elif sys.platform == "darwin":
+                self.skipTest("B3v native alias needs TMPDIR under /var or /tmp on macOS")
+            else:
+                # Linux lacks macOS's /var -> /private/var alias. Model the
+                # same filesystem relationship under this private fixture only.
+                alias = os.path.join(base, "var-alias")
+                os.symlink(os.path.dirname(lay.root), alias)
+                spelling = os.path.join(alias, os.path.relpath(home, os.path.dirname(lay.root)))
+        elif variant == "B4":
+            os.mkdir(lay.seat_home("mac-b"), 0o700)
+            spelling = home.replace("/seats/mac", "/seats/mac-b/../mac")
+        elif variant == "B5":
+            spelling = os.path.relpath(home, lay.root)
+        procs = []
+        try:
+            for path in ([home, spelling] if variant == "B7c" else [spelling]):
+                proc = subprocess.Popen([lay.binary, "start", "--home", path], cwd=lay.root,
+                                        env=dict(os.environ, HOLD="no" if variant == "B7c" and not procs else "yes"),
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                procs.append(proc)
+                assert proc.stdout is not None
+                self.assertEqual(proc.stdout.readline().strip(), "ready")
+            if variant == "B7c":
+                Path(lay.pid_file("mac")).write_text(str(procs[0].pid))
+                self.assertEqual(set(pn.leave_processes(home, procs[0].pid)), {procs[0].pid})
+            else:
+                self.assertEqual(pn.leave_processes(home), {})  # argv-only discovery misses these
+            lsof = "/usr/sbin/lsof" if sys.platform == "darwin" else "/usr/bin/lsof"
+            with contextlib.ExitStack() as stack:
+                if variant == "B7c":
+                    # Apple's 3.9 launcher re-execs Python under its framework
+                    # path. Model only the recorded command identity; real ps
+                    # must still discover the first process and miss the alias.
+                    real_scan = pn.leave_processes
+                    def scan(home, recorded_pid=None):
+                        found = real_scan(home, recorded_pid)
+                        if procs[0].pid in found:
+                            found[procs[0].pid] = "%s start --home %s" % (lay.binary, home)
+                        return found
+                    stack.enter_context(mock.patch.object(pn, "leave_processes", side_effect=scan))
+                if not os.path.isfile(lsof):
+                    self.assertNotEqual(sys.platform, "darwin", "macOS regression requires system lsof")
+                    # CI need not install lsof: mock only its OS observation, not
+                    # the adapter, process scan, guards, signal or deletion path.
+                    real_run = subprocess.run
+                    def observe(argv, **kwargs):
+                        if argv[0] == lsof:
+                            return subprocess.CompletedProcess(argv, 0,
+                                                               "%d\n" % procs[-1].pid, "")
+                        return real_run(argv, **kwargs)
+                    stack.enter_context(mock.patch.object(pn.subprocess, "run", side_effect=observe))
+                def snapshot():
+                    return {str(p): (p.lstat().st_mode, os.readlink(p) if p.is_symlink() else
+                                    p.read_bytes() if p.is_file() else None)
+                            for p in Path(lay.root).rglob("*")}
+                before = snapshot()
+                with mock.patch.object(pn.os, "kill") as kill:
+                    for extra in ((), ("--yes",)):
+                        rc, _, err = cli("--root", lay.root, "leave", "--chain-id", CHAIN,
+                                         "--label", "mac", *extra)
+                        self.assertEqual(rc, 2, err)
+                        self.assertIn("open files", err)
+                        self.assertIn(str(procs[-1].pid), err)
+                        self.assertEqual(snapshot(), before)
+                        for proc in procs:
+                            self.assertIsNone(proc.poll())
+                    kill.assert_not_called()
+        finally:
+            for proc in procs:
+                proc.terminate()
+                proc.communicate(timeout=10)
+
+    def test_b3_symlinked_middle_folder_without_pid(self):
+        self.check_spelling("B3")
+
+    def test_b3v_private_var_or_tmp_alias_without_pid(self):
+        self.check_spelling("B3v")
+
+    def test_b4_parent_component_without_pid(self):
+        self.check_spelling("B4")
+
+    def test_b5_relative_home_without_pid(self):
+        self.check_spelling("B5")
+
+    def test_b7c_recorded_exact_node_and_unrecorded_alias_node(self):
+        self.check_spelling("B7c")
 
 
 class Invitations(unittest.TestCase):

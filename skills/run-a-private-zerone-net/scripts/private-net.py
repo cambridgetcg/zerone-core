@@ -4,7 +4,7 @@
 Protocol zerone-private-net/v1. One coordinator, N seats (one seat per Mac in normal use).
 Keys are born on their seat and never move. Only public files travel, each pinned by sha256:
 
-  round 0  coordinator ──kit (skill, zeroned, invite-<label>.json, START-HERE.md)──▶ each Mac
+  round 0  coordinator ──kit (skill, zeroned, invitation, YOUR-MAC.md, START-HERE.md)──▶ each Mac
   round 1  seat     ──seat-<label>.json──▶ coordinator
   round 2  coordinator ──genesis-<chain>.json + network-<chain>.json + NEXT.md──▶ every seat
 
@@ -20,6 +20,7 @@ Subcommands (`private-net.py <command> --help` for details):
   genesis     coordinator only: build genesis + network packet from every seat packet
   install     verify the genesis and network packet, then write this seat's node config
   start/stop  run or stop this seat's node (detached; stop checks the exact command line)
+  leave       preview local seat removal (pause with stop first); --yes deletes a fresh seat inventory
   status      this seat's view of the chain as JSON (--wait-height waits for blocks)
   compare     compare status reports from several seats
   send        one test transfer from this seat's operator key; balance reads one back
@@ -41,6 +42,7 @@ if __name__ == "__main__" and sys.path and \
     del sys.path[0]
 
 import argparse
+import contextlib
 import datetime
 import errno
 import hashlib
@@ -98,9 +100,9 @@ SKILL_FILES = ("SKILL.md", os.path.join("references", "protocol.md"),
                os.path.join("scripts", "private-net.py"), os.path.join("scripts", "test_private_net.py"))
 # Everything a courier may carry into an inbox. Anything else is refused by `receive`.
 COURIER_NAME_RE = re.compile(r"(invite|seat|status)-(?:%s)\.json|(genesis|network)-(?:%s)\.json"
-                             r"|zeroned|START-HERE\.md|NEXT\.md" % (LABEL_RE.pattern, CHAIN_RE.pattern))
+                             r"|zeroned|YOUR-MAC\.md|START-HERE\.md|NEXT\.md" % (LABEL_RE.pattern, CHAIN_RE.pattern))
 # Reports and pages that may be re-sent within one chain; every other arrival pins something.
-REPLACEABLE_RE = re.compile(r"status-.*\.json|START-HERE\.md|NEXT\.md")
+REPLACEABLE_RE = re.compile(r"status-.*\.json|YOUR-MAC\.md|START-HERE\.md|NEXT\.md")
 MAX_COURIER_JSON = 16 << 20
 MAX_COURIER_BINARY = 1 << 30
 
@@ -353,7 +355,7 @@ def check_ipv4(ip):
 
 
 SANDBOX_HINT = ("binding a socket is not permitted (%s): this command is running inside an agent sandbox; "
-                "run it outside the sandbox with the owner's approval")
+                "run it outside the sandbox with approval from the person whose Mac it is")
 
 
 def check_p2p_port(port):
@@ -464,20 +466,25 @@ def probe_tcp(ip, port, timeout=2.0):
 # ── layout ─────────────────────────────────────────────────────────────────────
 
 class Layout:
-    def __init__(self, root, chain_id=None):
-        self.root = check_private_dir(root)
+    def __init__(self, root, chain_id=None, create=True):
+        self.root = check_private_dir(root, create=create)
+
+        def directory(*parts):
+            path = os.path.join(self.root, *parts)
+            return check_private_dir(path) if create else path
+
         self.bin_dir = os.path.join(self.root, "bin")
         self.binary = os.path.join(self.bin_dir, "zeroned")
         self.binary_record = os.path.join(self.bin_dir, "zeroned.json")
-        self.inbox = check_private_dir(os.path.join(self.root, "inbox"))
+        self.inbox = directory("inbox")
         self.chain_id = chain_id
         if chain_id:
             check_chain_id(chain_id)
-            nets = check_private_dir(os.path.join(self.root, "nets"))
-            self.chain_dir = check_private_dir(os.path.join(nets, chain_id))
-            self.outbox = check_private_dir(os.path.join(self.chain_dir, "outbox"))
-            self.run_dir = check_private_dir(os.path.join(self.chain_dir, "run"))
-            self.seats_dir = check_private_dir(os.path.join(self.chain_dir, "seats"))
+            directory("nets")
+            self.chain_dir = directory("nets", chain_id)
+            self.outbox = directory("nets", chain_id, "outbox")
+            self.run_dir = directory("nets", chain_id, "run")
+            self.seats_dir = directory("nets", chain_id, "seats")
 
     def seat_home(self, label):
         return os.path.join(self.seats_dir, check_label(label))
@@ -1233,6 +1240,110 @@ PAGE_ROOT_NOTE = ("The commands assume this Mac's root is `%s`. If `ZERONE_PRIVA
                   "instead everywhere." % DEFAULT_ROOT)
 
 
+def your_mac_text(inv, binary_bytes):
+    """A person's note, not agent instructions. Round 0 cannot know the final peer list yet."""
+    label, chain = inv["label"], inv["chain_id"]
+    if inv["role"] == "validator":
+        role = ("Your Mac is a validator: it votes on the shared record. Sleep, restart,\n"
+                "pausing or leaving may stall the test. Keep it awake and connected.")
+    else:
+        role = ("Your Mac is a full seat: it checks and passes on the record but does not\n"
+                "vote. When restarted, it catches up by itself.")
+    seat = ("--chain-id", chain, "--label", label)
+    return """# Your Mac: {label}
+
+Yu, the operator, is testing Zerone, a blockchain, on a private network
+of their own Macs. Your Mac would run zeroned, keeping a copy
+of the shared record. A "seat" means this Mac ({label}). Your helper is
+the operator's AI agent. The kit is a folder of setup files.
+
+Only the operator's own Macs take part; other people's Macs cannot
+join yet. If this Mac isn't one of the operator's, stop here: this note
+doesn't invite it. You can decline, pause or leave.
+
+## Before you agree
+
+Setup asks for about 20 GiB of free storage and:
+- an admin password to allow zeroned through the firewall;
+- Local Network permission for the helper's app, and Mullvad local-network
+  sharing if used;
+- a reserved home-network address; on Wi-Fi, Private Wi-Fi Address Fixed or
+  Off. If the address changes, the operator must start a new test network.
+
+With your approval, the helper runs commands as your user, outside its
+sandbox. zeroned also runs as you and can read what your account can read.
+The operator promises to show you the other Macs' names and addresses before
+starting. You can still say no. The program cannot check who agreed or whose
+Mac this is.
+
+## What runs and stays here
+
+zeroned uses storage, memory, network and electricity. Closing Terminal
+doesn't stop it. Logging out may stop it; shutdown or restart does.
+It does not restart automatically; your helper restarts it.
+{role}
+
+Files in {root}: only your account can open them,
+but any program running as you can read them. Received and installed copies
+are about {mb} MB each. Allow roughly 5 GB per running month.
+That is an estimate, not a measurement or a storage limit.
+
+## What is shared
+
+Seats share names, addresses and public computer identifiers; validators also
+share test-account addresses and voting weights. Progress reports travel too.
+Every seat keeps a copy of the shared record. Setup files contain
+no secret keys or personal documents. Don't add private material.
+
+Home-network devices can reach the connection port (normally 36656).
+Uninvited computers are refused, but can learn the names and identifying
+codes of this seat and test, and the software version.
+The program's control port answers only this Mac; its web interfaces are
+off. Setup contacts time.apple.com and the router or other Macs.
+
+It is separate from Zerone's main network and earns nothing. The
+operator's rule is to keep it valueless and never connect it to another network.
+
+## Pause or leave
+
+After setup begins and the kit arrives, your helper can run these commands,
+or you can paste them into Terminal. To pause (your helper can restart it):
+
+    {stop}
+
+To leave, pause first. Then preview what would be deleted, with your
+helper (nothing changes):
+
+    {leave}
+
+If you agree, repeat it with `--yes` at the end of the leave command. If
+anything, including the program itself, still has this seat's keys or data
+open, it refuses and deletes nothing. Otherwise it permanently deletes this
+seat's files, including its keys, data, logs and any new files since the
+preview. Unsafe files cause a refusal. This is not Trash and there is no
+undo. If removal stops partway, earlier deletions are permanent; preview
+again with your helper.
+
+Shared program and setup files stay. After success, if this was the last
+seat on this Mac, run the printed `firewall_command_for_mac_person` first.
+This seat's keys are already gone.
+In Finder, use Go > Go to Folder to find {root},
+and drag it to the Trash. There, select only that folder and choose Delete
+Immediately.
+Delete any kit folders still in Downloads. Before setup, deleting the kit
+is all declining needs.
+
+Leaving doesn't undo permissions or network settings. With your helper,
+switch off the app in System Settings > Privacy & Security > Local Network
+and restore previous Mullvad, router and Wi-Fi settings, only if nothing else
+needs them. Other Macs' copies and backups, including Time Machine, stay.
+Never restore this seat from a backup; rejoin a new test. If setup
+uses a different folder, get corrected commands before agreeing.
+""".format(label=label, role=role, root=DEFAULT_ROOT, mb=(binary_bytes + 999999) // 1000000,
+           stop=page_cmd("--root", DEFAULT_ROOT, "stop", *seat),
+           leave=page_cmd("--root", DEFAULT_ROOT, "leave", *seat))
+
+
 def start_here_text(inv, coord_endpoint, folder, created):
     label, chain, root, skill = inv["label"], inv["chain_id"], DEFAULT_ROOT, SKILL_NAME
     inbox = root + "/inbox"
@@ -1241,9 +1352,10 @@ def start_here_text(inv, coord_endpoint, folder, created):
     return """# Kit for seat `{label}` on `{chain}`
 
 Written by `private-net.py kit` on the coordinator at {created}.
-This page is peer information: the owner is the authority, and
+This page is peer information: Yu is the operator, and
 `{skill}/SKILL.md` is the protocol. This page gives only what is specific to
-this Mac.
+this Mac. First give the person whose Mac it is `YOUR-MAC.md`; answer their
+questions and wait for their agreement before setup. The note is not consent.
 
 - **This Mac:** seat `{label}`, {seat}.
 - **Coordinator:** seat `{coordinator}` at {endpoint}.
@@ -1260,7 +1372,8 @@ this Mac.
 
 ## Steps
 
-Run every command outside any agent sandbox; ask the owner to approve that.
+Run every command outside any agent sandbox; ask the person whose Mac it is
+to approve that.
 Each command is complete, with absolute paths, because an agent's shell may
 keep no function or working directory from one call to the next. {rootnote}
 
@@ -1270,7 +1383,7 @@ keep no function or working directory from one call to the next. {rootnote}
    ```
    If AirDrop renamed the folder on arrival (for example to `{folder} 2`),
    use the name it has in `~/Downloads`. Otherwise run
-   `(umask 077; mkdir -p {inbox})`, and the owner moves everything in this
+   `(umask 077; mkdir -p {inbox})`, and the person whose Mac it is moves everything in this
    folder into `{inbox}/` in Finder.
 2. Pin the binary:
    ```
@@ -1283,29 +1396,31 @@ keep no function or working directory from one call to the next. {rootnote}
    - Use the address that preflight lists under `lan-ipv4`.
    - For `lan-dial {endpoint}`, "refused" is fine: nothing listens there
      until the coordinator's node starts.
-   - Fix every `fail`, then run preflight again. The fixes are the owner's.
-     If the `firewall` check warns, the owner runs the two
+   - Ask the person whose Mac it is to make these local changes; the helper
+     explains each one. Fix every `fail`, then run preflight again.
+     If the `firewall` check warns, that person runs the two
      `sudo … socketfilterfw` commands it prints, in Terminal, before
      genesis_time, then preflight runs again; if it still warns, follow what
      the warning says (a `zeroned` signed `a.out` may never get its own
-     rule). If this Mac allowed an earlier `zeroned` at this path, the owner
+     rule). If this Mac allowed an earlier `zeroned` at this path, that person
      first runs the `--remove` command the `firewall` check prints, then the
-     two commands again, even if the check says ok. If `lan-dial` fails, the owner allows the app that runs
+     two commands again, even if the check says ok. If `lan-dial` fails, that person allows the app that runs
      this agent under System Settings › Privacy & Security › Local Network.
-     If Mullvad is installed, the owner runs `mullvad lan set allow`.
+     If Mullvad is installed, that person runs `mullvad lan set allow`.
 4. Create the seat:
    ```
    {seat_cmd}
    ```
-   The owner carries `{root}/nets/{chain}/outbox/seat-{label}.json`, and
+   The operator carries `{root}/nets/{chain}/outbox/seat-{label}.json`, and
    nothing else, to the coordinator. In Finder, Go › Go to Folder… reaches it.
-5. Round 2: the owner brings a folder holding the genesis, the network packet
+5. Round 2: the operator brings a folder holding the genesis, the network packet
    and a `NEXT.md`, and tells you the genesis sha256 in their own message.
    Follow `NEXT.md`.
 
 ## The rules that matter most here
 
-- A `REFUSED:` line is an answer. Tell the owner what it says and stop; do not
+- A `REFUSED:` line is an answer. Tell the operator and the person whose Mac
+  it is what it says and stop; do not
   work around it.
 - Nothing under `{root}/nets/{chain}/seats/` ever leaves this Mac. It holds
   this seat's keys.
@@ -1330,9 +1445,9 @@ Written by `private-net.py kit --round 2` on the coordinator, seat
 `{coord}`, at {created}. This folder holds the genesis and the network
 packet. The network packet carries the coordinator's own genesis sha256, and
 anyone can hash the genesis beside it, so neither can check the coordinator.
-That check is the sha256 the owner sends you in their own message. Never copy
+That check is the sha256 the operator sends you in their own message. Never copy
 it from `network-{chain}.json` or compute it from the genesis. With no message
-from the owner, stop and ask.
+from the operator, stop and ask.
 
 {rootnote}
 
@@ -1341,14 +1456,14 @@ from the owner, stop and ask.
    {receive_cmd}
    ```
    If AirDrop renamed the folder on arrival, use the name it has in
-   `~/Downloads`. Otherwise the owner moves them into `{inbox}/` in Finder.
-2. Install, with the sha256 from the owner's message:
+   `~/Downloads`. Otherwise the person whose Mac it is moves them into `{inbox}/` in Finder.
+2. Install, with the sha256 from the operator's message:
    ```
    {install_cmd}
    ```
-3. Show the owner the seat table that `install` prints. Every seat's table
-   must list the same seats and node ids. Only after they say yes, start the
-   node:
+3. Show the operator AND the person whose Mac it is the seat table that `install`
+   prints, including the other Macs' names and addresses. Every seat's table
+   must list the same seats and node ids. Start only after both say yes:
    ```
    {start_cmd}
    ```
@@ -1363,9 +1478,9 @@ from the owner, stop and ask.
    prints `"reached": false` with the height and peers so far; run it again.
    That is not a refusal.
 5. For a comparison, agree a height H with the coordinator, run
-   `{status_cmd}`, and have the owner carry
+   `{status_cmd}`, and have the operator carry
    `{root}/nets/{chain}/outbox/status-{label}.json` to it.
-6. Stop only when the owner says so:
+6. Stop when the operator or the person whose Mac it is asks:
    ```
    {stop_cmd}
    ```
@@ -1377,7 +1492,7 @@ from the owner, stop and ask.
            receive_cmd=page_cmd("receive", "~/Downloads/" + folder),
            install_cmd=page_cmd("install", *seat, "--network", "%s/network-%s.json" % (inbox, chain),
                                 "--genesis", "%s/genesis-%s.json" % (inbox, chain),
-                                "--expect-genesis-sha256", "<sha256 from the owner's message>"),
+                                "--expect-genesis-sha256", "<sha256 from the operator's message>"),
            start_cmd=page_cmd("start", *seat),
            wait_cmd=page_cmd("status", *seat, "--wait-height", "3", "--timeout", "100"),
            status_cmd=page_cmd("status", *seat, "--write", "--from-height", "H"),
@@ -1452,7 +1567,8 @@ def kit_round0(lay, label):
                       "that wrote it" % (tool_sha256()[:12], inv["tool_sha256"][:12]))
     with open(path, "rb") as f:
         inv_bytes = f.read()
-    files = [(os.path.join(SKILL_NAME, rel), full, 0o644) for rel, full in skill_files()]
+    files = [
+        (os.path.join(SKILL_NAME, rel), full, 0o644) for rel, full in skill_files()]
     files += [("zeroned", binary, 0o755), (os.path.basename(path), inv_bytes, 0o644)]
     expect = {os.path.join(SKILL_NAME, "scripts", "private-net.py"): inv["tool_sha256"],
               "zeroned": inv["binary_sha256"]}
@@ -1489,11 +1605,13 @@ def cmd_kit(a):
     folder, created = os.path.basename(real), iso(now_utc())
     if a.round == 0:
         inv, coord_endpoint, files, expect = kit_round0(lay, a.label)
+        files.append(("YOUR-MAC.md", your_mac_text(inv, os.path.getsize(lay.binary)).encode("utf-8"), 0o644))
         files.append(("START-HERE.md", start_here_text(inv, coord_endpoint, folder, created).encode("utf-8"), 0o644))
         write_courier_dir(real, files, expect)
         out = {"kit": real, "round": 0, "label": a.label, "files": sorted(rel for rel, _, _ in files),
                "binary_sha256": inv["binary_sha256"], "tool_sha256": inv["tool_sha256"],
-               "next": "the owner AirDrops this folder to %s; the agent there follows START-HERE.md" % a.label}
+               "next": ("the owner AirDrops this folder to %s; the person reads YOUR-MAC.md before agreeing, "
+                        "then the agent follows START-HERE.md" % a.label)}
         warning = aout_pin_warning(lay)
         if warning:
             out["warning"] = warning
@@ -1588,7 +1706,7 @@ def arrival_hash(src, name):
         return tree_hashes(src)
     if not COURIER_NAME_RE.fullmatch(name):
         raise Refusal("%s is not a file this protocol couriers (expected invite-, seat-, status-, genesis- or "
-                      "network- JSON, zeroned, START-HERE.md, NEXT.md or the %s folder)" % (src, SKILL_NAME))
+                      "network- JSON, zeroned, YOUR-MAC.md, START-HERE.md, NEXT.md or the %s folder)" % (src, SKILL_NAME))
     limit = MAX_COURIER_BINARY if name == "zeroned" else MAX_COURIER_JSON
     if os.path.getsize(src) > limit:
         raise Refusal("%s is larger than any %s this protocol couriers" % (src, name))
@@ -1813,14 +1931,15 @@ def cmd_install(a):
     st, net = install_seat(lay, a.label, a.network, a.genesis, binary, a.expect_genesis_sha256)
     emit({"installed": a.label, "genesis_sha256": st["genesis_sha256"], "genesis_time": st["genesis_time"],
           "rpc": "127.0.0.1:%d" % st["rpc_port"], "seats": seat_table(net),
-          "next": ("show the owner this seat table and the genesis sha256; every seat's table must list the same "
-                   "seats and node ids. On their yes, `start`. The node "
+          "next": ("show the operator AND the person whose Mac it is this seat table (including the other Macs' "
+                   "names and addresses) and the genesis sha256; every seat's table must list the same "
+                   "seats and node ids. Only after both say yes, `start`. The node "
                    "waits for genesis_time, then needs >2/3 of the stake online")})
     return 0
 
 
 def pid_command(pid):
-    return run(["ps", "-ww", "-p", str(pid), "-o", "command="], check=False).strip()
+    return run(["/bin/ps", "-ww", "-p", str(pid), "-o", "command="], check=False).strip()
 
 
 def owned_pid(lay, label, binary, home):
@@ -1871,19 +1990,16 @@ def cmd_start(a):
     return 0
 
 
-def stop_seat(lay, label, binary, timeout=30):
-    state = load_json(lay.seat_state(label), allow_floats=True)
-    pid = owned_pid(lay, label, binary, state["home"])
-    if not pid:
+def stop_process(label, pid, expected_command, gtime=None, timeout=30):
+    """Stop only an exact command match; no file reads or writes, and no escalation."""
+    if pid <= 1 or pid_command(pid) != expected_command:
         raise Refusal("no running node owned by seat %s (pid file missing or command line differs)" % label)
     os.kill(pid, signal.SIGTERM)
     deadline = time.time() + timeout
     while time.time() < deadline:
         if not pid_command(pid):
-            os.unlink(lay.pid_file(label))
             return pid
         time.sleep(0.5)
-    gtime = state.get("genesis_time")
     if gtime and datetime.datetime.strptime(gtime, "%Y-%m-%dT%H:%M:%SZ").replace(
             tzinfo=datetime.timezone.utc) > now_utc():
         # zeroned takes SIGTERM during its sleep before genesis_time but acts on it only then.
@@ -1893,11 +2009,306 @@ def stop_seat(lay, label, binary, timeout=30):
     raise Refusal("node %s (pid %d) did not stop within %ds; it was not killed" % (label, pid, timeout))
 
 
+def stop_seat(lay, label, binary, timeout=30):
+    state = load_json(lay.seat_state(label), allow_floats=True)
+    pid = owned_pid(lay, label, binary, state["home"])
+    if not pid:
+        raise Refusal("no running node owned by seat %s (pid file missing or command line differs)" % label)
+    stop_process(label, pid, "%s start --home %s" % (binary, state["home"]), state.get("genesis_time"), timeout)
+    os.unlink(lay.pid_file(label))
+    return pid
+
+
 def cmd_stop(a):
-    lay = Layout(a.root, a.chain_id)
+    lay = Layout(a.root, a.chain_id, create=False)
     # Only the path matters for the command-line match, so stop works even if the pin changed.
     emit({"stopped": a.label, "pid": stop_seat(lay, a.label, lay.binary)})
     return 0
+
+
+# ── leaving: no creation, no link following, no shared-root cleanup ─────────────
+
+def leave_identity(st):
+    return st.st_dev, st.st_ino, stat.S_IFMT(st.st_mode)
+
+
+def leave_stat(parent, name, device):
+    st = os.stat(name, dir_fd=parent, follow_symlinks=False)
+    if stat.S_ISLNK(st.st_mode):
+        raise Refusal("leave refuses symlinks (including links outside the root): %s" % name)
+    if st.st_dev != device or st.st_uid != os.getuid():
+        raise Refusal("leave refuses a mount or a path owned by another user: %s" % name)
+    if not (stat.S_ISDIR(st.st_mode) or stat.S_ISREG(st.st_mode)):
+        raise Refusal("leave accepts only plain files and directories: %s" % name)
+    if stat.S_ISREG(st.st_mode) and st.st_nlink != 1:
+        raise Refusal("leave refuses hard-linked files: %s" % name)
+    if stat.S_ISDIR(st.st_mode) and st.st_mode & 0o300 != 0o300:
+        raise Refusal("leave refuses a folder its owner cannot write or enter: %s" % name)
+    blocked_flags = (getattr(stat, "UF_IMMUTABLE", 0) | getattr(stat, "SF_IMMUTABLE", 0) |
+                     getattr(stat, "UF_APPEND", 0) | getattr(stat, "SF_APPEND", 0))
+    if getattr(st, "st_flags", 0) & blocked_flags:
+        raise Refusal("leave refuses an immutable or append-only file or folder: %s" % name)
+    return st
+
+
+@contextlib.contextmanager
+def leave_parent(root_fd, rel):
+    """Walk from the open root without following any link, including a swapped ancestor.
+    All reads/unlinks/rmdirs below use these directory descriptors, never resolved strings.
+    """
+    parts = rel.split(os.sep)
+    if os.path.isabs(rel) or any(p in ("", ".", "..") for p in parts):
+        raise Refusal("leave path is outside the root or not canonical: %s" % rel)
+    fd = os.dup(root_fd)
+    try:
+        for part in parts[:-1]:
+            before = leave_stat(fd, part, os.fstat(root_fd).st_dev)
+            nxt = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            os.close(fd)
+            fd = nxt
+            if leave_identity(os.fstat(fd)) != leave_identity(before):
+                raise Refusal("leave path changed during inspection; nothing more will be removed")
+        yield fd, parts[-1]
+    finally:
+        os.close(fd)
+
+
+def leave_snapshot(root_fd, targets, sizes=None):
+    """Exact names and inode identities; never read the contents of a seat home."""
+    found = {}
+
+    def visit(rel):
+        try:
+            with leave_parent(root_fd, rel) as (parent, name):
+                st = leave_stat(parent, name, os.fstat(root_fd).st_dev)
+                found[rel] = leave_identity(st)
+                if sizes is not None and stat.S_ISREG(st.st_mode):
+                    sizes[rel] = st.st_size
+                if stat.S_ISDIR(st.st_mode):
+                    fd = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+                    try:
+                        if leave_identity(os.fstat(fd)) != found[rel]:
+                            raise Refusal("leave path changed during inspection: %s" % rel)
+                        children = sorted(os.listdir(fd))
+                    finally:
+                        os.close(fd)
+                    for child in children:
+                        visit(os.path.join(rel, child))
+        except FileNotFoundError:
+            return  # missing/incomplete seats need no directories created
+
+    for rel in targets:
+        visit(rel)
+    return found
+
+
+def leave_read(root_fd, rel, identity):
+    """Read only the small state/PID records, through the same no-follow guard."""
+    with leave_parent(root_fd, rel) as (parent, name):
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
+        with os.fdopen(fd, "rb") as f:
+            st = os.fstat(f.fileno())
+            if leave_identity(st) != identity or not stat.S_ISREG(st.st_mode) or st.st_size > MAX_COURIER_JSON:
+                raise Refusal("leave record changed or is not a small plain file: %s" % rel)
+            return f.read(MAX_COURIER_JSON + 1)
+
+
+def leave_processes(home, recorded_pid=None):
+    """Fail closed if ps fails; also find a node whose PID record was lost or changed.
+    ps does not quote paths containing spaces, so an ambiguous home match is refused,
+    never used to choose a process to signal.
+    """
+    found = {}
+    # Normalise spelling only for discovery, never for permission to signal.
+    # Keep spaces intact: ps is not a quoted argv, and ambiguity must fail closed.
+    separator = r"/+(?:\./+)*"
+    spelling = separator.join(re.escape(part) for part in os.path.normpath(home).casefold().split("/"))
+    boundary = re.compile(r"(?:^|[\s=])%s(?:/|\s|$)" % spelling)
+    for line in run(["/bin/ps", "-axww", "-o", "pid=,command="]).splitlines():
+        parts = line.strip().split(None, 1)
+        if parts:
+            pid = int(parts[0])
+            command = parts[1] if len(parts) == 2 else ""
+            # A live recorded PID blocks deletion even when its home is invisible.
+            if pid == recorded_pid or boundary.search(command.casefold()):
+                found[pid] = command
+    return found
+
+
+def leave_open_files(home):
+    """Discover by filesystem identity, not argv spelling; never hide lsof warnings.
+
+    lsof can return 1 even with matches when some +D entries are not open.
+    Only exit 1 with empty output and no diagnostics proves no matches. PIDs
+    always block leaving; other statuses or malformed results fail inspection.
+    -t implies -w, so the following +w is essential to restore diagnostics.
+    """
+    binary = "/usr/sbin/lsof" if sys.platform == "darwin" else "/usr/bin/lsof"
+    argv = [binary, "-n", "-P", "-t", "+w", "+D", home]
+    try:
+        proc = subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, text=True, errors="replace",
+                              env=clean_env(), timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise Refusal("leave cannot check open files with %s (missing, not runnable or timed out); "
+                      "no seat files removed. Preview again; it needs the system lsof. (%s)" % (binary, e)) from e
+    lines = proc.stdout.splitlines()
+    if proc.returncode == 1 and not lines and not proc.stderr:
+        return set()
+    if proc.returncode not in (0, 1) or proc.stderr or not lines or any(
+            not re.fullmatch(r"[0-9]+", line) or int(line) <= 0 for line in lines):
+        raise Refusal("leave open-file inspection failed (lsof exit %s); no seat files removed. "
+                      "Restore the check and preview again. %s" % (proc.returncode, proc.stderr.strip()[:500]))
+    return {int(line) for line in lines}
+
+
+def leave_require_closed_home(home, snapshot, home_rel):
+    # A missing home has no files to inspect; do not turn lsof's missing-path
+    # error into an empty result. Call again on the fresh post-stop inventory.
+    if home_rel not in snapshot:
+        return
+    pids = leave_open_files(home)
+    if pids:
+        raise Refusal("leave found open files under the seat home (PIDs %s); no signal or removal "
+                      "will follow this check. Pause the seat with stop, close other programs using "
+                      "its files, then preview again." % ", ".join(str(pid) for pid in sorted(pids)))
+
+
+def leave_overview(lay, label, targets, snapshot, sizes, action):
+    """Human-sized totals first; full names remain available below them. MB is decimal."""
+    totals = []
+    for target in targets:
+        entries = [p for p in snapshot if p == target or p.startswith(target + os.sep)]
+        if entries:
+            files = [p for p in entries if snapshot[p][2] == stat.S_IFREG]
+            size = sum(sizes[p] for p in files)
+            totals.append({"path": os.path.join(lay.root, target), "files": len(files),
+                           "folders": len(entries) - len(files), "bytes": size, "size": "%.2f MB" % (size / 1000000)})
+    count = sum(t["files"] for t in totals)
+    size = sum(t["bytes"] for t in totals)
+    return {
+        "summary": "%s seat %s: %d files, %.2f MB; keeps bin/, inbox/, other seats and shared records."
+                   % (action, label, count, size / 1000000),
+        "targets": totals,
+    }
+
+
+def leave_remove(root_fd, snapshot):
+    # Children first; every syscall is relative to a freshly guarded parent descriptor.
+    # Never chmod, overwrite, use rmtree, or cross into another filesystem.
+    for rel in sorted(snapshot, key=lambda p: (-p.count(os.sep), p)):
+        try:
+            with leave_parent(root_fd, rel) as (parent, name):
+                st = leave_stat(parent, name, os.fstat(root_fd).st_dev)
+                if leave_identity(st) != snapshot[rel]:
+                    raise Refusal("leave path changed")
+                if stat.S_ISDIR(st.st_mode):
+                    os.rmdir(name, dir_fd=parent)
+                else:
+                    os.unlink(name, dir_fd=parent)
+        except (OSError, Refusal) as e:
+            raise Refusal("leave removal stopped partway at %s; earlier deletions are permanent. "
+                          "Inspect what remains and preview again. (%s)" % (rel, e)) from e
+
+
+def cmd_leave(a):
+    check_chain_id(a.chain_id)
+    check_label(a.label)
+    if os.path.islink(os.path.normpath(a.root)):
+        raise Refusal("leave refuses a symlink root")
+    lay = Layout(a.root, a.chain_id, create=False)
+    home = lay.seat_home(a.label)
+    paths = [home] + [lay.seat_file(a.label, kind) for kind in ("state", "default-genesis", "gentx")]
+    paths += [lay.pid_file(a.label), lay.log_file(a.label)]
+    paths += [os.path.join(lay.outbox, "%s-%s.json" % (kind, a.label)) for kind in ("seat", "status")]
+    targets = [os.path.relpath(p, lay.root) for p in paths]
+    state_rel = os.path.relpath(lay.seat_file(a.label, "state"), lay.root)
+    pid_rel = os.path.relpath(lay.pid_file(a.label), lay.root)
+    root_fd = os.open(lay.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        leave_stat(root_fd, ".", os.fstat(root_fd).st_dev)
+        sizes = {}
+        plan = leave_snapshot(root_fd, targets, sizes)
+        state = {}
+        records = {}
+        if state_rel in plan:
+            records[state_rel] = leave_read(root_fd, state_rel, plan[state_rel])
+            state = parse_json(records[state_rel], allow_floats=True)
+            if not isinstance(state, dict):
+                raise Refusal("leave state is not a JSON object")
+            if state.get("home") != home or state.get("label") != a.label:
+                raise Refusal("leave state home/label differs from this seat (outside-root paths are refused)")
+        if pid_rel in plan:
+            records[pid_rel] = leave_read(root_fd, pid_rel, plan[pid_rel])
+        pid = int(records[pid_rel].strip()) if pid_rel in records else None
+        running = leave_processes(home, pid)
+        expected = "%s start --home %s" % (lay.binary, home)
+        if running and (pid is None or running != {pid: expected} or state_rel not in plan):
+            raise Refusal("leave cannot safely identify the running seat; missing/stale PID or unexpected command; "
+                          "no signal or removal attempted. Observed PID/command: %s. "
+                          "Ask your helper to identify these processes; do not signal an unrelated process. "
+                          "Stop a hand-started seat through its own launcher. Only after verifying the seat "
+                          "is stopped, move the stale PID record %s aside if needed and preview again."
+                          % ("; ".join("%d %r" % item for item in sorted(running.items())), lay.pid_file(a.label)))
+        leave_require_closed_home(home, plan, targets[0])
+        overview = leave_overview(lay, a.label, targets, plan, sizes, "Would delete")
+        result = {
+            "summary": overview["summary"],
+            "firewall_command_for_mac_person": "sudo %s --remove %s" % (SOCKETFILTERFW, shlex.quote(lay.binary)),
+            "after_last_seat": ("After successful removal, only if this was the last seat on this Mac: the person "
+                                "whose Mac it is runs firewall_command_for_mac_person first. This seat's keys are "
+                                "already gone; then drag %s to the Trash. "
+                                "In the Trash, select only that folder and choose Delete Immediately. "
+                                "In Finder, Go > Go to Folder finds that path. "
+                                "Delete any kit folders still in Downloads too. Otherwise keep the "
+                                "root folder and firewall rule." % lay.root),
+            "targets": overview["targets"],
+            "label": a.label, "chain_id": a.chain_id, "dry_run": not a.yes,
+            "confirmation": ("The preview shows what is here now, not a binding list. --yes proves the node stopped, "
+                             "then checks and removes a fresh inventory of this seat's own paths, including new files."),
+            "would_remove": [{"path": os.path.join(lay.root, p),
+                              "kind": "directory" if ident[2] == stat.S_IFDIR else "file"}
+                             for p, ident in sorted(plan.items())],
+            "would_stop_pid": pid if running else None,
+            "kept": [lay.bin_dir, lay.inbox, "coordinator records, other seats/chains and empty parent folders"],
+            "cannot_remove": ["copies on other Macs", "any kit copies still in ~/Downloads", "backups",
+                              "the coordinator's records", "macOS Local Network or VPN permissions",
+                              "router or Wi-Fi settings"],
+            "warning": ("Permanent deletion, not Trash; no undo or secure-erasure guarantee. Shared bin/ and inbox/ "
+                        "stay even after the last seat. Only remove the firewall rule if no other seat needs it. "
+                        "Do not restore signing keys or reuse this chain id; rejoin on a new chain."),
+        }
+        if not a.yes:
+            result["next"] = ("Review every path; only the person whose Mac it is may confirm "
+                              "by repeating with --yes.")
+            emit(result)
+            return 0
+        # Show the current inventory before the first side effect, even if stopping later refuses.
+        print(json.dumps(result, indent=2), file=sys.stderr, flush=True)
+        if running:
+            # The stop uses only the guarded records already read, never a path from a fresh JSON read.
+            for rel, content in records.items():
+                if leave_read(root_fd, rel, plan[rel]) != content:
+                    raise Refusal("leave state/PID record changed; no signal or removal attempted")
+            stop_process(a.label, pid, expected, state.get("genesis_time"))
+        if leave_processes(home, pid):
+            raise Refusal("seat is still running after the stop attempt; no seat files removed")
+        # Shutdown may replace the signing-state file or create data/log files. Confirmation covers
+        # these fixed seat paths, not the earlier names/inodes; every fresh entry still passes the guards.
+        sizes = {}
+        remaining = leave_snapshot(root_fd, targets, sizes)
+        leave_require_closed_home(home, remaining, targets[0])
+        leave_remove(root_fd, remaining)
+        result.update(leave_overview(lay, a.label, targets, remaining, sizes, "Deleted"))
+        result["removed"] = [os.path.join(lay.root, rel) for rel in sorted(remaining)]
+        result["stopped_pid"] = pid if running else None
+        emit(result)
+        return 0
+    except OSError as e:
+        raise Refusal("leave could not finish; inspect what remains and preview again. "
+                      "Do not move seat files into the inbox. (%s)" % e) from e
+    finally:
+        os.close(root_fd)
 
 
 def installed_state(lay, label):
@@ -2221,7 +2632,7 @@ def main(argv=None):
     p.add_argument("--label", required=True, help="the seat the folder is for")
     p.add_argument("--out", required=True, help="a new folder outside the root, e.g. ~/Desktop/zerone-kit-<label>")
     p.add_argument("--round", type=int, choices=[0, 2], default=0,
-                   help="0: skill, zeroned, invitation, START-HERE.md; 2: genesis, network packet, NEXT.md")
+                   help="0: skill, zeroned, invitation, YOUR-MAC.md, START-HERE.md; 2: genesis, network packet, NEXT.md")
     p.set_defaults(fn=cmd_kit)
 
     p = sub.add_parser("receive", help="move couriered files or a kit folder into the inbox")
@@ -2258,6 +2669,13 @@ def main(argv=None):
         p.add_argument("--chain-id", required=True)
         p.add_argument("--label", required=True)
         p.set_defaults(fn=fn)
+
+    p = sub.add_parser("leave", help="preview seat removal (pause with stop first); only --yes permanently deletes it")
+    p.add_argument("--chain-id", required=True)
+    p.add_argument("--label", required=True)
+    p.add_argument("--yes", action="store_true",
+                   help="the person whose Mac it is confirms permanent deletion of a fresh seat inventory after stop")
+    p.set_defaults(fn=cmd_leave)
 
     p = sub.add_parser("status", help="this seat's view of the chain")
     p.add_argument("--chain-id", required=True)
@@ -2307,10 +2725,14 @@ def main(argv=None):
         print("private-net: REFUSED: %s" % e, file=sys.stderr)
         return 2
     except PermissionError as e:
+        if a.fn == cmd_leave:
+            print("private-net: REFUSED: leave cannot access %s; inspect what remains and preview again. "
+                  "Do not move seat files into the inbox." % (e.filename or e.strerror), file=sys.stderr)
+            return 2
         inside_root = e.filename and os.path.realpath(str(e.filename)).startswith(os.path.realpath(a.root) + os.sep)
         if e.filename is None or inside_root:
             print("private-net: REFUSED: permission denied (%s): if this ran inside an agent sandbox, run it "
-                  "outside with the owner's approval" % (e.filename or e.strerror), file=sys.stderr)
+                  "outside with approval from the person whose Mac it is" % (e.filename or e.strerror), file=sys.stderr)
         else:
             print("private-net: REFUSED: cannot access %s: macOS privacy may block this app from that folder. "
                   "Have the owner move the file into %s/inbox in Finder." % (e.filename, a.root), file=sys.stderr)
