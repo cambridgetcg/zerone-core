@@ -28,10 +28,14 @@ one `REFUSED:` line.
   that Mac.
 - **Coordinator:** one seat that also writes the invitations and assembles the
   genesis. It sees only public files.
-- **Owner (Yu):** the courier and the authority. The owner carries files
-  between Macs (AirDrop or another chosen channel), approves macOS permission
-  prompts, and confirms the seat list before nodes start. The person whose
-  Mac it is must also agree before setup and start, and may ask to pause or leave.
+- **Operator (Yu, also called owner in other commands):** the courier and the
+  authority for the test network. The operator carries files between Macs
+  (AirDrop or another chosen channel), relays the genesis hash, and confirms
+  the seat list before nodes start.
+- **The person whose Mac it is:** agrees before setup, approves commands outside
+  the sandbox and local macOS/firewall/VPN changes, and confirms the seat table
+  before start. Either person may ask to pause; the Mac's person confirms leaving.
+  The operator and this person may be the same human; the roles remain distinct.
 
 Exactly one agent owns each seat home. Other agents on that Mac may run
 `status`, and nothing else, against that seat.
@@ -40,10 +44,10 @@ Exactly one agent owns each seat home. Other agents on that Mac may run
 
 ```
 round 0  coordinator: build/binary, invite ×N (own included), seat (own), kit ×(N−1)
-                      ──kit──▶ each other Mac  (owner carries)
+                      ──kit──▶ each other Mac  (operator carries)
 round 1  each other Mac: receive, preflight, binary, seat ──seat-<label>.json──▶ coordinator
 round 2  coordinator: receive, genesis, kit --round 2 ──genesis + network packet──▶ each Mac
-         each Mac:    receive, install → owner AND Mac's person confirm seat table → start → status
+         each Mac:    receive, install → operator AND Mac's person confirm seat table → start → status
 ```
 
 Each Mac's **kit** contains:
@@ -105,7 +109,7 @@ avoid this by spelling out every command with absolute paths.
    `(umask 077; mkdir -p /Users/Shared/zerone-private/inbox)`.
    - AirDrop puts files in `~/Downloads`. Where the app running the agent may
      read that folder, `pn receive ~/Downloads/<file or folder>` moves each
-     arrival into the inbox. Otherwise the owner moves every arrival in Finder
+     arrival into the inbox. Otherwise the person whose Mac it is moves every arrival in Finder
      into `/Users/Shared/zerone-private/inbox/`.
      - On a seat Mac, the first arrival is the kit, and `pn` does not exist
        yet, so run the kit's own copy:
@@ -117,7 +121,7 @@ avoid this by spelling out every command with absolute paths.
        copy. Every other file pins the chain, so `receive` never replaces it;
        it names every such clash at once.
    - Run `pn preflight --ip <this Mac's LAN IPv4>` and fix every `fail`
-     (owner steps below).
+     (local permission steps below).
 1. **Binary.**
    - **Coordinator:** `pn build --src <clean checkout> --commit <full sha>`.
      This needs Go 1.21 or newer and Xcode Command Line Tools; Go fetches the
@@ -132,7 +136,7 @@ avoid this by spelling out every command with absolute paths.
      `pn binary --from inbox/zeroned --invite inbox/invite-<label>.json`.
      This checks the sha256 and clears the AirDrop quarantine flag.
    - **To change the pin later:** stop every seat on that Mac. If the old
-     binary was allowed through the firewall, the owner runs
+     binary was allowed through the firewall, the person whose Mac it is runs
      `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --remove /Users/Shared/zerone-private/bin/zeroned`.
      Then move `bin/zeroned` and `bin/zeroned.json` aside together, pin the
      new binary, and allow it again (step 3). Every chain pinned to the old
@@ -154,11 +158,12 @@ avoid this by spelling out every command with absolute paths.
      invitation, `YOUR-MAC.md` for the person, and a `START-HERE.md` with that Mac's exact commands. The
      owner AirDrops the folder. `kit` refuses until the coordinator has
      seated.
-3. **Owner steps on each Mac, once its binary is pinned.** Re-run `preflight`
+3. **The person whose Mac it is makes local changes, with the helper's explanation,
+   once its binary is pinned.** Re-run `preflight`
    afterwards.
    - **Firewall.** macOS asks whether to allow `zeroned` only when the node
      opens its P2P port. The node opens it at `genesis_time`, not at `start`,
-     so on every Mac that should accept peers the owner allows it now. Do this
+     so on every Mac that should accept peers that person allows it now. Do this
      at least on the always-on Macs. `preflight` warns until it is done and
      prints:
 
@@ -187,7 +192,7 @@ avoid this by spelling out every command with absolute paths.
      - Terminal.app and SSH sessions are exempt.
      - `preflight`'s `lan-dial` check tests this from the same app. Once the
        seat IPs are known, add `--peer <another seat's IPv4>`.
-     - If the check fails, the owner enables that app under System Settings ›
+     - If the check fails, that person enables that app under System Settings ›
        Privacy & Security › Local Network, or runs the seat's commands from
        Terminal.app.
    - **Mullvad.** If installed, set `mullvad lan set allow`.
@@ -229,7 +234,7 @@ avoid this by spelling out every command with absolute paths.
      The coordinator uses its own `nets/<id>/outbox/` copies. On a
      `-lan-` or `-private-` chain, `install` refuses without
      `--expect-genesis-sha256`.
-   - Show the owner AND the person whose Mac it is the printed seat table,
+   - Show the operator AND the person whose Mac it is the printed seat table,
      including the other Macs' names and addresses. Every seat's table must list the
      same labels, roles, stakes and node ids: a seat admits peers by those node
      ids, and only validators' ids are bound to the relayed genesis sha256.
@@ -258,7 +263,7 @@ avoid this by spelling out every command with absolute paths.
    - Optionally, from a validator seat, run `pn send … --to <another validator's operator address>`,
      then `pn balance … --address <it>` on any other seat.
 8. **Stop (reversible pause):** `pn stop --chain-id <id> --label <label>`.
-   Stop when the owner OR the person whose Mac it is asks; the helper can
+   Stop when the operator OR the person whose Mac it is asks; the helper can
    start it again. It creates no folders, even after leaving. It stops only the
    process whose full command line is this seat's. A node still sleeping
    before `genesis_time` cannot stop at once: it takes the signal, exits at
@@ -306,6 +311,19 @@ avoid this by spelling out every command with absolute paths.
      trailing slashes in the seat path, and compares without case differences.
      The command must still match exactly before signalling; normalisation
      finds hand-started nodes so they cause a refusal, not permission to stop them.
+     A separate open-file check uses `/usr/sbin/lsof -n -P -t +w +D <home>` on
+     macOS (`/usr/bin/lsof` on Linux), before any stop and again after the stop
+     check and fresh inventory. It matches filesystem identities independently
+     of command-line path spelling, including symlink aliases, `/var` or `/tmp`,
+     `..` and relative homes. Any open-file PID blocks leaving, even the recorded
+     node: use `stop` first and close other programs using the home, then preview
+     again. An unavailable/timed-out check, warnings, unexpected status or malformed
+     output also refuses. `+w` restores warnings suppressed by `-t`. Only exit 1
+     with no output or diagnostics counts as no matches; exit 0 or 1 with PIDs
+     blocks leaving. A missing home needs no open-file scan; a newly appearing
+     home is checked on the fresh inventory. Stale-PID refusals name observed
+     PIDs/commands and advise identifying them, not signalling unrelated processes;
+     move only a stale PID record aside after verifying the seat is stopped.
    - Run alone: no other agent may start or change that seat during removal.
      Shutdown writes are allowed after the stop is proven; every fresh entry
      still passes the same path guards. Deletion is not a transaction: an I/O
@@ -315,7 +333,8 @@ avoid this by spelling out every command with absolute paths.
      into the inbox. Stop, inspect and preview what remains; do not blindly retry.
    - It never runs `sudo`. It prints the exact, shell-quoted
      `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --remove <root>/bin/zeroned`
-     for the owner, who runs it only if no other seat needs that rule. It
+     in `firewall_command_for_mac_person` for the person whose Mac it is, who
+     runs it only if no other seat needs that rule. It
      does not change Local Network, VPN, router or Wi-Fi settings. With the
      person, turn off the helper app under System Settings > Privacy & Security
      > Local Network and restore earlier Mullvad/router/Wi-Fi settings only

@@ -1253,11 +1253,11 @@ def your_mac_text(inv, binary_bytes):
     return """# Your Mac: {label}
 
 Yu, the operator, is testing Zerone, a blockchain, on a private network
-of their own Macs. Your Mac would run the program zeroned, keeping a copy
+of their own Macs. Your Mac would run zeroned, keeping a copy
 of the shared record. A "seat" means this Mac ({label}). Your helper is
 the operator's AI agent. The kit is a folder of setup files.
 
-For now only the operator's own Macs take part; other people's Macs cannot
+Only the operator's own Macs take part; other people's Macs cannot
 join yet. If this Mac isn't one of the operator's, stop here: this note
 doesn't invite it. You can decline, pause or leave.
 
@@ -1280,12 +1280,12 @@ Mac this is.
 
 zeroned uses storage, memory, network and electricity. Closing Terminal
 doesn't stop it. Logging out may stop it; shutdown or restart does.
-It does not restart automatically; your helper starts it again.
+It does not restart automatically; your helper restarts it.
 {role}
 
-Files in {root} are restricted to your login,
-but software using it can read them. Both program copies, received and
-installed, are about {mb} MB each. Allow roughly 5 GB per running month.
+Files in {root}: only your account can open them,
+but any program running as you can read them. Received and installed copies
+are about {mb} MB each. Allow roughly 5 GB per running month.
 That is an estimate, not a measurement or a storage limit.
 
 ## What is shared
@@ -1301,7 +1301,7 @@ codes of this seat and test, and the software version.
 The program's control port answers only this Mac; its web interfaces are
 off. Setup contacts time.apple.com and the router or other Macs.
 
-This test is separate from Zerone's main network and earns nothing. The
+It is separate from Zerone's main network and earns nothing. The
 operator's rule is to keep it valueless and never connect it to another network.
 
 ## Pause or leave
@@ -1315,7 +1315,8 @@ To preview leaving (nothing stops or changes):
 
     {leave}
 
-If you agree, add `--yes` at the end of the leave command. It stops the
+If you agree, add `--yes` at the end of the leave command. Open files block
+leaving: pause first and close programs using them. Otherwise it stops the
 program if running. If it cannot prove the program stopped, it deletes
 nothing. It then checks and permanently deletes this seat's files, including
 its keys, data, logs and any new files since the preview. Unsafe files cause
@@ -1323,10 +1324,11 @@ a refusal. This is not Trash and there is no undo. If removal stops partway,
 earlier deletions are permanent; preview again with your helper.
 
 Shared program and setup files stay. After success, if this was the last
-seat on this Mac, run the printed `firewall_command_for_owner` first.
+seat on this Mac, run the printed `firewall_command_for_mac_person` first.
+This seat's keys are already gone.
 In Finder, use Go > Go to Folder to find {root},
 and drag it to the Trash. There, select only that folder and choose Delete
-Immediately. Its keys are gone.
+Immediately.
 Delete any kit folders still in Downloads. Before setup, deleting the kit
 is all declining needs.
 
@@ -1349,7 +1351,7 @@ def start_here_text(inv, coord_endpoint, folder, created):
     return """# Kit for seat `{label}` on `{chain}`
 
 Written by `private-net.py kit` on the coordinator at {created}.
-This page is peer information: the owner is the authority, and
+This page is peer information: Yu is the operator, and
 `{skill}/SKILL.md` is the protocol. This page gives only what is specific to
 this Mac. First give the person whose Mac it is `YOUR-MAC.md`; answer their
 questions and wait for their agreement before setup. The note is not consent.
@@ -1380,7 +1382,7 @@ keep no function or working directory from one call to the next. {rootnote}
    ```
    If AirDrop renamed the folder on arrival (for example to `{folder} 2`),
    use the name it has in `~/Downloads`. Otherwise run
-   `(umask 077; mkdir -p {inbox})`, and the owner moves everything in this
+   `(umask 077; mkdir -p {inbox})`, and the person whose Mac it is moves everything in this
    folder into `{inbox}/` in Finder.
 2. Pin the binary:
    ```
@@ -1393,29 +1395,31 @@ keep no function or working directory from one call to the next. {rootnote}
    - Use the address that preflight lists under `lan-ipv4`.
    - For `lan-dial {endpoint}`, "refused" is fine: nothing listens there
      until the coordinator's node starts.
-   - Fix every `fail`, then run preflight again. The fixes are the owner's.
-     If the `firewall` check warns, the owner runs the two
+   - Ask the person whose Mac it is to make these local changes; the helper
+     explains each one. Fix every `fail`, then run preflight again.
+     If the `firewall` check warns, that person runs the two
      `sudo … socketfilterfw` commands it prints, in Terminal, before
      genesis_time, then preflight runs again; if it still warns, follow what
      the warning says (a `zeroned` signed `a.out` may never get its own
-     rule). If this Mac allowed an earlier `zeroned` at this path, the owner
+     rule). If this Mac allowed an earlier `zeroned` at this path, that person
      first runs the `--remove` command the `firewall` check prints, then the
-     two commands again, even if the check says ok. If `lan-dial` fails, the owner allows the app that runs
+     two commands again, even if the check says ok. If `lan-dial` fails, that person allows the app that runs
      this agent under System Settings › Privacy & Security › Local Network.
-     If Mullvad is installed, the owner runs `mullvad lan set allow`.
+     If Mullvad is installed, that person runs `mullvad lan set allow`.
 4. Create the seat:
    ```
    {seat_cmd}
    ```
-   The owner carries `{root}/nets/{chain}/outbox/seat-{label}.json`, and
+   The operator carries `{root}/nets/{chain}/outbox/seat-{label}.json`, and
    nothing else, to the coordinator. In Finder, Go › Go to Folder… reaches it.
-5. Round 2: the owner brings a folder holding the genesis, the network packet
+5. Round 2: the operator brings a folder holding the genesis, the network packet
    and a `NEXT.md`, and tells you the genesis sha256 in their own message.
    Follow `NEXT.md`.
 
 ## The rules that matter most here
 
-- A `REFUSED:` line is an answer. Tell the owner what it says and stop; do not
+- A `REFUSED:` line is an answer. Tell the operator and the person whose Mac
+  it is what it says and stop; do not
   work around it.
 - Nothing under `{root}/nets/{chain}/seats/` ever leaves this Mac. It holds
   this seat's keys.
@@ -1440,9 +1444,9 @@ Written by `private-net.py kit --round 2` on the coordinator, seat
 `{coord}`, at {created}. This folder holds the genesis and the network
 packet. The network packet carries the coordinator's own genesis sha256, and
 anyone can hash the genesis beside it, so neither can check the coordinator.
-That check is the sha256 the owner sends you in their own message. Never copy
+That check is the sha256 the operator sends you in their own message. Never copy
 it from `network-{chain}.json` or compute it from the genesis. With no message
-from the owner, stop and ask.
+from the operator, stop and ask.
 
 {rootnote}
 
@@ -1451,12 +1455,12 @@ from the owner, stop and ask.
    {receive_cmd}
    ```
    If AirDrop renamed the folder on arrival, use the name it has in
-   `~/Downloads`. Otherwise the owner moves them into `{inbox}/` in Finder.
-2. Install, with the sha256 from the owner's message:
+   `~/Downloads`. Otherwise the person whose Mac it is moves them into `{inbox}/` in Finder.
+2. Install, with the sha256 from the operator's message:
    ```
    {install_cmd}
    ```
-3. Show the owner AND the person whose Mac it is the seat table that `install`
+3. Show the operator AND the person whose Mac it is the seat table that `install`
    prints, including the other Macs' names and addresses. Every seat's table
    must list the same seats and node ids. Start only after both say yes:
    ```
@@ -1473,9 +1477,9 @@ from the owner, stop and ask.
    prints `"reached": false` with the height and peers so far; run it again.
    That is not a refusal.
 5. For a comparison, agree a height H with the coordinator, run
-   `{status_cmd}`, and have the owner carry
+   `{status_cmd}`, and have the operator carry
    `{root}/nets/{chain}/outbox/status-{label}.json` to it.
-6. Stop when the owner or the person whose Mac it is asks:
+6. Stop when the operator or the person whose Mac it is asks:
    ```
    {stop_cmd}
    ```
@@ -1487,7 +1491,7 @@ from the owner, stop and ask.
            receive_cmd=page_cmd("receive", "~/Downloads/" + folder),
            install_cmd=page_cmd("install", *seat, "--network", "%s/network-%s.json" % (inbox, chain),
                                 "--genesis", "%s/genesis-%s.json" % (inbox, chain),
-                                "--expect-genesis-sha256", "<sha256 from the owner's message>"),
+                                "--expect-genesis-sha256", "<sha256 from the operator's message>"),
            start_cmd=page_cmd("start", *seat),
            wait_cmd=page_cmd("status", *seat, "--wait-height", "3", "--timeout", "100"),
            status_cmd=page_cmd("status", *seat, "--write", "--from-height", "H"),
@@ -1926,8 +1930,9 @@ def cmd_install(a):
     st, net = install_seat(lay, a.label, a.network, a.genesis, binary, a.expect_genesis_sha256)
     emit({"installed": a.label, "genesis_sha256": st["genesis_sha256"], "genesis_time": st["genesis_time"],
           "rpc": "127.0.0.1:%d" % st["rpc_port"], "seats": seat_table(net),
-          "next": ("show the owner this seat table and the genesis sha256; every seat's table must list the same "
-                   "seats and node ids. On their yes, `start`. The node "
+          "next": ("show the operator AND the person whose Mac it is this seat table (including the other Macs' "
+                   "names and addresses) and the genesis sha256; every seat's table must list the same "
+                   "seats and node ids. Only after both say yes, `start`. The node "
                    "waits for genesis_time, then needs >2/3 of the stake online")})
     return 0
 
@@ -2129,6 +2134,45 @@ def leave_processes(home, recorded_pid=None):
     return found
 
 
+def leave_open_files(home):
+    """Discover by filesystem identity, not argv spelling; never hide lsof warnings.
+
+    lsof can return 1 even with matches when some +D entries are not open.
+    Only exit 1 with empty output and no diagnostics proves no matches. PIDs
+    always block leaving; other statuses or malformed results fail inspection.
+    -t implies -w, so the following +w is essential to restore diagnostics.
+    """
+    binary = "/usr/sbin/lsof" if sys.platform == "darwin" else "/usr/bin/lsof"
+    argv = [binary, "-n", "-P", "-t", "+w", "+D", home]
+    try:
+        proc = subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE, text=True, errors="replace",
+                              env=clean_env(), timeout=30)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise Refusal("leave cannot check open files with %s; no seat files removed. "
+                      "Restore the system lsof check and preview again. (%s)" % (binary, e)) from e
+    lines = proc.stdout.splitlines()
+    if proc.returncode == 1 and not lines and not proc.stderr:
+        return set()
+    if proc.returncode not in (0, 1) or proc.stderr or not lines or any(
+            not re.fullmatch(r"[0-9]+", line) or int(line) <= 0 for line in lines):
+        raise Refusal("leave open-file inspection failed (lsof exit %s); no seat files removed. "
+                      "Restore the check and preview again. %s" % (proc.returncode, proc.stderr.strip()[:500]))
+    return {int(line) for line in lines}
+
+
+def leave_require_closed_home(home, snapshot, home_rel):
+    # A missing home has no files to inspect; do not turn lsof's missing-path
+    # error into an empty result. Call again on the fresh post-stop inventory.
+    if home_rel not in snapshot:
+        return
+    pids = leave_open_files(home)
+    if pids:
+        raise Refusal("leave found open files under the seat home (PIDs %s); no signal or removal "
+                      "will follow this check. Pause the seat with stop, close other programs using "
+                      "its files, then preview again." % ", ".join(str(pid) for pid in sorted(pids)))
+
+
 def leave_overview(lay, label, targets, snapshot, sizes, action):
     """Human-sized totals first; full names remain available below them. MB is decimal."""
     totals = []
@@ -2200,14 +2244,20 @@ def cmd_leave(a):
         expected = "%s start --home %s" % (lay.binary, home)
         if running and (pid is None or running != {pid: expected} or state_rel not in plan):
             raise Refusal("leave cannot safely identify the running seat; missing/stale PID or unexpected command; "
-                          "no signal or removal attempted")
+                          "no signal or removal attempted. Observed PID/command: %s. "
+                          "Ask your helper to identify these processes; do not signal an unrelated process. "
+                          "Stop a hand-started seat through its own launcher. Only after verifying the seat "
+                          "is stopped, move the stale PID record %s aside if needed and preview again."
+                          % ("; ".join("%d %r" % item for item in sorted(running.items())), lay.pid_file(a.label)))
+        leave_require_closed_home(home, plan, targets[0])
         overview = leave_overview(lay, a.label, targets, plan, sizes, "Would delete")
         result = {
             "summary": overview["summary"],
-            "firewall_command_for_owner": "sudo %s --remove %s" % (SOCKETFILTERFW, shlex.quote(lay.binary)),
-            "after_last_seat": ("After successful removal, only if this was the last seat on this Mac: run the printed "
-                                "firewall_command_for_owner first, then drag %s to the Trash (this seat's keys are "
-                                "already gone). In the Trash, select only that folder and choose Delete Immediately. "
+            "firewall_command_for_mac_person": "sudo %s --remove %s" % (SOCKETFILTERFW, shlex.quote(lay.binary)),
+            "after_last_seat": ("After successful removal, only if this was the last seat on this Mac: the person "
+                                "whose Mac it is runs firewall_command_for_mac_person first. This seat's keys are "
+                                "already gone; then drag %s to the Trash. "
+                                "In the Trash, select only that folder and choose Delete Immediately. "
                                 "In Finder, Go > Go to Folder finds that path. "
                                 "Delete any kit folders still in Downloads too. Otherwise keep the "
                                 "root folder and firewall rule." % lay.root),
@@ -2246,6 +2296,7 @@ def cmd_leave(a):
         # these fixed seat paths, not the earlier names/inodes; every fresh entry still passes the guards.
         sizes = {}
         remaining = leave_snapshot(root_fd, targets, sizes)
+        leave_require_closed_home(home, remaining, targets[0])
         leave_remove(root_fd, remaining)
         result.update(leave_overview(lay, a.label, targets, remaining, sizes, "Deleted"))
         result["removed"] = [os.path.join(lay.root, rel) for rel in sorted(remaining)]

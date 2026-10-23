@@ -520,6 +520,10 @@ class Courier(unittest.TestCase):
             self.assertIn(text, page)
         self.assertIn("ask the person whose Mac it is to approve that", " ".join(page.split()))
         self.assertNotIn("ask the owner to approve", page)
+        for text in ("Yu is the operator", "Ask the person whose Mac it is to make these local changes",
+                     "that person runs the two", "that person allows the app", "that person runs `mullvad",
+                     "The operator carries", "the operator brings"):
+            self.assertIn(text, " ".join(page.split()))
 
     def test_person_note_for_validator_and_full_seat_is_carried_and_replaceable(self):
         rc, _, err = cli("--root", self.root, "invite", "--chain-id", CHAIN, "--coordinator-label", "alpha",
@@ -550,15 +554,18 @@ class Courier(unittest.TestCase):
                          "`--yes` at the end of the leave command", "any new files since the preview",
                          "If it cannot prove the program stopped, it deletes nothing", "Unsafe files cause a refusal",
                          "not Trash", "no undo", "Shared program and setup files stay", "last seat on this Mac",
-                         "`firewall_command_for_owner` first", "Go > Go to Folder", "select only that folder",
+                         "`firewall_command_for_mac_person` first", "Go > Go to Folder", "select only that folder",
                          "Delete Immediately",
-                         "keys are gone", "kit folders still in Downloads", "earlier deletions are permanent",
+                         "this seat's keys are already gone", "kit folders still in Downloads", "earlier deletions are permanent",
+                         "only your account can open them, but any program running as you can read them",
+                         "Open files block leaving: pause first and close programs using them",
                          "Before setup, deleting the kit is all declining needs", "doesn't undo permissions or network settings",
                          "restore previous Mullvad, router and Wi-Fi settings", "only if nothing else needs them",
                          "Other Macs' copies and backups", "Time Machine", "Never restore this seat from a backup",
                          "corrected commands before agreeing"):
                 self.assertIn(text.lower(), plain.lower())
             self.assertLessEqual(len(note.split()), 720)  # about 700 words, with room for whole sentences
+            self.assertLess(plain.index("This seat's keys are already gone"), plain.index("drag it to the Trash"))
             for jargon in ("not a binding list", "bin/ and inbox/", "bridged", "seat/test identifiers",
                            "Links, special files and outside paths refuse", "Unproven stop:"):
                 self.assertNotIn(jargon, note)
@@ -752,10 +759,10 @@ class Courier(unittest.TestCase):
             page = f.read()
         self.assertNotIn(gsha, page)
         for text in ("Never copy\nit from `network-%s.json`" % CHAIN, "stop and ask",
-                     "--expect-genesis-sha256 <sha256 from the owner's message>",
+                     "--expect-genesis-sha256 <sha256 from the operator's message>",
                      "%s status --chain-id %s --label beta --wait-height 3 --timeout 100" % (self.INBOX_TOOL, CHAIN),
-                     "Show the owner AND the person whose Mac it is", "other Macs' names and addresses",
-                     "Start only after both say yes", "Stop when the owner or the person whose Mac it is asks",
+                     "Show the operator AND the person whose Mac it is", "other Macs' names and addresses",
+                     "Start only after both say yes", "Stop when the operator or the person whose Mac it is asks",
                      "Never kill it with -9"):
             self.assertIn(text, page)
         _, (rc, _, err) = self.kit("alpha", os.path.join(self.dl, "r2-alpha"), "--round", "2")
@@ -770,6 +777,18 @@ class Courier(unittest.TestCase):
                          "--network", "n.json", "--genesis", "g.json")
         self.assertEqual(rc, 2)
         self.assertIn("give --expect-genesis-sha256", err)
+
+    def test_install_next_requires_both_people_before_start(self):
+        state = {"genesis_sha256": "a" * 64, "genesis_time": "2026-10-17T14:36:12Z", "rpc_port": 36657}
+        with mock.patch.object(pn, "install_seat", return_value=(state, {})), \
+                mock.patch.object(pn, "seat_table", return_value=[]):
+            rc, doc, err = cli("--root", self.root, "install", "--chain-id", CHAIN, "--label", "beta",
+                               "--network", "n.json", "--genesis", "g.json", "--expect-genesis-sha256", "a" * 64)
+        self.assertEqual(rc, 0, err)
+        assert isinstance(doc, dict)
+        for text in ("the operator AND the person whose Mac it is", "names and addresses",
+                     "Only after both say yes, `start`"):
+            self.assertIn(text, doc["next"])
 
     def test_loopback_seats_only_on_local_chains(self):
         rc, _, err = cli("--root", self.root, "seat", "--chain-id", CHAIN, "--label", "gamma", "--ip", "127.0.0.1")
@@ -824,6 +843,7 @@ class Leave(unittest.TestCase):
         for path in self.kept:
             self.write(path, b"keep exactly")
         self.processes = self.enter_patch("leave_processes", return_value={})
+        self.open_files = self.enter_patch("leave_open_files", return_value=set())
         self.kill = self.enter_patch("os.kill")
         self.subprocess_run = self.enter_patch("run", side_effect=AssertionError("unexpected subprocess"))
 
@@ -866,7 +886,7 @@ class Leave(unittest.TestCase):
         self.assertEqual(paths, expected)
         self.assertEqual(len(paths), len(doc["would_remove"]))
         self.assertEqual(next(iter(doc)), "summary")
-        self.assertEqual(list(doc)[:3], ["summary", "firewall_command_for_owner", "after_last_seat"])
+        self.assertEqual(list(doc)[:3], ["summary", "firewall_command_for_mac_person", "after_last_seat"])
         self.assertIn("only the person whose Mac it is may confirm", doc["next"])
         self.assertTrue(doc["summary"].startswith("Would delete seat beta:"))
         files = [e["path"] for e in doc["would_remove"] if e["kind"] == "file"]
@@ -876,7 +896,7 @@ class Leave(unittest.TestCase):
         self.assertIn("not a binding list", doc["confirmation"])
         self.assertEqual(self.snapshot(), before)
         self.assertIn("no undo", doc["warning"])
-        self.assertEqual(doc["firewall_command_for_owner"],
+        self.assertEqual(doc["firewall_command_for_mac_person"],
                          "sudo %s --remove %s" % (pn.SOCKETFILTERFW, pn.shlex.quote(self.lay.binary)))
         self.assertIn("the coordinator's records", doc["cannot_remove"])
         self.kill.assert_not_called()
@@ -927,12 +947,14 @@ class Leave(unittest.TestCase):
             self.write(path, b"keep")
         rc, doc, err = cli("--root", root, "leave", "--chain-id", CHAIN, "--label", "beta", "--yes")
         self.assertEqual(rc, 0, err)
+        assert isinstance(doc, dict)
         self.assertEqual(len(doc["removed"]), 2)
         self.assertEqual(Path(lay.binary).read_bytes(), b"keep")
         self.assertEqual(Path(lay.inbox, "YOUR-MAC.md").read_bytes(), b"keep")
         self.assertEqual(os.listdir(lay.seats_dir), [])
         self.assertIn("only if this was the last seat on this Mac", doc["after_last_seat"])
-        self.assertIn("first, then drag %s to the Trash" % lay.root, doc["after_last_seat"])
+        self.assertIn("then drag %s to the Trash" % lay.root, doc["after_last_seat"])
+        self.assertIn("the person whose Mac it is runs firewall_command_for_mac_person first", doc["after_last_seat"])
         self.assertIn("keys are already gone", doc["after_last_seat"])
         self.assertIn("kit folders still in Downloads", doc["after_last_seat"])
 
@@ -979,6 +1001,73 @@ class Leave(unittest.TestCase):
             self.assertEqual(rc, 2)
             self.assertIn("cannot safely identify", err)
             self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_stale_pid_refusal_names_process_and_safe_next_step(self):
+        self.processes.return_value = {12345: "/bin/sleep 60"}
+        before = self.snapshot()
+        for extra in ((), ("--yes",)):
+            rc, _, err = self.leave(*extra)
+            self.assertEqual(rc, 2, err)
+            for text in ("12345", "/bin/sleep 60", "do not signal an unrelated process",
+                         "Only after verifying the seat is stopped", self.lay.pid_file("beta"), "preview again"):
+                self.assertIn(text, err)
+            self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_any_open_file_refuses_before_signal_even_for_the_recorded_node(self):
+        self.processes.return_value = {12345: self.expected_command()}
+        before = self.snapshot()
+        for pids in ({12345}, {12346}, {12345, 12346}):
+            self.open_files.return_value = pids
+            for extra in ((), ("--yes",)):
+                rc, _, err = self.leave(*extra)
+                self.assertEqual(rc, 2, err)
+                self.assertIn("open files", err)
+                for pid in pids:
+                    self.assertIn(str(pid), err)
+                self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_open_file_after_proven_stop_refuses_before_removal(self):
+        before = self.snapshot()
+        self.processes.side_effect = [{12345: self.expected_command()}, {}]
+        self.open_files.side_effect = [set(), {12346}]
+        with mock.patch.object(pn, "pid_command", side_effect=[self.expected_command(), ""]):
+            rc, _, err = self.leave("--yes")
+        self.assertEqual(rc, 2, err)
+        self.assertIn("open files", err)
+        self.assertEqual(self.snapshot(), before)
+        self.kill.assert_called_once_with(12345, pn.signal.SIGTERM)
+        self.assertEqual(self.open_files.call_args_list, [mock.call(self.home), mock.call(self.home)])
+
+    def test_failed_open_file_check_never_permits_deletion(self):
+        before = self.snapshot()
+        for after_stop in (False, True):
+            self.processes.side_effect = None
+            self.processes.return_value = {}
+            failure = pn.Refusal("open-file inspection failed")
+            self.open_files.side_effect = [set(), failure] if after_stop else failure
+            rc, _, err = self.leave("--yes")
+            self.assertEqual(rc, 2, err)
+            self.assertIn("open-file inspection failed", err)
+            self.assertEqual(self.snapshot(), before)
+        self.kill.assert_not_called()
+
+    def test_new_home_is_checked_on_the_post_stop_inventory(self):
+        shutil.rmtree(self.home)
+        def scan(home, recorded_pid=None):
+            if self.processes.call_count == 2:
+                self.write(os.path.join(home, "new-data"), b"new")
+            return {}
+        self.processes.side_effect = scan
+        self.open_files.return_value = {12346}
+        rc, _, err = self.leave("--yes")
+        self.assertEqual(rc, 2, err)
+        self.assertIn("open files", err)
+        self.open_files.assert_called_once_with(self.home)
+        self.assertEqual(Path(self.home, "new-data").read_bytes(), b"new")
+        self.assertTrue(os.path.exists(self.lay.pid_file("beta")))
         self.kill.assert_not_called()
 
     def test_changed_command_is_never_signalled(self):
@@ -1384,7 +1473,9 @@ class LeaveProcessScan(unittest.TestCase):
             self.assertEqual(proc.stdout.readline().strip(), "ready")
             self.assertIn(proc.pid, pn.leave_processes(sibling))
             self.assertEqual(pn.leave_processes(home), {})
-            rc, doc, err = cli("--root", root, "leave", "--chain-id", CHAIN, "--label", "mac", "--yes")
+            # Process-boundary regression; open-file discovery is exercised separately.
+            with mock.patch.object(pn, "leave_open_files", return_value=set()):
+                rc, doc, err = cli("--root", root, "leave", "--chain-id", CHAIN, "--label", "mac", "--yes")
             self.assertEqual(rc, 0, err)
             self.assertFalse(os.path.exists(home))
             self.assertEqual(Path(sibling, "synthetic").read_text(), "keep")
@@ -1418,6 +1509,14 @@ class LeaveProcessScan(unittest.TestCase):
         command = [sys.executable, "-B", str(SCRIPT), "--root", root,
                    "leave", "--chain-id", CHAIN, "--label", "beta"]
         preview = subprocess.run(command, capture_output=True, text=True, timeout=30)
+        lsof = "/usr/sbin/lsof" if sys.platform == "darwin" else "/usr/bin/lsof"
+        if not os.path.isfile(lsof):
+            self.assertEqual(preview.returncode, 2, preview.stderr)
+            self.assertIn("cannot check open files", preview.stderr)
+            acted = subprocess.run(command + ["--yes"], capture_output=True, text=True, timeout=30)
+            self.assertEqual(acted.returncode, 2, acted.stderr)
+            self.assertTrue(Path(lay.seat_home("beta"), "synthetic-data").is_file())
+            return
         self.assertEqual(preview.returncode, 0, preview.stderr)
         self.assertTrue(os.path.isdir(lay.seat_home("beta")))
         acted = subprocess.run(command + ["--yes"], capture_output=True, text=True, timeout=30)
@@ -1439,6 +1538,151 @@ class LeaveProcessScan(unittest.TestCase):
             result = pn.leave_processes(home)
         self.assertEqual(set(result), {123, 124})
         run.assert_called_once_with(["/bin/ps", "-axww", "-o", "pid=,command="])
+
+
+class LeaveOpenFiles(unittest.TestCase):
+    """Real file-holding Python stand-ins; no zeroned, signing keys or sockets."""
+
+    def test_lsof_status_and_diagnostics_are_fail_closed(self):
+        cases = [(1, "", "", set()), (0, "123\n456\n123\n", "", {123, 456}),
+                 (0, "", "", None), (2, "", "", None), (-9, "", "", None),
+                 (1, "123\n", "", {123}), (0, "not a PID\n", "", None),
+                 (0, "0\n", "", None), (0, "-1\n", "", None),
+                 (1, "", "WARNING: cannot stat", None),
+                 (0, "123\n", "WARNING: output may be incomplete", None)]
+        for platform, binary in (("darwin", "/usr/sbin/lsof"), ("linux", "/usr/bin/lsof")):
+            for rc, out, err, expected in cases:
+                with self.subTest(platform=platform, rc=rc, out=out, err=err), \
+                        mock.patch.object(pn.sys, "platform", platform), \
+                        mock.patch.object(pn.subprocess, "run", return_value=
+                                          subprocess.CompletedProcess([], rc, out, err)) as run:
+                    if expected is None:
+                        with self.assertRaises(pn.Refusal):
+                            pn.leave_open_files("/synthetic/seat")
+                    else:
+                        self.assertEqual(pn.leave_open_files("/synthetic/seat"), expected)
+                    self.assertEqual(run.call_args[0][0],
+                                     [binary, "-n", "-P", "-t", "+w", "+D", "/synthetic/seat"])
+                    self.assertEqual(run.call_args[1]["timeout"], 30)
+
+    def test_unavailable_or_timed_out_lsof_is_not_stop_proof(self):
+        for error in (FileNotFoundError("lsof absent"), PermissionError("not executable"),
+                      subprocess.TimeoutExpired("lsof", 30)):
+            with self.subTest(error=error), mock.patch.object(pn.subprocess, "run", side_effect=error):
+                with self.assertRaisesRegex(pn.Refusal, "cannot check open files"):
+                    pn.leave_open_files("/synthetic/seat")
+
+    def check_spelling(self, variant):
+        base = private_tmp(self)
+        lay = pn.Layout(os.path.join(base, "root with spaces"), CHAIN)
+        home = lay.seat_home("mac")
+        os.mkdir(home, 0o700)
+        Path(home, "data").mkdir(mode=0o700)
+        Path(home, "data", "held-file").write_bytes(b"synthetic data, not a key")
+        Path(lay.seat_file("mac", "state")).write_bytes(pn.json_bytes({"home": home, "label": "mac"}))
+        # Python accepts a script named 'start', without compiling a node binary.
+        os.mkdir(lay.bin_dir, 0o700)
+        os.symlink(sys.executable, lay.binary)
+        Path(lay.root, "start").write_text(
+            "import os, sys, time\n"
+            "home = sys.argv[sys.argv.index('--home') + 1]\n"
+            "held = open(os.path.join(home, 'data', 'held-file'), 'rb') if os.environ.get('HOLD') == 'yes' else None\n"
+            "print('ready', flush=True)\n"
+            "time.sleep(60)\n")
+        spelling = home
+        if variant in ("B3", "B7c"):
+            alias = os.path.join(base, "alias")
+            os.symlink(lay.root, alias)
+            spelling = alias + home[len(lay.root):]
+        elif variant == "B3v":
+            if home.startswith(("/private/var/", "/private/tmp/")):
+                spelling = home[len("/private"):]
+            elif sys.platform == "darwin":
+                self.skipTest("B3v native alias needs TMPDIR under /var or /tmp on macOS")
+            else:
+                # Linux lacks macOS's /var -> /private/var alias. Model the
+                # same filesystem relationship under this private fixture only.
+                alias = os.path.join(base, "var-alias")
+                os.symlink(os.path.dirname(lay.root), alias)
+                spelling = os.path.join(alias, os.path.relpath(home, os.path.dirname(lay.root)))
+        elif variant == "B4":
+            os.mkdir(lay.seat_home("mac-b"), 0o700)
+            spelling = home.replace("/seats/mac", "/seats/mac-b/../mac")
+        elif variant == "B5":
+            spelling = os.path.relpath(home, lay.root)
+        procs = []
+        try:
+            for path in ([home, spelling] if variant == "B7c" else [spelling]):
+                proc = subprocess.Popen([lay.binary, "start", "--home", path], cwd=lay.root,
+                                        env=dict(os.environ, HOLD="no" if variant == "B7c" and not procs else "yes"),
+                                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                procs.append(proc)
+                assert proc.stdout is not None
+                self.assertEqual(proc.stdout.readline().strip(), "ready")
+            if variant == "B7c":
+                Path(lay.pid_file("mac")).write_text(str(procs[0].pid))
+                self.assertEqual(set(pn.leave_processes(home, procs[0].pid)), {procs[0].pid})
+            else:
+                self.assertEqual(pn.leave_processes(home), {})  # argv-only discovery misses these
+            lsof = "/usr/sbin/lsof" if sys.platform == "darwin" else "/usr/bin/lsof"
+            with contextlib.ExitStack() as stack:
+                if variant == "B7c":
+                    # Apple's 3.9 launcher re-execs Python under its framework
+                    # path. Model only the recorded command identity; real ps
+                    # must still discover the first process and miss the alias.
+                    real_scan = pn.leave_processes
+                    def scan(home, recorded_pid=None):
+                        found = real_scan(home, recorded_pid)
+                        if procs[0].pid in found:
+                            found[procs[0].pid] = "%s start --home %s" % (lay.binary, home)
+                        return found
+                    stack.enter_context(mock.patch.object(pn, "leave_processes", side_effect=scan))
+                if not os.path.isfile(lsof):
+                    self.assertNotEqual(sys.platform, "darwin", "macOS regression requires system lsof")
+                    # CI need not install lsof: mock only its OS observation, not
+                    # the adapter, process scan, guards, signal or deletion path.
+                    real_run = subprocess.run
+                    def observe(argv, **kwargs):
+                        if argv[0] == lsof:
+                            return subprocess.CompletedProcess(argv, 0,
+                                                               "%d\n" % procs[-1].pid, "")
+                        return real_run(argv, **kwargs)
+                    stack.enter_context(mock.patch.object(pn.subprocess, "run", side_effect=observe))
+                def snapshot():
+                    return {str(p): (p.lstat().st_mode, os.readlink(p) if p.is_symlink() else
+                                    p.read_bytes() if p.is_file() else None)
+                            for p in Path(lay.root).rglob("*")}
+                before = snapshot()
+                with mock.patch.object(pn.os, "kill") as kill:
+                    for extra in ((), ("--yes",)):
+                        rc, _, err = cli("--root", lay.root, "leave", "--chain-id", CHAIN,
+                                         "--label", "mac", *extra)
+                        self.assertEqual(rc, 2, err)
+                        self.assertIn("open files", err)
+                        self.assertIn(str(procs[-1].pid), err)
+                        self.assertEqual(snapshot(), before)
+                        for proc in procs:
+                            self.assertIsNone(proc.poll())
+                    kill.assert_not_called()
+        finally:
+            for proc in procs:
+                proc.terminate()
+                proc.communicate(timeout=10)
+
+    def test_b3_symlinked_middle_folder_without_pid(self):
+        self.check_spelling("B3")
+
+    def test_b3v_private_var_or_tmp_alias_without_pid(self):
+        self.check_spelling("B3v")
+
+    def test_b4_parent_component_without_pid(self):
+        self.check_spelling("B4")
+
+    def test_b5_relative_home_without_pid(self):
+        self.check_spelling("B5")
+
+    def test_b7c_recorded_exact_node_and_unrecorded_alias_node(self):
+        self.check_spelling("B7c")
 
 
 class Invitations(unittest.TestCase):

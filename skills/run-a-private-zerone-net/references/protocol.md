@@ -84,9 +84,12 @@ setup; the tool does not authenticate their consent. Like the other pages it
 is replaceable on receipt, not signed evidence. Its two commands are a `stop`
 pause and a `leave` preview with explicit default root/chain/label; a nonstandard
 root needs corrected commands before agreement. NEXT.md requires the seat
-table be shown to the owner AND the person whose Mac it is before both agree
+table be shown to the operator AND the person whose Mac it is before both agree
 to start, and says to stop when either asks. Admission and the beta stage are
 unchanged: only our own Macs, pending separate gates and authorization.
+The operator (Yu, called owner in other commands) couriers files and relays the
+hash; the Mac's person approves setup, out-of-sandbox commands and local
+permissions. START-HERE, NEXT.md and install's `next` use these same roles.
 
 ## Local departure
 
@@ -107,7 +110,8 @@ from its filename. Coordinator homes, invitations and shared genesis/network
 records, other seats/chains, and empty parent folders stay too. It cannot
 retract history or remove other Macs' copies, any kit copies still in Downloads or
 backups. These are listed in its output, along with the exact firewall-removal
-command for the owner; it never executes sudo or edits permissions or network
+command in `firewall_command_for_mac_person` for the person whose Mac it is;
+it never executes sudo or edits permissions or network
 settings. After successful removal, only if this was the last seat on the Mac,
 run that firewall command first, then drag the whole root folder to the Trash
 (this seat's keys are already gone). In the Trash, select only that folder and
@@ -138,7 +142,24 @@ command does not name the seat home. If the running set is nonempty, it must be
 exactly the recorded PID with the expected command and state record; otherwise
 leave refuses without a signal or removal. Normalisation is for discovery only, not permission to
 signal a differently spelled command. A lost PID file also refuses when a
-home match is found. The same SIGTERM-only stop helper as
+home match is found. A refusal names the observed PIDs and commands and asks
+the helper to identify them, never to signal an unrelated process. Only after
+verifying the seat stopped may a stale PID record be moved aside before previewing again.
+
+Independently, `/usr/sbin/lsof -n -P -t +w +D <home>` (Linux: `/usr/bin/lsof`)
+checks open files by filesystem identity before any signal and again after the
+stop check and fresh inventory. Thus aliases through symlinks, `/tmp` or `/var`,
+`..` and relative homes cannot hide a process holding a seat file open. Any PID
+refuses, including the recorded node: pause with `stop`, close other programs
+using the files, then preview again. Missing lsof, execution failure, timeout,
+diagnostics, malformed output or unexpected status refuses, never permits removal.
+`-t` suppresses warnings implicitly, so `+w` explicitly restores them. Exit 1
+with empty stdout and stderr is the no-match result; exit 0 or 1 with PID output
+blocks leaving (lsof may return 1 when some requested files have no users).
+An absent home is not passed to lsof; if it appears before the fresh inventory,
+that inventory triggers the check. No privileged command is used.
+
+The same SIGTERM-only stop helper as
 `stop` runs on the checked records (rechecked before signalling), followed by
 another process check and the fresh inventory. A node still sleeping until
 genesis time, a restart, or an unsafe path prevents deletion. Ordinary shutdown
@@ -167,7 +188,7 @@ existing single-agent-per-seat convention. `stop` also creates no directories.
 | `start` | not installed; the pinned binary is not the one the seat was made with; already running; `config/genesis.json` changed since install; the seat IP is not on this Mac; a port has a live listener (TIME_WAIT is ignored, as Go's own bind does); the process exits at once |
 | `status` | the node answering on the seat's RPC port is not this seat's (another chain's node or process); with `--wait-height`, also the seat's node not running (checked on every poll). Reaching `--timeout` (default 100 s) first is not a refusal: it exits 3 with `"reached": false`, the height and the peers so far |
 | `stop` | the pid's full command line is not `<root>/bin/zeroned start --home <seat home>`; it never escalates past SIGTERM. A node sleeping before `genesis_time` takes the signal but exits only at `genesis_time` (opening its ports for a moment, producing no block), and `stop` says so |
-| `leave` | root missing/non-private, inside the account's home or a git tree, or with a symlink as its final component (intermediates resolve through realpath); invalid chain/label; links (including internal symlinks and hard links), special files, other-owned paths or mount boundaries; folders lacking owner write/enter permission or immutable/append-only entries; malformed state/PID input, non-object state, state home/label differs, oversized (>16 MiB)/non-plain/swapped state or PID record, or a record changed before signalling; process inspection fails or cannot identify the running seat (including missing/stale PID, a live recorded PID with a different command, and ambiguous command); SIGTERM does not stop it; it is running on the second check; path/inode changes during guarded traversal/removal. No mutation without `--yes`; no deletion while a stop is unproven. Ordinary shutdown writes are included, not a reason to refuse. See Local departure for retained files and partial-failure limits |
+| `leave` | root missing/non-private, inside the account's home or a git tree, or with a symlink as its final component (intermediates resolve through realpath); invalid chain/label; links (including internal symlinks and hard links), special files, other-owned paths or mount boundaries; folders lacking owner write/enter permission or immutable/append-only entries; malformed state/PID input, non-object state, state home/label differs, oversized (>16 MiB)/non-plain/swapped state or PID record, or a record changed before signalling; process inspection fails or cannot identify the running seat (including missing/stale PID, a live recorded PID with a different command, and ambiguous command); any process has files open under the home, or open-file inspection cannot establish a result, before stopping or after the stop check and fresh inventory; SIGTERM does not stop it; it is running on the second check; path/inode changes during guarded traversal/removal. No mutation without `--yes`; no deletion while a stop is unproven. Ordinary shutdown writes are included, not a reason to refuse. See Local departure for retained files and partial-failure limits |
 | `rehearse` | chain id not `zerone-rehearsal-local-*` or its directory already exists; a node cannot be stopped (the directory is then kept and the run fails) |
 
 ## Threat model, briefly
