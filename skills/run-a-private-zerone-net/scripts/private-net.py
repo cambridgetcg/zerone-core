@@ -355,7 +355,7 @@ def check_ipv4(ip):
 
 
 SANDBOX_HINT = ("binding a socket is not permitted (%s): this command is running inside an agent sandbox; "
-                "run it outside the sandbox with the owner's approval")
+                "run it outside the sandbox with approval from the person whose Mac it is")
 
 
 def check_p2p_port(port):
@@ -1244,17 +1244,18 @@ def your_mac_text(inv, binary_bytes):
     """A person's note, not agent instructions. Round 0 cannot know the final peer list yet."""
     label, chain = inv["label"], inv["chain_id"]
     if inv["role"] == "validator":
-        role = ("Your Mac is a validator: it votes on the record. Sleep, restart or leaving may stall "
-                "this test. Keep it awake and connected.")
+        role = ("Your Mac is a validator: it votes. Sleep, restart, pausing or leaving may\n"
+                "stall the test. Keep it awake and connected.")
     else:
-        role = ("Your Mac is a full seat: it checks and passes on the record but does not vote. "
-                "When started again it catches up by itself.")
+        role = ("Your Mac is a full seat: it checks and passes on the record but does not\n"
+                "vote. When restarted, it catches up by itself.")
     seat = ("--chain-id", chain, "--label", label)
     return """# Your Mac: {label}
 
-Seat: this Mac in the test ({label}).
-Operator: Yu, arranging the test.
-Helper: the operator's AI agent here.
+Yu, the operator, is testing Zerone, a blockchain, on a private network
+of their own Macs. Your Mac would run the program zeroned, keeping a copy
+of the shared record. A "seat" means this Mac ({label}). Your helper is
+the operator's AI agent. The kit holds the setup files.
 
 For now only the operator's own Macs take part; other people's Macs cannot
 join yet. If this Mac isn't one of the operator's, stop here: this note
@@ -1262,48 +1263,51 @@ doesn't invite it. You can decline, pause or leave.
 
 ## Before you agree
 
-Setup asks for about 20 GB free and:
+Setup asks for about 20 GiB of free storage and:
 - an admin password to allow zeroned through the firewall;
 - Local Network permission for the helper's app, and Mullvad local-network
   sharing if used;
 - a reserved home-network address; on Wi-Fi, Private Wi-Fi Address Fixed or
-  Off. If the address changes, this seat stops working.
+  Off. If the address changes, the operator must start a new test network.
 
 With your approval, the helper runs commands as your user, outside its
 sandbox. zeroned also runs as you and can read what your account can read.
 The operator promises to show you the other Macs' names and addresses before
-start; you can still say no. Code checks neither agreement nor ownership.
+starting. You can still say no. The program cannot check who agreed or whose
+Mac this is.
 
 ## What runs and stays here
 
-zeroned keeps this test's shared record, using storage, memory, network and electricity.
-Closing Terminal doesn't stop it; logout may, shutdown or restart does.
-No automatic restart: your helper starts it again.
+zeroned uses storage, memory, network and electricity. Closing Terminal
+doesn't stop it. Logging out may stop it; shutdown or restart does.
+It does not restart automatically; your helper starts it again.
 {role}
 
-Files in {root} are restricted to your login; software using it can read
-them. Delivered and installed program copies: about {mb} MB each. Plan
-roughly 5 GB per running month (estimate, not measured); data and logs have no disk cap.
+Files in {root} are restricted to your login,
+but software using it can read them. Both program copies, received and
+installed, are about {mb} MB each. Allow roughly 5 GB per running month.
+That is an estimate, not a measurement or a storage limit.
 
 ## What is shared
 
 Seats share names, addresses and public computer identifiers; validators also
 share test-account addresses and voting weights. Progress reports travel too.
-Everything on this chain is copied to every seat and kept. Setup files contain
+Every seat keeps a copy of the shared record. Setup files contain
 no secret keys or personal documents. Don't add private material.
 
 Home-network devices can reach the connection port (normally 36656).
-Uninvited connections are refused, but learn seat/test identifiers and
-software version. The node's control port answers only this Mac; its web
-interfaces are off. Setup contacts time.apple.com and the router or other Macs.
+Uninvited computers are refused, but can learn the names and identifying
+codes of this seat and test, and the software version.
+The program's control port answers only this Mac; its web interfaces are
+off. Setup contacts time.apple.com and the router or other Macs.
 
-Separate from Zerone's main network; earns nothing. Keeping it valueless and
-never bridged to another network is operator policy.
+This test is separate from Zerone's main network and earns nothing. The
+operator's rule is to keep it valueless and never connect it to another network.
 
 ## Pause or leave
 
-Once setup has begun and the kit is received, ask your helper or paste into
-the Terminal app. To pause (your helper can restart it):
+After setup begins and the kit arrives, your helper can run these commands,
+or you can paste them into Terminal. To pause (your helper can restart it):
 
     {stop}
 
@@ -1312,21 +1316,26 @@ To preview leaving (nothing stops or changes):
     {leave}
 
 If you agree, add `--yes` at the end of the leave command. It stops the
-node if running, proves it stopped, then checks and permanently deletes this
-seat's own paths (keys, data, logs), including new files. The preview is not a
-binding list. Links, special files and outside paths refuse. Unproven stop:
-no deletion. This is not Trash; no undo.
+program if running. If it cannot prove the program stopped, it deletes
+nothing. It then checks and permanently deletes this seat's files, including
+its keys, data, logs and any new files since the preview. Unsafe files cause
+a refusal. This is not Trash and there is no undo. If removal stops partway,
+earlier deletions are permanent; preview again with your helper.
 
-bin/ and inbox/ stay. After success, if this was the last seat on this Mac,
-run the printed firewall command first, then drag {root} to the Trash
-(this seat's keys are gone). Delete any kit folders still in Downloads;
-before setup, that's all declining needs.
+Shared program and setup files stay. After success, if this was the last
+seat on this Mac, run the printed `firewall_command_for_owner` first.
+In Finder, use Go > Go to Folder to find {root},
+and drag it to the Trash. There, select only that folder and choose Delete
+Immediately. Its keys are gone.
+Delete any kit folders still in Downloads. Before setup, deleting the kit
+is all declining needs.
 
 Leaving doesn't undo permissions or network settings. With your helper,
 switch off the app in System Settings > Privacy & Security > Local Network
 and restore previous Mullvad, router and Wi-Fi settings, only if nothing else
-needs them. Other Macs' copies and backups stay. Never restore seat keys;
-rejoin a new test. Different folder? Get corrected commands before agreeing.
+needs them. Other Macs' copies and backups, including Time Machine, stay.
+Never restore this seat from a backup; rejoin a new test. If setup
+uses a different folder, get corrected commands before agreeing.
 """.format(label=label, role=role, root=DEFAULT_ROOT, mb=(binary_bytes + 999999) // 1000000,
            stop=page_cmd("--root", DEFAULT_ROOT, "stop", *seat),
            leave=page_cmd("--root", DEFAULT_ROOT, "leave", *seat))
@@ -1360,7 +1369,8 @@ questions and wait for their agreement before setup. The note is not consent.
 
 ## Steps
 
-Run every command outside any agent sandbox; ask the owner to approve that.
+Run every command outside any agent sandbox; ask the person whose Mac it is
+to approve that.
 Each command is complete, with absolute paths, because an agent's shell may
 keep no function or working directory from one call to the next. {rootnote}
 
@@ -1923,7 +1933,7 @@ def cmd_install(a):
 
 
 def pid_command(pid):
-    return run(["ps", "-ww", "-p", str(pid), "-o", "command="], check=False).strip()
+    return run(["/bin/ps", "-ww", "-p", str(pid), "-o", "command="], check=False).strip()
 
 
 def owned_pid(lay, label, binary, home):
@@ -2004,7 +2014,7 @@ def stop_seat(lay, label, binary, timeout=30):
 
 
 def cmd_stop(a):
-    lay = Layout(a.root, a.chain_id)
+    lay = Layout(a.root, a.chain_id, create=False)
     # Only the path matters for the command-line match, so stop works even if the pin changed.
     emit({"stopped": a.label, "pid": stop_seat(lay, a.label, lay.binary)})
     return 0
@@ -2026,6 +2036,12 @@ def leave_stat(parent, name, device):
         raise Refusal("leave accepts only plain files and directories: %s" % name)
     if stat.S_ISREG(st.st_mode) and st.st_nlink != 1:
         raise Refusal("leave refuses hard-linked files: %s" % name)
+    if stat.S_ISDIR(st.st_mode) and st.st_mode & 0o300 != 0o300:
+        raise Refusal("leave refuses a folder its owner cannot write or enter: %s" % name)
+    blocked_flags = (getattr(stat, "UF_IMMUTABLE", 0) | getattr(stat, "SF_IMMUTABLE", 0) |
+                     getattr(stat, "UF_APPEND", 0) | getattr(stat, "SF_APPEND", 0))
+    if getattr(st, "st_flags", 0) & blocked_flags:
+        raise Refusal("leave refuses an immutable or append-only file or folder: %s" % name)
     return st
 
 
@@ -2091,17 +2107,25 @@ def leave_read(root_fd, rel, identity):
             return f.read(MAX_COURIER_JSON + 1)
 
 
-def leave_processes(home):
+def leave_processes(home, recorded_pid=None):
     """Fail closed if ps fails; also find a node whose PID record was lost or changed.
     ps does not quote paths containing spaces, so an ambiguous home match is refused,
     never used to choose a process to signal.
     """
     found = {}
-    boundary = re.compile(r"(?:^|[\s=])%s(?:/|\s|$)" % re.escape(home))
-    for line in run(["ps", "-axww", "-o", "pid=,command="]).splitlines():
+    # Normalise spelling only for discovery, never for permission to signal.
+    # Keep spaces intact: ps is not a quoted argv, and ambiguity must fail closed.
+    separator = r"/+(?:\./+)*"
+    spelling = separator.join(re.escape(part) for part in os.path.normpath(home).casefold().split("/"))
+    boundary = re.compile(r"(?:^|[\s=])%s(?:/|\s|$)" % spelling)
+    for line in run(["/bin/ps", "-axww", "-o", "pid=,command="]).splitlines():
         parts = line.strip().split(None, 1)
-        if len(parts) == 2 and boundary.search(parts[1]):
-            found[int(parts[0])] = parts[1]
+        if parts:
+            pid = int(parts[0])
+            command = parts[1] if len(parts) == 2 else ""
+            # A live recorded PID blocks deletion even when its home is invisible.
+            if pid == recorded_pid or boundary.search(command.casefold()):
+                found[pid] = command
     return found
 
 
@@ -2128,14 +2152,18 @@ def leave_remove(root_fd, snapshot):
     # Children first; every syscall is relative to a freshly guarded parent descriptor.
     # Never chmod, overwrite, use rmtree, or cross into another filesystem.
     for rel in sorted(snapshot, key=lambda p: (-p.count(os.sep), p)):
-        with leave_parent(root_fd, rel) as (parent, name):
-            st = leave_stat(parent, name, os.fstat(root_fd).st_dev)
-            if leave_identity(st) != snapshot[rel]:
-                raise Refusal("leave path changed; stopped removing at %s (earlier removals are permanent)" % rel)
-            if stat.S_ISDIR(st.st_mode):
-                os.rmdir(name, dir_fd=parent)
-            else:
-                os.unlink(name, dir_fd=parent)
+        try:
+            with leave_parent(root_fd, rel) as (parent, name):
+                st = leave_stat(parent, name, os.fstat(root_fd).st_dev)
+                if leave_identity(st) != snapshot[rel]:
+                    raise Refusal("leave path changed")
+                if stat.S_ISDIR(st.st_mode):
+                    os.rmdir(name, dir_fd=parent)
+                else:
+                    os.unlink(name, dir_fd=parent)
+        except (OSError, Refusal) as e:
+            raise Refusal("leave removal stopped partway at %s; earlier deletions are permanent. "
+                          "Inspect what remains and preview again. (%s)" % (rel, e)) from e
 
 
 def cmd_leave(a):
@@ -2153,6 +2181,7 @@ def cmd_leave(a):
     pid_rel = os.path.relpath(lay.pid_file(a.label), lay.root)
     root_fd = os.open(lay.root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
+        leave_stat(root_fd, ".", os.fstat(root_fd).st_dev)
         sizes = {}
         plan = leave_snapshot(root_fd, targets, sizes)
         state = {}
@@ -2164,16 +2193,25 @@ def cmd_leave(a):
                 raise Refusal("leave state is not a JSON object")
             if state.get("home") != home or state.get("label") != a.label:
                 raise Refusal("leave state home/label differs from this seat (outside-root paths are refused)")
-        running = leave_processes(home)
         if pid_rel in plan:
             records[pid_rel] = leave_read(root_fd, pid_rel, plan[pid_rel])
         pid = int(records[pid_rel].strip()) if pid_rel in records else None
+        running = leave_processes(home, pid)
         expected = "%s start --home %s" % (lay.binary, home)
         if running and (pid is None or running != {pid: expected} or state_rel not in plan):
             raise Refusal("leave cannot safely identify the running seat; missing/stale PID or unexpected command; "
                           "no signal or removal attempted")
-        result = leave_overview(lay, a.label, targets, plan, sizes, "Would delete")
-        result.update({
+        overview = leave_overview(lay, a.label, targets, plan, sizes, "Would delete")
+        result = {
+            "summary": overview["summary"],
+            "firewall_command_for_owner": "sudo %s --remove %s" % (SOCKETFILTERFW, shlex.quote(lay.binary)),
+            "after_last_seat": ("After successful removal, only if this was the last seat on this Mac: run the printed "
+                                "firewall_command_for_owner first, then drag %s to the Trash (this seat's keys are "
+                                "already gone). In the Trash, select only that folder and choose Delete Immediately. "
+                                "In Finder, Go > Go to Folder finds that path. "
+                                "Delete any kit folders still in Downloads too. Otherwise keep the "
+                                "root folder and firewall rule." % lay.root),
+            "targets": overview["targets"],
             "label": a.label, "chain_id": a.chain_id, "dry_run": not a.yes,
             "confirmation": ("The preview shows what is here now, not a binding list. --yes proves the node stopped, "
                              "then checks and removes a fresh inventory of this seat's own paths, including new files."),
@@ -2185,17 +2223,13 @@ def cmd_leave(a):
             "cannot_remove": ["copies on other Macs", "any kit copies still in ~/Downloads", "backups",
                               "the coordinator's records", "macOS Local Network or VPN permissions",
                               "router or Wi-Fi settings"],
-            "firewall_command_for_owner": "sudo %s --remove %s" % (SOCKETFILTERFW, shlex.quote(lay.binary)),
-            "after_last_seat": ("After successful removal, only if this was the last seat on this Mac: run the printed "
-                                "firewall_command_for_owner first, then drag %s to the Trash (this seat's keys are "
-                                "already gone). Delete any kit folders still in Downloads too. Otherwise keep the "
-                                "root folder and firewall rule." % lay.root),
             "warning": ("Permanent deletion, not Trash; no undo or secure-erasure guarantee. Shared bin/ and inbox/ "
                         "stay even after the last seat. Only remove the firewall rule if no other seat needs it. "
                         "Do not restore signing keys or reuse this chain id; rejoin on a new chain."),
-        })
+        }
         if not a.yes:
-            result["next"] = "Review every path; only the Mac owner may confirm by repeating with --yes."
+            result["next"] = ("Review every path; only the person whose Mac it is may confirm "
+                              "by repeating with --yes.")
             emit(result)
             return 0
         # Show the current inventory before the first side effect, even if stopping later refuses.
@@ -2206,7 +2240,7 @@ def cmd_leave(a):
                 if leave_read(root_fd, rel, plan[rel]) != content:
                     raise Refusal("leave state/PID record changed; no signal or removal attempted")
             stop_process(a.label, pid, expected, state.get("genesis_time"))
-        if leave_processes(home):
+        if leave_processes(home, pid):
             raise Refusal("seat is still running after the stop attempt; no seat files removed")
         # Shutdown may replace the signing-state file or create data/log files. Confirmation covers
         # these fixed seat paths, not the earlier names/inodes; every fresh entry still passes the guards.
@@ -2218,6 +2252,9 @@ def cmd_leave(a):
         result["stopped_pid"] = pid if running else None
         emit(result)
         return 0
+    except OSError as e:
+        raise Refusal("leave could not finish; inspect what remains and preview again. "
+                      "Do not move seat files into the inbox. (%s)" % e) from e
     finally:
         os.close(root_fd)
 
@@ -2584,7 +2621,8 @@ def main(argv=None):
     p = sub.add_parser("leave", help="preview seat removal; only --yes stops and permanently deletes it")
     p.add_argument("--chain-id", required=True)
     p.add_argument("--label", required=True)
-    p.add_argument("--yes", action="store_true", help="owner confirms permanent deletion of a fresh seat inventory after stop")
+    p.add_argument("--yes", action="store_true",
+                   help="the person whose Mac it is confirms permanent deletion of a fresh seat inventory after stop")
     p.set_defaults(fn=cmd_leave)
 
     p = sub.add_parser("status", help="this seat's view of the chain")
@@ -2635,10 +2673,14 @@ def main(argv=None):
         print("private-net: REFUSED: %s" % e, file=sys.stderr)
         return 2
     except PermissionError as e:
+        if a.fn == cmd_leave:
+            print("private-net: REFUSED: leave cannot access %s; inspect what remains and preview again. "
+                  "Do not move seat files into the inbox." % (e.filename or e.strerror), file=sys.stderr)
+            return 2
         inside_root = e.filename and os.path.realpath(str(e.filename)).startswith(os.path.realpath(a.root) + os.sep)
         if e.filename is None or inside_root:
             print("private-net: REFUSED: permission denied (%s): if this ran inside an agent sandbox, run it "
-                  "outside with the owner's approval" % (e.filename or e.strerror), file=sys.stderr)
+                  "outside with approval from the person whose Mac it is" % (e.filename or e.strerror), file=sys.stderr)
         else:
             print("private-net: REFUSED: cannot access %s: macOS privacy may block this app from that folder. "
                   "Have the owner move the file into %s/inbox in Finder." % (e.filename, a.root), file=sys.stderr)

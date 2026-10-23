@@ -65,8 +65,8 @@ Its commands explicitly select the standard root; if a seat uses another
 root, explain that location and correct both commands before agreement.
 The per-copy program size is calculated from the kit's binary; ~5 GB/node/month
 is the existing preflight planning estimate, not a measured bound or disk cap.
-The note uses decimal MB, rounded up. About 20 GB free is setup planning;
-preflight's warning threshold is 20 GiB, not a capacity guarantee. Explain the
+The note uses decimal MB for program sizes, rounded up. About 20 GiB free is
+setup planning and preflight's warning threshold, not a capacity guarantee. Explain the
 admin-password/firewall, helper-app Local Network, Mullvad and fixed-address
 requests before agreement, and keep track of the earlier settings for leaving.
 
@@ -193,8 +193,8 @@ avoid this by spelling out every command with absolute paths.
    - **Mullvad.** If installed, set `mullvad lan set allow`.
    - **No sandbox.** Every command except `compare` and `--help` runs outside
      the agent host's sandbox (Codex workspace-write, Claude Code sandboxed
-     Bash). The agent asks the owner to approve that rather than working around
-     it. Inside a sandbox the tool refuses with "running inside an agent
+     Bash). The agent asks the person whose Mac it is to approve that rather
+     than working around it. Inside a sandbox the tool refuses with "running inside an agent
      sandbox".
    - **A stable address.** Give the Mac a DHCP reservation for the address it
      actually uses, and on Wi-Fi set Private Wi-Fi Address to Fixed or Off. A
@@ -259,13 +259,14 @@ avoid this by spelling out every command with absolute paths.
      then `pn balance … --address <it>` on any other seat.
 8. **Stop (reversible pause):** `pn stop --chain-id <id> --label <label>`.
    Stop when the owner OR the person whose Mac it is asks; the helper can
-   start it again. It stops only the
+   start it again. It creates no folders, even after leaving. It stops only the
    process whose full command line is this seat's. A node still sleeping
    before `genesis_time` cannot stop at once: it takes the signal, exits at
    `genesis_time` after opening its ports for a moment, and produces no block.
    `stop` says so. Never kill it with -9.
 9. **Leave:** `pn leave --chain-id <id> --label <label>` starts with a summary
-   (file count and decimal MB), then per-target totals and every file and
+   (file count and decimal MB), the conditional cleanup steps and firewall
+   command, then per-target totals and every file and
    directory it would permanently delete. It creates nothing (even with
    an absent chain), sends no signal and needs no working binary. Read the
    complete list with the person whose Mac it is. Only on their confirmation,
@@ -290,19 +291,28 @@ avoid this by spelling out every command with absolute paths.
      or a git tree; a root whose final component is a symlink (intermediate
      components resolve through realpath); invalid chain/label; any symlink
      in a removal path (even inside the root), hard-linked or special files,
-     other-owned paths or mount boundaries; malformed state/PID input,
+     other-owned paths or mount boundaries; folders lacking owner write/enter
+     permission, or immutable/append-only files or folders; malformed state/PID input,
      non-object state, state home/label mismatch, oversized (>16 MiB), non-plain
      or swapped state/PID records, or records changed before signalling;
      failed process inspection, an unidentifiable running process (including
-     a missing/stale PID or ambiguous command), a node that does not stop or
+     a missing/stale PID or ambiguous command), a live recorded PID unless
+     the running set is exactly that PID with the expected command and state,
+     a node that does not stop or
      restarts, or a path/inode that changes during guarded traversal/removal.
      A pre-genesis sleeper may take SIGTERM but stay alive until genesis time;
      no files are removed then. Wait and preview again; never kill -9.
+     Process discovery uses `/bin/ps`, normalises repeated slashes, `.` and
+     trailing slashes in the seat path, and compares without case differences.
+     The command must still match exactly before signalling; normalisation
+     finds hand-started nodes so they cause a refusal, not permission to stop them.
    - Run alone: no other agent may start or change that seat during removal.
      Shutdown writes are allowed after the stop is proven; every fresh entry
      still passes the same path guards. Deletion is not a transaction: an I/O
      error or concurrent path change after deletion begins may leave a partial
-     removal. Stop, inspect and preview what remains; do not blindly retry.
+     removal. The refusal says removal stopped partway, earlier deletions are
+     permanent, and to preview again. It never tells you to move seat files
+     into the inbox. Stop, inspect and preview what remains; do not blindly retry.
    - It never runs `sudo`. It prints the exact, shell-quoted
      `sudo /usr/libexec/ApplicationFirewall/socketfilterfw --remove <root>/bin/zeroned`
      for the owner, who runs it only if no other seat needs that rule. It
@@ -312,7 +322,9 @@ avoid this by spelling out every command with absolute paths.
      when nothing else needs them.
    - After successful removal, if this was the last seat on this Mac, run the
      printed firewall command first, then drag the whole root folder to the
-     Trash (this seat's keys are already gone). Delete any kit folders still
+     Trash (this seat's keys are already gone). In the Trash, select only that
+     folder and choose Delete Immediately. Use Finder's Go > Go to Folder to
+     reach the root path. Delete any kit folders still
      in Downloads. These are conditional manual steps, printed even in preview;
      the tool does not infer that every seat on the Mac has left.
    - It cannot remove copies on other Macs, any kit copies still in `~/Downloads`,
@@ -448,7 +460,7 @@ What this does not stop:
 | log shows `connect: no route to host` to peers | Local Network permission is missing for the app that ran `start` (see above) |
 | `n_peers` 0 or only outbound peers, peers' logs show timeouts to this Mac | firewall not pre-authorised, Mullvad LAN blocked, or the seat IP changed |
 | `socketfilterfw --add` prints nothing and `preflight` still warns about the firewall | the pinned `zeroned` is signed `a.out` and another `a.out` app already holds that firewall entry (see Firewall above) |
-| `REFUSED: … running inside an agent sandbox` or `REFUSED: permission denied …` | the command ran inside an agent sandbox; run it outside, with the owner's approval |
+| `REFUSED: … running inside an agent sandbox` or `REFUSED: permission denied …` | the command ran inside an agent sandbox; run it outside, with approval from the person whose Mac it is |
 | `REFUSED: this Mac does not hold <ip>` | off the home LAN, the IP changed (a new chain id is needed), or the wrong IP was given |
 | `REFUSED: <ip> is outside 10.0.0.0/8, …` | not a private (RFC 1918) address (a public, link-local or overlay one); use a LAN IPv4 that `preflight` lists |
 | `REFUSED: <ip> is not loopback: a -local- chain lives on one Mac` | a `-local-` chain id across Macs; use a `-lan-` chain id |
