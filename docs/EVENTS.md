@@ -51,9 +51,21 @@ Module enabled or disabled.
 *EndBlock.* Periodic AHI observation completed.
 - `height` -- block height
 - `composite_score` -- composite alignment score (BPS)
-- `category` -- health category (`healthy`, `warning`, `critical`)
-- `correction_count` -- number of corrections applied
+- `category` -- health category (`healthy`, `degraded`, `critical`; with the
+  `unobserved_health_enabled` marker, `not_observed` when registry presence is
+  unavailable or the custom staking registry is empty, including no active
+  validators only when there are also no inactive entries)
+- `correction_count` -- number of corrections generated (currently advisory)
 - `observation_count` -- cumulative observation count
+- `creation_multiplier_bps`, `analysis_multiplier_bps` -- stored pacing
+  multipliers. With Q1 selected they describe this observation, not the previous
+  category; `not_observed` is neutral (1,000,000 / 1,000,000). Raw scores and
+  advisory corrections remain recorded and are not proof of observed health.
+
+With Q1 selected, health below `CriticalThreshold` is critical, and below
+`DegradedThreshold` is degraded. At or above `HealthyThreshold` it is healthy.
+Between the degraded and healthy thresholds, a previously healthy chain stays
+healthy; otherwise it is degraded until recovery (including a first sample).
 
 ---
 
@@ -85,13 +97,18 @@ Result of a correction recorded for confidence tracking.
 
 ### zerone.alignment.network_health_critical
 Network health composite dropped to critical level; defensive pacing activated.
+With `unobserved_health_enabled`, also emitted on the first genuine observation
+of a chain born critical, or on `not_observed` → `critical`. Not repeated while
+critical persists. An empty registry alone never emits it on the Q1 path.
 - `analysis_multiplier_bps` -- pacing multiplier for analysis in BPS
 - `composite` -- composite health score
 - `creation_multiplier_bps` -- pacing multiplier for creation in BPS
 - `height` -- block height
 
 ### zerone.alignment.network_health_degraded
-Network health composite dropped below degraded threshold.
+Network health composite transitioned from healthy to degraded. With Q1 selected
+this uses `DegradedThreshold`, not the healthy threshold, and reports the new
+observation's pacing multipliers.
 - `analysis_multiplier_bps` -- pacing multiplier for analysis in BPS
 - `composite` -- composite health score
 - `creation_multiplier_bps` -- pacing multiplier for creation in BPS

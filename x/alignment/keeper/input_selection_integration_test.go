@@ -157,7 +157,9 @@ func newInputHarness(t *testing.T, bankSupply, activeDomains, registered bool) i
 	align := keeper.NewKeeper(runtime.NewKVStoreService(keys[types.StoreKey]), cdc, authority,
 		nil, stakingkeeper.NewAlignmentStakingAdapter(staking), domains, nil, supply)
 	align.SetCaptureDefenseKeeper(inputFlags{})
-	align.InitGenesis(ctx, types.DefaultGenesis())
+	ag := types.DefaultGenesis()
+	ag.UnobservedHealthEnabled = false
+	align.InitGenesis(ctx, ag)
 	vs.reads, os.reads = 0, 0
 	return inputHarness{ctx, cdc, keys, bank, vesting, ontology, staking, align, supply, domains, vs, os}
 }
