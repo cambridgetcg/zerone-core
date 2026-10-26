@@ -84,10 +84,20 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
 	for _, c := range gs.CrossStratumRequirements {
 		k.SetCrossStratumRequirement(ctx, c)
 	}
+	// Only an explicit true writes the marker; absence keeps legacy semantics.
+	if gs.IntegerVarianceEnabled {
+		if err := k.EnableIntegerVariance(ctx); err != nil {
+			panic("invalid capture_defense genesis: " + err.Error())
+		}
+	}
 }
 
 // ExportGenesis exports the current state.
 func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
+	integerVariance, err := k.IntegerVarianceEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 	return &types.GenesisState{
 		Params:                   k.GetParams(ctx),
 		GlobalReputations:        k.GetAllGlobalReputations(ctx),
@@ -95,6 +105,7 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 		DomainReputations:        k.GetAllDomainReputations(ctx),
 		CaptureMetrics:           k.GetAllCaptureMetrics(ctx),
 		CrossStratumRequirements: k.GetAllCrossStratumRequirements(ctx),
+		IntegerVarianceEnabled:   integerVariance,
 	}
 }
 

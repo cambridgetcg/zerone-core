@@ -56,6 +56,12 @@ export interface GenesisState {
     domainReputations: DomainReputation[];
     captureMetrics: CaptureMetrics[];
     crossStratumRequirements: CrossStratumRequirement[];
+    /**
+     * Integer timing-variance marker (zerone-core #119). Native genesis sets it; a
+     * file without the field imports as off. In place, only the named carrier
+     * upgrade consensus-repairs-v1 sets it.
+     */
+    integerVarianceEnabled: boolean;
 }
 /**
  * @name Params
