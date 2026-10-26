@@ -94,6 +94,8 @@ func DefaultGenesis() *GenesisState {
 		Params:           DefaultParams(),
 		CategoryConfigs:  DefaultCategoryConfigs(),
 		VestingSchedules: []*VestingSchedule{},
+		// A new chain starts with the consensus-repairs-v1 selection on.
+		AlignmentBankSupplyEnabled: true,
 	}
 }
 

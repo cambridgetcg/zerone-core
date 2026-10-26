@@ -57,7 +57,9 @@ func TestR31_FireMetal_HighActivityRelaxesHHIThreshold(t *testing.T) {
 	cdParams := h.CaptureDefenseKeeper.GetParams(h.Ctx)
 	baseHHIThreshold := cdParams.HhiThreshold // 250,000
 
-	metrics := h.CaptureDefenseKeeper.AnalyzeCaptureRisk(h.Ctx, domain, cdParams)
+	integerVariance, err := h.CaptureDefenseKeeper.IntegerVarianceEnabled(h.Ctx)
+	require.NoError(t, err)
+	metrics := h.CaptureDefenseKeeper.AnalyzeCaptureRisk(h.Ctx, domain, cdParams, integerVariance)
 	require.NotNil(t, metrics, "metrics must not be nil with verification history")
 
 	// The effective HHI threshold should be higher than base due to activity relaxation.
@@ -116,7 +118,9 @@ func TestR31_FireMetal_ZeroActivityUsesBaseThreshold(t *testing.T) {
 
 	// With zero activity, the effective threshold equals the base threshold.
 	// The domain's HHI should be evaluated against the base threshold only.
-	metrics := h.CaptureDefenseKeeper.AnalyzeCaptureRisk(h.Ctx, domain, cdParams)
+	integerVariance, err := h.CaptureDefenseKeeper.IntegerVarianceEnabled(h.Ctx)
+	require.NoError(t, err)
+	metrics := h.CaptureDefenseKeeper.AnalyzeCaptureRisk(h.Ctx, domain, cdParams, integerVariance)
 	require.NotNil(t, metrics, "metrics must not be nil with verification history")
 
 	t.Logf("Zero-activity domain: HHI=%d, baseThreshold=%d, flagged=%t",

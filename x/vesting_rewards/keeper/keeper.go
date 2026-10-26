@@ -432,6 +432,12 @@ func (k Keeper) InitGenesis(ctx sdk.Context, gs *types.GenesisState) {
 		}
 	}
 	k.SetTotalMinted(ctx, totalMinted)
+	// Only an explicit true writes the marker; absence keeps legacy semantics.
+	if gs.AlignmentBankSupplyEnabled {
+		if err := k.EnableAlignmentBankSupply(ctx); err != nil {
+			panic("invalid vesting_rewards genesis: " + err.Error())
+		}
+	}
 }
 
 // ExportGenesis exports the module's state.
@@ -439,6 +445,10 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	params := k.GetParams(ctx)
 	totalMinted := k.GetTotalMinted(ctx)
 	params.InitialFundBalance = totalMinted.String()
+	alignmentBankSupply, err := k.AlignmentBankSupplyEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 	return &types.GenesisState{
 		Params:                   params,
 		CategoryConfigs:          k.GetAllCategoryConfigs(ctx),
@@ -446,6 +456,8 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 		ClawbackRecords:          k.GetAllClawbackRecords(ctx),
 		BlockRewardDistributions: k.GetAllBlockRewardDistributions(ctx),
 		ClaimScheduleIndexes:     k.GetAllClaimScheduleIndexes(ctx),
+
+		AlignmentBankSupplyEnabled: alignmentBankSupply,
 	}
 }
 

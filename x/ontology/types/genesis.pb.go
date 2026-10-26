@@ -23,14 +23,18 @@ const (
 
 // GenesisState defines the ontology module's genesis state.
 type GenesisState struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Params        *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
-	Strata        []*StratumProperties   `protobuf:"bytes,2,rep,name=strata,proto3" json:"strata,omitempty"`
-	Domains       []*Domain              `protobuf:"bytes,3,rep,name=domains,proto3" json:"domains,omitempty"`
-	Proposals     []*DomainProposal      `protobuf:"bytes,4,rep,name=proposals,proto3" json:"proposals,omitempty"`
-	CrossLinks    []*CrossStratumLink    `protobuf:"bytes,5,rep,name=cross_links,json=crossLinks,proto3" json:"cross_links,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Params     *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
+	Strata     []*StratumProperties   `protobuf:"bytes,2,rep,name=strata,proto3" json:"strata,omitempty"`
+	Domains    []*Domain              `protobuf:"bytes,3,rep,name=domains,proto3" json:"domains,omitempty"`
+	Proposals  []*DomainProposal      `protobuf:"bytes,4,rep,name=proposals,proto3" json:"proposals,omitempty"`
+	CrossLinks []*CrossStratumLink    `protobuf:"bytes,5,rep,name=cross_links,json=crossLinks,proto3" json:"cross_links,omitempty"`
+	// Active-domain-count marker (zerone-core #124). Native genesis sets it; a
+	// file without the field imports as off. In place, only the named carrier
+	// upgrade consensus-repairs-v1 sets it.
+	ActiveDomainCountEnabled bool `protobuf:"varint,6,opt,name=active_domain_count_enabled,json=activeDomainCountEnabled,proto3" json:"active_domain_count_enabled,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -96,6 +100,13 @@ func (x *GenesisState) GetCrossLinks() []*CrossStratumLink {
 		return x.CrossLinks
 	}
 	return nil
+}
+
+func (x *GenesisState) GetActiveDomainCountEnabled() bool {
+	if x != nil {
+		return x.ActiveDomainCountEnabled
+	}
+	return false
 }
 
 // Params defines the ontology module parameters.
@@ -187,14 +198,15 @@ var File_zerone_ontology_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_ontology_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	" zerone/ontology/v1/genesis.proto\x12\x12zerone.ontology.v1\x1a\x1ezerone/ontology/v1/state.proto\"\xc0\x02\n" +
+	" zerone/ontology/v1/genesis.proto\x12\x12zerone.ontology.v1\x1a\x1ezerone/ontology/v1/state.proto\"\xff\x02\n" +
 	"\fGenesisState\x122\n" +
 	"\x06params\x18\x01 \x01(\v2\x1a.zerone.ontology.v1.ParamsR\x06params\x12=\n" +
 	"\x06strata\x18\x02 \x03(\v2%.zerone.ontology.v1.StratumPropertiesR\x06strata\x124\n" +
 	"\adomains\x18\x03 \x03(\v2\x1a.zerone.ontology.v1.DomainR\adomains\x12@\n" +
 	"\tproposals\x18\x04 \x03(\v2\".zerone.ontology.v1.DomainProposalR\tproposals\x12E\n" +
 	"\vcross_links\x18\x05 \x03(\v2$.zerone.ontology.v1.CrossStratumLinkR\n" +
-	"crossLinks\"\xae\x02\n" +
+	"crossLinks\x12=\n" +
+	"\x1bactive_domain_count_enabled\x18\x06 \x01(\bR\x18activeDomainCountEnabled\"\xae\x02\n" +
 	"\x06Params\x12,\n" +
 	"\x12min_proposal_stake\x18\x01 \x01(\tR\x10minProposalStake\x124\n" +
 	"\x16proposal_voting_period\x18\x02 \x01(\x04R\x14proposalVotingPeriod\x12)\n" +
