@@ -335,5 +335,39 @@ class NodeReadinessTest(unittest.TestCase):
                 g.Node.ready(self.node)
 
 
+class NodeHistoryTest(unittest.TestCase):
+    def setUp(self):
+        # Status already names block 11; the application has committed only 10.
+        self.info = {"response": {"last_block_height": "10"}}
+        self.reported = None
+        self.heights = []
+        def cli(*args):
+            height = args[args.index("--height") + 1]
+            self.heights.append(height)
+            return g.canonical({"chain_id": g.CHAIN, "block_height": str(self.reported or height),
+                "record": {"claim_id": args[3]}})
+        self.node = SimpleNamespace(rpc="http://127.0.0.1:26657", history_slots=threading.BoundedSemaphore(2),
+            ready=lambda: 11, call=lambda method: {"abci_info": self.info}[method], cli=cli)
+
+    def test_query_height_is_the_committed_application_height(self):
+        value = g.Node.history(self.node, "a" * 32)
+        self.assertEqual(self.heights, [10])
+        self.assertEqual(value["block_height"], "10")
+
+    def test_no_committed_block_or_lagging_application_is_refused_before_query(self):
+        for info in ({"response": {"last_block_height": "0"}}, {"response": {}}, {"response": {"last_block_height": "9"}}):
+            self.info = info
+            with self.subTest(info=info), self.assertRaises(g.GatewayError):
+                g.Node.history(self.node, "a" * 32)
+        self.assertEqual(self.heights, [])
+        self.assertTrue(all(self.node.history_slots.acquire(blocking=False) for _ in range(2)))
+
+    def test_response_for_another_height_is_refused(self):
+        self.reported = 11
+        with self.assertRaisesRegex(g.GatewayError, "differs from its requested block"):
+            g.Node.history(self.node, "a" * 32)
+        self.assertEqual(self.heights, [10])
+
+
 if __name__ == "__main__":
     unittest.main()

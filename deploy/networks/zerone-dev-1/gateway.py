@@ -231,7 +231,16 @@ class Node:
         if not self.history_slots.acquire(blocking=False):
             raise GatewayError("History reader busy; try again", 429)
         try:
-            height = self.ready()
+            latest = self.ready()
+            # Status names the block store height. CometBFT saves a block before
+            # the app commits it, and the SDK refuses a query above its committed
+            # version, so the query height is the app's own last commit, which
+            # trails the fresh block ready() checked by at most one.
+            height = int(self.call("abci_info").get("response", {}).get("last_block_height", 0))
+            if height < 1:
+                raise GatewayError("Development application has no committed block")
+            if height < latest - 1:
+                raise GatewayError("Development application lags its block store")
             value = parse(self.cli("query", "knowledge", "claim-history", identifier,
                 "--node", self.rpc, "--height", height, "--output", "json"))
             if value.get("chain_id") != CHAIN or int(value.get("block_height", 0)) != height:
