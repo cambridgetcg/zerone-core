@@ -404,20 +404,28 @@ class NativeSharedClaimsTests(unittest.TestCase):
         the read before the second submit was at 98/99 and the submit executed at
         101/102: '100000uzrn below minimum 133333uzrn'. That is 3 one-second blocks;
         the margin covers it about three times over, with this check's own reads.
+        An interval at or below the margin leaves no clear height; with the genesis
+        base of 100 the smallest is 33 (67%, then halved).
         """
-        def latest():
-            return int(json.loads(self.get("/status"))["result"]["sync_info"]["latest_block_height"])
+        def committed():
+            # The application's last committed height. /status reports the block
+            # store, which saves a block before FinalizeBlock and Commit, so a query
+            # pinned there can be refused as 'cannot query with height in the future'.
+            return int(json.loads(self.get("/abci_info"))["result"]["response"]["last_block_height"])
         def query(name, height):
             return self.command([self.binary, "query", "alignment", name, "--home", self.homes["author"],
                                  "--node", self.origin, "--height", height, "--output", "json"])
         deadline = time.monotonic() + seconds
         while True:
-            height = latest()
-            interval = int(query("correction-confidence", height).get("effective_observation_interval", "0"))
+            height = committed()
+            confidence = query("correction-confidence", height)
+            # Params validation rejects a zero base interval and 67% floors at 1, so this
+            # omitempty field is always present; a missing one must not disable the guard.
+            self.assertIn("effective_observation_interval", confidence)
+            interval = int(confidence["effective_observation_interval"])
             if query("state", height).get("state", {}).get("degraded_frequency_active") and interval > 1:
                 interval //= 2
-            if interval < 1:
-                return  # A zero base interval never observes.
+            self.assertGreater(interval, margin, "no height is clear of an alignment observation")
             boundary = (height // interval + 1) * interval
             if boundary - height > margin:
                 return
@@ -426,7 +434,7 @@ class NativeSharedClaimsTests(unittest.TestCase):
                 self.assertLess(time.monotonic(), deadline, f"chain did not pass alignment observation {boundary} (interval {interval})")
                 self.assertIsNone(self.process.poll())
                 time.sleep(0.8)
-                height = latest()
+                height = committed()
 
     def funding_terms(self, history, receipt, challenge=False):
         claim = history["record"]["claim"]
