@@ -111,7 +111,7 @@ func (gs *GenesisState) Validate() error {
 				len(rfg.CommunitySeats), len(rfg.SeatTermEndBlocks))
 		}
 	}
-	return nil
+	return gs.ValidateRetainedRecords()
 }
 
 // ValidateEmergencyTransitionHold validates the durable post-quarantine
