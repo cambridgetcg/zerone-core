@@ -379,13 +379,14 @@ class NativeSharedClaimsTests(unittest.TestCase):
         # The application's last committed height. /status reports the block
         # store, which saves a block before FinalizeBlock and Commit, so a query
         # pinned there can be refused as 'cannot query with height in the future'.
-        return int(json.loads(self.get("/abci_info"))["result"]["response"]["last_block_height"])
+        height = int(json.loads(self.get("/abci_info"))["result"].get("response", {}).get("last_block_height", 0))
+        self.assertGreater(height, 0, "no committed block")
+        return height
 
     def bank_snapshot(self):
         # All accounts and supply share one committed context. Only public
         # gateway queries are used; the runtime's keyring is never consulted.
         height = self.committed_height()
-        self.assertGreater(height, 0)
         def query(*args):
             return self.command([self.binary, "query", *args, "--home", self.homes["author"],
                                  "--node", self.origin, "--height", height, "--output", "json"])
@@ -908,7 +909,7 @@ class NativeResponseLossTests(NativeSharedClaimsTests):
 
 class NativeCommittedHeightTests(unittest.TestCase):
     """Offline fixture regressions; no native binary, home, or node is used."""
-    def read_fixture(self, committed=100):
+    def read_fixture(self, committed: int | None = 100):
         native = NativeSharedClaimsTests("runTest")
         native.binary = Path("/unused/zeroned")
         native.homes = {"author": Path("/unused/author")}
@@ -917,7 +918,7 @@ class NativeCommittedHeightTests(unittest.TestCase):
         native.evidence = {}
         native.get = mock.Mock(side_effect=lambda path: json.dumps({
             "/status": {"result": {"sync_info": {"latest_block_height": "101"}}},
-            "/abci_info": {"result": {"response": {"last_block_height": str(committed)}}},
+            "/abci_info": {"result": {"response": {} if committed is None else {"last_block_height": str(committed)}}},
         }[path]).encode())
         return native, native.get
 
@@ -934,12 +935,22 @@ class NativeCommittedHeightTests(unittest.TestCase):
         self.assertEqual(native.command.call_count, 3)
         get.assert_called_once_with("/abci_info")
 
-    def test_bank_snapshot_refuses_zero_before_query(self):
-        native, _ = self.read_fixture(committed=0)
-        native.command = mock.Mock()
-        with self.assertRaises(AssertionError):
-            native.bank_snapshot()
-        native.command.assert_not_called()
+    def test_committed_height_accepts_first_commit(self):
+        native, get = self.read_fixture(committed=1)
+        self.assertEqual(native.committed_height(), 1)
+        get.assert_called_once_with("/abci_info")
+
+    def test_committed_height_refuses_nonpositive_before_query(self):
+        # CometBFT omits last_block_height at zero; also refuse explicit <= 0.
+        for committed in (None, 0, -1):
+            for method in ("committed_height", "bank_snapshot", "clear_of_observation"):
+                with self.subTest(committed=committed, method=method):
+                    native, get = self.read_fixture(committed=committed)
+                    native.command = mock.Mock(side_effect=AssertionError("query before committed-height refusal"))
+                    with self.assertRaisesRegex(AssertionError, "no committed block"):
+                        getattr(native, method)()
+                    native.command.assert_not_called()
+                    get.assert_called_once_with("/abci_info")
 
     def test_observation_wait_rechecks_committed_height(self):
         native, get = self.read_fixture()

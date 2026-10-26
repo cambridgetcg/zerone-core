@@ -590,7 +590,7 @@ class Fixture:
     def contracts(self):
         self.stage = "contracts"
         self.height()  # Preserve the chain and sync guard before app-state reads.
-        h = int(self.rpc("abci_info")["response"]["last_block_height"])
+        h = int(self.rpc("abci_info").get("response", {}).get("last_block_height", 0))
         need(h >= 1, "abci_info_height")
         module = self.abci("/cosmos.auth.v1beta1.Query/ModuleAccountByName", string_field(1, "claiming_pot"), h)
         any_account = fields(one(module, 1, b""))

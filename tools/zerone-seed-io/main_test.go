@@ -349,7 +349,7 @@ func newFake(t *testing.T) *fakeNode {
 	f := &fakeNode{t: t, p: p, pol: pol, plan: plan, blocks: map[int64]*rpctypes.ResultBlock{}, latest: 11, committed: 11, signed: signedFixture(plan)}
 	f.genesis = &cmttypes.GenesisDoc{ChainID: str(p, "chain_reference"), GenesisTime: fixtureNow.Add(-time.Hour), InitialHeight: 1, ConsensusParams: cmttypes.DefaultConsensusParams(), AppState: json.RawMessage(`{}`)}
 	f.results = []*abci.ExecTxResult{{Code: 0, GasWanted: 250000, GasUsed: 71331, Events: []abci.Event{{Type: "zerone.claiming_pot.pot_claimed", Attributes: []abci.EventAttribute{{Key: "pot_id", Value: str(pol, "pot_id")}, {Key: "claimant", Value: rawAccount(str(pol, "claimant_account"), str(p, "chain_id"))}, {Key: "amount", Value: "222000"}}}}}}
-	for h := int64(9); h <= 11; h++ {
+	for _, h := range []int64{1, 9, 10, 11} {
 		txs := []cmttypes.Tx{}
 		if h == 10 {
 			txs = append(txs, f.signed)
@@ -634,24 +634,27 @@ func TestBoundedTypedInspection(t *testing.T) {
 func TestCommittedInspectionAnchor(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
+		latest    int64
 		committed int64
 		height    any
 		lag       int64
 		want      string
 		reason    string
 	}{
-		{"store_leads", 10, nil, 100, "10", ""},
-		{"explicit_commit", 10, "10", 100, "10", ""},
-		{"historical", 10, "9", 100, "9", ""},
-		{"uncommitted_explicit_tip", 10, "11", 100, "", "incoherent_height"},
-		{"no_commit", 0, nil, 100, "", "incoherent_height"},
-		{"app_lags_two", 9, nil, 100, "", "incoherent_height"},
-		{"zero_lag_policy", 10, nil, 0, "", "stale"},
+		{"store_leads", 11, 10, nil, 100, "10", ""},
+		{"explicit_commit", 11, 10, "10", 100, "10", ""},
+		{"historical", 11, 10, "9", 100, "9", ""},
+		{"uncommitted_explicit_tip", 11, 10, "11", 100, "", "incoherent_height"},
+		// Lag is only one, so the positive-commit guard must decide the refusal.
+		{"no_commit", 1, 0, nil, 100, "", "incoherent_height"},
+		{"app_lags_two", 11, 9, nil, 100, "", "incoherent_height"},
+		{"zero_lag_policy", 11, 10, nil, 0, "", "stale"},
 		// Status was sampled first: the app may advance before abci_info replies.
-		{"app_advanced_after_status", 12, nil, 100, "11", ""},
+		{"app_advanced_after_status", 11, 12, nil, 100, "11", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFake(t)
+			f.latest = tc.latest
 			f.committed = tc.committed
 			f.pol["max_height_lag"] = tc.lag
 			n := f.client(f.req("inspect"))
@@ -667,7 +670,7 @@ func TestCommittedInspectionAnchor(t *testing.T) {
 				t.Fatalf("expected committed observation, got %s", canonical(res))
 			}
 			evidence := obj(res["evidence"])
-			if str(obj(evidence["anchor"]), "height") != tc.want || str(evidence, "latest_height") != "11" || f.queryCalls == 0 {
+			if str(obj(evidence["anchor"]), "height") != tc.want || str(evidence, "latest_height") != strconv.FormatInt(tc.latest, 10) || f.queryCalls == 0 {
 				t.Fatalf("wrong anchor/latest evidence: %s", canonical(evidence))
 			}
 			for _, h := range f.queryHeights {
@@ -680,6 +683,8 @@ func TestCommittedInspectionAnchor(t *testing.T) {
 }
 
 func TestSimulationRefusesUncommittedTipBeforeQuery(t *testing.T) {
+	// Height 10 guards simulate's existing unchanged-latest-height contract,
+	// under either anchor. Only 11 distinguishes the new committed anchor.
 	for _, height := range []string{"10", "11"} {
 		t.Run(height, func(t *testing.T) {
 			f := newFake(t)
