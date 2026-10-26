@@ -22,11 +22,21 @@ func NewMsgServerImpl(k Keeper) types.MsgServer {
 }
 
 func (m msgServer) RegisterAdapter(ctx context.Context, msg *types.MsgRegisterAdapter) (*types.MsgRegisterAdapterResponse, error) {
+	enabled, err := m.QualificationSemanticsEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !enabled {
+		return m.registerAdapterLegacy(ctx, msg)
+	}
 	if msg.Authority != m.authority {
 		return nil, types.ErrAdapterAuthority
 	}
 	if msg.Adapter == nil {
 		return nil, types.ErrAdapterNotFound
+	}
+	if err := validateAdapterQualificationMinimum(msg.Adapter); err != nil {
+		return nil, err
 	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	msg.Adapter.RegisteredAtBlock = uint64(sdkCtx.BlockHeight())
@@ -73,6 +83,15 @@ func (m msgServer) TombstoneAdapter(ctx context.Context, msg *types.MsgTombstone
 }
 
 func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.MsgSubmitExternalAttestation) (*types.MsgSubmitExternalAttestationResponse, error) {
+	// Read exactly once, before ensureDedupeArmed can write. The foundation
+	// reader is gas-free even on open adapters; a marker fault is never off.
+	enabled, err := m.QualificationSemanticsEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !enabled {
+		return m.submitExternalAttestationLegacy(ctx, msg)
+	}
 	// Fail closed unless the dedupe index is seeded — otherwise the
 	// uniqueness checks below would run against an empty index and a replay
 	// would look free. A fresh chain (no attestations to seed) self-arms
@@ -126,7 +145,10 @@ func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.Msg
 	// relabel the same work under a fresh source_id and mint again — the same
 	// residual class as fabricating sources or front-running, bounded by the
 	// adapter's qualification gate (RequiredQualificationDomain), not by this
-	// wall. Open adapters (e.g. agenttool-invocation-v1) should set one.
+	// wall. A required domain is safe only AFTER EnableQualificationSemantics
+	// has run at the consensus-repairs-v1 height (or in native genesis).
+	// Do not register a required-domain adapter before activation: no legacy
+	// minimum expresses the intended gate. Census existing adapters first.
 	if msg.Link.Source == nil || msg.Link.Source.SourceId == "" {
 		return nil, types.ErrSourceRequired
 	}
@@ -150,11 +172,8 @@ func (m msgServer) SubmitExternalAttestation(ctx context.Context, msg *types.Msg
 	}
 
 	// 4. Qualification check.
-	if m.qualificationKeeper != nil && adapter.RequiredQualificationDomain != "" {
-		qual, found := m.qualificationKeeper.GetDomainQualification(ctx, msg.Submitter, adapter.RequiredQualificationDomain)
-		if !found || qual == nil || uint32(qual.Status) < uint32(adapter.MinQualificationStatus) {
-			return nil, types.ErrInsufficientQualification
-		}
+	if err := m.checkQualification(ctx, msg.Submitter, adapter); err != nil {
+		return nil, err
 	}
 
 	// 5. Bond check: bond >= (min_attestation_bond + per_claim_bond × num_pending).
