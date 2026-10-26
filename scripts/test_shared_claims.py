@@ -59,6 +59,7 @@ class ParticipantTests(unittest.TestCase):
         self.args = argparse.Namespace(home=str(self.home), descriptor=str(self.desc_path),
             descriptor_sha256=shared.digest(self.raw), binary=str(self.binary), binary_sha256=shared.digest(self.binary.read_bytes()),
             allow_loopback_test=False)
+        self.committed = "19"
 
     def network(self, url, payload=None):
         if url.endswith("/genesis.json"):
@@ -68,6 +69,9 @@ class ParticipantTests(unittest.TestCase):
         if payload and payload.get("method") == "status":
             return shared.canonical({"result": {"node_info": {"network": shared.CHAIN},
                                                  "sync_info": {"catching_up": False, "latest_block_height": "20"}}})
+        if payload and payload.get("method") == "abci_info":
+            # Block 20 is saved; the application has committed only 19.
+            return shared.canonical({"result": {"response": {"last_block_height": self.committed}}})
         raise AssertionError("unexpected request")
 
     def initialize(self, home=None):
@@ -266,6 +270,20 @@ class ParticipantTests(unittest.TestCase):
         before = w.cli.call_count
         self.assertEqual(w.retry(txhash)["status"], "committed")
         self.assertEqual(before, w.cli.call_count)
+
+    def test_history_queries_the_committed_application_height(self):
+        self.initialize()
+        w = self.workflow()
+        w.cli = mock.Mock(side_effect=lambda *args, **kwargs: json.dumps(
+            {"chain_id": shared.CHAIN, "block_height": args[args.index("--height") + 1], "record": {"claim_id": "claim"}}))
+        with mock.patch.object(shared, "request", side_effect=self.network):
+            self.assertEqual(w.history("claim")["block_height"], "19")
+            self.assertEqual(w.cli.call_args.args[w.cli.call_args.args.index("--height") + 1], "19")
+            for committed in ("0", None):
+                self.committed = committed
+                with self.subTest(committed=committed), self.assertRaisesRegex(shared.Error, "committed application height"):
+                    w.history("claim")
+        self.assertEqual(w.cli.call_count, 1)
 
     def test_copied_review_from_other_home_refused_before_signing(self):
         self.initialize()
