@@ -57,6 +57,12 @@ export interface GenesisState {
   domainReputations: DomainReputation[];
   captureMetrics: CaptureMetrics[];
   crossStratumRequirements: CrossStratumRequirement[];
+  /**
+   * Integer timing-variance marker (zerone-core #119). Native genesis sets it; a
+   * file without the field imports as off. In place, only the named carrier
+   * upgrade consensus-repairs-v1 sets it.
+   */
+  integerVarianceEnabled: boolean;
 }
 function createBaseParams(): Params {
   return {
@@ -170,7 +176,8 @@ function createBaseGenesisState(): GenesisState {
     stratumReputations: [],
     domainReputations: [],
     captureMetrics: [],
-    crossStratumRequirements: []
+    crossStratumRequirements: [],
+    integerVarianceEnabled: false
   };
 }
 /**
@@ -199,6 +206,9 @@ export const GenesisState = {
     for (const v of message.crossStratumRequirements) {
       CrossStratumRequirement.encode(v!, writer.uint32(50).fork()).ldelim();
     }
+    if (message.integerVarianceEnabled === true) {
+      writer.uint32(56).bool(message.integerVarianceEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -226,6 +236,9 @@ export const GenesisState = {
         case 6:
           message.crossStratumRequirements.push(CrossStratumRequirement.decode(reader, reader.uint32()));
           break;
+        case 7:
+          message.integerVarianceEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -241,6 +254,7 @@ export const GenesisState = {
     message.domainReputations = object.domainReputations?.map(e => DomainReputation.fromPartial(e)) || [];
     message.captureMetrics = object.captureMetrics?.map(e => CaptureMetrics.fromPartial(e)) || [];
     message.crossStratumRequirements = object.crossStratumRequirements?.map(e => CrossStratumRequirement.fromPartial(e)) || [];
+    message.integerVarianceEnabled = object.integerVarianceEnabled ?? false;
     return message;
   }
 };

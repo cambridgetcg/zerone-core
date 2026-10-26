@@ -100,7 +100,7 @@ func (s *IBCTestSuite) TestTransferWithinRecvLimit() {
 
 	// The receiving chain sees the IBC-prefixed denom, so we set rate limit on
 	// the source denom for receive checking (the middleware checks the denom from packet data).
-	appB.IBCRateLimitKeeper.SetRateLimit(ctx, &ibcratelimittypes.RateLimit{
+	appB.IBCRateLimitKeeper.SetRateLimitForActivation(ctx, true, &ibcratelimittypes.RateLimit{
 		ChannelId:    s.transferPath.EndpointB.ChannelID,
 		Denom:        sdk.DefaultBondDenom,
 		MaxSend:      "2000000",
@@ -142,7 +142,7 @@ func (s *IBCTestSuite) TestTransferExceedingRecvLimit() {
 	ctx := s.chainB.GetContext()
 	appB.IBCRateLimitKeeper.SetParams(ctx, &ibcratelimittypes.Params{Enabled: true})
 
-	appB.IBCRateLimitKeeper.SetRateLimit(ctx, &ibcratelimittypes.RateLimit{
+	appB.IBCRateLimitKeeper.SetRateLimitForActivation(ctx, true, &ibcratelimittypes.RateLimit{
 		ChannelId:    s.transferPath.EndpointB.ChannelID,
 		Denom:        sdk.DefaultBondDenom,
 		MaxSend:      "2000000",

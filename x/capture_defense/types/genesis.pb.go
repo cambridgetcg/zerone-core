@@ -137,8 +137,12 @@ type GenesisState struct {
 	DomainReputations        []*DomainReputation        `protobuf:"bytes,4,rep,name=domain_reputations,json=domainReputations,proto3" json:"domain_reputations,omitempty"`
 	CaptureMetrics           []*CaptureMetrics          `protobuf:"bytes,5,rep,name=capture_metrics,json=captureMetrics,proto3" json:"capture_metrics,omitempty"`
 	CrossStratumRequirements []*CrossStratumRequirement `protobuf:"bytes,6,rep,name=cross_stratum_requirements,json=crossStratumRequirements,proto3" json:"cross_stratum_requirements,omitempty"`
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
+	// Integer timing-variance marker (zerone-core #119). Native genesis sets it; a
+	// file without the field imports as off. In place, only the named carrier
+	// upgrade consensus-repairs-v1 sets it.
+	IntegerVarianceEnabled bool `protobuf:"varint,7,opt,name=integer_variance_enabled,json=integerVarianceEnabled,proto3" json:"integer_variance_enabled,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -213,6 +217,13 @@ func (x *GenesisState) GetCrossStratumRequirements() []*CrossStratumRequirement 
 	return nil
 }
 
+func (x *GenesisState) GetIntegerVarianceEnabled() bool {
+	if x != nil {
+		return x.IntegerVarianceEnabled
+	}
+	return false
+}
+
 var File_zerone_capture_defense_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_capture_defense_v1_genesis_proto_rawDesc = "" +
@@ -227,14 +238,15 @@ const file_zerone_capture_defense_v1_genesis_proto_rawDesc = "" +
 	"\x15base_reputation_score\x18\x06 \x01(\x04R\x13baseReputationScore\x123\n" +
 	"\x16max_history_per_domain\x18\a \x01(\x04R\x13maxHistoryPerDomain\x12?\n" +
 	"\x1cbase_reputation_recovery_bps\x18\b \x01(\x04R\x19baseReputationRecoveryBps\x12D\n" +
-	"\x1factivity_recovery_bonus_max_bps\x18\t \x01(\x04R\x1bactivityRecoveryBonusMaxBps\"\xa6\x04\n" +
+	"\x1factivity_recovery_bonus_max_bps\x18\t \x01(\x04R\x1bactivityRecoveryBonusMaxBps\"\xe0\x04\n" +
 	"\fGenesisState\x129\n" +
 	"\x06params\x18\x01 \x01(\v2!.zerone.capture_defense.v1.ParamsR\x06params\x12Z\n" +
 	"\x12global_reputations\x18\x02 \x03(\v2+.zerone.capture_defense.v1.GlobalReputationR\x11globalReputations\x12]\n" +
 	"\x13stratum_reputations\x18\x03 \x03(\v2,.zerone.capture_defense.v1.StratumReputationR\x12stratumReputations\x12Z\n" +
 	"\x12domain_reputations\x18\x04 \x03(\v2+.zerone.capture_defense.v1.DomainReputationR\x11domainReputations\x12R\n" +
 	"\x0fcapture_metrics\x18\x05 \x03(\v2).zerone.capture_defense.v1.CaptureMetricsR\x0ecaptureMetrics\x12p\n" +
-	"\x1across_stratum_requirements\x18\x06 \x03(\v22.zerone.capture_defense.v1.CrossStratumRequirementR\x18crossStratumRequirementsB8Z6github.com/zerone-chain/zerone/x/capture_defense/typesb\x06proto3"
+	"\x1across_stratum_requirements\x18\x06 \x03(\v22.zerone.capture_defense.v1.CrossStratumRequirementR\x18crossStratumRequirements\x128\n" +
+	"\x18integer_variance_enabled\x18\a \x01(\bR\x16integerVarianceEnabledB8Z6github.com/zerone-chain/zerone/x/capture_defense/typesb\x06proto3"
 
 var (
 	file_zerone_capture_defense_v1_genesis_proto_rawDescOnce sync.Once

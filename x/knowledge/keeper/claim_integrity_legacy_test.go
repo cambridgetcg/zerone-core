@@ -58,6 +58,8 @@ func setupV11SemanticsTest(t *testing.T) *v11Fixture {
 	gs.ClaimRecordsEnabled = true
 	gs.FundSettlementEnabled = true
 	gs.ClaimIntegrityEnabled = false // knowledge 11 has no claim-integrity marker.
+	// Nor the consensus-repairs-v1 marker (0x90) that native genesis now sets.
+	gs.ReformulationVindicationOrderingEnabled = false
 
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
