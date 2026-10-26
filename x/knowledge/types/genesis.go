@@ -525,6 +525,9 @@ func (gs *GenesisState) Validate() error {
 	if err := ValidateFactRelationGenesis(gs); err != nil {
 		return err
 	}
+	if err := ValidateGenesisAccounting(gs); err != nil {
+		return err
+	}
 
 	// Verify unique fact IDs.
 	seenFacts := make(map[string]bool)
