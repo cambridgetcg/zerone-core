@@ -14,6 +14,10 @@ message GenesisState {
   repeated ClawbackRecord      clawback_records   = 4;
   repeated BlockRewardDistribution block_reward_distributions = 5;
   repeated ClaimScheduleIndex  claim_schedule_indexes = 6;
+  // Alignment bank-supply marker (zerone-core #122). Native genesis sets it; a
+  // file without the field imports as off. In place, only the named carrier
+  // upgrade consensus-repairs-v1 sets it.
+  bool alignment_bank_supply_enabled = 7;
 }
 
 // Params defines the vesting_rewards module parameters.
