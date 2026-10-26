@@ -254,6 +254,11 @@ class SharedWorkflow(core.Workflow):
         self.check_files()
         return status_height(self.descriptor)
 
+    def abci_info(self):
+        # Pinned query heights come from the app's last commit (core.Workflow.committed_height).
+        value = json_value(request(self.descriptor["rpc_url"], {"jsonrpc": "2.0", "id": 3, "method": "abci_info", "params": {}}))
+        return value.get("result", {})
+
     def record_metadata(self):
         return {"schema": SCHEMA, "chain_id": self.chain, "descriptor_sha256": self.manifest["descriptor_sha256"],
                 "genesis_sha256": self.manifest["genesis_sha256"], "participant_address": self.accounts[ACTOR]}

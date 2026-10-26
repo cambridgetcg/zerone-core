@@ -52,6 +52,7 @@ PUBLIC_GET_ERRORS = frozenset({
     "Development blocks are stale or ahead of local time",
     "Development command failed; no success is asserted",
     "Development command response exceeds bound",
+    "Development application has no committed block", "Development application lags its block store",
     "History response context differs from its requested block",
     "History reader busy; try again", "Gateway busy", "RPC request rate exceeded",
     "Development service unavailable; no success asserted",
