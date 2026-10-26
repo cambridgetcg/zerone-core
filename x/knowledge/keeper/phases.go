@@ -12,6 +12,19 @@ import (
 // BeginBlocker runs knowledge module begin-block logic.
 // Advances verification round phases by deadline and triggers fitness epoch updates.
 func (k Keeper) BeginBlocker(ctx context.Context) error {
+	// Select Q2 once, before any begin-block write. The shared reader is
+	// gas-free; malformed or unreadable state wraps activation.ErrMarkerFault.
+	inconclusiveAccounting, err := k.InconclusiveRoundAccountingEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if !inconclusiveAccounting {
+		return k.beginBlockInconclusiveAccountingLegacy(ctx)
+	}
+	return k.beginBlockInconclusiveAccounting(ctx, inconclusiveAccounting)
+}
+
+func (k Keeper) beginBlockInconclusiveAccounting(ctx context.Context, inconclusiveAccounting bool) error {
 	// This marker is read once, before ANY begin-block write. Its reader
 	// wraps activation.ErrMarkerFault; ordinary historical errors below keep
 	// their existing handling rather than becoming new consensus halts.
@@ -30,7 +43,7 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 	// starve Route B lifecycle progression. Non-fatal: errors logged inside.
 	k.processRouteBLifecycle(ctx, reformulationOrdering)
 
-	if err := k.AdvanceRoundPhases(ctx); err != nil {
+	if err := k.advanceRoundPhasesInconclusiveAccounting(ctx, inconclusiveAccounting); err != nil {
 		return err
 	}
 
