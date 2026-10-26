@@ -3,12 +3,15 @@
 import argparse
 import copy
 import hashlib
+import http.client
 import importlib.util
+import json
 import os
 from pathlib import Path
 import tempfile
 import unittest
 from unittest import mock
+import urllib.error
 
 HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location("upgrade_runtime", HERE / "runtime.py")
@@ -128,6 +131,72 @@ class UpgradeTests(unittest.TestCase):
                     with self.assertRaises(r.RuntimeError):
                         r.verify_applied_upgrade(self.after, self.home, self.manifest, self.packet)
         self.assertFalse((self.home / r.UPGRADE_DIRECTORY / "first-applied-observation.json").exists())
+
+    def predecessor_at_halt(self, rpc, query):
+        """Run the predecessor phase over an actual on-disk halt with a fake child.
+
+        rpc/query receive the child's state and may mark it exited before failing.
+        Returns run()'s result; self.calls holds (abci_info calls, plan queries, SIGTERMs).
+        """
+        r.write_new(self.home / "data/upgrade-info.json", r.json_bytes(self.packet["plan"]))
+        node, child = mock.Mock(), {"exited": False}
+        node.poll.side_effect = lambda: 2 if child["exited"] else None
+        args = argparse.Namespace(binary=self.before, upgrade_lock_held=True, staged_upgrade=self.packet,
+                                  upgrade_target=False, upgrade_packet_sha256="f" * 64)
+        with mock.patch.object(r, "load_upgrade", return_value=(self.packet, dict(self.manifest, local_test=False))), \
+             mock.patch.object(r, "rpc", side_effect=lambda *_: rpc(child)) as observed_rpc, \
+             mock.patch.object(r, "upgrade_query", side_effect=lambda *_: query(child)) as observed_query, \
+             mock.patch.object(r, "status", side_effect=OSError("RPC closed")), \
+             mock.patch.object(r.subprocess, "Popen", return_value=node), mock.patch.object(r.time, "sleep"):
+            try:
+                return r.run(args, self.home)
+            finally:
+                self.calls = (observed_rpc.call_count, observed_query.call_count, node.send_signal.call_count)
+                (self.home / "data/upgrade-info.json").unlink()
+
+    def test_predecessor_exiting_during_halt_checks_is_the_boundary(self):
+        # Job 120143536322: the follower's supervisor died on '<urlopen error [Errno 111] Connection refused>'.
+        def exit_then(error):
+            def call(child):
+                child["exited"] = True
+                raise error
+            return call
+        refused = exit_then(urllib.error.URLError(ConnectionRefusedError(111, "Connection refused")))
+        # A reply cut short: with Content-Length, rpc()'s bounded read returns the partial
+        # body and parse() fails; a chunked reply raises IncompleteRead.
+        truncated = exit_then(json.JSONDecodeError("Unterminated string starting at", '{"jsonrpc":"2.', 12))
+        incomplete = exit_then(http.client.IncompleteRead(b'{"jsonrpc"'))
+        query_refused = exit_then(r.RuntimeError("zeroned query failed: connection refused"))
+        halted, plan = (lambda _: {"response": {"last_block_height": "19"}}), (lambda _: {"plan": self.packet["plan"]})
+        for rpc, query, calls in ((refused, plan, (1, 0, 0)), (truncated, plan, (1, 0, 0)), (incomplete, plan, (1, 0, 0)),
+                                  (halted, query_refused, (1, 1, 0))):
+            self.assertEqual(self.predecessor_at_halt(rpc, query), "upgrade-boundary")
+            self.assertEqual(self.calls, calls)
+
+    def test_live_predecessor_retries_refused_rpc_but_keeps_halt_checks_strict(self):
+        replies = [urllib.error.URLError(ConnectionRefusedError(111, "Connection refused")), "19"]
+        def refused_once(_child):
+            reply = replies.pop(0)
+            if isinstance(reply, Exception):
+                raise reply
+            return {"response": {"last_block_height": reply}}
+        plan = lambda _: {"plan": self.packet["plan"]}
+        self.assertEqual(self.predecessor_at_halt(refused_once, plan), "upgrade-boundary")
+        self.assertEqual(self.calls, (2, 1, 1))
+        # A live node that keeps failing still stops the supervisor, as the first
+        # failure did before, so a restart can take the target path.
+        def refused(_child):
+            raise urllib.error.URLError(ConnectionRefusedError(111, "Connection refused"))
+        with self.assertRaises(urllib.error.URLError):
+            self.predecessor_at_halt(refused, plan)
+        self.assertEqual(self.calls, (5, 0, 1))
+        def query_failed(_child):
+            raise r.RuntimeError("zeroned query failed: synthetic")
+        for rpc, query, message in (((lambda _: {"response": {"last_block_height": "18"}}), plan, "pinned H-1"),
+                                    ((lambda _: {"response": {"last_block_height": "19"}}), query_failed, "synthetic")):
+            with self.assertRaisesRegex(r.RuntimeError, message):
+                self.predecessor_at_halt(rpc, query)
+            self.assertEqual(self.calls[2], 1)
 
 
 if __name__ == "__main__":

@@ -394,6 +394,49 @@ class NativeSharedClaimsTests(unittest.TestCase):
         self.assertFalse(supply.get("pagination", {}).get("next_key"), "supply query must be complete")
         return {"height": height, "balances": balances, "supply": supply["supply"]}
 
+    def clear_of_observation(self, margin=10, seconds=60):
+        """Keep a review-fee quote and its execution on one side of an alignment observation.
+
+        x/alignment EndBlock re-prices claim creation when the height is a multiple
+        of its effective interval: the keeper's confidence-modulated interval, halved
+        while degraded frequency is active (x/alignment/module.go). The client quotes
+        at the height it reads, so a quote just before that block can execute after
+        it, below the raised minimum. In runs 38258297341, 39431628710 and 39460347387
+        the read before the second submit was at 98/99 and the submit executed at
+        101/102: '100000uzrn below minimum 133333uzrn'. That is 3 one-second blocks;
+        the margin covers it about three times over, with this check's own reads.
+        An interval at or below the margin leaves no clear height; with the genesis
+        base of 100 the smallest is 33 (67%, then halved).
+        """
+        def committed():
+            # The application's last committed height. /status reports the block
+            # store, which saves a block before FinalizeBlock and Commit, so a query
+            # pinned there can be refused as 'cannot query with height in the future'.
+            return int(json.loads(self.get("/abci_info"))["result"]["response"]["last_block_height"])
+        def query(name, height):
+            return self.command([self.binary, "query", "alignment", name, "--home", self.homes["author"],
+                                 "--node", self.origin, "--height", height, "--output", "json"])
+        deadline = time.monotonic() + seconds
+        while True:
+            height = committed()
+            confidence = query("correction-confidence", height)
+            # Params validation rejects a zero base interval and 67% floors at 1, so this
+            # omitempty field is always present; a missing one must not disable the guard.
+            self.assertIn("effective_observation_interval", confidence)
+            interval = int(confidence["effective_observation_interval"])
+            if query("state", height).get("state", {}).get("degraded_frequency_active") and interval > 1:
+                interval //= 2
+            self.assertGreater(interval, margin, "no height is clear of an alignment observation")
+            boundary = (height // interval + 1) * interval
+            if boundary - height > margin:
+                return
+            self.evidence.setdefault("observation_boundary_waits", []).append({"height": height, "boundary": boundary, "interval": interval})
+            while height < boundary:  # Then re-read: the observation may change the interval.
+                self.assertLess(time.monotonic(), deadline, f"chain did not pass alignment observation {boundary} (interval {interval})")
+                self.assertIsNone(self.process.poll())
+                time.sleep(0.8)
+                height = committed()
+
     def funding_terms(self, history, receipt, challenge=False):
         claim = history["record"]["claim"]
         self.assertEqual(claim["id"], receipt["claim_id"])
@@ -583,6 +626,7 @@ class NativeSharedClaimsTests(unittest.TestCase):
             self.assertEqual(generated, (fixture.EXAMPLE / name).read_bytes())
             evidence_ids[kind] = "sha256:" + hashlib.sha256(generated).hexdigest()
             self.evidence[kind + "_evidence"] = json.loads(generated)
+        self.clear_of_observation()
         submitted = self.client("author", "submit", "--content", fixture.CLAIM, "--method", "M-COMPUTATIONAL", "--reasoning", fixture.REASONING)
         accepted_id = submitted["claim_id"]
         recovered = self.client("author", "retry", "--tx", submitted["txhash"])
@@ -607,6 +651,7 @@ class NativeSharedClaimsTests(unittest.TestCase):
         self.assertEqual(fact["content"], fixture.CLAIM)
         self.evidence["accepted_before_counterclaim"] = accepted
 
+        self.clear_of_observation()
         second_submission = self.client("author", "submit", "--content", fixture.SECOND_CLAIM, "--method", "M-COMPUTATIONAL",
                                         "--reasoning", "Synthetic signed disagreement; one rejection is intentional.")
         second_id = second_submission["claim_id"]
@@ -640,6 +685,7 @@ class NativeSharedClaimsTests(unittest.TestCase):
 
         # Empty ordinary and correction rounds prove that no review is neither
         # approval nor a lost refund. These remain synthetic signed admissions.
+        self.clear_of_observation()
         empty_submission = self.client("author", "submit", "--content", "Synthetic unreviewed funding fixture: this assertion has no supporting review.",
                                        "--reasoning", "Exercise return of the unused review budget without asserting a scientific result.")
         empty_counter = self.client("challenger", "challenge", "--fact", fact["id"],
