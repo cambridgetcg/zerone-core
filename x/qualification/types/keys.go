@@ -15,4 +15,7 @@ var (
 	TargetIndexPrefix       = []byte{0x12} // target (validator+domain) → endorsement index
 	EndorsementCounterKey        = []byte{0x20}
 	QualificationPenaltyKeyPrefix = []byte{0x30} // validator/domain → QualificationPenalty (JSON)
+	// SingleRefundEnabledKey is the consensus-repairs-v1 marker for
+	// zerone-core #120 (keeper/single_refund_activation.go).
+	SingleRefundEnabledKey = []byte{0x40}
 )
