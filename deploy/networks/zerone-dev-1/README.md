@@ -15,6 +15,16 @@ applied descriptor. Linux reuses the observed runtime executable; macOS uses
 the separately pinned build from the same source release. Neither a package
 nor an endpoint observation establishes independent consensus or current health.
 
+On 2026-10-26 an agent session, on Yu's word, changed only the hosted machine's
+image so the gateway serves the committed-height claim reads of PR #151. That
+image is built from `8383dd99522d286bb8d2fd494ee26adc441efae8`, but the node
+still executes the volume-staged `5542b221` binary (`6cbafddf…`) through the
+machine's launcher override; the image's own `zeroned` and `build.json` are not
+the chain binary. `fly.toml` does not carry that override, so change this
+machine with `fly machine update --image` and check that `init.exec` is
+unchanged. The [dated record](../../../docs/reports/development-gateway-redeploy-2026-10-26.json)
+has the hashes, checks and rollback.
+
 The 2026-09-12 launch used source
 `ac5684e33b6946a31f6ea260ebf280eace55b033`. Its original package and descriptor
 records are preserved as [release-knowledge-10.json](release-knowledge-10.json)
