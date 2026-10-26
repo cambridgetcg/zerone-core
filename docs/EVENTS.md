@@ -1635,6 +1635,63 @@ A verifier cast a verdict on a reformulation round (Route B Wave 4d). Sponsor an
 - `vote` -- one of PENDING / EQUIVALENT / SUPERIOR / INFERIOR / DRIFT
 - `finalized` -- boolean: did this vote finalize the verdict?
 
+### zerone.knowledge.reformulation_held
+With `ReformulationVindicationOrderingEnabled` selected (knowledge key `0x90`),
+a pending augmentation has an invalid retained ballot or a positive top-weight
+tie after the minimum panel count. No enum preference breaks a tie, including
+a tie below the consensus threshold. The record and its ballots are retained.
+No hold key or entitlement is created. Any remaining escrow is pooled per
+bounty: expiry refunds, sibling payouts and sponsor forfeitures cannot spend
+that bounty while a hold remains. Other bounties are not held by this record.
+New voting weight can break a tie; invalid retained ballots require a separately
+governed resolution. Already finalized verdicts/payments/graph records are not
+reconciled, and deleted vindication obligations are not recreated.
+
+Emitted only when a successful vote starts a hold. A continuing hold does not
+re-emit on another vote, a sibling's deferred finalization, or any BeginBlock.
+The carrier must record pre-existing holds (including invalid retained ballots)
+in its one-time census before enabling the marker; a rejected transaction is
+not a durable event source. Volunteers have an empty bounty ID. These holds
+also apply to NEW exact ties after activation, not just inherited records:
+one tied variant can freeze its whole pooled bounty until new voting weight
+breaks the tie. This prospective policy remains a carrier review decision.
+Tie-breaking ballots are retained even while a sibling holds the bounty;
+passing finalization waits for another vote after that peer hold resolves.
+This prevents mutually blocking ties without releasing held escrow. The query's
+`held` describes the named record, not every sibling sharing its bounty.
+
+- `augmentation_id`
+- `original_fact_id`
+- `bounty_id`
+- `reason` -- `invalid_retained_vote` or `tied_top_weight`
+
+Read-only operator query: `zeroned query knowledge reformulation-hold <id>`.
+It reads the existing marker, augmentation, params and pooled escrow at one
+snapshot height (or `--height`), emits JSON, and refuses unreadable/malformed
+state. `held` is false before activation; `prospective_reason` supports a
+pre-activation census. The displayed bounty escrow is not a per-record balance.
+`CensusReformulationHolds` provides the carrier's checked, read-only full scan;
+the carrier must census before enabling the marker and must budget the scan.
+It also checks that bounty-linked augmentations have their existing `0x65`
+index entry. Routine payout/veto/finalization checks use only that bounty's
+index; expiry checks only bounties due for expiration.
+
+### zerone.knowledge.reformulation_hold_released
+With the marker selected, a successful vote ended the named record's hold.
+This does not promise a payout or that all siblings' holds have ended. It is
+emitted once per transition, with the same `augmentation_id`, `original_fact_id`,
+`bounty_id`, and prior `reason` attributes as `reformulation_held`.
+
+### zerone.knowledge.reformulation_processing_refused
+A due bounty's hold index or referenced augmentation could not be read. No
+refund/deactivation for that bounty is performed; other lifecycle work keeps
+its existing error handling. This refusal can repeat until separately resolved.
+Marker faults are different: `activation.ErrMarkerFault` propagates from the
+message/BeginBlock entry point before writes, without a log-and-skip event or
+automatic marker repair. Vindication transfer failures retain their old handling.
+- `operation` -- `bounty_expiry`
+- `reason` -- `hold_index_unreadable`
+
 ### zerone.knowledge.augmentation_verdict_finalized
 The verifier panel reached consensus on a reformulation (Route B Wave 4d). For EQUIVALENT/SUPERIOR the handler releases escrow to the submitter and writes a REFORMULATES relation (with the claim-integrity marker on, not for an ID in the fact ID space; see `augmentation_edge_withheld`); for DRIFT/INFERIOR the variant is archived for the drift corpus. Never fired by the sponsor or submitter directly.
 - `augmentation_id`

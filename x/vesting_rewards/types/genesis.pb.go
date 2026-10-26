@@ -31,8 +31,12 @@ type GenesisState struct {
 	ClawbackRecords          []*ClawbackRecord          `protobuf:"bytes,4,rep,name=clawback_records,json=clawbackRecords,proto3" json:"clawback_records,omitempty"`
 	BlockRewardDistributions []*BlockRewardDistribution `protobuf:"bytes,5,rep,name=block_reward_distributions,json=blockRewardDistributions,proto3" json:"block_reward_distributions,omitempty"`
 	ClaimScheduleIndexes     []*ClaimScheduleIndex      `protobuf:"bytes,6,rep,name=claim_schedule_indexes,json=claimScheduleIndexes,proto3" json:"claim_schedule_indexes,omitempty"`
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
+	// Alignment bank-supply marker (zerone-core #122). Native genesis sets it; a
+	// file without the field imports as off. In place, only the named carrier
+	// upgrade consensus-repairs-v1 sets it.
+	AlignmentBankSupplyEnabled bool `protobuf:"varint,7,opt,name=alignment_bank_supply_enabled,json=alignmentBankSupplyEnabled,proto3" json:"alignment_bank_supply_enabled,omitempty"`
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -105,6 +109,13 @@ func (x *GenesisState) GetClaimScheduleIndexes() []*ClaimScheduleIndex {
 		return x.ClaimScheduleIndexes
 	}
 	return nil
+}
+
+func (x *GenesisState) GetAlignmentBankSupplyEnabled() bool {
+	if x != nil {
+		return x.AlignmentBankSupplyEnabled
+	}
+	return false
 }
 
 // Params defines the vesting_rewards module parameters.
@@ -360,14 +371,15 @@ var File_zerone_vesting_rewards_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_vesting_rewards_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"'zerone/vesting_rewards/v1/genesis.proto\x12\x19zerone.vesting_rewards.v1\x1a%zerone/vesting_rewards/v1/state.proto\x1a\x1dzerone/common/v1/common.proto\"\xa5\x04\n" +
+	"'zerone/vesting_rewards/v1/genesis.proto\x12\x19zerone.vesting_rewards.v1\x1a%zerone/vesting_rewards/v1/state.proto\x1a\x1dzerone/common/v1/common.proto\"\xe8\x04\n" +
 	"\fGenesisState\x129\n" +
 	"\x06params\x18\x01 \x01(\v2!.zerone.vesting_rewards.v1.ParamsR\x06params\x12T\n" +
 	"\x10category_configs\x18\x02 \x03(\v2).zerone.vesting_rewards.v1.CategoryConfigR\x0fcategoryConfigs\x12W\n" +
 	"\x11vesting_schedules\x18\x03 \x03(\v2*.zerone.vesting_rewards.v1.VestingScheduleR\x10vestingSchedules\x12T\n" +
 	"\x10clawback_records\x18\x04 \x03(\v2).zerone.vesting_rewards.v1.ClawbackRecordR\x0fclawbackRecords\x12p\n" +
 	"\x1ablock_reward_distributions\x18\x05 \x03(\v22.zerone.vesting_rewards.v1.BlockRewardDistributionR\x18blockRewardDistributions\x12c\n" +
-	"\x16claim_schedule_indexes\x18\x06 \x03(\v2-.zerone.vesting_rewards.v1.ClaimScheduleIndexR\x14claimScheduleIndexes\"\x97\b\n" +
+	"\x16claim_schedule_indexes\x18\x06 \x03(\v2-.zerone.vesting_rewards.v1.ClaimScheduleIndexR\x14claimScheduleIndexes\x12A\n" +
+	"\x1dalignment_bank_supply_enabled\x18\a \x01(\bR\x1aalignmentBankSupplyEnabled\"\x97\b\n" +
 	"\x06Params\x12!\n" +
 	"\fblock_reward\x18\x01 \x01(\tR\vblockReward\x12(\n" +
 	"\x10reward_decay_bps\x18\x02 \x01(\x04R\x0erewardDecayBps\x125\n" +
