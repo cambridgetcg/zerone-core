@@ -12,8 +12,16 @@ import (
 
 // AutoSubmitChallenge creates a protocol-initiated challenge when capture defense
 // flags a domain. Uses the module account as challenger — no stake escrow needed
-// for auto-challenges.
+// for auto-challenges. This is capture_defense's entry point: read our marker
+// once per call and return marker faults (wrapping activation.ErrMarkerFault).
 func (k Keeper) AutoSubmitChallenge(ctx context.Context, domain string, riskScore, hhi uint64, evidence string) error {
+	accountingEnabled, err := k.ChallengeAccountingEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if !accountingEnabled {
+		return k.autoSubmitChallengeLegacy(ctx, domain, riskScore, hhi, evidence)
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
 	// Check if there's already an active challenge for this domain
@@ -25,9 +33,14 @@ func (k Keeper) AutoSubmitChallenge(ctx context.Context, domain string, riskScor
 		}
 		if ch.Status == types.ChallengeStatus_CHALLENGE_STATUS_EVIDENCE ||
 			ch.Status == types.ChallengeStatus_CHALLENGE_STATUS_OPEN ||
-			ch.Status == types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW {
+			(ch.Status == types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW &&
+				uint64(sdkCtx.BlockHeight()) < ch.ReviewDeadline) {
 			return nil // Already has an active challenge
 		}
+		// An overdue UNDER_REVIEW record only awaits its refund. Financial
+		// retry must not indefinitely suppress another automatic adjudication.
+		// This also admits a replacement at the deadline on successful expiry:
+		// capture_defense runs before capture_challenge in BeginBlock.
 	}
 
 	// Use module account as auto-challenger

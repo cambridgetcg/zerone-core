@@ -106,7 +106,7 @@ class DescriptorUpgradeTest(unittest.TestCase):
                 node.descriptor()
             self.assertFalse((node.home / "public/network-knowledge-11.json").exists())
             # Node.__init__ admits this mode only after actual applied checks.
-            node.upgrade_packet = {"test": "already checked constructor"}
+            node.upgrade_packet = {"target": {"knowledge_version": 11}}
             node.manifest.update(source_commit="e" * 40, binary_sha256="f" * 64)
             self.assertEqual(node.descriptor()["knowledge_version"], 11)
             target = node.descriptor_bytes
@@ -118,6 +118,49 @@ class DescriptorUpgradeTest(unittest.TestCase):
             with self.assertRaisesRegex(g.GatewayError, "no automatic rewrite"):
                 node.descriptor()
             self.assertEqual((node.home / "public/network-knowledge-11.json").read_bytes(), target)
+
+    def test_carrier_descriptors_preserve_prior_publication(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            node = g.Node.__new__(g.Node)
+            node.home = Path(temporary)
+            node.rpc = "http://127.0.0.1:26657"
+            node.genesis_hash = "a" * 64
+            node.manifest = {"source_commit": "b" * 40, "binary_sha256": "c" * 64,
+                "advertised_peer": "d" * 40 + "@127.0.0.1:26656", "node_id": "d" * 40,
+                "review_window_blocks": 3600, "local_test": True, "gateway_port": 8080}
+            node.ready = lambda: 10
+            node.call = lambda method: {"genesis": {"chain_id": g.CHAIN, "app_state": {"knowledge": {}}}}
+            for version in (12, 13):
+                node.cli = lambda *args: g.canonical({"module_versions": [{"name": "knowledge", "version": str(version)}]})
+                node.upgrade_packet = None
+                with self.assertRaisesRegex(g.GatewayError, "explicit staged"):
+                    node.descriptor()
+                node.upgrade_packet = {"target": {"knowledge_version": version}}
+                self.assertEqual(node.descriptor()["knowledge_version"], version)
+                self.assertTrue((node.home / f"public/network-knowledge-{version}.json").exists())
+            self.assertTrue((node.home / "public/network-knowledge-12.json").exists())
+
+
+    def test_missing_claim_integrity_requires_staged_gateway(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            node = g.Node.__new__(g.Node)
+            node.home = Path(temporary)
+            node.rpc = "http://127.0.0.1:26657"
+            node.genesis_hash = "a" * 64
+            node.manifest = {"source_commit": "b" * 40, "binary_sha256": "c" * 64,
+                "advertised_peer": "d" * 40 + "@127.0.0.1:26656", "node_id": "d" * 40,
+                "review_window_blocks": 3600, "local_test": True, "gateway_port": 8080}
+            node.ready = lambda: 10
+            node.call = lambda method: {"genesis": {"chain_id": g.CHAIN,
+                "app_state": {"knowledge": {"fund_settlement_enabled": True}}}}
+            node.upgrade_packet = None
+            for version in (12, 13):
+                with self.subTest(version=version):
+                    node.cli = lambda *args: g.canonical({"module_versions": [
+                        {"name": "knowledge", "version": str(version)}]})
+                    with self.assertRaisesRegex(g.GatewayError, "Claim-integrity ledger"):
+                        node.descriptor()
+                    self.assertFalse((node.home / "public").exists())
 
 
 class FaucetTest(unittest.TestCase):

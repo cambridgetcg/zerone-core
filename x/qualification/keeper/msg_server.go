@@ -176,6 +176,10 @@ func (k msgServer) RenewQualification(goCtx context.Context, msg *types.MsgRenew
 }
 
 func (k msgServer) WithdrawQualification(goCtx context.Context, msg *types.MsgWithdrawQualification) (*types.MsgWithdrawQualificationResponse, error) {
+	singleRefund, err := k.SingleRefundEnabled(goCtx)
+	if err != nil {
+		return nil, err
+	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	params := k.GetParams(goCtx)
 
@@ -186,11 +190,19 @@ func (k msgServer) WithdrawQualification(goCtx context.Context, msg *types.MsgWi
 
 	// Unlock stake if this was a stake pathway qualification.
 	if q.Pathway == types.QualificationPathway_QUALIFICATION_PATHWAY_STAKE && q.StakedAmount != "" {
+		// Before the single-refund fix, expiry retained the amount whether the
+		// refund succeeded, failed, or was still locked. Never infer an unpaid
+		// liability from that ambiguous record or delete its reconciliation
+		// evidence. New successful expiries clear the amount; new unpaid
+		// expiries remain SUSPENDED and may use the ordinary withdrawal path.
+		if singleRefund && q.Status == types.QualificationStatus_QUALIFICATION_STATUS_EXPIRED {
+			return nil, fmt.Errorf("%w: stake refund requires reconciliation", types.ErrAlreadyExpired)
+		}
 		currentBlock := uint64(ctx.BlockHeight())
 		if currentBlock < q.GrantedAt+params.StakeLockPeriod {
 			return nil, fmt.Errorf("%w: unlocks at block %d", types.ErrStakeLocked, q.GrantedAt+params.StakeLockPeriod)
 		}
-		if err := k.unlockStake(goCtx, msg.Validator, q.StakedAmount); err != nil {
+		if err := k.unlockStake(goCtx, msg.Validator, q.StakedAmount, singleRefund); err != nil {
 			return nil, fmt.Errorf("failed to unlock stake: %w", err)
 		}
 	}

@@ -306,37 +306,41 @@ func (k Keeper) EscrowAugmentationBounty(ctx context.Context, sponsor string, bo
 
 // ReleaseAugmentationPayout debits from the locked escrow and pays out.
 func (k Keeper) ReleaseAugmentationPayout(ctx context.Context, bountyID, recipient string, amount sdkmath.Int) error {
+	enabled, err := k.ReformulationVindicationOrderingEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	return k.releaseAugmentationPayout(ctx, bountyID, recipient, amount, enabled)
+}
+
+func (k Keeper) releaseAugmentationPayout(ctx context.Context, bountyID, recipient string, amount sdkmath.Int, enabled bool) error {
 	if amount.IsZero() {
 		return nil
 	}
-	recipAddr, err := sdk.AccAddressFromBech32(recipient)
-	if err != nil {
-		return fmt.Errorf("invalid recipient address: %w", err)
-	}
-	coins := sdk.NewCoins(sdk.NewCoin("uzrn", amount))
-	if err := k.bankKeeper.SendCoinsFromModuleToAccount(ctx, types.TrainingFundModuleName, recipAddr, coins); err != nil {
+	if err := k.requireReformulationBountyUnheld(ctx, bountyID, enabled); err != nil {
 		return err
 	}
-	return k.reduceEscrowLocked(ctx, bountyID, amount)
+	return k.releaseAugmentationPayoutLegacy(ctx, bountyID, recipient, amount)
 }
 
 // ForfeitAugmentationDeposit moves a failed-sponsor deposit into the
 // vesting_rewards research fund (keeps research-fund accounting consistent).
 func (k Keeper) ForfeitAugmentationDeposit(ctx context.Context, bountyID string, amount sdkmath.Int) error {
+	enabled, err := k.ReformulationVindicationOrderingEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	return k.forfeitAugmentationDeposit(ctx, bountyID, amount, enabled)
+}
+
+func (k Keeper) forfeitAugmentationDeposit(ctx context.Context, bountyID string, amount sdkmath.Int, enabled bool) error {
 	if amount.IsZero() {
 		return nil
 	}
-	coins := sdk.NewCoins(sdk.NewCoin("uzrn", amount))
-	// Send from training fund → module-level deposit; reuse research fund
-	// when the vesting_rewards keeper is present.
-	if k.vestingRewardsKeeper != nil {
-		if err := k.vestingRewardsKeeper.DepositToResearchFund(ctx, types.TrainingFundModuleName, coins); err != nil {
-			return err
-		}
-	} else {
-		// Fallback: keep in training fund as accumulated reserve.
+	if err := k.requireReformulationBountyUnheld(ctx, bountyID, enabled); err != nil {
+		return err
 	}
-	return k.reduceEscrowLocked(ctx, bountyID, amount)
+	return k.forfeitAugmentationDepositLegacy(ctx, bountyID, amount)
 }
 
 // ReturnEscrowToSponsor refunds any unused escrow on bounty expiry, minus
@@ -556,6 +560,19 @@ func (k Keeper) IterateTrainingFundDisbursements(ctx context.Context, cb func(*t
 // A minimum total-stake quorum ensures a lone stake-bearing voter can't
 // finalize alone.
 func (k Keeper) RecordAugmentationVote(ctx context.Context, augID, verifier string, vote types.AugmentationVerdict) (bool, types.AugmentationVerdict, error) {
+	safe, err := k.ReformulationVindicationOrderingEnabled(ctx)
+	if err != nil {
+		return false, types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING, err
+	}
+	return k.recordAugmentationVote(ctx, augID, verifier, vote, safe)
+}
+
+// Message callers pass the entry-point snapshot, never re-read it in a helper.
+// The exported standalone entry points above retain their direct-call API.
+func (k Keeper) recordAugmentationVote(ctx context.Context, augID, verifier string, vote types.AugmentationVerdict, safe bool) (bool, types.AugmentationVerdict, error) {
+	if !safe {
+		return k.recordAugmentationVoteLegacy(ctx, augID, verifier, vote)
+	}
 	if _, err := k.ReviewNeutralityEnabled(ctx); err != nil {
 		return false, types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING, err
 	}
@@ -568,6 +585,16 @@ func (k Keeper) RecordAugmentationVote(ctx context.Context, augID, verifier stri
 	}
 	if vote == types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING {
 		return false, aug.Verdict, fmt.Errorf("pending is not a valid vote")
+	}
+	if vote < types.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT || vote > types.AugmentationVerdict_AUGMENTATION_VERDICT_DRIFT {
+		return false, aug.Verdict, fmt.Errorf("augmentation vote must be in range 1..4")
+	}
+	// Legacy pending records can contain unknown enum values. Refuse
+	// before appending or paying; do not erase or reinterpret old ballots.
+	for _, retained := range aug.VerdictVotes {
+		if retained < types.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT || retained > types.AugmentationVerdict_AUGMENTATION_VERDICT_DRIFT {
+			return false, aug.Verdict, fmt.Errorf("augmentation contains an invalid retained vote")
+		}
 	}
 
 	// Guard: sponsor and submitter may not vote.
@@ -638,6 +665,11 @@ func (k Keeper) RecordAugmentationVote(ctx context.Context, augID, verifier stri
 		}
 	}
 
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return false, aug.Verdict, err
+	}
+	previousHold := ReformulationHoldReason(aug, params)
 	aug.VerdictVoters = append(aug.VerdictVoters, verifier)
 	aug.VerdictVotes = append(aug.VerdictVotes, vote)
 	aug.VerdictVoteStakes = append(aug.VerdictVoteStakes, stakeAtVote)
@@ -645,12 +677,9 @@ func (k Keeper) RecordAugmentationVote(ctx context.Context, augID, verifier stri
 	if err := k.SetAugmentation(ctx, aug); err != nil {
 		return false, aug.Verdict, err
 	}
+	emitReformulationHoldTransition(ctx, aug, previousHold, ReformulationHoldReason(aug, params))
 
 	// Consensus check.
-	params, err := k.GetParams(ctx)
-	if err != nil {
-		return false, aug.Verdict, err
-	}
 	minVotes := params.ReformulationMinPanelVotes
 	if minVotes == 0 {
 		minVotes = 3
@@ -670,41 +699,26 @@ func (k Keeper) RecordAugmentationVote(ctx context.Context, augID, verifier stri
 	// The calibration floor prevents lockup in the early chain state
 	// before anyone has built up a record; it also means NO stake-
 	// bearing verifier ever drops to zero weight (stake × floor > 0).
-	const panelCalibrationFloorBps uint64 = 200_000 // 20% — bare minimum signal credibility
-	stakeTally := make(map[types.AugmentationVerdict]uint64)
-	var totalStake uint64
-	for i, v := range aug.VerdictVotes {
-		stake := uint64(0)
-		if i < len(aug.VerdictVoteStakes) {
-			stake = aug.VerdictVoteStakes[i]
-		}
-		cal := uint64(0)
-		if i < len(aug.VerdictVoteCalibrationBps) {
-			cal = aug.VerdictVoteCalibrationBps[i]
-		}
-		if cal < panelCalibrationFloorBps {
-			cal = panelCalibrationFloorBps
-		}
-		// Effective weight = stake × calibration / BPS. A 100M stake at
-		// 50% calibration weighs the same as a 50M stake at 100%.
-		effectiveWeight := safeMulDiv(stake, cal, bps)
-		stakeTally[v] += effectiveWeight
-		totalStake += effectiveWeight
-	}
+	stakeTally, totalStake := reformulationStakeTally(aug)
 	if totalStake == 0 {
 		// No stake-bearing votes yet; wait for more.
 		return false, aug.Verdict, nil
 	}
-	var winner types.AugmentationVerdict
-	var winnerStake uint64
-	for v, s := range stakeTally {
-		if s*bps/totalStake >= consensusBps && s > winnerStake {
-			winner = v
-			winnerStake = s
-		}
-	}
-	if winner == types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING {
+	winner, tied := selectReformulationWinner(reformulationCandidates(stakeTally), totalStake, consensusBps)
+	if tied || winner == types.AugmentationVerdict_AUGMENTATION_VERDICT_PENDING {
 		return false, aug.Verdict, nil
+	}
+	if aug.BountyId != "" && (winner == types.AugmentationVerdict_AUGMENTATION_VERDICT_EQUIVALENT || winner == types.AugmentationVerdict_AUGMENTATION_VERDICT_SUPERIOR) {
+		hold, err := k.reformulationBountyHold(ctx, aug.BountyId)
+		if err != nil {
+			return false, aug.Verdict, err
+		}
+		if hold != nil {
+			// Keep the new ballot, not a finalized verdict/payout. Otherwise
+			// the payout refusal would roll back this tie-breaking vote and
+			// two held siblings could prevent each other making progress.
+			return false, aug.Verdict, nil
+		}
 	}
 	// Finalize.
 	return true, winner, nil
@@ -714,6 +728,14 @@ func (k Keeper) RecordAugmentationVote(ctx context.Context, augID, verifier stri
 // state, and — for passing verdicts — releases the escrow payout. Drift and
 // inferior verdicts archive but do not pay.
 func (k Keeper) ApplyFinalizedAugmentationVerdict(ctx context.Context, augID string, verdict types.AugmentationVerdict) error {
+	enabled, err := k.ReformulationVindicationOrderingEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	return k.applyFinalizedAugmentationVerdict(ctx, augID, verdict, enabled)
+}
+
+func (k Keeper) applyFinalizedAugmentationVerdict(ctx context.Context, augID string, verdict types.AugmentationVerdict, enabled bool) error {
 	neutral, err := k.ReviewNeutralityEnabled(ctx)
 	if err != nil {
 		return err
@@ -756,7 +778,7 @@ func (k Keeper) ApplyFinalizedAugmentationVerdict(ctx context.Context, augID str
 				bonus := amount.Mul(sdkmath.NewIntFromUint64(bonusBps)).Quo(sdkmath.NewIntFromUint64(bps))
 				amount = amount.Add(bonus)
 			}
-			if err := k.ReleaseAugmentationPayout(ctx, aug.BountyId, aug.Submitter, amount); err != nil {
+			if err := k.releaseAugmentationPayout(ctx, aug.BountyId, aug.Submitter, amount, enabled); err != nil {
 				return err
 			}
 			aug.PayoutAmount = amount.String()

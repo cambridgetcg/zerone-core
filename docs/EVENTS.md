@@ -206,6 +206,20 @@ Capture challenge resolved with capture confirmed.
 Governance parameter update.
 - `authority` -- governance address
 
+### zerone.capture_challenge.expiry_refund_pending
+With challenge accounting enabled, an overdue UNDER_REVIEW challenge could not
+commit its refund and EXPIRED status atomically. Emitted on the parent context
+after discarding the failed attempt, at the review deadline and every 100 blocks
+after that deadline while an attempt fails. Refunds are still retried every block;
+silence between announcements is not evidence of payment. No event is emitted
+for successful expiry or with the activation marker absent. Raw error text is
+logged, not included in this deterministic event. Malformed retained records can
+also remain pending; `stake` is the stored value, not a validated payment amount.
+- `challenge_id` -- retained challenge ID
+- `domain` -- challenged domain
+- `stake` -- retained stake string in uzrn
+- `review_deadline` -- review deadline block
+
 ## capture_defense
 
 ### zerone.capture_defense.verification_recorded
@@ -682,6 +696,10 @@ Governance parameter change from LIP failed to apply.
 
 ### zerone.gov.phase_transition_cancelled
 Governance phase transition proposal cancelled.
+With halt-reason scoping enabled, due rollbacks recheck the current target and
+require gridlock or a valid in-phase `research_fund` halt. Unknown/malformed
+evidence alone cannot justify rollback, but never cancels an otherwise justified
+rollback. Marker-off processing and the event's attributes are unchanged.
 - `lip_id` -- originating LIP identifier
 - `reason` -- cancellation reason
 
@@ -1635,6 +1653,63 @@ A verifier cast a verdict on a reformulation round (Route B Wave 4d). Sponsor an
 - `vote` -- one of PENDING / EQUIVALENT / SUPERIOR / INFERIOR / DRIFT
 - `finalized` -- boolean: did this vote finalize the verdict?
 
+### zerone.knowledge.reformulation_held
+With `ReformulationVindicationOrderingEnabled` selected (knowledge key `0x90`),
+a pending augmentation has an invalid retained ballot or a positive top-weight
+tie after the minimum panel count. No enum preference breaks a tie, including
+a tie below the consensus threshold. The record and its ballots are retained.
+No hold key or entitlement is created. Any remaining escrow is pooled per
+bounty: expiry refunds, sibling payouts and sponsor forfeitures cannot spend
+that bounty while a hold remains. Other bounties are not held by this record.
+New voting weight can break a tie; invalid retained ballots require a separately
+governed resolution. Already finalized verdicts/payments/graph records are not
+reconciled, and deleted vindication obligations are not recreated.
+
+Emitted only when a successful vote starts a hold. A continuing hold does not
+re-emit on another vote, a sibling's deferred finalization, or any BeginBlock.
+The carrier must record pre-existing holds (including invalid retained ballots)
+in its one-time census before enabling the marker; a rejected transaction is
+not a durable event source. Volunteers have an empty bounty ID. These holds
+also apply to NEW exact ties after activation, not just inherited records:
+one tied variant can freeze its whole pooled bounty until new voting weight
+breaks the tie. This prospective policy remains a carrier review decision.
+Tie-breaking ballots are retained even while a sibling holds the bounty;
+passing finalization waits for another vote after that peer hold resolves.
+This prevents mutually blocking ties without releasing held escrow. The query's
+`held` describes the named record, not every sibling sharing its bounty.
+
+- `augmentation_id`
+- `original_fact_id`
+- `bounty_id`
+- `reason` -- `invalid_retained_vote` or `tied_top_weight`
+
+Read-only operator query: `zeroned query knowledge reformulation-hold <id>`.
+It reads the existing marker, augmentation, params and pooled escrow at one
+snapshot height (or `--height`), emits JSON, and refuses unreadable/malformed
+state. `held` is false before activation; `prospective_reason` supports a
+pre-activation census. The displayed bounty escrow is not a per-record balance.
+`CensusReformulationHolds` provides the carrier's checked, read-only full scan;
+the carrier must census before enabling the marker and must budget the scan.
+It also checks that bounty-linked augmentations have their existing `0x65`
+index entry. Routine payout/veto/finalization checks use only that bounty's
+index; expiry checks only bounties due for expiration.
+
+### zerone.knowledge.reformulation_hold_released
+With the marker selected, a successful vote ended the named record's hold.
+This does not promise a payout or that all siblings' holds have ended. It is
+emitted once per transition, with the same `augmentation_id`, `original_fact_id`,
+`bounty_id`, and prior `reason` attributes as `reformulation_held`.
+
+### zerone.knowledge.reformulation_processing_refused
+A due bounty's hold index or referenced augmentation could not be read. No
+refund/deactivation for that bounty is performed; other lifecycle work keeps
+its existing error handling. This refusal can repeat until separately resolved.
+Marker faults are different: `activation.ErrMarkerFault` propagates from the
+message/BeginBlock entry point before writes, without a log-and-skip event or
+automatic marker repair. Vindication transfer failures retain their old handling.
+- `operation` -- `bounty_expiry`
+- `reason` -- `hold_index_unreadable`
+
 ### zerone.knowledge.augmentation_verdict_finalized
 The verifier panel reached consensus on a reformulation (Route B Wave 4d). For EQUIVALENT/SUPERIOR the handler releases escrow to the submitter and writes a REFORMULATES relation (with the claim-integrity marker on, not for an ID in the fact ID space; see `augmentation_edge_withheld`); for DRIFT/INFERIOR the variant is archived for the drift corpus. Never fired by the sponsor or submitter directly.
 - `augmentation_id`
@@ -1970,9 +2045,34 @@ Governance parameter update.
 - `authority` -- governance address
 
 ### zerone.qualification.qualification_expired
-*BeginBlock.* Qualification expired.
+*BeginBlock.* The qualification's validity period ended; this event alone is not
+proof of a stake refund. Its two attributes are unchanged across activation.
+With the qualification-store single-refund marker enabled, a successful stake
+refund is committed with EXPIRED status and an empty `StakedAmount`. A locked or
+failed refund instead leaves the record SUSPENDED with its amount retained and
+emits `zerone.qualification.stake_refund_pending` immediately before this event,
+paired by `validator` and `domain` in the same block. Non-stake expiry needs no
+refund. Without the marker, legacy expiry sets EXPIRED and retains the amount
+regardless of whether a refund succeeds, fails, or is still locked; there is no
+pending event and neither the event nor retained amount establishes payment.
 - `validator` -- validator address
 - `domain` -- expired domain
+
+### zerone.qualification.stake_refund_pending
+*BeginBlock; single-refund marker enabled only.* Expiry could not settle a stake
+refund. The qualification is SUSPENDED (ineligible and not renewable), while
+`StakedAmount` and its lock deadline remain intact. This event immediately
+precedes `zerone.qualification.qualification_expired` for the same validator and
+domain. It is not a payment receipt or an automatic retry schedule: BeginBlock
+does not retry suspended refunds. The owner can use `WithdrawQualification`
+after the lock ends or the transfer failure is resolved. Failed cached bank
+writes and bank events are discarded. Legacy EXPIRED records with an amount
+are separately held for reconciliation after activation and do not emit this
+event merely because withdrawal is refused.
+- `validator` -- claimant address
+- `domain` -- expired qualification's domain
+- `reason` -- `stake_locked` if expiry precedes unlock, or `transfer_failed` if
+  the refund call fails (including an absent bank adapter)
 
 ### zerone.qualification.qualification_promoted
 *BeginBlock.* Probationary qualification promoted to full.

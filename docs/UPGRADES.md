@@ -219,9 +219,14 @@ one-height database repair is not a network recovery protocol.
   consumes account numbers in iteration order — the localnet drill caught a
   three-way AppHash divergence from exactly this). Touch only state that
   exists; log what you change.
-- **Every handler keeps the `ReconcileModuleAccountPerms` call** — stored
-  module-account permissions drift from code otherwise, and bank checks the
-  stored ones.
+- **Permission reconciliation belongs to the handler's reviewed write set.**
+  Historical broad handlers keep `ReconcileModuleAccountPerms`. The exact
+  claim-integrity and `consensus-repairs-v1` rungs deliberately do not call it:
+  it could write unrelated accounts. The carrier checks a streamed all-store
+  digest against the source merged with exactly its expected writes, plus an
+  explicit knowledge `0x87` digest, before releasing its cache. Its census runs
+  in a discarded cache with per-census selected-prefix bounds, not a whole-state
+  ceiling; see [the carrier contract](consensus-repairs-v1.md).
 - **Never edit an old handler after it ran anywhere.** New change = new name.
 - **Never fetch a validator binary at H.** Pin Cosmovisor, keep downloads off,
   verify the staged digest, and retain the H−1 backup.

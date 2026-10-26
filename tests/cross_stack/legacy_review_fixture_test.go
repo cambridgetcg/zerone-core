@@ -14,6 +14,10 @@ import (
 func useLegacyReviewPolicy(t *testing.T, h *TestHarness) {
 	t.Helper()
 	store := h.Ctx.KVStore(h.App.GetStoreKeyForTests(knowledgetypes.StoreKey))
+	// Pre-carrier review/economic fixtures explicitly select predecessor
+	// reformulation and vindication semantics, not the new genesis default.
+	require.Equal(t, []byte{1}, store.Get([]byte(knowledgekeeper.ReformulationVindicationOrderingEnabledStoreKey)))
+	store.Delete([]byte(knowledgekeeper.ReformulationVindicationOrderingEnabledStoreKey))
 	// Input-retention activation depends on neutral review; this historical
 	// fixture must clear the later selection as well as its predecessor.
 	require.Equal(t, []byte{1}, store.Get([]byte(knowledgekeeper.ClaimIntegrityEnabledStoreKey)))

@@ -14,6 +14,7 @@
   },
   "app_state": {
     "vesting_rewards": {
+      "alignment_bank_supply_enabled": true,
       "params": {
         "block_reward": "10000000",
         "founder_share_bps": "70000",
@@ -32,6 +33,7 @@
       }
     },
     "knowledge": {
+      "reformulation_vindication_ordering_enabled": true,
       "params": {
         "fitness_epoch_blocks": "100",
         "fitness_weight_query_bps": "150000",
@@ -89,6 +91,7 @@
       }
     },
     "zerone_gov": {
+      "seat_runoff_ordering_enabled": true,
       "params": {
         "voting_period_blocks": "34272",
         "discussion_period_blocks": "17136",
@@ -100,6 +103,13 @@
         }
       }
     },
+    "capture_defense": {"integer_variance_enabled": true},
+    "qualification": {"single_refund_enabled": true},
+    "capture_challenge": {"challenge_accounting_enabled": true},
+    "zerone_ontology": {"active_domain_count_enabled": true},
+    "emergency": {"halt_reason_scoping_enabled": true},
+    "substrate_bridge": {"qualification_semantics_enabled": true},
+    "ibcratelimit": {"refund_identity_enabled": true},
     "bank": {
       "balances": [
         {

@@ -153,7 +153,7 @@ func TestAnalyzeCaptureRisk_Monopoly(t *testing.T) {
 	}
 
 	params := k.GetParams(ctx)
-	metrics := k.AnalyzeCaptureRisk(ctx, "captured_domain", params)
+	metrics := k.AnalyzeCaptureRisk(ctx, "captured_domain", params, false)
 
 	require.NotNil(t, metrics, "metrics should not be nil for domain with history")
 	assert.True(t, metrics.Flagged, "monopoly domain should be flagged")
@@ -184,7 +184,7 @@ func TestAnalyzeCaptureRisk_Diverse(t *testing.T) {
 	}
 
 	params := k.GetParams(ctx)
-	metrics := k.AnalyzeCaptureRisk(ctx, "diverse_domain", params)
+	metrics := k.AnalyzeCaptureRisk(ctx, "diverse_domain", params, false)
 
 	require.NotNil(t, metrics)
 	assert.False(t, metrics.Flagged, "diverse domain should NOT be flagged")
@@ -221,7 +221,7 @@ func TestRunAutoAnalysis_AutoChallenge(t *testing.T) {
 	k.SetChallengeKeeper(mock)
 
 	params := k.GetParams(ctx)
-	k.RunAutoAnalysis(ctx, params)
+	require.NoError(t, k.RunAutoAnalysis(ctx, params, false))
 
 	// Assert: mock received exactly 1 AutoSubmitChallenge call
 	require.Len(t, mock.calls, 1, "expected exactly 1 auto-challenge submission")
@@ -252,7 +252,7 @@ func TestRunAutoAnalysis_NoChallengeWhenDiverse(t *testing.T) {
 	k.SetChallengeKeeper(mock)
 
 	params := k.GetParams(ctx)
-	k.RunAutoAnalysis(ctx, params)
+	require.NoError(t, k.RunAutoAnalysis(ctx, params, false))
 
 	assert.Len(t, mock.calls, 0, "no auto-challenge should be submitted for a diverse domain")
 }
@@ -274,7 +274,7 @@ func TestRunAutoAnalysis_NoChallengeWithoutKeeper(t *testing.T) {
 
 	// Don't set challenge keeper -- should not panic
 	params := k.GetParams(ctx)
-	k.RunAutoAnalysis(ctx, params) // should complete without error
+	require.NoError(t, k.RunAutoAnalysis(ctx, params, false))
 
 	// Metrics should still be stored
 	m, found := k.GetCaptureMetrics(ctx, "mono_no_keeper")
@@ -474,7 +474,7 @@ func TestEndToEnd_KnowledgeRoundToCapture(t *testing.T) {
 
 	// Run auto-analysis (as BeginBlocker would)
 	params := k.GetParams(ctx)
-	k.RunAutoAnalysis(ctx, params)
+	require.NoError(t, k.RunAutoAnalysis(ctx, params, false))
 
 	// Verify: domain flagged
 	m, found := k.GetCaptureMetrics(ctx, "history_domain")
@@ -516,7 +516,7 @@ func TestRunAutoAnalysis_MultipleDomains_SelectiveFlagging(t *testing.T) {
 	k.SetChallengeKeeper(mock)
 
 	params := k.GetParams(ctx)
-	k.RunAutoAnalysis(ctx, params)
+	require.NoError(t, k.RunAutoAnalysis(ctx, params, false))
 
 	// Only the monopoly domain should trigger a challenge
 	require.Len(t, mock.calls, 1, "expected exactly 1 auto-challenge (monopoly only)")

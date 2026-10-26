@@ -101,6 +101,7 @@ func GetQueryCmd() *cobra.Command {
 		NewQueryValidatorIndependenceCmd(),
 		NewQueryConformityAlertsCmd(),
 		NewQueryVindicationPendingCmd(),
+		NewQueryReformulationHoldCmd(),
 		NewQueryVindicationRecordCmd(),
 		NewQueryMetabolismStatusCmd(),
 		NewQueryDomainCapacityCmd(),

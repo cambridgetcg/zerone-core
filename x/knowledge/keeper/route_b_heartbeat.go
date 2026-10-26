@@ -26,15 +26,24 @@ import (
 // move to time-indexed queues (block-height → expiry-set reverse index).
 
 // ProcessRouteBLifecycle runs the three automatic lifecycle processes.
-// Errors are logged rather than raised — consensus must not block on a
-// transient state issue in a self-maintenance process.
-func (k Keeper) ProcessRouteBLifecycle(ctx context.Context) {
+// Marker faults propagate; ordinary lifecycle errors retain their old logging.
+// BeginBlocker supplies its snapshot directly to processRouteBLifecycle.
+func (k Keeper) ProcessRouteBLifecycle(ctx context.Context) error {
+	enabled, err := k.ReformulationVindicationOrderingEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	k.processRouteBLifecycle(ctx, enabled)
+	return nil
+}
+
+func (k Keeper) processRouteBLifecycle(ctx context.Context, enabled bool) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 	k.Logger(ctx).Debug("route-b heartbeat", "height", height)
 
 	// 1. Expire bounties whose expires_at_block has passed.
-	k.expireBountiesBelow(ctx, height)
+	k.expireBountiesBelow(ctx, height, enabled)
 
 	// 2. Release vesting disbursements whose vesting_end_block has arrived.
 	k.releaseMaturedVesting(ctx, height)
@@ -47,7 +56,11 @@ func (k Keeper) ProcessRouteBLifecycle(ctx context.Context) {
 
 // expireBountiesBelow returns escrow to sponsors for any active bounty
 // whose expires_at_block has passed. Minus the kept-market-open fee.
-func (k Keeper) expireBountiesBelow(ctx context.Context, height uint64) {
+func (k Keeper) expireBountiesBelow(ctx context.Context, height uint64, enabled bool) {
+	if !enabled {
+		k.expireBountiesBelowLegacy(ctx, height)
+		return
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	params, _ := k.GetParams(ctx)
 	feeBps := params.AugmentationExpiryFeeBps
@@ -68,6 +81,16 @@ func (k Keeper) expireBountiesBelow(ctx context.Context, height uint64) {
 	})
 
 	for _, b := range toExpire {
+		// Only inspect the 0x65 index for bounties actually due for expiry.
+		hold, err := k.reformulationBountyHold(ctx, b.Id)
+		if err != nil {
+			k.Logger(ctx).Error("bounty expiry refused", "bounty_id", b.Id, "error", err)
+			emitReformulationRefusal(ctx, "bounty_expiry", "hold_index_unreadable")
+			continue
+		}
+		if hold != nil {
+			continue // prospective hold: no refund, fee, deactivation or redistribution
+		}
 		remaining := k.GetEscrowLocked(ctx, b.Id)
 		if remaining.IsPositive() {
 			if err := k.ReturnEscrowToSponsor(ctx, b.Id, b.SponsorAddress, remaining, feeBps); err != nil {

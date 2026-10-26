@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/zerone-chain/zerone/app"
 )
 
 // ════════════════════════════════════════════════════════════════════════
@@ -853,9 +855,113 @@ func checkChainMetadata(c *checker, g map[string]interface{}) {
 	}
 }
 
+// A fresh genesis may not install adapters whose qualification floor cannot
+// be satisfied. Activated legacy exports are checked by the carrier census;
+// InitChainer cannot distinguish those imports from fresh registration.
+func checkAdapterQualificationMinima(c *checker, g map[string]interface{}) {
+	c.section("Adapter Qualification Minima")
+	raw, exists := dig(g, "app_state", "substrate_bridge", "adapters")
+	if !exists || raw == nil {
+		c.pass("No required-domain adapter minima")
+		return
+	}
+	adapters, ok := raw.([]interface{})
+	if !ok {
+		c.fail("substrate_bridge.adapters must be an array")
+		return
+	}
+	for i, entry := range adapters {
+		adapter, ok := entry.(map[string]interface{})
+		if !ok {
+			c.fail("adapter[%d] is not an object", i)
+			continue
+		}
+		domain, domainPresent, domainDuplicate := qualificationJSONField(adapter, "required_qualification_domain", "requiredQualificationDomain")
+		minimum, minimumPresent, minimumDuplicate := qualificationJSONField(adapter, "min_qualification_status", "minQualificationStatus")
+		// Check both pairs before any open-domain/default-minimum early return.
+		if domainDuplicate || minimumDuplicate {
+			c.fail("adapter[%d] has duplicate snake_case/camelCase qualification fields", i)
+			continue
+		}
+		if !domainPresent || domain == nil || domain == "" {
+			continue
+		}
+		if _, ok := domain.(string); !ok {
+			c.fail("adapter[%d] has malformed qualification domain", i)
+			continue
+		}
+		if !minimumPresent {
+			continue
+		} // Protobuf's UNSPECIFIED default is supported.
+		valid := false
+		switch value := minimum.(type) {
+		case string:
+			valid = value == "QUALIFICATION_STATUS_UNSPECIFIED" || value == "QUALIFICATION_STATUS_PROBATIONARY" || value == "QUALIFICATION_STATUS_ACTIVE" || value == "0" || value == "1" || value == "2"
+		case json.Number:
+			valid = value == "0" || value == "1" || value == "2"
+		case float64:
+			valid = value == 0 || value == 1 || value == 2
+		}
+		if !valid {
+			id, _, _ := qualificationJSONField(adapter, "adapter_id", "adapterId")
+			c.fail("adapter[%d] %v has unsupported minimum %v: only UNSPECIFIED, PROBATIONARY or ACTIVE is satisfiable", i, id, minimum)
+		} else {
+			c.pass("adapter[%d] qualification minimum is supported", i)
+		}
+	}
+}
+
+func qualificationJSONField(fields map[string]interface{}, snake, camel string) (interface{}, bool, bool) {
+	value, hasSnake := fields[snake]
+	alias, hasCamel := fields[camel]
+	if hasSnake {
+		return value, true, hasCamel
+	}
+	return alias, hasCamel, false
+}
+
+func checkConsensusRepairsMarkers(c *checker, g map[string]interface{}) {
+	c.section("Consensus Repairs Genesis Selection")
+	raw, err := json.Marshal(g["app_state"])
+	var genesis app.GenesisState
+	if err == nil {
+		err = json.Unmarshal(raw, &genesis)
+	}
+	if err == nil {
+		err = app.ValidateConsensusRepairsGenesisSelection(genesis)
+	}
+	if err != nil {
+		c.fail("%v", err)
+		return
+	}
+	c.pass("All ten consensus-repairs-v1 markers explicitly true with exact spelling")
+}
+
 // ════════════════════════════════════════════════════════════════════════
 //  Main
 // ════════════════════════════════════════════════════════════════════════
+
+func runChecks(c *checker, genesis map[string]interface{}) {
+	checkRevenueSplit(c, genesis)
+	checkProtocolSubSplit(c, genesis)
+	checkFounderShare(c, genesis)
+	checkResearchFundVoters(c, genesis)
+	checkKnowledgeFitnessWeights(c, genesis)
+	checkDemandFitnessCoupling(c, genesis)
+	checkKnowledgeDemandTracking(c, genesis)
+	checkMetabolismConsistency(c, genesis)
+	checkEnergyCap(c, genesis)
+	checkCompetitionParams(c, genesis)
+	checkBootstrapFund(c, genesis)
+	checkStakingTierBoundaries(c, genesis)
+	checkGovernancePeriods(c, genesis)
+	checkVoteExtensions(c, genesis)
+	checkBankBalances(c, genesis)
+	checkAxiomSeeds(c, genesis)
+	checkChainMetadata(c, genesis)
+	checkAdapterQualificationMinima(c, genesis)
+	checkConsensusRepairsMarkers(c, genesis)
+}
 
 func main() {
 	genesisPath := flag.String("genesis", "", "Path to genesis.json")
@@ -897,24 +1003,7 @@ func main() {
 	fmt.Println("═══════════════════════════════════════════════")
 
 	c := &checker{profile: *profile}
-
-	checkRevenueSplit(c, genesis)
-	checkProtocolSubSplit(c, genesis)
-	checkFounderShare(c, genesis)
-	checkResearchFundVoters(c, genesis)
-	checkKnowledgeFitnessWeights(c, genesis)
-	checkDemandFitnessCoupling(c, genesis)
-	checkKnowledgeDemandTracking(c, genesis)
-	checkMetabolismConsistency(c, genesis)
-	checkEnergyCap(c, genesis)
-	checkCompetitionParams(c, genesis)
-	checkBootstrapFund(c, genesis)
-	checkStakingTierBoundaries(c, genesis)
-	checkGovernancePeriods(c, genesis)
-	checkVoteExtensions(c, genesis)
-	checkBankBalances(c, genesis)
-	checkAxiomSeeds(c, genesis)
-	checkChainMetadata(c, genesis)
+	runChecks(c, genesis)
 
 	fmt.Println()
 	fmt.Println("═══════════════════════════════════════════════")
