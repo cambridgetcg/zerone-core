@@ -570,10 +570,21 @@ def run(args, home):
                 if packet is None or target_phase or not disk_upgrade_plan(home, packet):
                     return False
                 if node.poll() is None:
-                    observed = rpc(f"http://127.0.0.1:{manifest['rpc_port']}", "/abci_info")
+                    # A follower replaying H in block sync panics right after writing
+                    # upgrade-info.json, so its RPC can close after poll(). An exited
+                    # predecessor is the boundary below; a live one is asked next tick.
+                    try:
+                        observed = rpc(f"http://127.0.0.1:{manifest['rpc_port']}", "/abci_info")
+                    except OSError:
+                        return node.poll() is not None
                     if integer(observed["response"].get("last_block_height"), "halted application height", 1) != int(packet["plan"]["height"]) - 1:
                         raise RuntimeError("Predecessor halt is not at the pinned H-1.")
-                    planned = upgrade_query(args.binary, home, manifest, "plan")
+                    try:
+                        planned = upgrade_query(args.binary, home, manifest, "plan")
+                    except RuntimeError:
+                        if node.poll() is None:
+                            raise  # A live node's failed plan query stays fatal.
+                        return True
                     matching_upgrade_plan(planned.get("plan"), packet)
                 # If the predecessor exited, the new application's startup still
                 # checks the committed H-1 and both actual plans before signing.
