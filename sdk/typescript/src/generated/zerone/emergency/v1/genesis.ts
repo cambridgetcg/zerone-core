@@ -45,6 +45,12 @@ export interface GenesisState {
    * proposal in the currently active quarantine incident.
    */
   recoveryAuthorization?: EmergencyRecoveryAuthorization;
+  /**
+   * Halt-reason scoping marker (zerone-core #125). Native genesis sets it; a
+   * file without the field imports as off. In place, only the named carrier
+   * upgrade consensus-repairs-v1 sets it.
+   */
+  haltReasonScopingEnabled: boolean;
 }
 /**
  * GuardianProposalCount is one canonical, sorted anti-abuse counter.
@@ -130,7 +136,8 @@ function createBaseGenesisState(): GenesisState {
     lastProposalBlock: BigInt(0),
     lastHaltEscalationBlock: BigInt(0),
     quarantineReleaseBlock: BigInt(0),
-    recoveryAuthorization: undefined
+    recoveryAuthorization: undefined,
+    haltReasonScopingEnabled: false
   };
 }
 /**
@@ -178,6 +185,9 @@ export const GenesisState = {
     if (message.recoveryAuthorization !== undefined) {
       EmergencyRecoveryAuthorization.encode(message.recoveryAuthorization, writer.uint32(98).fork()).ldelim();
     }
+    if (message.haltReasonScopingEnabled === true) {
+      writer.uint32(104).bool(message.haltReasonScopingEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -223,6 +233,9 @@ export const GenesisState = {
         case 12:
           message.recoveryAuthorization = EmergencyRecoveryAuthorization.decode(reader, reader.uint32());
           break;
+        case 13:
+          message.haltReasonScopingEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -244,6 +257,7 @@ export const GenesisState = {
     message.lastHaltEscalationBlock = object.lastHaltEscalationBlock !== undefined && object.lastHaltEscalationBlock !== null ? BigInt(object.lastHaltEscalationBlock.toString()) : BigInt(0);
     message.quarantineReleaseBlock = object.quarantineReleaseBlock !== undefined && object.quarantineReleaseBlock !== null ? BigInt(object.quarantineReleaseBlock.toString()) : BigInt(0);
     message.recoveryAuthorization = object.recoveryAuthorization !== undefined && object.recoveryAuthorization !== null ? EmergencyRecoveryAuthorization.fromPartial(object.recoveryAuthorization) : undefined;
+    message.haltReasonScopingEnabled = object.haltReasonScopingEnabled ?? false;
     return message;
   }
 };

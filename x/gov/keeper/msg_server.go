@@ -30,6 +30,13 @@ var _ types.MsgServer = (*msgServer)(nil)
 // SubmitLIP creates a new LIP in "draft" stage.
 func (ms *msgServer) SubmitLIP(goCtx context.Context, msg *types.MsgSubmitLIP) (*types.MsgSubmitLIPResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	enabled, err := ms.HaltReasonScopingEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	local := *ms
+	local.Keeper = ms.Keeper.WithHaltReasonScoping(enabled)
+	ms = &local
 	if err := ms.RequireNoEmergencyTransitionHold(ctx); err != nil {
 		return nil, err
 	}

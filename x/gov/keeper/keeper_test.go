@@ -1918,8 +1918,10 @@ func TestGetResearchFundBalance_NilBankKeeper(t *testing.T) {
 // ---------- Mock Emergency Keeper ----------
 
 type mockEmergencyKeeper struct {
-	halts  map[string]uint64
-	halted bool
+	halts               map[string]uint64
+	halted              bool
+	haltReasonScoping   bool
+	unknownHaltEvidence bool
 }
 
 func (m *mockEmergencyKeeper) CountHaltsForReason(_ context.Context, reason string) uint64 {
@@ -1933,7 +1935,40 @@ func (m *mockEmergencyKeeper) IsHalted(_ context.Context) bool {
 	return m.halted
 }
 
+func (m *mockEmergencyKeeper) HaltReasonScopingEnabled(context.Context) (bool, error) {
+	return m.haltReasonScoping, nil
+}
+
+func (m *mockEmergencyKeeper) CountResearchFundHalts(context.Context, uint64) (uint64, bool) {
+	return m.halts["research_fund"], m.unknownHaltEvidence
+}
+
 // ---------- Phase Exit Condition Tests ----------
+
+func TestHaltReasonMockSelectionAndSaturatingGate(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		for _, count := range []uint64{0, 1, ^uint64(0)} {
+			t.Run(fmt.Sprintf("enabled=%t/count=%d", enabled, count), func(t *testing.T) {
+				k, ctx := setupKeeper(t)
+				k.SetEmergencyKeeper(&mockEmergencyKeeper{
+					halts:             map[string]uint64{"research_fund": count},
+					haltReasonScoping: enabled, unknownHaltEvidence: true,
+				})
+				response, err := keeper.NewQueryServerImpl(k).ResearchFundGovernance(ctx, &types.QueryResearchFundGovernanceRequest{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				want := count
+				if enabled && want < ^uint64(0) {
+					want++
+				}
+				if got := response.CurrentConditions.EmergencyHaltsFromMisuse; got != want {
+					t.Fatalf("gate count = %d, want %d", got, want)
+				}
+			})
+		}
+	}
+}
 
 func TestCheckPhaseExitConditions_GenesisPair_NotMet(t *testing.T) {
 	k, ctx, mockSK := setupWithStaking(t, "1000000000000")

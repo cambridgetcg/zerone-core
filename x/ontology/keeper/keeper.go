@@ -103,17 +103,29 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState *types.GenesisState) {
 
 	// Pre-populate default logic zones (won't overwrite genesis-provided ones)
 	k.InitializeDefaultZones(ctx)
+
+	// Only an explicit true writes the marker; absence keeps legacy semantics.
+	if genState.ActiveDomainCountEnabled {
+		if err := k.EnableActiveDomainCount(ctx); err != nil {
+			panic("invalid ontology genesis: " + err.Error())
+		}
+	}
 }
 
 // ExportGenesis exports the module's state.
 func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	params := k.GetParams(ctx)
+	activeDomainCount, err := k.ActiveDomainCountEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 	return &types.GenesisState{
-		Params:     params,
-		Strata:     k.GetAllStrata(ctx),
-		Domains:    k.GetAllDomains(ctx),
-		Proposals:  k.getAllProposals(ctx),
-		CrossLinks: k.GetAllLinks(ctx),
+		Params:                   params,
+		Strata:                   k.GetAllStrata(ctx),
+		Domains:                  k.GetAllDomains(ctx),
+		Proposals:                k.getAllProposals(ctx),
+		CrossLinks:               k.GetAllLinks(ctx),
+		ActiveDomainCountEnabled: activeDomainCount,
 	}
 }
 
