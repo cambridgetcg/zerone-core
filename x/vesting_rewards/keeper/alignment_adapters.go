@@ -4,8 +4,6 @@ import (
 	"context"
 	"math/big"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
-
 	alignmenttypes "github.com/zerone-chain/zerone/x/alignment/types"
 )
 
@@ -23,16 +21,38 @@ func NewAlignmentVestingRewardsAdapter(k Keeper) *AlignmentVestingRewardsAdapter
 // Ensure compile-time interface compliance.
 var _ alignmenttypes.VestingRewardsKeeper = (*AlignmentVestingRewardsAdapter)(nil)
 
-// GetTotalSupply returns the total uzrn token supply via the bank keeper.
+// AlignmentBankSupplyEnabled exposes the keeper's sole marker reader to the
+// alignment entry point. No marker is read by a selected sensor call.
+func (a *AlignmentVestingRewardsAdapter) AlignmentBankSupplyEnabled(ctx context.Context) (bool, error) {
+	return a.k.AlignmentBankSupplyEnabled(ctx)
+}
+
+var _ alignmenttypes.BankSupplySelector = (*AlignmentVestingRewardsAdapter)(nil)
+
+// GetTotalSupply uses the entry-point selection when present. Standalone reads
+// select from the marker themselves; this historical interface has no error
+// return, so a marker fault panics rather than masquerading as legacy state.
+// EndBlock reads and returns marker faults before reaching this interface.
 func (a *AlignmentVestingRewardsAdapter) GetTotalSupply(ctx context.Context) *big.Int {
-	sdkCtx := sdk.UnwrapSDKContext(ctx)
-	_ = sdkCtx
-	// Access the bank keeper through vesting_rewards to get total supply.
-	// The vesting_rewards keeper wraps bankKeeper.GetSupply internally.
-	// Since bankKeeper is private, we use GetTotalMinted as a proxy.
-	totalMinted := a.k.GetTotalMinted(sdk.UnwrapSDKContext(ctx))
-	if totalMinted == nil {
+	selection, selected := alignmenttypes.InputSelectionFromContext(ctx)
+	if !selected {
+		var err error
+		selection.BankSupply, err = a.AlignmentBankSupplyEnabled(ctx)
+		if err != nil {
+			panic(err)
+		}
+	}
+	if !selection.BankSupply {
+		return a.getTotalSupplyLegacy(ctx)
+	}
+	return a.getTotalSupplyFixed(ctx)
+}
+
+// getTotalSupplyFixed reads current uzrn bank supply, not the cumulative mint
+// ledger. An unwired bank retains the neutral zero-denominator behavior.
+func (a *AlignmentVestingRewardsAdapter) getTotalSupplyFixed(ctx context.Context) *big.Int {
+	if a.k.bankKeeper == nil {
 		return new(big.Int)
 	}
-	return totalMinted
+	return a.k.bankKeeper.GetSupply(ctx, "uzrn").Amount.BigInt()
 }

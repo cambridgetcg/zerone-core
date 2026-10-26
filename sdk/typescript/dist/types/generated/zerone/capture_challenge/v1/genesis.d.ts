@@ -49,6 +49,12 @@ export interface GenesisState {
     params?: Params;
     challenges: CaptureChallenge[];
     bountyPools: DomainBountyPool[];
+    /**
+     * Challenge-accounting marker (zerone-core #121). Native genesis sets it; a
+     * file without the field imports as off. In place, only the named carrier
+     * upgrade consensus-repairs-v1 sets it.
+     */
+    challengeAccountingEnabled: boolean;
 }
 /**
  * @name Params
