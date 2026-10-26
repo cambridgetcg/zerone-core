@@ -1083,9 +1083,6 @@ jobs:
       - name: Check SDK source and registry
         working-directory: sdk/typescript
         run: npm run check
-      - name: Verify runtime dependency audit
-        working-directory: sdk/typescript
-        run: npm audit --omit=dev
       - name: Rebuild SDK distribution
         working-directory: sdk/typescript
         run: npm run build
@@ -1099,9 +1096,6 @@ jobs:
       - name: Install dashboard dependencies
         working-directory: dashboard
         run: npm ci
-      - name: Verify dashboard dependency audit
-        working-directory: dashboard
-        run: npm audit
       - name: Verify local research journal and notice importer
         run: python3 -B -m unittest discover -s tools/research-review -p 'test_*.py' -v
       - name: Verify bounded external worker and test-payment boundary
@@ -1111,6 +1105,14 @@ jobs:
       - name: Build dashboard
         working-directory: dashboard
         run: npm run build
+      # Audits run last so an advisory published upstream fails the job
+      # without skipping the build and test steps above.
+      - name: Verify runtime dependency audit
+        working-directory: sdk/typescript
+        run: npm audit --omit=dev
+      - name: Verify dashboard dependency audit
+        working-directory: dashboard
+        run: npm audit
 
   frontier-intake:
     needs: scope
