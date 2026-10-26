@@ -7,6 +7,7 @@ import base64
 from contextlib import contextmanager, nullcontext
 import fcntl
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
@@ -566,17 +567,25 @@ def run(args, home):
                 children.append(child)
                 return child
             node = spawn("node", [str(args.binary), "start", "--home", str(home)])
+            halt_rpc_failures = 0
             def reached_upgrade_boundary():
+                nonlocal halt_rpc_failures
                 if packet is None or target_phase or not disk_upgrade_plan(home, packet):
                     return False
                 if node.poll() is None:
                     # A follower replaying H in block sync panics right after writing
-                    # upgrade-info.json, so its RPC can close after poll(). An exited
-                    # predecessor is the boundary below; a live one is asked next tick.
+                    # upgrade-info.json, so its RPC can close, or cut a reply short,
+                    # after poll(). An exited predecessor is the boundary below; a live
+                    # one is asked again next tick, and its fifth failure is raised.
                     try:
                         observed = rpc(f"http://127.0.0.1:{manifest['rpc_port']}", "/abci_info")
-                    except OSError:
-                        return node.poll() is not None
+                    except (OSError, ValueError, http.client.HTTPException):
+                        if node.poll() is not None:
+                            return True
+                        halt_rpc_failures += 1
+                        if halt_rpc_failures >= 5:
+                            raise
+                        return False
                     if integer(observed["response"].get("last_block_height"), "halted application height", 1) != int(packet["plan"]["height"]) - 1:
                         raise RuntimeError("Predecessor halt is not at the pinned H-1.")
                     try:

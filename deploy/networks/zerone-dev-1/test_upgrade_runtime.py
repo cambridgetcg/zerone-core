@@ -3,7 +3,9 @@
 import argparse
 import copy
 import hashlib
+import http.client
 import importlib.util
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -160,9 +162,14 @@ class UpgradeTests(unittest.TestCase):
                 raise error
             return call
         refused = exit_then(urllib.error.URLError(ConnectionRefusedError(111, "Connection refused")))
+        # A reply cut short: with Content-Length, rpc()'s bounded read returns the partial
+        # body and parse() fails; a chunked reply raises IncompleteRead.
+        truncated = exit_then(json.JSONDecodeError("Unterminated string starting at", '{"jsonrpc":"2.', 12))
+        incomplete = exit_then(http.client.IncompleteRead(b'{"jsonrpc"'))
         query_refused = exit_then(r.RuntimeError("zeroned query failed: connection refused"))
         halted, plan = (lambda _: {"response": {"last_block_height": "19"}}), (lambda _: {"plan": self.packet["plan"]})
-        for rpc, query, calls in ((refused, plan, (1, 0, 0)), (halted, query_refused, (1, 1, 0))):
+        for rpc, query, calls in ((refused, plan, (1, 0, 0)), (truncated, plan, (1, 0, 0)), (incomplete, plan, (1, 0, 0)),
+                                  (halted, query_refused, (1, 1, 0))):
             self.assertEqual(self.predecessor_at_halt(rpc, query), "upgrade-boundary")
             self.assertEqual(self.calls, calls)
 
@@ -176,6 +183,13 @@ class UpgradeTests(unittest.TestCase):
         plan = lambda _: {"plan": self.packet["plan"]}
         self.assertEqual(self.predecessor_at_halt(refused_once, plan), "upgrade-boundary")
         self.assertEqual(self.calls, (2, 1, 1))
+        # A live node that keeps failing still stops the supervisor, as the first
+        # failure did before, so a restart can take the target path.
+        def refused(_child):
+            raise urllib.error.URLError(ConnectionRefusedError(111, "Connection refused"))
+        with self.assertRaises(urllib.error.URLError):
+            self.predecessor_at_halt(refused, plan)
+        self.assertEqual(self.calls, (5, 0, 1))
         def query_failed(_child):
             raise r.RuntimeError("zeroned query failed: synthetic")
         for rpc, query, message in (((lambda _: {"response": {"last_block_height": "18"}}), plan, "pinned H-1"),
