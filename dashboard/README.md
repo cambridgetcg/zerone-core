@@ -981,6 +981,12 @@ check. Deploy only the exact merged and CI-verified commit from a clean detached
 worktree. `--commit-dirty=false` records metadata; the explicit Git check is what
 refuses local drift. A non-`main` branch creates a no-index preview.
 
+`public/_routes.json` is written by hand (Quiet Doors, October 2026). Functions
+run only for `/api/*` and for discovery-shaped paths (`/.well-known/*`, `*.txt`,
+`*.json`, `*.xml`), where `functions/_middleware.ts` turns the SPA fallback into
+a 404 and passes every real file through. A new Function outside `/api/` must be
+added to its `include` list, or it will never run.
+
 Never request a new `/assets/` path on `https://zerone.ai` before that build is
 deployed. Pages answers a missing asset with the SPA index, `_headers` gives every
 `/assets/*` response `max-age=31536000, immutable`, and the Cloudflare edge then
