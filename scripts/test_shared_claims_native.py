@@ -295,7 +295,7 @@ class NativeSharedClaimsTests(unittest.TestCase):
         # This records one get() call. The existing startup readiness loop may
         # separately poll /network.json again; no new retry is introduced here.
         row = {"method": "GET", "http_status": error.code, "retried_within_get": False,
-               "path": path if re.fullmatch(r"/(?:network\.json|status|claims/[0-9a-f]{32}|block\?height=[0-9]+)", path) else "omitted",
+               "path": path if re.fullmatch(r"/(?:network\.json|status|abci_info|claims/[0-9a-f]{32}|block\?height=[0-9]+)", path) else "omitted",
                "elapsed_seconds": round(time.monotonic() - started, 3)}
         self.evidence.setdefault("http_read_failures", []).append(row)
         try:
@@ -375,11 +375,16 @@ class NativeSharedClaimsTests(unittest.TestCase):
         self.assertFalse(value["record"].get("missing_round_ids"))
         return value
 
+    def committed_height(self):
+        # The application's last committed height. /status reports the block
+        # store, which saves a block before FinalizeBlock and Commit, so a query
+        # pinned there can be refused as 'cannot query with height in the future'.
+        return int(json.loads(self.get("/abci_info"))["result"]["response"]["last_block_height"])
+
     def bank_snapshot(self):
         # All accounts and supply share one committed context. Only public
         # gateway queries are used; the runtime's keyring is never consulted.
-        status = json.loads(self.get("/status"))["result"]
-        height = int(status["sync_info"]["latest_block_height"])
+        height = self.committed_height()
         self.assertGreater(height, 0)
         def query(*args):
             return self.command([self.binary, "query", *args, "--home", self.homes["author"],
@@ -408,20 +413,16 @@ class NativeSharedClaimsTests(unittest.TestCase):
         An interval at or below the margin leaves no clear height; with the genesis
         base of 100 the smallest is 33 (67%, then halved).
         """
-        def committed():
-            # The application's last committed height. /status reports the block
-            # store, which saves a block before FinalizeBlock and Commit, so a query
-            # pinned there can be refused as 'cannot query with height in the future'.
-            return int(json.loads(self.get("/abci_info"))["result"]["response"]["last_block_height"])
         def query(name, height):
             return self.command([self.binary, "query", "alignment", name, "--home", self.homes["author"],
                                  "--node", self.origin, "--height", height, "--output", "json"])
         deadline = time.monotonic() + seconds
         while True:
-            height = committed()
+            height = self.committed_height()
             confidence = query("correction-confidence", height)
-            # Params validation rejects a zero base interval and 67% floors at 1, so this
-            # omitempty field is always present; a missing one must not disable the guard.
+            # Frozen a4272bfa scales the base by integer * 2 / 3, without a
+            # minimum of one. This fixture's base is 100, so the interval stays
+            # nonzero; a missing omitempty field must not disable the guard.
             self.assertIn("effective_observation_interval", confidence)
             interval = int(confidence["effective_observation_interval"])
             if query("state", height).get("state", {}).get("degraded_frequency_active") and interval > 1:
@@ -435,7 +436,7 @@ class NativeSharedClaimsTests(unittest.TestCase):
                 self.assertLess(time.monotonic(), deadline, f"chain did not pass alignment observation {boundary} (interval {interval})")
                 self.assertIsNone(self.process.poll())
                 time.sleep(0.8)
-                height = committed()
+                height = self.committed_height()
 
     def funding_terms(self, history, receipt, challenge=False):
         claim = history["record"]["claim"]
@@ -905,6 +906,56 @@ class NativeResponseLossTests(NativeSharedClaimsTests):
             self.evidence["source_hashes_after"] = self.source_hashes
 
 
+class NativeCommittedHeightTests(unittest.TestCase):
+    """Offline fixture regressions; no native binary, home, or node is used."""
+    def read_fixture(self, committed=100):
+        native = NativeSharedClaimsTests("runTest")
+        native.binary = Path("/unused/zeroned")
+        native.homes = {"author": Path("/unused/author")}
+        native.origin = "http://127.0.0.1:12345"
+        native.addresses = {"author": "synthetic-author", "reviewer1": "synthetic-reviewer"}
+        native.evidence = {}
+        native.get = mock.Mock(side_effect=lambda path: json.dumps({
+            "/status": {"result": {"sync_info": {"latest_block_height": "101"}}},
+            "/abci_info": {"result": {"response": {"last_block_height": str(committed)}}},
+        }[path]).encode())
+        return native, native.get
+
+    def test_bank_snapshot_pins_every_read_to_committed_height(self):
+        native, get = self.read_fixture()
+        def command(args):
+            self.assertEqual(args[args.index("--height") + 1], 100)
+            field = "balances" if args[3] == "balances" else "supply"
+            return {field: [{"denom": "uzrn", "amount": "200"}], "pagination": {}}
+        native.command = mock.Mock(side_effect=command)
+        self.assertEqual(native.bank_snapshot(), {"height": 100,
+            "balances": {"author": 200, "reviewer1": 200},
+            "supply": [{"denom": "uzrn", "amount": "200"}]})
+        self.assertEqual(native.command.call_count, 3)
+        get.assert_called_once_with("/abci_info")
+
+    def test_bank_snapshot_refuses_zero_before_query(self):
+        native, _ = self.read_fixture(committed=0)
+        native.command = mock.Mock()
+        with self.assertRaises(AssertionError):
+            native.bank_snapshot()
+        native.command.assert_not_called()
+
+    def test_observation_wait_rechecks_committed_height(self):
+        native, get = self.read_fixture()
+        get.side_effect = [json.dumps({"result": {"response": {"last_block_height": str(h)}}}).encode()
+                           for h in (99, 100, 100)]
+        native.process = mock.Mock()
+        native.process.poll.return_value = None
+        native.command = mock.Mock(side_effect=[{"effective_observation_interval": "100"}, {"state": {}}] * 2)
+        with mock.patch.object(time, "sleep") as sleep:
+            native.clear_of_observation()
+        self.assertEqual(get.call_args_list, [mock.call("/abci_info")] * 3)
+        self.assertEqual([call.args[0][call.args[0].index("--height") + 1]
+                          for call in native.command.call_args_list], [99, 99, 100, 100])
+        sleep.assert_called_once_with(0.8)
+
+
 class NativeScenarioCollectionTests(unittest.TestCase):
     def test_native_scenarios_have_separate_owners(self):
         expected = {
@@ -1040,6 +1091,16 @@ class NativeDiagnosticTests(unittest.TestCase):
         self.assertEqual((row["path"], row["gateway_error"], row["method"]), (path, message, "GET"))
         self.assertFalse(row["retried_within_get"])
         self.assertIn(message, output.getvalue())
+
+    def test_abci_info_failure_retains_public_path_without_retry(self):
+        native, opener = self.read_fixture()
+        error = urllib.error.HTTPError(native.origin, 503, "unavailable", Message(), io.BytesIO(b'{}'))
+        opener.open.side_effect = error
+        with redirect_stderr(io.StringIO()), self.assertRaises(urllib.error.HTTPError) as caught:
+            native.get("/abci_info")
+        self.assertIs(caught.exception, error)
+        self.assertEqual(native.evidence["http_read_failures"][0]["path"], "/abci_info")
+        opener.open.assert_called_once()
 
     def test_http_failure_diagnostics_are_bounded_and_redact_unknown_bodies(self):
         for body in (b'{"error":"private-shaped sentinel"}', b'{"error":[]}', b'[]', b'not JSON', b'x' * 5000):

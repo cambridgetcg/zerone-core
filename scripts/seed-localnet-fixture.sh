@@ -398,7 +398,7 @@ class Fixture:
 
     def rpc(self, method, params=None, missing=False):
         self.tick()
-        need(method in {"status", "block", "tx", "abci_query"}, "fixture_rpc_method")
+        need(method in {"status", "block", "tx", "abci_query", "abci_info"}, "fixture_rpc_method")
         request = urllib.request.Request(self.rpc_url, canonical({"jsonrpc": "2.0", "id": 1, "method": method, "params": params or {}}),
                                          {"Content-Type": "application/json"})
         try:
@@ -589,7 +589,9 @@ class Fixture:
 
     def contracts(self):
         self.stage = "contracts"
-        h = self.height()
+        self.height()  # Preserve the chain and sync guard before app-state reads.
+        h = int(self.rpc("abci_info")["response"]["last_block_height"])
+        need(h >= 1, "abci_info_height")
         module = self.abci("/cosmos.auth.v1beta1.Query/ModuleAccountByName", string_field(1, "claiming_pot"), h)
         any_account = fields(one(module, 1, b""))
         need(one(any_account, 1) == b"/cosmos.auth.v1beta1.ModuleAccount", "module_account_type")

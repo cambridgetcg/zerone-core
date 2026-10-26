@@ -355,9 +355,11 @@ class NodeHistoryTest(unittest.TestCase):
         self.assertEqual(value["block_height"], "10")
 
     def test_no_committed_block_or_lagging_application_is_refused_before_query(self):
-        for info in ({"response": {"last_block_height": "0"}}, {"response": {}}, {"response": {"last_block_height": "9"}}):
+        for info, message in (({"response": {"last_block_height": "0"}}, "no committed block"),
+                              ({"response": {}}, "no committed block"),
+                              ({"response": {"last_block_height": "9"}}, "lags its block store")):
             self.info = info
-            with self.subTest(info=info), self.assertRaises(g.GatewayError):
+            with self.subTest(info=info), self.assertRaisesRegex(g.GatewayError, message):
                 g.Node.history(self.node, "a" * 32)
         self.assertEqual(self.heights, [])
         self.assertTrue(all(self.node.history_slots.acquire(blocking=False) for _ in range(2)))

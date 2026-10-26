@@ -82,6 +82,32 @@ class FixtureTests(unittest.TestCase):
             self.fail("stop_after_request", f.wait_tx, "AB" * 32)
             self.assertEqual(rpc.call_args.args[1]["hash"], m.base64.b64encode(bytes.fromhex("AB" * 32)).decode())
 
+    def test_contracts_queries_committed_height_after_status_guard(self):
+        for committed in (10, 0):
+            with self.subTest(committed=committed):
+                f = self.fixture()
+                f.chain = "seed-local-unit"
+                f.rpc_url = "http://127.0.0.1:12345"
+                calls = []
+                def open_rpc(request, timeout):
+                    request = json.loads(request.data)
+                    calls.append(request["method"])
+                    if request["method"] == "abci_query":
+                        if request["params"]["height"] != "10":
+                            raise AssertionError("contracts queried the uncommitted block-store height")
+                        raise m.Failure("query_reached")
+                    result = {
+                        "status": {"node_info": {"network": f.chain},
+                                   "sync_info": {"latest_block_height": "11", "catching_up": False}},
+                        "abci_info": {"response": {"last_block_height": str(committed)}},
+                    }[request["method"]]
+                    response = io.BytesIO(m.canonical({"jsonrpc": "2.0", "id": 1, "result": result}))
+                    response.status, response.url = 200, f.rpc_url
+                    return response
+                with patch.object(f.http, "open", side_effect=open_rpc):
+                    self.fail("query_reached" if committed else "abci_info_height", f.contracts)
+                self.assertEqual(calls, ["status", "abci_info"] + (["abci_query"] if committed else []))
+
     def test_all_three_opt_ins_required_before_allocation(self):
         for flag in ("--ack-disposable-localnet", "--authorize-test-admission", "--authorize-test-feegrant"):
             argv = self.argv()
