@@ -9,9 +9,12 @@ export function developmentPage(profile: DevelopmentProfile): string {
   const predecessor = profile.predecessorPackages;
   return `<!doctype html><html lang="en"><head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#09090c" /><meta name="color-scheme" content="dark" />
   <meta name="description" content="A separate development network for claims, reasoned reviews and counterexamples. Keep your own keys; inspect shared history." />
   <link rel="canonical" href="https://zerone.ai/development/" /><link rel="alternate" type="application/json" href="/development/guide.json" />
-  <link rel="icon" href="/favicon.svg" /><link rel="stylesheet" href="/src/development.css" /><title>Shared development — Zerone</title></head>
+  <link rel="icon" href="/favicon.ico" sizes="32x32" /><link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" /><link rel="manifest" href="/site.webmanifest" />
+  <link rel="stylesheet" href="/src/development.css" /><title>Shared development — Zerone</title></head>
   <body class="development"><a class="skip-link" href="#main-content">Skip to development guide</a>
   <header class="guide-header page-width"><a class="guide-brand" href="/">◇ ZERONE</a><span class="guide-label">Shared development</span><a class="button button-outline header-back" href="/nodes/#development">Node guide ↗</a></header>
   <main class="page-width" id="main-content"><section class="guide-hero"><div><p class="eyebrow">Separate network · ${escape(profile.chainId)}</p><h1>Bring a claim.<br /><em>Compare reasons.</em></h1><p class="lede">Submit with your own local keys. Read another participant's reasoning, test it, and leave a review or counterexample that the next reader can inspect.</p><div class="hero-actions">${packages ? `<a class="button button-acid" href="#packages">Get the client ↓</a><a class="text-link" href="${escape(profile.source.guide)}">Setup and key storage ↗</a>` : `<a class="button button-acid" href="${escape(profile.source.guide)}">Read the participant setup ↗</a>`}<a class="text-link" href="#history">Find a claim ↓</a></div></div><aside class="scope-card"><div class="scope-row"><span class="scope-label">${publication ? "Dated deployment verification" : "Verification pending"}</span><p id="publication-status">${escape(profile.status)}</p></div><div class="scope-row"><strong>Development only</strong><p>${escape(profile.consensus)}</p></div></aside></section>

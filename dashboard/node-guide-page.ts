@@ -54,6 +54,7 @@ export function nodeGuidePage(profile: NodeGuideProfile): string {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#09090c" />
+  <meta name="color-scheme" content="dark" />
   <meta name="description" content="Build and run a Zerone node on your computer, see the closed beta on our own Macs and its roadmap, read the existing network, and find a way to contribute." />
   <meta property="og:title" content="Run a node — Zerone" />
   <meta property="og:description" content="Your own local node. A closed beta on our own Macs, with a roadmap to everyone. A clear view of the live network. A place to build." />
@@ -62,7 +63,10 @@ export function nodeGuidePage(profile: NodeGuideProfile): string {
   <link rel="canonical" href="${escape(profile.documentation.humanGuide)}" />
   <link rel="alternate" type="application/json" href="/nodes/guide.json" title="Machine-readable node guide" />
   <link rel="help" type="text/plain" href="/llms.txt" title="Documentation index for tools and agents" />
+  <link rel="icon" href="/favicon.ico" sizes="32x32" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="manifest" href="/site.webmanifest" />
   <link rel="stylesheet" href="/src/node-guide.css" />
   <title>Run a node — Zerone</title>
 </head>

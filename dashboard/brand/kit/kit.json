@@ -1,0 +1,972 @@
+{
+ "generator": "artcraft-brand brandkit.py 1.8",
+ "tools": {
+  "vectorcraft-cli": "vectorcraft-cli 0.17.0"
+ },
+ "source_date_epoch": 1793094208,
+ "spec": {
+  "name": "Zerone",
+  "short_name": "Zerone",
+  "slug": "zerone",
+  "lang": "en",
+  "lang_given": true,
+  "url": "https://zerone.ai",
+  "description": "Zerone keeps a shared record of reasoning for people and AI agents: claims, evidence, challenges, corrections. Live today; one household runs it. Not yet shared.",
+  "colours": {
+   "primary": "#B99BFF",
+   "accent": "#DCFF78"
+  },
+  "ground": {
+   "dark": "#09090C"
+  },
+  "wordmark": {
+   "text": "ZERONE",
+   "font": "Inter",
+   "style": "SemiBold",
+   "tracking": 200,
+   "colour": null,
+   "colour_dark": "#F4F0E9"
+  },
+  "mark": {
+   "kind": "svg",
+   "path": null,
+   "source": "source/mark-source.svg",
+   "recolour": false,
+   "small_path": null,
+   "small": "source/mark-small.svg",
+   "dark": null
+  },
+  "icon": {
+   "tile": "#0B0B10",
+   "ink": "original",
+   "padding": 0.172,
+   "radius": 0.25,
+   "ink_given": true,
+   "radius_given": true
+  },
+  "og": {
+   "title": "Keep the reasoning, not just the answer.",
+   "subtitle": "A shared record of reasoning for people and AI agents. Live today, run by one household; not yet shared.",
+   "theme": "dark",
+   "alt": null
+  },
+  "app": {
+   "display": "browser",
+   "theme": "dark",
+   "color_scheme": "dark"
+  },
+  "pages": []
+ },
+ "colours": {
+  "primary": "#B99BFF",
+  "on_primary": "#1D1C20",
+  "monogram_solo": "#1D1C20"
+ },
+ "facts": {
+  "schemes": {
+   "mark": {
+    "mode": "original",
+    "ground": null,
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": []
+   },
+   "mark-mono-black": {
+    "mode": "mono",
+    "ground": null,
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": [
+     [
+      "cross",
+      "ring"
+     ],
+     [
+      "dot",
+      "cross"
+     ]
+    ]
+   },
+   "mark-mono-white": {
+    "mode": "mono",
+    "ground": null,
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": [
+     [
+      "cross",
+      "ring"
+     ],
+     [
+      "dot",
+      "cross"
+     ]
+    ]
+   },
+   "lockup-horizontal": {
+    "mode": "original",
+    "ground": null,
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": []
+   },
+   "lockup-horizontal-reversed": {
+    "mode": "mapped",
+    "ground": "#09090C",
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": []
+   },
+   "lockup-stacked": {
+    "mode": "original",
+    "ground": null,
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": []
+   },
+   "lockup-stacked-reversed": {
+    "mode": "mapped",
+    "ground": "#09090C",
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": []
+   },
+   "tile": {
+    "mode": "mapped",
+    "ground": "#0B0B10",
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": []
+   },
+   "og": {
+    "mode": "mapped",
+    "ground": "#09090C",
+    "colours": {},
+    "lifted": {},
+    "knockouts": [],
+    "gaps": []
+   }
+  },
+  "mark": {
+   "size": [
+    256,
+    256
+   ]
+  },
+  "wordmark": {
+   "size": [
+    434,
+    66
+   ],
+   "cap": 64,
+   "colour": "#1D1C20",
+   "colour_dark": "#F4F0E9"
+  },
+  "lockup-horizontal": {
+   "size": [
+    451,
+    96
+   ],
+   "mark_height": 96,
+   "cap_height": 48.0,
+   "gap": 28.8,
+   "clear_space": 48.0,
+   "shared_baseline": false
+  },
+  "lockup-stacked": {
+   "size": [
+    278,
+    197
+   ],
+   "mark_height": 128,
+   "cap_height": 40.96,
+   "gap": 26.88,
+   "clear_space": 40.96,
+   "shared_baseline": false
+  },
+  "on_ground": {
+   "light": "#FFFFFF",
+   "dark": "#09090C",
+   "scale": 2,
+   "boards": {
+    "light/lockup-horizontal": {
+     "size": [
+      547,
+      192
+     ],
+     "clear_space": 48
+    },
+    "light/lockup-stacked": {
+     "size": [
+      360,
+      279
+     ],
+     "clear_space": 41
+    },
+    "light/wordmark": {
+     "size": [
+      562,
+      194
+     ],
+     "clear_space": 64
+    },
+    "light/mark": {
+     "size": [
+      384,
+      384
+     ],
+     "clear_space": 64
+    },
+    "dark/lockup-horizontal": {
+     "size": [
+      547,
+      192
+     ],
+     "clear_space": 48
+    },
+    "dark/lockup-stacked": {
+     "size": [
+      360,
+      279
+     ],
+     "clear_space": 41
+    },
+    "dark/wordmark": {
+     "size": [
+      562,
+      194
+     ],
+     "clear_space": 64
+    },
+    "dark/mark": {
+     "size": [
+      384,
+      384
+     ],
+     "clear_space": 64
+    }
+   }
+  },
+  "app": {
+   "tile": "#0B0B10",
+   "ink": null,
+   "ink_mode": "original",
+   "ink_brand": false,
+   "ink_default": false,
+   "subset": "all",
+   "remapped": {},
+   "mark_extent": 0.7
+  },
+  "maskable": {
+   "tile": "#0B0B10",
+   "predicted_radius": 176.1,
+   "safe_radius": 204.8,
+   "mark_extent": 0.679
+  },
+  "favicon": {
+   "small_mark": true,
+   "dark_plan": {},
+   "merged": [],
+   "tile": "#0B0B10",
+   "radius": 0.25,
+   "radius_reason": "",
+   "ink": null,
+   "ink_mode": "original",
+   "colours": [
+    "#B997FF",
+    "#DFFF72"
+   ],
+   "outer_colours": [
+    "#B997FF",
+    "#DFFF72"
+   ],
+   "ground_colours": [],
+   "cuts": {
+    "32": {
+     "label": "small mark",
+     "size": 32,
+     "longest": 26,
+     "box": [
+      3,
+      3,
+      26,
+      26
+     ],
+     "centre": "box",
+     "margins": [
+      3,
+      3,
+      3,
+      3
+     ],
+     "centred": true,
+     "centred_alternative": null,
+     "clear_of_corners": true,
+     "letter_px": null,
+     "letter_basis": null,
+     "letter_min": null,
+     "predicted": {
+      "ink_pixels": 296,
+      "clean_pixels": 224,
+      "crisp": 0.757
+     },
+     "fidelity": {
+      "strokes": 10,
+      "lost_strokes": 0,
+      "collapsed": 0,
+      "where": [],
+      "welded_points": 0,
+      "pockets_filled": [],
+      "specks": []
+     },
+     "reference": {
+      "d": [
+       "M 3 16 C 3 8.82 8.82 3 16 3 C 23.18 3 29 8.82 29 16 C 29 23.18 23.18 29 16 29 C 8.82 29 3 23.18 3 16 Z M 16 5.17 C 10.02 5.17 5.17 10.02 5.17 16 C 5.17 21.98 10.02 26.83 16 26.83 C 21.98 26.83 26.83 21.98 26.83 16 C 26.83 10.02 21.98 5.17 16 5.17 Z",
+       "M 15.19 4.08 L 16.81 4.08 L 16.81 27.92 L 15.19 27.92 Z M 4.08 15.19 L 27.92 15.19 L 27.92 16.81 L 4.08 16.81 Z",
+       "M 20.06 16 C 20.06 18.24 18.24 20.06 16 20.06 C 13.76 20.06 11.94 18.24 11.94 16 C 11.94 13.76 13.76 11.94 16 11.94 C 18.24 11.94 20.06 13.76 20.06 16 Z"
+      ],
+      "rules": [
+       "nonzero",
+       "nonzero",
+       "nonzero"
+      ]
+     },
+     "seam": {
+      "d": [
+       "M 3 16 C 3 8.82 8.82 3 16 3 C 23.18 3 29 8.82 29 16 C 29 23.18 23.18 29 16 29 C 8.82 29 3 23.18 3 16 Z M 16 5.17 C 10.02 5.17 5.17 10.02 5.17 16 C 5.17 21.98 10.02 26.83 16 26.83 C 21.98 26.83 26.83 21.98 26.83 16 C 26.83 10.02 21.98 5.17 16 5.17 Z",
+       "M 15.19 4.08 L 16.81 4.08 L 16.81 27.92 L 15.19 27.92 Z M 4.08 15.19 L 27.92 15.19 L 27.92 16.81 L 4.08 16.81 Z",
+       "M 20.06 16 C 20.06 18.24 18.24 20.06 16 20.06 C 13.76 20.06 11.94 18.24 11.94 16 C 11.94 13.76 13.76 11.94 16 11.94 C 18.24 11.94 20.06 13.76 20.06 16 Z"
+      ],
+      "rules": [
+       "nonzero",
+       "nonzero",
+       "nonzero"
+      ],
+      "knocked": [],
+      "gap_fronts": []
+     },
+     "extent": 0.812,
+     "considered": [
+      {
+       "label": "small mark",
+       "letter_px": null,
+       "crisp": 0.757,
+       "faithful": true
+      }
+     ],
+     "full": true
+    },
+    "48": {
+     "label": "small mark",
+     "size": 48,
+     "longest": 38,
+     "box": [
+      5,
+      5,
+      38,
+      38
+     ],
+     "centre": "box",
+     "margins": [
+      5,
+      5,
+      5,
+      5
+     ],
+     "centred": true,
+     "centred_alternative": null,
+     "clear_of_corners": true,
+     "letter_px": null,
+     "letter_basis": null,
+     "letter_min": null,
+     "predicted": {
+      "ink_pixels": 588,
+      "clean_pixels": 488,
+      "crisp": 0.83
+     },
+     "fidelity": {
+      "strokes": 10,
+      "lost_strokes": 0,
+      "collapsed": 0,
+      "where": [],
+      "welded_points": 0,
+      "pockets_filled": [],
+      "specks": []
+     },
+     "reference": {
+      "d": [
+       "M 5 24 C 5 13.51 13.51 5 24 5 C 34.49 5 43 13.51 43 24 C 43 34.49 34.49 43 24 43 C 13.51 43 5 34.49 5 24 Z M 24 8.17 C 15.26 8.17 8.17 15.26 8.17 24 C 8.17 32.74 15.26 39.83 24 39.83 C 32.74 39.83 39.83 32.74 39.83 24 C 39.83 15.26 32.74 8.17 24 8.17 Z",
+       "M 22.81 6.58 L 25.19 6.58 L 25.19 41.42 L 22.81 41.42 Z M 6.58 22.81 L 41.42 22.81 L 41.42 25.19 L 6.58 25.19 Z",
+       "M 29.94 24 C 29.94 27.28 27.28 29.94 24 29.94 C 20.72 29.94 18.06 27.28 18.06 24 C 18.06 20.72 20.72 18.06 24 18.06 C 27.28 18.06 29.94 20.72 29.94 24 Z"
+      ],
+      "rules": [
+       "nonzero",
+       "nonzero",
+       "nonzero"
+      ]
+     },
+     "seam": {
+      "d": [
+       "M 5 24 C 5 13.51 13.51 5 24 5 C 34.49 5 43 13.51 43 24 C 43 34.49 34.49 43 24 43 C 13.51 43 5 34.49 5 24 Z M 24 8.17 C 15.26 8.17 8.17 15.26 8.17 24 C 8.17 32.74 15.26 39.83 24 39.83 C 32.74 39.83 39.83 32.74 39.83 24 C 39.83 15.26 32.74 8.17 24 8.17 Z",
+       "M 22.81 6.58 L 25.19 6.58 L 25.19 41.42 L 22.81 41.42 Z M 6.58 22.81 L 41.42 22.81 L 41.42 25.19 L 6.58 25.19 Z",
+       "M 29.94 24 C 29.94 27.28 27.28 29.94 24 29.94 C 20.72 29.94 18.06 27.28 18.06 24 C 18.06 20.72 20.72 18.06 24 18.06 C 27.28 18.06 29.94 20.72 29.94 24 Z"
+      ],
+      "rules": [
+       "nonzero",
+       "nonzero",
+       "nonzero"
+      ],
+      "knocked": [],
+      "gap_fronts": []
+     },
+     "extent": 0.792,
+     "considered": [
+      {
+       "label": "small mark",
+       "letter_px": null,
+       "crisp": 0.83,
+       "faithful": true
+      }
+     ],
+     "full": true
+    },
+    "16": {
+     "label": "small mark",
+     "size": 16,
+     "longest": 12,
+     "box": [
+      2,
+      2,
+      12,
+      12
+     ],
+     "centre": "box",
+     "margins": [
+      2,
+      2,
+      2,
+      2
+     ],
+     "centred": true,
+     "centred_alternative": null,
+     "clear_of_corners": true,
+     "letter_px": null,
+     "letter_basis": null,
+     "letter_min": null,
+     "predicted": {
+      "ink_pixels": 92,
+      "clean_pixels": 60,
+      "crisp": 0.652
+     },
+     "fidelity": {
+      "strokes": 4,
+      "lost_strokes": 0,
+      "collapsed": 0,
+      "where": [],
+      "welded_points": 0,
+      "pockets_filled": [],
+      "specks": []
+     },
+     "reference": {
+      "d": [
+       "M 2 8 C 2 4.69 4.69 2 8 2 C 11.31 2 14 4.69 14 8 C 14 11.31 11.31 14 8 14 C 4.69 14 2 11.31 2 8 Z M 8 3 C 5.24 3 3 5.24 3 8 C 3 10.76 5.24 13 8 13 C 10.76 13 13 10.76 13 8 C 13 5.24 10.76 3 8 3 Z",
+       "M 7.62 2.5 L 8.38 2.5 L 8.38 13.5 L 7.62 13.5 Z M 2.5 7.62 L 13.5 7.62 L 13.5 8.38 L 2.5 8.38 Z",
+       "M 9.88 8 C 9.88 9.04 9.04 9.88 8 9.88 C 6.96 9.88 6.12 9.04 6.12 8 C 6.12 6.96 6.96 6.12 8 6.12 C 9.04 6.12 9.88 6.96 9.88 8 Z"
+      ],
+      "rules": [
+       "nonzero",
+       "nonzero",
+       "nonzero"
+      ]
+     },
+     "seam": {
+      "d": [
+       "M 2 8 C 2 4.69 4.69 2 8 2 C 11.31 2 14 4.69 14 8 C 14 11.31 11.31 14 8 14 C 4.69 14 2 11.31 2 8 Z M 8 3 C 5.24 3 3 5.24 3 8 C 3 10.76 5.24 13 8 13 C 10.76 13 13 10.76 13 8 C 13 5.24 10.76 3 8 3 Z",
+       "M 7.62 2.5 L 8.38 2.5 L 8.38 13.5 L 7.62 13.5 Z M 2.5 7.62 L 13.5 7.62 L 13.5 8.38 L 2.5 8.38 Z",
+       "M 9.88 8 C 9.88 9.04 9.04 9.88 8 9.88 C 6.96 9.88 6.12 9.04 6.12 8 C 6.12 6.96 6.96 6.12 8 6.12 C 9.04 6.12 9.88 6.96 9.88 8 Z"
+      ],
+      "rules": [
+       "nonzero",
+       "nonzero",
+       "nonzero"
+      ],
+      "knocked": [],
+      "gap_fronts": []
+     },
+     "extent": 0.75,
+     "considered": [
+      {
+       "label": "small mark",
+       "letter_px": null,
+       "crisp": 0.652,
+       "faithful": true
+      }
+     ],
+     "full": true
+    }
+   },
+   "dark_mapping": {}
+  },
+  "og": {
+   "theme": "dark",
+   "bg": "#09090C",
+   "fg": "#F7F6F8",
+   "muted": "#A2A0A9",
+   "title_size": 60,
+   "wordmark": false,
+   "title_lines": [
+    "Keep the reasoning,",
+    "not just the answer."
+   ],
+   "subtitle_lines": [
+    "A shared record of reasoning for",
+    "people and AI agents. Live today,",
+    "run by one household; not yet shared."
+   ],
+   "title_cut": false,
+   "subtitle_cut": false,
+   "contrast_title": 18.46,
+   "contrast_subtitle": 7.71,
+   "mark_colours": [
+    "#B997FF",
+    "#DFFF72"
+   ],
+   "badge": null,
+   "column": [
+    88,
+    612
+   ],
+   "rule_top": 131,
+   "lines": [
+    {
+     "role": "title",
+     "text": "Keep the reasoning,",
+     "width": 580.3,
+     "x": 88,
+     "baseline": 222.7,
+     "size": 60
+    },
+    {
+     "role": "title",
+     "text": "not just the answer.",
+     "width": 568.1,
+     "x": 88,
+     "baseline": 288.7,
+     "size": 60
+    },
+    {
+     "role": "subtitle",
+     "text": "A shared record of reasoning for",
+     "width": 452.7,
+     "x": 88,
+     "baseline": 358.5,
+     "size": 30
+    },
+    {
+     "role": "subtitle",
+     "text": "people and AI agents. Live today,",
+     "width": 462.1,
+     "x": 88,
+     "baseline": 400.5,
+     "size": 30
+    },
+    {
+     "role": "subtitle",
+     "text": "run by one household; not yet shared.",
+     "width": 529.6,
+     "x": 88,
+     "baseline": 442.5,
+     "size": 30
+    }
+   ],
+   "floor": 524.0,
+   "footer": {
+    "text": "Zerone  ·  zerone.ai",
+    "width": 215.7,
+    "x": 88,
+    "baseline": 566,
+    "size": 24
+   },
+   "mark_box": [
+    772.0,
+    145.0,
+    1112.0,
+    485.0
+   ]
+  },
+  "og_pages": {},
+  "colour_sheet": {
+   "size": [
+    1200,
+    1128
+   ]
+  },
+  "cmyk": {
+   "#B99BFF": {
+    "cmyk": [
+     44,
+     48,
+     0,
+     0
+    ],
+    "out_of_gamut": true
+   },
+   "#DCFF78": {
+    "cmyk": [
+     22,
+     0,
+     73,
+     0
+    ],
+    "out_of_gamut": true
+   },
+   "#FFFFFF": {
+    "cmyk": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "out_of_gamut": false
+   },
+   "#09090C": {
+    "cmyk": [
+     59,
+     54,
+     48,
+     95
+    ],
+    "out_of_gamut": false
+   }
+  },
+  "ground_light": "#FFFFFF",
+  "ground_dark": "#09090C",
+  "measured": {
+   "maskable_radius": 174.2,
+   "maskable_extent": 0.68,
+   "app_extent": 0.703,
+   "favicon": {
+    "16": {
+     "left": 2,
+     "top": 2,
+     "right": 2,
+     "bottom": 2
+    },
+    "32": {
+     "left": 3,
+     "top": 3,
+     "right": 3,
+     "bottom": 3
+    },
+    "48": {
+     "left": 5,
+     "top": 5,
+     "right": 5,
+     "bottom": 5
+    }
+   }
+  }
+ },
+ "fonts": {
+  "wordmark": [
+   "Inter",
+   "SemiBold"
+  ],
+  "mark": null,
+  "mark_bold_cut": null,
+  "labels": [
+   "JetBrains Mono",
+   "Regular"
+  ],
+  "og": {
+   "title": [
+    "Inter",
+    "SemiBold"
+   ],
+   "subtitle": [
+    "Inter",
+    "Light"
+   ]
+  },
+  "cap_height_em": 0.7275,
+  "also_installed": [
+   "Inter"
+  ],
+  "stacks": {
+   "display": [
+    "Inter",
+    "system-ui",
+    "sans-serif"
+   ],
+   "body": [
+    "Inter",
+    "system-ui",
+    "sans-serif"
+   ],
+   "mono": [
+    "JetBrains Mono",
+    "ui-monospace",
+    "Menlo",
+    "monospace"
+   ]
+  }
+ },
+ "mark": {
+  "kind": "svg",
+  "shapes": 3,
+  "names": [
+   "ring",
+   "cross",
+   "dot"
+  ],
+  "colours": [
+   "#B997FF",
+   "#DFFF72"
+  ],
+  "outer_colours": [
+   "#B997FF",
+   "#DFFF72"
+  ],
+  "coverage": 0.264,
+  "knockouts": {},
+  "shape_colours": [
+   "#B997FF",
+   "#DFFF72",
+   "#B997FF"
+  ]
+ },
+ "swatches": [
+  [
+   "zerone primary",
+   "#B99BFF"
+  ],
+  [
+   "zerone accent",
+   "#DCFF78"
+  ],
+  [
+   "zerone ground light",
+   "#FFFFFF"
+  ],
+  [
+   "zerone ground dark",
+   "#09090C"
+  ],
+  [
+   "zerone primary 50",
+   "#F7F5FF"
+  ],
+  [
+   "zerone primary 100",
+   "#EDE7FF"
+  ],
+  [
+   "zerone primary 200",
+   "#DDD1FF"
+  ],
+  [
+   "zerone primary 300",
+   "#C7B4FA"
+  ],
+  [
+   "zerone primary 400",
+   "#B99BFF"
+  ],
+  [
+   "zerone primary 500",
+   "#9071D1"
+  ],
+  [
+   "zerone primary 600",
+   "#7556B3"
+  ],
+  [
+   "zerone primary 700",
+   "#5E4194"
+  ],
+  [
+   "zerone primary 800",
+   "#4A3177"
+  ],
+  [
+   "zerone primary 900",
+   "#362359"
+  ],
+  [
+   "zerone primary 950",
+   "#21133A"
+  ],
+  [
+   "zerone accent 50",
+   "#EFFFCB"
+  ],
+  [
+   "zerone accent 100",
+   "#DCFF78"
+  ],
+  [
+   "zerone accent 200",
+   "#C8EA62"
+  ],
+  [
+   "zerone accent 300",
+   "#B0D147"
+  ],
+  [
+   "zerone accent 400",
+   "#91B018"
+  ],
+  [
+   "zerone accent 500",
+   "#789300"
+  ],
+  [
+   "zerone accent 600",
+   "#607600"
+  ],
+  [
+   "zerone accent 700",
+   "#4C5E00"
+  ],
+  [
+   "zerone accent 800",
+   "#3B4900"
+  ],
+  [
+   "zerone accent 900",
+   "#2A3600"
+  ],
+  [
+   "zerone accent 950",
+   "#192100"
+  ],
+  [
+   "zerone neutral 50",
+   "#F7F6F8"
+  ],
+  [
+   "zerone neutral 100",
+   "#EBEBED"
+  ],
+  [
+   "zerone neutral 200",
+   "#D9D8DD"
+  ],
+  [
+   "zerone neutral 300",
+   "#C1C0C7"
+  ],
+  [
+   "zerone neutral 400",
+   "#A2A0A9"
+  ],
+  [
+   "zerone neutral 500",
+   "#86858E"
+  ],
+  [
+   "zerone neutral 600",
+   "#6C6A74"
+  ],
+  [
+   "zerone neutral 700",
+   "#56545C"
+  ],
+  [
+   "zerone neutral 800",
+   "#434148"
+  ],
+  [
+   "zerone neutral 900",
+   "#302F35"
+  ],
+  [
+   "zerone neutral 950",
+   "#1D1C20"
+  ]
+ ],
+ "motion": false,
+ "files": [
+  "brand.vectorcraft",
+  "BRAND.md",
+  "index.html",
+  "kit.json",
+  "source/brand.json",
+  "source/mark-source.svg",
+  "source/mark-small.svg",
+  "logo/mark.svg",
+  "logo/mark.png",
+  "logo/mark@2x.png",
+  "logo/mark-mono-black.svg",
+  "logo/mark-mono-black.png",
+  "logo/mark-mono-black@2x.png",
+  "logo/mark-mono-white.svg",
+  "logo/mark-mono-white.png",
+  "logo/mark-mono-white@2x.png",
+  "logo/wordmark.svg",
+  "logo/wordmark.png",
+  "logo/wordmark@2x.png",
+  "logo/wordmark-reversed.svg",
+  "logo/wordmark-reversed.png",
+  "logo/wordmark-reversed@2x.png",
+  "logo/lockup-horizontal.svg",
+  "logo/lockup-horizontal.png",
+  "logo/lockup-horizontal@2x.png",
+  "logo/lockup-horizontal-reversed.svg",
+  "logo/lockup-horizontal-reversed.png",
+  "logo/lockup-horizontal-reversed@2x.png",
+  "logo/lockup-stacked.svg",
+  "logo/lockup-stacked.png",
+  "logo/lockup-stacked@2x.png",
+  "logo/lockup-stacked-reversed.svg",
+  "logo/lockup-stacked-reversed.png",
+  "logo/lockup-stacked-reversed@2x.png",
+  "logo/mark.pdf",
+  "logo/lockup-horizontal.pdf",
+  "logo/on-light/lockup-horizontal@2x.png",
+  "logo/on-light/lockup-stacked@2x.png",
+  "logo/on-light/wordmark@2x.png",
+  "logo/on-light/mark@2x.png",
+  "logo/on-dark/lockup-horizontal@2x.png",
+  "logo/on-dark/lockup-stacked@2x.png",
+  "logo/on-dark/wordmark@2x.png",
+  "logo/on-dark/mark@2x.png",
+  "web/favicon.ico",
+  "web/favicon.svg",
+  "web/favicon-16.png",
+  "web/favicon-32.png",
+  "web/apple-touch-icon.png",
+  "web/icon-192.png",
+  "web/icon-512.png",
+  "web/icon-maskable-512.png",
+  "web/site.webmanifest",
+  "web/head-snippet.html",
+  "web/head-home.html",
+  "web/og.jpg",
+  "web/og.png",
+  "social/avatar-1024.png",
+  "social/avatar-400.png",
+  "colour/palette.json",
+  "colour/tokens.json",
+  "colour/tokens.css",
+  "colour/tailwind.theme.css",
+  "colour/tailwind.colors.js",
+  "colour/contrast.md",
+  "colour/swatches.ase",
+  "colour/swatches.gpl",
+  "colour/swatches.css",
+  "colour/colour-sheet.svg",
+  "colour/colour-sheet.png",
+  "colour/colour-sheet@2x.png"
+ ],
+ "og_alt": "Zerone card: the Zerone logo mark beside the headline “Keep the reasoning, not just the answer.” on a very dark cool grey background.",
+ "page_alts": {}
+}

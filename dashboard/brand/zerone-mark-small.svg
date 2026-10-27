@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- Favicon cut (16-48 px) of the zerone-core favicon mark: same ring, cross and dot, same colours,
+       heavier strokes on a 4-units-per-pixel grid for a 12 px box. -->
+  <circle id="ring" cx="24" cy="24" r="22" fill="none" stroke="#b997ff" stroke-width="4"/>
+  <path id="cross" d="M22.5 2h3v44h-3z M2 22.5h44v3h-44z" fill="#dfff72"/>
+  <circle id="dot" cx="24" cy="24" r="7.5" fill="#b997ff"/>
+</svg>
