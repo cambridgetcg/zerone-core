@@ -312,21 +312,27 @@ prevent Zerone registry composition from dropping them. Grant/revoke also
 require a protobuf-direct signer because CosmJS 0.39 has no feegrant Amino
 converter.
 
-## Prepared: Cosmos Chain Registry metadata
+## Listed: Cosmos Chain Registry metadata
 
 `integrations/chain-registry/zerone/` contains a schema-valid `chain.json`,
-`assetlist.json`, and ZRN SVG submitted as
-[cosmos/chain-registry#7859](https://github.com/cosmos/chain-registry/pull/7859).
-Local checks cross-reference the committed genesis and deployment
-configuration; CI also runs the pinned upstream Chain Registry validator.
+`assetlist.json`, and ZRN SVG. An earlier snapshot was merged upstream as
+[cosmos/chain-registry#7859](https://github.com/cosmos/chain-registry/pull/7859)
+on 2026-07-31; this bundle is the corrected source for refreshing the upstream
+entry (see [its README](../../integrations/chain-registry/README.md)). Local
+checks cross-reference the committed genesis and deployment configuration; CI
+also runs the pinned upstream Chain Registry validator.
 
-The candidate advertises only the complete public CometBFT RPC and verified
-peer data. It deliberately omits general REST/gRPC, IBC channels, snapshots,
-binaries, and a recommended release because those claims are not currently
-supported by the deployed evidence. The configured SLIP-0044 value `118` is
-described as the shared Cosmos derivation path, not a Zerone-owned
-registration. Upstream completion also depends on registering the `zrn`
-Bech32 HRP in SLIP-0173.
+The bundle advertises the complete public CometBFT RPC and, as its genesis URL,
+the live `/genesis` behind the read-only edge. It lists no peers: the sole
+validator is not a seed service, and public peers are not advertised while
+validator admission is paused. It deliberately omits general REST/gRPC, IBC
+channels, snapshots, binaries, and a recommended release because those claims
+are not currently supported by the deployed evidence, and it omits links into
+this private repository. The configured SLIP-0044 value `118` is described as
+the shared Cosmos derivation path, not a Zerone-owned registration. The `zrn`
+Bech32 HRP is registered in SLIP-0173
+([satoshilabs/slips#2039](https://github.com/satoshilabs/slips/pull/2039),
+merged 2026-07-31).
 
 ## Implemented: Zerone CIDv1 client preflight
 
@@ -357,13 +363,12 @@ The first generated client uses
 Evaluate [Interchain Kit](https://docs.hyperweb.io/interchain-kit/) only when
 its beta status and additional wallet surface fit the dashboard's needs.
 
-Track the submitted
-[Cosmos Chain Registry proposal](https://github.com/cosmos/chain-registry/pull/7859)
+The [Cosmos Chain Registry entry](https://github.com/cosmos/chain-registry/pull/7859)
 and the `zrn`
-[SLIP-0173 proposal](https://github.com/satoshilabs/slips/pull/2039) through
-review. Keep the metadata evidence-limited as public endpoints and release
-posture evolve; do not present shared coin type `118` as a Zerone-specific
-allocation.
+[SLIP-0173 registration](https://github.com/satoshilabs/slips/pull/2039) both
+merged on 2026-07-31. Keep the upstream entry in step with the local bundle and
+evidence-limited as public endpoints and release posture evolve; do not present
+shared coin type `118` as a Zerone-specific allocation.
 
 ### 2. Delegated authority only after an ante audit
 
