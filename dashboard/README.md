@@ -772,6 +772,33 @@ the eleven remaining closed release gates, and all ten local artifact/source
 digests without fetching the paper, chain, AgentTool, or any other network
 resource.
 
+## Brand kit
+
+The icons, web manifest and share card come from one brand kit.
+`brand/brand.json` and the two mark drawings beside it (`zerone-mark.svg`, the
+favicon's ring, cross and dot; `zerone-mark-small.svg`, its cut for 16 to 48 px
+tabs) build `brand/kit/` with the artcraft-brand generator (1.8, vectorcraft-cli
+0.17.0). Nothing under `brand/` is served. Never hand-edit a kit file: change
+`brand.json` or a mark, then rebuild from this directory, with the generator's
+own folder in place of `<artcraft-brand>`:
+
+```bash
+python3 -B <artcraft-brand>/scripts/brandkit.py brand/brand.json --out brand/kit --rebuild-check
+```
+
+Then copy `favicon.ico`, `favicon.svg`, `apple-touch-icon.png`, `icon-192.png`,
+`icon-512.png`, `icon-maskable-512.png`, `site.webmanifest` and `og.jpg` from
+`brand/kit/web/` into `public/`, byte for byte. `tests/brand-kit.sync.test.ts`
+fails until the copies match and every page head carries the icon links, one
+`color-scheme` `dark` and the site's single theme-color `#09090c`. The social
+lines and JSON-LD from the kit's head snippets are on `index.html` only.
+
+Before this kit, `/favicon.ico`, `/apple-touch-icon.png` and `/og.jpg` answered
+with the SPA index, and the edge kept those answers for 4 hours. After the first
+deploy that serves them, check them on the `*.pages.dev` URL; if
+`https://zerone.ai` still answers HTML, wait 4 hours or have the zone's owner
+purge them.
+
 ## Pi account onboarding pilot
 
 The repository contains a staged Pi account sign-in pilot. It is off by

@@ -224,12 +224,13 @@ export function understandPage(guide: UnderstandGuide): string {
   return `<!doctype html>
 <html lang="en"><head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#09090c" /><meta name="description" content="${escape(guide.intro.description)}" />
+  <meta name="theme-color" content="#09090c" /><meta name="color-scheme" content="dark" /><meta name="description" content="${escape(guide.intro.description)}" />
   <meta property="og:title" content="${escape(guide.intro.title)}" /><meta property="og:description" content="${escape(guide.intro.description)}" />
   <meta property="og:type" content="website" /><meta property="og:url" content="${escape(guide.documentation.humanGuide)}" />
   <link rel="canonical" href="${escape(guide.documentation.humanGuide)}" />
   <link rel="alternate" type="application/json" href="/understand/guide.json" title="Machine-readable explanation" />
-  <link rel="help" type="text/plain" href="/llms.txt" /><link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="help" type="text/plain" href="/llms.txt" /><link rel="icon" href="/favicon.ico" sizes="32x32" /><link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" /><link rel="manifest" href="/site.webmanifest" />
   <link rel="stylesheet" href="/src/understand.css" /><title>${escape(guide.intro.title)}</title>
 </head><body class="understand">
   <a class="skip-link" href="#main-content">Skip to the explanation</a>
