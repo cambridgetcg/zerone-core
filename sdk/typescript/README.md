@@ -2,6 +2,9 @@
 
 TypeScript transaction codecs and interoperable identifiers for Zerone.
 
+The source repository, `cambridgetcg/zerone-core`, is currently private, so npm
+releases of this package carry no provenance attestation.
+
 The first release deliberately stays at the client boundary. It does not add a
 consensus module, enable IBC, or expand the public gateway. It provides:
 
