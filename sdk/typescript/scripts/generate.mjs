@@ -42,6 +42,42 @@ function normalizeGeneratedTypeScript(directory) {
   }
 }
 
+// @hyperweb/telescope 2.2.4 emits a writeVarint64 that receives newBits()
+// output, whose low word is a signed int32. For 64-bit values in
+// [2^31, 2^32) the low word is negative, both loops are skipped, and the
+// writer emits one truncated byte followed by the zero padding int64Length()
+// reserved (for example 2^31 encodes as 00 00 00 00 00). Treat both words as
+// unsigned before emitting groups. The exact-text match fails closed so a
+// generator upgrade cannot silently drop or misapply this repair.
+const unsignedVarint64Original = `export function writeVarint64(
+  val: { lo: number; hi: number },
+  buf: Uint8Array | number[],
+  pos: number
+) {
+  while (val.hi) {`;
+const unsignedVarint64Repaired = `export function writeVarint64(
+  val: { lo: number; hi: number },
+  buf: Uint8Array | number[],
+  pos: number
+) {
+  // Zerone repair (sdk/typescript/scripts/generate.mjs): newBits() keeps the
+  // low word signed, so values in [2^31, 2^32) must be read as unsigned here.
+  val.lo >>>= 0;
+  val.hi >>>= 0;
+  while (val.hi) {`;
+
+function repairUnsignedVarint64(directory) {
+  const path = resolve(directory, "varint.ts");
+  const source = readFileSync(path, "utf8");
+  const occurrences = source.split(unsignedVarint64Original).length - 1;
+  if (occurrences !== 1) {
+    throw new Error(
+      `Expected exactly one generated writeVarint64 to repair, found ${occurrences}; review the generator output`,
+    );
+  }
+  writeFileSync(path, source.replace(unsignedVarint64Original, unsignedVarint64Repaired));
+}
+
 if (typeof telescope !== "function") {
   throw new TypeError("@hyperweb/telescope did not expose its generator");
 }
@@ -113,6 +149,7 @@ await telescope({
 
 rmSync(resolve(generated, "google"), { recursive: true, force: true });
 normalizeGeneratedTypeScript(generated);
+repairUnsignedVarint64(generated);
 writeFileSync(
   resolve(generated, "SOURCE_SHA256"),
   `${generatedSourceDigest(repoRoot, packageRoot)}\n`,

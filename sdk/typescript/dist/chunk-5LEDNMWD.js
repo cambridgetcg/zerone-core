@@ -248,6 +248,8 @@ function writeVarint32(val, buf, pos) {
   buf[pos] = val;
 }
 function writeVarint64(val, buf, pos) {
+  val.lo >>>= 0;
+  val.hi >>>= 0;
   while (val.hi) {
     buf[pos++] = val.lo & 127 | 128;
     val.lo = (val.lo >>> 7 | val.hi << 25) >>> 0;

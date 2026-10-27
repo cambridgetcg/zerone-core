@@ -3,6 +3,23 @@
 Notable source changes are recorded here. Network activation and package
 publication are separate events and are stated explicitly when they occur.
 
+## Source — 2026-10-27 TypeScript SDK pre-release corrections
+
+- The generated protobuf writer now encodes 64-bit varints in
+  [2^31, 2^32) correctly. Before this change, values such as a post-2038
+  `MsgRotateKey.authorization_expires_at_unix` were written as one truncated
+  byte plus zero padding. The repair is applied by `scripts/generate.mjs`, so
+  regeneration reproduces it, and it fails closed if the generator output
+  changes. A shared Go/TypeScript wire vector and a boundary test cover it.
+- The SDK README states which live networks accept the registration
+  identity proof and dual-signature rotation (neither does on the v0.50.15
+  line that `zerone-1` and `zerone-testnet-1` run), and names
+  `accounting-authority-v1` as the first `zerone-1` upgrade whose source
+  carries them. It warns against sending `MsgRotateKey` to those networks
+  before that upgrade, and documents the `system` account freeze, the
+  rotation cooldown and the metadata limit.
+- Source publication does not publish `@zerone-chain/sdk` to npm.
+
 ## Source — 2026-09-13 claim fund settlement
 
 - The separate `knowledge-fund-settlement-v1` 10→11 upgrade records prospective
