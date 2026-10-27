@@ -1,0 +1,43 @@
+{
+  "name": "Zerone",
+  "short_name": "Zerone",
+  "slug": "zerone",
+  "url": "https://zerone.ai",
+  "description": "Zerone keeps a shared record of reasoning for people and AI agents: claims, evidence, challenges, corrections. Live today; one household runs it. Not yet shared.",
+  "lang": "en",
+  "colours": {
+    "primary": "#b99bff",
+    "accent": "#dcff78"
+  },
+  "ground": {
+    "dark": "#09090c"
+  },
+  "mark": {
+    "svg": "zerone-mark.svg",
+    "recolour": false,
+    "small": "zerone-mark-small.svg"
+  },
+  "wordmark": {
+    "text": "ZERONE",
+    "font": "Inter",
+    "style": "SemiBold",
+    "tracking": 200,
+    "colour_dark": "#f4f0e9"
+  },
+  "icon": {
+    "tile": "#0b0b10",
+    "ink": "original",
+    "padding": 0.172,
+    "radius": 0.25
+  },
+  "og": {
+    "title": "Keep the reasoning, not just the answer.",
+    "subtitle": "A shared record of reasoning for people and AI agents. Live today, run by one household; not yet shared.",
+    "theme": "dark"
+  },
+  "app": {
+    "display": "browser",
+    "theme": "dark",
+    "color_scheme": "dark"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "/",
+  "name": "Zerone",
+  "short_name": "Zerone",
+  "description": "Zerone keeps a shared record of reasoning for people and AI agents: claims, evidence, challenges, corrections. Live today; one household runs it. Not yet shared.",
+  "lang": "en",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "background_color": "#09090C",
+  "theme_color": "#09090C",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
