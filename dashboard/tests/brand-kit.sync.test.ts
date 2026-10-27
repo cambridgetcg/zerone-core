@@ -9,9 +9,10 @@ const bytes = (path: string) => readFileSync(new URL(`../${path}`, import.meta.u
 const read = (path: string) => bytes(path).toString("utf8");
 
 const KIT_WEB = "brand/kit/web";
+// public/favicon.svg stays the site's own drawing of the same mark, with its signature comment (#33); the kit's
+// favicon.svg is not served.
 const SERVED = [
   "favicon.ico",
-  "favicon.svg",
   "apple-touch-icon.png",
   "icon-192.png",
   "icon-512.png",

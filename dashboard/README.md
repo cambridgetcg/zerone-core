@@ -786,9 +786,11 @@ own folder in place of `<artcraft-brand>`:
 python3 -B <artcraft-brand>/scripts/brandkit.py brand/brand.json --out brand/kit --rebuild-check
 ```
 
-Then copy `favicon.ico`, `favicon.svg`, `apple-touch-icon.png`, `icon-192.png`,
+Then copy `favicon.ico`, `apple-touch-icon.png`, `icon-192.png`,
 `icon-512.png`, `icon-maskable-512.png`, `site.webmanifest` and `og.jpg` from
-`brand/kit/web/` into `public/`, byte for byte. `tests/brand-kit.sync.test.ts`
+`brand/kit/web/` into `public/`, byte for byte. `public/favicon.svg` stays the
+site's own drawing of the same mark, with its signature comment ("Building
+castles in the sky — Yu and AI.", #33); the kit's `favicon.svg` is not served. `tests/brand-kit.sync.test.ts`
 fails until the copies match and every page head carries the icon links, one
 `color-scheme` `dark` and the site's single theme-color `#09090c`. The social
 lines and JSON-LD from the kit's head snippets are on `index.html` only.
