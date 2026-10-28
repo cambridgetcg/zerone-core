@@ -329,7 +329,7 @@ describe("the admittee watch (door.ts status)", () => {
       { address: squat.address, request_did: `did:zrn:${squat.identityHex}`, registered_did: `did:zrn:${"9a".repeat(32)}`, account_type: "agent", flags: ["did_differs"] },
     ]);
     expect(report.unknown).toEqual([]);
-  });
+  }, 30_000); // four requests, each with its proof of work: slower than bun's 5 s default on CI runners
 
   test("an upper-case spelling of the agent's own key still differs from its request", () => {
     const hex = "ab".repeat(32);
