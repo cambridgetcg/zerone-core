@@ -1,0 +1,520 @@
+// Read-only chain access over the public REST and CometBFT RPC endpoints,
+// through an injected fetch. Only an exact, known not-found answer counts as
+// "absent"; every other failure is an error and the door refuses (fails closed).
+import { createHash } from "node:crypto";
+import { READ_TIMEOUT_MS } from "./policy.ts";
+
+export type Read<T> = { ok: true; value: T } | { ok: false; error: string };
+export type FetchLike = (url: string, init?: { signal?: AbortSignal }) => Promise<{ status: number; text(): Promise<string> }>;
+
+export interface Coin {
+  denom: string;
+  amount: string;
+}
+
+export interface NodeStatus {
+  network: string;
+  height: number;
+  time: string;
+}
+
+export interface PotParams {
+  registrar: string;
+  windowCap: number;
+}
+
+export interface WindowState {
+  height: number;
+  storedWindow: number;
+  storedCount: number;
+}
+
+export interface AuthAccount {
+  accountNumber: string;
+  sequence: string;
+  pubKeyType: string | null;
+  pubKeyB64: string | null;
+}
+
+export interface ZeroneAccount {
+  address: string;
+  did: string;
+  accountType: string;
+  frozen: boolean;
+}
+
+export interface Pot {
+  id: string;
+  status: string;
+  total: bigint;
+  claimed: bigint;
+  whitelist: string[];
+}
+
+export interface AllowanceSummary {
+  /** The @type chain from the outside in. */
+  types: string[];
+  allowedMessages: string[] | null;
+  /** Remaining lifetime spend in uzrn; null means unbounded. */
+  spendLimitUzrn: bigint | null;
+  expiration: string | null;
+  periodSeconds: number | null;
+  periodLimitUzrn: bigint | null;
+}
+
+export interface Grant {
+  granter: string;
+  grantee: string;
+  allowance: AllowanceSummary;
+}
+
+export interface IncludedTx {
+  height: number;
+  code: number;
+  log: string;
+  gasUsed: number;
+  gasWanted: number;
+}
+
+/** Which chain version the node runs, as the door pins it. */
+export interface ChainVersion {
+  /** The last plan x/upgrade applied (highest height), or null if none ever was. */
+  lastUpgrade: { name: string; height: number } | null;
+  /** sha256 hex of the module_versions list (see moduleVersionsDigest). */
+  moduleVersionsSha256: string;
+}
+
+const MAX_PAGES = 50;
+
+/** sha256 hex over "name=version\n" lines sorted by name: one value that
+ * changes whenever any module's consensus version changes. */
+export function moduleVersionsDigest(modules: ReadonlyArray<{ name: string; version: string }>): string {
+  const lines = [...modules].sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+    .map((m) => `${m.name}=${m.version}\n`).join("");
+  return createHash("sha256").update(lines).digest("hex");
+}
+
+/** Decodes x/upgrade's done markers, as an ABCI subspace query of prefix 0x01
+ * returns them: Pairs { repeated Pair pairs = 1 }, Pair { key = 1; value = 2 },
+ * each key 0x01 || height (u64 big-endian) || plan name. Returns the plan
+ * applied at the greatest height, or null when there is none. */
+export function lastUpgradeFromDoneMarkers(bytes: Uint8Array): { name: string; height: number } | null {
+  let last: { name: string; height: number } | null = null;
+  for (const [field, pair] of protoFields(bytes)) {
+    if (field !== 1 || !(pair instanceof Uint8Array)) throw new Error("upgrade markers: unexpected field");
+    let key: Uint8Array | null = null;
+    for (const [f, v] of protoFields(pair)) if (f === 1 && v instanceof Uint8Array) key = v;
+    if (key === null || key.length < 10 || key[0] !== 0x01) throw new Error("upgrade markers: unexpected key");
+    const height = Number(Buffer.from(key.subarray(1, 9)).readBigUInt64BE(0));
+    const name = new TextDecoder("utf-8", { fatal: true }).decode(key.subarray(9));
+    if (!Number.isSafeInteger(height) || !/^[\x21-\x7e]{1,128}$/.test(name)) throw new Error("upgrade markers: unexpected entry");
+    if (last === null || height > last.height) last = { name, height };
+  }
+  return last;
+}
+
+function uzrnOf(coins: unknown): bigint | null {
+  if (!Array.isArray(coins) || coins.length === 0) return null;
+  let total = 0n;
+  for (const coin of coins as Coin[]) {
+    if (coin?.denom === "uzrn" && /^\d+$/.test(String(coin.amount))) total += BigInt(coin.amount);
+  }
+  return total;
+}
+
+function seconds(duration: unknown): number | null {
+  if (typeof duration !== "string") return null;
+  const m = /^(\d+)(?:\.\d+)?s$/.exec(duration);
+  return m ? Number(m[1]) : null;
+}
+
+/** Normalizes Basic, Periodic and AllowedMsg allowances (any nesting). */
+export function summarizeAllowance(raw: unknown): AllowanceSummary {
+  const types: string[] = [];
+  let allowedMessages: string[] | null = null;
+  let node = raw as Record<string, unknown> | undefined;
+  let spendLimitUzrn: bigint | null = null;
+  let expiration: string | null = null;
+  let periodSeconds: number | null = null;
+  let periodLimitUzrn: bigint | null = null;
+  for (let depth = 0; node && depth < 4; depth += 1) {
+    const type = String(node["@type"] ?? "");
+    types.push(type);
+    if (type.endsWith(".AllowedMsgAllowance")) {
+      allowedMessages = Array.isArray(node.allowed_messages) ? (node.allowed_messages as unknown[]).map(String) : [];
+      node = node.allowance as Record<string, unknown> | undefined;
+      continue;
+    }
+    if (type.endsWith(".PeriodicAllowance")) {
+      periodSeconds = seconds(node.period);
+      periodLimitUzrn = uzrnOf(node.period_spend_limit);
+      node = { "@type": "/cosmos.feegrant.v1beta1.BasicAllowance", ...(node.basic as Record<string, unknown>) };
+      continue;
+    }
+    if (type.endsWith(".BasicAllowance")) {
+      spendLimitUzrn = uzrnOf(node.spend_limit);
+      expiration = typeof node.expiration === "string" ? node.expiration : null;
+    }
+    break;
+  }
+  return { types, allowedMessages, spendLimitUzrn, expiration, periodSeconds, periodLimitUzrn };
+}
+
+function decodeVarint(bytes: Uint8Array, start: number): [number, number] {
+  let value = 0;
+  let shift = 0;
+  let i = start;
+  for (;;) {
+    if (i >= bytes.length) throw new Error("truncated varint");
+    const b = bytes[i]!;
+    i += 1;
+    value += (b & 0x7f) * 2 ** shift;
+    if (b < 0x80) return [value, i];
+    shift += 7;
+    if (shift > 63) throw new Error("varint too long");
+  }
+}
+
+/** Top-level protobuf fields: [field, wire value]. Varints and bytes only. */
+export function protoFields(bytes: Uint8Array): Array<[number, number | Uint8Array]> {
+  const out: Array<[number, number | Uint8Array]> = [];
+  let i = 0;
+  while (i < bytes.length) {
+    const [key, next] = decodeVarint(bytes, i);
+    i = next;
+    const field = Math.floor(key / 8);
+    const wire = key % 8;
+    if (wire === 0) {
+      const [v, n] = decodeVarint(bytes, i);
+      out.push([field, v]);
+      i = n;
+    } else if (wire === 2) {
+      const [len, n] = decodeVarint(bytes, i);
+      out.push([field, bytes.subarray(n, n + len)]);
+      i = n + len;
+    } else {
+      throw new Error(`unsupported wire type ${wire}`);
+    }
+  }
+  return out;
+}
+
+function encodeVarint(n: number): number[] {
+  const out: number[] = [];
+  let v = n;
+  while (v >= 0x80) {
+    out.push((v & 0x7f) | 0x80);
+    v = Math.floor(v / 128);
+  }
+  out.push(v);
+  return out;
+}
+
+export class ChainReader {
+  readonly rpc: string;
+  readonly rest: string;
+  private readonly fetchImpl: FetchLike;
+  private readonly retries: number;
+
+  constructor(opts: { rpc: string; rest: string; fetch?: FetchLike; retries?: number }) {
+    this.rpc = opts.rpc.replace(/\/$/, "");
+    this.rest = opts.rest.replace(/\/$/, "");
+    this.fetchImpl = opts.fetch ?? ((url, init) => fetch(url, init));
+    this.retries = opts.retries ?? 3;
+  }
+
+  private async getJson(url: string): Promise<Read<{ status: number; body: any }>> {
+    let lastError = "unreachable";
+    for (let attempt = 0; attempt < this.retries; attempt += 1) {
+      try {
+        const res = await this.fetchImpl(url, { signal: AbortSignal.timeout(READ_TIMEOUT_MS) });
+        const text = await res.text();
+        if (res.status === 502 || res.status === 503 || res.status === 504) {
+          lastError = `HTTP ${res.status}`;
+        } else {
+          try {
+            return { ok: true, value: { status: res.status, body: JSON.parse(text) } };
+          } catch {
+            lastError = `HTTP ${res.status} with a body that is not JSON`;
+          }
+        }
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : String(error);
+      }
+      if (attempt + 1 < this.retries) await Bun.sleep(1_000 * (attempt + 1));
+    }
+    return { ok: false, error: `${url.split("?")[0]}: ${lastError}` };
+  }
+
+  private async restOk(path: string): Promise<Read<any>> {
+    const r = await this.getJson(`${this.rest}${path}`);
+    if (!r.ok) return r;
+    if (r.value.status !== 200) {
+      return { ok: false, error: `${path.split("?")[0]}: HTTP ${r.value.status} ${String(r.value.body?.message ?? "").slice(0, 160)}` };
+    }
+    return { ok: true, value: r.value.body };
+  }
+
+  /** A REST read whose only accepted failure is the exact not-found answer. */
+  private async restMaybe(path: string, notFound: (status: number, body: any) => boolean): Promise<Read<any | null>> {
+    const r = await this.getJson(`${this.rest}${path}`);
+    if (!r.ok) return r;
+    if (r.value.status === 200) return { ok: true, value: r.value.body };
+    if (notFound(r.value.status, r.value.body)) return { ok: true, value: null };
+    return { ok: false, error: `${path.split("?")[0]}: HTTP ${r.value.status} ${String(r.value.body?.message ?? "").slice(0, 160)}` };
+  }
+
+  private async restPaged(path: string, key: string): Promise<Read<any[]>> {
+    const items: any[] = [];
+    let next: string | null = null;
+    for (let page = 0; page < MAX_PAGES; page += 1) {
+      const sep = path.includes("?") ? "&" : "?";
+      const q = `${sep}pagination.limit=100${next ? `&pagination.key=${encodeURIComponent(next)}` : ""}`;
+      const r = await this.restOk(`${path}${q}`);
+      if (!r.ok) return r;
+      const list = r.value?.[key];
+      if (!Array.isArray(list)) return { ok: false, error: `${path}: no ${key} array` };
+      items.push(...list);
+      const pg = r.value?.pagination ?? {};
+      next = pg.next_key ?? pg.nextKey ?? null;
+      if (!next) return { ok: true, value: items };
+    }
+    return { ok: false, error: `${path}: more than ${MAX_PAGES} pages` };
+  }
+
+  async status(): Promise<Read<NodeStatus>> {
+    const r = await this.getJson(`${this.rpc}/status`);
+    if (!r.ok) return r;
+    const res = r.value.body?.result;
+    const height = Number(res?.sync_info?.latest_block_height);
+    const network = res?.node_info?.network;
+    const time = res?.sync_info?.latest_block_time;
+    if (!Number.isSafeInteger(height) || typeof network !== "string" || typeof time !== "string") {
+      return { ok: false, error: "status: unexpected shape" };
+    }
+    return { ok: true, value: { network, height, time } };
+  }
+
+  async potParams(): Promise<Read<PotParams>> {
+    const r = await this.restOk("/zerone/claiming_pot/v1/params");
+    if (!r.ok) return r;
+    const p = r.value?.params ?? {};
+    const registrar = p.bootstrapRegistrar ?? p.bootstrap_registrar;
+    const cap = Number(p.bootstrapDailyAdmissionCap ?? p.bootstrap_daily_admission_cap);
+    if (typeof registrar !== "string" || !Number.isSafeInteger(cap)) return { ok: false, error: "claiming_pot params: unexpected shape" };
+    return { ok: true, value: { registrar, windowCap: cap } };
+  }
+
+  /** claiming_pot store key 0x07: window index (u64 BE) || count (u64 BE). */
+  async windowState(): Promise<Read<WindowState>> {
+    const r = await this.getJson(`${this.rpc}/abci_query?path=%22/store/claiming_pot/key%22&data=0x07`);
+    if (!r.ok) return r;
+    const resp = r.value.body?.result?.response;
+    const height = Number(resp?.height);
+    if (!resp || resp.code !== 0 || !Number.isSafeInteger(height)) return { ok: false, error: "window state: unexpected answer" };
+    const value = Buffer.from(String(resp.value ?? ""), "base64");
+    if (value.length === 0) return { ok: true, value: { height, storedWindow: -1, storedCount: 0 } };
+    if (value.length !== 16) return { ok: false, error: `window state: ${value.length} bytes` };
+    return {
+      ok: true,
+      value: { height, storedWindow: Number(value.readBigUInt64BE(0)), storedCount: Number(value.readBigUInt64BE(8)) },
+    };
+  }
+
+  async upgradePlanPending(): Promise<Read<boolean>> {
+    const r = await this.restOk("/cosmos/upgrade/v1beta1/current_plan");
+    if (!r.ok) return r;
+    if (!("plan" in (r.value ?? {}))) return { ok: false, error: "current_plan: unexpected shape" };
+    return { ok: true, value: r.value.plan !== null };
+  }
+
+  /** The version the node runs: the last applied upgrade (from x/upgrade's
+   * done markers in its store) and a digest of every module's version. */
+  async chainVersion(): Promise<Read<ChainVersion>> {
+    const mv = await this.restOk("/cosmos/upgrade/v1beta1/module_versions");
+    if (!mv.ok) return mv;
+    const list = mv.value?.module_versions;
+    if (!Array.isArray(list) || list.length === 0
+      || !list.every((m: any) => typeof m?.name === "string" && /^\d+$/.test(String(m?.version)))) {
+      return { ok: false, error: "module_versions: unexpected shape" };
+    }
+    const done = await this.getJson(`${this.rpc}/abci_query?path=%22/store/upgrade/subspace%22&data=0x01`);
+    if (!done.ok) return done;
+    const resp = done.value.body?.result?.response;
+    if (!resp || resp.code !== 0) return { ok: false, error: "upgrade markers: unexpected answer" };
+    let lastUpgrade: ChainVersion["lastUpgrade"];
+    try {
+      lastUpgrade = lastUpgradeFromDoneMarkers(Uint8Array.from(Buffer.from(String(resp.value ?? ""), "base64")));
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) };
+    }
+    return {
+      ok: true,
+      value: {
+        lastUpgrade,
+        moduleVersionsSha256: moduleVersionsDigest(list.map((m: any) => ({ name: m.name, version: String(m.version) }))),
+      },
+    };
+  }
+
+  async balances(address: string): Promise<Read<Coin[]>> {
+    return this.restPaged(`/cosmos/bank/v1beta1/balances/${address}`, "balances");
+  }
+
+  async spendableUzrn(address: string): Promise<Read<bigint>> {
+    const r = await this.restPaged(`/cosmos/bank/v1beta1/spendable_balances/${address}`, "balances");
+    if (!r.ok) return r;
+    return { ok: true, value: uzrnOf(r.value) ?? 0n };
+  }
+
+  async authAccount(address: string): Promise<Read<AuthAccount | null>> {
+    const r = await this.restMaybe(`/cosmos/auth/v1beta1/accounts/${address}`,
+      (status, body) => status === 404 && body?.code === 5 && body?.message === `account ${address} not found`);
+    if (!r.ok || r.value === null) return r;
+    const acct = r.value.account ?? {};
+    const base = acct.base_account ?? acct;
+    if (typeof base.account_number !== "string" || typeof base.sequence !== "string") {
+      return { ok: false, error: "auth account: unexpected shape" };
+    }
+    return {
+      ok: true,
+      value: {
+        accountNumber: base.account_number,
+        sequence: base.sequence,
+        pubKeyType: base.pub_key?.["@type"] ?? null,
+        pubKeyB64: typeof base.pub_key?.key === "string" ? base.pub_key.key : null,
+      },
+    };
+  }
+
+  private static zeroneAuthNotFound(status: number, body: any): boolean {
+    return status === 500 && body?.code === 2 && body?.message === "codespace zerone_auth code 2: account not found";
+  }
+
+  private static zeroneAccountOf(body: any): Read<ZeroneAccount> {
+    const a = body?.account;
+    if (!a || typeof a.address !== "string" || typeof a.did !== "string") return { ok: false, error: "zerone_auth: unexpected shape" };
+    return {
+      ok: true,
+      value: { address: a.address, did: a.did, accountType: String(a.accountType ?? a.account_type ?? ""), frozen: a.flags?.frozen === true },
+    };
+  }
+
+  async zeroneAccount(address: string): Promise<Read<ZeroneAccount | null>> {
+    const r = await this.restMaybe(`/zerone/auth/v1/account/${address}`, ChainReader.zeroneAuthNotFound);
+    if (!r.ok || r.value === null) return r;
+    return ChainReader.zeroneAccountOf(r.value);
+  }
+
+  async accountByDid(did: string): Promise<Read<ZeroneAccount | null>> {
+    const r = await this.restMaybe(`/zerone/auth/v1/account_by_did/${encodeURIComponent(did)}`, ChainReader.zeroneAuthNotFound);
+    if (!r.ok || r.value === null) return r;
+    return ChainReader.zeroneAccountOf(r.value);
+  }
+
+  private static potOf(p: any): Pot | null {
+    if (!p || typeof p.id !== "string") return null;
+    const total = String(p.totalAmount ?? p.total_amount ?? "");
+    const claimed = String(p.claimedAmount ?? p.claimed_amount ?? "");
+    if (!/^\d+$/.test(total) || !/^\d+$/.test(claimed)) return null;
+    const status = typeof p.status === "string" ? p.status : String(p.status);
+    const whitelist = Array.isArray(p.eligibility?.whitelist) ? p.eligibility.whitelist.map(String) : [];
+    return { id: p.id, status, total: BigInt(total), claimed: BigInt(claimed), whitelist };
+  }
+
+  async pot(id: string): Promise<Read<Pot | null>> {
+    const r = await this.restMaybe(`/zerone/claiming_pot/v1/pot/${encodeURIComponent(id)}`,
+      (status, body) => status === 500 && body?.code === 2 && body?.message === `pot not found: ${id}`);
+    if (!r.ok || r.value === null) return r;
+    const pot = ChainReader.potOf(r.value.pot);
+    return pot ? { ok: true, value: pot } : { ok: false, error: "pot: unexpected shape" };
+  }
+
+  async allPots(): Promise<Read<Pot[]>> {
+    const r = await this.restPaged("/zerone/claiming_pot/v1/pots", "pots");
+    if (!r.ok) return r;
+    const pots: Pot[] = [];
+    for (const raw of r.value) {
+      const pot = ChainReader.potOf(raw);
+      if (!pot) return { ok: false, error: "pots: unexpected shape" };
+      pots.push(pot);
+    }
+    return { ok: true, value: pots };
+  }
+
+  private static grantsOf(list: any[]): Read<Grant[]> {
+    const grants: Grant[] = [];
+    for (const g of list) {
+      if (typeof g?.granter !== "string" || typeof g?.grantee !== "string") return { ok: false, error: "grants: unexpected shape" };
+      grants.push({ granter: g.granter, grantee: g.grantee, allowance: summarizeAllowance(g.allowance) });
+    }
+    return { ok: true, value: grants };
+  }
+
+  async grantsByGrantee(address: string): Promise<Read<Grant[]>> {
+    const r = await this.restPaged(`/cosmos/feegrant/v1beta1/allowances/${address}`, "allowances");
+    return r.ok ? ChainReader.grantsOf(r.value) : r;
+  }
+
+  async grantsByGranter(address: string): Promise<Read<Grant[]>> {
+    const r = await this.restPaged(`/cosmos/feegrant/v1beta1/issued/${address}`, "allowances");
+    return r.ok ? ChainReader.grantsOf(r.value) : r;
+  }
+
+  async grant(granter: string, grantee: string): Promise<Read<Grant | null>> {
+    const r = await this.restMaybe(`/cosmos/feegrant/v1beta1/allowance/${granter}/${grantee}`,
+      (status, body) => status === 500 && body?.code === 13 && body?.message === "fee-grant not found: not found");
+    if (!r.ok || r.value === null) return r;
+    const list = ChainReader.grantsOf([r.value.allowance]);
+    return list.ok ? { ok: true, value: list.value[0]! } : list;
+  }
+
+  async txByHash(hashHex: string): Promise<Read<IncludedTx | null>> {
+    const hash = hashHex.toUpperCase();
+    if (!/^[0-9A-F]{64}$/.test(hash)) return { ok: false, error: "tx hash has the wrong shape" };
+    const r = await this.getJson(`${this.rpc}/tx?hash=0x${hash}`);
+    if (!r.ok) return r;
+    const body = r.value.body;
+    if (body?.error) {
+      if (body.error.data === `tx (${hash}) not found`) return { ok: true, value: null };
+      return { ok: false, error: `tx lookup: ${String(body.error.data ?? body.error.message).slice(0, 160)}` };
+    }
+    const res = body?.result;
+    const height = Number(res?.height);
+    if (!res?.tx_result || !Number.isSafeInteger(height)) return { ok: false, error: "tx lookup: unexpected shape" };
+    return {
+      ok: true,
+      value: {
+        height,
+        code: Number(res.tx_result.code ?? 0),
+        log: String(res.tx_result.log ?? ""),
+        gasUsed: Number(res.tx_result.gas_used ?? 0),
+        gasWanted: Number(res.tx_result.gas_wanted ?? 0),
+      },
+    };
+  }
+
+  /** Read-only ABCI Simulate of encoded tx bytes. Simulate skips signature
+   * checks and some decorators, so it measures gas and execution only. */
+  async simulate(txBytes: Uint8Array): Promise<Read<{ gasUsed: number; height: number }>> {
+    const request = Uint8Array.from([0x12, ...encodeVarint(txBytes.length), ...txBytes]);
+    const url = `${this.rpc}/abci_query?path=%22/cosmos.tx.v1beta1.Service/Simulate%22&data=0x${Buffer.from(request).toString("hex")}`;
+    const r = await this.getJson(url);
+    if (!r.ok) return r;
+    const resp = r.value.body?.result?.response;
+    if (!resp) return { ok: false, error: "simulate: unexpected answer" };
+    if (resp.code) return { ok: false, error: `simulate refused (code ${resp.code}): ${String(resp.log ?? "").slice(0, 400)}` };
+    try {
+      for (const [field, value] of protoFields(Uint8Array.from(Buffer.from(String(resp.value ?? ""), "base64")))) {
+        if (field === 1 && value instanceof Uint8Array) {
+          for (const [f, v] of protoFields(value)) {
+            if (f === 2 && typeof v === "number") return { ok: true, value: { gasUsed: v, height: Number(resp.height) } };
+          }
+        }
+      }
+    } catch (error) {
+      return { ok: false, error: `simulate: ${error instanceof Error ? error.message : String(error)}` };
+    }
+    return { ok: false, error: "simulate: no gas_used in the answer" };
+  }
+}
