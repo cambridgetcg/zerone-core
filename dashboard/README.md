@@ -10,8 +10,8 @@ authority observatory.
 
 The homepage says why Zerone exists before it shows anything live: the hero
 and `#purpose` (why, and how it works, in plain words), then the live metrics,
-`#honest-state` (the trust model carried on the page itself, because the
-repository is access-restricted and its links 404 for visitors), `#onboarding`,
+`#honest-state` (the trust model carried on the page itself; it was put there
+while the repository was access-restricted, before 28 October 2026), `#onboarding`,
 `#wallet`, `#activity`, and `#network` (raw JSON links any visitor can open).
 The authority observatory, knowledge geometry, liquidity settings and the
 participation compact sit folded under `#look-closer`. The three explorers
@@ -34,8 +34,8 @@ The existing research surfaces remain linked from its optional research index.
 The development/design section uses the same `module-guide.json` input and
 separates implementation, network publication, accepted pending design and release
 gates. Module tags expose source registration, family and reading group, never
-live activation. Source links require repository access; public guide availability
-does not promise anonymous access to source or participant packages.
+live activation. Source links and participant packages open without a GitHub
+account: the repository has been public since 28 October 2026.
 
 For source navigation and current work, start at [DEVELOPMENT.md](../docs/DEVELOPMENT.md).
 The repository-only `tools/source-map.py` reuses the same module purposes,

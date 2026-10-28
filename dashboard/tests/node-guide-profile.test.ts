@@ -154,8 +154,8 @@ describe("closed-beta private network lane", () => {
     assert.equal(beta.bridged, false);
     assert.equal(beta.chainIdPattern, "zerone-rehearsal-lan-*");
     assert.deepEqual(beta.admissionChecks.map((check) => check.id), ["invited", "private-addresses", "seats-only", "fixed-at-genesis"]);
-    assert.equal(guide.source.repositoryAccess, "restricted");
-    assert.match(guide.source.accessNote, /private/u);
+    assert.equal(guide.source.repositoryAccess, "public");
+    assert.match(guide.source.accessNote, /public since 28 October 2026/u);
     const text = JSON.stringify({ ...beta, evidence: { ...beta.evidence, record: "" } });
     // Address ranges may be named; no host address, endpoint, node id, genesis hash or key may appear.
     for (const match of text.matchAll(/\b\d{1,3}(?:\.\d{1,3}){3}\b(?!\/\d)/gu)) assert.fail(`host address ${match[0]} in the beta lane`);
@@ -228,7 +228,7 @@ describe("closed-beta private network lane", () => {
     assert.match(html, /<a href="#beta">Closed beta<\/a>/u);
     assert.equal([...html.matchAll(/class="scope-row[ "]/gu)].length, 4);
     assert.equal([...html.matchAll(/class="roadmap-stage"/gu)].length, buildNodeGuideProfile(inputs).privateNetwork.roadmap.length);
-    assert.match(html, /The zerone-core repository is private/u);
+    assert.match(html, /The zerone-core repository has been public since 28 October 2026/u);
     assert.doesNotMatch(html, /<form\b|\sonclick=|\sstyle=/u);
   });
 });
@@ -241,6 +241,10 @@ describe("agent documentation index", () => {
     assert.match(text, /documentation index, not an agent protocol endpoint/u);
     assert.match(text, /A2A and x402 services are not published/u);
     assert.doesNotMatch(text, /\.well-known|seed phrase|\/blob\/main\//u);
+    // The repository has been public since 28 October 2026; no link may be
+    // described as needing access or returning 404.
+    assert.match(text, /The source repository has been public since 28 October 2026/u);
+    assert.doesNotMatch(text, /repository access|access-restricted|return 404/u);
     const links = [...text.matchAll(/\]\((https:\/\/[^)]+)\)/gu)].map((match) => match[1]!);
     for (const link of links) {
       const url = new URL(link);

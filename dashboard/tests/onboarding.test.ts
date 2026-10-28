@@ -122,8 +122,9 @@ describe("production onboarding surface", () => {
     assert.match(onboarding, /id="onboarding-network-state">Checking mainnet</u);
     assert.match(onboarding, /id="onboarding-wallet-state">Optional</u);
     assert.match(onboarding, /data-onboarding-status="admission" data-tone="paused"/u);
-    // The pause is explained on this site: the repository's JOIN.md is not
-    // publicly readable, so a link to it would be a dead end for visitors.
+    // The pause is explained on this site rather than by a link to the
+    // repository's JOIN.md, which was not publicly readable when this was
+    // written; the repository has been public since 28 October 2026.
     assert.match(onboarding, /href="\/understand\/#today"/u);
     assert.doesNotMatch(onboarding, /github\.com/u);
     assert.doesNotMatch(onboarding, /<noscript\b/iu);
