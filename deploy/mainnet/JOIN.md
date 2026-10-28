@@ -7,8 +7,9 @@ operations float. Read [TRUST.md](./TRUST.md) before treating its record as
 independent.
 
 This page describes observation and the separately scoped legacy observer
-release. Account onboarding, broadcasts, validator admission, upgrades and
-resets remain paused.
+release. Account onboarding, validator admission, upgrades and resets remain
+paused. Household broadcasts are paused too, apart from the transactions listed
+under [Transactions since the pause](#transactions-since-the-pause).
 
 ## Read-only network surfaces
 
@@ -39,10 +40,11 @@ other.
 Earlier versions of this page advertised an agenttool “mainnet passport,” a
 fresh key, registrar admission, a 0.222 ZRN bootstrap mint, a 2 ZRN operator
 float transfer, and direct relay/knowledge transactions. Those were
-custodial-launch procedures, not timeless protocol guarantees. Their current
-listing, key-custody terms, registrar state, adapter state, fees, bonds,
-balances, and deliverables have not been reverified against a release-bound
-packet.
+custodial-launch procedures, not timeless protocol guarantees. The passport
+listing was paused on 2026-10-26 and removed on 2026-10-28, and the
+household's seller no longer handles it. Key-custody terms, registrar state,
+adapter state, fees, bonds, balances, and deliverables have not been
+reverified against a release-bound packet.
 
 Do not purchase, promise, automate, or broadcast that lane from this source
 head. `scripts/mainnet-onboard.sh` and the legacy registration helpers exit
@@ -59,6 +61,36 @@ fail-closed for this reason. Reopening onboarding requires a packet that binds:
 Permissionless funding correlations may still be recorded for analysis, but
 this source line does **not** reduce governance vote weight from those records:
 an untrusted sender must not be able to poison another wallet's vote.
+
+## Transactions since the pause
+
+Since 2026-09-09, when this page first said broadcasts were paused, `zerone-1`
+has recorded only these transactions:
+
+- **2026-10-17, 15:19-15:26 UTC (heights 1,370,872, 1,370,882 and
+  1,370,886):** three `MsgSubmitExternalAttestation` transactions from the
+  household's unattended agenttool relay. Supply rose 1.572366 ZRN: 0.906366
+  ZRN of block rewards for the three blocks that carried them, and 0.666 ZRN of
+  witness rewards released to the relay's account 201 blocks after each
+  attestation. The relay was stopped on 2026-10-26.
+- **2026-10-28, 10:45-10:51 UTC (heights 1,401,996 and 1,402,007):** a
+  `MsgRegisterAccount` and a `MsgSubmitClaim` from one account. Their two
+  blocks minted 0.600906 ZRN of block rewards.
+- **2026-10-28, 11:48 UTC (heights 1,402,121 and 1,402,122):** the governance
+  proposal and vote that sealed the training-fund mint. Proposal 7 passed at
+  height 1,402,141 (11:58 UTC) and set `training_fund_base_reward` to `0`.
+  The blocks that carried these transactions minted 0.600906 ZRN of block
+  rewards. No training-fund disbursement has been claimed on `zerone-1`.
+
+On `zerone-1` today, every block that carries a transaction mints a block
+reward, so any further broadcast will also raise supply. Check the record
+yourself:
+
+```bash
+curl -G http://169.155.55.44:26657/tx_search \
+  --data-urlencode 'query="tx.height>1262000"' \
+  --data-urlencode 'per_page="100"'
+```
 
 ## Compatible legacy observers
 
