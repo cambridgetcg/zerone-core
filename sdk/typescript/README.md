@@ -36,8 +36,8 @@ a message field it does not know when it decodes the transaction. As checked on
 
 `zerone-1` is evolving through ordered software upgrades, each approved by
 on-chain governance, and these flows reach it only with the upgrade whose
-source carries them. On its upgrade ladder that is `accounting-authority-v1`
-(R4), which follows H1 `consolidation-safety-v1`, H2 `founder-renunciation-v1`
+source carries them. On its upgrade ladder that is `accounting-authority-v1`,
+which follows H1 `consolidation-safety-v1`, H2 `founder-renunciation-v1`
 and H3 `sdk-0.53-ibc-10`. The H1, H2 and H3 sources keep the field sets and the
 key-replacing rotation described below. The `zerone_auth` module reports
 consensus version 1 on all of these lines, so module versions do not tell them
