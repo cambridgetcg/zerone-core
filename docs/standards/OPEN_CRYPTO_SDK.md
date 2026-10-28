@@ -6,10 +6,10 @@ implemented source from published packages and activated network behavior.
 
 ## Availability
 
-The canonical public source is
-[`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core).
-The Go module path remains `github.com/zerone-chain/zerone` pending an explicit
-module-path migration.
+The canonical source is
+[`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core),
+which is currently a private repository. The Go module path remains
+`github.com/zerone-chain/zerone` pending an explicit module-path migration.
 
 The repository contains a package named `@zerone-chain/sdk` under
 [`sdk/typescript`](../../sdk/typescript), but it is **not published on npm**.
@@ -26,28 +26,58 @@ registry release is verified.
 
 The manual
 [`publish-sdk.yml`](../../.github/workflows/publish-sdk.yml) workflow is the
-package-release path. It requires an explicit matching version input, refuses
-branch refs and lightweight tags, requires `sdk-v<package version>` at the
-current `main` commit, serializes release attempts, regenerates and checks the
-SDK, audits the runtime dependency graph, rebuilds the committed distribution,
-and verifies the packed exports. Its `npm-sdk-release` environment is a
-deployment boundary, not npm authority by itself.
+release path for versions after the first. It requires an explicit matching
+version input, refuses branch refs and lightweight tags, requires
+`sdk-v<package version>` at the current `main` commit, serializes release
+attempts, regenerates and checks the SDK, audits the runtime dependency graph,
+rebuilds the committed distribution, and verifies the packed exports. The tag
+check reads the current `main` commit through the GitHub API with the run's
+read-only token, scoped to that one step, because checkout keeps no Git
+credentials and the private repository refuses an anonymous fetch.
 
-Because npm trusted publishing and staged publishing require an existing
-package, the first publication uses a separately authorized, shortest-lived
-granular credential with read/write access to only the `zerone-chain` npm
-scope and the minimum necessary 2FA bypass. Store it only as the
-`npm-sdk-release` environment's `NPM_TOKEN`. The workflow permits this direct
-bootstrap path only while the package is absent, publishes with GitHub
-provenance, and downloads the public registry tarball to prove it is
-byte-identical to the packed artifact.
+This repository is private and on GitHub Free, where environment secrets and
+deployment branch and tag policies are unavailable for private repositories.
+The `npm-sdk-release` environment therefore cannot hold a release secret or
+restrict which ref runs the workflow. It names the workflow identity that
+npm's trusted publisher binds to and grants nothing by itself. Do not store an
+npm token in GitHub, as an environment or a repository secret; the workflow
+reads none.
 
-Immediately after `0.1.0`, revoke and remove that bootstrap credential. Then an
-npm owner with 2FA configures the one allowed trusted publisher as GitHub user
-or organization `cambridgetcg`, repository `zerone-core`, workflow filename
-`publish-sdk.yml`, environment `npm-sdk-release`, with **stage-only** authority.
-With the package directory as the working directory, npm 11.15 or newer can
-configure that identity with:
+Releases carry no npm provenance attestation while the source repository is
+private: npm does not support provenance for packages published from private
+repositories, and a consumer could not inspect the attested commit. Both
+release paths use `--provenance=false`, so no transparency-log entry is made.
+Restoring provenance needs a public source repository bound to the trusted
+publisher.
+
+### First publication by the owner's own hand
+
+npm trusted publishing and staged publishing require an existing package, so
+the package owner publishes `0.1.0` by hand, with npm 2FA, from a tarball
+verified beforehand. No 2FA-bypass token is created for it, and the workflow
+refuses to run while the package is absent. Build the tarball from a fresh
+checkout of the `sdk-v0.1.0` tag with the workflow's npm release (11.19.0) and
+its gates: `npm ci`; `npm run generate` with no change under `src/generated`;
+`npm run check`; `npm audit --omit=dev`; `npm run build` with no change under
+`dist`; `npm run check:publish`; then `npm pack --ignore-scripts`. Record the
+tarball's SHA-256, npm shasum and integrity, publish that exact file with
+`--access public --provenance=false`, and afterwards confirm that the
+registry's `dist.shasum` and `dist.integrity`, and the SHA-256 of the
+downloaded registry tarball, equal the recorded values. Package settings can
+require 2FA and disallow traditional token publishing as soon as `0.1.0` is
+public.
+
+### Later versions: staged, then approved with 2FA
+
+Configure the trusted publisher only when a next version is merged, tagged and
+ready to stage within 48 hours: npm expires a new trusted-publisher
+configuration that has not completed a publish within 2 days, and an expired
+configuration can no longer be used or edited. An npm owner with 2FA then
+configures the one allowed trusted publisher as GitHub user or organization
+`cambridgetcg`, repository `zerone-core`, workflow filename `publish-sdk.yml`,
+environment `npm-sdk-release`, with **stage-only** authority. With the package
+directory as the working directory, npm 11.15 or newer can configure that
+identity with:
 
 ```bash
 npm trust github @zerone-chain/sdk \
@@ -57,11 +87,13 @@ npm trust github @zerone-chain/sdk \
   --allow-stage-publish
 ```
 
-For every later tag, the workflow refuses a lingering bootstrap token and
-submits the exact tarball with OIDC to npm's staging area. A maintainer must
-download and inspect that artifact, compare its recorded SHA-256, and approve
-it with 2FA before it becomes public. Package settings should then disallow
-traditional token publishing. Merging or manually viewing the workflow
+Check that the first staged publish validates the new configuration inside
+that window. For every later tag, the workflow submits the exact tarball with
+OIDC to npm's staging area and records the tag, commit, tarball SHA-256, npm
+shasum and integrity in the run summary. Because the environment restricts no
+ref, the npm 2FA approval is the release gate: the approver must download and
+inspect each staged tarball, and compare it with the run summary and the
+tagged commit, before approving it. Merging or manually viewing the workflow
 performs no publication.
 
 ## Implemented boundary seams
@@ -312,21 +344,27 @@ prevent Zerone registry composition from dropping them. Grant/revoke also
 require a protobuf-direct signer because CosmJS 0.39 has no feegrant Amino
 converter.
 
-## Prepared: Cosmos Chain Registry metadata
+## Listed: Cosmos Chain Registry metadata
 
 `integrations/chain-registry/zerone/` contains a schema-valid `chain.json`,
-`assetlist.json`, and ZRN SVG submitted as
-[cosmos/chain-registry#7859](https://github.com/cosmos/chain-registry/pull/7859).
-Local checks cross-reference the committed genesis and deployment
-configuration; CI also runs the pinned upstream Chain Registry validator.
+`assetlist.json`, and ZRN SVG. An earlier snapshot was merged upstream as
+[cosmos/chain-registry#7859](https://github.com/cosmos/chain-registry/pull/7859)
+on 2026-07-31; this bundle is the corrected source for refreshing the upstream
+entry (see [its README](../../integrations/chain-registry/README.md)). Local
+checks cross-reference the committed genesis and deployment configuration; CI
+also runs the pinned upstream Chain Registry validator.
 
-The candidate advertises only the complete public CometBFT RPC and verified
-peer data. It deliberately omits general REST/gRPC, IBC channels, snapshots,
-binaries, and a recommended release because those claims are not currently
-supported by the deployed evidence. The configured SLIP-0044 value `118` is
-described as the shared Cosmos derivation path, not a Zerone-owned
-registration. Upstream completion also depends on registering the `zrn`
-Bech32 HRP in SLIP-0173.
+The bundle advertises the complete public CometBFT RPC and, as its genesis URL,
+the live `/genesis` behind the read-only edge. It lists no peers: the sole
+validator is not a seed service, and public peers are not advertised while
+validator admission is paused. It deliberately omits general REST/gRPC, IBC
+channels, snapshots, binaries, and a recommended release because those claims
+are not currently supported by the deployed evidence, and it omits links into
+this private repository. The configured SLIP-0044 value `118` is described as
+the shared Cosmos derivation path, not a Zerone-owned registration. The `zrn`
+Bech32 HRP is registered in SLIP-0173
+([satoshilabs/slips#2039](https://github.com/satoshilabs/slips/pull/2039),
+merged 2026-07-31).
 
 ## Implemented: Zerone CIDv1 client preflight
 
@@ -357,13 +395,12 @@ The first generated client uses
 Evaluate [Interchain Kit](https://docs.hyperweb.io/interchain-kit/) only when
 its beta status and additional wallet surface fit the dashboard's needs.
 
-Track the submitted
-[Cosmos Chain Registry proposal](https://github.com/cosmos/chain-registry/pull/7859)
+The [Cosmos Chain Registry entry](https://github.com/cosmos/chain-registry/pull/7859)
 and the `zrn`
-[SLIP-0173 proposal](https://github.com/satoshilabs/slips/pull/2039) through
-review. Keep the metadata evidence-limited as public endpoints and release
-posture evolve; do not present shared coin type `118` as a Zerone-specific
-allocation.
+[SLIP-0173 registration](https://github.com/satoshilabs/slips/pull/2039) both
+merged on 2026-07-31. Keep the upstream entry in step with the local bundle and
+evidence-limited as public endpoints and release posture evolve; do not present
+shared coin type `118` as a Zerone-specific allocation.
 
 ### 2. Delegated authority only after an ante audit
 

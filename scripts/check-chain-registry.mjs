@@ -37,6 +37,10 @@ const sharedValidatorEntrypoint = await readFile(
   path.join(repositoryRoot, "deploy/fly-validator-entrypoint-common.sh"),
   "utf8",
 );
+const publicEdgeConfig = await readFile(
+  path.join(repositoryRoot, "deploy/public-edge-nginx.conf"),
+  "utf8",
+);
 
 assert.equal(chain.chain_name, "zerone");
 assert.equal(assetList.chain_name, chain.chain_name);
@@ -97,10 +101,24 @@ assert.equal(
 );
 assert.equal(genesis.app_state.staking.params.bond_denom, nativeAsset.base);
 
+// This repository is private, so links into it return 404 to wallets and
+// explorers. The public genesis URL is the live CometBFT /genesis of zerone-1
+// behind the read-only edge (deploy/RPC_EDGE.md); the edge must keep that
+// method on its /rpc/ allowlist. `jq .result.genesis` of it hashes to the
+// canonical RPC representation pinned in deploy/mainnet/JOIN.md.
+assert.equal(chain.codebase.git_repo, undefined);
+assert.equal(nativeAsset.socials?.github, undefined);
 assert.equal(
   chain.codebase.genesis.genesis_url,
-  "https://raw.githubusercontent.com/cambridgetcg/zerone-core/main/deploy/mainnet/artifacts/genesis.json",
+  "https://zerone-rpc.fly.dev/rpc/genesis",
 );
+assert.match(
+  publicEdgeConfig,
+  /location ~ \^\/rpc\/\((?:[a-z_]+\|)*genesis(?:\|[a-z_]+)*\)\/\?\$/,
+  "the read-only edge must keep serving /rpc/genesis, the advertised genesis_url",
+);
+// The edge refuses JSON-RPC POST and broadcast, so it is not a full RPC
+// endpoint; apis.rpc keeps the complete public CometBFT RPC.
 assert.equal(chain.apis.rpc[0].address, "http://169.155.55.44:26657");
 assert.equal(chain.apis.rest, undefined);
 assert.equal(chain.codebase.recommended_version, undefined);

@@ -47,20 +47,23 @@ jobs:
         shell: bash
         env:
           CONFIRMED_VERSION: ${{ inputs.version }}
+          # Read-only and scoped to this step. The repository is private and
+          # checkout keeps no credentials, so an unauthenticated
+          # `git fetch origin main` cannot read it; later steps that run
+          # package lifecycle scripts never receive this token.
+          GH_TOKEN: ${{ github.token }}
         run: |
           test "$GITHUB_REF_TYPE" = "tag"
           version="$(node --print "require('./package.json').version")"
           test "$CONFIRMED_VERSION" = "$version"
           test "$GITHUB_REF_NAME" = "sdk-v${version}"
           test "$(git cat-file -t "${GITHUB_REF_NAME}^{tag}")" = "tag"
-          git fetch --no-tags origin main
-          test "$(git rev-parse HEAD)" = "$(git rev-parse FETCH_HEAD)"
+          main_sha="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          test -n "$main_sha"
+          test "$(git rev-parse HEAD)" = "$main_sha"
 
-      - name: Select the one-way release mode
-        id: release-mode
+      - name: Require an existing package and a new version
         shell: bash
-        env:
-          NPM_BOOTSTRAP_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           package_name="$(node --print "require('./package.json').name")"
           package_version="$(node --print "require('./package.json').version")"
@@ -79,18 +82,21 @@ jobs:
 
           case "$registry_status" in
             200)
-              package_exists=true
               ;;
             404)
-              package_exists=false
+              # No token path exists here. The first version is published by
+              # the package owner's own hand with npm 2FA from a verified
+              # tarball; see docs/standards/OPEN_CRYPTO_SDK.md.
+              echo "::error::${package_name} is not on npm yet; its first version is published by hand with npm 2FA, and this workflow only stages later versions"
+              exit 1
               ;;
             *)
-              echo "::error::npm registry returned HTTP ${registry_status}; refusing to infer release mode"
+              echo "::error::npm registry returned HTTP ${registry_status}; refusing to infer release state"
               exit 1
               ;;
           esac
 
-          if [[ "$package_exists" == "true" ]] && node --input-type=module --eval '
+          if node --input-type=module --eval '
             import { readFileSync } from "node:fs";
             const document = JSON.parse(readFileSync(process.argv[1], "utf8"));
             process.exit(
@@ -100,26 +106,6 @@ jobs:
             echo "::error::${package_name}@${package_version} already exists on npm"
             exit 1
           fi
-
-          if [[ "$package_exists" == "false" ]]; then
-            if [[ -z "$NPM_BOOTSTRAP_TOKEN" ]]; then
-              echo "::error::First publication requires the approval-environment NPM_TOKEN"
-              exit 1
-            fi
-            release_mode=bootstrap
-          else
-            if [[ -n "$NPM_BOOTSTRAP_TOKEN" ]]; then
-              echo "::error::Remove the bootstrap NPM_TOKEN before releasing an existing package"
-              exit 1
-            fi
-            release_mode=stage
-          fi
-
-          {
-            echo "mode=$release_mode"
-            echo "package=$package_name"
-            echo "version=$package_version"
-          } >> "$GITHUB_OUTPUT"
 
       - name: Install exact dependencies
         run: npm ci
@@ -183,72 +169,12 @@ jobs:
             echo "integrity=$pack_integrity"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Bootstrap the absent package from the exact tarball
-        if: ${{ steps.release-mode.outputs.mode == 'bootstrap' }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish "${{ steps.pack.outputs.tarball }}" --access public --tag latest --provenance
-
-      - name: Verify the bootstrap registry artifact
-        if: ${{ steps.release-mode.outputs.mode == 'bootstrap' }}
-        shell: bash
-        env:
-          EXPECTED_INTEGRITY: ${{ steps.pack.outputs.integrity }}
-          EXPECTED_SHA1: ${{ steps.pack.outputs.sha1 }}
-          EXPECTED_SHA256: ${{ steps.pack.outputs.sha256 }}
-          PACKAGE_NAME: ${{ steps.release-mode.outputs.package }}
-          PACKAGE_VERSION: ${{ steps.release-mode.outputs.version }}
-        run: |
-          encoded_name="$(
-            node --input-type=module --eval '
-              process.stdout.write(encodeURIComponent(process.argv[1]));
-            ' "$PACKAGE_NAME"
-          )"
-          registry_document="$RUNNER_TEMP/npm-registry-version.json"
-          curl --fail-with-body --silent --show-error --location \
-            --retry 6 --retry-all-errors --retry-delay 5 \
-            --output "$registry_document" \
-            "https://registry.npmjs.org/${encoded_name}/${PACKAGE_VERSION}"
-          registry_tarball_url="$(
-            node --input-type=module --eval '
-              import { readFileSync } from "node:fs";
-              const document = JSON.parse(readFileSync(process.argv[1], "utf8"));
-              if (
-                document.dist?.shasum !== process.env.EXPECTED_SHA1 ||
-                document.dist?.integrity !== process.env.EXPECTED_INTEGRITY ||
-                typeof document.dist?.tarball !== "string"
-              ) {
-                throw new Error("npm registry digest metadata does not match the packed artifact");
-              }
-              process.stdout.write(document.dist.tarball);
-            ' "$registry_document"
-          )"
-          registry_tarball="$RUNNER_TEMP/npm-registry-sdk.tgz"
-          curl --fail-with-body --silent --show-error --location \
-            --retry 6 --retry-all-errors --retry-delay 5 \
-            --output "$registry_tarball" \
-            "$registry_tarball_url"
-          test "$(sha256sum "$registry_tarball" | cut -d ' ' -f 1)" = "$EXPECTED_SHA256"
-
       - name: Stage the exact tarball with trusted publishing
-        if: ${{ steps.release-mode.outputs.mode == 'stage' }}
-        run: npm stage publish "${{ steps.pack.outputs.tarball }}" --access public --tag latest --provenance
-
-      - name: Record bootstrap publication identity
-        if: ${{ steps.release-mode.outputs.mode == 'bootstrap' }}
-        shell: bash
-        run: |
-          {
-            echo "### @zerone-chain/sdk published"
-            echo
-            echo "- Tag: \`$GITHUB_REF_NAME\`"
-            echo "- Commit: \`$GITHUB_SHA\`"
-            echo "- Tarball SHA-256: \`${{ steps.pack.outputs.sha256 }}\`"
-            echo "- Registry artifact: byte-identical"
-          } >> "$GITHUB_STEP_SUMMARY"
+        # No --provenance: npm does not support provenance for packages
+        # published from private repositories.
+        run: npm stage publish "${{ steps.pack.outputs.tarball }}" --access public --tag latest --provenance=false
 
       - name: Record staged release identity
-        if: ${{ steps.release-mode.outputs.mode == 'stage' }}
         shell: bash
         run: |
           {
@@ -259,4 +185,6 @@ jobs:
             echo "- Tag: \`$GITHUB_REF_NAME\`"
             echo "- Commit: \`$GITHUB_SHA\`"
             echo "- Tarball SHA-256: \`${{ steps.pack.outputs.sha256 }}\`"
+            echo "- npm shasum: \`${{ steps.pack.outputs.sha1 }}\`"
+            echo "- npm integrity: \`${{ steps.pack.outputs.integrity }}\`"
           } >> "$GITHUB_STEP_SUMMARY"
