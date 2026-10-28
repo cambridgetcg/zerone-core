@@ -229,6 +229,11 @@ describe("closed-beta private network lane", () => {
     assert.equal([...html.matchAll(/class="scope-row[ "]/gu)].length, 4);
     assert.equal([...html.matchAll(/class="roadmap-stage"/gu)].length, buildNodeGuideProfile(inputs).privateNetwork.roadmap.length);
     assert.match(html, /The zerone-core repository has been public since 28 October 2026/u);
+    // No label or note on the page may say the public repository needs access.
+    assert.doesNotMatch(
+      html,
+      /repository access|access[- ]restricted|access required|(?:needs?|requires?) (?:repository |GitHub )?access|not public|(?:repository|source)[^.<]{0,40}\b(?:is|remains) (?:currently )?private|returns? 404/iu,
+    );
     assert.doesNotMatch(html, /<form\b|\sonclick=|\sstyle=/u);
   });
 });

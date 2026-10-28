@@ -2,8 +2,8 @@
 
 **Source review: 27 September 2026, `main` at `9caaf36bca0b7d76a6b8206c2ffe595edb6593e8`.**
 This is the development entry point, not a release authorization or a live status page.
-The canonical repository is `cambridgetcg/zerone-core`, public since 28 October 2026;
-it was private when this review was written. Follow [project instructions](../CLAUDE.md).
+The canonical repository is `cambridgetcg/zerone-core`, public again since 28 October
+2026; it was private when this review was written. Follow [project instructions](../CLAUDE.md).
 
 Zerone's product target is **global compute contributing to fact-checking and the
 Tree of Knowledge, with useful work compensated in tokens**. The current
@@ -46,7 +46,7 @@ Current boundaries:
   and [participant guide](SHARED-DEVELOPMENT.md). The [23 September publication](reports/development-publication-2026-09-23.json)
   corrected runtime/package compatibility and retained knowledge-10 genesis replay;
   it does not establish present download access. Since the repository became public
-  on 28 October 2026, every release asset, including the participant archives and
+  again on 28 October 2026, every release asset, including the participant archives and
   checksum records, downloads anonymously (checked that day). Legacy, development and the
   unactivated `zerone-2` kit remain separate networks/release paths.
 - **Accepted design / pending:** SDK staking as sole consensus stake owner, SDK
@@ -354,7 +354,7 @@ python3 tools/source-map.py check
 ## Next concrete work, in the accepted order
 
 1. **Exercise the prepared handoff.** The anonymous-download blocker ended on
-   28 October 2026, when the repository became public by its owner's choice;
+   28 October 2026, when the repository became public again by its owner's choice;
    participant packages now download without an account. Use
    [DEVELOPMENT-REVIEW-HANDOFF](DEVELOPMENT-REVIEW-HANDOFF.md) with a willing reviewer's own
    key and judgment. Retain actual receipts, outcome, warranted correction and

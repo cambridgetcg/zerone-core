@@ -10,8 +10,7 @@ authority observatory.
 
 The homepage says why Zerone exists before it shows anything live: the hero
 and `#purpose` (why, and how it works, in plain words), then the live metrics,
-`#honest-state` (the trust model carried on the page itself; it was put there
-while the repository was access-restricted, before 28 October 2026), `#onboarding`,
+`#honest-state` (the trust model, carried on the page itself), `#onboarding`,
 `#wallet`, `#activity`, and `#network` (raw JSON links any visitor can open).
 The authority observatory, knowledge geometry, liquidity settings and the
 participation compact sit folded under `#look-closer`. The three explorers
