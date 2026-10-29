@@ -36,6 +36,13 @@ export interface AuthAccount {
   pubKeyB64: string | null;
 }
 
+/** An account as one node's state answers it, with the height of that state. */
+export interface AccountAtHeight {
+  height: number;
+  /** Null when the account does not exist at that height. */
+  account: { accountNumber: string; sequence: string } | null;
+}
+
 export interface ZeroneAccount {
   address: string;
   did: string;
@@ -190,6 +197,7 @@ export function protoFields(bytes: Uint8Array): Array<[number, number | Uint8Arr
       i = n;
     } else if (wire === 2) {
       const [len, n] = decodeVarint(bytes, i);
+      if (n + len > bytes.length) throw new Error("truncated field");
       out.push([field, bytes.subarray(n, n + len)]);
       i = n + len;
     } else {
@@ -208,6 +216,36 @@ function encodeVarint(n: number): number[] {
   }
   out.push(v);
   return out;
+}
+
+const utf8 = new TextDecoder("utf-8", { fatal: true });
+
+/** Decodes the value of the auth module's gRPC Account query:
+ * QueryAccountResponse { Any account = 1 } holding a BaseAccount { address = 1;
+ * pub_key = 2; account_number = 3; sequence = 4 }. proto3 leaves zero values
+ * out, so an absent number is 0. Only a BaseAccount for `address` is accepted. */
+export function baseAccountOf(bytes: Uint8Array, address: string): { accountNumber: string; sequence: string } {
+  let any: Uint8Array | null = null;
+  for (const [f, v] of protoFields(bytes)) if (f === 1 && v instanceof Uint8Array) any = v;
+  if (any === null) throw new Error("no account in the answer");
+  let typeUrl = "";
+  let value: Uint8Array = new Uint8Array();
+  for (const [f, v] of protoFields(any)) {
+    if (f === 1 && v instanceof Uint8Array) typeUrl = utf8.decode(v);
+    if (f === 2 && v instanceof Uint8Array) value = v;
+  }
+  if (typeUrl !== "/cosmos.auth.v1beta1.BaseAccount") throw new Error(`account type ${typeUrl.slice(0, 80) || "missing"}`);
+  let owner = "";
+  let accountNumber = 0;
+  let sequence = 0;
+  for (const [f, v] of protoFields(value)) {
+    if (f === 1 && v instanceof Uint8Array) owner = utf8.decode(v);
+    if (f === 3 && typeof v === "number") accountNumber = v;
+    if (f === 4 && typeof v === "number") sequence = v;
+  }
+  if (owner !== address) throw new Error("the answer is for another account");
+  if (!Number.isSafeInteger(accountNumber) || !Number.isSafeInteger(sequence)) throw new Error("account number or sequence out of range");
+  return { accountNumber: String(accountNumber), sequence: String(sequence) };
 }
 
 export class ChainReader {
@@ -385,6 +423,33 @@ export class ChainReader {
         pubKeyB64: typeof base.pub_key?.key === "string" ? base.pub_key.key : null,
       },
     };
+  }
+
+  /** An account as the RPC node's own state answers it, with the height of
+   * that state: abci_query of the auth module's gRPC Account query. A REST
+   * read may come from another node (the public endpoints sit behind a proxy)
+   * and its height travels only in a gRPC-gateway header; this answer carries
+   * the height in its body, so a proof can require one at or past a given
+   * block, whichever node answered. */
+  async accountAtHeight(address: string): Promise<Read<AccountAtHeight>> {
+    if (!/^[a-z0-9]{1,83}$/.test(address)) return { ok: false, error: "account query: bad address" };
+    const addr = Buffer.from(address, "utf8");
+    const request = Buffer.from([0x0a, ...encodeVarint(addr.length), ...addr]);
+    const r = await this.getJson(`${this.rpc}/abci_query?path=%22/cosmos.auth.v1beta1.Query/Account%22&data=0x${request.toString("hex")}`);
+    if (!r.ok) return r;
+    const resp = r.value.body?.result?.response;
+    const height = Number(resp?.height);
+    if (!resp || !Number.isSafeInteger(height) || height <= 0) return { ok: false, error: "account query: unexpected answer" };
+    if (resp.code === 22 && resp.codespace === "sdk"
+      && resp.log === `rpc error: code = NotFound desc = account ${address} not found: key not found`) {
+      return { ok: true, value: { height, account: null } };
+    }
+    if (resp.code) return { ok: false, error: `account query refused (code ${resp.code}): ${String(resp.log ?? "").slice(0, 160)}` };
+    try {
+      return { ok: true, value: { height, account: baseAccountOf(Uint8Array.from(Buffer.from(String(resp.value ?? ""), "base64")), address) } };
+    } catch (error) {
+      return { ok: false, error: `account query: ${error instanceof Error ? error.message : String(error)}` };
+    }
   }
 
   private static zeroneAuthNotFound(status: number, body: any): boolean {

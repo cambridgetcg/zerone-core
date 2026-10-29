@@ -557,7 +557,7 @@ describe("a broadcast the door has not seen land", () => {
     expect(readLedger(ctx).entries[0]?.status).toBe("expired");
     const failed = replyOf(ctx, entry.request_id);
     expect(failed).toMatchObject({ decision: "failed", reasons: ["expired"] });
-    expect(failed.detail).toContain("R's sequence is still 4");
+    expect(failed.detail).toContain(`R's sequence is still 4 at height ${T + TIMEOUT_SETTLE_BLOCKS}`);
 
     // The agent may ask again, and R signs with the sequence the expired one never used.
     const again = makeRequest({ nonceHex: "d".repeat(32), issuedAt: at(22).toISOString() });
@@ -566,6 +566,38 @@ describe("a broadcast the door has not seen land", () => {
     expect(reply?.timeout_height).toBe(T + TIMEOUT_SETTLE_BLOCKS + TX_TIMEOUT_BLOCKS);
     expect(flag(calls.filter((c) => c.args[1] === "sign").at(-1)!.args, "--sequence")).toBe("4");
   }, 30_000);
+
+  test("expired needs R's sequence read on the RPC node at or past the timeout height, never over REST", async () => {
+    const { ctx, state, entry, signed } = await lost();
+    // It ran in block T. The node's index has not caught up, the REST node
+    // lags where R's sequence is still 4, and so does the backend answering
+    // the RPC account query (still at T - 1).
+    land(state, signed, entry.tx_hash, T);
+    const indexed = state.txs[entry.tx_hash]!;
+    delete state.txs[entry.tx_hash];
+    delete state.accSeq[`${R}/4`];
+    state.restSequence[R] = "4";
+    state.laggingAccountRead = { height: T - 1, registrarSequence: "4" };
+    advance(state, T + TIMEOUT_SETTLE_BLOCKS, 22);
+    const from = state.requests.length;
+    await reconcilePending(later(ctx, 22));
+    expect(readLedger(ctx).entries[0]?.status).toBe("pending_inclusion");
+    expect(replyOf(ctx, entry.request_id).decision).toBe("pending");
+
+    // The RPC backend catches up: R's sequence moved, so it did not expire;
+    // the index still names nothing, so it stays pending.
+    state.laggingAccountRead = null;
+    await reconcilePending(later(ctx, 22));
+    expect(readLedger(ctx).entries[0]?.status).toBe("pending_inclusion");
+    expect(state.requests.slice(from).some((u) => u.includes("/cosmos/auth/v1beta1/accounts/"))).toBe(false);
+
+    // The index catches up: it ran in block T.
+    state.txs[entry.tx_hash] = indexed;
+    state.accSeq[`${R}/4`] = [entry.tx_hash];
+    await reconcilePending(later(ctx, 23));
+    expect(readLedger(ctx).entries[0]).toMatchObject({ status: "included", height: T });
+    expect(replyOf(ctx, entry.request_id)).toMatchObject({ decision: "admitted", height: T });
+  });
 
   test("R's sequence used by another transaction: superseded, naming that transaction", async () => {
     const { ctx, state, entry } = await lost();

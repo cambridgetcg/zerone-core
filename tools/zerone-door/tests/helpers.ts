@@ -5,7 +5,7 @@ import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { encodeBech32 } from "../src/bech32.ts";
-import { moduleVersionsDigest, type AllowanceSummary, type FetchLike, type Grant, type Pot } from "../src/chain.ts";
+import { moduleVersionsDigest, protoFields, type AllowanceSummary, type FetchLike, type Grant, type Pot } from "../src/chain.ts";
 import type { ChainVersionPin, DoorConfig } from "../src/config.ts";
 import type { GlobalFacts, SubjectFacts } from "../src/gates.ts";
 import { emptyLedger, type Ledger } from "../src/ledger.ts";
@@ -249,6 +249,13 @@ export interface FakeChainState {
   /** The tx.acc_seq index: "<address>/<sequence>" -> hashes of the
    * transactions in blocks that used that sequence (each also in txs). */
   accSeq: Record<string, string[]>;
+  /** A REST node that lags: its auth account answers show these sequences
+   * (address -> sequence) instead of the current ones. */
+  restSequence: Record<string, string>;
+  /** A backend behind the RPC URL that lags: its gRPC Account answers come
+   * from the state at `height`, where R's sequence is `registrarSequence`.
+   * Null: the current state, at `height` above. */
+  laggingAccountRead: { height: number; registrarSequence: string } | null;
   simulateGas: number;
   simulateCode: number;
   fail: Set<string>;
@@ -278,6 +285,8 @@ export function fakeChainState(over: Partial<FakeChainState> = {}): FakeChainSta
     grants: [],
     txs: {},
     accSeq: {},
+    restSequence: {},
+    laggingAccountRead: null,
     simulateGas: 109_000,
     simulateCode: 0,
     fail: new Set(),
@@ -295,7 +304,8 @@ export function fakeFetch(state: FakeChainState): FetchLike {
     state.requests.push(url);
     const u = new URL(url);
     const path = decodeURIComponent(u.pathname);
-    for (const f of state.fail) if (path.includes(f)) return json(503, { error: "down" });
+    // A failure names any part of the request: a REST path, or an RPC route and its query.
+    for (const f of state.fail) if (decodeURIComponent(url).includes(f)) return json(503, { error: "down" });
     if (u.host === "rpc.test:26657") {
       if (path === "/status") {
         return json(200, { result: { node_info: { network: state.network }, sync_info: { latest_block_height: String(state.height), latest_block_time: state.time } } });
@@ -304,6 +314,19 @@ export function fakeFetch(state: FakeChainState): FetchLike {
         const q = u.searchParams.get("path");
         if (q === '"/store/claiming_pot/key"') {
           return json(200, { result: { response: { code: 0, value: state.windowValue.toString("base64"), height: String(state.height) } } });
+        }
+        if (q === '"/cosmos.auth.v1beta1.Query/Account"') {
+          const request = protoFields(Buffer.from((u.searchParams.get("data") ?? "").replace(/^0x/, ""), "hex"));
+          const address = Buffer.from(request.find(([f]) => f === 1)![1] as Uint8Array).toString("utf8");
+          const lag = state.laggingAccountRead;
+          const height = String(lag?.height ?? state.height);
+          const a = state.auth[address];
+          if (!a) {
+            return json(200, { result: { response: { code: 22, codespace: "sdk", log: `rpc error: code = NotFound desc = account ${address} not found: key not found`, value: null, height } } });
+          }
+          const sequence = lag && address === R ? lag.registrarSequence : a.sequence;
+          const value = Buffer.from(queryAccountAnswer(address, Number(a.account_number), Number(sequence))).toString("base64");
+          return json(200, { result: { response: { code: 0, codespace: "", log: "", value, height } } });
         }
         if (q === '"/store/upgrade/subspace"' && u.searchParams.get("data") === "0x01") {
           return json(200, { result: { response: { code: 0, value: doneMarkers(state.upgrades).toString("base64"), height: String(state.height) } } });
@@ -346,7 +369,8 @@ export function fakeFetch(state: FakeChainState): FetchLike {
     if ((m = path.match(/^\/cosmos\/auth\/v1beta1\/accounts\/(.+)$/))) {
       const a = state.auth[m[1]!];
       if (!a) return json(404, { code: 5, message: `account ${m[1]} not found` });
-      return json(200, { account: { "@type": "/cosmos.auth.v1beta1.BaseAccount", address: m[1], ...a } });
+      const sequence = state.restSequence[m[1]!] ?? a.sequence;
+      return json(200, { account: { "@type": "/cosmos.auth.v1beta1.BaseAccount", address: m[1], ...a, sequence } });
     }
     if ((m = path.match(/^\/zerone\/auth\/v1\/account\/(.+)$/))) {
       const z = state.zerone[m[1]!];
@@ -384,6 +408,23 @@ function encodeVarint(n: number): number[] {
   }
   out.push(v);
   return out;
+}
+
+/** A length-delimited protobuf field (strings as UTF-8). */
+export function pbBytes(field: number, value: Uint8Array | number[] | string): number[] {
+  const bytes = typeof value === "string" ? [...Buffer.from(value, "utf8")] : [...value];
+  return [...encodeVarint(field * 8 + 2), ...encodeVarint(bytes.length), ...bytes];
+}
+
+/** A varint protobuf field; proto3 leaves a zero out. */
+export function pbVarint(field: number, value: number): number[] {
+  return value === 0 ? [] : [...encodeVarint(field * 8), ...encodeVarint(value)];
+}
+
+/** QueryAccountResponse { Any(BaseAccount { address, account_number, sequence }) }. */
+export function queryAccountAnswer(address: string, accountNumber: number, sequence: number): Uint8Array {
+  const base = [...pbBytes(1, address), ...pbVarint(3, accountNumber), ...pbVarint(4, sequence)];
+  return Uint8Array.from(pbBytes(1, [...pbBytes(1, "/cosmos.auth.v1beta1.BaseAccount"), ...pbBytes(2, base)]));
 }
 
 export function restPot(address: string, status = "POT_STATUS_ACTIVE", claimed = "0") {

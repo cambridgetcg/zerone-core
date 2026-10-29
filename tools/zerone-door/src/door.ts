@@ -477,7 +477,7 @@ function liveBase(ctx: DoorContext, entry: LedgerEntry): ReplyBase {
 /** What became of a broadcast the door has not yet seen settle. */
 type Fate =
   | { kind: "found"; tx: IncludedTx }
-  | { kind: "expired"; nodeHeight: number; registrarSequence: string }
+  | { kind: "expired"; nodeHeight: number; readHeight: number; registrarSequence: string }
   | { kind: "superseded"; by: string; height: number }
   | { kind: "unproven"; detail: string; attention: boolean };
 
@@ -486,8 +486,9 @@ type Fate =
  *  - found: the transaction is in a block (by hash, or as the one the chain's
  *    tx.acc_seq index names for its R sequence), with code 0 or not;
  *  - expired: the node has blocks TIMEOUT_SETTLE_BLOCKS past its timeout
- *    height and R's sequence on chain never moved past the one it was signed
- *    with, so no block ran it and the ante handler refuses it in every later
+ *    height, and R's sequence, read from state at or past the timeout height,
+ *    never moved past the one it was signed with, so no block up to the
+ *    timeout height ran it and the ante handler refuses it in every later
  *    block;
  *  - superseded: R's sequence moved past it and the acc_seq index names
  *    another transaction that used that sequence.
@@ -503,11 +504,15 @@ async function fateOf(ctx: DoorContext, entry: LedgerEntry): Promise<Fate> {
   if (entry.sequence === undefined || !/^\d+$/.test(entry.sequence)) {
     return { kind: "unproven", detail: "no signing sequence recorded", attention: true };
   }
-  const r = await ctx.chain.authAccount(registrar);
+  // R's sequence from the RPC node, with the height of the state it was read
+  // in. A REST read (config.rest) may come from another, lagging node, and
+  // its height comes only in a response header.
+  const r = await ctx.chain.accountAtHeight(registrar);
   if (!r.ok) return { kind: "unproven", detail: r.error, attention: false };
-  if (r.value === null) return { kind: "unproven", detail: "R has no account on chain", attention: true };
+  if (r.value.account === null) return { kind: "unproven", detail: `R has no account on chain at height ${r.value.height}`, attention: true };
+  const account = r.value.account;
   const pastTimeout = entry.timeout_height !== undefined && status.value.height >= entry.timeout_height + TIMEOUT_SETTLE_BLOCKS;
-  if (BigInt(r.value.sequence) > BigInt(entry.sequence)) {
+  if (BigInt(account.sequence) > BigInt(entry.sequence)) {
     const used = await ctx.chain.txsBySignerSequence(registrar, entry.sequence);
     if (!used.ok) return { kind: "unproven", detail: used.error, attention: false };
     const mine = used.value.find((t) => t.hash === entry.tx_hash.toUpperCase());
@@ -523,8 +528,14 @@ async function fateOf(ctx: DoorContext, entry: LedgerEntry): Promise<Fate> {
   if (entry.timeout_height === undefined) {
     return { kind: "unproven", detail: "no timeout height: it settles only when found or when R's sequence moves past it", attention: true };
   }
-  if (pastTimeout) return { kind: "expired", nodeHeight: status.value.height, registrarSequence: r.value.sequence };
-  return { kind: "unproven", detail: `can still land until height ${entry.timeout_height}; the node is at ${status.value.height}`, attention: false };
+  if (!pastTimeout) {
+    return { kind: "unproven", detail: `can still land until height ${entry.timeout_height}; the node is at ${status.value.height}`, attention: false };
+  }
+  // The proof needs a state that includes the last block that could run it.
+  if (r.value.height < entry.timeout_height) {
+    return { kind: "unproven", detail: `R's sequence was read at height ${r.value.height}, below the timeout height ${entry.timeout_height}`, attention: false };
+  }
+  return { kind: "expired", nodeHeight: status.value.height, readHeight: r.value.height, registrarSequence: account.sequence };
 }
 
 /** Ledgers from before timeout heights marked a broadcast unseen for 30
@@ -567,7 +578,7 @@ export async function reconcilePending(ctx: DoorContext): Promise<void> {
       continue;
     }
     const detail = fate.kind === "expired"
-      ? `not run by its timeout height ${entry.timeout_height}: the node is at ${fate.nodeHeight} and R's sequence is still ${fate.registrarSequence}`
+      ? `not run by its timeout height ${entry.timeout_height}: the node is at ${fate.nodeHeight} and R's sequence is still ${fate.registrarSequence} at height ${fate.readHeight}`
       : `R's sequence ${entry.sequence} was used by tx ${fate.by} at height ${fate.height}`;
     updateEntry(ctx, entry.request_id, { status: fate.kind, detail });
     writeReply(ctx, { ...base, decision: "failed", reasons: [fate.kind], detail, at: ctx.now().toISOString() });

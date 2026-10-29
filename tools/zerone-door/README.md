@@ -235,8 +235,13 @@ the reply record it. A broadcast whose inclusion was not seen stays
   index names for its R sequence: `included` (or `delivery_failed` for a non-zero
   code, `postcheck_failed` when the chain state differs from what was built);
 - **expired:** the node is at least 3 blocks past its timeout height, the transaction
-  is not found, and R's on-chain sequence never moved past the one it was signed with,
-  so no block ran it and none can;
+  is not found, and R's sequence never moved past the one it was signed with in a state
+  at or past the timeout height, so no block ran it and none can. The door reads that
+  sequence from the RPC node (`abci_query` of `/cosmos.auth.v1beta1.Query/Account`),
+  whose answer names the height of the state it was read in, and refuses the proof
+  below the timeout height. It never takes it from `rest`, which may be another node
+  (the public endpoints sit behind a proxy) and gives its height only in a gRPC-gateway
+  response header;
 - **superseded:** R's sequence moved past it and the `tx.acc_seq` index names the other
   transaction that used that sequence.
 
@@ -306,14 +311,17 @@ refused after a drained or revoked grant), the request format and each signature
 defect, strict Ed25519, low-S secp256k1, bech32 canonical form, the CosmJS/noble/SDK
 interop vector, the Go v1 registration-proof vector, the spool and lobby intake
 (including a season change), config and allowlist validation, the admittee watch, the
-chain-version decoders (with the done markers zerone-1 served), and the run loop
+chain-version decoders (with the done markers zerone-1 served), the account answer
+decoder (with an answer zerone-1 served), and the run loop
 against a fake chain, a fake CLI and a fake lobby (dry run, a dry run that never posts
 in the room, live admission with the passphrase on stdin only, a live reply in the
 room, replay, CheckTx rejection, inclusion timeout then reconciliation without
 re-broadcast, delivery failure, re-grant with revoke, and a signature by the wrong key
 never broadcast), and what becomes of a broadcast not seen to land: one delayed past 30
 minutes that then lands (settled, counted, the door busy until then), one absent past
-its timeout height (expired only after the settle blocks), R's sequence used by another
+its timeout height (expired only after the settle blocks, and only on R's sequence read
+on the RPC node at or past the timeout height, never from a lagging REST node), R's
+sequence used by another
 transaction (superseded) or moved with nothing indexed yet (still pending), an
 admission included across a chain window boundary (in this run and by a later one),
 and `dropped` entries from an older ledger re-opened and settled.
