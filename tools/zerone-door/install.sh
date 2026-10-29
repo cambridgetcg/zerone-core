@@ -47,7 +47,7 @@ actual_sha="$(/usr/bin/shasum -a 256 "$zeroned" | awk '{print $1}')"
   || die "the SDK's dependencies are missing: run (cd sdk/typescript && npm ci --ignore-scripts) first"
 
 printf '==> tests\n'
-(cd "$repo/tools/zerone-door" && "$bun" test ./tests)
+(cd "$repo/tools/zerone-door" && "$bun" test --timeout 30000 ./tests)
 
 short="${commit:0:12}"
 release="$door_home/releases/$short"

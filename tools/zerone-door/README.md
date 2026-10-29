@@ -338,7 +338,7 @@ not touch R's keyring or the Keychain, does not copy the plist into
 
 ## Tests
 
-`bun test ./tests` covers every gate (including the chain version pin and a re-grant
+`bun test --timeout 30000 ./tests` (the proofs of work outrun bun's 5 s default on slow machines) covers every gate (including the chain version pin and a re-grant
 refused after a drained or revoked grant), the request format and each signature
 defect, strict Ed25519, low-S secp256k1, bech32 canonical form, the CosmJS/noble/SDK
 interop vector, the Go v1 registration-proof vector, the spool and lobby intake

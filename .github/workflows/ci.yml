@@ -1162,8 +1162,10 @@ jobs:
           bun-version: 1.3.5
       - name: Door gates, request proofs and run loop
         working-directory: tools/zerone-door
+        # Several tests build requests with a 20-bit proof of work, which can
+        # outrun bun's 5 s default on shared runners.
         run: |
-          bun test ./tests
+          bun test --timeout 30000 ./tests
           bun build door.ts --target=bun --outfile build/zerone-door.js
           bash -n install.sh
 
