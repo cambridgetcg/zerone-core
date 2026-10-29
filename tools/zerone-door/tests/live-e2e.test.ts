@@ -19,7 +19,7 @@ import { processItem, type DoorContext } from "../src/door.ts";
 import { ADMIT_GAS, REGRANT_GAS, SIMULATE_MARGIN_GAS } from "../src/policy.ts";
 import { adr036SignBytes, envelopeText, registrationProofBytes, requestText, solvePow } from "../src/request.ts";
 import { publicKeyFromPrivate, signSecp256k1ForTest } from "../src/secp256k1.ts";
-import { buildRegrantTx, encodeTx, grantExpiration, makeZeronedRunner, sha256File, withPublicSigner } from "../src/tx.ts";
+import { buildRegrantTx, encodeTx, grantExpiration, makeZeronedRunner, sha256File, timeoutHeightFor, withPublicSigner } from "../src/tx.ts";
 import { addressFor, identityKeys, makeDoorHome, seed } from "./helpers.ts";
 
 const enabled = process.env.ZERONE_DOOR_LIVE_E2E === "1" && !!process.env.ZERONE_DOOR_ZERONED;
@@ -94,7 +94,9 @@ describe.skipIf(!enabled)("live zerone-1, keyless dry run", () => {
     const auth = await chain.authAccount(standIn);
     if (!auth.ok || !auth.value?.pubKeyB64) throw new Error("stand-in has no public key");
     const work = join(cfg.home, "state", "work", "regrant");
-    const regrant = buildRegrantTx(ctx.zeroned, work, standIn, req.address, grantExpiration(new Date()), false);
+    const status = await chain.status();
+    if (!status.ok) throw new Error(status.error);
+    const regrant = buildRegrantTx(ctx.zeroned, work, standIn, req.address, grantExpiration(new Date()), false, timeoutHeightFor(status.value.height));
     const sim = await chain.simulate(encodeTx(ctx.zeroned, work, withPublicSigner(regrant, { pubKeyB64: auth.value.pubKeyB64, sequence: auth.value.sequence }), "regrant"));
     console.log(JSON.stringify({ regrant_simulated: sim }));
     expect(sim.ok).toBe(true);

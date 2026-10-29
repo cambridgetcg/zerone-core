@@ -246,6 +246,9 @@ export interface FakeChainState {
   pots: Record<string, any>;
   grants: Array<{ granter: string; grantee: string; allowance: any }>;
   txs: Record<string, { height: string; tx_result: { code: number; log: string; gas_used: string; gas_wanted: string } }>;
+  /** The tx.acc_seq index: "<address>/<sequence>" -> hashes of the
+   * transactions in blocks that used that sequence (each also in txs). */
+  accSeq: Record<string, string[]>;
   simulateGas: number;
   simulateCode: number;
   fail: Set<string>;
@@ -274,6 +277,7 @@ export function fakeChainState(over: Partial<FakeChainState> = {}): FakeChainSta
     pots: {},
     grants: [],
     txs: {},
+    accSeq: {},
     simulateGas: 109_000,
     simulateCode: 0,
     fail: new Set(),
@@ -312,6 +316,12 @@ export function fakeFetch(state: FakeChainState): FetchLike {
           const value = Buffer.from([0x0a, gasInfo.length, ...gasInfo]);
           return json(200, { result: { response: { code: 0, value: value.toString("base64"), height: String(state.height) } } });
         }
+      }
+      if (path === "/tx_search") {
+        const m = /^"tx\.acc_seq='([^']+)'"$/.exec(u.searchParams.get("query") ?? "");
+        if (!m) return json(200, { error: { code: -32603, message: "Internal error", data: "unsupported query" } });
+        const txs = (state.accSeq[m[1]!] ?? []).map((hash) => ({ hash, height: state.txs[hash]!.height, index: 0, tx_result: state.txs[hash]!.tx_result, tx: "" }));
+        return json(200, { result: { txs, total_count: String(txs.length) } });
       }
       if (path === "/tx") {
         const hash = (u.searchParams.get("hash") ?? "").replace(/^0x/, "");

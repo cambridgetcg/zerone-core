@@ -333,6 +333,14 @@ describe("one transaction at a time", () => {
   test("an unconfirmed earlier admission makes the door wait", () => {
     expect(only({ ledger: ledgerWith({ entries: [entry({ status: "pending_inclusion", utc_day: "2026-10-27" })] }) })).toEqual(["door_busy"]);
   });
+
+  test("a transaction proven unable to run neither counts nor keeps the door busy", () => {
+    for (const status of ["expired", "superseded"] as const) {
+      const mine = entry({ status, address: made.address, address_payload: addressPayloadHex(made.address)!, identity_public_key: made.identityHex, did: `did:zrn:${made.identityHex}` });
+      const today = Array.from({ length: DOOR_DAILY_CAP }, (_, i) => entry({ request_id: String(i).padStart(64, "0"), channel_key: `lobby:${i}`, status }));
+      expect(only({ ledger: ledgerWith({ entries: [mine, ...today] }) })).toEqual([]);
+    }
+  });
 });
 
 describe("reasons accumulate", () => {

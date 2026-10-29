@@ -27,8 +27,15 @@ export type EntryStatus =
   | "rejected"
   | "delivery_failed"
   | "postcheck_failed"
-  /** Never seen in a block, and R's sequence never moved past it: it can no
-   * longer land. Not counted, so the agent may ask again. */
+  /** Proven unable to run: the chain is past its timeout height and R's
+   * sequence never moved past the one it was signed with. Not counted, so the
+   * agent may ask again. */
+  | "expired"
+  /** Proven unable to run: another transaction used the R sequence it was
+   * signed with (the chain's tx.acc_seq index names that transaction). */
+  | "superseded"
+  /** Written only by ledgers from before timeout heights, on a 30-minute
+   * clock that proved nothing; reconcilePending re-opens each as pending. */
   | "dropped";
 
 export interface LedgerEntry {
@@ -56,6 +63,9 @@ export interface LedgerEntry {
   grant_expiration: string;
   /** R's account sequence the transaction was signed with. */
   sequence?: string;
+  /** The last block height that can run it (the transaction's own
+   * timeout_height). Absent only in ledgers from before timeout heights. */
+  timeout_height?: number;
   /** The inclusion height, once the transaction is found in a block. */
   height?: number;
   detail?: string;

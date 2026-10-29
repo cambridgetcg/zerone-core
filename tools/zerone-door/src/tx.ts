@@ -17,6 +17,7 @@ import {
   MSG_GRANT_ALLOWANCE,
   MSG_REVOKE_ALLOWANCE,
   REGRANT_GAS,
+  TX_TIMEOUT_BLOCKS,
 } from "./policy.ts";
 
 export interface RunResult {
@@ -61,7 +62,7 @@ export interface UnsignedTx {
   signatures: string[];
 }
 
-function generate(run: ZeronedRunner, workHome: string, args: string[]): UnsignedTx {
+function generate(run: ZeronedRunner, workHome: string, args: string[], timeoutHeight: number): UnsignedTx {
   const r = run([
     "tx", ...args,
     "--generate-only",
@@ -70,6 +71,7 @@ function generate(run: ZeronedRunner, workHome: string, args: string[]): Unsigne
     "--home", workHome,
     "--gas", "200000",
     "--fees", "200000uzrn",
+    "--timeout-height", String(timeoutHeight),
     "--output", "json",
   ]);
   if (r.code !== 0) throw new Error(`zeroned refused to build ${args.slice(0, 2).join(" ")}: ${r.stderr.trim().slice(0, 300)}`);
@@ -100,20 +102,27 @@ function withFee(tx: UnsignedTx, messages: any[], gas: number): UnsignedTx {
   };
 }
 
-/** One admission: AddBootstrapEntry [address] + GrantAllowance R -> address. */
-export function buildAdmissionTx(run: ZeronedRunner, workHome: string, registrar: string, address: string, expiration: string): UnsignedTx {
-  const add = generate(run, workHome, ["claiming_pot", "add-bootstrap-entry", address, "--from", registrar]);
-  const grant = generate(run, workHome, grantArgs(registrar, address, expiration));
+/** The last height that may run a transaction built when the node was at
+ * `height` (see TX_TIMEOUT_BLOCKS). */
+export function timeoutHeightFor(height: number): number {
+  return height + TX_TIMEOUT_BLOCKS;
+}
+
+/** One admission: AddBootstrapEntry [address] + GrantAllowance R -> address,
+ * with timeout_height `timeoutHeight` (the body comes from the first part). */
+export function buildAdmissionTx(run: ZeronedRunner, workHome: string, registrar: string, address: string, expiration: string, timeoutHeight: number): UnsignedTx {
+  const add = generate(run, workHome, ["claiming_pot", "add-bootstrap-entry", address, "--from", registrar], timeoutHeight);
+  const grant = generate(run, workHome, grantArgs(registrar, address, expiration), timeoutHeight);
   return withFee(add, [...add.body.messages, ...grant.body.messages], ADMIT_GAS);
 }
 
 /** A re-grant for an admittee whose seed is unclaimed and whose allowance
  * lapsed: optionally revoke the expired, unpruned grant, then grant afresh. */
-export function buildRegrantTx(run: ZeronedRunner, workHome: string, registrar: string, address: string, expiration: string, revokeFirst: boolean): UnsignedTx {
-  const grant = generate(run, workHome, grantArgs(registrar, address, expiration));
+export function buildRegrantTx(run: ZeronedRunner, workHome: string, registrar: string, address: string, expiration: string, revokeFirst: boolean, timeoutHeight: number): UnsignedTx {
+  const grant = generate(run, workHome, grantArgs(registrar, address, expiration), timeoutHeight);
   const messages = [...grant.body.messages];
   if (revokeFirst) {
-    const revoke = generate(run, workHome, ["feegrant", "revoke", registrar, address, "--from", registrar]);
+    const revoke = generate(run, workHome, ["feegrant", "revoke", registrar, address, "--from", registrar], timeoutHeight);
     messages.unshift(...revoke.body.messages);
   }
   return withFee(grant, messages, REGRANT_GAS);
@@ -124,8 +133,11 @@ function coinIs(coins: unknown, amount: number): boolean {
 }
 
 /** Checks the CLI's output is exactly what the door means to sign. */
-export function checkBuiltTx(tx: UnsignedTx, want: { kind: "admit" | "regrant"; registrar: string; address: string; expiration: string; revokeFirst: boolean }): string[] {
+export function checkBuiltTx(tx: UnsignedTx, want: { kind: "admit" | "regrant"; registrar: string; address: string; expiration: string; revokeFirst: boolean; timeoutHeight: number }): string[] {
   const problems: string[] = [];
+  // Without its timeout height a lost broadcast could land at any later time,
+  // and the door could never prove it gone.
+  if (!(want.timeoutHeight > 0) || tx.body.timeout_height !== String(want.timeoutHeight)) problems.push("timeout height");
   const msgs = tx.body.messages;
   const expectTypes = want.kind === "admit"
     ? [MSG_ADD_BOOTSTRAP_ENTRY, MSG_GRANT_ALLOWANCE]

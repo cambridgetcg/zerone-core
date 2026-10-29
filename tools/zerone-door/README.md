@@ -220,12 +220,33 @@ with R's on-chain public key and live sequence -> (live) sign offline with R ->
 check the signed body, fee, key and sequence match what was simulated -> record the
 transaction hash -> broadcast (sync) and check `code` -> wait up to 300 s for
 inclusion and check `code` -> postcheck the seed pot and that the allowance on chain is
-the one built -> reply. A broadcast whose inclusion was not seen stays
-`pending_inclusion`, and while anything is pending the door admits no one else; later
-runs only look it up and never re-broadcast. If it is still unseen after 30 minutes
-while the chain is producing blocks and R's on-chain sequence is still the one it was
-signed with, it can no longer land: it is recorded as `dropped`, and the agent may ask
-again.
+the one built -> reply.
+
+Every transaction R signs carries a `timeout_height`: the node's height when the door
+read the chain plus 40 blocks (about 20 minutes; the reasoning is beside
+`TX_TIMEOUT_BLOCKS` in `src/policy.ts`). SDK v0.50's `TxTimeoutHeightDecorator`, which
+zerone's ante chain runs, refuses it in every block above that height. The ledger and
+the reply record it. A broadcast whose inclusion was not seen stays
+`pending_inclusion`; while anything is pending the door admits no one else
+(`door_busy`), and later runs only look it up and never re-broadcast. It leaves
+`pending_inclusion` only on proof, never because time passed:
+
+- **found** in a block, by its hash or as the transaction the chain's `tx.acc_seq`
+  index names for its R sequence: `included` (or `delivery_failed` for a non-zero
+  code, `postcheck_failed` when the chain state differs from what was built);
+- **expired:** the node is at least 3 blocks past its timeout height, the transaction
+  is not found, and R's on-chain sequence never moved past the one it was signed with,
+  so no block ran it and none can;
+- **superseded:** R's sequence moved past it and the `tx.acc_seq` index names the other
+  transaction that used that sequence.
+
+`expired` and `superseded` do not count, so the agent may ask again. If R's sequence
+moved and the index names nothing, the entry stays pending and the door logs
+`pending_needs_attention`. A ledger written before timeout heights may hold entries
+marked `dropped` after 30 minutes, which proved nothing: each run re-opens them as
+pending (they count and keep the door busy again) and settles them by the same proof.
+Such an entry has no timeout height, so if it is never found it settles only when R's
+sequence moves past it; any R transaction does that.
 
 An admission counts in the chain admission window of the block that included it, as
 the chain counts it, so the 20-per-window cap follows the inclusion height. The daily
@@ -290,7 +311,12 @@ against a fake chain, a fake CLI and a fake lobby (dry run, a dry run that never
 in the room, live admission with the passphrase on stdin only, a live reply in the
 room, replay, CheckTx rejection, inclusion timeout then reconciliation without
 re-broadcast, delivery failure, re-grant with revoke, and a signature by the wrong key
-never broadcast).
+never broadcast), and what becomes of a broadcast not seen to land: one delayed past 30
+minutes that then lands (settled, counted, the door busy until then), one absent past
+its timeout height (expired only after the settle blocks), R's sequence used by another
+transaction (superseded) or moved with nothing indexed yet (still pending), an
+admission included across a chain window boundary (in this run and by a later one),
+and `dropped` entries from an older ledger re-opened and settled.
 
 The keyless live check runs only when asked:
 

@@ -59,7 +59,9 @@ async function status(ctx: DoorContext): Promise<void> {
     admitted_total: entries.filter((e) => e.kind === "admit").length,
     regranted_total: entries.filter((e) => e.kind === "regrant").length,
     today: entries.filter((e) => e.utc_day === today).length,
-    pending: ledger.entries.filter((e) => e.status === "pending_inclusion").map((e) => e.tx_hash),
+    // Each can still land until its timeout height; the door admits no one else meanwhile.
+    pending: ledger.entries.filter((e) => e.status === "pending_inclusion")
+      .map((e) => ({ tx_hash: e.tx_hash, timeout_height: e.timeout_height ?? null })),
     failed: ledger.entries.filter((e) => e.status !== "included" && e.status !== "pending_inclusion").length,
   };
   if (!g.facts) {

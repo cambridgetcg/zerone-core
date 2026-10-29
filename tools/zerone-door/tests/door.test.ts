@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { addressPayloadHex } from "../src/bech32.ts";
-import { ChainReader } from "../src/chain.ts";
+import { ChainReader, type FetchLike } from "../src/chain.ts";
 import { doorPaths } from "../src/config.ts";
 import { allowanceMatches, processItem, readLedger, reconcilePending, replyText, type DoorContext, type Reply } from "../src/door.ts";
 import type { LobbyRunner } from "../src/intake.ts";
@@ -11,7 +11,7 @@ import { loadLedger, type LedgerEntry } from "../src/ledger.ts";
 import { runOnce } from "../src/run.ts";
 import type { ZeronedRunner } from "../src/tx.ts";
 import { checkBuiltTx } from "../src/tx.ts";
-import { BOOTSTRAP_WINDOW_BLOCKS, DOOR_WINDOW_CAP } from "../src/policy.ts";
+import { BOOTSTRAP_WINDOW_BLOCKS, DOOR_WINDOW_CAP, TIMEOUT_SETTLE_BLOCKS, TX_TIMEOUT_BLOCKS } from "../src/policy.ts";
 import { admitteesOf, judgeAdmittee, watchAdmittees } from "../src/watch.ts";
 import {
   addressFor,
@@ -42,9 +42,9 @@ function flag(args: string[], name: string): string | undefined {
   return i === -1 ? undefined : args[i + 1];
 }
 
-function genTx(messages: unknown[]) {
+function genTx(messages: unknown[], timeoutHeight = "0") {
   return {
-    body: { messages, memo: "", timeout_height: "0", extension_options: [], non_critical_extension_options: [] },
+    body: { messages, memo: "", timeout_height: timeoutHeight, extension_options: [], non_critical_extension_options: [] },
     auth_info: { signer_infos: [], fee: { amount: [{ denom: "uzrn", amount: "200000" }], gas_limit: "200000", payer: "", granter: "" }, tip: null },
     signatures: [],
   };
@@ -58,7 +58,7 @@ function fakeZeroned(state: FakeChainState, calls: Call[], opts: { broadcastCode
     calls.push({ args, stdin: stdin ? Buffer.from(stdin).toString("utf8") : null, file: reads });
     const ok = (stdout: string) => ({ code: 0, stdout, stderr: "" });
     if (args[0] === "tx" && args[1] === "claiming_pot" && args[2] === "add-bootstrap-entry") {
-      return ok(JSON.stringify(genTx([{ "@type": "/zerone.claiming_pot.v1.MsgAddBootstrapEntry", authority: flag(args, "--from"), addresses: [args[3]] }])));
+      return ok(JSON.stringify(genTx([{ "@type": "/zerone.claiming_pot.v1.MsgAddBootstrapEntry", authority: flag(args, "--from"), addresses: [args[3]] }], flag(args, "--timeout-height"))));
     }
     if (args[0] === "tx" && args[1] === "feegrant" && args[2] === "grant") {
       const spend = flag(args, "--spend-limit")!.replace("uzrn", "");
@@ -79,10 +79,10 @@ function fakeZeroned(state: FakeChainState, calls: Call[], opts: { broadcastCode
           },
           allowed_messages: flag(args, "--allowed-messages")!.split(","),
         },
-      }])));
+      }], flag(args, "--timeout-height"))));
     }
     if (args[0] === "tx" && args[1] === "feegrant" && args[2] === "revoke") {
-      return ok(JSON.stringify(genTx([{ "@type": "/cosmos.feegrant.v1beta1.MsgRevokeAllowance", granter: args[3], grantee: args[4] }])));
+      return ok(JSON.stringify(genTx([{ "@type": "/cosmos.feegrant.v1beta1.MsgRevokeAllowance", granter: args[3], grantee: args[4] }], flag(args, "--timeout-height"))));
     }
     if (args[0] === "tx" && args[1] === "encode") {
       return ok(`${createHash("sha256").update(readFileSync(args[2]!)).digest("base64")}\n`);
@@ -105,19 +105,28 @@ function fakeZeroned(state: FakeChainState, calls: Call[], opts: { broadcastCode
       const raw = readFileSync(args[2]!);
       const hash = createHash("sha256").update(Buffer.from(createHash("sha256").update(raw).digest("base64"), "base64")).digest("hex").toUpperCase();
       const code = opts.broadcastCode ?? 0;
-      if (code === 0 && opts.include !== false) {
-        const tx = JSON.parse(raw.toString("utf8"));
-        for (const m of tx.body.messages) {
-          if (m["@type"].endsWith("MsgAddBootstrapEntry")) state.pots[`bootstrap-${m.addresses[0]}`] = restPot(m.addresses[0]);
-          if (m["@type"].endsWith("MsgRevokeAllowance")) state.grants = state.grants.filter((g) => !(g.granter === m.granter && g.grantee === m.grantee));
-          if (m["@type"].endsWith("MsgGrantAllowance")) state.grants.push({ granter: m.granter, grantee: m.grantee, allowance: m.allowance });
-        }
-        state.txs[hash] = { height: String(state.height + 1), tx_result: { code: 0, log: "", gas_used: "121000", gas_wanted: "150000" } };
-      }
+      if (code === 0 && opts.include !== false) land(state, JSON.parse(raw.toString("utf8")), hash, state.height + 1);
       return ok(JSON.stringify({ height: "0", txhash: hash, code, raw_log: code ? "insufficient fees" : "" }));
     }
     return { code: 1, stdout: "", stderr: `unexpected zeroned call ${args.slice(0, 3).join(" ")}` };
   };
+}
+
+/** Runs a signed door transaction on the fake chain at `height`: its
+ * messages take effect, R's sequence moves on, and the tx and acc_seq
+ * indexes name it. */
+function land(state: FakeChainState, tx: any, hash: string, height: number, code = 0): void {
+  if (code === 0) {
+    for (const m of tx.body.messages) {
+      if (m["@type"].endsWith("MsgAddBootstrapEntry")) state.pots[`bootstrap-${m.addresses[0]}`] = restPot(m.addresses[0]);
+      if (m["@type"].endsWith("MsgRevokeAllowance")) state.grants = state.grants.filter((g) => !(g.granter === m.granter && g.grantee === m.grantee));
+      if (m["@type"].endsWith("MsgGrantAllowance")) state.grants.push({ granter: m.granter, grantee: m.grantee, allowance: m.allowance });
+    }
+  }
+  const sequence = String(tx.auth_info.signer_infos[0].sequence);
+  state.auth[R]!.sequence = String(Number(sequence) + 1);
+  state.accSeq[`${R}/${sequence}`] = [hash];
+  state.txs[hash] = { height: String(height), tx_result: { code, log: code ? "failed in block" : "", gas_used: "121000", gas_wanted: "150000" } };
 }
 
 function setup(opts: { live?: boolean; state?: Partial<FakeChainState>; zeroned?: { broadcastCode?: number; include?: boolean; signWith?: string }; passphrase?: string | null; home?: Parameters<typeof makeDoorHome>[0] } = {}) {
@@ -429,31 +438,6 @@ describe("live", () => {
     expect(settled.decision).toBe("admitted");
   });
 
-  test("a broadcast never seen while R's sequence stays put is dropped after 30 minutes, freeing the agent", async () => {
-    const { ctx, state } = setup({ live: true, zeroned: { include: false } });
-    const req = makeRequest();
-    await processItem(ctx, { text: req.text, channel: studio });
-    expect(readLedger(ctx).entries[0]?.sequence).toBe("4");
-    await reconcilePending({ ...ctx, now: () => new Date(NOW.getTime() + 10 * 60_000) });
-    expect(readLedger(ctx).entries[0]?.status).toBe("pending_inclusion");
-    // A halted chain proves nothing: stay pending.
-    await reconcilePending({ ...ctx, now: () => new Date(NOW.getTime() + 31 * 60_000) });
-    expect(readLedger(ctx).entries[0]?.status).toBe("pending_inclusion");
-    state.time = new Date(NOW.getTime() + 30 * 60_000).toISOString();
-    await reconcilePending({ ...ctx, now: () => new Date(NOW.getTime() + 31 * 60_000) });
-    expect(readLedger(ctx).entries[0]?.status).toBe("dropped");
-    const reply = JSON.parse(readFileSync(join(ctx.paths.replies, `${readLedger(ctx).entries[0]!.request_id}.json`), "utf8"));
-    expect(reply.reasons).toEqual(["dropped"]);
-  });
-
-  test("an unseen broadcast is kept pending when R's sequence moved on", async () => {
-    const { ctx, state } = setup({ live: true, zeroned: { include: false } });
-    await processItem(ctx, { text: makeRequest().text, channel: studio });
-    state.auth[R]!.sequence = "5";
-    await reconcilePending({ ...ctx, now: () => new Date(NOW.getTime() + 31 * 60_000) });
-    expect(readLedger(ctx).entries[0]?.status).toBe("pending_inclusion");
-  });
-
   test("a delivered transaction with a non-zero code is a failure", async () => {
     const { ctx, state } = setup({ live: true, zeroned: { include: false } });
     const req = makeRequest();
@@ -502,6 +486,126 @@ describe("live", () => {
   });
 });
 
+describe("a broadcast the door has not seen land", () => {
+  const READ_HEIGHT = 1_402_800;
+  const T = READ_HEIGHT + TX_TIMEOUT_BLOCKS;
+  const at = (minutes: number) => new Date(NOW.getTime() + minutes * 60_000);
+  const later = (ctx: DoorContext, minutes: number): DoorContext => ({ ...ctx, now: () => at(minutes) });
+  /** The chain moves on: a fresh newest block at `height`. */
+  function advance(state: FakeChainState, height: number, minutes: number): void {
+    state.height = height;
+    state.time = new Date(at(minutes).getTime() - 10_000).toISOString();
+  }
+  function replyOf(ctx: DoorContext, requestId: string): Reply {
+    return JSON.parse(readFileSync(join(ctx.paths.replies, `${requestId}.json`), "utf8"));
+  }
+  /** A live admission whose broadcast was accepted but not seen in a block. */
+  async function lost(state: Partial<FakeChainState> = {}) {
+    const s = setup({ live: true, zeroned: { include: false }, state });
+    const req = makeRequest();
+    const { reply } = await processItem(s.ctx, { text: req.text, channel: studio });
+    expect(reply?.decision).toBe("pending");
+    const entry = readLedger(s.ctx).entries[0]!;
+    const signed = JSON.parse(s.calls.find((c) => c.args[1] === "broadcast")!.file!);
+    return { ...s, req, entry, signed, reply: reply! };
+  }
+
+  test("every transaction R signs carries a timeout height, kept in the ledger and the reply", async () => {
+    const { entry, signed, reply, calls } = await lost();
+    expect(signed.body.timeout_height).toBe(String(T));
+    expect(entry.timeout_height).toBe(T);
+    expect(entry.sequence).toBe("4");
+    expect(reply.timeout_height).toBe(T);
+    expect(replyText(reply)).toContain(`until height ${T}`);
+    const built = calls.filter((c) => c.args.includes("--generate-only"));
+    expect(built.length).toBe(2);
+    for (const c of built) expect(flag(c.args, "--timeout-height")).toBe(String(T));
+  });
+
+  test("delayed past 30 minutes it stays pending and keeps the door busy; when it lands it is settled and counted", async () => {
+    const { ctx, state, req, entry, signed } = await lost();
+    // 31 minutes on, blocks still coming, R's sequence unmoved, the timeout
+    // not reached: nothing is proven, so nothing is freed.
+    advance(state, T - 1, 31);
+    await reconcilePending(later(ctx, 31));
+    expect(readLedger(ctx).entries[0]?.status).toBe("pending_inclusion");
+    const other = makeRequest({ label: "agent-2", issuedAt: at(31).toISOString() });
+    const busy = await processItem(later(ctx, 31), { text: other.text, channel: studio });
+    expect(busy.reply?.reasons).toEqual(["door_busy"]);
+
+    // It lands in the last block that may run it.
+    land(state, signed, entry.tx_hash, T);
+    advance(state, T + 1, 32);
+    await reconcilePending(later(ctx, 32));
+    expect(readLedger(ctx).entries[0]).toMatchObject({ status: "included", height: T, chain_window: Math.floor(T / BOOTSTRAP_WINDOW_BLOCKS) });
+    expect(replyOf(ctx, entry.request_id)).toMatchObject({ decision: "admitted", height: T });
+    // Counted: in the caps, in the admittee watch, and against a second admission.
+    expect(admitteesOf(readLedger(ctx)).map((a) => a.address)).toEqual([req.address]);
+    const again = makeRequest({ nonceHex: "e".repeat(32), issuedAt: at(32).toISOString() });
+    const second = await processItem(later(ctx, 32), { text: again.text, channel: studio });
+    expect(second.reply?.reasons).toContain("already_admitted");
+  }, 30_000);
+
+  test("past its timeout height, never seen and R's sequence unmoved: expired, and the door is free", async () => {
+    const { ctx, state, entry, calls } = await lost();
+    // The node's index gets TIMEOUT_SETTLE_BLOCKS blocks to show it.
+    advance(state, T + TIMEOUT_SETTLE_BLOCKS - 1, 21);
+    await reconcilePending(later(ctx, 21));
+    expect(readLedger(ctx).entries[0]?.status).toBe("pending_inclusion");
+    advance(state, T + TIMEOUT_SETTLE_BLOCKS, 22);
+    await reconcilePending(later(ctx, 22));
+    expect(readLedger(ctx).entries[0]?.status).toBe("expired");
+    const failed = replyOf(ctx, entry.request_id);
+    expect(failed).toMatchObject({ decision: "failed", reasons: ["expired"] });
+    expect(failed.detail).toContain("R's sequence is still 4");
+
+    // The agent may ask again, and R signs with the sequence the expired one never used.
+    const again = makeRequest({ nonceHex: "d".repeat(32), issuedAt: at(22).toISOString() });
+    const { reply } = await processItem(later(ctx, 22), { text: again.text, channel: studio });
+    expect(reply?.decision).toBe("pending");
+    expect(reply?.timeout_height).toBe(T + TIMEOUT_SETTLE_BLOCKS + TX_TIMEOUT_BLOCKS);
+    expect(flag(calls.filter((c) => c.args[1] === "sign").at(-1)!.args, "--sequence")).toBe("4");
+  }, 30_000);
+
+  test("R's sequence used by another transaction: superseded, naming that transaction", async () => {
+    const { ctx, state, entry } = await lost();
+    const other = "D".repeat(64);
+    state.auth[R]!.sequence = "5";
+    state.txs[other] = { height: "1402803", tx_result: { code: 0, log: "", gas_used: "90000", gas_wanted: "100000" } };
+    state.accSeq[`${R}/4`] = [other];
+    // Before the timeout height: the used sequence alone proves it.
+    advance(state, READ_HEIGHT + 5, 3);
+    await reconcilePending(later(ctx, 3));
+    expect(readLedger(ctx).entries[0]?.status).toBe("superseded");
+    const failed = replyOf(ctx, entry.request_id);
+    expect(failed.reasons).toEqual(["superseded"]);
+    expect(failed.detail).toContain(other);
+  });
+
+  test("R's sequence moved but the index names no transaction for it yet: still pending, even past the timeout", async () => {
+    const { ctx, state, logs } = await lost();
+    state.auth[R]!.sequence = "5";
+    advance(state, T + 10, 25);
+    await reconcilePending(later(ctx, 25));
+    expect(readLedger(ctx).entries[0]?.status).toBe("pending_inclusion");
+    expect(logs.some((l) => l.event === "pending_needs_attention")).toBe(true);
+  });
+
+  test("the acc_seq index naming this very transaction settles it, though the hash lookup missed it", async () => {
+    const { ctx, state, entry, signed } = await lost();
+    land(state, signed, entry.tx_hash, READ_HEIGHT + 2);
+    // The by-hash lookup misses it; the acc_seq search answers.
+    const chainFetch = fakeFetch(state);
+    const missesByHash: FetchLike = async (url, init) => new URL(url).pathname === "/tx"
+      ? { status: 200, text: async () => JSON.stringify({ error: { code: -32603, message: "Internal error", data: `tx (${entry.tx_hash}) not found` } }) }
+      : chainFetch(url, init);
+    const chain = new ChainReader({ rpc: ctx.config.rpc, rest: ctx.config.rest, retries: 1, fetch: missesByHash });
+    advance(state, READ_HEIGHT + 4, 2);
+    await reconcilePending({ ...later(ctx, 2), chain });
+    expect(readLedger(ctx).entries[0]).toMatchObject({ status: "included", height: READ_HEIGHT + 2 });
+  });
+});
+
 describe("the chain window an admission counts in", () => {
   const W = 41;
   const BOUNDARY = W * BOOTSTRAP_WINDOW_BLOCKS;
@@ -534,18 +638,67 @@ describe("the chain window an admission counts in", () => {
   }, 30_000);
 
   test("built before a window boundary, settled by a later run after it: it counts in the window it ran in", async () => {
-    const req = makeRequest();
-    const { ctx, state } = setup({ live: true, zeroned: { include: false }, state: { height: BOUNDARY - 2 } });
-    await processItem(ctx, { text: req.text, channel: studio });
+    const { ctx, state, calls } = setup({ live: true, zeroned: { include: false }, state: { height: BOUNDARY - 2 } });
+    await processItem(ctx, { text: makeRequest().text, channel: studio });
     const pending = readLedger(ctx).entries[0]!;
-    expect(pending).toMatchObject({ status: "pending_inclusion", chain_window: W - 1 });
-    state.pots[`bootstrap-${req.address}`] = restPot(req.address);
-    state.grants.push(restDoorGrant(R, req.address, pending.grant_expiration));
-    state.txs[pending.tx_hash] = { height: String(BOUNDARY + 1), tx_result: { code: 0, log: "", gas_used: "120000", gas_wanted: "150000" } };
+    expect(pending).toMatchObject({ status: "pending_inclusion", chain_window: W - 1, timeout_height: BOUNDARY - 2 + TX_TIMEOUT_BLOCKS });
+    land(state, JSON.parse(calls.find((c) => c.args[1] === "broadcast")!.file!), pending.tx_hash, BOUNDARY + 1);
     state.height = BOUNDARY + 2;
     await reconcilePending(ctx);
     expect(readLedger(ctx).entries[0]).toMatchObject({ status: "included", height: BOUNDARY + 1, chain_window: W });
   });
+});
+
+describe("a ledger from before timeout heights", () => {
+  function droppedEntry(address: string, identityHex: string): LedgerEntry {
+    return {
+      request_id: "9".repeat(64), kind: "admit", address, address_payload: addressPayloadHex(address)!, identity_public_key: identityHex,
+      did: `did:zrn:${identityHex}`, channel_key: "studio_local", tx_hash: "E".repeat(64), status: "dropped", sequence: "4",
+      chain_window: 40, utc_day: "2026-10-28", at: "2026-10-28T16:00:00.000Z", grant_expiration: "2026-11-11T16:00:00Z",
+      detail: "never included; R's sequence did not move",
+    };
+  }
+  function withLedger(ctx: DoorContext, entries: LedgerEntry[]): void {
+    const ledger = readLedger(ctx);
+    ledger.entries.push(...entries);
+    ledger.seen["9".repeat(64)] = "2026-10-28T16:00:00.000Z";
+    writeFileSync(join(ctx.paths.state, "ledger.json"), JSON.stringify(ledger), { mode: 0o600 });
+  }
+
+  test("a 'dropped' transaction that landed after all is settled as admitted and counted", async () => {
+    const a = makeRequest({ label: "legacy-landed" });
+    const { ctx, state } = setup({ live: true });
+    const old = droppedEntry(a.address, a.identityHex);
+    withLedger(ctx, [old]);
+    state.pots[`bootstrap-${a.address}`] = restPot(a.address);
+    state.grants.push(restDoorGrant(R, a.address, old.grant_expiration));
+    state.txs[old.tx_hash] = { height: "1402790", tx_result: { code: 0, log: "", gas_used: "120000", gas_wanted: "150000" } };
+    state.auth[R]!.sequence = "5";
+    await reconcilePending(ctx);
+    expect(readLedger(ctx).entries[0]).toMatchObject({ status: "included", height: 1_402_790, chain_window: Math.floor(1_402_790 / BOOTSTRAP_WINDOW_BLOCKS) });
+    expect(JSON.parse(readFileSync(join(ctx.paths.replies, `${old.request_id}.json`), "utf8")).decision).toBe("admitted");
+  });
+
+  test("a 'dropped' transaction never seen is re-opened as pending and keeps the door busy until R's sequence moves", async () => {
+    const a = makeRequest({ label: "legacy-unseen" });
+    const { ctx, state, logs } = setup({ live: true });
+    const old = droppedEntry(a.address, a.identityHex);
+    withLedger(ctx, [old]);
+    await reconcilePending(ctx);
+    expect(readLedger(ctx).entries[0]?.status).toBe("pending_inclusion");
+    expect(JSON.parse(readFileSync(join(ctx.paths.replies, `${old.request_id}.json`), "utf8")).decision).toBe("pending");
+    expect(logs.map((l) => l.event)).toEqual(["dropped_reopened", "pending_needs_attention"]);
+    const busy = await processItem(ctx, { text: makeRequest({ label: "legacy-next" }).text, channel: studio });
+    expect(busy.reply?.reasons).toEqual(["door_busy"]);
+
+    // Any R transaction that uses sequence 4 settles it.
+    const other = "F".repeat(64);
+    state.auth[R]!.sequence = "5";
+    state.txs[other] = { height: "1402805", tx_result: { code: 0, log: "", gas_used: "90000", gas_wanted: "100000" } };
+    state.accSeq[`${R}/4`] = [other];
+    await reconcilePending(ctx);
+    expect(readLedger(ctx).entries[0]?.status).toBe("superseded");
+  }, 30_000);
 });
 
 describe("what is signed", () => {
@@ -557,13 +710,17 @@ describe("what is signed", () => {
           { "@type": "/zerone.claiming_pot.v1.MsgAddBootstrapEntry", authority: R, addresses: [addr] },
           { "@type": "/cosmos.feegrant.v1beta1.MsgGrantAllowance", granter: R, grantee: addr, allowance: restDoorGrant(R, addr, "2026-11-11T17:31:00Z").allowance },
         ],
-        memo: "zerone-door/v1", timeout_height: "0", extension_options: [], non_critical_extension_options: [],
+        memo: "zerone-door/v1", timeout_height: "1402840", extension_options: [], non_critical_extension_options: [],
       },
       auth_info: { signer_infos: [], fee: { amount: [{ denom: "uzrn", amount: "150000" }], gas_limit: "150000", payer: "", granter: "" } },
       signatures: [],
     };
-    const want = { kind: "admit" as const, registrar: R, address: addr, expiration: "2026-11-11T17:31:00Z", revokeFirst: false };
+    const want = { kind: "admit" as const, registrar: R, address: addr, expiration: "2026-11-11T17:31:00Z", revokeFirst: false, timeoutHeight: 1_402_840 };
     expect(checkBuiltTx(good, want)).toEqual([]);
+    const noTimeout = structuredClone(good);
+    noTimeout.body.timeout_height = "0";
+    expect(checkBuiltTx(noTimeout, want)).toEqual(["timeout height"]);
+    expect(checkBuiltTx(good, { ...want, timeoutHeight: 1_402_841 })).toEqual(["timeout height"]);
     const twoAddresses = structuredClone(good);
     twoAddresses.body.messages[0]!.addresses = [addr, R];
     expect(checkBuiltTx(twoAddresses, want)).toContain("bootstrap addresses");

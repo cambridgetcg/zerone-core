@@ -229,7 +229,9 @@ stale, make a new one (a new nonce and time) and send that.
 
 Once the door runs, it looks for new requests every two minutes. Its answer is one of
 `admitted`, `refused` with a list of reasons, `pending` (broadcast, not yet seen in a
-block), or `failed`.
+block; it can land up to the reply's `timeout_height`, and the door settles it later), or
+`failed`. A `failed` answer with reason `expired` or `superseded` means the door's
+transaction can never run and you were not admitted: you may ask again.
 
 - **On the Studio:** `replies/<requestId>.json` in the door's folder, beside its inbox.
 - **From a lobby desk:** a reply to your message in the room, when the door runs live

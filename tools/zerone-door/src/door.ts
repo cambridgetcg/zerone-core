@@ -5,7 +5,7 @@
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { addressPayloadHex } from "./bech32.ts";
-import type { ChainReader, Grant } from "./chain.ts";
+import type { ChainReader, Grant, IncludedTx } from "./chain.ts";
 import { loadAllowlist, type DoorConfig, type DoorPaths } from "./config.ts";
 import {
   channelKeyOf,
@@ -27,10 +27,10 @@ import {
   ALLOWANCE_PERIOD_SECONDS,
   ALLOWANCE_SPEND_LIMIT_UZRN,
   ALLOWED_MESSAGES,
-  CHAIN_STALE_SECONDS,
   INCLUSION_TIMEOUT_MS,
   REGRANT_GAS,
   SIMULATE_MARGIN_GAS,
+  TIMEOUT_SETTLE_BLOCKS,
 } from "./policy.ts";
 import { parseDoorRequest, sha256Hex, verifyDoorRequest } from "./request.ts";
 import {
@@ -43,6 +43,7 @@ import {
   grantExpiration,
   signTx,
   tcpNode,
+  timeoutHeightFor,
   txHashOf,
   withPublicSigner,
   type UnsignedTx,
@@ -65,7 +66,11 @@ export type DoorReason =
   | "inclusion_timeout"
   | "delivery_failed"
   | "postcheck_failed"
-  | "dropped";
+  /** The chain passed the transaction's timeout height and R's sequence never
+   * moved past the one it was signed with: no block ran it, none can. */
+  | "expired"
+  /** Another transaction used the R sequence it was signed with. */
+  | "superseded";
 
 export interface Reply {
   schema: "zerone-door-reply/v1";
@@ -86,6 +91,8 @@ export interface Reply {
     expiration: string;
   };
   tx_hash?: string;
+  /** The last block height that can run the transaction. */
+  timeout_height?: number;
   height?: number;
   simulated_gas?: number;
   gas_limit?: number;
@@ -171,7 +178,7 @@ async function postcheck(ctx: DoorContext, entry: LedgerEntry): Promise<string[]
 }
 
 /** Looks up a broadcast transaction until it is included or the wait ends. */
-async function awaitInclusion(ctx: DoorContext, txHash: string): Promise<{ height: number; code: number; log: string } | null | "error"> {
+async function awaitInclusion(ctx: DoorContext, txHash: string): Promise<IncludedTx | null | "error"> {
   const sleep = ctx.sleep ?? ((ms: number) => Bun.sleep(ms));
   const deadline = Date.now() + (ctx.inclusionTimeoutMs ?? INCLUSION_TIMEOUT_MS);
   for (;;) {
@@ -269,15 +276,18 @@ export async function processItem(ctx: DoorContext, item: IntakeItem): Promise<O
   rmSync(workHome, { recursive: true, force: true });
   mkdirSync(workHome, { recursive: true, mode: 0o700 });
   const expiration = grantExpiration(now);
+  // The transaction can run only up to this height, so a lost broadcast can
+  // later be proven gone instead of guessed gone.
+  const timeoutHeight = timeoutHeightFor(g.facts.status.height);
   let unsigned: UnsignedTx;
   try {
     unsigned = kind === "admit"
-      ? buildAdmissionTx(ctx.zeroned, workHome, registrar, req.address, expiration)
-      : buildRegrantTx(ctx.zeroned, workHome, registrar, req.address, expiration, verdict.revokeFirst);
+      ? buildAdmissionTx(ctx.zeroned, workHome, registrar, req.address, expiration, timeoutHeight)
+      : buildRegrantTx(ctx.zeroned, workHome, registrar, req.address, expiration, verdict.revokeFirst, timeoutHeight);
   } catch (error) {
     return finish(refused(req, ["build_failed"], ctx, error instanceof Error ? error.message : String(error)));
   }
-  const problems = checkBuiltTx(unsigned, { kind, registrar, address: req.address, expiration, revokeFirst: verdict.revokeFirst });
+  const problems = checkBuiltTx(unsigned, { kind, registrar, address: req.address, expiration, revokeFirst: verdict.revokeFirst, timeoutHeight });
   if (problems.length > 0) return finish(refused(req, ["build_failed"], ctx, problems.join(", ")));
 
   const auth = g.facts.registrarAuth!;
@@ -348,6 +358,7 @@ export async function processItem(ctx: DoorContext, item: IntakeItem): Promise<O
     tx_hash: txHash,
     status: "pending_inclusion",
     sequence: auth.sequence,
+    timeout_height: timeoutHeight,
     // Until the transaction is found: then the window of its inclusion height.
     chain_window: currentWindow(g.facts.status.height),
     utc_day: utcDay(now),
@@ -360,7 +371,7 @@ export async function processItem(ctx: DoorContext, item: IntakeItem): Promise<O
     l.entries.push(entry);
     writeLedger(ctx, l);
   }
-  const live = { ...base, mode: "live" as const, tx_hash: txHash };
+  const live = { ...base, mode: "live" as const, tx_hash: txHash, timeout_height: timeoutHeight };
 
   let broadcast;
   try {
@@ -399,32 +410,39 @@ function updateEntry(ctx: DoorContext, requestId: string, patch: Partial<LedgerE
   return e;
 }
 
-/** Waits for inclusion, checks result.code, postchecks, writes the receipt.
- * A transaction found in a block moves to the chain window of its inclusion
- * height, the window the chain itself counts the admission in, whichever run
- * finds it. */
-async function settle(ctx: DoorContext, entry: LedgerEntry, base: Omit<Reply, "decision" | "reasons" | "at">): Promise<Reply> {
+/** Waits for inclusion within this run, then records what was found. A
+ * transaction not seen in time stays pending: waiting proves nothing. */
+async function settle(ctx: DoorContext, entry: LedgerEntry, base: ReplyBase): Promise<Reply> {
   const included = await awaitInclusion(ctx, entry.tx_hash);
   if (included === null || included === "error") {
-    const reply: Reply = { ...base, decision: "pending", reasons: ["inclusion_timeout"], at: ctx.now().toISOString() } as Reply;
+    const reply: Reply = { ...base, decision: "pending", reasons: ["inclusion_timeout"], at: ctx.now().toISOString() };
     writeReply(ctx, reply);
-    ctx.log({ event: "pending", request_id: entry.request_id, tx_hash: entry.tx_hash, reasons: reply.reasons });
+    ctx.log({ event: "pending", request_id: entry.request_id, tx_hash: entry.tx_hash, reasons: reply.reasons, timeout_height: entry.timeout_height });
     return reply;
   }
+  return recordInclusion(ctx, entry, included, base);
+}
+
+type ReplyBase = Omit<Reply, "decision" | "reasons" | "at">;
+
+/** Records a transaction found in a block, by every path that finds one:
+ * checks result.code, postchecks, and moves the entry to the chain window of
+ * its inclusion height, the window the chain itself counts the admission in. */
+async function recordInclusion(ctx: DoorContext, entry: LedgerEntry, included: IncludedTx, base: ReplyBase): Promise<Reply> {
   const placed = { height: included.height, chain_window: currentWindow(included.height) };
   if (included.code !== 0) {
     updateEntry(ctx, entry.request_id, { status: "delivery_failed", ...placed, detail: included.log.slice(0, 200) });
-    const reply: Reply = { ...base, decision: "failed", reasons: ["delivery_failed"], height: included.height, detail: included.log.slice(0, 300), at: ctx.now().toISOString() } as Reply;
+    const reply: Reply = { ...base, decision: "failed", reasons: ["delivery_failed"], height: included.height, detail: included.log.slice(0, 300), at: ctx.now().toISOString() };
     writeReply(ctx, reply);
-    ctx.log({ event: "failed", request_id: entry.request_id, tx_hash: entry.tx_hash, reasons: reply.reasons });
+    ctx.log({ event: "failed", request_id: entry.request_id, tx_hash: entry.tx_hash, reasons: reply.reasons, height: included.height });
     return reply;
   }
   const problems = await postcheck(ctx, entry);
   if (problems.length > 0) {
     updateEntry(ctx, entry.request_id, { status: "postcheck_failed", ...placed, detail: problems.join(", ") });
-    const reply: Reply = { ...base, decision: "failed", reasons: ["postcheck_failed"], height: included.height, detail: problems.join(", "), at: ctx.now().toISOString() } as Reply;
+    const reply: Reply = { ...base, decision: "failed", reasons: ["postcheck_failed"], height: included.height, detail: problems.join(", "), at: ctx.now().toISOString() };
     writeReply(ctx, reply);
-    ctx.log({ event: "postcheck_failed", request_id: entry.request_id, tx_hash: entry.tx_hash, detail: problems });
+    ctx.log({ event: "postcheck_failed", request_id: entry.request_id, tx_hash: entry.tx_hash, detail: problems, height: included.height });
     return reply;
   }
   updateEntry(ctx, entry.request_id, { status: "included", ...placed });
@@ -434,60 +452,138 @@ async function settle(ctx: DoorContext, entry: LedgerEntry, base: Omit<Reply, "d
     reasons: [],
     height: included.height,
     at: ctx.now().toISOString(),
-  } as Reply;
+  };
   writeReply(ctx, reply);
   ctx.log({ event: reply.decision, request_id: entry.request_id, address: entry.address, tx_hash: entry.tx_hash, height: included.height });
   return reply;
 }
 
-/** Live runs first settle anything a previous run left pending. Nothing is
- * ever re-broadcast: a pending entry is only looked up. */
-export async function reconcilePending(ctx: DoorContext): Promise<void> {
-  if (!ctx.live) return;
-  const pending = readLedger(ctx).entries.filter((e) => e.status === "pending_inclusion");
-  for (const entry of pending) {
-    const base = {
-      schema: "zerone-door-reply/v1" as const,
-      request_id: entry.request_id,
-      mode: "live" as const,
-      address: entry.address,
-      did: entry.did,
-      kind: entry.kind,
-      registrar: ctx.config.registrar.address,
-      pot_id: `bootstrap-${entry.address}`,
-      allowance: allowanceSummary(entry.grant_expiration),
-      tx_hash: entry.tx_hash,
+function liveBase(ctx: DoorContext, entry: LedgerEntry): ReplyBase {
+  return {
+    schema: "zerone-door-reply/v1",
+    request_id: entry.request_id,
+    mode: "live",
+    address: entry.address,
+    did: entry.did,
+    kind: entry.kind,
+    registrar: ctx.config.registrar.address,
+    pot_id: `bootstrap-${entry.address}`,
+    allowance: allowanceSummary(entry.grant_expiration),
+    tx_hash: entry.tx_hash,
+    ...(entry.timeout_height !== undefined ? { timeout_height: entry.timeout_height } : {}),
+  };
+}
+
+/** What became of a broadcast the door has not yet seen settle. */
+type Fate =
+  | { kind: "found"; tx: IncludedTx }
+  | { kind: "expired"; nodeHeight: number; registrarSequence: string }
+  | { kind: "superseded"; by: string; height: number }
+  | { kind: "unproven"; detail: string; attention: boolean };
+
+/** Proves what became of a pending transaction, or says that it cannot yet.
+ * Only proof frees an entry:
+ *  - found: the transaction is in a block (by hash, or as the one the chain's
+ *    tx.acc_seq index names for its R sequence), with code 0 or not;
+ *  - expired: the node has blocks TIMEOUT_SETTLE_BLOCKS past its timeout
+ *    height and R's sequence on chain never moved past the one it was signed
+ *    with, so no block ran it and the ante handler refuses it in every later
+ *    block;
+ *  - superseded: R's sequence moved past it and the acc_seq index names
+ *    another transaction that used that sequence.
+ * Elapsed time proves nothing, and nothing is ever re-broadcast. */
+async function fateOf(ctx: DoorContext, entry: LedgerEntry): Promise<Fate> {
+  const registrar = ctx.config.registrar.address;
+  // The node's height first: every read after it sees at least those blocks.
+  const status = await ctx.chain.status();
+  const byHash = await ctx.chain.txByHash(entry.tx_hash);
+  if (!byHash.ok) return { kind: "unproven", detail: byHash.error, attention: false };
+  if (byHash.value !== null) return { kind: "found", tx: byHash.value };
+  if (!status.ok) return { kind: "unproven", detail: status.error, attention: false };
+  if (entry.sequence === undefined || !/^\d+$/.test(entry.sequence)) {
+    return { kind: "unproven", detail: "no signing sequence recorded", attention: true };
+  }
+  const r = await ctx.chain.authAccount(registrar);
+  if (!r.ok) return { kind: "unproven", detail: r.error, attention: false };
+  if (r.value === null) return { kind: "unproven", detail: "R has no account on chain", attention: true };
+  const pastTimeout = entry.timeout_height !== undefined && status.value.height >= entry.timeout_height + TIMEOUT_SETTLE_BLOCKS;
+  if (BigInt(r.value.sequence) > BigInt(entry.sequence)) {
+    const used = await ctx.chain.txsBySignerSequence(registrar, entry.sequence);
+    if (!used.ok) return { kind: "unproven", detail: used.error, attention: false };
+    const mine = used.value.find((t) => t.hash === entry.tx_hash.toUpperCase());
+    if (mine) return { kind: "found", tx: mine };
+    if (used.value.length === 1) return { kind: "superseded", by: used.value[0]!.hash, height: used.value[0]!.height };
+    // The index may not have the block yet (or the node may not index acc_seq).
+    return {
+      kind: "unproven",
+      detail: `R's sequence moved past ${entry.sequence}, and the acc_seq index shows ${used.value.length} transactions for it`,
+      attention: pastTimeout || entry.timeout_height === undefined,
     };
-    const reply = await settle({ ...ctx, inclusionTimeoutMs: 0 }, entry, base);
-    if (reply.decision !== "pending" || entry.sequence === undefined) continue;
-    // Still unseen. Once R's sequence on chain is still the one this tx was
-    // signed with, well after broadcast, the tx was dropped and can never land
-    // (any later R transaction would take that sequence first).
-    const ageMs = ctx.now().getTime() - Date.parse(entry.at);
-    if (ageMs < DROP_AFTER_MS) continue;
-    const status = await ctx.chain.status();
-    const chainMoving = status.ok && (ctx.now().getTime() - Date.parse(status.value.time)) / 1000 <= CHAIN_STALE_SECONDS;
-    const r = await ctx.chain.authAccount(ctx.config.registrar.address);
-    if (!chainMoving || !r.ok || r.value === null || r.value.sequence !== entry.sequence) {
-      ctx.log({ event: "pending_needs_attention", request_id: entry.request_id, tx_hash: entry.tx_hash });
-      continue;
-    }
-    updateEntry(ctx, entry.request_id, { status: "dropped", detail: "never included; R's sequence did not move" });
-    writeReply(ctx, { ...base, decision: "failed", reasons: ["dropped"], at: ctx.now().toISOString() } as Reply);
-    ctx.log({ event: "dropped", request_id: entry.request_id, tx_hash: entry.tx_hash });
+  }
+  if (entry.timeout_height === undefined) {
+    return { kind: "unproven", detail: "no timeout height: it settles only when found or when R's sequence moves past it", attention: true };
+  }
+  if (pastTimeout) return { kind: "expired", nodeHeight: status.value.height, registrarSequence: r.value.sequence };
+  return { kind: "unproven", detail: `can still land until height ${entry.timeout_height}; the node is at ${status.value.height}`, attention: false };
+}
+
+/** Ledgers from before timeout heights marked a broadcast unseen for 30
+ * minutes "dropped", which proved nothing: that transaction had no timeout
+ * height and could still land. Each one is re-opened as pending, so it counts
+ * toward the caps and the admittee watch and keeps the door busy again, and
+ * its receipt says pending until fateOf proves what became of it. */
+function reopenDropped(ctx: DoorContext): void {
+  const l = readLedger(ctx);
+  const dropped = l.entries.filter((e) => e.status === "dropped");
+  if (dropped.length === 0) return;
+  for (const e of dropped) {
+    e.status = "pending_inclusion";
+    e.detail = "re-opened: marked dropped on a 30-minute clock, never proven unable to land";
+  }
+  writeLedger(ctx, l);
+  for (const e of dropped) {
+    writeReply(ctx, { ...liveBase(ctx, e), decision: "pending", reasons: ["inclusion_timeout"], detail: e.detail, at: ctx.now().toISOString() });
+    ctx.log({ event: "dropped_reopened", request_id: e.request_id, tx_hash: e.tx_hash });
   }
 }
 
-/** How long an unseen broadcast stays pending before the door checks whether
- * it was dropped (sixty 30-second blocks). */
-export const DROP_AFTER_MS = 30 * 60 * 1000;
+/** Live runs first settle anything a previous run left pending, including
+ * anything an older ledger marked dropped. Nothing is ever re-broadcast: a
+ * pending entry is only looked up, and it leaves pending only on proof
+ * (fateOf). While one is pending the door admits no one else (door_busy). */
+export async function reconcilePending(ctx: DoorContext): Promise<void> {
+  if (!ctx.live) return;
+  reopenDropped(ctx);
+  const pending = readLedger(ctx).entries.filter((e) => e.status === "pending_inclusion");
+  for (const entry of pending) {
+    const base = liveBase(ctx, entry);
+    const fate = await fateOf(ctx, entry);
+    if (fate.kind === "found") {
+      await recordInclusion(ctx, entry, fate.tx, base);
+      continue;
+    }
+    if (fate.kind === "unproven") {
+      if (fate.attention) ctx.log({ event: "pending_needs_attention", request_id: entry.request_id, tx_hash: entry.tx_hash, detail: fate.detail });
+      continue;
+    }
+    const detail = fate.kind === "expired"
+      ? `not run by its timeout height ${entry.timeout_height}: the node is at ${fate.nodeHeight} and R's sequence is still ${fate.registrarSequence}`
+      : `R's sequence ${entry.sequence} was used by tx ${fate.by} at height ${fate.height}`;
+    updateEntry(ctx, entry.request_id, { status: fate.kind, detail });
+    writeReply(ctx, { ...base, decision: "failed", reasons: [fate.kind], detail, at: ctx.now().toISOString() });
+    ctx.log({ event: fate.kind, request_id: entry.request_id, tx_hash: entry.tx_hash, detail });
+  }
+}
 
 export function replyText(reply: Reply): string {
   if (reply.decision === "admitted" || reply.decision === "regranted") {
     return `zerone-door: ${reply.decision} ${reply.address} in tx ${reply.tx_hash} at height ${reply.height}. ` +
       `Seed pot ${reply.pot_id}; allowance from ${reply.registrar} until ${reply.allowance?.expiration}.`;
   }
-  if (reply.decision === "pending") return `zerone-door: ${reply.address} pending in tx ${reply.tx_hash}; check the chain before asking again.`;
+  if (reply.decision === "pending") {
+    const until = reply.timeout_height !== undefined ? ` (it can land until height ${reply.timeout_height})` : "";
+    return `zerone-door: ${reply.address} pending in tx ${reply.tx_hash}${until}; check the chain before asking again.`;
+  }
   return `zerone-door: ${reply.decision} request ${reply.request_id.slice(0, 16)}: ${reply.reasons.join(", ") || "no reason given"}.`;
 }
 

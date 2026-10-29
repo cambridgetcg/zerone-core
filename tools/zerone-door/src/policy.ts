@@ -85,14 +85,40 @@ export const REQUEST_MAX_BYTES = 2_048;
 // ── liveness ──
 /** The chain is treated as halted when its newest block is older than this. */
 export const CHAIN_STALE_SECONDS = 10 * 60;
-/** At 30-second blocks, ten blocks. CosmJS's 60 s default is too short. */
+/** At 30-second blocks, ten blocks. CosmJS's 60 s default is too short. This
+ * is only how long one run waits before leaving a broadcast pending; it is
+ * never a verdict on the transaction. */
 export const INCLUSION_TIMEOUT_MS = 300_000;
 export const READ_TIMEOUT_MS = 30_000;
+
+// ── what a transaction R signs may still do after it is broadcast ──
+/** Every transaction R signs carries timeout_height = the node's height when
+ * the door read the chain + this many blocks; SDK v0.50's
+ * TxTimeoutHeightDecorator (x/auth/ante, in zerone's ante chain) refuses it in
+ * CheckTx, ReCheckTx and FinalizeBlock at any block above that height. 40
+ * blocks is 20 minutes at zerone-1's 30 s blocks (h1,370,478 -> h1,404,750
+ * took 34,272 blocks in 11.9 days): the gates accept a node up to
+ * CHAIN_STALE_SECONDS (20 blocks) behind, a run waits INCLUSION_TIMEOUT_MS
+ * (10 blocks) for inclusion, and 10 blocks are left for a slow mempool or
+ * slow blocks. While the transaction can still land the door admits no one
+ * else, so this is also the longest a lost broadcast can hold the door, about
+ * the old 30-minute wait. */
+export const TX_TIMEOUT_BLOCKS = 40;
+/** A transaction not found once the node is this many blocks past its
+ * timeout height, while R's sequence never moved past the one it was signed
+ * with, never ran and never can: every block above the timeout height refuses
+ * it (a mempool can still hand it to block timeout + 1, where it fails with
+ * code 30 and changes nothing). The three blocks give the node's transaction
+ * index time to show one in block timeout before "not found" is believed. */
+export const TIMEOUT_SETTLE_BLOCKS = 3;
 
 export function allowanceInvariantsHold(): boolean {
   return AGENT_POT_CLAIM_GAS + AGENT_REGISTER_GAS <= ALLOWANCE_PERIOD_LIMIT_UZRN
     && AGENT_SUBMIT_CLAIM_GAS <= ALLOWANCE_PERIOD_LIMIT_UZRN
     && ALLOWANCE_PERIOD_LIMIT_UZRN <= ALLOWANCE_SPEND_LIMIT_UZRN
     && ALLOWANCE_PERIOD_SECONDS < ALLOWANCE_DAYS * 86_400
-    && DOOR_WINDOW_CAP * ADMISSION_CEILING_UZRN + REGISTRAR_RESERVE_UZRN <= 30_000_000;
+    && DOOR_WINDOW_CAP * ADMISSION_CEILING_UZRN + REGISTRAR_RESERVE_UZRN <= 30_000_000
+    // A broadcast must keep room to land after the longest node lag the gates
+    // accept plus one run's inclusion wait, at 30 s blocks.
+    && TX_TIMEOUT_BLOCKS * 30 > CHAIN_STALE_SECONDS + INCLUSION_TIMEOUT_MS / 1000;
 }

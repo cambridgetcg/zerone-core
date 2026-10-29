@@ -494,6 +494,39 @@ export class ChainReader {
     };
   }
 
+  /** The transactions in blocks that used `address`'s account sequence
+   * `sequence`, found by the tx.acc_seq event ("<address>/<sequence>") the
+   * SDK's SetPubKeyDecorator emits for each signer. Only a transaction that
+   * passed the whole ante handler keeps its events, and the same handler
+   * increments the sequence, so a correct chain shows at most one. An empty
+   * list proves nothing: the index may lag, or the node may not index it. */
+  async txsBySignerSequence(address: string, sequence: string): Promise<Read<Array<IncludedTx & { hash: string }>>> {
+    if (!/^[a-z0-9]{1,83}$/.test(address) || !/^\d{1,20}$/.test(sequence)) return { ok: false, error: "acc_seq search: bad address or sequence" };
+    const query = encodeURIComponent(`"tx.acc_seq='${address}/${sequence}'"`);
+    const r = await this.getJson(`${this.rpc}/tx_search?query=${query}&page=1&per_page=10`);
+    if (!r.ok) return r;
+    const body = r.value.body;
+    if (body?.error) return { ok: false, error: `acc_seq search: ${String(body.error.data ?? body.error.message).slice(0, 160)}` };
+    const list = body?.result?.txs;
+    if (!Array.isArray(list)) return { ok: false, error: "acc_seq search: unexpected shape" };
+    const out: Array<IncludedTx & { hash: string }> = [];
+    for (const t of list) {
+      const height = Number(t?.height);
+      if (typeof t?.hash !== "string" || !/^[0-9A-Fa-f]{64}$/.test(t.hash) || !t?.tx_result || !Number.isSafeInteger(height)) {
+        return { ok: false, error: "acc_seq search: unexpected shape" };
+      }
+      out.push({
+        hash: t.hash.toUpperCase(),
+        height,
+        code: Number(t.tx_result.code ?? 0),
+        log: String(t.tx_result.log ?? ""),
+        gasUsed: Number(t.tx_result.gas_used ?? 0),
+        gasWanted: Number(t.tx_result.gas_wanted ?? 0),
+      });
+    }
+    return { ok: true, value: out };
+  }
+
   /** Read-only ABCI Simulate of encoded tx bytes. Simulate skips signature
    * checks and some decorators, so it measures gas and execution only. */
   async simulate(txBytes: Uint8Array): Promise<Read<{ gasUsed: number; height: number }>> {
