@@ -232,8 +232,15 @@ the reply record it. A broadcast whose inclusion was not seen stays
 `pending_inclusion` only on proof, never because time passed:
 
 - **found** in a block, by its hash or as the transaction the chain's `tx.acc_seq`
-  index names for its R sequence: `included` (or `delivery_failed` for a non-zero
-  code, `postcheck_failed` when the chain state differs from what was built);
+  index names for its R sequence: `included` when it ran (code 0) and the chain shows
+  what was built, `postcheck_failed` when it ran and the chain state differs; with a
+  non-zero code, `delivery_failed` once R's sequence has moved past the one it was
+  signed with (it ran and its messages failed, or another transaction took the
+  sequence), so it can never run again. A non-zero code while R's sequence has not
+  moved means the block's ante handler refused it before anything in it ran (a fee R
+  could not pay at that moment, say), and the same signed transaction can still run in
+  a later block: it stays pending, its first reply is `pending` with reason
+  `delivery_failed`, and it becomes `delivery_failed` only by the expired proof below;
 - **expired:** the node is at least 3 blocks past its timeout height, the transaction
   is not found, and R's sequence never moved past the one it was signed with in a state
   at or past the timeout height, so no block ran it and none can. The door reads that
@@ -245,7 +252,7 @@ the reply record it. A broadcast whose inclusion was not seen stays
 - **superseded:** R's sequence moved past it and the `tx.acc_seq` index names the other
   transaction that used that sequence.
 
-`expired` and `superseded` do not count, so the agent may ask again. If R's sequence
+`delivery_failed`, `expired` and `superseded` do not count, so the agent may ask again. If R's sequence
 moved and the index names nothing, the entry stays pending and the door logs
 `pending_needs_attention`. A ledger written before timeout heights may hold entries
 marked `dropped` after 30 minutes, which proved nothing: each run re-opens them as
@@ -316,7 +323,10 @@ decoder (with an answer zerone-1 served), and the run loop
 against a fake chain, a fake CLI and a fake lobby (dry run, a dry run that never posts
 in the room, live admission with the passphrase on stdin only, a live reply in the
 room, replay, CheckTx rejection, inclusion timeout then reconciliation without
-re-broadcast, delivery failure, re-grant with revoke, and a signature by the wrong key
+re-broadcast, a delivery failure after R's sequence was used, a block that refused the
+transaction before it ran (pending until its timeout height passes, admitted when the
+same transaction runs in a later block, failed at once when another transaction takes
+its sequence), re-grant with revoke, and a signature by the wrong key
 never broadcast), and what becomes of a broadcast not seen to land: one delayed past 30
 minutes that then lands (settled, counted, the door busy until then), one absent past
 its timeout height (expired only after the settle blocks, and only on R's sequence read

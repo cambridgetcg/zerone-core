@@ -25,6 +25,11 @@ export type EntryStatus =
   | "pending_inclusion"
   | "included"
   | "rejected"
+  /** In a block with a non-zero code and proven unable to run since: R's
+   * sequence moved past the one it was signed with, or the chain passed its
+   * timeout height with R's sequence unmoved (the block refused it before it
+   * ran). Until one of those holds, a refused transaction stays
+   * pending_inclusion. Not counted, so the agent may ask again. */
   | "delivery_failed"
   | "postcheck_failed"
   /** Proven unable to run: the chain is past its timeout height and R's

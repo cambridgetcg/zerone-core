@@ -52,7 +52,7 @@ function genTx(messages: unknown[], timeoutHeight = "0") {
 
 /** A stand-in for the pinned CLI that builds the same JSON shapes zeroned
  * 2e37c4c prints, and applies a broadcast admission to the fake chain. */
-function fakeZeroned(state: FakeChainState, calls: Call[], opts: { broadcastCode?: number; include?: boolean; signWith?: string } = {}): ZeronedRunner {
+function fakeZeroned(state: FakeChainState, calls: Call[], opts: { broadcastCode?: number; include?: boolean; refuseInBlock?: number; signWith?: string } = {}): ZeronedRunner {
   return (args, stdin) => {
     const reads = args[0] === "tx" && ["encode", "sign", "broadcast"].includes(args[1]!) ? readFileSync(args[2]!, "utf8") : null;
     calls.push({ args, stdin: stdin ? Buffer.from(stdin).toString("utf8") : null, file: reads });
@@ -105,7 +105,8 @@ function fakeZeroned(state: FakeChainState, calls: Call[], opts: { broadcastCode
       const raw = readFileSync(args[2]!);
       const hash = createHash("sha256").update(Buffer.from(createHash("sha256").update(raw).digest("base64"), "base64")).digest("hex").toUpperCase();
       const code = opts.broadcastCode ?? 0;
-      if (code === 0 && opts.include !== false) land(state, JSON.parse(raw.toString("utf8")), hash, state.height + 1);
+      if (code === 0 && opts.refuseInBlock !== undefined) refuse(state, hash, state.height + 1, opts.refuseInBlock);
+      else if (code === 0 && opts.include !== false) land(state, JSON.parse(raw.toString("utf8")), hash, state.height + 1);
       return ok(JSON.stringify({ height: "0", txhash: hash, code, raw_log: code ? "insufficient fees" : "" }));
     }
     return { code: 1, stdout: "", stderr: `unexpected zeroned call ${args.slice(0, 3).join(" ")}` };
@@ -129,7 +130,14 @@ function land(state: FakeChainState, tx: any, hash: string, height: number, code
   state.txs[hash] = { height: String(height), tx_result: { code, log: code ? "failed in block" : "", gas_used: "121000", gas_wanted: "150000" } };
 }
 
-function setup(opts: { live?: boolean; state?: Partial<FakeChainState>; zeroned?: { broadcastCode?: number; include?: boolean; signWith?: string }; passphrase?: string | null; home?: Parameters<typeof makeDoorHome>[0] } = {}) {
+/** A block holds the transaction but its ante handler refuses it (a fee R
+ * cannot pay at that moment, say): the tx index records the code, nothing in
+ * it runs, R's sequence stays, and no acc_seq event is kept. */
+function refuse(state: FakeChainState, hash: string, height: number, code: number): void {
+  state.txs[hash] = { height: String(height), tx_result: { code, log: "insufficient funds", gas_used: "40000", gas_wanted: "150000" } };
+}
+
+function setup(opts: { live?: boolean; state?: Partial<FakeChainState>; zeroned?: { broadcastCode?: number; include?: boolean; refuseInBlock?: number; signWith?: string }; passphrase?: string | null; home?: Parameters<typeof makeDoorHome>[0] } = {}) {
   const { configPath, config } = makeDoorHome(opts.home);
   const state = fakeChainState(opts.state);
   const calls: Call[] = [];
@@ -438,12 +446,13 @@ describe("live", () => {
     expect(settled.decision).toBe("admitted");
   });
 
-  test("a delivered transaction with a non-zero code is a failure", async () => {
-    const { ctx, state } = setup({ live: true, zeroned: { include: false } });
+  test("a transaction that ran and failed in its messages (R's sequence used) is a final failure", async () => {
+    const { ctx, state, calls } = setup({ live: true, zeroned: { include: false } });
     const req = makeRequest();
     await processItem(ctx, { text: req.text, channel: studio });
     const entry = readLedger(ctx).entries[0]!;
-    state.txs[entry.tx_hash] = { height: "1402802", tx_result: { code: 11, log: "out of gas", gas_used: "150001", gas_wanted: "150000" } };
+    // Out of gas: the ante handler passed (R's sequence moved, acc_seq names it), the messages failed.
+    land(state, JSON.parse(calls.find((c) => c.args[1] === "broadcast")!.file!), entry.tx_hash, 1_402_802, 11);
     await reconcilePending(ctx);
     expect(readLedger(ctx).entries[0]).toMatchObject({ status: "delivery_failed", height: 1_402_802, chain_window: Math.floor(1_402_802 / 34_272) });
   });
@@ -566,6 +575,64 @@ describe("a broadcast the door has not seen land", () => {
     expect(reply?.timeout_height).toBe(T + TIMEOUT_SETTLE_BLOCKS + TX_TIMEOUT_BLOCKS);
     expect(flag(calls.filter((c) => c.args[1] === "sign").at(-1)!.args, "--sequence")).toBe("4");
   }, 30_000);
+
+  test("refused in its block before it ran (R's sequence unmoved): pending until its timeout height passes, then failed and not counted", async () => {
+    const { ctx, state, calls } = setup({ live: true, zeroned: { refuseInBlock: 5 } });
+    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: studio });
+    // Not final: the same signed transaction can still run in a later block.
+    expect(reply).toMatchObject({ decision: "pending", reasons: ["delivery_failed"], timeout_height: T });
+    expect(reply?.detail).toContain(`in block ${READ_HEIGHT + 1} with code 5`);
+    expect(reply?.detail).toContain(`can still run until height ${T}`);
+    const entry = readLedger(ctx).entries[0]!;
+    expect(entry.status).toBe("pending_inclusion");
+
+    advance(state, T + TIMEOUT_SETTLE_BLOCKS - 1, 21);
+    await reconcilePending(later(ctx, 21));
+    expect(readLedger(ctx).entries[0]?.status).toBe("pending_inclusion");
+    const other = makeRequest({ label: "agent-2", issuedAt: at(21).toISOString() });
+    expect((await processItem(later(ctx, 21), { text: other.text, channel: studio })).reply?.reasons).toEqual(["door_busy"]);
+
+    // Past its timeout height, R's sequence still 4: it never ran and never can.
+    advance(state, T + TIMEOUT_SETTLE_BLOCKS, 22);
+    await reconcilePending(later(ctx, 22));
+    expect(readLedger(ctx).entries[0]).toMatchObject({ status: "delivery_failed", height: READ_HEIGHT + 1 });
+    const failed = replyOf(ctx, entry.request_id);
+    expect(failed).toMatchObject({ decision: "failed", reasons: ["delivery_failed"], height: READ_HEIGHT + 1 });
+    expect(failed.detail).toContain(`R's sequence is still 4 at height ${T + TIMEOUT_SETTLE_BLOCKS}`);
+
+    // Not counted: the agent may ask again, and R signs with the sequence it never used.
+    const again = makeRequest({ nonceHex: "d".repeat(32), issuedAt: at(22).toISOString() });
+    const next = await processItem(later(ctx, 22), { text: again.text, channel: studio });
+    expect(next.reply?.decision).toBe("pending");
+    expect(flag(calls.filter((c) => c.args[1] === "sign").at(-1)!.args, "--sequence")).toBe("4");
+  }, 30_000);
+
+  test("refused in its block, then run by a later block before its timeout height: admitted and counted", async () => {
+    const { ctx, state, calls } = setup({ live: true, zeroned: { refuseInBlock: 5 } });
+    const req = makeRequest();
+    await processItem(ctx, { text: req.text, channel: studio });
+    const entry = readLedger(ctx).entries[0]!;
+    // The same signed bytes run once R can pay; the index keeps the success.
+    land(state, JSON.parse(calls.find((c) => c.args[1] === "broadcast")!.file!), entry.tx_hash, READ_HEIGHT + 9);
+    advance(state, READ_HEIGHT + 10, 6);
+    await reconcilePending(later(ctx, 6));
+    expect(readLedger(ctx).entries[0]).toMatchObject({ status: "included", height: READ_HEIGHT + 9 });
+    expect(replyOf(ctx, entry.request_id)).toMatchObject({ decision: "admitted", height: READ_HEIGHT + 9 });
+    expect(admitteesOf(readLedger(ctx)).map((a) => a.address)).toEqual([req.address]);
+  });
+
+  test("refused in its block, and another transaction then used its sequence: failed at once", async () => {
+    const { ctx, state } = setup({ live: true, zeroned: { refuseInBlock: 5 } });
+    await processItem(ctx, { text: makeRequest().text, channel: studio });
+    const entry = readLedger(ctx).entries[0]!;
+    const other = "D".repeat(64);
+    state.auth[R]!.sequence = "5";
+    state.txs[other] = { height: String(READ_HEIGHT + 3), tx_result: { code: 0, log: "", gas_used: "90000", gas_wanted: "100000" } };
+    state.accSeq[`${R}/4`] = [other];
+    advance(state, READ_HEIGHT + 5, 3);
+    await reconcilePending(later(ctx, 3));
+    expect(readLedger(ctx).entries[0]).toMatchObject({ status: "delivery_failed", height: READ_HEIGHT + 1 });
+  });
 
   test("expired needs R's sequence read on the RPC node at or past the timeout height, never over REST", async () => {
     const { ctx, state, entry, signed } = await lost();

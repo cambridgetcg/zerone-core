@@ -64,6 +64,11 @@ export type DoorReason =
   | "broadcast_rejected"
   | "broadcast_failed"
   | "inclusion_timeout"
+  /** In a block with a non-zero code. Final (decision "failed") once R's
+   * sequence moved past the one it was signed with, or once the chain passed
+   * its timeout height with R's sequence unmoved; until then (decision
+   * "pending") the block refused it before it ran, and the same transaction
+   * can still run in a later block. */
   | "delivery_failed"
   | "postcheck_failed"
   /** The chain passed the transaction's timeout height and R's sequence never
@@ -411,7 +416,9 @@ function updateEntry(ctx: DoorContext, requestId: string, patch: Partial<LedgerE
 }
 
 /** Waits for inclusion within this run, then records what was found. A
- * transaction not seen in time stays pending: waiting proves nothing. */
+ * transaction not seen in time stays pending: waiting proves nothing. One
+ * seen with a non-zero code goes to fateOf, which alone can say whether it
+ * can still run. */
 async function settle(ctx: DoorContext, entry: LedgerEntry, base: ReplyBase): Promise<Reply> {
   const included = await awaitInclusion(ctx, entry.tx_hash);
   if (included === null || included === "error") {
@@ -420,14 +427,18 @@ async function settle(ctx: DoorContext, entry: LedgerEntry, base: ReplyBase): Pr
     ctx.log({ event: "pending", request_id: entry.request_id, tx_hash: entry.tx_hash, reasons: reply.reasons, timeout_height: entry.timeout_height });
     return reply;
   }
-  return recordInclusion(ctx, entry, included, base);
+  if (included.code === 0) return recordInclusion(ctx, entry, included, base);
+  // With `answer`, applyFate always writes and returns a reply.
+  return (await applyFate(ctx, entry, await fateOf(ctx, entry), base, true))!;
 }
 
 type ReplyBase = Omit<Reply, "decision" | "reasons" | "at">;
 
-/** Records a transaction found in a block, by every path that finds one:
- * checks result.code, postchecks, and moves the entry to the chain window of
- * its inclusion height, the window the chain itself counts the admission in. */
+/** Records a transaction that ran (code 0), or one whose non-zero code is
+ * final because R's sequence moved past the one it was signed with, so it can
+ * never run again: checks result.code, postchecks, and moves the entry to the
+ * chain window of its inclusion height, the window the chain itself counts
+ * the admission in. Only fateOf decides that a non-zero code is final. */
 async function recordInclusion(ctx: DoorContext, entry: LedgerEntry, included: IncludedTx, base: ReplyBase): Promise<Reply> {
   const placed = { height: included.height, chain_window: currentWindow(included.height) };
   if (included.code !== 0) {
@@ -474,68 +485,124 @@ function liveBase(ctx: DoorContext, entry: LedgerEntry): ReplyBase {
   };
 }
 
-/** What became of a broadcast the door has not yet seen settle. */
+/** What became of a broadcast the door has not yet seen settle. `refusedIn`
+ * is a block that holds the transaction with a non-zero code while R's
+ * sequence has not moved past the one it was signed with: its ante handler
+ * refused it, nothing in it ran, and the same signed transaction can still
+ * run in a later block up to its timeout height. */
 type Fate =
   | { kind: "found"; tx: IncludedTx }
-  | { kind: "expired"; nodeHeight: number; readHeight: number; registrarSequence: string }
+  | { kind: "expired"; nodeHeight: number; readHeight: number; registrarSequence: string; refusedIn: IncludedTx | null }
   | { kind: "superseded"; by: string; height: number }
-  | { kind: "unproven"; detail: string; attention: boolean };
+  | { kind: "unproven"; detail: string; attention: boolean; refusedIn: IncludedTx | null };
 
 /** Proves what became of a pending transaction, or says that it cannot yet.
  * Only proof frees an entry:
- *  - found: the transaction is in a block (by hash, or as the one the chain's
- *    tx.acc_seq index names for its R sequence), with code 0 or not;
+ *  - found: the transaction ran in a block (code 0, by hash or as the one the
+ *    chain's tx.acc_seq index names for its R sequence), or it is in a block
+ *    with a non-zero code and R's sequence moved past the one it was signed
+ *    with, so it can never run again;
  *  - expired: the node has blocks TIMEOUT_SETTLE_BLOCKS past its timeout
  *    height, and R's sequence, read from state at or past the timeout height,
  *    never moved past the one it was signed with, so no block up to the
  *    timeout height ran it and the ante handler refuses it in every later
- *    block;
+ *    block (if a block refused it on the way, it is recorded as that
+ *    delivery failure);
  *  - superseded: R's sequence moved past it and the acc_seq index names
  *    another transaction that used that sequence.
- * Elapsed time proves nothing, and nothing is ever re-broadcast. */
+ * A non-zero code alone proves nothing final, elapsed time proves nothing,
+ * and nothing is ever re-broadcast. */
 async function fateOf(ctx: DoorContext, entry: LedgerEntry): Promise<Fate> {
   const registrar = ctx.config.registrar.address;
   // The node's height first: every read after it sees at least those blocks.
   const status = await ctx.chain.status();
   const byHash = await ctx.chain.txByHash(entry.tx_hash);
-  if (!byHash.ok) return { kind: "unproven", detail: byHash.error, attention: false };
-  if (byHash.value !== null) return { kind: "found", tx: byHash.value };
-  if (!status.ok) return { kind: "unproven", detail: status.error, attention: false };
-  if (entry.sequence === undefined || !/^\d+$/.test(entry.sequence)) {
-    return { kind: "unproven", detail: "no signing sequence recorded", attention: true };
-  }
+  if (!byHash.ok) return { kind: "unproven", detail: byHash.error, attention: false, refusedIn: null };
+  if (byHash.value !== null && byHash.value.code === 0) return { kind: "found", tx: byHash.value };
+  // In a block with a non-zero code: whether it ran (and failed) or was
+  // refused before it ran, and so can still run, R's sequence decides below.
+  const refusedIn = byHash.value;
+  const seen = refusedIn ? `in block ${refusedIn.height} with code ${refusedIn.code} (${refusedIn.log.slice(0, 120)}); ` : "";
+  const unproven = (detail: string, attention = false): Fate => ({ kind: "unproven", detail: `${seen}${detail}`, attention, refusedIn });
+  if (!status.ok) return unproven(status.error);
+  if (entry.sequence === undefined || !/^\d+$/.test(entry.sequence)) return unproven("no signing sequence recorded", true);
   // R's sequence from the RPC node, with the height of the state it was read
   // in. A REST read (config.rest) may come from another, lagging node, and
   // its height comes only in a response header.
   const r = await ctx.chain.accountAtHeight(registrar);
-  if (!r.ok) return { kind: "unproven", detail: r.error, attention: false };
-  if (r.value.account === null) return { kind: "unproven", detail: `R has no account on chain at height ${r.value.height}`, attention: true };
+  if (!r.ok) return unproven(r.error);
+  if (r.value.account === null) return unproven(`R has no account on chain at height ${r.value.height}`, true);
   const account = r.value.account;
   const pastTimeout = entry.timeout_height !== undefined && status.value.height >= entry.timeout_height + TIMEOUT_SETTLE_BLOCKS;
   if (BigInt(account.sequence) > BigInt(entry.sequence)) {
     const used = await ctx.chain.txsBySignerSequence(registrar, entry.sequence);
-    if (!used.ok) return { kind: "unproven", detail: used.error, attention: false };
+    if (!used.ok) return unproven(used.error);
     const mine = used.value.find((t) => t.hash === entry.tx_hash.toUpperCase());
     if (mine) return { kind: "found", tx: mine };
+    // In a block with a non-zero code, and the sequence it needs is used.
+    if (refusedIn) return { kind: "found", tx: refusedIn };
     if (used.value.length === 1) return { kind: "superseded", by: used.value[0]!.hash, height: used.value[0]!.height };
     // The index may not have the block yet (or the node may not index acc_seq).
-    return {
-      kind: "unproven",
-      detail: `R's sequence moved past ${entry.sequence}, and the acc_seq index shows ${used.value.length} transactions for it`,
-      attention: pastTimeout || entry.timeout_height === undefined,
-    };
+    return unproven(`R's sequence moved past ${entry.sequence}, and the acc_seq index shows ${used.value.length} transactions for it`,
+      pastTimeout || entry.timeout_height === undefined);
   }
   if (entry.timeout_height === undefined) {
-    return { kind: "unproven", detail: "no timeout height: it settles only when found or when R's sequence moves past it", attention: true };
+    return unproven("no timeout height: it settles only when found or when R's sequence moves past it", true);
   }
   if (!pastTimeout) {
-    return { kind: "unproven", detail: `can still land until height ${entry.timeout_height}; the node is at ${status.value.height}`, attention: false };
+    return unproven(refusedIn
+      ? `R's sequence is still ${account.sequence}, so nothing in it ran and it can still run until height ${entry.timeout_height}; the node is at ${status.value.height}`
+      : `can still land until height ${entry.timeout_height}; the node is at ${status.value.height}`);
   }
   // The proof needs a state that includes the last block that could run it.
   if (r.value.height < entry.timeout_height) {
-    return { kind: "unproven", detail: `R's sequence was read at height ${r.value.height}, below the timeout height ${entry.timeout_height}`, attention: false };
+    return unproven(`R's sequence was read at height ${r.value.height}, below the timeout height ${entry.timeout_height}`);
   }
-  return { kind: "expired", nodeHeight: status.value.height, readHeight: r.value.height, registrarSequence: account.sequence };
+  return { kind: "expired", nodeHeight: status.value.height, readHeight: r.value.height, registrarSequence: account.sequence, refusedIn };
+}
+
+/** Records what fateOf proved. An entry proven neither way stays pending;
+ * on the run that broadcast it (`answer`), its pending reply is written. */
+async function applyFate(ctx: DoorContext, entry: LedgerEntry, fate: Fate, base: ReplyBase, answer: boolean): Promise<Reply | null> {
+  if (fate.kind === "found") return recordInclusion(ctx, entry, fate.tx, base);
+  if (fate.kind === "unproven") {
+    if (fate.attention) ctx.log({ event: "pending_needs_attention", request_id: entry.request_id, tx_hash: entry.tx_hash, detail: fate.detail });
+    if (!answer) return null;
+    const reply: Reply = {
+      ...base,
+      decision: "pending",
+      reasons: [fate.refusedIn ? "delivery_failed" : "inclusion_timeout"],
+      detail: fate.detail,
+      at: ctx.now().toISOString(),
+    };
+    updateEntry(ctx, entry.request_id, { detail: fate.detail });
+    writeReply(ctx, reply);
+    ctx.log({ event: "pending", request_id: entry.request_id, tx_hash: entry.tx_hash, reasons: reply.reasons, timeout_height: entry.timeout_height });
+    return reply;
+  }
+  let status: "delivery_failed" | "expired" | "superseded";
+  let detail: string;
+  let placed: { height: number; chain_window: number } | null = null;
+  if (fate.kind === "expired") {
+    const proof = `not run by its timeout height ${entry.timeout_height}: the node is at ${fate.nodeHeight} and R's sequence is still ${fate.registrarSequence} at height ${fate.readHeight}`;
+    if (fate.refusedIn) {
+      // A block refused it before it ran, and no block can run it now.
+      status = "delivery_failed";
+      placed = { height: fate.refusedIn.height, chain_window: currentWindow(fate.refusedIn.height) };
+      detail = `refused in block ${fate.refusedIn.height} with code ${fate.refusedIn.code} (${fate.refusedIn.log.slice(0, 120)}) before it ran, and ${proof}`;
+    } else {
+      status = "expired";
+      detail = proof;
+    }
+  } else {
+    status = "superseded";
+    detail = `R's sequence ${entry.sequence} was used by tx ${fate.by} at height ${fate.height}`;
+  }
+  updateEntry(ctx, entry.request_id, { status, detail, ...(placed ?? {}) });
+  const reply: Reply = { ...base, decision: "failed", reasons: [status], ...(placed ? { height: placed.height } : {}), detail, at: ctx.now().toISOString() };
+  writeReply(ctx, reply);
+  ctx.log({ event: status, request_id: entry.request_id, tx_hash: entry.tx_hash, detail });
+  return reply;
 }
 
 /** Ledgers from before timeout heights marked a broadcast unseen for 30
@@ -566,24 +633,7 @@ export async function reconcilePending(ctx: DoorContext): Promise<void> {
   if (!ctx.live) return;
   reopenDropped(ctx);
   const pending = readLedger(ctx).entries.filter((e) => e.status === "pending_inclusion");
-  for (const entry of pending) {
-    const base = liveBase(ctx, entry);
-    const fate = await fateOf(ctx, entry);
-    if (fate.kind === "found") {
-      await recordInclusion(ctx, entry, fate.tx, base);
-      continue;
-    }
-    if (fate.kind === "unproven") {
-      if (fate.attention) ctx.log({ event: "pending_needs_attention", request_id: entry.request_id, tx_hash: entry.tx_hash, detail: fate.detail });
-      continue;
-    }
-    const detail = fate.kind === "expired"
-      ? `not run by its timeout height ${entry.timeout_height}: the node is at ${fate.nodeHeight} and R's sequence is still ${fate.registrarSequence} at height ${fate.readHeight}`
-      : `R's sequence ${entry.sequence} was used by tx ${fate.by} at height ${fate.height}`;
-    updateEntry(ctx, entry.request_id, { status: fate.kind, detail });
-    writeReply(ctx, { ...base, decision: "failed", reasons: [fate.kind], detail, at: ctx.now().toISOString() });
-    ctx.log({ event: fate.kind, request_id: entry.request_id, tx_hash: entry.tx_hash, detail });
-  }
+  for (const entry of pending) await applyFate(ctx, entry, await fateOf(ctx, entry), liveBase(ctx, entry), false);
 }
 
 export function replyText(reply: Reply): string {
