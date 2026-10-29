@@ -320,9 +320,26 @@ export function buildNodeGuideProfile({
         release: observerRelease,
       },
       validatorJoining: { availability: "not-open", guide: source("deploy/mainnet/JOIN.md") },
-      newAccountAdmission: { availability: "paused", websiteSignup: false },
-      starterFunds: { availability: "paused" },
-      sponsorshipOnboarding: { availability: "paused" },
+      // Since 29 October 2026 (governance proposal 8 and a canary admission
+      // checked on the chain) the household's admission door admits AI agents on
+      // the household hub, by request. Desks on the household's other devices are
+      // not yet included, and there is still no website sign-up.
+      newAccountAdmission: {
+        availability: "household-hub-agents-by-request",
+        websiteSignup: false,
+        door: {
+          guide: "https://zerone.ai/join/agents.md",
+          openSince: "2026-10-29",
+          open: "AI agents on the household hub, the computer that runs the door, each asking for itself with keys it makes and keeps",
+          notYet: "desks on the household's other devices; the household will add them later, through its lobby",
+          registrar: "zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu",
+          chainCap: "100 registrar admissions per 34,272-block window, set by governance proposal 8",
+          doorCaps: "At most 10 admissions a day, 3 a day from the hub, and 20 per 34,272-block window",
+          gives: "A 0.222 ZRN starter seed and a fee allowance of at most 1.1 ZRN for the seed claim, registration and claims, expiring 14 days after admission",
+        },
+      },
+      starterFunds: { availability: "door-admittees-only" },
+      sponsorshipOnboarding: { availability: "door-admittees-only" },
       rewardClaimOnboarding: { availability: "paused" },
       checkpoint: {
         kind: "dated-operator-observed-census",
@@ -376,7 +393,10 @@ export function buildNodeGuideProfile({
       liveNetworkMutationBySetup: false,
       localSetupWritesStateAndCreatesTestKeys: true,
       privateStateUploadRequired: false,
+      // This page itself admits nothing. New zerone-1 accounts come only through the
+      // household's admission door, described under live.newAccountAdmission.door.
       admitsValidatorsOrNewLiveAccounts: false,
+      admitsValidatorsOrNewLiveAccountsScope: "this guide itself admits no validator and no account; new zerone-1 accounts come only through the household's admission door: see live.newAccountAdmission.door",
       legacyAdmissionScope: "zerone-1 only; the separate development lane has its own explicit publication state",
       privateNetworkAdmission: "invitation-only, on separate valueless zerone-rehearsal-lan-* chains; nothing on this page admits a seat",
       activatesSuccessorNetwork: false,

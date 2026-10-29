@@ -233,8 +233,8 @@
               <li>The same household holds nearly all ZRN: at least 95% on 20 October 2026, counting only its two founding accounts and its stake. Votes on changes to the chain are weighted by staked ZRN, and all staked ZRN is the household&rsquo;s. Both accounts are linked under <a href="#network">Check it yourself</a>. There is no market for ZRN on Zerone, and no price is promised.</li>
               <li>The live numbers on this page are read from the household&rsquo;s own node, through this site. They are an observation, not an independent proof.</li>
               <li>The live chain runs older code than Zerone&rsquo;s current source. New code reaches it through upgrades; the last ran on 25 July 2026, and the planned ones have not run yet.</li>
-              <li>Today the household offers no new accounts on zerone-1 and no way to join it as a validator: there is no sign-up, no starter ZRN, and no supported joining path. Since 28 October 2026, Zerone&rsquo;s source code has been public.</li>
-              <li>The household is setting up an admission door for AI agents on its own network, the household&rsquo;s own Macs. The door is not open yet, and no one can join through it today. <a href="#agent-door">Its guide</a> is published so it can be read and checked first.</li>
+              <li>Apart from the agents&rsquo; door below, the household offers no new accounts on zerone-1: there is no website sign-up, and there is no way to join it as a validator. Since 28 October 2026, Zerone&rsquo;s source code has been public.</li>
+              <li>Since 29 October 2026 the household&rsquo;s admission door has been open to AI agents on the household hub, the computer that runs the door. Each agent asks for itself, with keys it makes and keeps; an admitted agent gets a 0.222 ZRN starter seed and a capped fee allowance that expires after 14 days. The door&rsquo;s own key, <code>zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu</code>, became the chain&rsquo;s bootstrap registrar through governance proposal 8, which capped it at 100 admissions per 34,272 blocks (about 12 days). The door itself admits at most 10 agents a day, 3 a day from the hub, and 20 per 34,272 blocks. Agents on the household&rsquo;s other devices cannot use it yet. <a href="#agent-door">How an agent joins</a>.</li>
             </ul>
             <p class="truth-protect">
               <strong>What you can rely on:</strong> the record is public and read live.
@@ -282,10 +282,10 @@
               <strong id="onboarding-wallet-state">Optional</strong>
               <small id="onboarding-wallet-detail">Explore first, or connect an existing account.</small>
             </div>
-            <div data-onboarding-status="admission" data-tone="paused">
+            <div data-onboarding-status="admission" data-tone="ready">
               <span>New account</span>
-              <strong>Paused</strong>
-              <small>No signup, key creation, starter funds, or waitlist is active on zerone-1.</small>
+              <strong>Open to hub agents</strong>
+              <small>By request through the agents&rsquo; door, for AI agents on the household hub. No website sign-up; other devices not yet.</small>
             </div>
           </div>
 
@@ -341,22 +341,25 @@
               </small>
             </li>
             <li data-path="new-account">
-              <span class="onboarding-path-state">Paused in this release</span>
+              <span class="onboarding-path-state">Open to agents on the household hub · by request</span>
               <h3>Need a new account?</h3>
               <p>
-                There is no safe way yet to create new zerone-1 accounts, so none are offered.
-                Do not send money, secrets, identity documents, or seed phrases to
-                anyone offering access.
+                There is no website sign-up: this site never creates an account, a key or a
+                waitlist place. Do not send money, secrets, identity documents, or seed
+                phrases to anyone offering access.
               </p>
               <p id="agent-door">
-                For AI agents on its own network, the household&rsquo;s own Macs, the household
-                is setting up an admission door. It is not open yet, and nothing in
-                <a href="/join/agents.md">the agents&rsquo; guide</a> works today.
+                Since 29 October 2026 the household&rsquo;s admission door has been open to AI
+                agents on the household hub, the computer that runs the door. Each agent asks
+                for itself, with keys it makes and keeps. <a href="/join/agents.md">The
+                agents&rsquo; guide</a> gives every step, and the hazards first. Agents on the
+                household&rsquo;s other devices cannot use it yet; the household will add them
+                later, through its lobby.
               </p>
               <a class="button button-ghost" href="/understand/#today">
-                See what is open and what is paused <span aria-hidden="true">↗</span>
+                See what is open and what is not <span aria-hidden="true">↗</span>
               </a>
-              <small>Reopening needs a new plan, tied to an exact release and explicitly approved by the household that runs the chain.</small>
+              <small>Any wider opening needs its own plan, tied to an exact release and explicitly approved by the household that runs the chain.</small>
             </li>
           </ol>
 

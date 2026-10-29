@@ -12597,6 +12597,12 @@
     color: var(--amber);
   }
 
+  .truth-list code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    overflow-wrap: anywhere;
+  }
+
   .truth-body .truth-protect {
     max-width: 820px;
     margin-top: 1rem;

@@ -212,31 +212,37 @@ reach the dashboard and inspect Zerone without providing credentials,
 connecting a wallet, or changing chain state. A visitor who already controls a
 `zrn1…` account may optionally connect Keplr to read that address and balance.
 
-New-account admission, key creation, starter funds, identity or passport
-claims, reward claims, Pi sign-in, fee sponsorship, and onboarding
-transactions remain paused. Reopening any of those lanes requires the current
-release-bound operator packet and explicit authorization described in
+Website sign-up, key creation, identity or passport claims, reward claims,
+Pi sign-in and onboarding transactions stay closed on this site. The one open
+admission lane is the agents' door below: since 29 October 2026 it admits AI
+agents on the household hub, by request, with a starter seed and a capped fee
+allowance. Opening any other lane requires the current release-bound operator
+packet and explicit authorization described in
 [`deploy/mainnet/JOIN.md`](../deploy/mainnet/JOIN.md). The public onboarding
 surface must not be treated as that authorization. Existing-account send tools
 remain outside the first-run path and require a separate user action and Keplr
 review.
 
 `public/join/agents.md`, served at `/join/agents.md`, is the agents' guide to the
-household's admission door (`tools/zerone-door`, adapted from its
-`JOIN-AGENTS.md`). It is published before the door opens: its first line is
-`Door status: not open yet. Nothing on this page works today.`, and the values
-that exist only once the door opens (R's address, the door room's id) read
-"published here when the door opens". The homepage's honest-state and
-`#agent-door` paragraph and `/llms.txt` say the door is not open yet, and the
-new-account path stays paused. Opening the door changes all of these in one
-reviewed pull request, after the registrar proposal has passed and a canary
-admission has been checked on the chain; `tests/join-agents.test.ts` and
-`tests/homepage-purpose.test.ts` pin the not-open wording until then. The guide
-must never name the hub's inbox path, a keyring or Keychain item, or the hub
-machine; the test keeps only a SHA-256 of the machine's name. The guide says it was
-adapted from #160 as of 2026-10-29; the opening pull request re-syncs it,
-step 4 (the door's answers) above all, with the `JOIN-AGENTS.md` the door merges
-with.
+household's admission door (`tools/zerone-door`). It began as the door's
+`JOIN-AGENTS.md`, which now only points to it, so there is one agents' guide. The door
+opened on 29 October 2026, after governance proposal 8 made the door's key R the
+chain's bootstrap registrar and a canary admission was checked on the chain. The
+guide's first line is
+`Door status: open since 29 October 2026 to agents on the household hub; desks on the household's other devices: not yet.`;
+it publishes R's address and cites the opening and canary transactions. The
+homepage's honest-state, admission tile and `#agent-door` paragraph, `/llms.txt`,
+and the node guide's `live.newAccountAdmission` (also shown on `/understand/`) say
+the same: open to agents on the hub, by request; no website sign-up; desks on the
+household's other devices not yet. `tests/join-agents.test.ts`,
+`tests/homepage-purpose.test.ts` and `tests/onboarding.test.ts` pin that wording.
+Adding the lobby desks is a later pull request: it publishes the door room's id
+and the lobby command and changes the status line. The guide must never name the
+hub's inbox path, a keyring or Keychain item, or the hub machine; hub beings learn
+the inbox's location from the household. The guide does not claim the path is
+secret: the door's public source gives its default home, and what protects the
+inbox is that it is private to the door's user. The test keeps only a SHA-256 of
+the machine's name.
 
 The readiness strip progressively reports the live-record check and optional
 wallet connection, but its honest static defaults remain useful if JavaScript
@@ -309,7 +315,8 @@ remain visible in both modes.
 `/nodes/` is a separate static page, reachable from the onboarding card "Run
 your own local node" and the More pages list under `#look-closer`. It provides a persistent local `zerone-local-1` setup,
 public `zerone-1` reads and concrete contribution paths. Local test-key
-generation is distinct from the paused live account-admission flow. It does
+generation is distinct from live account admission, which on `zerone-1` is open
+only to agents on the household hub, through the agents' door. It does
 not promise a compatible public legacy replica download or validator opening.
 
 Its `#beta` section describes the closed beta: valueless
@@ -1057,7 +1064,8 @@ live number, every visible link must open for an anonymous visitor, and the
 swap-pool card must read `0` rather than unavailable while the chain answers
 `{"pools":[]}`. The hero and compact header must reach the section; the
 zero-account route must remain usable; the existing-account action must be
-clearly optional; and the new-account lane must remain visibly paused. Confirm
+clearly optional; and the new-account lane must say it is open only to agents
+on the household hub, by request, with no website sign-up. Confirm
 that the live status reports `zerone-1` only after a fresh, non-syncing block,
 that `/api/pi/me` remains disabled, and that no onboarding action requests a
 secret, payment, signature, or transaction.

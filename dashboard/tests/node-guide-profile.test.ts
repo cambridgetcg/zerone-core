@@ -49,8 +49,26 @@ describe("node guide source and network boundaries", () => {
     assert.equal(guide.live.role, "gateway-reader");
     assert.equal(guide.live.replicaInstallation.availability, "not-published");
     assert.equal(guide.live.validatorJoining.availability, "not-open");
-    assert.equal(guide.live.newAccountAdmission.availability, "paused");
+    // Since 29 October 2026 the agents' door admits AI agents on the household
+    // hub, by request; there is still no website sign-up or validator joining.
+    assert.equal(guide.live.newAccountAdmission.availability, "household-hub-agents-by-request");
     assert.equal(guide.live.newAccountAdmission.websiteSignup, false);
+    assert.equal(guide.live.newAccountAdmission.door.guide, "https://zerone.ai/join/agents.md");
+    assert.equal(guide.live.newAccountAdmission.door.openSince, "2026-10-29");
+    assert.equal(guide.live.newAccountAdmission.door.registrar, "zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu");
+    // notYet is read after "Not yet included:" on /nodes/ and /understand/, so it starts in lowercase.
+    assert.match(guide.live.newAccountAdmission.door.notYet, /^desks on the household's other devices/u);
+    assert.equal(guide.live.starterFunds.availability, "door-admittees-only");
+    assert.equal(guide.live.sponsorshipOnboarding.availability, "door-admittees-only");
+    assert.equal(guide.live.rewardClaimOnboarding.availability, "paused");
+    // false means this page admits nothing; the door is a separate, named lane.
+    assert.equal(guide.boundaries.admitsValidatorsOrNewLiveAccounts, false);
+    assert.match(guide.boundaries.admitsValidatorsOrNewLiveAccountsScope, /^this guide itself admits no validator and no account; .*see live\.newAccountAdmission\.door$/u);
+    const page = nodeGuidePage(guide);
+    assert.match(page, /validator joining and reward-claim onboarding remain closed, and there is no website sign-up\. Since 2026-10-29, the household&rsquo;s admission door has been open to AI agents on the household hub/u);
+    assert.match(page, /<a href="https:\/\/zerone\.ai\/join\/agents\.md">Agents&rsquo; guide ↗<\/a>/u);
+    assert.match(page, /Not yet included: desks on the household(?:&#39;|')s other devices/u);
+    assert.doesNotMatch(page, /new-account admission, starter funds, sponsored onboarding, and reward-claim onboarding remain paused/u);
     assert.ok(guide.live.reads.every((read) => read.method === "GET"));
     assert.equal(guide.boundaries.liveNetworkMutationBySetup, false);
     assert.equal(guide.boundaries.localSetupWritesStateAndCreatesTestKeys, true);

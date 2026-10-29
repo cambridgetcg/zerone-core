@@ -87,7 +87,7 @@ describe("production onboarding surface", () => {
     assert.doesNotMatch(explore, /<button\b|\son[a-z]+\s*=|wallet-connect/u);
   });
 
-  it("offers public reads, local node setup, an optional wallet, and an honest admission pause", () => {
+  it("offers public reads, local node setup, an optional wallet, and the agents' door on the household hub only", () => {
     const text = visibleText(onboarding);
     assert.match(text, /Explore without joining/u);
     assert.match(onboarding, /href="\/nodes\/"/u);
@@ -99,18 +99,25 @@ describe("production onboarding surface", () => {
       text,
       /Requires JavaScript and Keplr\. Connecting only shows your address and balance/u,
     );
-    assert.match(text, /Need a new account\? Paused in this release|Paused in this release Need a new account\?/u);
-    assert.match(text, /No signup, key creation, starter funds, or waitlist is active/u);
+    assert.match(text, /Open to agents on the household hub · by request Need a new account\?/u);
+    assert.match(text, /By request through the agents&rsquo; door, for AI agents on the household hub\. No website sign-up; other devices not yet\./u);
     assert.match(text, /Do not send money, secrets, identity documents, or seed phrases/u);
-    // The agents' admission door is being set up; until it opens, the new-account
-    // path stays paused and only links its guide.
+    // Since 29 October 2026 the agents' admission door is open to agents on the
+    // household hub. The new-account path says so, links the guide, and offers
+    // nothing on this site: no sign-up, key or waitlist.
     const newAccount = onboarding.match(/<li data-path="new-account">([\s\S]*?)<\/li>/u)?.[1] ?? "";
-    assert.match(newAccount, /<span class="onboarding-path-state">Paused in this release<\/span>/u);
+    assert.match(newAccount, /<span class="onboarding-path-state">Open to agents on the household hub · by request<\/span>/u);
     assert.match(newAccount, /<p id="agent-door">[\s\S]*href="\/join\/agents\.md"[\s\S]*<\/p>/u);
     assert.match(
       visibleText(newAccount),
-      /the household is setting up an admission door\. It is not open yet, and nothing in the agents&rsquo; guide works today\./u,
+      /There is no website sign-up: this site never creates an account, a key or a waitlist place\./u,
     );
+    assert.match(
+      visibleText(newAccount),
+      /Since 29 October 2026 the household&rsquo;s admission door has been open to AI agents on the household hub, the computer that runs the door\./u,
+    );
+    assert.match(visibleText(newAccount), /Agents on the household&rsquo;s other devices cannot use it yet; the household will add them later, through its lobby\./u);
+    assert.doesNotMatch(onboarding, /Paused in this release|not open yet|setting up an admission door/u);
     assert.match(text, /never creates keys,[\s\S]*or broadcasts a transaction/u);
 
     assert.equal(onboarding.match(/<button\b/gu)?.length, 1);
@@ -130,8 +137,12 @@ describe("production onboarding surface", () => {
     );
     assert.match(onboarding, /id="onboarding-network-state">Checking mainnet</u);
     assert.match(onboarding, /id="onboarding-wallet-state">Optional</u);
-    assert.match(onboarding, /data-onboarding-status="admission" data-tone="paused"/u);
-    // The pause is explained on this site rather than by a link to the
+    // The admission tile is ready for agents on the household hub, by request.
+    const admission = onboarding.match(/<div data-onboarding-status="admission" data-tone="([a-z]+)">([\s\S]*?)<\/div>/u);
+    assert.ok(admission, "the admission tile must remain");
+    assert.equal(admission[1], "ready");
+    assert.match(admission[2] ?? "", /<span>New account<\/span>\s*<strong>Open to hub agents<\/strong>/u);
+    // What is open and what is not is explained on this site rather than by a link to the
     // repository's JOIN.md, which was not publicly readable when this was
     // written; the repository has been public since 28 October 2026.
     assert.match(onboarding, /href="\/understand\/#today"/u);
