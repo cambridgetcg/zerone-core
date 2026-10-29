@@ -11,6 +11,7 @@ import {
   ALLOWANCE_PERIOD_LIMIT_UZRN,
   ALLOWANCE_SPEND_LIMIT_UZRN,
   DOOR_WINDOW_CAP,
+  PENDING_ATTENTION_MS,
   REGISTRAR_RESERVE_UZRN,
   allowanceInvariantsHold,
 } from "../src/policy.ts";
@@ -31,6 +32,10 @@ describe("runtime and policy", () => {
     expect(ALLOWANCE_SPEND_LIMIT_UZRN).toBe(1_100_000);
     // 20 fully spent admissions plus the reserve fit in R's ~30 ZRN float.
     expect(DOOR_WINDOW_CAP * ADMISSION_CEILING_UZRN + REGISTRAR_RESERVE_UZRN).toBe(27_000_000);
+  });
+
+  test("a pending transaction should have settled 40 + 3 blocks of 30 s after signing", () => {
+    expect(PENDING_ATTENTION_MS).toBe(21.5 * 60_000);
   });
 });
 

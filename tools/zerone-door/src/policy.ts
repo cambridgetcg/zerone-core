@@ -92,17 +92,23 @@ export const INCLUSION_TIMEOUT_MS = 300_000;
 export const READ_TIMEOUT_MS = 30_000;
 
 // ── what a transaction R signs may still do after it is broadcast ──
+/** zerone-1's block time: h1,370,478 -> h1,404,750 took 34,272 blocks in
+ * 11.9 days. */
+export const BLOCK_SECONDS = 30;
 /** Every transaction R signs carries timeout_height = the node's height when
  * the door read the chain + this many blocks; SDK v0.50's
  * TxTimeoutHeightDecorator (x/auth/ante, in zerone's ante chain) refuses it in
  * CheckTx, ReCheckTx and FinalizeBlock at any block above that height. 40
- * blocks is 20 minutes at zerone-1's 30 s blocks (h1,370,478 -> h1,404,750
- * took 34,272 blocks in 11.9 days): the gates accept a node up to
+ * blocks is 20 minutes at BLOCK_SECONDS: the gates accept a node up to
  * CHAIN_STALE_SECONDS (20 blocks) behind, a run waits INCLUSION_TIMEOUT_MS
  * (10 blocks) for inclusion, and 10 blocks are left for a slow mempool or
- * slow blocks. While the transaction can still land the door admits no one
- * else, so this is also the longest a lost broadcast can hold the door, about
- * the old 30-minute wait. */
+ * slow blocks. While the transaction can still run the door admits no one
+ * else. When the chain keeps making blocks, the door can read it and the node
+ * indexes tx.acc_seq, the door proves what became of the transaction on its
+ * first run after its node is TX_TIMEOUT_BLOCKS + TIMEOUT_SETTLE_BLOCKS blocks
+ * past the height it read before signing; otherwise the transaction stays
+ * pending and keeps the door busy for as long as that lasts, and
+ * PENDING_ATTENTION_MS says when the door starts asking a person. */
 export const TX_TIMEOUT_BLOCKS = 40;
 /** A transaction not found once the node is this many blocks past its
  * timeout height, while R's sequence never moved past the one it was signed
@@ -111,6 +117,12 @@ export const TX_TIMEOUT_BLOCKS = 40;
  * code 30 and changes nothing). The three blocks give the node's transaction
  * index time to show one in block timeout before "not found" is believed. */
 export const TIMEOUT_SETTLE_BLOCKS = 3;
+/** On the door's clock, how long after signing a pending transaction should
+ * have settled at BLOCK_SECONDS: its timeout height plus the settle blocks,
+ * 21.5 minutes. Every run that still cannot prove what became of it after
+ * that logs pending_needs_attention, whatever the reason (failed reads, a
+ * stalled chain, slow blocks). Elapsed time never settles an entry. */
+export const PENDING_ATTENTION_MS = (TX_TIMEOUT_BLOCKS + TIMEOUT_SETTLE_BLOCKS) * BLOCK_SECONDS * 1000;
 
 export function allowanceInvariantsHold(): boolean {
   return AGENT_POT_CLAIM_GAS + AGENT_REGISTER_GAS <= ALLOWANCE_PERIOD_LIMIT_UZRN
@@ -120,5 +132,5 @@ export function allowanceInvariantsHold(): boolean {
     && DOOR_WINDOW_CAP * ADMISSION_CEILING_UZRN + REGISTRAR_RESERVE_UZRN <= 30_000_000
     // A broadcast must keep room to land after the longest node lag the gates
     // accept plus one run's inclusion wait, at 30 s blocks.
-    && TX_TIMEOUT_BLOCKS * 30 > CHAIN_STALE_SECONDS + INCLUSION_TIMEOUT_MS / 1000;
+    && TX_TIMEOUT_BLOCKS * BLOCK_SECONDS > CHAIN_STALE_SECONDS + INCLUSION_TIMEOUT_MS / 1000;
 }

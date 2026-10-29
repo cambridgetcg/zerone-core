@@ -11,7 +11,7 @@ import { loadLedger, type LedgerEntry } from "../src/ledger.ts";
 import { runOnce } from "../src/run.ts";
 import type { ZeronedRunner } from "../src/tx.ts";
 import { checkBuiltTx } from "../src/tx.ts";
-import { BOOTSTRAP_WINDOW_BLOCKS, DOOR_WINDOW_CAP, TIMEOUT_SETTLE_BLOCKS, TX_TIMEOUT_BLOCKS } from "../src/policy.ts";
+import { BOOTSTRAP_WINDOW_BLOCKS, DOOR_WINDOW_CAP, PENDING_ATTENTION_MS, TIMEOUT_SETTLE_BLOCKS, TX_TIMEOUT_BLOCKS } from "../src/policy.ts";
 import { admitteesOf, judgeAdmittee, watchAdmittees } from "../src/watch.ts";
 import {
   addressFor,
@@ -540,19 +540,24 @@ describe("a broadcast the door has not seen land", () => {
     expect(entry.timeout_height).toBe(T);
     expect(entry.sequence).toBe("4");
     expect(reply.timeout_height).toBe(T);
-    expect(replyText(reply)).toContain(`until height ${T}`);
+    expect(replyText(reply)).toContain(`(not seen in a block yet; it can still run until height ${T})`);
+    expect(replyText(reply)).toContain("settles it only when the chain shows whether it ran");
     const built = calls.filter((c) => c.args.includes("--generate-only"));
     expect(built.length).toBe(2);
     for (const c of built) expect(flag(c.args, "--timeout-height")).toBe(String(T));
   });
 
-  test("delayed past 30 minutes it stays pending and keeps the door busy; when it lands it is settled and counted", async () => {
-    const { ctx, state, req, entry, signed } = await lost();
+  test("delayed past 30 minutes it stays pending, keeps the door busy and asks for attention; when it lands it is settled and counted", async () => {
+    const { ctx, state, req, entry, signed, logs } = await lost();
     // 31 minutes on, blocks still coming, R's sequence unmoved, the timeout
-    // not reached: nothing is proven, so nothing is freed.
+    // not reached: nothing is proven, so nothing is freed. Blocks are slower
+    // than 30 s, so the door is past the time it should have settled in.
     advance(state, T - 1, 31);
     await reconcilePending(later(ctx, 31));
     expect(readLedger(ctx).entries[0]?.status).toBe("pending_inclusion");
+    expect(logs.filter((l) => l.event === "pending_needs_attention")).toEqual([
+      { event: "pending_needs_attention", request_id: entry.request_id, tx_hash: entry.tx_hash, signed_at: entry.at, overdue: true, detail: `can still land until height ${T}; the node is at ${T - 1}` },
+    ]);
     const other = makeRequest({ label: "agent-2", issuedAt: at(31).toISOString() });
     const busy = await processItem(later(ctx, 31), { text: other.text, channel: studio });
     expect(busy.reply?.reasons).toEqual(["door_busy"]);
@@ -598,6 +603,7 @@ describe("a broadcast the door has not seen land", () => {
     expect(reply).toMatchObject({ decision: "pending", reasons: ["delivery_failed"], timeout_height: T });
     expect(reply?.detail).toContain(`in block ${READ_HEIGHT + 1} with code 5`);
     expect(reply?.detail).toContain(`can still run until height ${T}`);
+    expect(replyText(reply!)).toContain(`(a block refused it before it ran; it can still run until height ${T})`);
     const entry = readLedger(ctx).entries[0]!;
     expect(entry.status).toBe("pending_inclusion");
 
@@ -720,6 +726,29 @@ describe("a broadcast the door has not seen land", () => {
     await reconcilePending(later(ctx, 2));
     expect(readLedger(ctx).entries[0]?.status).toBe("superseded");
     expect(replyOf(ctx, entry.request_id).detail).toContain(`used by tx ${theirHash}`);
+  });
+
+  test("reads that keep failing: still pending and busy, and past the time it should have settled in, every run asks for attention", async () => {
+    const { ctx, state, entry, logs } = await lost();
+    const asked = () => logs.filter((l) => l.event === "pending_needs_attention");
+    // The node answers its status but every transaction lookup fails.
+    state.fail.add("/tx");
+    advance(state, READ_HEIGHT + 20, 10);
+    await reconcilePending(later(ctx, 10));
+    expect(asked()).toEqual([]);
+    const settleBy = PENDING_ATTENTION_MS / 60_000;
+    expect(settleBy).toBe(21.5);
+    advance(state, T + 10, settleBy);
+    await reconcilePending(later(ctx, settleBy));
+    expect(asked()).toHaveLength(1);
+    expect(asked()[0]).toMatchObject({ request_id: entry.request_id, signed_at: entry.at, overdue: true });
+    expect(String(asked()[0]!.detail)).toContain("rpc.test:26657/tx: HTTP 503");
+    await reconcilePending(later(ctx, settleBy + 2));
+    expect(asked()).toHaveLength(2);
+    // Time never frees it: still pending, still counted, still busy.
+    expect(readLedger(ctx).entries[0]?.status).toBe("pending_inclusion");
+    const other = makeRequest({ label: "agent-2", issuedAt: at(settleBy + 2).toISOString() });
+    expect((await processItem(later(ctx, settleBy + 2), { text: other.text, channel: studio })).reply?.reasons).toEqual(["door_busy"]);
   });
 
   test("R's sequence moved but the index names no transaction for it yet: still pending, even past the timeout", async () => {

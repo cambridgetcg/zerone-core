@@ -226,10 +226,10 @@ Every transaction R signs carries a `timeout_height`: the node's height when the
 read the chain plus 40 blocks (about 20 minutes; the reasoning is beside
 `TX_TIMEOUT_BLOCKS` in `src/policy.ts`). SDK v0.50's `TxTimeoutHeightDecorator`, which
 zerone's ante chain runs, refuses it in every block above that height. The ledger and
-the reply record it. A broadcast whose inclusion was not seen stays
-`pending_inclusion`; while anything is pending the door admits no one else
-(`door_busy`), and later runs only look it up and never re-broadcast. It leaves
-`pending_inclusion` only on proof, never because time passed:
+the reply record it. A broadcast not yet seen to run stays `pending_inclusion`; while
+anything is pending the door admits no one else (`door_busy`), and later runs only
+look it up and never re-broadcast. It leaves `pending_inclusion` only on proof, never
+because time passed:
 
 - **found** in a block, by its hash or as the transaction the chain's `tx.acc_seq`
   index names for its R sequence (by that hash, or, under a hash the door did not
@@ -258,13 +258,29 @@ the reply record it. A broadcast whose inclusion was not seen stays
   door reads them from the transaction bytes the index returns; a hash that differs
   never makes a transaction another's by itself).
 
-`delivery_failed`, `expired` and `superseded` do not count, so the agent may ask again. If R's sequence
-moved and the index names nothing, the entry stays pending and the door logs
-`pending_needs_attention`. A ledger written before timeout heights may hold entries
-marked `dropped` after 30 minutes, which proved nothing: each run re-opens them as
-pending (they count and keep the door busy again) and settles them by the same proof.
-Such an entry has no timeout height, so if it is never found it settles only when R's
-sequence moves past it; any R transaction does that.
+`delivery_failed`, `expired` and `superseded` do not count, so the agent may ask again.
+
+Until one of these is proven the entry stays pending, counts, and keeps the door busy,
+for as long as that takes: when the chain keeps making blocks, the door can read it and
+the node indexes `tx.acc_seq`, that is the first run after the node is 43 blocks past
+the height the door read before signing; while reads fail or the chain stalls, it is
+until they recover; and if R's sequence moved and the index never names this
+transaction or exactly one other for that sequence, it is until a person acts. The
+door logs `pending_needs_attention` on every run that leaves an entry pending
+
+- once the door's clock is 21.5 minutes past the entry's signing
+  (`PENDING_ATTENTION_MS`: 40 + 3 blocks at 30 s), whatever keeps it unproven, failed
+  reads included; and
+- at once when it cannot settle on its own: no signing sequence or no timeout height
+  recorded, R absent on chain, or R's sequence moved and the index names neither this
+  transaction nor exactly one other for that sequence once the node is 3 blocks past
+  the timeout height.
+
+A ledger written before timeout heights may hold entries marked `dropped` after 30
+minutes, which proved nothing: each run re-opens them as pending (they count and keep
+the door busy again) and settles them by the same proof. Such an entry has no timeout
+height, so if it is never found it settles only when R's sequence moves past it; any R
+transaction does that.
 
 An admission counts in the chain admission window of the block that included it, as
 the chain counts it, so the 20-per-window cap follows the inclusion height. The daily
@@ -323,26 +339,28 @@ not touch R's keyring or the Keychain, does not copy the plist into
 refused after a drained or revoked grant), the request format and each signature
 defect, strict Ed25519, low-S secp256k1, bech32 canonical form, the CosmJS/noble/SDK
 interop vector, the Go v1 registration-proof vector, the spool and lobby intake
-(including a season change), config and allowlist validation, the admittee watch, the
-chain-version decoders (with the done markers zerone-1 served), the account answer
-decoder (with an answer zerone-1 served), and the run loop
-against a fake chain, a fake CLI and a fake lobby (dry run, a dry run that never posts
-in the room, live admission with the passphrase on stdin only, a live reply in the
-room, replay, CheckTx rejection, inclusion timeout then reconciliation without
-re-broadcast, a delivery failure after R's sequence was used, a block that refused the
-transaction before it ran (pending until its timeout height passes, admitted when the
-same transaction runs in a later block, failed at once when another transaction takes
-its sequence), re-grant with revoke, and a signature by the wrong key
-never broadcast), and what becomes of a broadcast not seen to land: one delayed past 30
-minutes that then lands (settled, counted, the door busy until then), one absent past
-its timeout height (expired only after the settle blocks, and only on R's sequence read
-on the RPC node at or past the timeout height, never from a lagging REST node), R's
-sequence used by another transaction (superseded, including an admission of another
-address) or by the door's own transaction under another hash (found by its messages)
-or moved with nothing indexed yet (still pending), the message decoder and matcher
-against two of the registrar's July transactions zerone-1 served, an
-admission included across a chain window boundary (in this run and by a later one),
-and `dropped` entries from an older ledger re-opened and settled.
+(including a season change), config and allowlist validation, the admittee watch, and
+decoders checked against answers zerone-1 served (the upgrade done markers, an account
+from the gRPC Account query, and two of the registrar's July transactions from its tx
+index, with the matcher that tells the door's transaction from another).
+
+The run loop runs against a fake chain, a fake CLI and a fake lobby: dry run, a dry
+run that never posts in the room, live admission with the passphrase on stdin only, a
+live reply in the room, replay, CheckTx rejection, inclusion timeout then
+reconciliation without re-broadcast, re-grant with revoke, and a signature by the wrong
+key never broadcast. What becomes of a broadcast not seen to run: one delayed past 30
+minutes that then lands (settled, counted, the door busy until then); one absent past
+its timeout height (expired only after the settle blocks, and only on R's sequence
+read on the RPC node at or past the timeout height, never from a lagging REST node);
+one a block refused before it ran (pending until its timeout height passes, admitted
+when the same transaction runs in a later block, failed at once when another
+transaction takes its sequence); one that ran and failed in its messages; R's sequence
+used by another transaction (superseded, an admission of another address included),
+by the door's own transaction under another hash (found by its messages), or moved
+with nothing indexed yet (still pending); reads that keep failing (pending, and
+`pending_needs_attention` once past 21.5 minutes); an admission included across a
+chain window boundary (in this run and by a later one); and `dropped` entries from an
+older ledger re-opened and settled.
 
 The keyless live check runs only when asked:
 

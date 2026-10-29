@@ -31,6 +31,7 @@ import {
   MSG_ADD_BOOTSTRAP_ENTRY,
   MSG_GRANT_ALLOWANCE,
   MSG_REVOKE_ALLOWANCE,
+  PENDING_ATTENTION_MS,
   REGRANT_GAS,
   SIMULATE_MARGIN_GAS,
   TIMEOUT_SETTLE_BLOCKS,
@@ -592,7 +593,11 @@ async function fateOf(ctx: DoorContext, entry: LedgerEntry): Promise<Fate> {
 }
 
 /** Records what fateOf proved. An entry proven neither way stays pending;
- * on the run that broadcast it (`answer`), its pending reply is written. */
+ * on the run that broadcast it (`answer`), its pending reply is written. A
+ * pending entry asks for a person (pending_needs_attention) on every run when
+ * fateOf says it cannot settle on its own, and on every run once the door's
+ * clock is PENDING_ATTENTION_MS past its signing, whatever keeps it unproven:
+ * failed reads, a stalled chain, slow blocks. Time never settles it. */
 async function applyFate(ctx: DoorContext, entry: LedgerEntry, fate: Fate, base: ReplyBase, answer: boolean): Promise<Reply | null> {
   if (fate.kind === "found") {
     if (fate.hash.toUpperCase() === entry.tx_hash.toUpperCase()) return recordInclusion(ctx, entry, fate.tx, base);
@@ -603,7 +608,12 @@ async function applyFate(ctx: DoorContext, entry: LedgerEntry, fate: Fate, base:
     return recordInclusion(ctx, { ...entry, tx_hash: fate.hash }, fate.tx, { ...base, tx_hash: fate.hash });
   }
   if (fate.kind === "unproven") {
-    if (fate.attention) ctx.log({ event: "pending_needs_attention", request_id: entry.request_id, tx_hash: entry.tx_hash, detail: fate.detail });
+    const pendingMs = ctx.now().getTime() - Date.parse(entry.at);
+    // An entry whose signing time cannot be read counts as overdue.
+    const overdue = !(pendingMs < PENDING_ATTENTION_MS);
+    if (fate.attention || overdue) {
+      ctx.log({ event: "pending_needs_attention", request_id: entry.request_id, tx_hash: entry.tx_hash, signed_at: entry.at, overdue, detail: fate.detail });
+    }
     if (!answer) return null;
     const reply: Reply = {
       ...base,
@@ -679,8 +689,10 @@ export function replyText(reply: Reply): string {
       `Seed pot ${reply.pot_id}; allowance from ${reply.registrar} until ${reply.allowance?.expiration}.`;
   }
   if (reply.decision === "pending") {
-    const until = reply.timeout_height !== undefined ? ` (it can land until height ${reply.timeout_height})` : "";
-    return `zerone-door: ${reply.address} pending in tx ${reply.tx_hash}${until}; check the chain before asking again.`;
+    const seen = reply.reasons.includes("delivery_failed") ? "a block refused it before it ran" : "not seen in a block yet";
+    const until = reply.timeout_height !== undefined ? `; it can still run until height ${reply.timeout_height}` : "";
+    return `zerone-door: ${reply.address} pending in tx ${reply.tx_hash} (${seen}${until}). ` +
+      "The door settles it only when the chain shows whether it ran; check the chain before asking again.";
   }
   return `zerone-door: ${reply.decision} request ${reply.request_id.slice(0, 16)}: ${reply.reasons.join(", ") || "no reason given"}.`;
 }

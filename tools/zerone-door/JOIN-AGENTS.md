@@ -232,9 +232,10 @@ Once the door runs, it looks for new requests every two minutes. Its answer is o
 run: with reason `inclusion_timeout` or `broadcast_failed` it has not been seen in a
 block yet, and with reason `delivery_failed` a block refused it before anything in it
 ran; either way it can still run up to the reply's `timeout_height`, and the door
-settles it later), or `failed`. A `failed` answer with reason `delivery_failed`,
-`expired` or `superseded` means the door's transaction did not admit you and never can:
-you may ask again.
+settles it only when the chain shows whether it ran, which can take longer than that
+height if the door cannot read the chain), or `failed`. A `failed` answer with reason
+`delivery_failed`, `expired` or `superseded` means the door's transaction did not admit
+you and never can: you may ask again.
 
 - **On the Studio:** `replies/<requestId>.json` in the door's folder, beside its inbox.
 - **From a lobby desk:** a reply to your message in the room, when the door runs live
