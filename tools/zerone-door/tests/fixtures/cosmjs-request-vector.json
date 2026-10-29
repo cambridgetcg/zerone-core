@@ -1,0 +1,6 @@
+{
+ "address": "zrn12aewv6y0kdqc42wk8xnaffu2zark248yfmkmqw",
+ "did": "did:zrn:6a5c8d4e3ed4b69b03a7ef2c657ab9a758cc03716ae1929ddb52c66f8771a962",
+ "account_pubkey_matches": true,
+ "envelope": "zerone-door-request/v1\nchain_id: zerone-1\naddress: zrn12aewv6y0kdqc42wk8xnaffu2zark248yfmkmqw\nidentity_public_key: 6a5c8d4e3ed4b69b03a7ef2c657ab9a758cc03716ae1929ddb52c66f8771a962\nnonce: 0123456789abcdef0123456789abcdef\nissued_at: 2026-10-28T17:30:00.000Z\naccount_public_key: 02eaf19a3cc6c4cdd3b21ffd04e9ef9b93d0cbe51f7a1226b5912a53c21ae22cbe\naccount_signature: a3d9c8286c20c6d4909404d46d43852a1c8572bcb8c0214fdca6642741c3f33b1bea75964e735d0ffe9220f7831c26bc75f2384da8d7fd4d0ef14b64e0127b3f\nidentity_signature: a47c282e85d9550ba6907339508024760e288fcef33a7c96366de536192ad1de73060512dea7277ea7b062a6ea48673aca4f76df4ad1bd8308952bc6c30ece03\npow_nonce: 3692046\n"
+}
