@@ -11,8 +11,10 @@ import { loadLedger, type LedgerEntry } from "../src/ledger.ts";
 import { runOnce } from "../src/run.ts";
 import type { ZeronedRunner } from "../src/tx.ts";
 import { checkBuiltTx } from "../src/tx.ts";
+import { BOOTSTRAP_WINDOW_BLOCKS, DOOR_WINDOW_CAP } from "../src/policy.ts";
 import { admitteesOf, judgeAdmittee, watchAdmittees } from "../src/watch.ts";
 import {
+  addressFor,
   fakeChainState,
   fakeFetch,
   grantFromR,
@@ -459,7 +461,7 @@ describe("live", () => {
     const entry = readLedger(ctx).entries[0]!;
     state.txs[entry.tx_hash] = { height: "1402802", tx_result: { code: 11, log: "out of gas", gas_used: "150001", gas_wanted: "150000" } };
     await reconcilePending(ctx);
-    expect(readLedger(ctx).entries[0]?.status).toBe("delivery_failed");
+    expect(readLedger(ctx).entries[0]).toMatchObject({ status: "delivery_failed", height: 1_402_802, chain_window: Math.floor(1_402_802 / 34_272) });
   });
 
   test("a re-grant revokes an expired stored grant and grants afresh, once", async () => {
@@ -497,6 +499,52 @@ describe("live", () => {
     state.grants = [];
     const again = await processItem(ctx, { text: makeRequest({ nonceHex: "b".repeat(32) }).text, channel: studio });
     expect(again.reply?.reasons).toContain("already_admitted");
+  });
+});
+
+describe("the chain window an admission counts in", () => {
+  const W = 41;
+  const BOUNDARY = W * BOOTSTRAP_WINDOW_BLOCKS;
+
+  function windowFull(ctx: DoorContext): void {
+    // 19 earlier door admissions already ran in window W.
+    const ledger = readLedger(ctx);
+    for (let i = 0; i < DOOR_WINDOW_CAP - 1; i += 1) {
+      const a = addressFor(`window-${i}`);
+      ledger.entries.push({
+        request_id: String(i).padStart(64, "f"), kind: "admit", address: a, address_payload: addressPayloadHex(a)!,
+        identity_public_key: String(i).padStart(64, "1"), did: `did:zrn:${String(i).padStart(64, "1")}`, channel_key: "studio_local",
+        tx_hash: String(i).padStart(64, "A"), status: "included", chain_window: W, utc_day: "2026-10-20",
+        at: "2026-10-20T00:00:00.000Z", grant_expiration: "2026-11-03T00:00:00Z", height: BOUNDARY + 1,
+      });
+    }
+    writeFileSync(join(ctx.paths.state, "ledger.json"), JSON.stringify(ledger), { mode: 0o600 });
+  }
+
+  test("built in the last block of a window and included in the next, in this run: it counts in the next", async () => {
+    const { ctx, state } = setup({ live: true, state: { height: BOUNDARY - 1 } });
+    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: studio });
+    expect(reply).toMatchObject({ decision: "admitted", height: BOUNDARY });
+    expect(readLedger(ctx).entries[0]).toMatchObject({ status: "included", height: BOUNDARY, chain_window: W });
+    // The door's window cap for W now counts it.
+    windowFull(ctx);
+    state.height = BOUNDARY + 5;
+    const next = await processItem(ctx, { text: makeRequest({ label: "agent-3" }).text, channel: studio });
+    expect(next.reply?.reasons).toEqual(["door_window_cap"]);
+  }, 30_000);
+
+  test("built before a window boundary, settled by a later run after it: it counts in the window it ran in", async () => {
+    const req = makeRequest();
+    const { ctx, state } = setup({ live: true, zeroned: { include: false }, state: { height: BOUNDARY - 2 } });
+    await processItem(ctx, { text: req.text, channel: studio });
+    const pending = readLedger(ctx).entries[0]!;
+    expect(pending).toMatchObject({ status: "pending_inclusion", chain_window: W - 1 });
+    state.pots[`bootstrap-${req.address}`] = restPot(req.address);
+    state.grants.push(restDoorGrant(R, req.address, pending.grant_expiration));
+    state.txs[pending.tx_hash] = { height: String(BOUNDARY + 1), tx_result: { code: 0, log: "", gas_used: "120000", gas_wanted: "150000" } };
+    state.height = BOUNDARY + 2;
+    await reconcilePending(ctx);
+    expect(readLedger(ctx).entries[0]).toMatchObject({ status: "included", height: BOUNDARY + 1, chain_window: W });
   });
 });
 

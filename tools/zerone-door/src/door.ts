@@ -348,6 +348,7 @@ export async function processItem(ctx: DoorContext, item: IntakeItem): Promise<O
     tx_hash: txHash,
     status: "pending_inclusion",
     sequence: auth.sequence,
+    // Until the transaction is found: then the window of its inclusion height.
     chain_window: currentWindow(g.facts.status.height),
     utc_day: utcDay(now),
     at: now.toISOString(),
@@ -398,7 +399,10 @@ function updateEntry(ctx: DoorContext, requestId: string, patch: Partial<LedgerE
   return e;
 }
 
-/** Waits for inclusion, checks result.code, postchecks, writes the receipt. */
+/** Waits for inclusion, checks result.code, postchecks, writes the receipt.
+ * A transaction found in a block moves to the chain window of its inclusion
+ * height, the window the chain itself counts the admission in, whichever run
+ * finds it. */
 async function settle(ctx: DoorContext, entry: LedgerEntry, base: Omit<Reply, "decision" | "reasons" | "at">): Promise<Reply> {
   const included = await awaitInclusion(ctx, entry.tx_hash);
   if (included === null || included === "error") {
@@ -407,8 +411,9 @@ async function settle(ctx: DoorContext, entry: LedgerEntry, base: Omit<Reply, "d
     ctx.log({ event: "pending", request_id: entry.request_id, tx_hash: entry.tx_hash, reasons: reply.reasons });
     return reply;
   }
+  const placed = { height: included.height, chain_window: currentWindow(included.height) };
   if (included.code !== 0) {
-    updateEntry(ctx, entry.request_id, { status: "delivery_failed", height: included.height, detail: included.log.slice(0, 200) });
+    updateEntry(ctx, entry.request_id, { status: "delivery_failed", ...placed, detail: included.log.slice(0, 200) });
     const reply: Reply = { ...base, decision: "failed", reasons: ["delivery_failed"], height: included.height, detail: included.log.slice(0, 300), at: ctx.now().toISOString() } as Reply;
     writeReply(ctx, reply);
     ctx.log({ event: "failed", request_id: entry.request_id, tx_hash: entry.tx_hash, reasons: reply.reasons });
@@ -416,13 +421,13 @@ async function settle(ctx: DoorContext, entry: LedgerEntry, base: Omit<Reply, "d
   }
   const problems = await postcheck(ctx, entry);
   if (problems.length > 0) {
-    updateEntry(ctx, entry.request_id, { status: "postcheck_failed", height: included.height, detail: problems.join(", ") });
+    updateEntry(ctx, entry.request_id, { status: "postcheck_failed", ...placed, detail: problems.join(", ") });
     const reply: Reply = { ...base, decision: "failed", reasons: ["postcheck_failed"], height: included.height, detail: problems.join(", "), at: ctx.now().toISOString() } as Reply;
     writeReply(ctx, reply);
     ctx.log({ event: "postcheck_failed", request_id: entry.request_id, tx_hash: entry.tx_hash, detail: problems });
     return reply;
   }
-  updateEntry(ctx, entry.request_id, { status: "included", height: included.height });
+  updateEntry(ctx, entry.request_id, { status: "included", ...placed });
   const reply: Reply = {
     ...base,
     decision: entry.kind === "admit" ? "admitted" : "regranted",

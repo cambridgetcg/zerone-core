@@ -41,12 +41,22 @@ export interface LedgerEntry {
   channel_key: string;
   tx_hash: string;
   status: EntryStatus;
+  /** The chain admission window the admission counts in: the window of the
+   * door's read height while the transaction is pending, then the window of
+   * the block that included it, because the chain counts an admission in the
+   * window where it runs. The door's window cap counts by this field. */
   chain_window: number;
+  /** The UTC day, on the door's clock, the door signed it. Unlike the window
+   * this stays at signing time: the daily caps limit how many transactions the
+   * door signs per day of the same clock the gates read "today" from, and the
+   * chain has no days. With one transaction in flight at a time, at most one
+   * signed just before midnight runs on the next day. */
   utc_day: string;
   at: string;
   grant_expiration: string;
   /** R's account sequence the transaction was signed with. */
   sequence?: string;
+  /** The inclusion height, once the transaction is found in a block. */
   height?: number;
   detail?: string;
 }

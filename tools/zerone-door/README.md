@@ -227,6 +227,12 @@ while the chain is producing blocks and R's on-chain sequence is still the one i
 signed with, it can no longer land: it is recorded as `dropped`, and the agent may ask
 again.
 
+An admission counts in the chain admission window of the block that included it, as
+the chain counts it, so the 20-per-window cap follows the inclusion height. The daily
+caps count by the UTC day the door signed, on its own clock, which is the clock they
+read "today" from; with one transaction in flight at a time, at most one signed just
+before midnight runs the next day.
+
 ## The admittee watch
 
 The door cannot bind what an admitted agent registers later (see below), so
