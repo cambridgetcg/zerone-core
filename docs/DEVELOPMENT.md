@@ -2,8 +2,8 @@
 
 **Source review: 27 September 2026, `main` at `9caaf36bca0b7d76a6b8206c2ffe595edb6593e8`.**
 This is the development entry point, not a release authorization or a live status page.
-The canonical repository is `cambridgetcg/zerone-core` (private); source access and
-public website availability are different things. Follow [project instructions](../CLAUDE.md).
+The canonical repository is `cambridgetcg/zerone-core`, public again since 28 October
+2026; it was private when this review was written. Follow [project instructions](../CLAUDE.md).
 
 Zerone's product target is **global compute contributing to fact-checking and the
 Tree of Knowledge, with useful work compensated in tokens**. The current
@@ -41,11 +41,13 @@ Current boundaries:
   runtime source `5542b221864ca0080e143fa82abbef4cd2064f71`, matching the published descriptor;
   development and legacy `zerone-1` both reported `catching_up=false`. Anonymous
   participant-archive and raw release-manifest HEAD requests returned **404**:
-  the advertised package path is **blocked for anonymous readers**, not an absent
+  the advertised package path was **blocked for anonymous readers**, not an absent
   runtime. See the [dated observations](reports/consolidation-observations-2026-09-27.json)
   and [participant guide](SHARED-DEVELOPMENT.md). The [23 September publication](reports/development-publication-2026-09-23.json)
   corrected runtime/package compatibility and retained knowledge-10 genesis replay;
-  it does not establish present download access. Legacy, development and the
+  it does not establish present download access. Since the repository became public
+  again on 28 October 2026, every release asset, including the participant archives and
+  checksum records, downloads anonymously (checked that day). Legacy, development and the
   unactivated `zerone-2` kit remain separate networks/release paths.
 - **Accepted design / pending:** SDK staking as sole consensus stake owner, SDK
   governance as sole ordinary decision/execution owner, ontology as sole domain
@@ -351,10 +353,9 @@ python3 tools/source-map.py check
 
 ## Next concrete work, in the accepted order
 
-1. **Resolve participant access, then exercise the prepared handoff.** Keep the
-   anonymous-download blocker visible and establish an authorized package-access
-   route before inviting a new participant; this does not authorize republishing
-   private source or changing repository privacy. Then use
+1. **Exercise the prepared handoff.** The anonymous-download blocker ended on
+   28 October 2026, when the repository became public again by its owner's choice;
+   participant packages now download without an account. Use
    [DEVELOPMENT-REVIEW-HANDOFF](DEVELOPMENT-REVIEW-HANDOFF.md) with a willing reviewer's own
    key and judgment. Retain actual receipts, outcome, warranted correction and
    payment observations. Record independent control separately; synthetic accounts

@@ -20,7 +20,7 @@
         "status": "network-specific-publication",
         "purpose": "Run explicit signed claims, reasoned reviews and prefunded settlement on zerone-dev-1, separately from the legacy ledger.",
         "next": "Use the published participant package and verify its exact network pins before acting; retain the predecessor package for original-genesis replay.",
-        "boundary": "The 23 September publication records knowledge version 11 at source 5542b221. GitHub-hosted participant files require repository access. This build does not recheck that runtime. Development funds have no monetary value and one operator initially produces blocks.",
+        "boundary": "The 23 September publication records knowledge version 11 at source 5542b221. GitHub-hosted participant files have been public since 28 October 2026. This build does not recheck that runtime. Development funds have no monetary value and one operator initially produces blocks.",
         "link": { "label": "Inspect the development lane", "url": "https://zerone.ai/development/" }
       },
       {
@@ -39,7 +39,7 @@
         "purpose": "Distinguish custody-bearing modules and existing block work from optional adapters, static diagrams and offline experiments.",
         "next": "Trace each consumer, callback and liability before moving analysis to clients or retiring a financial path. Use the module boundaries below.",
         "boundary": "Not all older machinery is inert: alignment pacing and ontology ceilings still affect knowledge. Static research publication does not activate rewards, authority or an external integration.",
-        "link": { "label": "Read the consolidation sequence (repository access)", "path": "docs/MODULE-CONSOLIDATION-SEQUENCE.md" }
+        "link": { "label": "Read the consolidation sequence", "path": "docs/MODULE-CONSOLIDATION-SEQUENCE.md" }
       },
       {
         "id": "successor",

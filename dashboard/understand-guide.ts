@@ -26,8 +26,8 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
       commit,
       url: `${REPOSITORY}/tree/${commit}`,
       evidenceCommit: EVIDENCE_COMMIT,
-      repositoryAccess: "restricted",
-      accessNote: "Source links require repository access. The public guide remains readable without a repository account; a source link is not a public download guarantee.",
+      repositoryAccess: "public",
+      accessNote: "Source links open without a GitHub account: the repository has been public since 28 October 2026.",
       scope: "Build-time explanation and declared availability; dated evidence is identified separately. This is not a fresh network check.",
     },
     effects: {
@@ -137,9 +137,9 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
         rows: [
           { title: `Read ${nodeGuide.live.chainId}`, availability: nodeGuide.live.availability, text: "Inspect public records, compare observations and ask reproducible questions.", link: { label: "Read the existing network", url: `${nodes}#live` } },
           { title: observer ? "Run an experimental observer" : "Check observer availability", availability: nodeGuide.live.replicaInstallation.availability, text: nodeGuide.live.replicaInstallation.reason,
-            note: observer ? `New setups had to start before ${observer.expiresAt}; after that the package refuses them until a new signed package is published. The package and its tools come from the source repository, which is not public. ${observer.maintenance}` : "Use the node guide for the current publication record.",
+            note: observer ? `New setups had to start before ${observer.expiresAt}; after that the package refuses them until a new signed package is published. The package and its tools come from the public source repository. ${observer.maintenance}` : "Use the node guide for the current publication record.",
             link: { label: observer ? "Verify the observer package" : "Read the node guide", url: `${nodes}#${observer ? "observer" : "live"}` } },
-          { title: `Build on ${nodeGuide.local.chainId}`, availability: nodeGuide.local.availability, text: `${nodeGuide.local.funds} The source code is not public, so only people who already have access to it can build this. ${nodeGuide.local.apiScope}`, link: { label: "Set up a local sandbox", url: `${nodes}#local` } },
+          { title: `Build on ${nodeGuide.local.chainId}`, availability: nodeGuide.local.availability, text: `${nodeGuide.local.funds} The source is public; the node guide lists what a build needs. ${nodeGuide.local.apiScope}`, link: { label: "Set up a local sandbox", url: `${nodes}#local` } },
           { title: "Run a private chain on our own Macs", availability: nodeGuide.privateNetwork.availability, text: `${nodeGuide.privateNetwork.whoCanJoin} Each run starts its own new, valueless chain, and no genesis, peer address or kit is published.`, link: { label: "Read the closed beta", url: `${nodes}#beta` } },
           { title: "New zerone-1 accounts", availability: nodeGuide.live.newAccountAdmission.availability, text: `Starter funds: ${nodeGuide.live.starterFunds.availability}. Reward-claim onboarding: ${nodeGuide.live.rewardClaimOnboarding.availability}. Validator joining: ${nodeGuide.live.validatorJoining.availability}.`, link: { label: "Read participation options", url: `${nodes}#participation` } },
           { title: `Shared work on ${nodeGuide.development.chainId}`, availability: nodeGuide.development.availability, text: `${nodeGuide.development.status} ${nodeGuide.development.consensus}`, link: { label: "Read the development lane", url: "https://zerone.ai/development/" } },

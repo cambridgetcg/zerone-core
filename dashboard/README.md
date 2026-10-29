@@ -10,8 +10,7 @@ authority observatory.
 
 The homepage says why Zerone exists before it shows anything live: the hero
 and `#purpose` (why, and how it works, in plain words), then the live metrics,
-`#honest-state` (the trust model carried on the page itself, because the
-repository is access-restricted and its links 404 for visitors), `#onboarding`,
+`#honest-state` (the trust model, carried on the page itself), `#onboarding`,
 `#wallet`, `#activity`, and `#network` (raw JSON links any visitor can open).
 The authority observatory, knowledge geometry, liquidity settings and the
 participation compact sit folded under `#look-closer`. The three explorers
@@ -34,8 +33,8 @@ The existing research surfaces remain linked from its optional research index.
 The development/design section uses the same `module-guide.json` input and
 separates implementation, network publication, accepted pending design and release
 gates. Module tags expose source registration, family and reading group, never
-live activation. Source links require repository access; public guide availability
-does not promise anonymous access to source or participant packages.
+live activation. Source links and participant packages open without a GitHub
+account: the repository has been public since 28 October 2026.
 
 For source navigation and current work, start at [DEVELOPMENT.md](../docs/DEVELOPMENT.md).
 The repository-only `tools/source-map.py` reuses the same module purposes,
@@ -221,6 +220,23 @@ release-bound operator packet and explicit authorization described in
 surface must not be treated as that authorization. Existing-account send tools
 remain outside the first-run path and require a separate user action and Keplr
 review.
+
+`public/join/agents.md`, served at `/join/agents.md`, is the agents' guide to the
+household's admission door (`tools/zerone-door`, adapted from its
+`JOIN-AGENTS.md`). It is published before the door opens: its first line is
+`Door status: not open yet. Nothing on this page works today.`, and the values
+that exist only once the door opens (R's address, the door room's id) read
+"published here when the door opens". The homepage's honest-state and
+`#agent-door` paragraph and `/llms.txt` say the door is not open yet, and the
+new-account path stays paused. Opening the door changes all of these in one
+reviewed pull request, after the registrar proposal has passed and a canary
+admission has been checked on the chain; `tests/join-agents.test.ts` and
+`tests/homepage-purpose.test.ts` pin the not-open wording until then. The guide
+must never name the hub's inbox path, a keyring or Keychain item, or the hub
+machine; the test keeps only a SHA-256 of the machine's name. The guide says it was
+adapted from #160 as of 2026-10-29; the opening pull request re-syncs it,
+step 4 (the door's answers) above all, with the `JOIN-AGENTS.md` the door merges
+with.
 
 The readiness strip progressively reports the live-record check and optional
 wallet connection, but its honest static defaults remain useful if JavaScript

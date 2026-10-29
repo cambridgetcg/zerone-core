@@ -8,8 +8,10 @@ implemented source from published packages and activated network behavior.
 
 The canonical source is
 [`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core),
-which is currently a private repository. The Go module path remains
-`github.com/zerone-chain/zerone` pending an explicit module-path migration.
+a public repository. It was first published on 5 July 2026, access-restricted
+from about 25 September, and public again since 28 October 2026. The Go module
+path remains `github.com/zerone-chain/zerone` pending an explicit module-path
+migration.
 
 The repository contains a package named `@zerone-chain/sdk` under
 [`sdk/typescript`](../../sdk/typescript), but it is **not published on npm**.
@@ -33,39 +35,60 @@ attempts, regenerates and checks the SDK, audits the runtime dependency graph,
 rebuilds the committed distribution, and verifies the packed exports. The tag
 check reads the current `main` commit through the GitHub API with the run's
 read-only token, scoped to that one step, because checkout keeps no Git
-credentials and the private repository refuses an anonymous fetch.
+credentials. While the repository was private an anonymous fetch was refused;
+the step is unchanged now that it is public again.
 
-This repository is private and on GitHub Free, where environment secrets and
-deployment branch and tag policies are unavailable for private repositories.
-The `npm-sdk-release` environment therefore cannot hold a release secret or
-restrict which ref runs the workflow. It names the workflow identity that
-npm's trusted publisher binds to and grants nothing by itself. Do not store an
-npm token in GitHub, as an environment or a repository secret; the workflow
-reads none.
+From about 25 September until 28 October 2026 this repository was private on
+GitHub Free, where environment secrets, required reviewers and deployment
+branch and tag policies are unavailable, so during that time the
+`npm-sdk-release` environment could neither hold a release secret nor restrict
+which ref ran the workflow. GitHub offers all three for public repositories on
+every plan. GitHub's public API reported on 28 October 2026 that the
+environment, created on 29 July 2026, carries two rules: it admits only tags
+matching `sdk-v*`, and it waits for the required reviewer `cambridgetcg`, which
+repository administrators may bypass. The environment names the workflow
+identity that npm's trusted publisher binds to and holds no secret. Do not
+store an npm token in GitHub, as an environment or a repository secret; the
+workflow reads none.
 
-Releases carry no npm provenance attestation while the source repository is
-private: npm does not support provenance for packages published from private
-repositories, and a consumer could not inspect the attested commit. Both
-release paths use `--provenance=false`, so no transparency-log entry is made.
-Restoring provenance needs a public source repository bound to the trusted
-publisher.
+The first version, `0.1.1`, is published without an npm provenance
+attestation: the owner publishes it by hand from a verified tarball with
+`--provenance=false`, and npm attests provenance only for a package published
+from a supported cloud CI run, never from a private repository.
+`publish-sdk.yml` was written on 29 July 2026, while the repository was
+public, to publish with provenance; on 27 October 2026, while it was private,
+it was changed to pass `--provenance=false`. Now that the repository is public
+again, provenance is possible for later versions that the workflow publishes
+through the trusted publisher below; npm generates it by default for a public
+package published that way. Turning it back on is a separate, reviewed change
+to `publish-sdk.yml`; until then the workflow's staged releases make no
+transparency-log entry either. npm's provenance documentation does not say
+whether a staged publish carries the attestation, so confirm that on the first
+such release.
 
 ### First publication by the owner's own hand
 
 npm trusted publishing and staged publishing require an existing package, so
-the package owner publishes `0.1.0` by hand, with npm 2FA, from a tarball
-verified beforehand. No 2FA-bypass token is created for it, and the workflow
-refuses to run while the package is absent. Build the tarball from a fresh
-checkout of the `sdk-v0.1.0` tag with the workflow's npm release (11.19.0) and
-its gates: `npm ci`; `npm run generate` with no change under `src/generated`;
+the package owner publishes the first version, `0.1.1`, by hand, with npm 2FA,
+from a tarball verified beforehand. No 2FA-bypass token is created for it, and
+the workflow refuses to run while the package is absent. Build the tarball from
+a fresh checkout of the annotated `sdk-v0.1.1` tag, made on the `main` commit
+that carries version `0.1.1`, with the workflow's npm release (11.19.0) and its
+gates: `npm ci`; `npm run generate` with no change under `src/generated`;
 `npm run check`; `npm audit --omit=dev`; `npm run build` with no change under
 `dist`; `npm run check:publish`; then `npm pack --ignore-scripts`. Record the
 tarball's SHA-256, npm shasum and integrity, publish that exact file with
 `--access public --provenance=false`, and afterwards confirm that the
 registry's `dist.shasum` and `dist.integrity`, and the SHA-256 of the
 downloaded registry tarball, equal the recorded values. Package settings can
-require 2FA and disallow traditional token publishing as soon as `0.1.0` is
+require 2FA and disallow traditional token publishing as soon as `0.1.1` is
 public.
+
+`0.1.0` was tagged as `sdk-v0.1.0` but never published. The README packed from
+that tag says the source repository "is currently private", which stopped being
+true on 28 October 2026, and the tag stays as it is: GitHub's ruleset for
+`sdk-v*` tags refuses updating or deleting them. `0.1.1` carries the corrected
+README.
 
 ### Later versions: staged, then approved with 2FA
 
@@ -90,8 +113,9 @@ npm trust github @zerone-chain/sdk \
 Check that the first staged publish validates the new configuration inside
 that window. For every later tag, the workflow submits the exact tarball with
 OIDC to npm's staging area and records the tag, commit, tarball SHA-256, npm
-shasum and integrity in the run summary. Because the environment restricts no
-ref, the npm 2FA approval is the release gate: the approver must download and
+shasum and integrity in the run summary. The environment's tag rule and
+reviewer decide which runs may stage, and a staged tarball is not published:
+the npm 2FA approval remains the release gate. The approver must download and
 inspect each staged tarball, and compare it with the run summary and the
 tagged commit, before approving it. Merging or manually viewing the workflow
 performs no publication.
@@ -360,8 +384,9 @@ validator is not a seed service, and public peers are not advertised while
 validator admission is paused. It deliberately omits general REST/gRPC, IBC
 channels, snapshots, binaries, and a recommended release because those claims
 are not currently supported by the deployed evidence, and it omits links into
-this private repository. The configured SLIP-0044 value `118` is described as
-the shared Cosmos derivation path, not a Zerone-owned registration. The `zrn`
+this repository, which was private when the bundle was corrected on 27 October
+2026. The configured SLIP-0044 value `118` is described as the shared Cosmos
+derivation path, not a Zerone-owned registration. The `zrn`
 Bech32 HRP is registered in SLIP-0173
 ([satoshilabs/slips#2039](https://github.com/satoshilabs/slips/pull/2039),
 merged 2026-07-31).

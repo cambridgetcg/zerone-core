@@ -3,6 +3,23 @@
 Notable source changes are recorded here. Network activation and package
 publication are separate events and are stated explicitly when they occur.
 
+## Source — 2026-10-28 TypeScript SDK 0.1.1 and public-repository wording
+
+- `@zerone-chain/sdk` is now version `0.1.1`, the first version to publish on
+  npm. `0.1.0` was tagged as `sdk-v0.1.0` but never published: the README
+  packed from that tag says the source repository "is currently private",
+  which stopped being true on 28 October 2026, and GitHub's ruleset for
+  `sdk-v*` tags refuses updating or deleting it. This change touches only the
+  package's README and version number; the package code is that of
+  `sdk-v0.1.0`.
+- `README.md` and `docs/standards/OPEN_CRYPTO_SDK.md` state the repository's
+  visibility history: first published on 5 July 2026, access-restricted from
+  about 25 September, and public again since 28 October 2026. zerone.ai says
+  the source has been public since 28 October 2026.
+- Source publication does not publish `@zerone-chain/sdk` to npm. The package
+  owner publishes `0.1.1` by hand from the `sdk-v0.1.1` tag, as
+  [OPEN_CRYPTO_SDK.md](docs/standards/OPEN_CRYPTO_SDK.md) describes.
+
 ## Source — 2026-10-27 TypeScript SDK pre-release corrections
 
 - The generated protobuf writer now encodes 64-bit varints in
