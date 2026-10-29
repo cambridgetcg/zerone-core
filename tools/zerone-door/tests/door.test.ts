@@ -642,6 +642,23 @@ describe("a broadcast the door has not seen land", () => {
     expect(admitteesOf(readLedger(ctx)).map((a) => a.address)).toEqual([req.address]);
   });
 
+  test("refused in its block, R's sequence moved, nothing indexed yet: still pending until the index names who used it", async () => {
+    const { ctx, state, calls } = setup({ live: true, zeroned: { refuseInBlock: 5 } });
+    const req = makeRequest();
+    await processItem(ctx, { text: req.text, channel: studio });
+    const entry = readLedger(ctx).entries[0]!;
+    // The same bytes ran in a later block, but the index still shows only the refusal.
+    state.auth[R]!.sequence = "5";
+    advance(state, READ_HEIGHT + 4, 3);
+    await reconcilePending(later(ctx, 3));
+    expect(readLedger(ctx).entries[0]).toMatchObject({ status: "pending_inclusion" });
+    land(state, JSON.parse(calls.find((c) => c.args[1] === "broadcast")!.file!), entry.tx_hash, READ_HEIGHT + 3);
+    advance(state, READ_HEIGHT + 5, 4);
+    await reconcilePending(later(ctx, 4));
+    expect(readLedger(ctx).entries[0]).toMatchObject({ status: "included", height: READ_HEIGHT + 3 });
+    expect(admitteesOf(readLedger(ctx)).map((a) => a.address)).toEqual([req.address]);
+  });
+
   test("refused in its block, and another transaction then used its sequence: failed at once", async () => {
     const { ctx, state } = setup({ live: true, zeroned: { refuseInBlock: 5 } });
     await processItem(ctx, { text: makeRequest().text, channel: studio });

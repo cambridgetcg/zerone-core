@@ -239,8 +239,11 @@ because time passed:
   when it ran (code 0) and the chain shows
   what was built, `postcheck_failed` when it ran and the chain state differs; with a
   non-zero code, `delivery_failed` once R's sequence has moved past the one it was
-  signed with (it ran and its messages failed, or another transaction took the
-  sequence), so it can never run again. A non-zero code while R's sequence has not
+  signed with and the chain's `tx.acc_seq` index names the transaction that used that
+  sequence (it ran and its messages failed, or another transaction took the
+  sequence), so it can never run again. While the sequence has moved but the index
+  names nothing yet, the same bytes may have run in a block the index has not caught
+  up with, so the entry stays pending. A non-zero code while R's sequence has not
   moved means the block's ante handler refused it before anything in it ran (a fee R
   could not pay at that moment, say), and the same signed transaction can still run in
   a later block: it stays pending, its first reply is `pending` with reason

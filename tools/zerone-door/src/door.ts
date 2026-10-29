@@ -570,8 +570,10 @@ async function fateOf(ctx: DoorContext, entry: LedgerEntry): Promise<Fate> {
     const mine = used.value.find((t) => t.hash === entry.tx_hash.toUpperCase())
       ?? used.value.find((t) => carriesEntry(t.messages, entry, registrar));
     if (mine) return { kind: "found", tx: mine, hash: mine.hash };
-    // In a block with a non-zero code, and the sequence it needs is used.
-    if (refusedIn) return { kind: "found", tx: refusedIn, hash: entry.tx_hash };
+    // In a block with a non-zero code, and the index names who used the
+    // sequence it needs. With nothing indexed yet, the same bytes may have
+    // run in a later block the index has not caught up with: stay unproven.
+    if (refusedIn && used.value.length > 0) return { kind: "found", tx: refusedIn, hash: entry.tx_hash };
     if (used.value.length === 1) return { kind: "superseded", by: used.value[0]!.hash, height: used.value[0]!.height };
     // The index may not have the block yet (or the node may not index acc_seq).
     return unproven(`R's sequence moved past ${entry.sequence}, and the acc_seq index shows ${used.value.length} transactions for it`,
