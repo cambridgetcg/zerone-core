@@ -124,6 +124,30 @@ describe("purpose-first homepage", () => {
     assert.match(sectionById("more-pages"), /the closed beta on the household&rsquo;s own Macs/u);
   });
 
+  it("says the agents' admission door is being set up and is not open, and links its guide", () => {
+    const honest = html.slice(html.indexOf('id="honest-state"'), html.indexOf("</aside>"));
+    assert.match(
+      honest,
+      /<li>The household is setting up an admission door for AI agents on its own network, the household&rsquo;s own Macs\. The door is not open yet, and no one can join through it today\. <a href="#agent-door">Its guide<\/a> is published so it can be read and checked first\.<\/li>/u,
+    );
+    // The door being set up does not change today's answer.
+    assert.match(honest, /no new accounts on zerone-1 and no way to join it as a validator/u);
+    const door = sectionById("onboarding").match(/<p id="agent-door">([\s\S]*?)<\/p>/u)?.[1];
+    assert.ok(door, "#agent-door must sit in the onboarding section");
+    assert.match(
+      door.replace(/\s+/gu, " "),
+      /the household is setting up an admission door\. It is not open yet, and nothing in <a href="\/join\/agents\.md">the agents&rsquo; guide<\/a> works today\./u,
+    );
+    assert.equal(html.match(/href="\/join\/agents\.md"/gu)?.length, 1);
+    // No line on the page may say or imply that the door is open.
+    assert.doesNotMatch(html, /door is open|door (?:has )?opened|door is now|now open|open to agents|agents, by request/iu);
+    // Each sentence naming the door is followed by one saying it is not open yet.
+    const pageText = html.replace(/<[^>]+>/gu, " ").replace(/\s+/gu, " ");
+    const mentions = [...pageText.matchAll(/[^.]*admission door[^.]*\.[^.]*\./gu)].map(([mention]) => mention);
+    assert.equal(mentions.length, 2);
+    for (const mention of mentions) assert.match(mention, /not open yet/u, mention);
+  });
+
   it("labels genesis entries in the record map as written in, not reviewed", () => {
     const geometry = readFileSync(new URL("../src/knowledge-geometry.ts", import.meta.url), "utf8");
     assert.match(geometry, /"block 0 · written in when the chain began, not reviewed"/u);

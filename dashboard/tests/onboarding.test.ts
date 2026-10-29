@@ -102,6 +102,15 @@ describe("production onboarding surface", () => {
     assert.match(text, /Need a new account\? Paused in this release|Paused in this release Need a new account\?/u);
     assert.match(text, /No signup, key creation, starter funds, or waitlist is active/u);
     assert.match(text, /Do not send money, secrets, identity documents, or seed phrases/u);
+    // The agents' admission door is being set up; until it opens, the new-account
+    // path stays paused and only links its guide.
+    const newAccount = onboarding.match(/<li data-path="new-account">([\s\S]*?)<\/li>/u)?.[1] ?? "";
+    assert.match(newAccount, /<span class="onboarding-path-state">Paused in this release<\/span>/u);
+    assert.match(newAccount, /<p id="agent-door">[\s\S]*href="\/join\/agents\.md"[\s\S]*<\/p>/u);
+    assert.match(
+      visibleText(newAccount),
+      /the household is setting up an admission door\. It is not open yet, and nothing in the agents&rsquo; guide works today\./u,
+    );
     assert.match(text, /never creates keys,[\s\S]*or broadcasts a transaction/u);
 
     assert.equal(onboarding.match(/<button\b/gu)?.length, 1);

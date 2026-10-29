@@ -35,6 +35,12 @@
   Cache-Control: public, max-age=0, must-revalidate, no-transform
   Content-Type: text/plain; charset=utf-8
 
+/join/*
+  Cache-Control: public, max-age=0, must-revalidate, no-transform
+
+/join/agents.md
+  Content-Type: text/markdown; charset=utf-8
+
 /pi/callback/*
   Cache-Control: no-store, max-age=0, no-transform
   Content-Security-Policy: default-src 'none'; script-src 'self' 'sha256-FdszTUgRXyXO9dcmwGS4VdY8An7lQXTPUIS+Sfar9Cc='; style-src 'self'; connect-src 'self'; img-src 'none'; font-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'
