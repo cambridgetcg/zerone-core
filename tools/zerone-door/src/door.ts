@@ -5,7 +5,7 @@
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { addressPayloadHex } from "./bech32.ts";
-import type { ChainReader, Grant, IncludedTx } from "./chain.ts";
+import type { ChainReader, Grant, IncludedTx, TxMessage } from "./chain.ts";
 import { loadAllowlist, type DoorConfig, type DoorPaths } from "./config.ts";
 import {
   channelKeyOf,
@@ -28,6 +28,9 @@ import {
   ALLOWANCE_SPEND_LIMIT_UZRN,
   ALLOWED_MESSAGES,
   INCLUSION_TIMEOUT_MS,
+  MSG_ADD_BOOTSTRAP_ENTRY,
+  MSG_GRANT_ALLOWANCE,
+  MSG_REVOKE_ALLOWANCE,
   REGRANT_GAS,
   SIMULATE_MARGIN_GAS,
   TIMEOUT_SETTLE_BLOCKS,
@@ -485,21 +488,43 @@ function liveBase(ctx: DoorContext, entry: LedgerEntry): ReplyBase {
   };
 }
 
-/** What became of a broadcast the door has not yet seen settle. `refusedIn`
- * is a block that holds the transaction with a non-zero code while R's
- * sequence has not moved past the one it was signed with: its ante handler
- * refused it, nothing in it ran, and the same signed transaction can still
- * run in a later block up to its timeout height. */
+/** Whether a transaction's messages are this entry's own: the bootstrap entry
+ * for its address and the grant from R to it (for a re-grant, the grant,
+ * after a revoke when one was needed). The door's transaction carries exactly
+ * these, so one that does is this admission even under a hash the door did
+ * not compute; recordInclusion's postcheck then compares what it left on
+ * chain with what the door built. */
+export function carriesEntry(messages: readonly TxMessage[], entry: Pick<LedgerEntry, "kind" | "address">, registrar: string): boolean {
+  const fromR = (m: TxMessage | undefined) => m?.granter === registrar && m.grantee === entry.address;
+  const types = JSON.stringify(messages.map((m) => m.type));
+  if (entry.kind === "admit") {
+    return types === JSON.stringify([MSG_ADD_BOOTSTRAP_ENTRY, MSG_GRANT_ALLOWANCE])
+      && messages[0]!.authority === registrar
+      && JSON.stringify(messages[0]!.addresses) === JSON.stringify([entry.address])
+      && fromR(messages[1]);
+  }
+  return (types === JSON.stringify([MSG_GRANT_ALLOWANCE]) && fromR(messages[0]))
+    || (types === JSON.stringify([MSG_REVOKE_ALLOWANCE, MSG_GRANT_ALLOWANCE]) && fromR(messages[0]) && fromR(messages[1]));
+}
+
+/** What became of a broadcast the door has not yet seen settle. A found
+ * transaction carries the hash the chain knows it by. `refusedIn` is a block
+ * that holds the transaction with a non-zero code while R's sequence has not
+ * moved past the one it was signed with: its ante handler refused it, nothing
+ * in it ran, and the same signed transaction can still run in a later block
+ * up to its timeout height. */
 type Fate =
-  | { kind: "found"; tx: IncludedTx }
+  | { kind: "found"; tx: IncludedTx; hash: string }
   | { kind: "expired"; nodeHeight: number; readHeight: number; registrarSequence: string; refusedIn: IncludedTx | null }
   | { kind: "superseded"; by: string; height: number }
   | { kind: "unproven"; detail: string; attention: boolean; refusedIn: IncludedTx | null };
 
 /** Proves what became of a pending transaction, or says that it cannot yet.
  * Only proof frees an entry:
- *  - found: the transaction ran in a block (code 0, by hash or as the one the
- *    chain's tx.acc_seq index names for its R sequence), or it is in a block
+ *  - found: the transaction ran in a block (code 0), found by its hash or as
+ *    the transaction the chain's tx.acc_seq index names for its R sequence
+ *    (matched by hash, or by carrying this entry's messages when the chain
+ *    knows it under a hash the door did not compute); or it is in a block
  *    with a non-zero code and R's sequence moved past the one it was signed
  *    with, so it can never run again;
  *  - expired: the node has blocks TIMEOUT_SETTLE_BLOCKS past its timeout
@@ -509,7 +534,8 @@ type Fate =
  *    block (if a block refused it on the way, it is recorded as that
  *    delivery failure);
  *  - superseded: R's sequence moved past it and the acc_seq index names
- *    another transaction that used that sequence.
+ *    another transaction that used that sequence, one whose messages are not
+ *    this entry's.
  * A non-zero code alone proves nothing final, elapsed time proves nothing,
  * and nothing is ever re-broadcast. */
 async function fateOf(ctx: DoorContext, entry: LedgerEntry): Promise<Fate> {
@@ -518,7 +544,7 @@ async function fateOf(ctx: DoorContext, entry: LedgerEntry): Promise<Fate> {
   const status = await ctx.chain.status();
   const byHash = await ctx.chain.txByHash(entry.tx_hash);
   if (!byHash.ok) return { kind: "unproven", detail: byHash.error, attention: false, refusedIn: null };
-  if (byHash.value !== null && byHash.value.code === 0) return { kind: "found", tx: byHash.value };
+  if (byHash.value !== null && byHash.value.code === 0) return { kind: "found", tx: byHash.value, hash: entry.tx_hash };
   // In a block with a non-zero code: whether it ran (and failed) or was
   // refused before it ran, and so can still run, R's sequence decides below.
   const refusedIn = byHash.value;
@@ -537,10 +563,14 @@ async function fateOf(ctx: DoorContext, entry: LedgerEntry): Promise<Fate> {
   if (BigInt(account.sequence) > BigInt(entry.sequence)) {
     const used = await ctx.chain.txsBySignerSequence(registrar, entry.sequence);
     if (!used.ok) return unproven(used.error);
-    const mine = used.value.find((t) => t.hash === entry.tx_hash.toUpperCase());
-    if (mine) return { kind: "found", tx: mine };
+    // This transaction: by its hash, or by its messages when the chain
+    // indexed it under a hash the door did not compute (one whose broadcast
+    // answer was lost, say). A hash alone never makes it another's.
+    const mine = used.value.find((t) => t.hash === entry.tx_hash.toUpperCase())
+      ?? used.value.find((t) => carriesEntry(t.messages, entry, registrar));
+    if (mine) return { kind: "found", tx: mine, hash: mine.hash };
     // In a block with a non-zero code, and the sequence it needs is used.
-    if (refusedIn) return { kind: "found", tx: refusedIn };
+    if (refusedIn) return { kind: "found", tx: refusedIn, hash: entry.tx_hash };
     if (used.value.length === 1) return { kind: "superseded", by: used.value[0]!.hash, height: used.value[0]!.height };
     // The index may not have the block yet (or the node may not index acc_seq).
     return unproven(`R's sequence moved past ${entry.sequence}, and the acc_seq index shows ${used.value.length} transactions for it`,
@@ -564,7 +594,14 @@ async function fateOf(ctx: DoorContext, entry: LedgerEntry): Promise<Fate> {
 /** Records what fateOf proved. An entry proven neither way stays pending;
  * on the run that broadcast it (`answer`), its pending reply is written. */
 async function applyFate(ctx: DoorContext, entry: LedgerEntry, fate: Fate, base: ReplyBase, answer: boolean): Promise<Reply | null> {
-  if (fate.kind === "found") return recordInclusion(ctx, entry, fate.tx, base);
+  if (fate.kind === "found") {
+    if (fate.hash.toUpperCase() === entry.tx_hash.toUpperCase()) return recordInclusion(ctx, entry, fate.tx, base);
+    // Its messages are this entry's, under a hash the door did not compute:
+    // follow the chain's hash, as the broadcast path does with the node's.
+    ctx.log({ event: "hash_differs", request_id: entry.request_id, computed: entry.tx_hash, chain: fate.hash });
+    updateEntry(ctx, entry.request_id, { tx_hash: fate.hash });
+    return recordInclusion(ctx, { ...entry, tx_hash: fate.hash }, fate.tx, { ...base, tx_hash: fate.hash });
+  }
   if (fate.kind === "unproven") {
     if (fate.attention) ctx.log({ event: "pending_needs_attention", request_id: entry.request_id, tx_hash: entry.tx_hash, detail: fate.detail });
     if (!answer) return null;
@@ -596,7 +633,7 @@ async function applyFate(ctx: DoorContext, entry: LedgerEntry, fate: Fate, base:
     }
   } else {
     status = "superseded";
-    detail = `R's sequence ${entry.sequence} was used by tx ${fate.by} at height ${fate.height}`;
+    detail = `R's sequence ${entry.sequence} was used by tx ${fate.by} at height ${fate.height}, whose messages are not this ${entry.kind === "admit" ? "admission" : "re-grant"}`;
   }
   updateEntry(ctx, entry.request_id, { status, detail, ...(placed ?? {}) });
   const reply: Reply = { ...base, decision: "failed", reasons: [status], ...(placed ? { height: placed.height } : {}), detail, at: ctx.now().toISOString() };

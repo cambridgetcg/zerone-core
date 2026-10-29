@@ -245,7 +245,8 @@ export interface FakeChainState {
   dids: Record<string, string>;
   pots: Record<string, any>;
   grants: Array<{ granter: string; grantee: string; allowance: any }>;
-  txs: Record<string, { height: string; tx_result: { code: number; log: string; gas_used: string; gas_wanted: string } }>;
+  /** The tx index by hash; `tx` is the transaction's bytes (TxRaw, base64), as tx_search returns them. */
+  txs: Record<string, { height: string; tx_result: { code: number; log: string; gas_used: string; gas_wanted: string }; tx?: string }>;
   /** The tx.acc_seq index: "<address>/<sequence>" -> hashes of the
    * transactions in blocks that used that sequence (each also in txs). */
   accSeq: Record<string, string[]>;
@@ -343,7 +344,7 @@ export function fakeFetch(state: FakeChainState): FetchLike {
       if (path === "/tx_search") {
         const m = /^"tx\.acc_seq='([^']+)'"$/.exec(u.searchParams.get("query") ?? "");
         if (!m) return json(200, { error: { code: -32603, message: "Internal error", data: "unsupported query" } });
-        const txs = (state.accSeq[m[1]!] ?? []).map((hash) => ({ hash, height: state.txs[hash]!.height, index: 0, tx_result: state.txs[hash]!.tx_result, tx: "" }));
+        const txs = (state.accSeq[m[1]!] ?? []).map((hash) => ({ hash, height: state.txs[hash]!.height, index: 0, tx_result: state.txs[hash]!.tx_result, tx: state.txs[hash]!.tx ?? "" }));
         return json(200, { result: { txs, total_count: String(txs.length) } });
       }
       if (path === "/tx") {
@@ -419,6 +420,23 @@ export function pbBytes(field: number, value: Uint8Array | number[] | string): n
 /** A varint protobuf field; proto3 leaves a zero out. */
 export function pbVarint(field: number, value: number): number[] {
   return value === 0 ? [] : [...encodeVarint(field * 8), ...encodeVarint(value)];
+}
+
+/** A transaction as a block holds it (TxRaw, base64) for the fake chain's
+ * indexes: its messages from their JSON form, with as much of each as the door
+ * reads (type and parties), and its timeout height. */
+export function txRawOf(messages: Array<Record<string, any>>, timeoutHeight = 0): string {
+  const anys = messages.map((m) => {
+    const type = String(m["@type"]);
+    let value: number[] = [];
+    if (type.endsWith(".MsgAddBootstrapEntry")) value = [...pbBytes(1, m.authority), ...m.addresses.flatMap((a: string) => pbBytes(2, a))];
+    else if (type.endsWith(".MsgGrantAllowance")) value = [...pbBytes(1, m.granter), ...pbBytes(2, m.grantee), ...pbBytes(3, pbBytes(1, String(m.allowance?.["@type"] ?? "")))];
+    else if (type.endsWith(".MsgRevokeAllowance")) value = [...pbBytes(1, m.granter), ...pbBytes(2, m.grantee)];
+    else if (type.endsWith(".MsgSend")) value = [...pbBytes(1, m.from_address), ...pbBytes(2, m.to_address)];
+    return pbBytes(1, [...pbBytes(1, type), ...pbBytes(2, value)]);
+  });
+  const body = [...anys.flat(), ...pbBytes(2, "zerone-door/v1"), ...pbVarint(3, timeoutHeight)];
+  return Buffer.from([...pbBytes(1, body), ...pbBytes(2, []), ...pbBytes(3, [1, 2, 3])]).toString("base64");
 }
 
 /** QueryAccountResponse { Any(BaseAccount { address, account_number, sequence }) }. */

@@ -2,7 +2,7 @@
 // through an injected fetch. Only an exact, known not-found answer counts as
 // "absent"; every other failure is an error and the door refuses (fails closed).
 import { createHash } from "node:crypto";
-import { READ_TIMEOUT_MS } from "./policy.ts";
+import { MSG_ADD_BOOTSTRAP_ENTRY, MSG_GRANT_ALLOWANCE, MSG_REVOKE_ALLOWANCE, READ_TIMEOUT_MS } from "./policy.ts";
 
 export type Read<T> = { ok: true; value: T } | { ok: false; error: string };
 export type FetchLike = (url: string, init?: { signal?: AbortSignal }) => Promise<{ status: number; text(): Promise<string> }>;
@@ -81,6 +81,18 @@ export interface IncludedTx {
   log: string;
   gasUsed: number;
   gasWanted: number;
+}
+
+/** One message of a transaction in a block: its type and, for the messages
+ * the door signs, the parties that make it this admission or another. */
+export interface TxMessage {
+  type: string;
+  /** MsgAddBootstrapEntry */
+  authority?: string;
+  addresses?: string[];
+  /** MsgGrantAllowance and MsgRevokeAllowance */
+  granter?: string;
+  grantee?: string;
 }
 
 /** Which chain version the node runs, as the door pins it. */
@@ -220,6 +232,50 @@ function encodeVarint(n: number): number[] {
 
 const utf8 = new TextDecoder("utf-8", { fatal: true });
 
+/** google.protobuf.Any { type_url = 1; value = 2 }. */
+function anyOf(bytes: Uint8Array): { typeUrl: string; value: Uint8Array } {
+  let typeUrl = "";
+  let value: Uint8Array = new Uint8Array();
+  for (const [f, v] of protoFields(bytes)) {
+    if (f === 1 && v instanceof Uint8Array) typeUrl = utf8.decode(v);
+    if (f === 2 && v instanceof Uint8Array) value = v;
+  }
+  return { typeUrl, value };
+}
+
+/** The messages of a transaction as a block holds it: TxRaw { body_bytes = 1 }
+ * -> TxBody { repeated Any messages = 1 }. The messages the door signs are
+ * read down to their parties (MsgAddBootstrapEntry { authority = 1; repeated
+ * addresses = 2 }; MsgGrantAllowance and MsgRevokeAllowance { granter = 1;
+ * grantee = 2 }); any other message is read as its type only. */
+export function txMessagesOf(raw: Uint8Array): TxMessage[] {
+  let body: Uint8Array | null = null;
+  for (const [f, v] of protoFields(raw)) if (f === 1 && v instanceof Uint8Array) body = v;
+  if (body === null) throw new Error("no body");
+  const messages: TxMessage[] = [];
+  for (const [f, v] of protoFields(body)) {
+    if (f !== 1) continue;
+    if (!(v instanceof Uint8Array)) throw new Error("a message that is not an Any");
+    const { typeUrl, value } = anyOf(v);
+    const m: TxMessage = { type: typeUrl };
+    if (typeUrl === MSG_ADD_BOOTSTRAP_ENTRY) {
+      const addresses: string[] = [];
+      for (const [mf, mv] of protoFields(value)) {
+        if (mf === 1 && mv instanceof Uint8Array) m.authority = utf8.decode(mv);
+        if (mf === 2 && mv instanceof Uint8Array) addresses.push(utf8.decode(mv));
+      }
+      m.addresses = addresses;
+    } else if (typeUrl === MSG_GRANT_ALLOWANCE || typeUrl === MSG_REVOKE_ALLOWANCE) {
+      for (const [mf, mv] of protoFields(value)) {
+        if (mf === 1 && mv instanceof Uint8Array) m.granter = utf8.decode(mv);
+        if (mf === 2 && mv instanceof Uint8Array) m.grantee = utf8.decode(mv);
+      }
+    }
+    messages.push(m);
+  }
+  return messages;
+}
+
 /** Decodes the value of the auth module's gRPC Account query:
  * QueryAccountResponse { Any account = 1 } holding a BaseAccount { address = 1;
  * pub_key = 2; account_number = 3; sequence = 4 }. proto3 leaves zero values
@@ -228,12 +284,7 @@ export function baseAccountOf(bytes: Uint8Array, address: string): { accountNumb
   let any: Uint8Array | null = null;
   for (const [f, v] of protoFields(bytes)) if (f === 1 && v instanceof Uint8Array) any = v;
   if (any === null) throw new Error("no account in the answer");
-  let typeUrl = "";
-  let value: Uint8Array = new Uint8Array();
-  for (const [f, v] of protoFields(any)) {
-    if (f === 1 && v instanceof Uint8Array) typeUrl = utf8.decode(v);
-    if (f === 2 && v instanceof Uint8Array) value = v;
-  }
+  const { typeUrl, value } = anyOf(any);
   if (typeUrl !== "/cosmos.auth.v1beta1.BaseAccount") throw new Error(`account type ${typeUrl.slice(0, 80) || "missing"}`);
   let owner = "";
   let accountNumber = 0;
@@ -564,8 +615,10 @@ export class ChainReader {
    * SDK's SetPubKeyDecorator emits for each signer. Only a transaction that
    * passed the whole ante handler keeps its events, and the same handler
    * increments the sequence, so a correct chain shows at most one. An empty
-   * list proves nothing: the index may lag, or the node may not index it. */
-  async txsBySignerSequence(address: string, sequence: string): Promise<Read<Array<IncludedTx & { hash: string }>>> {
+   * list proves nothing: the index may lag, or the node may not index it.
+   * Each comes with its messages, read from the transaction bytes the search
+   * returns; a transaction whose bytes cannot be read fails the whole read. */
+  async txsBySignerSequence(address: string, sequence: string): Promise<Read<Array<IncludedTx & { hash: string; messages: TxMessage[] }>>> {
     if (!/^[a-z0-9]{1,83}$/.test(address) || !/^\d{1,20}$/.test(sequence)) return { ok: false, error: "acc_seq search: bad address or sequence" };
     const query = encodeURIComponent(`"tx.acc_seq='${address}/${sequence}'"`);
     const r = await this.getJson(`${this.rpc}/tx_search?query=${query}&page=1&per_page=10`);
@@ -574,13 +627,20 @@ export class ChainReader {
     if (body?.error) return { ok: false, error: `acc_seq search: ${String(body.error.data ?? body.error.message).slice(0, 160)}` };
     const list = body?.result?.txs;
     if (!Array.isArray(list)) return { ok: false, error: "acc_seq search: unexpected shape" };
-    const out: Array<IncludedTx & { hash: string }> = [];
+    const out: Array<IncludedTx & { hash: string; messages: TxMessage[] }> = [];
     for (const t of list) {
       const height = Number(t?.height);
       if (typeof t?.hash !== "string" || !/^[0-9A-Fa-f]{64}$/.test(t.hash) || !t?.tx_result || !Number.isSafeInteger(height)) {
         return { ok: false, error: "acc_seq search: unexpected shape" };
       }
+      let messages: TxMessage[];
+      try {
+        messages = txMessagesOf(Uint8Array.from(Buffer.from(String(t.tx ?? ""), "base64")));
+      } catch (error) {
+        return { ok: false, error: `acc_seq search: tx ${t.hash.slice(0, 16)} unreadable: ${error instanceof Error ? error.message : String(error)}` };
+      }
       out.push({
+        messages,
         hash: t.hash.toUpperCase(),
         height,
         code: Number(t.tx_result.code ?? 0),

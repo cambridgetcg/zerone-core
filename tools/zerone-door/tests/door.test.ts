@@ -3,9 +3,9 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { addressPayloadHex } from "../src/bech32.ts";
-import { ChainReader, type FetchLike } from "../src/chain.ts";
+import { ChainReader, txMessagesOf, type FetchLike } from "../src/chain.ts";
 import { doorPaths } from "../src/config.ts";
-import { allowanceMatches, processItem, readLedger, reconcilePending, replyText, type DoorContext, type Reply } from "../src/door.ts";
+import { allowanceMatches, carriesEntry, processItem, readLedger, reconcilePending, replyText, type DoorContext, type Reply } from "../src/door.ts";
 import type { LobbyRunner } from "../src/intake.ts";
 import { loadLedger, type LedgerEntry } from "../src/ledger.ts";
 import { runOnce } from "../src/run.ts";
@@ -18,6 +18,7 @@ import {
   fakeChainState,
   fakeFetch,
   grantFromR,
+  HOUSEHOLD,
   makeDoorHome,
   makeRequest,
   NOW,
@@ -25,6 +26,7 @@ import {
   R_PUBKEY_B64,
   restDoorGrant,
   restPot,
+  txRawOf,
   type FakeChainState,
 } from "./helpers.ts";
 
@@ -127,7 +129,20 @@ function land(state: FakeChainState, tx: any, hash: string, height: number, code
   const sequence = String(tx.auth_info.signer_infos[0].sequence);
   state.auth[R]!.sequence = String(Number(sequence) + 1);
   state.accSeq[`${R}/${sequence}`] = [hash];
-  state.txs[hash] = { height: String(height), tx_result: { code, log: code ? "failed in block" : "", gas_used: "121000", gas_wanted: "150000" } };
+  state.txs[hash] = {
+    height: String(height),
+    tx_result: { code, log: code ? "failed in block" : "", gas_used: "121000", gas_wanted: "150000" },
+    tx: txRawOf(tx.body.messages, Number(tx.body.timeout_height)),
+  };
+}
+
+/** A transaction R signed that is no door admission (a transfer), as the indexes hold it. */
+function otherTx(height: number): FakeChainState["txs"][string] {
+  return {
+    height: String(height),
+    tx_result: { code: 0, log: "", gas_used: "90000", gas_wanted: "100000" },
+    tx: txRawOf([{ "@type": "/cosmos.bank.v1beta1.MsgSend", from_address: R, to_address: HOUSEHOLD }]),
+  };
 }
 
 /** A block holds the transaction but its ante handler refuses it (a fee R
@@ -627,7 +642,7 @@ describe("a broadcast the door has not seen land", () => {
     const entry = readLedger(ctx).entries[0]!;
     const other = "D".repeat(64);
     state.auth[R]!.sequence = "5";
-    state.txs[other] = { height: String(READ_HEIGHT + 3), tx_result: { code: 0, log: "", gas_used: "90000", gas_wanted: "100000" } };
+    state.txs[other] = otherTx(READ_HEIGHT + 3);
     state.accSeq[`${R}/4`] = [other];
     advance(state, READ_HEIGHT + 5, 3);
     await reconcilePending(later(ctx, 3));
@@ -670,7 +685,7 @@ describe("a broadcast the door has not seen land", () => {
     const { ctx, state, entry } = await lost();
     const other = "D".repeat(64);
     state.auth[R]!.sequence = "5";
-    state.txs[other] = { height: "1402803", tx_result: { code: 0, log: "", gas_used: "90000", gas_wanted: "100000" } };
+    state.txs[other] = otherTx(1_402_803);
     state.accSeq[`${R}/4`] = [other];
     // Before the timeout height: the used sequence alone proves it.
     advance(state, READ_HEIGHT + 5, 3);
@@ -679,6 +694,32 @@ describe("a broadcast the door has not seen land", () => {
     const failed = replyOf(ctx, entry.request_id);
     expect(failed.reasons).toEqual(["superseded"]);
     expect(failed.detail).toContain(other);
+  });
+
+  test("its own transaction indexed under another hash: found by its messages, not superseded", async () => {
+    const { ctx, state, entry, signed, logs } = await lost();
+    // The chain holds the signed admission under a hash the door did not compute.
+    const chainHash = "AB".repeat(32);
+    land(state, signed, chainHash, READ_HEIGHT + 2);
+    advance(state, READ_HEIGHT + 4, 2);
+    await reconcilePending(later(ctx, 2));
+    expect(readLedger(ctx).entries[0]).toMatchObject({ status: "included", tx_hash: chainHash, height: READ_HEIGHT + 2 });
+    expect(replyOf(ctx, entry.request_id)).toMatchObject({ decision: "admitted", tx_hash: chainHash, height: READ_HEIGHT + 2 });
+    expect(logs).toContainEqual({ event: "hash_differs", request_id: entry.request_id, computed: entry.tx_hash, chain: chainHash });
+  });
+
+  test("an admission of another address under R's sequence is another transaction: superseded", async () => {
+    const { ctx, state, entry, signed } = await lost();
+    const elsewhere = addressFor("someone-else");
+    const theirs = structuredClone(signed);
+    theirs.body.messages[0].addresses = [elsewhere];
+    theirs.body.messages[1].grantee = elsewhere;
+    const theirHash = "CD".repeat(32);
+    land(state, theirs, theirHash, READ_HEIGHT + 2);
+    advance(state, READ_HEIGHT + 4, 2);
+    await reconcilePending(later(ctx, 2));
+    expect(readLedger(ctx).entries[0]?.status).toBe("superseded");
+    expect(replyOf(ctx, entry.request_id).detail).toContain(`used by tx ${theirHash}`);
   });
 
   test("R's sequence moved but the index names no transaction for it yet: still pending, even past the timeout", async () => {
@@ -793,7 +834,7 @@ describe("a ledger from before timeout heights", () => {
     // Any R transaction that uses sequence 4 settles it.
     const other = "F".repeat(64);
     state.auth[R]!.sequence = "5";
-    state.txs[other] = { height: "1402805", tx_result: { code: 0, log: "", gas_used: "90000", gas_wanted: "100000" } };
+    state.txs[other] = otherTx(1_402_805);
     state.accSeq[`${R}/4`] = [other];
     await reconcilePending(ctx);
     expect(readLedger(ctx).entries[0]?.status).toBe("superseded");
@@ -832,6 +873,42 @@ describe("what is signed", () => {
     const feeGranted = structuredClone(good);
     feeGranted.auth_info.fee.granter = addr;
     expect(checkBuiltTx(feeGranted, want)).toContain("fee");
+  });
+
+  test("a transaction in a block is the door's only when its messages are: the bootstrap entry for the address and the grant from R", () => {
+    // The genesis registrar's July admission of one agent, as two transactions
+    // (h103,864 and h103,865), as zerone-1's tx_search served them on 2026-10-29.
+    const add = Buffer.from(
+      "CosBCogBCiwvemVyb25lLmNsYWltaW5nX3BvdC52MS5Nc2dBZGRCb290c3RyYXBFbnRyeRJYCip6cm4xN2g1c2N2M3p1N3hhOGVwOWthcXk0N2FlMDhoOXg2YzVmYW53a2gSKnpybjFtdGE4dWd5MndudDRoenA0aGR2bXdoODcyNTZuejZ6aDJjMGV4eRJoClAKRgofL2Nvc21vcy5jcnlwdG8uc2VjcDI1NmsxLlB1YktleRIjCiEDxGTJBXCDNZlNLqxaYD2A3XU5t2mC5rENxz4I5RebH1sSBAoCCAEYDRIUCg4KBHV6cm4SBjIwMDAwMBDAmgwaQB95FyBZr4xUbqeu57+2/ywzTRaR3rzo30+3ArYJyrsIYBWciV8asEpJyJtWYzq2g7nA0p1paNdACrHybHjYRK8=",
+      "base64");
+    const grant = Buffer.from(
+      "CqQCCqECCiovY29zbW9zLmZlZWdyYW50LnYxYmV0YTEuTXNnR3JhbnRBbGxvd2FuY2US8gEKKnpybjE3aDVzY3YzenU3eGE4ZXA5a2FxeTQ3YWUwOGg5eDZjNWZhbndraBIqenJuMW10YTh1Z3kyd250NGh6cDRoZHZtd2g4NzI1Nm56NnpoMmMwZXh5GpcBCiwvY29zbW9zLmZlZWdyYW50LnYxYmV0YTEuQWxsb3dlZE1zZ0FsbG93YW5jZRJnCkMKJy9jb3Ntb3MuZmVlZ3JhbnQudjFiZXRhMS5CYXNpY0FsbG93YW5jZRIYCg4KBHV6cm4SBjUwMDAwMBIGCP3l59MGEiAvemVyb25lLmNsYWltaW5nX3BvdC52MS5Nc2dDbGFpbRJoClAKRgofL2Nvc21vcy5jcnlwdG8uc2VjcDI1NmsxLlB1YktleRIjCiEDxGTJBXCDNZlNLqxaYD2A3XU5t2mC5rENxz4I5RebH1sSBAoCCAEYDhIUCg4KBHV6cm4SBjIwMDAwMBDAmgwaQKJQfLf1wWUDj1HauvrPiQOXqB2tGbi96JSwXfYAbn3mILq5RCwKR9GarD5q+Ym+FJprnqILuky7rbEyKRgffEY=",
+      "base64");
+    expect(createHash("sha256").update(add).digest("hex").toUpperCase()).toBe("B60F67E9CDBFF1C58BBE9F9A2EC33E3E48CBF865AACB882EC816A378D36E8C16");
+    expect(createHash("sha256").update(grant).digest("hex").toUpperCase()).toBe("AC4E51A6DCFF4DCE45B543C255CC9490C8612716FBC330E8B0BA2F329BBCD907");
+    const registrar = "zrn17h5scv3zu7xa8ep9kaqy47ae08h9x6c5fanwkh";
+    const agent = "zrn1mta8ugy2wnt4hzp4hdvmwh87256nz6zh2c0exy";
+    expect(txMessagesOf(add)).toEqual([{ type: "/zerone.claiming_pot.v1.MsgAddBootstrapEntry", authority: registrar, addresses: [agent] }]);
+    expect(txMessagesOf(grant)).toEqual([{ type: "/cosmos.feegrant.v1beta1.MsgGrantAllowance", granter: registrar, grantee: agent }]);
+    expect(() => txMessagesOf(new Uint8Array())).toThrow("no body");
+    expect(() => txMessagesOf(add.subarray(0, add.length - 10))).toThrow("truncated");
+
+    const [addMsg] = txMessagesOf(add);
+    const [grantMsg] = txMessagesOf(grant);
+    const admit = { kind: "admit" as const, address: agent };
+    expect(carriesEntry([addMsg!, grantMsg!], admit, registrar)).toBe(true);
+    // The door signs both in one transaction; each alone, or reordered, is not it.
+    expect(carriesEntry([addMsg!], admit, registrar)).toBe(false);
+    expect(carriesEntry([grantMsg!, addMsg!], admit, registrar)).toBe(false);
+    expect(carriesEntry([{ ...addMsg!, addresses: [agent, registrar] }, grantMsg!], admit, registrar)).toBe(false);
+    expect(carriesEntry([{ ...addMsg!, authority: agent }, grantMsg!], admit, registrar)).toBe(false);
+    expect(carriesEntry([addMsg!, { ...grantMsg!, grantee: registrar }], admit, registrar)).toBe(false);
+    expect(carriesEntry([addMsg!, grantMsg!], admit, R)).toBe(false);
+    const regrant = { kind: "regrant" as const, address: agent };
+    const revoke = { type: "/cosmos.feegrant.v1beta1.MsgRevokeAllowance", granter: registrar, grantee: agent };
+    expect(carriesEntry([grantMsg!], regrant, registrar)).toBe(true);
+    expect(carriesEntry([revoke, grantMsg!], regrant, registrar)).toBe(true);
+    expect(carriesEntry([addMsg!, grantMsg!], regrant, registrar)).toBe(false);
   });
 
   test("the postcheck accepts only the allowance the door built", () => {

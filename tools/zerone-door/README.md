@@ -232,7 +232,11 @@ the reply record it. A broadcast whose inclusion was not seen stays
 `pending_inclusion` only on proof, never because time passed:
 
 - **found** in a block, by its hash or as the transaction the chain's `tx.acc_seq`
-  index names for its R sequence: `included` when it ran (code 0) and the chain shows
+  index names for its R sequence (by that hash, or, under a hash the door did not
+  compute, by carrying exactly its messages: the bootstrap entry for the agent's
+  address and the grant from R to it, or for a re-grant the grant after an optional
+  revoke; the chain's hash is then recorded and `hash_differs` logged): `included`
+  when it ran (code 0) and the chain shows
   what was built, `postcheck_failed` when it ran and the chain state differs; with a
   non-zero code, `delivery_failed` once R's sequence has moved past the one it was
   signed with (it ran and its messages failed, or another transaction took the
@@ -249,8 +253,10 @@ the reply record it. A broadcast whose inclusion was not seen stays
   below the timeout height. It never takes it from `rest`, which may be another node
   (the public endpoints sit behind a proxy) and gives its height only in a gRPC-gateway
   response header;
-- **superseded:** R's sequence moved past it and the `tx.acc_seq` index names the other
-  transaction that used that sequence.
+- **superseded:** R's sequence moved past it and the `tx.acc_seq` index names one other
+  transaction that used that sequence, whose messages are not this admission's (the
+  door reads them from the transaction bytes the index returns; a hash that differs
+  never makes a transaction another's by itself).
 
 `delivery_failed`, `expired` and `superseded` do not count, so the agent may ask again. If R's sequence
 moved and the index names nothing, the entry stays pending and the door logs
@@ -331,8 +337,10 @@ never broadcast), and what becomes of a broadcast not seen to land: one delayed 
 minutes that then lands (settled, counted, the door busy until then), one absent past
 its timeout height (expired only after the settle blocks, and only on R's sequence read
 on the RPC node at or past the timeout height, never from a lagging REST node), R's
-sequence used by another
-transaction (superseded) or moved with nothing indexed yet (still pending), an
+sequence used by another transaction (superseded, including an admission of another
+address) or by the door's own transaction under another hash (found by its messages)
+or moved with nothing indexed yet (still pending), the message decoder and matcher
+against two of the registrar's July transactions zerone-1 served, an
 admission included across a chain window boundary (in this run and by a later one),
 and `dropped` entries from an older ledger re-opened and settled.
 
