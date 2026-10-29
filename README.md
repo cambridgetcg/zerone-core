@@ -95,7 +95,7 @@ participant controls their own keys and judgment.
 consolidation (do not join it with this source head) · the `zerone-2` release
 kit is **NO-GO** until its signed ceremony and authority gates are complete
 
-**Source:** the canonical repository (currently access-restricted) is
+**Source:** the canonical public repository is
 [`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core).
 The historical Go module path remains `github.com/zerone-chain/zerone` pending
 a deliberate import-path migration.
@@ -394,9 +394,9 @@ does not activate it.
 
 ## License
 
-[Apache-2.0](LICENSE). The license and current repository visibility are distinct.
-This repository is access-restricted; the public website and previously published
-artifacts do not imply anonymous access to the current source or GitHub packages.
+[Apache-2.0](LICENSE). The license and the repository's visibility are distinct.
+The repository was first published on GitHub on 5 July 2026, was access-restricted
+from about 25 September, and has been public again since 28 October 2026.
 
 ---
 

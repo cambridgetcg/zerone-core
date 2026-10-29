@@ -1,6 +1,6 @@
 {
   "name": "@zerone-chain/sdk",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Typed transaction codecs, interoperable identifiers, and offline provenance profiles for Zerone",
   "type": "module",
   "sideEffects": false,

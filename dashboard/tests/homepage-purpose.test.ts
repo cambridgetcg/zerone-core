@@ -46,13 +46,15 @@ describe("purpose-first homepage", () => {
     assert.match(html, /<link rel="alternate" type="text\/plain" href="\/llms\.txt"/u);
   });
 
-  it("carries the trust model on the page instead of linking to a private repository", () => {
+  it("carries the trust model on the page instead of linking away from it", () => {
     const honest = html.slice(html.indexOf('id="honest-state"'), html.indexOf("</aside>"));
     assert.match(honest, /stop\s+the chain, roll it back, or restart it from scratch/u);
     assert.match(honest, /about 28 hours in July 2026/u);
     assert.match(honest, /about 54 hours in August 2026/u);
     assert.match(honest, /not an independent proof/u);
     assert.match(honest, /no date is promised/u);
+    assert.match(honest, /Since 28 October 2026, Zerone&rsquo;s source code has been public/u);
+    assert.doesNotMatch(html, /source code is not\s+public|access\s+to\s+the\s+source|needs source access/u);
     // Only in-page links: the trust model itself is here, not behind a link.
     assert.doesNotMatch(honest, /<a\b(?![^>]*href="#)/u);
   });

@@ -2146,8 +2146,10 @@ export function renderAuthorityGeometry(
   const links = element("div");
   const rawLink = element("a", undefined, "Canonical Authority Geometry JSON");
   rawLink.href = AUTHORITY_GEOMETRY_ENDPOINT;
-  // The design document lives in an access-restricted repository; the
-  // footer below names its path and digest as text instead of a dead link.
+  // The footer below names the design document's path and digest as text:
+  // this view links only within the site. The repository was
+  // access-restricted when this was written; it has been public since
+  // 28 October 2026.
   links.append(rawLink);
   footer.append(
     element(
