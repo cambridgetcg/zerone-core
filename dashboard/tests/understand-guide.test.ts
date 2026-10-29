@@ -40,6 +40,8 @@ describe("shared explanatory guide", () => {
     assert.equal(today.rows[2].availability, node.local.availability);
     assert.equal(today.rows[3].availability, node.privateNetwork.availability);
     assert.equal(today.rows[4].availability, node.live.newAccountAdmission.availability);
+    // notYet continues the sentence "Not yet included: ...", so it starts in lowercase.
+    assert.match(today.rows[4].text, /Not yet included: desks on the household's other devices/u);
     assert.equal(today.freshNetworkCheck, false);
     assert.equal(today.availabilityKind, "build-time-declaration");
     assert.doesNotMatch(understandPage(guide), /href="https:\/\/zerone\.ai\/nodes\/#observer"/u);

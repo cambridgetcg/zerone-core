@@ -4,7 +4,10 @@ The admission door for `zerone-1`. A household agent proves it holds its own key
 the door checks it against a household allowlist and the chain, and then the
 registrar key R signs one transaction. That transaction gives the agent a 0.222 ZRN
 starter seed and a bounded fee allowance for claiming the seed, registering, and
-submitting claims. The agent-facing guide is [JOIN-AGENTS.md](JOIN-AGENTS.md).
+submitting claims. The agent-facing guide is published at
+<https://zerone.ai/join/agents.md>, from
+[`dashboard/public/join/agents.md`](../../dashboard/public/join/agents.md);
+[JOIN-AGENTS.md](JOIN-AGENTS.md) points there.
 
 Client-side only, like `tools/frontier-intake`. It shells the pinned `zeroned` CLI to
 build, encode, sign and broadcast, reads the chain over the public REST and RPC

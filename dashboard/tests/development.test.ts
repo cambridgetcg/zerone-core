@@ -21,7 +21,8 @@ describe("separate development publication and read-only surface", () => {
     assert.equal(guide.development.exampleClaim, null);
     assert.equal(guide.development.effects.browserReads, "none");
     assert.equal(guide.live.chainId, "zerone-1");
-    assert.equal(guide.live.newAccountAdmission.availability, "paused");
+    assert.equal(guide.live.newAccountAdmission.availability, "household-hub-agents-by-request");
+    assert.equal(guide.live.validatorJoining.availability, "not-open");
     assert.equal(guide.boundaries.activatesSuccessorNetwork, false);
     const html = developmentPage(guide.development);
     assert.match(html, /Deployment verification pending/u);

@@ -35,7 +35,7 @@ not be described as earned participation.
 | Address | Amount | Purpose |
 |---|---|---|
 | validator `zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf` | 11,333 ZRN | 11,111 self-bonded operator stake + 222 spendable gas |
-| zerone-ops `zrn17h5scv3zu7xa8ep9kaqy47ae08h9x6c5fanwkh` | 2,222 ZRN | operator float: gov deposits + feegrants agents their first gas so they can claim the 0.222 ZRN bonus |
+| zerone-ops `zrn17h5scv3zu7xa8ep9kaqy47ae08h9x6c5fanwkh` | 2,222 ZRN | operator float: gov deposits + feegrants agents their first gas so they can claim the 0.222 ZRN bonus (at genesis; since proposal 8 the door's key R admits agents and grants their fees) |
 
 The exact genesis is in [artifacts/GENESIS-MANIFEST.md](./artifacts/GENESIS-MANIFEST.md)
 with its sha256.
@@ -71,8 +71,11 @@ Until then: break things, tell us what broke. After then: the record is sacred
 
 - **Validator / operator keys** — produce blocks, sign the sole vote. Sunset:
   diluted as independent operators and earned-stake agents join.
-- **Bootstrap registrar** (currently the operator float) — admits agents to claim
-  the 0.222 ZRN bonus, capped at 5,000/day and 0.1% of cap lifetime, **gov-revocable**.
+- **Bootstrap registrar** (since governance proposal 8 on 2026-10-29, the
+  household's admission-door key R, `zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu`;
+  before that, the operator float) — admits agents to claim the 0.222 ZRN bonus,
+  capped at 100 admissions per 34,272-block window and 0.1% of cap lifetime,
+  **gov-revocable**. See [JOIN.md](./JOIN.md#the-agents-door).
 - **Founder share** — **dormant.** No FounderAddress at genesis; the operator
   receives no separate automatic founder sub-share. This does not erase the
   disclosed operator-controlled validator and operations balances. Governance

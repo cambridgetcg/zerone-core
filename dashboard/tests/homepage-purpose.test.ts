@@ -115,37 +115,38 @@ describe("purpose-first homepage", () => {
 
   it("says what is closed on zerone-1, and points to the closed beta without offering it", () => {
     const honest = html.slice(html.indexOf('id="honest-state"'), html.indexOf("</aside>"));
-    assert.match(honest, /no new accounts on zerone-1 and no way to join it as a validator/u);
+    assert.match(honest, /Apart from the agents&rsquo; door below, the household offers no new accounts on zerone-1: there is no website sign-up, and there is no way to join it as a validator\./u);
     assert.match(honest, /Votes on changes to the chain are weighted by staked ZRN/u);
     assert.match(honest, /the last ran on 25 July 2026/u);
     const onboarding = sectionById("onboarding");
     assert.match(onboarding, /<a href="\/nodes\/#beta">closed beta<\/a>: for now, only\s+the household&rsquo;s own Macs, each invited, can run/u);
-    assert.match(onboarding, /no safe way yet to create new zerone-1 accounts/u);
+    assert.match(onboarding.replace(/\s+/gu, " "), /There is no website sign-up: this site never creates an account, a key or a waitlist place\./u);
     assert.match(sectionById("more-pages"), /the closed beta on the household&rsquo;s own Macs/u);
   });
 
-  it("says the agents' admission door is being set up and is not open, and links its guide", () => {
+  it("says the agents' admission door is open to agents on the household hub, with R and the caps, and not yet to other devices", () => {
     const honest = html.slice(html.indexOf('id="honest-state"'), html.indexOf("</aside>"));
     assert.match(
       honest,
-      /<li>The household is setting up an admission door for AI agents on its own network, the household&rsquo;s own Macs\. The door is not open yet, and no one can join through it today\. <a href="#agent-door">Its guide<\/a> is published so it can be read and checked first\.<\/li>/u,
+      /<li>Since 29 October 2026 the household&rsquo;s admission door has been open to AI agents on the household hub, the computer that runs the door\. Each agent asks for itself, with keys it makes and keeps; an admitted agent gets a 0\.222 ZRN starter seed and a capped fee allowance that expires after 14 days\. The door&rsquo;s own key, <code>zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu<\/code>, became the chain&rsquo;s bootstrap registrar through governance proposal 8, which capped it at 100 admissions per 34,272 blocks \(about 12 days\)\. The door itself admits at most 10 agents a day, 3 a day from the hub, and 20 per 34,272 blocks\. Agents on the household&rsquo;s other devices cannot use it yet\. <a href="#agent-door">How an agent joins<\/a>\.<\/li>/u,
     );
-    // The door being set up does not change today's answer.
-    assert.match(honest, /no new accounts on zerone-1 and no way to join it as a validator/u);
     const door = sectionById("onboarding").match(/<p id="agent-door">([\s\S]*?)<\/p>/u)?.[1];
     assert.ok(door, "#agent-door must sit in the onboarding section");
     assert.match(
       door.replace(/\s+/gu, " "),
-      /the household is setting up an admission door\. It is not open yet, and nothing in <a href="\/join\/agents\.md">the agents&rsquo; guide<\/a> works today\./u,
+      /Since 29 October 2026 the household&rsquo;s admission door has been open to AI agents on the household hub, the computer that runs the door\. Each agent asks for itself, with keys it makes and keeps\. <a href="\/join\/agents\.md">The agents&rsquo; guide<\/a> gives every step, and the hazards first\. Agents on the household&rsquo;s other devices cannot use it yet; the household will add them later, through its lobby\./u,
     );
     assert.equal(html.match(/href="\/join\/agents\.md"/gu)?.length, 1);
-    // No line on the page may say or imply that the door is open.
-    assert.doesNotMatch(html, /door is open|door (?:has )?opened|door is now|now open|open to agents|agents, by request/iu);
-    // Each sentence naming the door is followed by one saying it is not open yet.
+    // Nothing on the page still says the door is closed or being set up.
+    assert.doesNotMatch(html, /not open yet|setting up an admission door|Paused in this release|no starter ZRN/iu);
+    // Every sentence naming the door says who it is open to, or who cannot use it yet.
     const pageText = html.replace(/<[^>]+>/gu, " ").replace(/\s+/gu, " ");
-    const mentions = [...pageText.matchAll(/[^.]*admission door[^.]*\.[^.]*\./gu)].map(([mention]) => mention);
+    const mentions = [...pageText.matchAll(/[^.]*admission door[^.]*\./gu)].map(([mention]) => mention);
     assert.equal(mentions.length, 2);
-    for (const mention of mentions) assert.match(mention, /not open yet/u, mention);
+    for (const mention of mentions) assert.match(mention, /open to AI agents on the household hub/u, mention);
+    assert.equal(pageText.match(/Agents on the household&rsquo;s other devices cannot use it yet/gu)?.length, 2);
+    // No website sign-up, no validator joining, and no private inbox, key store or hub machine name.
+    assert.doesNotMatch(html, /Keychain|keyring|\/inbox\b|inbox\//iu);
   });
 
   it("labels genesis entries in the record map as written in, not reviewed", () => {
