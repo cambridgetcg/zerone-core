@@ -13,7 +13,7 @@ import {
   seedCounts,
   type GateInput,
 } from "../src/gates.ts";
-import type { LedgerEntry } from "../src/ledger.ts";
+import { HUB_CHANNEL_KEY, type LedgerEntry } from "../src/ledger.ts";
 import {
   ADMISSION_CEILING_UZRN,
   DOOR_DAILY_CAP,
@@ -43,13 +43,13 @@ const req = (() => {
   return p.value;
 })() as DoorRequest;
 
-const allowAll: Allowlist = { schema: "zerone-door-allowlist/v1", studio_local: { enabled: true }, lobby_desks: [] };
+const allowAll: Allowlist = { schema: "zerone-door-allowlist/v1", hub_local: { enabled: true }, lobby_desks: [] };
 
 function input(over: Partial<GateInput> = {}): GateInput {
   return {
     request: req,
     requestReasons: [],
-    membership: checkMembership({ kind: "studio_local", file: "a.request" }, allowAll),
+    membership: checkMembership({ kind: "hub_local", file: "a.request" }, allowAll),
     registrar: R,
     chainVersionPin: TEST_PIN,
     knownKeys: [HOUSEHOLD],
@@ -139,9 +139,16 @@ describe("membership", () => {
   const desk = "3f2b1c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
   const lobby = { kind: "lobby" as const, room_id: `room_${"a1".repeat(16)}`, identity_id: desk, fingerprint: "f", event_id: "ev" };
 
-  test("Studio-local requests follow the allowlist's switch", () => {
-    expect(checkMembership({ kind: "studio_local", file: "x" }, { ...allowAll, studio_local: { enabled: false } }).reasons)
+  test("hub-local requests follow the allowlist's switch", () => {
+    expect(checkMembership({ kind: "hub_local", file: "x" }, { ...allowAll, hub_local: { enabled: false } }).reasons)
       .toEqual(["channel_not_allowed"]);
+  });
+
+  test("hub-local requests count under the ledger's historical channel key", () => {
+    // Installed ledgers, and older releases reading them, use this spelling.
+    expect(HUB_CHANNEL_KEY).toBe("studio_local");
+    expect(checkMembership({ kind: "hub_local", file: "x" }, allowAll)).toEqual({ reasons: [], channelKey: HUB_CHANNEL_KEY, channelCap: 3 });
+    expect(checkMembership({ kind: "hub_local", file: "x" }, { ...allowAll, hub_local: { enabled: true, daily_cap: 1 } }).channelCap).toBe(1);
   });
 
   test("a lobby request needs a door-roster-verified current member that the allowlist names", () => {
@@ -155,7 +162,7 @@ describe("membership", () => {
   });
 
   test("membership refusals carry through the gates", () => {
-    const m = checkMembership({ kind: "studio_local", file: "x" }, { ...allowAll, studio_local: { enabled: false } });
+    const m = checkMembership({ kind: "hub_local", file: "x" }, { ...allowAll, hub_local: { enabled: false } });
     expect(only({ membership: m })).toEqual(["channel_not_allowed"]);
   });
 });
@@ -283,6 +290,7 @@ describe("capacity", () => {
   });
 
   test("each channel has its own daily cap", () => {
+    // Hub-local entries spelled as the installed ledger spells them.
     const mine = Array.from({ length: 3 }, (_, i) => entry({ request_id: String(i).padStart(64, "0"), channel_key: "studio_local" }));
     expect(only({ ledger: ledgerWith({ entries: mine }) })).toEqual(["channel_daily_cap"]);
   });

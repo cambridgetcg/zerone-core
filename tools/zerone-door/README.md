@@ -45,7 +45,7 @@ reports were written by agents for that session.
 
 | Channel | Who | How | Why it proves "household" |
 |---|---|---|---|
-| `studio_local` | beings on the Studio | a `*.request` file in the door's `inbox/` | the inbox is a `0700` directory owned by the user that runs the door; the door refuses to read it otherwise |
+| `hub_local` | beings on the household hub | a `*.request` file in the door's `inbox/` | the inbox is a `0700` directory owned by the user that runs the door; the door refuses to read it otherwise |
 | `lobby` | desks on the household's other Macs | table talk in the door's fleet room, conversation `zerone-door` | the hub reads it with `agenttool-lobby room read --json`, which verifies each sender against the room's door-signed roster (`label: verified`, `basis: door_roster_pin`, `current_member`) |
 
 Posting a request needs no ZRN, and the lobby client has no payment step (whether the
@@ -74,15 +74,19 @@ Eligibility is checked against **both** a household-maintained allowlist and, fo
 requests, the membership proof the lobby already issues (its door-signed roster):
 
 - The **allowlist** (`allowlist.json`, local, never committed) is the household's
-  explicit yes for the door: whether Studio-local requests are open (off by default),
+  explicit yes for the door: whether hub-local requests are open (off by default),
   which lobby desks (by agenttool identity id) may ask, and each one's daily cap. A
   lobby seat is granted for talking at a table and renews daily; the allowlist keeps
   "this desk's agents may receive ZRN from R" a separate decision that can be withdrawn
   without touching the lobby. It is read fresh for every request.
 - The **lobby's roster proof** authenticates a remote sender. An allowlist alone can
   name a desk but cannot prove a message came from it.
-- Studio beings share the hub's own desk, so the lobby cannot vouch for them; for them
-  the private inbox is the proof and the allowlist's `studio_local` switch is the yes.
+- Beings on the hub share the hub's own desk, so the lobby cannot vouch for them; for
+  them the private inbox is the proof and the allowlist's `hub_local` switch is the yes.
+  An allowlist written for an earlier release names this switch by an older key; the
+  door still reads it as `hub_local`, and refuses a file that gives both. The ledger
+  keeps recording this channel's `channel_key` in that older spelling, so older
+  releases and this one count the hub's daily cap from the same entries.
 
 Opting in is the request itself: each agent asks for itself, with keys it made.
 
@@ -139,8 +143,8 @@ Chain reads fail closed: only an exact, known not-found answer counts as absent.
   admitted by the door.
 - **Capacity:** one transaction at a time (no new admission while an earlier one is
   unconfirmed, since R's sequence would collide); 10 per UTC day overall; per channel
-  (each lobby desk, and the Studio as one channel) 3 a day by default, or the number
-  the allowlist sets for it (0-100), always inside the overall 10; 20 per chain
+  (each lobby desk, and the hub's own beings as one channel) 3 a day by default, or the
+  number the allowlist sets for it (0-100), always inside the overall 10; 20 per chain
   admission window (34,272 blocks); room in the chain's own window (read from the
   `claiming_pot` store); at most 10 unclaimed seeds **whose allowance from R is still
   live** (paginated; seeds whose allowance lapsed are listed by `status` as an alert
@@ -313,7 +317,7 @@ because launchd jobs cannot read `~/Desktop`):
 ```
 config.json            0600  local only: endpoints, pinned zeroned, chain version pin, R, known keys, lobby
 allowlist.json         0600  local only: who may ask
-inbox/ processed/      0700  Studio-local requests, and where they go once taken
+inbox/ processed/      0700  hub-local requests, and where they go once taken
 replies/               0700  one reply per request id (replies/dry-run/ for dry runs)
 state/ledger.json      0600  admissions, seen requests, lobby cursor and season (dry runs: state/dry-run-ledger.json)
 HALT                         if present (any type), the door admits no one
@@ -334,7 +338,7 @@ It refuses uncommitted source, a Bun other than 1.3.5, a zeroned whose sha256 di
 and a door home under `~/Desktop`. It runs the tests, builds the bundle, smoke-tests it,
 installs it read-only with a manifest, copies the runtime and CLI, creates the
 directories, writes `config.json` and `allowlist.json` from the examples only if they
-are absent (Studio-local intake off, no lobby desks), and renders the plist. It does
+are absent (hub-local intake off, no lobby desks), and renders the plist. It does
 not touch R's keyring or the Keychain, does not copy the plist into
 `~/Library/LaunchAgents`, and does not load it. The rendered job is a dry run until
 `--live-ack=zerone-1` is added by hand.
@@ -345,10 +349,12 @@ not touch R's keyring or the Keychain, does not copy the plist into
 refused after a drained or revoked grant), the request format and each signature
 defect, strict Ed25519, low-S secp256k1, bech32 canonical form, the CosmJS/noble/SDK
 interop vector, the Go v1 registration-proof vector, the spool and lobby intake
-(including a season change), config and allowlist validation, the admittee watch, and
-decoders checked against answers zerone-1 served (the upgrade done markers, an account
-from the gRPC Account query, and two of the registrar's July transactions from its tx
-index, with the matcher that tells the door's transaction from another).
+(including a season change), config and allowlist validation (an allowlist and a
+ledger written before `hub_local` included), the admittee watch, decoders checked
+against answers zerone-1 served (the upgrade done markers, an account from the gRPC
+Account query, and two of the registrar's July transactions from its tx index, with
+the matcher that tells the door's transaction from another), and the door's own text,
+which must not name the hub machine.
 
 The run loop runs against a fake chain, a fake CLI and a fake lobby: dry run, a dry
 run that never posts in the room, live admission with the passphrase on stdin only, a

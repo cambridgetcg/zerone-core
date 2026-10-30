@@ -69,9 +69,16 @@ export interface AllowlistDesk {
 
 export interface Allowlist {
   schema: "zerone-door-allowlist/v1";
-  studio_local: { enabled: boolean; daily_cap?: number };
+  /** Requests from beings on the household hub, through the private inbox. */
+  hub_local: { enabled: boolean; daily_cap?: number };
   lobby_desks: AllowlistDesk[];
 }
+
+/** The hub channel's first allowlist key, a historical identifier from before
+ * the door's text stopped naming the hub machine. Installed allowlists still
+ * use it, and an older release reads only it, so the door reads it as
+ * hub_local; a file that gives both is refused. Messages say hub_local only. */
+const HUB_LOCAL_OLDER_KEY = "studio_local";
 
 export class ConfigError extends Error {}
 
@@ -233,9 +240,12 @@ export function parseAllowlist(raw: unknown): Allowlist {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) throw new ConfigError("allowlist must be an object");
   const a = raw as Record<string, unknown>;
   if (a.schema !== "zerone-door-allowlist/v1") throw new ConfigError("allowlist schema must be zerone-door-allowlist/v1");
-  const s = (a.studio_local ?? {}) as Record<string, unknown>;
-  if (typeof s.enabled !== "boolean") throw new ConfigError("studio_local.enabled must be true or false");
-  const studioCap = capOf(s.daily_cap, "studio_local.daily_cap");
+  if (a.hub_local !== undefined && a[HUB_LOCAL_OLDER_KEY] !== undefined) {
+    throw new ConfigError("allowlist gives hub_local twice, under its name and its older key: keep one");
+  }
+  const s = (a.hub_local ?? a[HUB_LOCAL_OLDER_KEY] ?? {}) as Record<string, unknown>;
+  if (typeof s.enabled !== "boolean") throw new ConfigError("hub_local.enabled must be true or false");
+  const hubCap = capOf(s.daily_cap, "hub_local.daily_cap");
   if (!Array.isArray(a.lobby_desks)) throw new ConfigError("lobby_desks must be an array");
   const seen = new Set<string>();
   const lobby_desks = a.lobby_desks.map((d, i) => {
@@ -253,7 +263,7 @@ export function parseAllowlist(raw: unknown): Allowlist {
   });
   return {
     schema: "zerone-door-allowlist/v1",
-    studio_local: { enabled: s.enabled, ...(studioCap === undefined ? {} : { daily_cap: studioCap }) },
+    hub_local: { enabled: s.enabled, ...(hubCap === undefined ? {} : { daily_cap: hubCap }) },
     lobby_desks,
   };
 }

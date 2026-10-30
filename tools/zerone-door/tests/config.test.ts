@@ -145,8 +145,19 @@ describe("allowlist.json", () => {
     const { configPath } = makeDoorHome({ desks: ["3f2b1c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d"] });
     const path = doorPaths(configPath).allowlist;
     expect(loadAllowlist(path).lobby_desks).toEqual([{ identity_id: "3f2b1c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d" }]);
-    writeFileSync(path, JSON.stringify({ schema: "zerone-door-allowlist/v1", studio_local: { enabled: false }, lobby_desks: [] }));
-    expect(loadAllowlist(path).studio_local.enabled).toBe(false);
+    writeFileSync(path, JSON.stringify({ schema: "zerone-door-allowlist/v1", hub_local: { enabled: false }, lobby_desks: [] }));
+    expect(loadAllowlist(path).hub_local.enabled).toBe(false);
+  });
+
+  test("still reads the hub switch under its older key, as installed allowlists spell it", () => {
+    const older = { schema: "zerone-door-allowlist/v1", studio_local: { enabled: true, daily_cap: 3 }, lobby_desks: [] };
+    expect(parseAllowlist(older)).toEqual({ schema: "zerone-door-allowlist/v1", hub_local: { enabled: true, daily_cap: 3 }, lobby_desks: [] });
+    expect(parseAllowlist({ ...older, studio_local: { enabled: false } }).hub_local).toEqual({ enabled: false });
+    // Both keys at once is ambiguous: refused, never merged.
+    expect(() => parseAllowlist({ ...older, hub_local: { enabled: false } })).toThrow("hub_local twice");
+    // Messages name hub_local, whichever key the file used.
+    expect(() => parseAllowlist({ ...older, studio_local: {} })).toThrow("hub_local.enabled must be true or false");
+    expect(() => parseAllowlist({ ...older, studio_local: { enabled: true, daily_cap: 1000 } })).toThrow("hub_local.daily_cap must be an integer 0-100");
   });
 
   test("refuses a world-writable allowlist and malformed entries", () => {
@@ -154,11 +165,11 @@ describe("allowlist.json", () => {
     const path = doorPaths(configPath).allowlist;
     chmodSync(path, 0o666);
     expect(() => loadAllowlist(path)).toThrow("must not be writable");
-    expect(() => parseAllowlist({ schema: "zerone-door-allowlist/v1", studio_local: {}, lobby_desks: [] })).toThrow("enabled");
-    expect(() => parseAllowlist({ schema: "zerone-door-allowlist/v1", studio_local: { enabled: true }, lobby_desks: [{ identity_id: "NOT-A-UUID" }] })).toThrow("UUID");
+    expect(() => parseAllowlist({ schema: "zerone-door-allowlist/v1", hub_local: {}, lobby_desks: [] })).toThrow("enabled");
+    expect(() => parseAllowlist({ schema: "zerone-door-allowlist/v1", hub_local: { enabled: true }, lobby_desks: [{ identity_id: "NOT-A-UUID" }] })).toThrow("UUID");
     const id = "3f2b1c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
-    expect(() => parseAllowlist({ schema: "zerone-door-allowlist/v1", studio_local: { enabled: true }, lobby_desks: [{ identity_id: id }, { identity_id: id }] })).toThrow("repeats");
-    expect(() => parseAllowlist({ schema: "zerone-door-allowlist/v1", studio_local: { enabled: true, daily_cap: 1000 }, lobby_desks: [] })).toThrow("0-100");
+    expect(() => parseAllowlist({ schema: "zerone-door-allowlist/v1", hub_local: { enabled: true }, lobby_desks: [{ identity_id: id }, { identity_id: id }] })).toThrow("repeats");
+    expect(() => parseAllowlist({ schema: "zerone-door-allowlist/v1", hub_local: { enabled: true, daily_cap: 1000 }, lobby_desks: [] })).toThrow("0-100");
   });
 });
 
@@ -171,9 +182,11 @@ describe("committed examples", () => {
     const pin = JSON.parse(example).chain_version;
     expect(pin.last_upgrade).toBe("agenttool-seam-v1");
     expect(pin.module_versions_sha256).toMatch(/^[0-9a-f]{64}$/);
-    // Studio-local intake stays off until the household turns it on.
+    // Hub-local intake stays off until the household turns it on, under the
+    // switch's current key.
     const allow = JSON.parse(readFileSync(join(dir, "allowlist.example.json"), "utf8"));
-    expect(parseAllowlist(allow).studio_local.enabled).toBe(false);
+    expect(Object.keys(allow)).toEqual(["schema", "hub_local", "lobby_desks"]);
+    expect(parseAllowlist(allow).hub_local.enabled).toBe(false);
     expect(parseAllowlist(allow).lobby_desks).toEqual([]);
   });
 });
