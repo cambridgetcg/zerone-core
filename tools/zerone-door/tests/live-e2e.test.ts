@@ -84,7 +84,7 @@ describe.skipIf(!enabled)("live zerone-1, keyless dry run", () => {
     const version = await chain.chainVersion();
     console.log(JSON.stringify({ chain_version_live: version, chain_version_pinned: committedPin }));
     const req = liveRequest(new Date());
-    const { reply } = await processItem(ctx, { text: req.text, channel: { kind: "studio_local", file: "live-e2e.request" } });
+    const { reply } = await processItem(ctx, { text: req.text, channel: { kind: "hub_local", file: "live-e2e.request" } });
     console.log(JSON.stringify({ stand_in_registrar: standIn, throwaway: req.address, reply }, null, 2));
     expect(reply?.decision).toBe("dry_run_ok");
     expect(reply!.simulated_gas! + SIMULATE_MARGIN_GAS).toBeLessThanOrEqual(ADMIT_GAS);

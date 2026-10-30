@@ -35,7 +35,7 @@ function readAnswer(messages: unknown[], next = "7", hasMore = false, mission: s
   });
 }
 
-describe("Studio-local spool", () => {
+describe("hub-local spool", () => {
   function inbox() {
     const home = tempDir("spool");
     const inboxDir = join(home, "inbox");
@@ -49,7 +49,7 @@ describe("Studio-local spool", () => {
     writeFileSync(join(inboxDir, "notes.txt"), "ignored");
     const items = takeSpool(inboxDir, processed, NOW);
     expect(items).toHaveLength(1);
-    expect(items[0]!.channel).toEqual({ kind: "studio_local", file: "a.request" });
+    expect(items[0]!.channel).toEqual({ kind: "hub_local", file: "a.request" });
     expect(existsSync(join(inboxDir, "a.request"))).toBe(false);
     expect(readdirSync(processed)).toHaveLength(1);
     expect(takeSpool(inboxDir, processed, NOW)).toEqual([]);

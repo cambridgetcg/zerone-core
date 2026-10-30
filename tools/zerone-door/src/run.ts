@@ -1,5 +1,5 @@
 // One pass of the door, as launchd runs it every two minutes: settle what a
-// previous live run left pending, take Studio-local and lobby requests, decide
+// previous live run left pending, take hub-local and lobby requests, decide
 // each, answer, and remember where the lobby read stopped.
 import { processItem, readLedger, reconcilePending, replyText, writeLedger, type DoorContext } from "./door.ts";
 import { readLobby, replyInLobby, takeSpool, type IntakeItem, type LobbyRunner } from "./intake.ts";

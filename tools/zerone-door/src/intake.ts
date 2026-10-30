@@ -1,8 +1,9 @@
 // Where requests come from. Two channels, both inside the household:
 //
-//  studio_local  A being on the Studio writes a .request file into the door's
-//                inbox. The inbox is a 0700 directory owned by the Studio user,
-//                so only processes running as that user can write it.
+//  hub_local     A being on the household hub writes a .request file into the
+//                door's inbox. The inbox is a 0700 directory owned by the hub
+//                user that runs the door, so only processes running as that
+//                user can write it.
 //  lobby         A desk on another of Yu's Macs posts the request as table talk
 //                in the door's fleet room. The hub's own desk reads it with
 //                `agenttool-lobby room read --json`, which verifies the sender
@@ -24,7 +25,7 @@ export interface IntakeItem {
 
 export class IntakeError extends Error {}
 
-/** The inbox must be private to the Studio user: that is its membership proof. */
+/** The inbox must be private to the door's user on the hub: that is its membership proof. */
 export function assertPrivateDir(path: string): void {
   const st = lstatSync(path);
   if (!st.isDirectory()) throw new IntakeError(`${path} must be a directory, not a link`);
@@ -58,7 +59,7 @@ export function takeSpool(inbox: string, processed: string, now: Date): IntakeIt
     renameSync(from, to);
     const ownerOk = typeof process.getuid !== "function" || st.uid === process.getuid();
     if (!st.isFile() || !ownerOk || st.size > REQUEST_MAX_BYTES) continue;
-    items.push({ text: readFileSync(to, "utf8"), channel: { kind: "studio_local", file: name } });
+    items.push({ text: readFileSync(to, "utf8"), channel: { kind: "hub_local", file: name } });
   }
   return items;
 }

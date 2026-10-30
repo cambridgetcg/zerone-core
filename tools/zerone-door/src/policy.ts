@@ -66,7 +66,7 @@ export const REGRANT_CEILING_UZRN = REGRANT_GAS + ALLOWANCE_SPEND_LIMIT_UZRN;
 export const DOOR_WINDOW_CAP = 20;
 /** Door admissions and re-grants per UTC day, across every channel. */
 export const DOOR_DAILY_CAP = 10;
-/** Per allowlisted lobby desk or the Studio channel, per UTC day, unless the
+/** Per allowlisted lobby desk or the hub's own channel, per UTC day, unless the
  * allowlist names a smaller number. */
 export const CHANNEL_DAILY_CAP_DEFAULT = 3;
 /** Unclaimed seeds whose allowance from R is still live. Bootstrap pots never

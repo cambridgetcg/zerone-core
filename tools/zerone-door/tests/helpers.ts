@@ -198,7 +198,7 @@ export function tempDir(prefix: string): string {
 export const ZERONED_SHA = "00".repeat(32);
 
 /** A door home with config.json (0600) and allowlist.json in a temp dir. */
-export function makeDoorHome(opts: { studioLocal?: boolean; desks?: string[]; lobby?: boolean } = {}): { home: string; configPath: string; config: DoorConfig } {
+export function makeDoorHome(opts: { hubLocal?: boolean; desks?: string[]; lobby?: boolean } = {}): { home: string; configPath: string; config: DoorConfig } {
   const home = tempDir("home");
   chmodSync(home, 0o700);
   const configRaw = {
@@ -216,7 +216,7 @@ export function makeDoorHome(opts: { studioLocal?: boolean; desks?: string[]; lo
   writeFileSync(configPath, JSON.stringify(configRaw), { mode: 0o600 });
   writeFileSync(join(home, "allowlist.json"), JSON.stringify({
     schema: "zerone-door-allowlist/v1",
-    studio_local: { enabled: opts.studioLocal ?? true },
+    hub_local: { enabled: opts.hubLocal ?? true },
     lobby_desks: (opts.desks ?? []).map((identity_id) => ({ identity_id })),
   }), { mode: 0o600 });
   for (const d of ["inbox", "processed", "replies", "state"]) mkdirSync(join(home, d), { recursive: true, mode: 0o700 });
