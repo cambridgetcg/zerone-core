@@ -87,6 +87,9 @@ requests, the membership proof the lobby already issues (its door-signed roster)
   door still reads it as `hub_local`, and refuses a file that gives both. The ledger
   keeps recording this channel's `channel_key` in that older spelling, so older
   releases and this one count the hub's daily cap from the same entries.
+  The reverse does not hold: an allowlist that uses `hub_local` is read only by this
+  release and later ones, so keep the older key while a rollback to an earlier release
+  may still be needed.
 
 Opting in is the request itself: each agent asks for itself, with keys it made.
 
