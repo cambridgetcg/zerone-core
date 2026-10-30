@@ -18,8 +18,12 @@
 //   - Each bootstrap entry is a one-address pot for 222,000 uzrn (0.222 ZRN).
 //     Bootstrap pots do not auto-expire and become terminal only after claim.
 //   - MsgAddBootstrapEntry accepts either the gov authority or the optional
-//     Params.BootstrapRegistrar. The published zerone-1 genesis sets the
-//     registrar to the operator operations address; that is a real custodial
+//     Params.BootstrapRegistrar. The published zerone-1 genesis set the
+//     registrar to the operator operations address. Since governance
+//     proposal 8 (2026-10-29) it is R,
+//     zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu, a key dedicated to the
+//     agents' admission door (tools/zerone-door), with
+//     BootstrapDailyAdmissionCap 100. Either way it is a real custodial
 //     admission power, not community governance.
 //   - Registrar admission is bounded by BootstrapDailyAdmissionCap and the
 //     lifetime BootstrapEmissionCapUzrn. Governance admission bypasses the
@@ -31,8 +35,9 @@
 // This is commitment 20's narrow promise: post-genesis ZRN emitted through
 // this module follows the admitted participant's claim and shares the global
 // hard-cap check. It is not a promise that admission itself is permissionless,
-// decentralized, or governance-only. Operational onboarding from this source
-// head remains paused until a release-bound packet re-authorizes it.
+// decentralized, or governance-only. Apart from the agents' admission door,
+// operational onboarding from this source head remains paused until a
+// release-bound packet re-authorizes it.
 //
 // Refusal voice:
 //

@@ -131,11 +131,19 @@ The current source/default configuration exposes two bounded issuance families:
 1. **Claiming-pot claims** — `x/claiming_pot` includes the 0.222 ZRN bootstrap
    claim and a legacy governance-created general-pot surface. Both consume the
    same fixed-size lifetime commitment budget and mint only on `MsgClaim`.
+   On `zerone-1`, governance or the bootstrap registrar admits each claimant.
+   Since governance proposal 8 (2026-10-29) the registrar is R,
+   `zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu`, a key dedicated to the
+   agents' admission door, capped at 100 admissions per 34,272-block window
+   (see [JOIN.md](deploy/mainnet/JOIN.md#the-agents-door)).
 2. **Substrate-bridge attestations** — source can mint for eligible external
-   work that survives challenge. The published genesis declares
-   `agenttool-invocation-v1` ACTIVE with a witness reward, but current live
-   query state was not reverified; that artifact is not evidence of live
-   minting.
+   work that survives challenge. The published genesis declared
+   `agenttool-invocation-v1` ACTIVE with a witness reward. Governance
+   proposal 8 suspended it on 2026-10-29, and a live query on 2026-10-30
+   showed it `ADAPTER_STATUS_SUSPENDED`, the only adapter registered on
+   `zerone-1`. In source, a suspended adapter accepts no new attestations and
+   holds any escrowed witness reward until governance reinstates the adapter
+   (release) or tombstones it (cancel).
 
 The [review neutrality source release](docs/specs/knowledge-review-neutrality-v1.md)
 retires automatic knowledge probe issuance and new agreement-driven review

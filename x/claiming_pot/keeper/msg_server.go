@@ -243,8 +243,9 @@ func (m msgServer) Claim(goCtx context.Context, msg *types.MsgClaim) (*types.Msg
 //
 // Two signers are accepted:
 //   - the gov authority (always), and
-//   - Params.BootstrapRegistrar when non-empty (the agenttool ops multisig;
-//     revocable by a single param change back to "").
+//   - Params.BootstrapRegistrar when non-empty (on zerone-1 since governance
+//     proposal 8, the agents' admission-door key; see ../doc.go; revocable by
+//     a single param change back to "").
 //
 // Compromise bounds live IN CONSENSUS, not off-chain policy:
 //   - lifetime: (entries ever created) x 222,000 uzrn must never exceed
