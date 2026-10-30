@@ -27,7 +27,7 @@
 //     admission power, not community governance.
 //   - Registrar admission is bounded by BootstrapDailyAdmissionCap and the
 //     lifetime BootstrapEmissionCapUzrn. Governance admission bypasses the
-//     daily window but not the lifetime emission cap. Governance can revoke
+//     admission window but not the lifetime emission cap. Governance can revoke
 //     the registrar by setting it to the empty string.
 //   - Duplicate entries are skipped and an over-cap batch fails atomically.
 //     No entry consumes mint headroom until its participant claims.
