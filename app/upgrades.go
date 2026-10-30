@@ -399,8 +399,7 @@ func (app *ZeroneApp) RegisterUpgradeHandlers() {
 	// ceiling when the adapter declared one — so an adapter registered with
 	// axis_bounds:null was the most permissive on chain rather than the most
 	// restrictive, and six uint64s could claim the remaining supply cap in a
-	// single message. mainnet's only registered adapter, agenttool-invocation-v1
-	// (ACTIVE until governance proposal 8 suspended it on 2026-10-29), was
+	// single message. mainnet's only live adapter, agenttool-invocation-v1, was
 	// seeded exactly that way at genesis.
 	//
 	// The binary half of the fix refuses a weighted claim against an unbounded
