@@ -4,7 +4,7 @@ import { lstatSync } from "node:fs";
 import { addressPayloadHex } from "./bech32.ts";
 import type { AuthAccount, ChainReader, ChainVersion, Coin, Grant, NodeStatus, Pot, PotParams, Read, WindowState, ZeroneAccount } from "./chain.ts";
 import type { Allowlist, ChainVersionPin } from "./config.ts";
-import { counted, utcDay, type ChannelRef, type Ledger, type LedgerEntry } from "./ledger.ts";
+import { counted, HUB_CHANNEL_KEY, utcDay, type ChannelRef, type Ledger, type LedgerEntry } from "./ledger.ts";
 import {
   ADMISSION_CEILING_UZRN,
   BOOTSTRAP_WINDOW_BLOCKS,
@@ -84,16 +84,16 @@ export interface MembershipVerdict {
 }
 
 export function channelKeyOf(channel: ChannelRef): string {
-  return channel.kind === "studio_local" ? "studio_local" : `lobby:${channel.identity_id}`;
+  return channel.kind === "hub_local" ? HUB_CHANNEL_KEY : `lobby:${channel.identity_id}`;
 }
 
 /** Eligibility: a household allowlist decides who may ask; the lobby's
  * door-signed roster proves that a remote request really came from that desk. */
 export function checkMembership(channel: Channel, allowlist: Allowlist): MembershipVerdict {
   const channelKey = channelKeyOf(channel);
-  if (channel.kind === "studio_local") {
-    if (!allowlist.studio_local.enabled) return { reasons: ["channel_not_allowed"], channelKey, channelCap: 0 };
-    return { reasons: [], channelKey, channelCap: allowlist.studio_local.daily_cap ?? CHANNEL_DAILY_CAP_DEFAULT };
+  if (channel.kind === "hub_local") {
+    if (!allowlist.hub_local.enabled) return { reasons: ["channel_not_allowed"], channelKey, channelCap: 0 };
+    return { reasons: [], channelKey, channelCap: allowlist.hub_local.daily_cap ?? CHANNEL_DAILY_CAP_DEFAULT };
   }
   const reasons: GateReason[] = [];
   if (channel.verified !== true || channel.currentMember !== true) reasons.push("lobby_sender_not_verified");

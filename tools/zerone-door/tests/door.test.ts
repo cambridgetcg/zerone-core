@@ -7,7 +7,7 @@ import { ChainReader, txMessagesOf, type FetchLike } from "../src/chain.ts";
 import { doorPaths } from "../src/config.ts";
 import { allowanceMatches, carriesEntry, processItem, readLedger, reconcilePending, replyText, type DoorContext, type Reply } from "../src/door.ts";
 import type { LobbyRunner } from "../src/intake.ts";
-import { loadLedger, type LedgerEntry } from "../src/ledger.ts";
+import { HUB_CHANNEL_KEY, loadLedger, type LedgerEntry } from "../src/ledger.ts";
 import { runOnce } from "../src/run.ts";
 import type { ZeronedRunner } from "../src/tx.ts";
 import { checkBuiltTx } from "../src/tx.ts";
@@ -178,13 +178,13 @@ function setup(opts: { live?: boolean; state?: Partial<FakeChainState>; zeroned?
   return { ctx, state, calls, logs, passphraseReads: () => passphraseReads };
 }
 
-const studio = { kind: "studio_local" as const, file: "agent.request" };
+const hub = { kind: "hub_local" as const, file: "agent.request" };
 
 describe("dry run (the default)", () => {
   test("checks, builds and simulates the real admission, signs nothing", async () => {
     const { ctx, calls, passphraseReads } = setup();
     const req = makeRequest();
-    const { reply } = await processItem(ctx, { text: req.text, channel: studio });
+    const { reply } = await processItem(ctx, { text: req.text, channel: hub });
     expect(reply?.decision).toBe("dry_run_ok");
     expect(reply?.reasons).toEqual([]);
     expect(reply?.simulated_gas).toBe(109_000);
@@ -205,56 +205,67 @@ describe("dry run (the default)", () => {
   test("a replayed request is ignored and its first reply is kept", async () => {
     const { ctx } = setup();
     const req = makeRequest();
-    const first = await processItem(ctx, { text: req.text, channel: studio });
-    const second = await processItem(ctx, { text: req.text, channel: studio });
+    const first = await processItem(ctx, { text: req.text, channel: hub });
+    const second = await processItem(ctx, { text: req.text, channel: hub });
     expect(first.answer).toBe(true);
     expect(second).toEqual({ reply: null, answer: false });
   });
 
   test("a failed simulation refuses", async () => {
     const { ctx } = setup({ state: { simulateCode: 5 } });
-    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: studio });
+    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: hub });
     expect(reply?.reasons).toEqual(["simulate_failed"]);
   });
 
   test("simulated gas too close to the limit refuses", async () => {
     const { ctx } = setup({ state: { simulateGas: 140_000 } });
-    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: studio });
+    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: hub });
     expect(reply?.reasons).toEqual(["gas_over_limit"]);
   });
 
   test("an unreadable chain refuses rather than guessing", async () => {
     const { ctx } = setup({ state: { fail: new Set(["/cosmos/feegrant/v1beta1/allowances/"]) } });
-    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: studio });
+    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: hub });
     expect(reply?.reasons).toEqual(["chain_read_failed"]);
   });
 
   test("a malformed request is refused under the hash of its text", async () => {
     const { ctx } = setup();
-    const { reply } = await processItem(ctx, { text: "hello", channel: studio });
+    const { reply } = await processItem(ctx, { text: "hello", channel: hub });
     expect(reply?.reasons).toEqual(["request_malformed"]);
     expect(reply?.request_id).toBe(createHash("sha256").update("hello").digest("hex"));
   });
 
   test("a closed channel is refused before any chain read", async () => {
     const { ctx, state } = setup();
-    writeFileSync(ctx.paths.allowlist, JSON.stringify({ schema: "zerone-door-allowlist/v1", studio_local: { enabled: false }, lobby_desks: [] }), { mode: 0o600 });
-    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: studio });
+    writeFileSync(ctx.paths.allowlist, JSON.stringify({ schema: "zerone-door-allowlist/v1", hub_local: { enabled: false }, lobby_desks: [] }), { mode: 0o600 });
+    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: hub });
     expect(reply?.reasons).toEqual(["channel_not_allowed"]);
     expect(state.requests).toEqual([]);
+  });
+
+  test("an allowlist with the hub switch's older key still closes and opens the channel", async () => {
+    const { ctx } = setup();
+    // Shaped like the installed allowlist.json, which predates hub_local.
+    const older = (enabled: boolean) => JSON.stringify({ schema: "zerone-door-allowlist/v1", studio_local: { enabled, daily_cap: 3 }, lobby_desks: [] });
+    writeFileSync(ctx.paths.allowlist, older(false), { mode: 0o600 });
+    expect((await processItem(ctx, { text: makeRequest().text, channel: hub })).reply?.reasons).toEqual(["channel_not_allowed"]);
+    writeFileSync(ctx.paths.allowlist, older(true), { mode: 0o600 });
+    const fresh = makeRequest({ nonceHex: "b".repeat(32) });
+    expect((await processItem(ctx, { text: fresh.text, channel: hub })).reply?.decision).toBe("dry_run_ok");
   });
 
   test("the HALT file refuses", async () => {
     const { ctx } = setup();
     writeFileSync(join(ctx.config.home, "HALT"), "");
-    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: studio });
+    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: hub });
     expect(reply?.reasons).toEqual(["halt_file"]);
   });
 
   test("a chain that took an upgrade since the pin refuses, nothing built", async () => {
     const { ctx, state, calls } = setup();
     state.upgrades.push({ name: "h1-v1", height: 1_500_000 });
-    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: studio });
+    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: hub });
     expect(reply?.reasons).toEqual(["chain_version_changed"]);
     expect(calls).toEqual([]);
   });
@@ -335,7 +346,7 @@ describe("the admittee watch (door.ts status)", () => {
   function admittee(address: string, identityHex: string, status: LedgerEntry["status"] = "included"): LedgerEntry {
     return {
       request_id: createHash("sha256").update(address).digest("hex"), kind: "admit", address, address_payload: addressPayloadHex(address)!,
-      identity_public_key: identityHex, did: `did:zrn:${identityHex}`, channel_key: "studio_local", tx_hash: "C".repeat(64),
+      identity_public_key: identityHex, did: `did:zrn:${identityHex}`, channel_key: HUB_CHANNEL_KEY, tx_hash: "C".repeat(64),
       status, chain_window: 40, utc_day: "2026-10-27", at: "2026-10-27T10:00:00.000Z", grant_expiration: "2026-11-10T10:00:00Z",
     };
   }
@@ -387,7 +398,7 @@ describe("live", () => {
   test("signs with the passphrase on stdin only, broadcasts, waits, postchecks and records the receipt", async () => {
     const { ctx, calls, logs, state } = setup({ live: true });
     const req = makeRequest();
-    const { reply } = await processItem(ctx, { text: req.text, channel: studio });
+    const { reply } = await processItem(ctx, { text: req.text, channel: hub });
     expect(reply?.decision).toBe("admitted");
     expect(reply?.tx_hash).toMatch(/^[0-9A-F]{64}$/);
     expect(reply?.height).toBe(state.height + 1);
@@ -404,37 +415,37 @@ describe("live", () => {
 
     const ledger = readLedger(ctx);
     expect(ledger.entries).toHaveLength(1);
-    expect(ledger.entries[0]).toMatchObject({ kind: "admit", status: "included", address: req.address, tx_hash: reply!.tx_hash });
+    expect(ledger.entries[0]).toMatchObject({ kind: "admit", status: "included", address: req.address, tx_hash: reply!.tx_hash, channel_key: HUB_CHANNEL_KEY });
     expect(ledger.seen[reply!.request_id]).toBeDefined();
     expect(replyText(reply as Reply)).toContain("admitted");
   });
 
   test("the same agent cannot be admitted twice", async () => {
     const { ctx } = setup({ live: true });
-    await processItem(ctx, { text: makeRequest().text, channel: studio });
+    await processItem(ctx, { text: makeRequest().text, channel: hub });
     const again = makeRequest({ nonceHex: "a".repeat(32) });
-    const { reply } = await processItem(ctx, { text: again.text, channel: studio });
+    const { reply } = await processItem(ctx, { text: again.text, channel: hub });
     expect(reply?.decision).toBe("refused");
     expect(reply?.reasons).toContain("already_admitted");
   });
 
   test("no passphrase in the Keychain: refused, nothing signed", async () => {
     const { ctx, calls } = setup({ live: true, passphrase: null });
-    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: studio });
+    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: hub });
     expect(reply?.reasons).toEqual(["passphrase_unavailable"]);
     expect(calls.some((c) => c.args[1] === "sign")).toBe(false);
   });
 
   test("a signature by a key other than R's on-chain key is never broadcast", async () => {
     const { ctx, calls } = setup({ live: true, zeroned: { signWith: Buffer.alloc(33, 2).toString("base64") } });
-    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: studio });
+    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: hub });
     expect(reply?.reasons).toEqual(["signed_tx_mismatch"]);
     expect(calls.some((c) => c.args[1] === "broadcast")).toBe(false);
   });
 
   test("a CheckTx rejection is recorded as rejected and does not count as admitted", async () => {
     const { ctx } = setup({ live: true, zeroned: { broadcastCode: 13 } });
-    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: studio });
+    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: hub });
     expect(reply?.decision).toBe("failed");
     expect(reply?.reasons).toEqual(["broadcast_rejected"]);
     expect(readLedger(ctx).entries[0]?.status).toBe("rejected");
@@ -443,7 +454,7 @@ describe("live", () => {
   test("an inclusion timeout stays pending, is never re-broadcast, and a later run settles it", async () => {
     const { ctx, state, calls } = setup({ live: true, zeroned: { include: false } });
     const req = makeRequest();
-    const { reply } = await processItem(ctx, { text: req.text, channel: studio });
+    const { reply } = await processItem(ctx, { text: req.text, channel: hub });
     expect(reply?.decision).toBe("pending");
     expect(reply?.reasons).toEqual(["inclusion_timeout"]);
     const entry = readLedger(ctx).entries[0]!;
@@ -464,7 +475,7 @@ describe("live", () => {
   test("a transaction that ran and failed in its messages (R's sequence used) is a final failure", async () => {
     const { ctx, state, calls } = setup({ live: true, zeroned: { include: false } });
     const req = makeRequest();
-    await processItem(ctx, { text: req.text, channel: studio });
+    await processItem(ctx, { text: req.text, channel: hub });
     const entry = readLedger(ctx).entries[0]!;
     // Out of gas: the ante handler passed (R's sequence moved, acc_seq names it), the messages failed.
     land(state, JSON.parse(calls.find((c) => c.args[1] === "broadcast")!.file!), entry.tx_hash, 1_402_802, 11);
@@ -483,7 +494,7 @@ describe("live", () => {
       address_payload: addressPayloadHex(req.address)!,
       identity_public_key: req.identityHex,
       did: `did:zrn:${req.identityHex}`,
-      channel_key: "studio_local",
+      channel_key: HUB_CHANNEL_KEY,
       tx_hash: "B".repeat(64),
       status: "included",
       chain_window: 1,
@@ -495,7 +506,7 @@ describe("live", () => {
     state.pots[`bootstrap-${req.address}`] = restPot(req.address);
     state.grants.push(restDoorGrant(R, req.address, "2026-10-15T00:00:00Z"));
     state.auth[req.address] = { account_number: "99", sequence: "0", pub_key: null };
-    const { reply } = await processItem(ctx, { text: req.text, channel: studio });
+    const { reply } = await processItem(ctx, { text: req.text, channel: hub });
     expect(reply?.decision).toBe("regranted");
     const unsigned = JSON.parse(calls.find((c) => c.args[1] === "sign")!.file!);
     expect(unsigned.body.messages.map((m: any) => m["@type"])).toEqual([
@@ -505,7 +516,7 @@ describe("live", () => {
     expect(unsigned.auth_info.fee.gas_limit).toBe("140000");
 
     state.grants = [];
-    const again = await processItem(ctx, { text: makeRequest({ nonceHex: "b".repeat(32) }).text, channel: studio });
+    const again = await processItem(ctx, { text: makeRequest({ nonceHex: "b".repeat(32) }).text, channel: hub });
     expect(again.reply?.reasons).toContain("already_admitted");
   });
 });
@@ -527,7 +538,7 @@ describe("a broadcast the door has not seen land", () => {
   async function lost(state: Partial<FakeChainState> = {}) {
     const s = setup({ live: true, zeroned: { include: false }, state });
     const req = makeRequest();
-    const { reply } = await processItem(s.ctx, { text: req.text, channel: studio });
+    const { reply } = await processItem(s.ctx, { text: req.text, channel: hub });
     expect(reply?.decision).toBe("pending");
     const entry = readLedger(s.ctx).entries[0]!;
     const signed = JSON.parse(s.calls.find((c) => c.args[1] === "broadcast")!.file!);
@@ -559,7 +570,7 @@ describe("a broadcast the door has not seen land", () => {
       { event: "pending_needs_attention", request_id: entry.request_id, tx_hash: entry.tx_hash, signed_at: entry.at, overdue: true, detail: `can still land until height ${T}; the node is at ${T - 1}` },
     ]);
     const other = makeRequest({ label: "agent-2", issuedAt: at(31).toISOString() });
-    const busy = await processItem(later(ctx, 31), { text: other.text, channel: studio });
+    const busy = await processItem(later(ctx, 31), { text: other.text, channel: hub });
     expect(busy.reply?.reasons).toEqual(["door_busy"]);
 
     // It lands in the last block that may run it.
@@ -571,7 +582,7 @@ describe("a broadcast the door has not seen land", () => {
     // Counted: in the caps, in the admittee watch, and against a second admission.
     expect(admitteesOf(readLedger(ctx)).map((a) => a.address)).toEqual([req.address]);
     const again = makeRequest({ nonceHex: "e".repeat(32), issuedAt: at(32).toISOString() });
-    const second = await processItem(later(ctx, 32), { text: again.text, channel: studio });
+    const second = await processItem(later(ctx, 32), { text: again.text, channel: hub });
     expect(second.reply?.reasons).toContain("already_admitted");
   }, 30_000);
 
@@ -590,7 +601,7 @@ describe("a broadcast the door has not seen land", () => {
 
     // The agent may ask again, and R signs with the sequence the expired one never used.
     const again = makeRequest({ nonceHex: "d".repeat(32), issuedAt: at(22).toISOString() });
-    const { reply } = await processItem(later(ctx, 22), { text: again.text, channel: studio });
+    const { reply } = await processItem(later(ctx, 22), { text: again.text, channel: hub });
     expect(reply?.decision).toBe("pending");
     expect(reply?.timeout_height).toBe(T + TIMEOUT_SETTLE_BLOCKS + TX_TIMEOUT_BLOCKS);
     expect(flag(calls.filter((c) => c.args[1] === "sign").at(-1)!.args, "--sequence")).toBe("4");
@@ -598,7 +609,7 @@ describe("a broadcast the door has not seen land", () => {
 
   test("refused in its block before it ran (R's sequence unmoved): pending until its timeout height passes, then failed and not counted", async () => {
     const { ctx, state, calls } = setup({ live: true, zeroned: { refuseInBlock: 5 } });
-    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: studio });
+    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: hub });
     // Not final: the same signed transaction can still run in a later block.
     expect(reply).toMatchObject({ decision: "pending", reasons: ["delivery_failed"], timeout_height: T });
     expect(reply?.detail).toContain(`in block ${READ_HEIGHT + 1} with code 5`);
@@ -611,7 +622,7 @@ describe("a broadcast the door has not seen land", () => {
     await reconcilePending(later(ctx, 21));
     expect(readLedger(ctx).entries[0]?.status).toBe("pending_inclusion");
     const other = makeRequest({ label: "agent-2", issuedAt: at(21).toISOString() });
-    expect((await processItem(later(ctx, 21), { text: other.text, channel: studio })).reply?.reasons).toEqual(["door_busy"]);
+    expect((await processItem(later(ctx, 21), { text: other.text, channel: hub })).reply?.reasons).toEqual(["door_busy"]);
 
     // Past its timeout height, R's sequence still 4: it never ran and never can.
     advance(state, T + TIMEOUT_SETTLE_BLOCKS, 22);
@@ -623,7 +634,7 @@ describe("a broadcast the door has not seen land", () => {
 
     // Not counted: the agent may ask again, and R signs with the sequence it never used.
     const again = makeRequest({ nonceHex: "d".repeat(32), issuedAt: at(22).toISOString() });
-    const next = await processItem(later(ctx, 22), { text: again.text, channel: studio });
+    const next = await processItem(later(ctx, 22), { text: again.text, channel: hub });
     expect(next.reply?.decision).toBe("pending");
     expect(flag(calls.filter((c) => c.args[1] === "sign").at(-1)!.args, "--sequence")).toBe("4");
   }, 30_000);
@@ -631,7 +642,7 @@ describe("a broadcast the door has not seen land", () => {
   test("refused in its block, then run by a later block before its timeout height: admitted and counted", async () => {
     const { ctx, state, calls } = setup({ live: true, zeroned: { refuseInBlock: 5 } });
     const req = makeRequest();
-    await processItem(ctx, { text: req.text, channel: studio });
+    await processItem(ctx, { text: req.text, channel: hub });
     const entry = readLedger(ctx).entries[0]!;
     // The same signed bytes run once R can pay; the index keeps the success.
     land(state, JSON.parse(calls.find((c) => c.args[1] === "broadcast")!.file!), entry.tx_hash, READ_HEIGHT + 9);
@@ -645,7 +656,7 @@ describe("a broadcast the door has not seen land", () => {
   test("refused in its block, R's sequence moved, nothing indexed yet: still pending until the index names who used it", async () => {
     const { ctx, state, calls } = setup({ live: true, zeroned: { refuseInBlock: 5 } });
     const req = makeRequest();
-    await processItem(ctx, { text: req.text, channel: studio });
+    await processItem(ctx, { text: req.text, channel: hub });
     const entry = readLedger(ctx).entries[0]!;
     // The same bytes ran in a later block, but the index still shows only the refusal.
     state.auth[R]!.sequence = "5";
@@ -661,7 +672,7 @@ describe("a broadcast the door has not seen land", () => {
 
   test("refused in its block, and another transaction then used its sequence: failed at once", async () => {
     const { ctx, state } = setup({ live: true, zeroned: { refuseInBlock: 5 } });
-    await processItem(ctx, { text: makeRequest().text, channel: studio });
+    await processItem(ctx, { text: makeRequest().text, channel: hub });
     const entry = readLedger(ctx).entries[0]!;
     const other = "D".repeat(64);
     state.auth[R]!.sequence = "5";
@@ -765,7 +776,7 @@ describe("a broadcast the door has not seen land", () => {
     // Time never frees it: still pending, still counted, still busy.
     expect(readLedger(ctx).entries[0]?.status).toBe("pending_inclusion");
     const other = makeRequest({ label: "agent-2", issuedAt: at(settleBy + 2).toISOString() });
-    expect((await processItem(later(ctx, settleBy + 2), { text: other.text, channel: studio })).reply?.reasons).toEqual(["door_busy"]);
+    expect((await processItem(later(ctx, settleBy + 2), { text: other.text, channel: hub })).reply?.reasons).toEqual(["door_busy"]);
   });
 
   test("R's sequence moved but the index names no transaction for it yet: still pending, even past the timeout", async () => {
@@ -803,7 +814,7 @@ describe("the chain window an admission counts in", () => {
       const a = addressFor(`window-${i}`);
       ledger.entries.push({
         request_id: String(i).padStart(64, "f"), kind: "admit", address: a, address_payload: addressPayloadHex(a)!,
-        identity_public_key: String(i).padStart(64, "1"), did: `did:zrn:${String(i).padStart(64, "1")}`, channel_key: "studio_local",
+        identity_public_key: String(i).padStart(64, "1"), did: `did:zrn:${String(i).padStart(64, "1")}`, channel_key: HUB_CHANNEL_KEY,
         tx_hash: String(i).padStart(64, "A"), status: "included", chain_window: W, utc_day: "2026-10-20",
         at: "2026-10-20T00:00:00.000Z", grant_expiration: "2026-11-03T00:00:00Z", height: BOUNDARY + 1,
       });
@@ -813,19 +824,19 @@ describe("the chain window an admission counts in", () => {
 
   test("built in the last block of a window and included in the next, in this run: it counts in the next", async () => {
     const { ctx, state } = setup({ live: true, state: { height: BOUNDARY - 1 } });
-    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: studio });
+    const { reply } = await processItem(ctx, { text: makeRequest().text, channel: hub });
     expect(reply).toMatchObject({ decision: "admitted", height: BOUNDARY });
     expect(readLedger(ctx).entries[0]).toMatchObject({ status: "included", height: BOUNDARY, chain_window: W });
     // The door's window cap for W now counts it.
     windowFull(ctx);
     state.height = BOUNDARY + 5;
-    const next = await processItem(ctx, { text: makeRequest({ label: "agent-3" }).text, channel: studio });
+    const next = await processItem(ctx, { text: makeRequest({ label: "agent-3" }).text, channel: hub });
     expect(next.reply?.reasons).toEqual(["door_window_cap"]);
   }, 30_000);
 
   test("built before a window boundary, settled by a later run after it: it counts in the window it ran in", async () => {
     const { ctx, state, calls } = setup({ live: true, zeroned: { include: false }, state: { height: BOUNDARY - 2 } });
-    await processItem(ctx, { text: makeRequest().text, channel: studio });
+    await processItem(ctx, { text: makeRequest().text, channel: hub });
     const pending = readLedger(ctx).entries[0]!;
     expect(pending).toMatchObject({ status: "pending_inclusion", chain_window: W - 1, timeout_height: BOUNDARY - 2 + TX_TIMEOUT_BLOCKS });
     land(state, JSON.parse(calls.find((c) => c.args[1] === "broadcast")!.file!), pending.tx_hash, BOUNDARY + 1);
@@ -839,7 +850,7 @@ describe("a ledger from before timeout heights", () => {
   function droppedEntry(address: string, identityHex: string): LedgerEntry {
     return {
       request_id: "9".repeat(64), kind: "admit", address, address_payload: addressPayloadHex(address)!, identity_public_key: identityHex,
-      did: `did:zrn:${identityHex}`, channel_key: "studio_local", tx_hash: "E".repeat(64), status: "dropped", sequence: "4",
+      did: `did:zrn:${identityHex}`, channel_key: HUB_CHANNEL_KEY, tx_hash: "E".repeat(64), status: "dropped", sequence: "4",
       chain_window: 40, utc_day: "2026-10-28", at: "2026-10-28T16:00:00.000Z", grant_expiration: "2026-11-11T16:00:00Z",
       detail: "never included; R's sequence did not move",
     };
@@ -874,7 +885,7 @@ describe("a ledger from before timeout heights", () => {
     expect(readLedger(ctx).entries[0]?.status).toBe("pending_inclusion");
     expect(JSON.parse(readFileSync(join(ctx.paths.replies, `${old.request_id}.json`), "utf8")).decision).toBe("pending");
     expect(logs.map((l) => l.event)).toEqual(["dropped_reopened", "pending_needs_attention"]);
-    const busy = await processItem(ctx, { text: makeRequest({ label: "legacy-next" }).text, channel: studio });
+    const busy = await processItem(ctx, { text: makeRequest({ label: "legacy-next" }).text, channel: hub });
     expect(busy.reply?.reasons).toEqual(["door_busy"]);
 
     // Any R transaction that uses sequence 4 settles it.
@@ -969,7 +980,7 @@ describe("what is signed", () => {
 describe("the public stand-in for R", () => {
   test("simulation carries R's public key and live sequence and no signature", async () => {
     const { ctx, calls } = setup();
-    await processItem(ctx, { text: makeRequest().text, channel: studio });
+    await processItem(ctx, { text: makeRequest().text, channel: hub });
     const encode = calls.find((c) => c.args[1] === "encode")!;
     const tx = JSON.parse(encode.file!);
     expect(tx.auth_info.signer_infos).toEqual([{

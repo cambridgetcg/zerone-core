@@ -1,5 +1,5 @@
 {
   "schema": "zerone-door-allowlist/v1",
-  "studio_local": { "enabled": false, "daily_cap": 3 },
+  "hub_local": { "enabled": false, "daily_cap": 3 },
   "lobby_desks": []
 }

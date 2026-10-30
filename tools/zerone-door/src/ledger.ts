@@ -18,8 +18,16 @@ import {
 import { dirname, join } from "node:path";
 
 export type ChannelRef =
-  | { kind: "studio_local"; file: string }
+  | { kind: "hub_local"; file: string }
   | { kind: "lobby"; room_id: string; identity_id: string; fingerprint: string; event_id: string };
+
+/** The `channel_key` that ledger entries for hub-local requests carry. This
+ * spelling is a historical identifier from before the door's text stopped
+ * naming the hub machine, and it stays unchanged on purpose: every ledger
+ * written since the door opened uses it, and an older release (releases sit
+ * side by side, so going back is one symlink) counts the hub channel's daily
+ * cap by it. Renaming it would let the two count different entries. */
+export const HUB_CHANNEL_KEY = "studio_local";
 
 export type EntryStatus =
   | "pending_inclusion"
