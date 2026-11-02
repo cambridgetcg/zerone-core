@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Exact package version to release (for example, 0.1.0)"
+        description: "Exact package version to release: a plain MAJOR.MINOR.PATCH above every version on npm"
         required: true
         type: string
 
@@ -42,6 +42,17 @@ jobs:
         run: |
           npm install --global npm@11.19.0
           test "$(npm --version)" = "11.19.0"
+
+      - name: Require Node 22.14.0 or later for trusted publishing
+        # npm trusted publishing needs npm 11.5.1 or later (pinned above to
+        # 11.19.0) and Node 22.14.0 or later. node-version "22" takes a 22.x
+        # release from the runner's tool cache or the newest one; this step
+        # stops the run if that is ever older than 22.14.0.
+        run: |
+          node --eval '
+            const [major, minor] = process.versions.node.split(".").map(Number);
+            process.exit(major > 22 || (major === 22 && minor >= 14) ? 0 : 1);
+          '
 
       - name: Require an exact SDK tag at current main
         shell: bash
@@ -84,10 +95,11 @@ jobs:
             200)
               ;;
             404)
-              # No token path exists here. The first version is published by
-              # the package owner's own hand with npm 2FA from a verified
-              # tarball; see docs/standards/OPEN_CRYPTO_SDK.md.
-              echo "::error::${package_name} is not on npm yet; its first version is published by hand with npm 2FA, and this workflow only stages later versions"
+              # The package has been on npm since its owner published 0.1.1 by
+              # hand with npm 2FA on 2026-11-02 (docs/standards/OPEN_CRYPTO_SDK.md).
+              # A 404 now means the registry answered wrongly or the package is
+              # gone, and staging would create a new package, so refuse.
+              echo "::error::npm answered 404 for ${package_name}, which has been on npm since 0.1.1 (2026-11-02); refusing to infer release state"
               exit 1
               ;;
             *)
@@ -96,6 +108,11 @@ jobs:
               ;;
           esac
 
+          # The registry's CDN can serve a cached document for a while, so a
+          # version published moments ago may be missing here, and npm's own
+          # duplicate check reads the same cached document. A duplicate that
+          # gets past both is left to the registry's stage endpoint and to the
+          # approver, who compares every staged tarball before approving it.
           if node --input-type=module --eval '
             import { readFileSync } from "node:fs";
             const document = JSON.parse(readFileSync(process.argv[1], "utf8"));
@@ -104,6 +121,53 @@ jobs:
             );
           ' "$registry_document" "$package_version"; then
             echo "::error::${package_name}@${package_version} already exists on npm"
+            exit 1
+          fi
+
+          # The stage step passes --tag latest, and an explicit tag turns off
+          # npm's own refusals to tag a prerelease, or a version below the
+          # current latest, as latest. So accept only a plain MAJOR.MINOR.PATCH
+          # release, with no prerelease or build part, that is semver-greater
+          # than the registry's dist-tags.latest and than every plain release
+          # the registry lists.
+          if ! version_refusal="$(
+            node --input-type=module --eval '
+              import { readFileSync } from "node:fs";
+              const document = JSON.parse(readFileSync(process.argv[1], "utf8"));
+              const candidate = process.argv[2];
+              const release = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
+              const parts = (version) => {
+                const match = typeof version === "string" ? release.exec(version) : null;
+                return match ? match.slice(1).map(BigInt) : null;
+              };
+              const next = parts(candidate);
+              if (!next) {
+                console.log(candidate + " is not a plain MAJOR.MINOR.PATCH release; prerelease and build versions are refused");
+                process.exit(1);
+              }
+              const latestTag = document["dist-tags"]?.latest;
+              const latest = parts(latestTag);
+              if (!latest) {
+                console.log("dist-tags.latest is " + JSON.stringify(latestTag ?? null) + ", not a plain release; refusing to compare");
+                process.exit(1);
+              }
+              const greater = (a, b) => {
+                const index = a.findIndex((part, i) => part !== b[i]);
+                return index !== -1 && a[index] > b[index];
+              };
+              if (!greater(next, latest)) {
+                console.log(candidate + " is not greater than dist-tags.latest " + latestTag);
+                process.exit(1);
+              }
+              const listed = Object.keys(document.versions ?? {}).filter((version) => parts(version));
+              const highest = listed.find((version) => !listed.some((other) => greater(parts(other), parts(version))));
+              if (highest && !greater(next, parts(highest))) {
+                console.log(candidate + " is not greater than the listed release " + highest);
+                process.exit(1);
+              }
+            ' "$registry_document" "$package_version"
+          )"; then
+            echo "::error::${package_name}@${package_version} refused: ${version_refusal}"
             exit 1
           fi
 
@@ -170,11 +234,17 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Stage the exact tarball with trusted publishing
-        # --provenance=false since 2026-10-27, when this repository was private
-        # and npm could not attest provenance from it. It has been public again
-        # since 2026-10-28; turning provenance back on is a separate, reviewed
-        # change.
-        run: npm stage publish "${{ steps.pack.outputs.tarball }}" --access public --tag latest --provenance=false
+        # --provenance makes npm sign a provenance statement for this tarball
+        # with the run's OIDC identity, or fail this step: a stage that cannot
+        # attest is never made. From 2026-10-27 the step passed
+        # --provenance=false, because the repository was private and npm could
+        # not attest provenance from it; it has been public again since
+        # 2026-10-28. npm documents provenance as the default for trusted
+        # publishing from a public repository, but npm 11.19.0 drops that
+        # default without an error when one of its checks fails, so the flag
+        # is explicit. Whether the attestation stays with a staged version
+        # through approval is confirmed on the first staged release.
+        run: npm stage publish "${{ steps.pack.outputs.tarball }}" --access public --tag latest --provenance
 
       - name: Record staged release identity
         shell: bash
@@ -189,4 +259,5 @@ jobs:
             echo "- Tarball SHA-256: \`${{ steps.pack.outputs.sha256 }}\`"
             echo "- npm shasum: \`${{ steps.pack.outputs.sha1 }}\`"
             echo "- npm integrity: \`${{ steps.pack.outputs.integrity }}\`"
+            echo "- Provenance: staged with \`--provenance\`; the stage step's log links the signed statement's transparency-log entry. Read it before approving, and after approval confirm the version's \`dist.attestations\` on the registry"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -218,6 +218,14 @@ loss of unrelated public access, negative KARMA, or an adverse record.
    registry verification and npm release decision. Publish Chain Registry
    metadata only after chain identity, genesis, endpoints, denomination, and
    coin type are final.
+
+   *Note, 2 November 2026 (written by an agent):* the package owner published
+   `@zerone-chain/sdk` 0.1.1 to npm by hand that day, with npm 2FA and without
+   a provenance attestation. Later versions go through `publish-sdk.yml`:
+   staged with trusted publishing and `--provenance`, then approved with 2FA
+   ([OPEN_CRYPTO_SDK.md](standards/OPEN_CRYPTO_SDK.md)). Still open: the served
+   FL-0 receipt profile lists the limit `sdk-unpublished`, which needs a
+   separately reviewed FL-0 revision.
 6. **Continue boundary-first standards work.** Priorities are feegrant UX,
    audited delegated authority, AgentTool x402, an ERC-8004-inspired profile,
    and digest-only CID/in-toto/SPDX/C2PA/A2A integrations.

@@ -3,6 +3,43 @@
 Notable source changes are recorded here. Network activation and package
 publication are separate events and are stated explicitly when they occur.
 
+## Package and source — 2026-11-02 `@zerone-chain/sdk` 0.1.1 on npm
+
+- Package publication: the package owner published `@zerone-chain/sdk`
+  `0.1.1` to npm by hand on 2 November 2026, with npm 2FA and without an npm
+  provenance attestation, from a tarball built from the annotated `sdk-v0.1.1`
+  tag on `main` commit `38bb765f`. The registry serves it as `latest`; its
+  tarball's SHA-256 is
+  `3df235181617eb1544f7590abe6aee76c702dee48367d4fa5436e407ae7879a2`, and
+  packing the tag reproduces it byte for byte.
+  [OPEN_CRYPTO_SDK.md](docs/standards/OPEN_CRYPTO_SDK.md) records its npm
+  shasum and integrity. npm's staged publishing also created a placeholder
+  version, `0.0.0-stage`, which holds no code: install `0.1.1` exactly and
+  never `0.0.0-stage`.
+- The agents' guide at `/join/agents.md` now installs `0.1.1` from npm, gives
+  its hashes and how to check them, and keeps a rebuild from the tag only as an
+  optional comparison. `llms.txt`, `README.md`, the SDK README and
+  `OPEN_CRYPTO_SDK.md` say the package is on npm. The SDK README is packed into
+  every release tarball, so its new wording ships from the next version.
+- `publish-sdk.yml` no longer passes `--provenance=false`. Its stage step now
+  passes `--provenance`, so a stage that cannot attest provenance fails instead
+  of staging a version without it. npm's documentation says provenance is
+  generated for trusted publishes from a public repository; no staged release
+  has shown it yet, so confirm `dist.attestations` on the first one. The
+  workflow now also requires Node 22.14.0 or later, as trusted publishing does.
+  Because it tags each stage `latest` explicitly, which turns off npm's own
+  prerelease and version-order checks, it refuses a prerelease version and any
+  version not greater than both the registry's `latest` and every plain release
+  it lists. Its refusal on a 404 says the package has existed since `0.1.1`.
+  Later versions are staged through it and approved with npm 2FA; the
+  trusted publisher is configured only when the next version is ready to stage
+  within 48 hours.
+- The FL-0 receipt profile at
+  `/standards/frontier-evaluation-receipt-profile.v0.json` still lists the
+  limit `sdk-unpublished`. Its dogfood receipt, dated 2026-08-01, binds those
+  exact bytes by SHA-256, so correcting it needs a separately reviewed
+  revision.
+
 ## Source — 2026-10-28 TypeScript SDK 0.1.1 and public-repository wording
 
 - `@zerone-chain/sdk` is now version `0.1.1`, the first version to publish on

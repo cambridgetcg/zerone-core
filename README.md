@@ -354,7 +354,10 @@ make proto-gen
 - The generated [Swagger document](docs/swagger-ui/swagger.json) is the REST
   inventory of record: 218 paths and 457 definitions.
 - The repository [TypeScript SDK](sdk/typescript/) covers 169 request messages
-  across 20 Zerone `Msg` services. The package is not yet published to npm.
+  across 20 Zerone `Msg` services. Version 0.1.1 has been on npm as
+  `@zerone-chain/sdk` since 2 November 2026, published by hand without a
+  provenance attestation; install it exactly, never npm's `0.0.0-stage`
+  placeholder. The [SDK README](sdk/typescript/README.md) gives its hashes.
 - [Open crypto SDK and standards integration](docs/standards/OPEN_CRYPTO_SDK.md)
   documents the implemented CAIP, in-toto, and isolated Sigstore seams and the
   boundaries still deliberately kept off-chain.

@@ -93,8 +93,50 @@ describe("the agents' join guide at /join/agents.md", () => {
     assert.doesNotMatch(prose, /location is not published|it is not published\.|inbox is secret|secret inbox/u);
     assert.match(prose, /\*\*Desks on the household's other devices: not yet\.\*\* The household will add them later, through the lobby/u);
     assert.match(step(3), /\*\*From a desk on another of the household's devices:\*\* not yet\. The household will add desks later, through the lobby\./u);
-    // No lobby room exists yet, so the guide gives no room id or command to post with.
+    // No door room is open to desks yet, so the guide gives no room id or command to
+    // post with. A room can exist before desks may use it, so the page neither says
+    // that no room exists nor promises the id on the day a room is made.
     assert.doesNotMatch(guide, /agenttool-lobby room say/u);
+    assert.match(prose, /No door room is open to desks yet, and there is no way to ask from another device;/u);
+    assert.match(prose, /Once a test agent on another device has been admitted through the lobby, this page publishes the room's id and changes the status line above\./u);
+    assert.doesNotMatch(prose, /there is no door room|No door room exists|On that day this page publishes/u);
+  });
+
+  it("says what a desk on another device needs first, and gives no room id or post command yet", () => {
+    const start = guide.indexOf("## From another device on the household network");
+    const end = guide.indexOf("## Refusal reasons");
+    assert.ok(start > guide.indexOf("### 6. Submit a claim") && start < end, "the section sits after step 6, before the refusal reasons");
+    const section = guide.slice(start, end);
+    const text = section.replace(/\s+/gu, " ");
+    assert.match(text, /^## From another device on the household network \*\*Not yet, as of 2 November 2026\.\*\* No door room is open to desks yet, and no device other than the hub has joined the household's lobby/u);
+    // Every step is the household's decision; the first three need a person, and
+    // the fourth (listing the desk) is the household's too.
+    assert.match(text, /### What has to happen first Each step in this list is the household's decision, and no agent on your device can do one alone; steps 1–3 of this list need a person at a keyboard\./u);
+    assert.equal((section.match(/^\d\. \*\*/gmu) ?? []).length, 4);
+    // References to the guide's own steps name them, so they cannot be read as this list.
+    assert.match(text, /make them on your own device as steps 1 and 2 under "Steps" show \("Make your two keys and keep them"; "Write and sign your door request"\)/u);
+    assert.match(text, /the chain, read as the "Anyone" bullet of step 4 under "Steps" \("Read the answer"\) shows\. There is no reply file for you\./u);
+    // Each request goes in a file of its own, so a second request never collides.
+    assert.match(text, /Save each request in a new file of its own, named for that request/u);
+    assert.match(text, /the door accepts a request for 15 minutes after its `issued_at`/u);
+    assert.match(text, /in the conversation `zerone-door`, addressed to the room's host, the hub's desk/u);
+    assert.match(text, /An agent never answers that prompt\./u);
+    // The typed-yes acts stay a person's: joining, the seat lease and the daily renewal.
+    assert.match(text, /with a person at your device and at the hub\./u);
+    assert.match(text, /or that person makes a short, bounded seat lease/u);
+    assert.doesNotMatch(text, /\ban agent (?:makes|renews|types|answers|admits|knocks|approves)\b/iu);
+    assert.match(text, /Until the lobby can renew them by signature, a person renews them each day/u);
+    // The per-desk cap is a default the household can change, not a fixed bound.
+    assert.match(text, /3 admissions a day per desk by default \(the household can set another number for each desk\)/u);
+    assert.doesNotMatch(text, /5 ZRN float/u);
+    assert.match(step(3), /What has to happen before a desk can ask is under "From another device on the household network" below\./u);
+    // Not yet: no room id, no post command, and nothing stale about the SDK or a device name.
+    assert.doesNotMatch(guide, /room_[0-9a-f]{32}/u);
+    assert.doesNotMatch(section, /agenttool-lobby/u);
+    assert.doesNotMatch(prose, /not (?:yet )?(?:on|published (?:on|to)) npm/iu);
+    assert.doesNotMatch(section, /\bMac(?![a-z])|\bMacBook|\biMac/u);
+    // R's balance after the 2 November top-ups, with both transactions.
+    assert.match(prose, /On 2 November 2026 the household topped R up twice, to 15 ZRN \(transactions `40AD7126585E041AEB8136D1DB44382ABC555AE36A8AA39F174AB19B9203BA4C` at height 1,416,426 and `0ABB6B41EE87F770BD553161E414444CCF3EF3F4255FE35DADB8C6BBB467AF89` at height 1,416,779\)\./u);
   });
 
   it("keeps every hazard of the version zerone-1 runs", () => {
@@ -148,16 +190,39 @@ describe("the agents' join guide at /join/agents.md", () => {
     assert.match(prose, /The claim's text must be at least 20 and at most 1,000 bytes long/u);
   });
 
-  it("installs without install scripts, from a packed SDK, with exact versions, as ES modules", () => {
-    assert.match(guide, /npm install --ignore-scripts --save-exact @zerone-chain\/sdk@0\.1\.1 /u);
-    assert.match(prose, /On 2026-10-29 npm answered 404 for `@zerone-chain\/sdk`: it is not published yet\./u);
-    assert.match(guide, /git clone https:\/\/github\.com\/cambridgetcg\/zerone-core\.git/u);
-    assert.match(guide, /\(cd zerone-core\/sdk\/typescript && npm ci --ignore-scripts && npm run build && npm pack --ignore-scripts\)/u);
-    assert.match(guide, /npm install --ignore-scripts --save-exact \.\/zerone-core\/sdk\/typescript\/zerone-chain-sdk-0\.1\.1\.tgz/u);
-    // The old folder install linked the SDK and loaded two copies of CosmJS.
-    assert.doesNotMatch(guide, /npm install \.\/zerone-core\/sdk\/typescript /u);
+  it("installs the npm release exactly, without install scripts, as ES modules", () => {
+    assert.match(guide, /npm install --ignore-scripts --save-exact @zerone-chain\/sdk@0\.1\.1 @cosmjs\/proto-signing@0\.39\.0 \\\n {2}@cosmjs\/stargate@0\.39\.0 @cosmjs\/amino@0\.39\.0 @cosmjs\/encoding@0\.39\.0 @noble\/curves@2\.2\.0 \\\n {2}@noble\/hashes@2\.2\.0\n/u);
+    // 0.1.1 has been on npm since 2026-11-02; the old "answered 404" fallback is gone.
+    assert.match(prose, /`@zerone-chain\/sdk` has been on npm since 2 November 2026\. Its first version there is 0\.1\.1; 0\.1\.0 was tagged but never published\. Install exactly 0\.1\.1, as above\./u);
+    assert.doesNotMatch(prose, /answered 404|it is not published yet|Until it is, build it/u);
+    // npm's staged-publishing placeholder holds no code and must never be installed.
+    assert.match(prose, /\*\*Never install `0\.0\.0-stage`\*\*: npm's staged publishing made that version as a placeholder/u);
+    assert.doesNotMatch(guide, /@zerone-chain\/sdk@(?!0\.1\.1\b)/u);
+    // No provenance attestation: the guide says so and gives the bytes to check.
+    assert.match(prose, /0\.1\.1 has no npm provenance attestation: the package owner published it by hand, with npm 2FA, from a tarball built from the annotated `sdk-v0\.1\.1` tag\./u);
+    for (const value of [
+      "3df235181617eb1544f7590abe6aee76c702dee48367d4fa5436e407ae7879a2",
+      "8484fd566c6d07a0a6614995417cccdbd7bdceab",
+      "sha512-K+tiN/efOIFfwlRoi/oREAq9/qEPBMyIidbNlPS2i7DcApnx7qnIKMYoued9EGbJi6HzMCI8hZgQTmnKo//HFw==",
+    ]) {
+      assert.ok(guide.includes(`| \`${value}\` |`), `the guide must publish ${value}`);
+    }
+    assert.ok(guide.includes(`node --print "require('./package-lock.json').packages['node_modules/@zerone-chain/sdk'].integrity"`));
+    assert.match(guide, /^curl --fail -sSO https:\/\/registry\.npmjs\.org\/@zerone-chain\/sdk\/-\/sdk-0\.1\.1\.tgz$/mu);
+    assert.match(guide, /^shasum -a 256 sdk-0\.1\.1\.tgz {8}# on Linux: sha256sum sdk-0\.1\.1\.tgz$/mu);
+    // The optional rebuild starts from the annotated tag and is only compared, never installed.
+    assert.match(guide, /^git clone --branch sdk-v0\.1\.1 --depth 1 https:\/\/github\.com\/cambridgetcg\/zerone-core\.git$/mu);
+    assert.match(guide, /^ {2}git status --porcelain -- dist {14}# prints nothing: the build matches the tag$/mu);
+    assert.match(prose, /This is optional; install from npm either way\./u);
+    // It runs in a subshell, so an agent that carries on in the same shell is back in
+    // its own project, not inside the SDK clone.
+    const rebuild = guide.match(/```sh\ngit clone --branch sdk-v0\.1\.1 [^\n]*\n([\s\S]*?)```/u)?.[1] ?? "";
+    assert.match(rebuild, /^\(\n {2}cd zerone-core\/sdk\/typescript\n(?: {2}[^\n]+\n)+\)\n$/u);
+    assert.match(rebuild, /^ {2}shasum -a 256 zerone-chain-sdk-0\.1\.1\.tgz$/mu);
+    assert.doesNotMatch(guide, /^cd zerone-core/mu);
+    assert.match(prose, /The parentheses run the rebuild in a subshell, so your shell is back in your own project when it ends\./u);
+    assert.doesNotMatch(guide, /npm install [^\n]*\.tgz|npm install \.\/zerone-core/u);
     assert.doesNotMatch(guide, /npm ci && npm run build/u);
-    assert.match(prose, /Install the packed file, not the folder/u);
     assert.match(prose, /save it in a file whose name ends in `\.mjs` \(for example `join\.mjs`\), or set `"type": "module"`/u);
   });
 
@@ -285,6 +350,10 @@ describe("the agents' join guide at /join/agents.md", () => {
     assert.match(today, new RegExp(`The door's key, ${R_ADDRESS}, is the chain's bootstrap registrar, capped by governance at 100 admissions per 34,272 blocks`, "u"));
     assert.match(today, /Agents on the household's other devices cannot use the door yet \(https:\/\/zerone\.ai\/join\/agents\.md\)/u);
     assert.doesNotMatch(llms, /door is not open|not open yet|admission remains paused/iu);
+    // The SDK has been on npm since 2026-11-02; the index pins 0.1.1 and warns off the placeholder.
+    assert.match(llms, /Its install step pins @zerone-chain\/sdk 0\.1\.1 from npm/u);
+    assert.match(llms, /^- \[TypeScript SDK\]\([^)]+\): [^\n]*On npm as @zerone-chain\/sdk 0\.1\.1 since 2 November 2026, published by hand without a provenance attestation: install exactly 0\.1\.1, never npm's 0\.0\.0-stage placeholder/mu);
+    assert.doesNotMatch(llms, /not a published npm package|not published (?:on|to) npm/iu);
     // The index never names the hub's inbox or key store either.
     assert.doesNotMatch(llms, /Keychain|keyring|\/Users\/|~\/|\/inbox\b|inbox\//iu);
     assert.ok(!llms.includes("{{"));
