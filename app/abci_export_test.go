@@ -12,3 +12,10 @@ import (
 func (app *ZeroneApp) PrepareProposalSelectionHandlerForTest() sdk.PrepareProposalHandler {
 	return app.prepareProposalHandler(proposalTxVerifier(app.txConfig.TxEncoder()))
 }
+
+// PrepareProposalHandlerWithVerifierForTest runs PrepareProposal with a
+// caller-supplied replay, for fixtures that make one candidate's replay fail
+// or panic.
+func (app *ZeroneApp) PrepareProposalHandlerWithVerifierForTest(verify func(sdk.Tx) ([]byte, error)) sdk.PrepareProposalHandler {
+	return app.prepareProposalHandler(proposalTxVerifier(verify))
+}

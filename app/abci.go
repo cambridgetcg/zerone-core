@@ -172,6 +172,26 @@ func (app *ZeroneApp) prepareProposalHandler(verify proposalTxVerifier) sdk.Prep
 	}
 }
 
+// errProposalCandidatePanic marks a candidate whose replay panicked.
+var errProposalCandidatePanic = errors.New("proposal candidate replay panicked")
+
+// verifyProposalCandidate replays one candidate and turns a panic into an
+// error, so that candidate is left out and selection continues, instead of
+// the whole proposal falling back to empty. This is safe because runTx
+// recovers every panic raised inside it, including in the ante handler, and
+// returns it as an error; a panic that reaches here comes from
+// PrepareProposalVerifyTx before runTx, while it encodes the candidate, and
+// so before any write to the proposal state.
+func verifyProposalCandidate(verify proposalTxVerifier, tx sdk.Tx) (proposedBytes []byte, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			proposedBytes = nil
+			err = fmt.Errorf("%w: %v", errProposalCandidatePanic, r)
+		}
+	}()
+	return verify(tx)
+}
+
 // proposalTxFits reports whether the SDK default selector would add a
 // transaction of txSize bytes and txGas gas to a selection that already holds
 // selectedBytes and selectedGas (baseapp defaultTxSelector, SDK v0.53.8). A
@@ -183,6 +203,20 @@ func proposalTxFits(selectedBytes, selectedGas, txSize, txGas, maxTxBytes, maxBl
 	return maxBlockGas == 0 || txGas+selectedGas <= maxBlockGas
 }
 
+// prepareProposal never returns an error: on an error BaseApp.PrepareProposal
+// proposes req.Txs unfiltered, which ProcessProposal could refuse. A part it
+// cannot build (the vote-extension injection) is left out instead, and a
+// panic outside a candidate's replay yields an empty proposal.
+//
+// Leaving a candidate out assumes that a failed replay wrote nothing to the
+// proposal state. runTx writes the ante handler's effects before it reads
+// the messages with GetMsgsV2 and before it runs a PostHandler, so an error
+// from either would leave the effects of a candidate that is not proposed,
+// and a later candidate could pass here and fail ProcessProposal. Zerone sets
+// no PostHandler (TestPrepareProposalAssumesNoPostHandler fails if one is
+// wired), and GetMsgsV2 is deterministic and runs on the same path in
+// CheckTx, so a candidate admitted to the mempool has already passed it.
+// Wiring a PostHandler requires revisiting this path first.
 func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareProposal, verify proposalTxVerifier) (resp *abci.ResponsePrepareProposal, err error) {
 	logger := ctx.Logger().With("module", "abci", "handler", "PrepareProposal")
 
@@ -208,12 +242,13 @@ func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareP
 		injection := app.processVoteExtensions(ctx, req.LocalLastCommit.Votes)
 
 		if len(injection.Commitments) > 0 || len(injection.Reveals) > 0 {
-			injBytes, err := EncodeVoteExtInjection(injection)
-			if err != nil {
-				return nil, fmt.Errorf("critical: vote extension injection encoding failed: %w", err)
-			}
-
-			if len(injBytes) > MaxVEXInjectionBytes {
+			injBytes, encodeErr := EncodeVoteExtInjection(injection)
+			if encodeErr != nil {
+				// Returning the error would make BaseApp propose req.Txs
+				// unfiltered, so leave the injection out and keep selecting.
+				logger.Error("vote extension injection encoding failed — dropping",
+					"height", req.Height, "err", encodeErr)
+			} else if len(injBytes) > MaxVEXInjectionBytes {
 				logger.Warn("vote extension injection exceeds size limit — dropping",
 					"size", len(injBytes), "max", MaxVEXInjectionBytes)
 			} else {
@@ -241,6 +276,7 @@ func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareP
 	// The byte and gas totals the selector already holds (only the vote
 	// extension injection, which declares no gas, can precede this loop).
 	var selectedBytes, selectedGas uint64
+	var omitted, panicked int
 	for _, selected := range selector.SelectedTxs(ctx) {
 		selectedBytes += uint64(cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{selected}))
 	}
@@ -287,9 +323,22 @@ func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareP
 		if !proposalTxFits(selectedBytes, selectedGas, txSize, txGas, maxTxBytes, maxBlockGas) {
 			continue
 		}
-		proposedBytes, verifyErr := verify(tx)
+		proposedBytes, verifyErr := verifyProposalCandidate(verify, tx)
 		if verifyErr != nil {
-			logger.Info("omitting tx that fails ante verification at the proposal height",
+			omitted++
+			if errors.Is(verifyErr, errProposalCandidatePanic) {
+				// Not expected. Report the first one in a proposal loudly and
+				// count the rest, so a recurring cause cannot flood the log.
+				if panicked == 0 {
+					logger.Error("leaving out a proposal candidate whose replay panicked",
+						"height", req.Height,
+						"tx_hash", fmt.Sprintf("%X", tmhash.Sum(txBytes)),
+						"err", verifyErr)
+				}
+				panicked++
+				continue
+			}
+			logger.Debug("omitting tx that fails ante verification at the proposal height",
 				"height", req.Height,
 				"tx_hash", fmt.Sprintf("%X", tmhash.Sum(txBytes)),
 				"err", verifyErr)
@@ -318,6 +367,13 @@ func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareP
 		}
 	}
 	txs := selector.SelectedTxs(ctx)
+
+	// One line per proposal, however many candidates were left out; each
+	// omission is logged at debug level above.
+	if omitted > 0 {
+		logger.Info("omitted proposal candidates whose replay failed at the proposal height",
+			"height", req.Height, "omitted", omitted, "panicked", panicked, "txs", len(txs))
+	}
 
 	logger.Debug("prepared proposal",
 		"height", req.Height,

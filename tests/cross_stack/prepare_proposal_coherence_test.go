@@ -3,6 +3,7 @@ package cross_stack_test
 import (
 	"bytes"
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	sdkmath "cosmossdk.io/math"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	cmttypes "github.com/cometbft/cometbft/types"
 	clienttx "github.com/cosmos/cosmos-sdk/client/tx"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -120,10 +122,15 @@ func checkCoherenceTx(t *testing.T, h *TestHarness, txBytes []byte, kind abci.Ch
 
 func prepareNextProposal(t *testing.T, h *TestHarness, proposalTime time.Time, txs ...[]byte) [][]byte {
 	t.Helper()
+	return prepareNextProposalWithLimit(t, h, proposalTime, coherenceMaxTxBytes, txs...)
+}
+
+func prepareNextProposalWithLimit(t *testing.T, h *TestHarness, proposalTime time.Time, maxTxBytes int64, txs ...[]byte) [][]byte {
+	t.Helper()
 	response, err := h.App.PrepareProposal(&abci.RequestPrepareProposal{
 		Height:     h.App.LastBlockHeight() + 1,
 		Time:       proposalTime,
-		MaxTxBytes: coherenceMaxTxBytes,
+		MaxTxBytes: maxTxBytes,
 		Txs:        txs,
 	})
 	require.NoError(t, err)
@@ -151,6 +158,13 @@ type coherenceSigner struct {
 // at that committed height and time.
 func newCoherenceChain(t *testing.T, committedTime time.Time) (*TestHarness, coherenceSigner, coherenceSigner) {
 	t.Helper()
+	return newCoherenceChainWithMaxGas(t, committedTime, -1)
+}
+
+// newCoherenceChainWithMaxGas is newCoherenceChain with the consensus block
+// gas limit set to maxGas (-1 for unlimited) in the committed state.
+func newCoherenceChainWithMaxGas(t *testing.T, committedTime time.Time, maxGas int64) (*TestHarness, coherenceSigner, coherenceSigner) {
+	t.Helper()
 	h := NewTestHarness(t)
 	signers := make([]coherenceSigner, 2)
 	for i := range signers {
@@ -168,27 +182,29 @@ func newCoherenceChain(t *testing.T, committedTime time.Time) (*TestHarness, coh
 	params, err := h.App.ConsensusKeeper.ParamsStore.Get(h.Ctx)
 	require.NoError(t, err)
 	require.NotNil(t, params.Block)
-	params.Block.MaxGas = -1
+	params.Block.MaxGas = maxGas
 	require.NoError(t, h.App.ConsensusKeeper.ParamsStore.Set(h.Ctx, params))
 	h.CommitHMinusOne()
 	commitCoherenceBlock(t, h, committedTime)
 	return h, signers[0], signers[1]
 }
 
-func requireCoherentProposal(
+// requirePreparedBlock checks that PrepareProposal offers want, gives the same
+// answer when called again for a later round, that ProcessProposal accepts
+// it, and that the block finalizes with every transaction succeeding.
+func requirePreparedBlock(
 	t *testing.T,
 	h *TestHarness,
 	proposalTime time.Time,
+	maxTxBytes int64,
 	candidates [][]byte,
 	want [][]byte,
 ) {
 	t.Helper()
-	require.Equal(t, abci.ResponseProcessProposal_REJECT,
-		processNextProposal(t, h, proposalTime, candidates...),
-		"fixture must contain a candidate that the proposal-height replay refuses")
-
-	prepared := prepareNextProposal(t, h, proposalTime, candidates...)
+	prepared := prepareNextProposalWithLimit(t, h, proposalTime, maxTxBytes, candidates...)
 	require.Equal(t, want, prepared)
+	require.Equal(t, prepared, prepareNextProposalWithLimit(t, h, proposalTime, maxTxBytes, candidates...),
+		"a later round prepares the same block")
 	require.Equal(t, abci.ResponseProcessProposal_ACCEPT,
 		processNextProposal(t, h, proposalTime, prepared...),
 		"ProcessProposal must accept the block PrepareProposal offered")
@@ -199,6 +215,22 @@ func requireCoherentProposal(
 	for i, result := range response.TxResults {
 		require.Zerof(t, result.Code, "tx %d: %s", i, result.Log)
 	}
+}
+
+// requireCoherentProposal first checks that ProcessProposal refuses the
+// unfiltered candidates, then that PrepareProposal offers only want.
+func requireCoherentProposal(
+	t *testing.T,
+	h *TestHarness,
+	proposalTime time.Time,
+	candidates [][]byte,
+	want [][]byte,
+) {
+	t.Helper()
+	require.Equal(t, abci.ResponseProcessProposal_REJECT,
+		processNextProposal(t, h, proposalTime, candidates...),
+		"fixture must contain a candidate that ProcessProposal refuses")
+	requirePreparedBlock(t, h, proposalTime, coherenceMaxTxBytes, candidates, want)
 }
 
 func TestPrepareProposalCoherence_KeepsValidCandidatesUnchanged(t *testing.T) {
@@ -216,54 +248,52 @@ func TestPrepareProposalCoherence_KeepsValidCandidatesUnchanged(t *testing.T) {
 	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, processNextProposal(t, h, proposalTime, prepared...))
 }
 
-func TestPrepareProposalCoherence_OmitsTimeoutHeightAtCommittedHeight(t *testing.T) {
+func TestPrepareProposalCoherence_HeightBoundedCandidate(t *testing.T) {
 	committedTime := time.Unix(1_750_000_000, 0).UTC()
 	h, first, second := newCoherenceChain(t, committedTime)
 	committedHeight := uint64(h.App.LastBlockHeight())
 
-	expiring := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{
+	bounded := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{
 		sequence: 0, gas: 200_000, fee: 200_000, timeoutHeight: committedHeight,
 	})
 	valid := signedCoherenceTx(t, h, second.key, second.accountNumber, coherenceTx{
 		sequence: 0, gas: 200_000, fee: 200_000,
 	})
-	require.Zero(t, checkCoherenceTx(t, h, expiring, abci.CheckTxType_New),
-		"CheckTx at the committed height admits a timeout equal to that height")
+	require.Zero(t, checkCoherenceTx(t, h, bounded, abci.CheckTxType_New), "CheckTx admits the candidate")
 
 	requireCoherentProposal(t, h, committedTime.Add(5*time.Second),
-		[][]byte{expiring, valid}, [][]byte{valid})
+		[][]byte{bounded, valid}, [][]byte{valid})
 
-	require.NotZero(t, checkCoherenceTx(t, h, expiring, abci.CheckTxType_Recheck),
-		"the next commit's recheck evicts the expired transaction")
+	require.NotZero(t, checkCoherenceTx(t, h, bounded, abci.CheckTxType_Recheck),
+		"recheck after the commit evicts the omitted candidate")
 }
 
-func TestPrepareProposalCoherence_OmitsTimeoutTimestampBetweenBlocks(t *testing.T) {
+func TestPrepareProposalCoherence_TimeBoundedCandidate(t *testing.T) {
 	committedTime := time.Unix(1_750_000_000, 0).UTC()
 	h, first, second := newCoherenceChain(t, committedTime)
 
-	expiring := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{
+	bounded := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{
 		sequence: 0, gas: 200_000, fee: 200_000,
 		timeoutTimestamp: committedTime.Add(2 * time.Second),
 	})
 	valid := signedCoherenceTx(t, h, second.key, second.accountNumber, coherenceTx{
 		sequence: 0, gas: 200_000, fee: 200_000,
 	})
-	require.Zero(t, checkCoherenceTx(t, h, expiring, abci.CheckTxType_New),
-		"CheckTx at the committed block time admits a later timeout timestamp")
+	require.Zero(t, checkCoherenceTx(t, h, bounded, abci.CheckTxType_New), "CheckTx admits the candidate")
 
 	requireCoherentProposal(t, h, committedTime.Add(5*time.Second),
-		[][]byte{expiring, valid}, [][]byte{valid})
+		[][]byte{bounded, valid}, [][]byte{valid})
 }
 
-func TestPrepareProposalCoherence_OmitsCandidateInvalidatedByEarlierCandidate(t *testing.T) {
+func TestPrepareProposalCoherence_DependentCandidates(t *testing.T) {
 	committedTime := time.Unix(1_750_000_000, 0).UTC()
 
-	t.Run("same sequence", func(t *testing.T) {
+	t.Run("sequence", func(t *testing.T) {
 		h, first, second := newCoherenceChain(t, committedTime)
 		original := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{
 			sequence: 0, gas: 200_000, fee: 200_000, memo: "first",
 		})
-		replay := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{
+		sameSequence := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{
 			sequence: 0, gas: 200_000, fee: 200_000, memo: "second",
 		})
 		valid := signedCoherenceTx(t, h, second.key, second.accountNumber, coherenceTx{
@@ -271,13 +301,13 @@ func TestPrepareProposalCoherence_OmitsCandidateInvalidatedByEarlierCandidate(t 
 		})
 
 		requireCoherentProposal(t, h, committedTime.Add(5*time.Second),
-			[][]byte{original, replay, valid}, [][]byte{original, valid})
+			[][]byte{original, sameSequence, valid}, [][]byte{original, valid})
 	})
 
 	t.Run("fee balance", func(t *testing.T) {
 		h, first, second := newCoherenceChain(t, committedTime)
 		// The first fee leaves 50,000 uzrn, short of the second's 200,000.
-		draining := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{
+		large := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{
 			sequence: 0, gas: 200_000, fee: proposalTestBalance - 50_000,
 		})
 		unfunded := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{
@@ -288,8 +318,65 @@ func TestPrepareProposalCoherence_OmitsCandidateInvalidatedByEarlierCandidate(t 
 		})
 
 		requireCoherentProposal(t, h, committedTime.Add(5*time.Second),
-			[][]byte{draining, unfunded, valid}, [][]byte{draining, valid})
+			[][]byte{large, unfunded, valid}, [][]byte{large, valid})
 	})
+}
+
+// A candidate the selector skips for lack of room is never replayed, so its
+// ante effects (here, its sequence) never reach the checks of later
+// candidates. first's sequence-1 candidate that does not fit is skipped, the
+// sequence-2 candidate after it then fails, and the second sequence-1
+// candidate, which fits, is offered.
+func TestPrepareProposalCoherence_GasLimitedSelectionReplaysOnlyTakenCandidates(t *testing.T) {
+	committedTime := time.Unix(1_750_000_000, 0).UTC()
+	h, first, second := newCoherenceChainWithMaxGas(t, committedTime, 500_000)
+	committedHeight := uint64(h.App.LastBlockHeight())
+
+	a := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{sequence: 0, gas: 200_000, fee: 200_000})
+	b := signedCoherenceTx(t, h, second.key, second.accountNumber, coherenceTx{
+		sequence: 0, gas: 200_000, fee: 200_000, timeoutHeight: committedHeight, memo: "b",
+	})
+	c := signedCoherenceTx(t, h, second.key, second.accountNumber, coherenceTx{sequence: 0, gas: 200_000, fee: 200_000})
+	tooLarge := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{sequence: 1, gas: 300_000, fee: 300_000})
+	afterTooLarge := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{sequence: 2, gas: 100_000, fee: 100_000})
+	fits := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{sequence: 1, gas: 100_000, fee: 100_000, memo: "f"})
+
+	requirePreparedBlock(t, h, committedTime.Add(5*time.Second), coherenceMaxTxBytes,
+		[][]byte{a, b, c, tooLarge, afterTooLarge, fits}, [][]byte{a, c, fits})
+}
+
+func TestPrepareProposalCoherence_ByteLimitedSelectionReplaysOnlyTakenCandidates(t *testing.T) {
+	committedTime := time.Unix(1_750_000_000, 0).UTC()
+	h, first, second := newCoherenceChain(t, committedTime)
+
+	a := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{sequence: 0, gas: 200_000, fee: 200_000})
+	c := signedCoherenceTx(t, h, second.key, second.accountNumber, coherenceTx{sequence: 0, gas: 200_000, fee: 200_000})
+	tooLarge := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{
+		sequence: 1, gas: 200_000, fee: 200_000, memo: strings.Repeat("d", 250),
+	})
+	afterTooLarge := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{sequence: 2, gas: 200_000, fee: 200_000})
+	fits := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{sequence: 1, gas: 200_000, fee: 200_000, memo: "f"})
+	limit := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{a, c, fits}) + 10
+	require.Less(t, limit, cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{a, c, tooLarge}),
+		"fixture must leave no room for the large candidate")
+
+	requirePreparedBlock(t, h, committedTime.Add(5*time.Second), limit,
+		[][]byte{a, c, tooLarge, afterTooLarge, fits}, [][]byte{a, c, fits})
+}
+
+func TestPrepareProposalCoherence_EmptySelectionIsAccepted(t *testing.T) {
+	committedTime := time.Unix(1_750_000_000, 0).UTC()
+	h, first, _ := newCoherenceChain(t, committedTime)
+	committedHeight := uint64(h.App.LastBlockHeight())
+
+	bounded := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{
+		sequence: 0, gas: 200_000, fee: 200_000, timeoutHeight: committedHeight,
+	})
+	wrongSequence := signedCoherenceTx(t, h, first.key, first.accountNumber, coherenceTx{sequence: 5, gas: 200_000, fee: 200_000})
+	injectionShaped := append(append([]byte{}, zeroneapp.VoteExtInjectionPrefix...), "{}"...)
+
+	requirePreparedBlock(t, h, committedTime.Add(5*time.Second), coherenceMaxTxBytes,
+		[][]byte{bounded, wrongSequence, injectionShaped, []byte("not a transaction")}, [][]byte{})
 }
 
 func TestPrepareProposalCoherence_ProposesReplayedBytes(t *testing.T) {
