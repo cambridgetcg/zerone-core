@@ -47,7 +47,7 @@ func TestPrepareProposalUsesExactProtobufByteLimit(t *testing.T) {
 	protoSize := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{txBytes})
 	require.Greater(t, protoSize, int64(len(txBytes)), "protobuf framing must add bytes")
 
-	handler := app.PrepareProposalHandler()
+	handler := app.PrepareProposalSelectionHandlerForTest()
 	tooSmall, err := handler(proposalContext(app, 1_000), &abci.RequestPrepareProposal{
 		Height:     2,
 		MaxTxBytes: int64(len(txBytes)),
@@ -70,7 +70,7 @@ func TestPrepareProposalUsesCurrentConsensusMaxGas(t *testing.T) {
 	first := proposalTxBytes(t, app, 60, "first")
 	second := proposalTxBytes(t, app, 50, "second")
 	maxBytes := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{first, second})
-	handler := app.PrepareProposalHandler()
+	handler := app.PrepareProposalSelectionHandlerForTest()
 
 	limited, err := handler(proposalContext(app, 100), &abci.RequestPrepareProposal{
 		Height: 2, MaxTxBytes: maxBytes, Txs: [][]byte{first, second},
@@ -93,7 +93,7 @@ func TestPrepareProposalPreservesZeroConsensusMaxGas(t *testing.T) {
 	zeroGas := proposalTxBytes(t, app, 0, "zero-gas")
 	maxBytes := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{positiveGas, zeroGas})
 
-	response, err := app.PrepareProposalHandler()(proposalContext(app, 0), &abci.RequestPrepareProposal{
+	response, err := app.PrepareProposalSelectionHandlerForTest()(proposalContext(app, 0), &abci.RequestPrepareProposal{
 		Height:     2,
 		MaxTxBytes: maxBytes,
 		Txs:        [][]byte{positiveGas, zeroGas},
@@ -109,7 +109,7 @@ func TestPrepareProposalSkipsMalformedAndHighGasTransactions(t *testing.T) {
 	valid := proposalTxBytes(t, app, 100, "valid")
 	maxBytes := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{highGas, valid})
 
-	response, err := app.PrepareProposalHandler()(proposalContext(app, 100), &abci.RequestPrepareProposal{
+	response, err := app.PrepareProposalSelectionHandlerForTest()(proposalContext(app, 100), &abci.RequestPrepareProposal{
 		Height:     2,
 		MaxTxBytes: maxBytes,
 		Txs: [][]byte{
@@ -128,7 +128,7 @@ func TestPrepareProposalCannotWrapDeclaredGasTotal(t *testing.T) {
 	overflow := proposalTxBytes(t, app, ^uint64(0), "overflow-second")
 	maxBytes := cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{valid, overflow})
 
-	response, err := app.PrepareProposalHandler()(proposalContext(app, 100), &abci.RequestPrepareProposal{
+	response, err := app.PrepareProposalSelectionHandlerForTest()(proposalContext(app, 100), &abci.RequestPrepareProposal{
 		Height:     2,
 		MaxTxBytes: maxBytes,
 		Txs:        [][]byte{valid, overflow},
