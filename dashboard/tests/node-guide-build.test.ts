@@ -8,7 +8,7 @@ import { it } from "node:test";
 import { loadNodeGuideProfile } from "../node-guide-build";
 import { nodeGuidePage } from "../node-guide-page";
 import { buildNodeGuideProfile } from "../node-guide-profile";
-import { buildDevelopmentProfile, type DevelopmentPublication } from "../development-profile";
+import { buildDevelopmentProfile, participantBasis, type DevelopmentPublication } from "../development-profile";
 
 const privateNetworkTool = "# Private-network tool fixture; never executed\n";
 
@@ -18,6 +18,13 @@ function developmentSources(root: string): void {
   writeFileSync(join(root, "docs/SHARED-DEVELOPMENT.md"), "# Shared development fixture\n");
   mkdirSync(join(root, "skills/run-a-private-zerone-net/scripts"), { recursive: true });
   writeFileSync(join(root, "skills/run-a-private-zerone-net/scripts/private-net.py"), privateNetworkTool);
+}
+
+/** The committed publication's base runtime and its descriptor bytes, before any runtime patch. */
+function committedBase(): { publication: DevelopmentPublication; descriptor: Buffer } {
+  const committed = JSON.parse(readFileSync(new URL("../../dashboard/development-publication.json", import.meta.url)).toString()) as DevelopmentPublication;
+  const descriptor = readFileSync(new URL(`../../deploy/networks/zerone-dev-1/${committed.runtime_patch ? "network-knowledge-11.json" : "network.json"}`, import.meta.url));
+  return { publication: participantBasis(committed), descriptor };
 }
 
 it("keeps public-network links on zerone.ai when the guide is hosted by an observer", () => {
@@ -164,9 +171,13 @@ it("binds applied publication to committed replay artifacts and the recorded end
   const commit = () => { git("add", "."); git("-c", "user.name=Guide test", "-c", "user.email=guide@example.invalid", "-c", "commit.gpgsign=false", "commit", "-m", "Applied publication fixture"); };
   const directory = "deploy/networks/zerone-dev-1";
   const reportPath = "docs/reports/development-publication-2026-09-23.json";
-  const fixturePaths = ["dashboard/development-publication.json", `${directory}/network.json`, `${directory}/genesis.json`, `${directory}/network-knowledge-10.json`, `${directory}/release-knowledge-10.json`, `${directory}/participant-package.py`, reportPath];
-  const fixtures = new Map(fixturePaths.map((path) => [path, readFileSync(new URL(`../../${path}`, import.meta.url))]));
-  const publication = JSON.parse(fixtures.get("dashboard/development-publication.json")!.toString()) as DevelopmentPublication;
+  const fixturePaths = [`${directory}/genesis.json`, `${directory}/network-knowledge-10.json`, `${directory}/release-knowledge-10.json`, `${directory}/participant-package.py`, reportPath];
+  const fixtures = new Map<string, Buffer>(fixturePaths.map((path) => [path, readFileSync(new URL(`../../${path}`, import.meta.url))]));
+  // The applied-upgrade evidence binds to the base runtime, so the fixture is that base
+  // publication and descriptor, whether or not a runtime patch is published.
+  const { publication, descriptor } = committedBase();
+  fixtures.set("dashboard/development-publication.json", Buffer.from(JSON.stringify(publication)));
+  fixtures.set(`${directory}/network.json`, descriptor);
   const development = buildDevelopmentProfile("ab".repeat(20), publication);
   const packages = development.packages!;
   // Archive bytes are synthetic in this isolated Git fixture; runtime and
@@ -264,9 +275,10 @@ it("binds a runtime patch's served descriptor, packet and record while packages 
   // Sorted compact JSON plus a newline, as gateway.py writes a descriptor.
   const canonical = (value: unknown): string => JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => (a < b ? -1 : 1))) : item);
   const directory = "deploy/networks/zerone-dev-1";
-  const fixturePaths = ["dashboard/development-publication.json", `${directory}/network.json`, `${directory}/genesis.json`, `${directory}/network-knowledge-10.json`, `${directory}/release-knowledge-10.json`, `${directory}/participant-package.py`, "docs/reports/development-publication-2026-09-23.json"];
-  const fixtures = new Map(fixturePaths.map((path) => [path, readFileSync(new URL(`../../${path}`, import.meta.url))]));
-  const base = JSON.parse(fixtures.get("dashboard/development-publication.json")!.toString()) as DevelopmentPublication;
+  const fixturePaths = [`${directory}/genesis.json`, `${directory}/network-knowledge-10.json`, `${directory}/release-knowledge-10.json`, `${directory}/participant-package.py`, "docs/reports/development-publication-2026-09-23.json"];
+  const fixtures = new Map<string, Buffer>(fixturePaths.map((path) => [path, readFileSync(new URL(`../../${path}`, import.meta.url))]));
+  const { publication: base, descriptor: committedDescriptor } = committedBase();
+  fixtures.set(`${directory}/network.json`, committedDescriptor);
   const baseProfile = buildDevelopmentProfile("ab".repeat(20), base);
   const applied = baseProfile.upgradeApplied!;
   const packages = baseProfile.packages!;
