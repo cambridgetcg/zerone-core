@@ -255,3 +255,68 @@ it("binds applied publication to committed replay artifacts and the recorded end
     assert.throws(() => loadNodeGuideProfile(root), /runtime binary mismatch/u);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+it("binds a runtime patch's served descriptor, packet and record while packages keep the base", () => {
+  const root = mkdtempSync(join(tmpdir(), "zerone-runtime-patch-publication-test-"));
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: root, stdio: ["ignore", "pipe", "pipe"] }).toString().trim();
+  const commit = () => { git("add", "-A"); git("-c", "user.name=Guide test", "-c", "user.email=guide@example.invalid", "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "Runtime patch fixture"); };
+  const sha = (bytes: string | Buffer) => createHash("sha256").update(bytes).digest("hex");
+  // Sorted compact JSON plus a newline, as gateway.py writes a descriptor.
+  const canonical = (value: unknown): string => JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => (a < b ? -1 : 1))) : item);
+  const directory = "deploy/networks/zerone-dev-1";
+  const fixturePaths = ["dashboard/development-publication.json", `${directory}/network.json`, `${directory}/genesis.json`, `${directory}/network-knowledge-10.json`, `${directory}/release-knowledge-10.json`, `${directory}/participant-package.py`, "docs/reports/development-publication-2026-09-23.json"];
+  const fixtures = new Map(fixturePaths.map((path) => [path, readFileSync(new URL(`../../${path}`, import.meta.url))]));
+  const base = JSON.parse(fixtures.get("dashboard/development-publication.json")!.toString()) as DevelopmentPublication;
+  const baseProfile = buildDevelopmentProfile("ab".repeat(20), base);
+  const applied = baseProfile.upgradeApplied!;
+  const packages = baseProfile.packages!;
+  const release = { schema: "zerone-development-participant-release/v1", chain_id: base.chain_id, source_commit: base.runtime_source_commit, source_tree: "bc".repeat(20), release_tag: packages.tag, release_url: packages.releaseUrl, runtime_image: `registry.fly.io/zerone-dev-1@sha256:${"cd".repeat(32)}`, descriptor_sha256: base.descriptor_sha256, genesis_sha256: base.genesis_sha256, rpc_genesis_sha256: base.rpc_genesis_sha256, runtime_binary_sha256: base.binary_sha256, artifacts: packages.artifacts.map(({name,platform,url}) => ({name,platform,url,sha256:"ef".repeat(32),bytes:1024,binary_sha256:base.binary_sha256})), bootstrap_consensus:"single-operator", funds:"valueless-development-only", private_keys_in_packages:false, knowledge_version:11, packaging_recipe_sha256:sha(fixtures.get(`${directory}/participant-package.py`)!), upstream_release_sha256:applied.release_record_sha256, upgrade_packet_sha256:applied.packet_sha256, runtime_image_basis:"Upstream build-image provenance; no new hosted-machine observation.", publication_status:"applied-runtime-verified" };
+  // Synthetic patch pins; the base pins are the committed applied publication.
+  const source = "c0ffee".repeat(6) + "c0ff", binary = "d1".repeat(32), verifiedAt = "2026-11-02T12:00:00Z";
+  const baseDescriptor = fixtures.get(`${directory}/network.json`)!;
+  const descriptor = (change: Record<string, unknown> = {}) => canonical({ ...JSON.parse(baseDescriptor.toString()), source_commit: source, runtime_binary_sha256: binary, ...change }) + "\n";
+  const packetPath = `${directory}/binary-patch-${source.slice(0, 12)}.json`;
+  const packet = (change: Record<string, unknown> = {}) => JSON.stringify({ schema: "zerone-development-binary-patch/v1", chain_id: base.chain_id, genesis_sha256: base.genesis_sha256, upgrade_packet_sha256: applied.packet_sha256, knowledge_version: 11, role: "validator", consensus: "unchanged", base: { source_commit: base.runtime_source_commit, binaries: { "linux-amd64": base.binary_sha256 } }, patch: { source_commit: source, binaries: { "linux-amd64": binary } }, ...change }, null, 2) + "\n";
+  const recordPath = "docs/reports/development-binary-patch-2026-11-02.json";
+  const publication = (served: string, packetBytes: string): DevelopmentPublication => ({ ...base, runtime_source_commit: source, binary_sha256: binary, descriptor_sha256: sha(served), verified_at: verifiedAt, runtime_patch: { base_source_commit: base.runtime_source_commit, base_binary_sha256: base.binary_sha256, base_descriptor_sha256: base.descriptor_sha256, base_verified_at: base.verified_at, patch_packet_sha256: sha(packetBytes), record: recordPath } });
+  const write = (path: string, value: string | Buffer) => writeFileSync(join(root, path), value);
+  const publish = (served = descriptor(), packetBytes = packet(), record: Record<string, unknown> = { schema: "zerone.development-binary-patch-observation/v1", chain_id: base.chain_id, observed_at: verifiedAt }) => {
+    write(`${directory}/network.json`, served); write(packetPath, packetBytes); write(recordPath, JSON.stringify(record));
+    write("dashboard/development-publication.json", JSON.stringify(publication(served, packetBytes)));
+    commit();
+  };
+  try {
+    git("init", "--quiet");
+    for (const path of ["scripts", "dashboard", "docs/reports", directory]) mkdirSync(join(root, path), { recursive: true });
+    write("scripts/local-node.py", "# Fixture; never executed\n");
+    developmentSources(root);
+    for (const [path, bytes] of fixtures) write(path, bytes);
+    write(`${directory}/network-knowledge-11.json`, baseDescriptor);
+    write(`${directory}/release.json`, JSON.stringify(release));
+    publish();
+    const profile = loadNodeGuideProfile(root).development;
+    assert.equal(profile.publication?.runtime_source_commit, source);
+    assert.equal(profile.runtimePatch?.base_source_commit, base.runtime_source_commit);
+    assert.equal(profile.packages?.tag, packages.tag);
+    assert.equal(profile.upgradeApplied?.observed_height, applied.observed_height);
+
+    for (const [change, message] of [
+      [() => publish(descriptor({ node_id: "ab".repeat(20) })), /beyond the binary identity/u],
+      [() => publish(descriptor(), packet({ base: { source_commit: base.runtime_source_commit, binaries: { "linux-amd64": "ab".repeat(32) } } })), /does not bind the served runtime/u],
+      [() => publish(descriptor(), packet({ upgrade_packet_sha256: "ab".repeat(32) })), /does not bind the served runtime/u],
+      [() => publish(descriptor(), packet(), { chain_id: base.chain_id, observed_at: "2026-11-01T12:00:00Z" }), /record does not match/u],
+      [() => { publish(); write(packetPath, packet({ consensus: "changed" })); commit(); }, /packet hash mismatch/u],
+      [() => { publish(); write(`${directory}/network-knowledge-11.json`, baseDescriptor.toString().replace("}", ',"extra":true}')); commit(); }, /base descriptor hash mismatch/u],
+      [() => { publish(); unlinkSync(join(root, `${directory}/network-knowledge-11.json`)); commit(); }, /requires committed/u],
+      [() => { publish(); unlinkSync(join(root, recordPath)); commit(); }, /requires committed/u],
+      [() => { publish(); write(`${directory}/release.json`, JSON.stringify({ ...release, runtime_binary_sha256: binary })); commit(); }, /runtime binary mismatch/u],
+    ] as const) {
+      change();
+      assert.throws(() => loadNodeGuideProfile(root), message);
+      write(`${directory}/network-knowledge-11.json`, baseDescriptor);
+      write(`${directory}/release.json`, JSON.stringify(release));
+    }
+    publish();
+    assert.equal(loadNodeGuideProfile(root).development.runtimePatch?.patch_packet_sha256, sha(packet()));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});

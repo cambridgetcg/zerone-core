@@ -237,6 +237,67 @@ describe("applied upgrade publication and preserved replay packages", () => {
       { artifacts: release.artifacts.map((artifact) => ({ ...artifact, url: artifact.url.replaceAll("-participants-v1", "") })) },
     ]) assert.throws(() => validateDevelopmentRelease({ ...release, ...change }, successor, applied));
   });
+
+  // A validator-only binary patch: the served pins name the patch, packages and evidence keep the base.
+  const patched: DevelopmentPublication = {
+    ...successor,
+    runtime_source_commit: "cd".repeat(20), binary_sha256: "de".repeat(32), descriptor_sha256: "ef".repeat(32),
+    verified_at: "2026-11-02T12:00:00Z",
+    runtime_patch: {
+      base_source_commit: successor.runtime_source_commit, base_binary_sha256: successor.binary_sha256,
+      base_descriptor_sha256: successor.descriptor_sha256, base_verified_at: successor.verified_at,
+      patch_packet_sha256: "f1".repeat(32), record: "docs/reports/development-binary-patch-2026-11-02.json",
+    },
+  };
+  const participantRelease = (packages: NonNullable<ReturnType<typeof buildDevelopmentProfile>["packages"]>) => ({ schema: "zerone-development-participant-release/v1", chain_id: "zerone-dev-1", source_commit: successor.runtime_source_commit, source_tree: "cd".repeat(20), release_tag: packages.tag, release_url: packages.releaseUrl, runtime_image: `registry.fly.io/zerone-dev-1@sha256:${"ef".repeat(32)}`, descriptor_sha256: successor.descriptor_sha256, genesis_sha256: successor.genesis_sha256, rpc_genesis_sha256: successor.rpc_genesis_sha256, runtime_binary_sha256: successor.binary_sha256, artifacts: packages.artifacts.map(({name,platform,url}) => ({name,platform,url,sha256:"67".repeat(32),bytes:1000,binary_sha256:platform === "linux-amd64" ? successor.binary_sha256 : "78".repeat(32)})), bootstrap_consensus: "single-operator", funds: "valueless-development-only", private_keys_in_packages: false, knowledge_version:11, packaging_recipe_sha256:"89".repeat(32), upstream_release_sha256:applied.release_record_sha256, upgrade_packet_sha256:applied.packet_sha256, runtime_image_basis:"Upstream build-image provenance; no new hosted-machine observation.", publication_status:"applied-runtime-verified" });
+  it("binds a runtime patch's served pins to the patch and its packages and evidence to the base", () => {
+    const profile = buildDevelopmentProfile(commit, patched, applied);
+    assert.equal(profile.packages?.tag, applied.participant_release_tag);
+    assert.equal(profile.upgradeApplied?.binary_sha256, successor.binary_sha256);
+    assert.equal(profile.publication?.runtime_source_commit, patched.runtime_source_commit);
+    assert.match(profile.runtimePatch!.recordUrl, new RegExp(`/${commit}/docs/reports/development-binary-patch-2026-11-02\\.json$`, "u"));
+    assert.match(profile.runtimePatch!.packetUrl, new RegExp(`/${commit}/deploy/networks/zerone-dev-1/binary-patch-${"cd".repeat(6)}\\.json$`, "u"));
+    assert.match(profile.runtimePatch!.scope, /participant packages keep their base runtime/u);
+    const html = developmentPage(profile);
+    assert.match(html, new RegExp(`data-descriptor-sha256="${patched.descriptor_sha256}"`, "u"));
+    assert.match(html, new RegExp(`data-binary-sha256="${patched.binary_sha256}"`, "u"));
+    assert.match(html, /id="runtime-patch"/u);
+    assert.ok(html.includes(successor.runtime_source_commit) && html.includes(profile.runtimePatch!.recordUrl));
+    assert.doesNotMatch(developmentPage(buildDevelopmentProfile(commit, successor, applied)), /id="runtime-patch"|Patch base source/u);
+    // All three release assertions bind to the base: the release passes unchanged ...
+    const release = participantRelease(profile.packages!);
+    validateDevelopmentRelease(release, patched, applied);
+    assert.deepEqual(release, participantRelease(buildDevelopmentProfile(commit, successor, applied).packages!));
+    // ... and fails each named assertion if it is rebound to the served patch.
+    assert.throws(() => validateDevelopmentRelease({ ...release, descriptor_sha256: patched.descriptor_sha256 }, patched, applied), /Development release descriptor_sha256 mismatch/u);
+    assert.throws(() => validateDevelopmentRelease({ ...release, runtime_binary_sha256: patched.binary_sha256 }, patched, applied), /Development runtime binary mismatch/u);
+    assert.throws(() => validateDevelopmentRelease({ ...release, artifacts: release.artifacts.map((artifact) => ({ ...artifact, binary_sha256: artifact.platform === "linux-amd64" ? patched.binary_sha256 : artifact.binary_sha256 })) }, patched, applied), /Linux package differs from the deployed runtime binary/u);
+    assert.throws(() => validateDevelopmentRelease({ ...release, source_commit: patched.runtime_source_commit }, patched, applied), /identity or scope mismatch/u);
+  });
+  it("selects the recorded applied observation through a runtime patch's base", () => {
+    const recorded = DEVELOPMENT_UPGRADE_APPLIED!;
+    const base: DevelopmentPublication = { ...successor, descriptor_sha256: recorded.descriptor_sha256, binary_sha256: recorded.binary_sha256, verified_at: recorded.recorded_at };
+    const served: DevelopmentPublication = { ...patched, runtime_patch: { ...patched.runtime_patch!, base_source_commit: base.runtime_source_commit, base_binary_sha256: base.binary_sha256, base_descriptor_sha256: base.descriptor_sha256, base_verified_at: base.verified_at } };
+    const profile = buildDevelopmentProfile(commit, served);
+    assert.equal(profile.upgradeApplied?.observed_height, "925042");
+    assert.equal(profile.packages?.tag, "zerone-dev-1-5542b221864c-participants-v1");
+    assert.equal(profile.upgradeProposal, null);
+  });
+  it("refuses incomplete, ambiguous or unapplied runtime patches", () => {
+    const patch = patched.runtime_patch!;
+    for (const change of [
+      { extra: true }, { record: "docs/reports/other.json" }, { record: "../development-binary-patch-2026-11-02.json" },
+      { base_source_commit: patched.runtime_source_commit }, { base_binary_sha256: patched.binary_sha256 },
+      { base_descriptor_sha256: patched.descriptor_sha256 }, { base_verified_at: patched.verified_at },
+      { base_verified_at: "2026-11-03T00:00:00Z" }, { patch_packet_sha256: "0".repeat(64) }, { base_source_commit: "main" },
+      { base_binary_sha256: "bc".repeat(32) }, { base_descriptor_sha256: "bc".repeat(32) }, { base_verified_at: "2026-09-23T12:00:01Z" },
+    ]) assert.throws(() => buildDevelopmentProfile(commit, { ...patched, runtime_patch: { ...patch, ...change } } as DevelopmentPublication, applied), Error, JSON.stringify(change));
+    const { record: _record, ...incomplete } = patch;
+    assert.throws(() => buildDevelopmentProfile(commit, { ...patched, runtime_patch: incomplete } as DevelopmentPublication, applied));
+    assert.throws(() => buildDevelopmentProfile(commit, { ...patched, runtime_patch: null } as unknown as DevelopmentPublication, applied));
+    assert.throws(() => buildDevelopmentProfile(commit, patched, null), /requires the applied upgrade observation/u);
+    assert.throws(() => validateDevelopmentRelease(participantRelease(buildDevelopmentProfile(commit, successor, applied).packages!), patched, null), /requires the applied upgrade observation/u);
+  });
 });
 
 describe("recorded funding and transfers", () => {

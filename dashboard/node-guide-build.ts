@@ -6,7 +6,7 @@ import { isDeepStrictEqual } from "node:util";
 import { QueryAppliedPlanRequest, QueryAppliedPlanResponse, QueryModuleVersionsResponse } from "cosmjs-types/cosmos/upgrade/v1beta1/query";
 import { buildNodeGuideProfile, PRIVATE_NETWORK_TOOL_PATH } from "./node-guide-profile";
 import { buildObserverRelease, type ObserverPublication } from "./observer-release-profile";
-import { buildDevelopmentProfile, validateDevelopmentPublication, validateDevelopmentRelease, type DevelopmentPublication } from "./development-profile";
+import { buildDevelopmentProfile, participantBasis, runtimePatchPacketPath, validateDevelopmentPublication, validateDevelopmentRelease, type DevelopmentPublication } from "./development-profile";
 
 function parseObserverPublication(raw: Buffer): ObserverPublication {
   if (raw.length > 16 * 1024) throw new Error("Observer publication metadata exceeds 16 KiB");
@@ -107,6 +107,17 @@ export function loadNodeGuideProfile(repositoryRoot: string) {
       if (!value || value.schema !== "zerone-shared-development/v1" || value.chain_id !== publication.chain_id || value.source_commit !== publication.runtime_source_commit || value.runtime_binary_sha256 !== publication.binary_sha256 || value.genesis_sha256 !== publication.genesis_sha256 || value.rpc_genesis_sha256 !== publication.rpc_genesis_sha256 || value.rpc_url !== publication.gateway || value.genesis_url !== `${publication.gateway}/genesis.json` || value.faucet_url !== `${publication.gateway}/faucet` || value.local_test !== false || value.bootstrap_consensus !== "single-operator" || value.reset_policy !== "new-chain-id" || ![10, 11].includes(value.knowledge_version) || (version !== undefined && value.knowledge_version !== version) || value.commitment_scheme !== 2 || value.review_policy_version !== 1 || value.denom !== "uzrn" || value.gas_limit !== 2000000 || value.tx_fee_uzrn !== "2000000") throw new Error("Development descriptor publication mismatch");
     };
     checkDescriptor(network, developmentPublication);
+    // A runtime patch serves its own descriptor. The base descriptor stays committed
+    // beside it, and the two may differ only in the executable's identity.
+    const basis = participantBasis(developmentPublication);
+    let baseNetwork = network;
+    if (developmentPublication.runtime_patch) {
+      const baseBytes = packet("network-knowledge-11.json", 65536);
+      if (createHash("sha256").update(baseBytes).digest("hex") !== basis.descriptor_sha256) throw new Error("Development base descriptor hash mismatch");
+      baseNetwork = JSON.parse(baseBytes.toString("utf8"));
+      checkDescriptor(baseNetwork, basis, 11);
+      if (!isDeepStrictEqual({ ...baseNetwork, source_commit: network.source_commit, runtime_binary_sha256: network.runtime_binary_sha256 }, network)) throw new Error("Runtime patch descriptor differs from its base beyond the binary identity");
+    }
     if (JSON.parse(genesis.toString("utf8")).chain_id !== developmentPublication.chain_id) throw new Error("Development genesis chain mismatch");
     const release = JSON.parse(packet("release.json", 65536).toString("utf8"));
     validateDevelopmentRelease(release, developmentPublication);
@@ -117,7 +128,7 @@ export function loadNodeGuideProfile(repositoryRoot: string) {
       const predecessorBytes = packet("network-knowledge-10.json", 65536);
       const predecessor = JSON.parse(predecessorBytes.toString("utf8"));
       const predecessorPublication: DevelopmentPublication = {
-        ...developmentPublication,
+        ...basis,
         runtime_source_commit: applied.predecessor_source_commit,
         descriptor_sha256: createHash("sha256").update(predecessorBytes).digest("hex"),
         binary_sha256: predecessor?.runtime_binary_sha256,
@@ -135,9 +146,10 @@ export function loadNodeGuideProfile(repositoryRoot: string) {
       const queryBase = `${developmentPublication.gateway}/abci_query?path=%22%2Fcosmos.upgrade.v1beta1.Query%2F`;
       const appliedData = Buffer.from(QueryAppliedPlanRequest.encode({ name: applied.name }).finish()).toString("hex");
       if (report?.schema !== "zerone.development-publication-observations/v1" || report.chain_id !== developmentPublication.chain_id || report.observed_at !== applied.recorded_at || report.decoded_applied_plan?.name !== applied.name || String(report.decoded_applied_plan?.applied_height) !== applied.height || report.decoded_applied_plan?.queried_height !== applied.observed_height || observations?.applied?.observed_at !== applied.recorded_at || observations?.["module-versions"]?.observed_at !== applied.recorded_at || observations?.applied?.url !== `${queryBase}AppliedPlan%22&data=0x${appliedData}` || observations?.["module-versions"]?.url !== `${queryBase}ModuleVersions%22&data=0x` || appliedReply?.code !== 0 || modulesReply?.code !== 0 || appliedReply?.height !== applied.observed_height || modulesReply?.height !== applied.observed_height) throw new Error("Development applied observation does not match the published upgrade");
-      if (observations?.network?.url !== `${developmentPublication.gateway}/network.json` || observations.network.response_sha256 !== developmentPublication.descriptor_sha256 || !isDeepStrictEqual(observations.network.response, network) || report.genesis_verification?.genesis_sha256 !== developmentPublication.genesis_sha256 || report.genesis_verification?.rpc_genesis_sha256 !== developmentPublication.rpc_genesis_sha256 || report.genesis_verification?.unchanged_from_predecessor !== true) throw new Error("Development observation network pins or genesis continuity mismatch");
+      // The dated applied observation saw the base runtime, so it binds to the basis.
+      if (observations?.network?.url !== `${developmentPublication.gateway}/network.json` || observations.network.response_sha256 !== basis.descriptor_sha256 || !isDeepStrictEqual(observations.network.response, baseNetwork) || report.genesis_verification?.genesis_sha256 !== developmentPublication.genesis_sha256 || report.genesis_verification?.rpc_genesis_sha256 !== developmentPublication.rpc_genesis_sha256 || report.genesis_verification?.unchanged_from_predecessor !== true) throw new Error("Development observation network pins or genesis continuity mismatch");
       const host = report.host_verification;
-      if (!host || host.knowledge !== applied.knowledge_version || host.applied_height !== applied.height || host.runtime_binary !== developmentPublication.binary_sha256 || host.successor_descriptor !== developmentPublication.descriptor_sha256 || host.baseline_manifest_controls_identities_preserved !== true || host.signing_height_monotone !== true || !Number.isSafeInteger(host.height) || host.height <= 0 || BigInt(host.height) < BigInt(applied.observed_height) || typeof host.observed_at !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/u.test(host.observed_at) || new Date(host.observed_at).toISOString() !== host.observed_at.replace("Z", ".000Z") || host.observed_at < applied.recorded_at) throw new Error("Development host observation does not support the verified participant release");
+      if (!host || host.knowledge !== applied.knowledge_version || host.applied_height !== applied.height || host.runtime_binary !== basis.binary_sha256 || host.successor_descriptor !== basis.descriptor_sha256 || host.baseline_manifest_controls_identities_preserved !== true || host.signing_height_monotone !== true || !Number.isSafeInteger(host.height) || host.height <= 0 || BigInt(host.height) < BigInt(applied.observed_height) || typeof host.observed_at !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/u.test(host.observed_at) || new Date(host.observed_at).toISOString() !== host.observed_at.replace("Z", ".000Z") || host.observed_at < applied.recorded_at) throw new Error("Development host observation does not support the verified participant release");
       const responseBytes = (value: unknown): Buffer => {
         if (typeof value !== "string" || value.length > 65536 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(value)) throw new Error("Invalid development observation response bytes");
         const bytes = Buffer.from(value, "base64");
@@ -147,6 +159,18 @@ export function loadNodeGuideProfile(repositoryRoot: string) {
       const decodedApplied = QueryAppliedPlanResponse.decode(responseBytes(appliedReply.value));
       const decodedModules = QueryModuleVersionsResponse.decode(responseBytes(modulesReply.value)).moduleVersions;
       const knowledge = decodedModules.filter(({ name }) => name === "knowledge");
+      const patch = developmentPublication.runtime_patch;
+      if (patch) {
+        // The committed packet is the one the runtime staged: it binds the served
+        // source and binary to the base the packages and the observation carry.
+        const patchBytes = committedArtifact(runtimePatchPacketPath(developmentPublication), 32768);
+        if (createHash("sha256").update(patchBytes).digest("hex") !== patch.patch_packet_sha256) throw new Error("Runtime patch packet hash mismatch");
+        const value = JSON.parse(patchBytes.toString("utf8"));
+        const fields = ["schema", "chain_id", "genesis_sha256", "upgrade_packet_sha256", "knowledge_version", "role", "consensus", "base", "patch"];
+        if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).length !== fields.length || fields.some((key) => !Object.hasOwn(value, key)) || value.schema !== "zerone-development-binary-patch/v1" || value.chain_id !== developmentPublication.chain_id || value.genesis_sha256 !== developmentPublication.genesis_sha256 || value.upgrade_packet_sha256 !== applied.packet_sha256 || value.knowledge_version !== applied.knowledge_version || value.role !== "validator" || value.consensus !== "unchanged" || value.base?.source_commit !== basis.runtime_source_commit || value.base?.binaries?.["linux-amd64"] !== basis.binary_sha256 || value.patch?.source_commit !== developmentPublication.runtime_source_commit || value.patch?.binaries?.["linux-amd64"] !== developmentPublication.binary_sha256) throw new Error("Runtime patch packet does not bind the served runtime to its base");
+        const record = JSON.parse(committedArtifact(patch.record, 128 * 1024).toString("utf8"));
+        if (record?.chain_id !== developmentPublication.chain_id || record?.observed_at !== developmentPublication.verified_at) throw new Error("Runtime patch record does not match the verified publication");
+      }
       if (decodedApplied.height.toString() !== applied.height || decodedModules.length > 100 || new Set(decodedModules.map(({ name }) => name)).size !== decodedModules.length || knowledge.length !== 1 || knowledge[0]!.version !== BigInt(applied.knowledge_version) || !Array.isArray(report.decoded_module_versions) || !isDeepStrictEqual(report.decoded_module_versions.map((item: { name: unknown; version: unknown }) => ({ name: item?.name, version: String(item?.version) })), decodedModules.map(({ name, version }) => ({ name, version: version.toString() })))) throw new Error("Development observation decoded upgrade or module versions mismatch");
     }
   }
