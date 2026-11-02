@@ -1,0 +1,74 @@
+{
+  "schema": "zerone.development-binary-patch-preparation/v1",
+  "prepared_at": "2026-11-02T16:08:15Z",
+  "chain_id": "zerone-dev-1",
+  "status": "prepared-not-deployed",
+  "written_by": "A Claude Code agent session (workflow of session 12d8b244). These are the agent's local build and test observations, not an independent audit. Nothing was deployed, uploaded or published, and no Fly machine or volume was read or changed.",
+  "purpose": "Run a hosted validator whose PrepareProposal agrees with its ProcessProposal (the ABCI++ coherence requirement). Since b8cff9c1, which 5542b221 contains, ProcessProposal replays every regular transaction through the full ante handler at the proposal's height and time and refuses the whole block if one fails, while PrepareProposal offered mempool candidates without that replay.",
+  "source": {
+    "base_commit": "5542b221864ca0080e143fa82abbef4cd2064f71",
+    "patch_commits": [
+      "57ece9a3aa8bf2b8a34f3be3a0ed6bf0c2059638",
+      "bd8cfafdfba78ebf06742167c1a542e18e444969"
+    ],
+    "patch_commits_are_cherry_picks_of": [
+      "a6401868e0c3de775c4922f8ea26845ce08ed60b",
+      "660334537600151928b5e6612d52af0c396b36d5"
+    ],
+    "source_commit": "bd8cfafdfba78ebf06742167c1a542e18e444969",
+    "source_tree": "8122ea359922a0e32b88bb3579146187bb316bb5",
+    "changed_paths": [
+      "CHANGELOG.md",
+      "app/abci.go",
+      "app/abci_export_test.go",
+      "app/abci_internal_test.go",
+      "app/abci_test.go",
+      "tests/cross_stack/prepare_proposal_coherence_test.go"
+    ],
+    "production_change": "app/abci.go only: PrepareProposal replays each candidate it will take with BaseApp.PrepareProposalVerifyTx, in proposal order, against the disposable proposal state, and offers only those that pass."
+  },
+  "binary": {
+    "platform": "linux-amd64",
+    "version": "dev-1-bd8cfafdfba7",
+    "sha256": "2fe28bea7297c6a83d0c0abecbed222ade9af4a8b94967acbfb4431027297bf7",
+    "bytes": 121798840,
+    "method": "deploy/networks/zerone-dev-1/build-context.py export of the source commit, then the Dockerfile's build-stage command run outside Docker: Go 1.25.14 (GOTOOLCHAIN=local, GOPROXY=off), CGO_ENABLED=0, GOOS=linux, GOARCH=amd64, -mod=readonly -trimpath -buildvcs=false, and the Dockerfile's -ldflags with the exported source commit and version."
+  },
+  "reproducibility": {
+    "method_check": "The same method applied to 5542b221 produced 6cbafddf0d1c8dda3e6ab9f8a5d87d49992f7b699f746ee2d7632e494115a2c6, the published runtime binary of zerone-dev-1, byte for byte.",
+    "second_build_identical": true,
+    "scope": "Two local builds on one Mac. An image build from the same exported context is expected to give the same bytes; confirm the image's build.json before staging."
+  },
+  "tests": {
+    "go": [
+      "go test ./app/... ./tests/cross_stack/... on bd8cfafd: ok",
+      "make test (91 packages ok) and make lint on bd8cfafd: exit 0",
+      "proposal tests on bd8cfafd: TestPrepareProposalCoherence_* (8), TestPrepareProposalLeavesOutCandidatesWhoseReplayFailsOrPanics, TestPrepareProposalAssumesNoPostHandler, TestProposalTxFitsMirrorsDefaultSelector and the existing PrepareProposal and ProcessProposal fixtures: all pass",
+      "deploy/networks/zerone-dev-1 unit tests on this commit: 44 run, 2 skipped, OK"
+    ],
+    "local_runtime": "A darwin-arm64 build of the same commit and flags (a test build, not a release artifact) ran under deploy/networks/zerone-dev-1/runtime.py --local-test on loopback. Blocks advanced in round 0, normal transfers committed, and the gateway wrote a descriptor naming this source commit. The same build also resumed a local home first run by a 5542b221 build, with no application-hash or consensus failure."
+  },
+  "patch_packet": {
+    "path": "deploy/networks/zerone-dev-1/binary-patch-bd8cfafdfba7.json",
+    "sha256": "4b2c14a81d6739a1908518f0b699c2e5dbd0ecbdcff63bea7b2a689c7a922c02",
+    "schema_status": "Proposed. The current runtime has no binary-patch command; see deployment_prerequisites."
+  },
+  "expected_descriptor": {
+    "sha256": "33620a6af520a42f51c6ab060d16b9b066ad4bfaeb326c071ad391b37cbcc194",
+    "basis": "The served descriptor 768d7dd7b389d844670fa7f4ac7b34b41c7b9ac4994f88526369f7726dd993e1 with source_commit and runtime_binary_sha256 replaced by this patch's, serialized as gateway.py writes it (sorted canonical JSON and a newline).",
+    "unchanged_fields": "chain, genesis and RPC-genesis hashes, peer, node ID, knowledge version 11, faucet and fee terms"
+  },
+  "unchanged": [
+    "chain ID, genesis and applied upgrade (knowledge-fund-settlement-v1 at height 300,000)",
+    "ProcessProposal, FinalizeBlock, ante rules, module versions and state",
+    "validator and P2P identities, signing state and faucet journal",
+    "participant and full-node packages: a zero-power node does not propose, so it needs no patch"
+  ],
+  "deployment_prerequisites": [
+    "The hosted runtime refuses a changed binary by design: run-upgrade checks the staged target against the applied upgrade packet, the first applied observation pins the target's source and binary, and the gateway refuses to rewrite a published descriptor. A reviewed runtime and gateway change must add an explicit, externally pinned binary-patch path before this binary can run; no guard is to be bypassed.",
+    "The development site asserts that the runtime binary equals the Linux participant binary, so its publication model needs a reviewed change for a validator-only patch, or a new participant release.",
+    "The source commit must be fetchable from the public repository before the descriptor names it.",
+    "Deployment, any upload and the publication update each need the owner's word."
+  ],
+  "observation": null
+}
