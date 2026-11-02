@@ -13,20 +13,23 @@ and packing the tag reproduces it byte for byte. Install an exact version, for
 example:
 
 ```bash
-npm install --save-exact @zerone-chain/sdk@0.1.1
+npm install --ignore-scripts --save-exact @zerone-chain/sdk@0.1.1
 ```
+
+`--ignore-scripts` stops npm from running the install scripts of the packages
+it fetches; `protobufjs`, one of the SDK's dependencies, has one.
 
 npm's staged publishing also made a placeholder version, `0.0.0-stage`, when
 the package was created. It holds no code; never install it.
 
 Later versions are staged by the repository's `publish-sdk.yml` workflow
-through npm trusted publishing, which lets npm attest their provenance from the
-public repository, and become public only when a package owner approves each
-one with 2FA. Check a later version's attestation on npm before relying on it.
-The release process, including when the trusted publisher is configured, is in
-`docs/standards/OPEN_CRYPTO_SDK.md` in the source repository. This README is
-packed into each release tarball, so the copy inside 0.1.1 still describes that
-version's publication as a plan.
+through npm trusted publishing with `--provenance`, so a stage that cannot
+attest its provenance from the public repository fails, and become public only
+when a package owner approves each one with 2FA. Check a later version's
+attestation on npm before relying on it. The release process, including when
+the trusted publisher is configured, is in `docs/standards/OPEN_CRYPTO_SDK.md`
+in the source repository. This README is packed into each release tarball, so
+the copy inside 0.1.1 still describes that version's publication as a plan.
 
 Version 0.1.0 was tagged but never published: the README packed from its tag
 says the repository is private, which stopped being true on 28 October 2026,

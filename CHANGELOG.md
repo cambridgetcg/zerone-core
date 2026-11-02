@@ -21,13 +21,18 @@ publication are separate events and are stated explicitly when they occur.
   optional comparison. `llms.txt`, `README.md`, the SDK README and
   `OPEN_CRYPTO_SDK.md` say the package is on npm. The SDK README is packed into
   every release tarball, so its new wording ships from the next version.
-- `publish-sdk.yml` no longer passes `--provenance=false`: with the repository
-  public, npm attests provenance by default for its trusted, staged publishes.
-  The workflow now also requires Node 22.14.0 or later, as trusted publishing
-  does, and its refusal on a 404 says the package has existed since `0.1.1`.
-  Later versions are staged through it and approved with npm 2FA; the trusted
-  publisher is configured only when the next version is ready to stage within
-  48 hours.
+- `publish-sdk.yml` no longer passes `--provenance=false`. Its stage step now
+  passes `--provenance`, so a stage that cannot attest provenance fails instead
+  of staging a version without it. npm's documentation says provenance is
+  generated for trusted publishes from a public repository; no staged release
+  has shown it yet, so confirm `dist.attestations` on the first one. The
+  workflow now also requires Node 22.14.0 or later, as trusted publishing does.
+  Because it tags each stage `latest` explicitly, which turns off npm's own
+  prerelease and version-order checks, it refuses a prerelease version and any
+  version not greater than the registry's `latest`. Its refusal on a 404 says the package has existed since
+  `0.1.1`. Later versions are staged through it and approved with npm 2FA; the
+  trusted publisher is configured only when the next version is ready to stage
+  within 48 hours.
 - The FL-0 receipt profile at
   `/standards/frontier-evaluation-receipt-profile.v0.json` still lists the
   limit `sdk-unpublished`. Its dogfood receipt, dated 2026-08-01, binds those

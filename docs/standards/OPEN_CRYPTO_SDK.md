@@ -20,8 +20,11 @@ been public since 2 November 2026 (see
 Install it exactly, never the `0.0.0-stage` placeholder:
 
 ```bash
-npm install --save-exact @zerone-chain/sdk@0.1.1
+npm install --ignore-scripts --save-exact @zerone-chain/sdk@0.1.1
 ```
+
+`--ignore-scripts` stops npm from running the install scripts of the packages
+it fetches; `protobufjs`, one of the SDK's dependencies, has one.
 
 Build and test it from a pinned repository checkout:
 
@@ -42,11 +45,15 @@ version input, refuses branch refs and lightweight tags, requires
 attempts, regenerates and checks the SDK, audits the runtime dependency graph,
 rebuilds the committed distribution, and verifies the packed exports. It also
 refuses to run unless the npm registry returns the package's document (HTTP
-200) and that document does not list the version yet. The tag check reads the
-current `main` commit through the GitHub API with the run's read-only token,
-scoped to that one step, because checkout keeps no Git credentials. While the
-repository was private an anonymous fetch was refused; the step is unchanged
-now that it is public again.
+200) and that document does not list the version yet. Because the stage step
+tags each version `latest` explicitly, which turns off npm's own prerelease
+and version-order checks for that tag, the workflow accepts only a plain
+`MAJOR.MINOR.PATCH` release, with no prerelease or build part, that is greater
+than the registry's `dist-tags.latest`. The tag check reads the current `main`
+commit through the GitHub API with the run's read-only token, scoped to that
+one step, because checkout keeps no Git credentials. While the repository was
+private an anonymous fetch was refused; the step is unchanged now that it is
+public again.
 
 From about 25 September until 28 October 2026 this repository was private on
 GitHub Free, where environment secrets, required reviewers and deployment
@@ -67,16 +74,19 @@ attests provenance only for a package published from a supported cloud CI run,
 never from a private repository. `publish-sdk.yml` was written on 29 July 2026,
 while the repository was public, to publish with provenance; on 27 October
 2026, while it was private, it was changed to pass `--provenance=false`. Since
-a change of 2 November 2026 it passes no provenance option again, because the
-repository is public: npm generates provenance by default for a public package
-published through trusted publishing from a public repository, and the
-package's `publishConfig` does not turn it off. npm's `npm stage` reference
-lists automatic provenance generation through trusted publishing among the
-options of `npm stage publish`, but its provenance documentation does not say
-whether a staged publish carries the attestation, so confirm that on the first
-such release. npm's trusted-publishing documentation says provenance is not
-generated for a private repository, so if the repository were private again a
-staged release would carry none; the approver checks for it either way.
+a change of 2 November 2026 its stage step passes `--provenance`, because the
+repository is public. npm documents provenance as the default for a public
+package published through trusted publishing from a public repository, but npm
+11.19.0 drops that default without an error when one of its checks fails; with
+the flag explicit, npm signs a provenance statement with the run's OIDC
+identity or the stage fails. npm's `npm stage` reference lists automatic
+provenance generation through trusted publishing among the options of
+`npm stage publish`, but its provenance documentation does not say whether the
+attestation stays with a staged version through approval, so confirm that on
+the first such release. npm's trusted-publishing documentation says provenance
+is not generated for a private repository, so if the repository were private
+again the stage step would fail; the approver checks for the attestation
+either way.
 
 ### First publication by the owner's own hand
 
@@ -107,8 +117,9 @@ tarball byte for byte; an agent checked this the same day under Node 22.23.1,
 with npm 10.9.8 and again with npm 11.19.0. Anyone can check an installed copy
 against the integrity above, as the agents' guide at
 <https://zerone.ai/join/agents.md> shows. Now that `0.1.1` is public, the
-package settings can require 2FA and disallow traditional token publishing; no
-npm token is kept for releases.
+package settings can require 2FA and disallow traditional token publishing.
+The release policy is that no npm token is stored for releases: the workflow
+reads none, and each version is approved with the owner's 2FA.
 
 npm's staged publishing also created a placeholder version, `0.0.0-stage`
 (description "Temporary package placeholder for staged publishing"), which npm
@@ -151,10 +162,12 @@ shasum and integrity in the run summary. The environment's tag rule and
 reviewer decide which runs may stage, and a staged tarball is not published:
 the npm 2FA approval remains the release gate. The approver must download and
 inspect each staged tarball, and compare it with the run summary and the
-tagged commit, before approving it. Once a version is public, confirm that its
-registry document lists a provenance attestation (`dist.attestations`) and that
-its `dist.shasum` and `dist.integrity` equal the run summary. Merging or
-manually viewing the workflow performs no publication.
+tagged commit, before approving it, and read the stage step's log, where npm
+prints "Signed provenance statement" and a link to the statement's
+transparency-log entry. Once a version is public, confirm that its registry
+document lists a provenance attestation (`dist.attestations`) and that its
+`dist.shasum` and `dist.integrity` equal the run summary. Merging or manually
+viewing the workflow performs no publication.
 
 ## Implemented boundary seams
 

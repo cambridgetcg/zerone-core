@@ -109,8 +109,10 @@ jobs:
           esac
 
           # The registry's CDN can serve a cached document for a while, so a
-          # version published moments ago may be missing here; npm still
-          # refuses to stage a version that already exists.
+          # version published moments ago may be missing here, and npm's own
+          # duplicate check reads the same cached document. A duplicate that
+          # gets past both is left to the registry's stage endpoint and to the
+          # approver, who compares every staged tarball before approving it.
           if node --input-type=module --eval '
             import { readFileSync } from "node:fs";
             const document = JSON.parse(readFileSync(process.argv[1], "utf8"));
@@ -119,6 +121,43 @@ jobs:
             );
           ' "$registry_document" "$package_version"; then
             echo "::error::${package_name}@${package_version} already exists on npm"
+            exit 1
+          fi
+
+          # The stage step passes --tag latest, and an explicit tag turns off
+          # npm's own refusals to tag a prerelease, or a version below the
+          # current latest, as latest. So accept only a plain MAJOR.MINOR.PATCH
+          # release, with no prerelease or build part, that is semver-greater
+          # than the registry's dist-tags.latest.
+          if ! version_refusal="$(
+            node --input-type=module --eval '
+              import { readFileSync } from "node:fs";
+              const document = JSON.parse(readFileSync(process.argv[1], "utf8"));
+              const candidate = process.argv[2];
+              const release = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$/;
+              const parts = (version) => {
+                const match = typeof version === "string" ? release.exec(version) : null;
+                return match ? match.slice(1).map(BigInt) : null;
+              };
+              const next = parts(candidate);
+              if (!next) {
+                console.log(candidate + " is not a plain MAJOR.MINOR.PATCH release; prerelease and build versions are refused");
+                process.exit(1);
+              }
+              const latestTag = document["dist-tags"]?.latest;
+              const latest = parts(latestTag);
+              if (!latest) {
+                console.log("dist-tags.latest is " + JSON.stringify(latestTag ?? null) + ", not a plain release; refusing to compare");
+                process.exit(1);
+              }
+              const index = next.findIndex((part, i) => part !== latest[i]);
+              if (index === -1 || next[index] < latest[index]) {
+                console.log(candidate + " is not greater than dist-tags.latest " + latestTag);
+                process.exit(1);
+              }
+            ' "$registry_document" "$package_version"
+          )"; then
+            echo "::error::${package_name}@${package_version} refused: ${version_refusal}"
             exit 1
           fi
 
@@ -185,14 +224,17 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Stage the exact tarball with trusted publishing
-        # No provenance option. From 2026-10-27 this step passed
+        # --provenance makes npm sign a provenance statement for this tarball
+        # with the run's OIDC identity, or fail this step: a stage that cannot
+        # attest is never made. From 2026-10-27 the step passed
         # --provenance=false, because the repository was private and npm could
-        # not attest provenance from it. It has been public again since
-        # 2026-10-28, and npm generates provenance by default for a public
-        # package published through trusted publishing from a public
-        # repository; package.json's publishConfig does not turn it off.
-        # Confirm on the first staged release that the attestation appears.
-        run: npm stage publish "${{ steps.pack.outputs.tarball }}" --access public --tag latest
+        # not attest provenance from it; it has been public again since
+        # 2026-10-28. npm documents provenance as the default for trusted
+        # publishing from a public repository, but npm 11.19.0 drops that
+        # default without an error when one of its checks fails, so the flag
+        # is explicit. Whether the attestation stays with a staged version
+        # through approval is confirmed on the first staged release.
+        run: npm stage publish "${{ steps.pack.outputs.tarball }}" --access public --tag latest --provenance
 
       - name: Record staged release identity
         shell: bash
@@ -207,5 +249,5 @@ jobs:
             echo "- Tarball SHA-256: \`${{ steps.pack.outputs.sha256 }}\`"
             echo "- npm shasum: \`${{ steps.pack.outputs.sha1 }}\`"
             echo "- npm integrity: \`${{ steps.pack.outputs.integrity }}\`"
-            echo "- Provenance: expected from npm for this trusted publish; after approval, confirm the version's \`dist.attestations\` on the registry"
+            echo "- Provenance: staged with \`--provenance\`; the stage step's log links the signed statement's transparency-log entry. Read it before approving, and after approval confirm the version's \`dist.attestations\` on the registry"
           } >> "$GITHUB_STEP_SUMMARY"

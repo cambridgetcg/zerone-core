@@ -93,8 +93,46 @@ describe("the agents' join guide at /join/agents.md", () => {
     assert.doesNotMatch(prose, /location is not published|it is not published\.|inbox is secret|secret inbox/u);
     assert.match(prose, /\*\*Desks on the household's other devices: not yet\.\*\* The household will add them later, through the lobby/u);
     assert.match(step(3), /\*\*From a desk on another of the household's devices:\*\* not yet\. The household will add desks later, through the lobby\./u);
-    // No lobby room exists yet, so the guide gives no room id or command to post with.
+    // No door room is open to desks yet, so the guide gives no room id or command to
+    // post with. A room can exist before desks may use it, so the page neither says
+    // that no room exists nor promises the id on the day a room is made.
     assert.doesNotMatch(guide, /agenttool-lobby room say/u);
+    assert.match(prose, /No door room is open to desks yet, and there is no way to ask from another device;/u);
+    assert.match(prose, /Once a test agent on another device has been admitted through the lobby, this page publishes the room's id and changes the status line above\./u);
+    assert.doesNotMatch(prose, /there is no door room|No door room exists|On that day this page publishes/u);
+  });
+
+  it("says what a desk on another device needs first, and gives no room id or post command yet", () => {
+    const start = guide.indexOf("## From another device on the household network");
+    const end = guide.indexOf("## Refusal reasons");
+    assert.ok(start > guide.indexOf("### 6. Submit a claim") && start < end, "the section sits after step 6, before the refusal reasons");
+    const section = guide.slice(start, end);
+    const text = section.replace(/\s+/gu, " ");
+    assert.match(text, /^## From another device on the household network \*\*Not yet, as of 2 November 2026\.\*\* No door room is open to desks yet, and no device other than the hub has joined the household's lobby/u);
+    // Every step is the household's decision; the first three need a person, and
+    // the fourth (listing the desk) is the household's too.
+    assert.match(text, /### What has to happen first Each step in this list is the household's decision, and no agent on your device can do one alone; steps 1–3 of this list need a person at a keyboard\./u);
+    assert.equal((section.match(/^\d\. \*\*/gmu) ?? []).length, 4);
+    // References to the guide's own steps name them, so they cannot be read as this list.
+    assert.match(text, /make them on your own device as steps 1 and 2 under "Steps" show \("Make your two keys and keep them"; "Write and sign your door request"\)/u);
+    assert.match(text, /the chain, read as the "Anyone" bullet of step 4 under "Steps" \("Read the answer"\) shows\. There is no reply file for you\./u);
+    // Each request goes in a file of its own, so a second request never collides.
+    assert.match(text, /Save each request in a new file of its own, named for that request/u);
+    assert.match(text, /the door accepts a request for 15 minutes after its `issued_at`/u);
+    assert.match(text, /in the conversation `zerone-door`, addressed to the room's host, the hub's desk/u);
+    assert.match(text, /An agent never answers that prompt\./u);
+    assert.match(text, /Until the lobby can renew them by signature, a person renews them each day/u);
+    // The per-desk cap is a default the household can change, not a fixed bound.
+    assert.match(text, /3 admissions a day per desk by default \(the household can set another number for each desk\)/u);
+    assert.doesNotMatch(text, /5 ZRN float/u);
+    assert.match(step(3), /What has to happen before a desk can ask is under "From another device on the household network" below\./u);
+    // Not yet: no room id, no post command, and nothing stale about the SDK or a device name.
+    assert.doesNotMatch(guide, /room_[0-9a-f]{32}/u);
+    assert.doesNotMatch(section, /agenttool-lobby/u);
+    assert.doesNotMatch(prose, /not (?:yet )?(?:on|published (?:on|to)) npm/iu);
+    assert.doesNotMatch(section, /\bMac(?![a-z])|\bMacBook|\biMac/u);
+    // R's balance after the 2 November top-ups, with both transactions.
+    assert.match(prose, /On 2 November 2026 the household topped R up twice, to 15 ZRN \(transactions `40AD7126585E041AEB8136D1DB44382ABC555AE36A8AA39F174AB19B9203BA4C` at height 1,416,426 and `0ABB6B41EE87F770BD553161E414444CCF3EF3F4255FE35DADB8C6BBB467AF89` at height 1,416,779\)\./u);
   });
 
   it("keeps every hazard of the version zerone-1 runs", () => {
@@ -170,8 +208,15 @@ describe("the agents' join guide at /join/agents.md", () => {
     assert.match(guide, /^shasum -a 256 sdk-0\.1\.1\.tgz {8}# on Linux: sha256sum sdk-0\.1\.1\.tgz$/mu);
     // The optional rebuild starts from the annotated tag and is only compared, never installed.
     assert.match(guide, /^git clone --branch sdk-v0\.1\.1 --depth 1 https:\/\/github\.com\/cambridgetcg\/zerone-core\.git$/mu);
-    assert.match(guide, /^git status --porcelain -- dist {14}# prints nothing: the build matches the tag$/mu);
+    assert.match(guide, /^ {2}git status --porcelain -- dist {14}# prints nothing: the build matches the tag$/mu);
     assert.match(prose, /This is optional; install from npm either way\./u);
+    // It runs in a subshell, so an agent that carries on in the same shell is back in
+    // its own project, not inside the SDK clone.
+    const rebuild = guide.match(/```sh\ngit clone --branch sdk-v0\.1\.1 [^\n]*\n([\s\S]*?)```/u)?.[1] ?? "";
+    assert.match(rebuild, /^\(\n {2}cd zerone-core\/sdk\/typescript\n(?: {2}[^\n]+\n)+\)\n$/u);
+    assert.match(rebuild, /^ {2}shasum -a 256 zerone-chain-sdk-0\.1\.1\.tgz$/mu);
+    assert.doesNotMatch(guide, /^cd zerone-core/mu);
+    assert.match(prose, /The parentheses run the rebuild in a subshell, so your shell is back in your own project when it ends\./u);
     assert.doesNotMatch(guide, /npm install [^\n]*\.tgz|npm install \.\/zerone-core/u);
     assert.doesNotMatch(guide, /npm ci && npm run build/u);
     assert.match(prose, /save it in a file whose name ends in `\.mjs` \(for example `join\.mjs`\), or set `"type": "module"`/u);
