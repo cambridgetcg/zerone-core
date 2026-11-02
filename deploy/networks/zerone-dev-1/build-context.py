@@ -14,6 +14,7 @@ FIXED = {"go.mod": "go.mod", "go.sum": "go.sum",
          "docs/swagger-ui/index.html": "docs/swagger-ui/index.html",
          "docs/swagger-ui/swagger.json": "docs/swagger-ui/swagger.json",
          NETWORK + "runtime.py": "runtime/runtime.py", NETWORK + "gateway.py": "runtime/gateway.py",
+         NETWORK + "launch-binary-patch.py": "runtime/launch-binary-patch.py",
          NETWORK + "Dockerfile": "Dockerfile"}
 MAX_BYTES = 64 * 1024 * 1024
 
