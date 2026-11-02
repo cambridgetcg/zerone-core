@@ -278,11 +278,13 @@ it("binds a runtime patch's served descriptor, packet and record while packages 
   const packetPath = `${directory}/binary-patch-${source.slice(0, 12)}.json`;
   const packet = (change: Record<string, unknown> = {}) => JSON.stringify({ schema: "zerone-development-binary-patch/v1", chain_id: base.chain_id, genesis_sha256: base.genesis_sha256, upgrade_packet_sha256: applied.packet_sha256, knowledge_version: 11, role: "validator", consensus: "unchanged", base: { source_commit: base.runtime_source_commit, binaries: { "linux-amd64": base.binary_sha256 } }, patch: { source_commit: source, binaries: { "linux-amd64": binary } }, ...change }, null, 2) + "\n";
   const recordPath = "docs/reports/development-binary-patch-2026-11-02.json";
-  const publication = (served: string, packetBytes: string): DevelopmentPublication => ({ ...base, runtime_source_commit: source, binary_sha256: binary, descriptor_sha256: sha(served), verified_at: verifiedAt, runtime_patch: { base_source_commit: base.runtime_source_commit, base_binary_sha256: base.binary_sha256, base_descriptor_sha256: base.descriptor_sha256, base_verified_at: base.verified_at, patch_packet_sha256: sha(packetBytes), record: recordPath } });
+  const record = (served: string, packetBytes: string, change: Record<string, unknown> = {}) => JSON.stringify({ schema: "zerone.development-binary-patch-observation/v1", chain_id: base.chain_id, observed_at: verifiedAt, patch_packet: { path: packetPath, sha256: sha(packetBytes) }, base: { source_commit: base.runtime_source_commit, binary_sha256: base.binary_sha256, descriptor_sha256: base.descriptor_sha256 }, served: { source_commit: source, binary_sha256: binary, descriptor_sha256: sha(served) }, ...change }, null, 2) + "\n";
+  const publication = (served: string, packetBytes: string, recordBytes: string): DevelopmentPublication => ({ ...base, runtime_source_commit: source, binary_sha256: binary, descriptor_sha256: sha(served), verified_at: verifiedAt, runtime_patch: { base_source_commit: base.runtime_source_commit, base_binary_sha256: base.binary_sha256, base_descriptor_sha256: base.descriptor_sha256, base_verified_at: base.verified_at, patch_packet_sha256: sha(packetBytes), record: recordPath, record_sha256: sha(recordBytes) } });
   const write = (path: string, value: string | Buffer) => writeFileSync(join(root, path), value);
-  const publish = (served = descriptor(), packetBytes = packet(), record: Record<string, unknown> = { schema: "zerone.development-binary-patch-observation/v1", chain_id: base.chain_id, observed_at: verifiedAt }) => {
-    write(`${directory}/network.json`, served); write(packetPath, packetBytes); write(recordPath, JSON.stringify(record));
-    write("dashboard/development-publication.json", JSON.stringify(publication(served, packetBytes)));
+  const publish = (served = descriptor(), packetBytes = packet(), recordChange: Record<string, unknown> = {}) => {
+    const recordBytes = record(served, packetBytes, recordChange);
+    write(`${directory}/network.json`, served); write(packetPath, packetBytes); write(recordPath, recordBytes);
+    write("dashboard/development-publication.json", JSON.stringify(publication(served, packetBytes, recordBytes)));
     commit();
   };
   try {
@@ -304,7 +306,13 @@ it("binds a runtime patch's served descriptor, packet and record while packages 
       [() => publish(descriptor({ node_id: "ab".repeat(20) })), /beyond the binary identity/u],
       [() => publish(descriptor(), packet({ base: { source_commit: base.runtime_source_commit, binaries: { "linux-amd64": "ab".repeat(32) } } })), /does not bind the served runtime/u],
       [() => publish(descriptor(), packet({ upgrade_packet_sha256: "ab".repeat(32) })), /does not bind the served runtime/u],
-      [() => publish(descriptor(), packet(), { chain_id: base.chain_id, observed_at: "2026-11-01T12:00:00Z" }), /record does not match/u],
+      [() => publish(descriptor(), packet(), { observed_at: "2026-11-01T12:00:00Z" }), /record does not match/u],
+      [() => publish(descriptor(), packet(), { schema: "zerone.development-gateway-redeploy/v1" }), /record does not match/u],
+      [() => publish(descriptor(), packet(), { patch_packet: { path: `${directory}/binary-patch.json`, sha256: sha(packet()) } }), /record does not match/u],
+      [() => publish(descriptor(), packet(), { patch_packet: { path: packetPath, sha256: "ab".repeat(32) } }), /record does not match/u],
+      [() => publish(descriptor(), packet(), { base: { source_commit: base.runtime_source_commit, binary_sha256: "ab".repeat(32), descriptor_sha256: base.descriptor_sha256 } }), /record does not match/u],
+      [() => publish(descriptor(), packet(), { served: { source_commit: source, binary_sha256: binary, descriptor_sha256: base.descriptor_sha256 } }), /record does not match/u],
+      [() => { publish(); write(recordPath, record(descriptor(), packet(), { note: "edited after publication" })); commit(); }, /record hash mismatch/u],
       [() => { publish(); write(packetPath, packet({ consensus: "changed" })); commit(); }, /packet hash mismatch/u],
       [() => { publish(); write(`${directory}/network-knowledge-11.json`, baseDescriptor.toString().replace("}", ',"extra":true}')); commit(); }, /base descriptor hash mismatch/u],
       [() => { publish(); unlinkSync(join(root, `${directory}/network-knowledge-11.json`)); commit(); }, /requires committed/u],

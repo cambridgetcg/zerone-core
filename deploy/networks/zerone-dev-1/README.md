@@ -252,8 +252,8 @@ A full node additionally reports zero power and a matching common block against 
 A binary patch replaces only the applied target's executable on the operated
 validator, for a change that leaves consensus rules, state, module versions,
 genesis and identities as they are. It is validator-only: participant and
-full-node packages keep their base runtime, and a zero-power node does not need
-it. It never replaces the upgrade staging, the first applied observation, a
+full-node packages keep their base runtime. It never replaces the upgrade
+staging, the first applied observation, a
 descriptor or any other existing file, and it runs only when its own external
 pin is given.
 
@@ -327,10 +327,19 @@ every boot. It never removes, repairs or retries a staged directory:
 The development publication then carries a `runtime_patch` block. Its own pins
 name the served patch; the block records the base source, binary, descriptor and
 verification time that the participant release and the applied-upgrade evidence
-keep, the patch packet's SHA-256 and the dated record. The site build checks the
-committed packet (`binary-patch-<first 12 hex of the patch commit>.json`), the
-retained base descriptor (`network-knowledge-11.json`) and the record against
-those pins.
+keep, the patch packet's SHA-256, and the dated record's path and SHA-256. The
+site build checks:
+
+- the committed packet (`binary-patch-<first 12 hex of the patch commit>.json`)
+  against its pin, and that it binds the served source and binary to the base;
+- the retained base descriptor (`network-knowledge-11.json`) against its pin, and
+  that the served descriptor differs from it only in `source_commit` and
+  `runtime_binary_sha256`;
+- the record (`docs/reports/development-binary-patch-YYYY-MM-DD.json`, schema
+  `zerone.development-binary-patch-observation/v1`) against its pin, and that its
+  `chain_id`, `observed_at` (the publication's verification time), `patch_packet`
+  path and SHA-256, `base` and `served` source, binary and descriptor equal the
+  publication's.
 
 ## Local tests
 

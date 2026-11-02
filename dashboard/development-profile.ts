@@ -28,6 +28,7 @@ export interface DevelopmentRuntimePatch {
   base_verified_at: string;
   patch_packet_sha256: string;
   record: string;
+  record_sha256: string;
 }
 
 /** A dated proposed upgrade notice, separate from the live participant publication. */
@@ -211,10 +212,10 @@ export function validateDevelopmentPublication(value: DevelopmentPublication): v
   verificationDate(value.verified_at);
   if (value.runtime_patch === undefined) return;
   const patch = value.runtime_patch;
-  const patchFields = ["base_source_commit", "base_binary_sha256", "base_descriptor_sha256", "base_verified_at", "patch_packet_sha256", "record"];
+  const patchFields = ["base_source_commit", "base_binary_sha256", "base_descriptor_sha256", "base_verified_at", "patch_packet_sha256", "record", "record_sha256"];
   if (!patch || typeof patch !== "object" || Array.isArray(patch) || Object.keys(patch).length !== patchFields.length || patchFields.some((key) => !Object.hasOwn(patch, key))) throw new Error("Invalid runtime patch fields");
   pin(patch.base_source_commit, 40, "patch base source");
-  for (const key of ["base_binary_sha256", "base_descriptor_sha256", "patch_packet_sha256"] as const) pin(patch[key], 64, key);
+  for (const key of ["base_binary_sha256", "base_descriptor_sha256", "patch_packet_sha256", "record_sha256"] as const) pin(patch[key], 64, key);
   verificationDate(patch.base_verified_at);
   if (typeof patch.record !== "string" || !/^docs\/reports\/development-binary-patch-\d{4}-\d\d-\d\d\.json$/u.test(patch.record)) throw new Error("A runtime patch requires its dated record");
   if (patch.base_source_commit === value.runtime_source_commit || patch.base_binary_sha256 === value.binary_sha256 || patch.base_descriptor_sha256 === value.descriptor_sha256 || patch.base_verified_at >= value.verified_at) throw new Error("A runtime patch requires a distinct, later served runtime");
@@ -250,7 +251,7 @@ export function buildDevelopmentProfile(sourceCommit: string, publication?: Deve
       ...patch,
       packetUrl: source(runtimePatchPacketPath(publication!)),
       recordUrl: source(patch.record),
-      scope: `The hosted validator runs an explicitly pinned binary patch of the applied runtime: the deployed runtime source, binary and descriptor pins name the patch. Consensus, genesis, identities and the faucet journal are unchanged. The participant packages keep their base runtime ${patch.base_source_commit.slice(0, 12)}, and their Linux binary is that base binary; a full node that does not propose needs no patch. The dated record has the hashes, checks and rollback.`,
+      scope: `The hosted validator runs an explicitly pinned binary patch of the applied runtime: the deployed runtime source, binary and descriptor pins name the patch. Consensus, genesis, identities and the faucet journal are unchanged. The patch is validator-only: the participant and full-node packages keep their base runtime ${patch.base_source_commit.slice(0, 12)}, and their Linux binary is that base binary. The dated record has the hashes, checks and rollback.`,
     } : null,
     predecessorPackages: applied ? packageLinks(sourceCommit, applied.predecessor_source_commit, "predecessor") : null,
     upgradeApplied: applied ? {
