@@ -49,11 +49,13 @@ refuses to run unless the npm registry returns the package's document (HTTP
 tags each version `latest` explicitly, which turns off npm's own prerelease
 and version-order checks for that tag, the workflow accepts only a plain
 `MAJOR.MINOR.PATCH` release, with no prerelease or build part, that is greater
-than the registry's `dist-tags.latest`. The tag check reads the current `main`
-commit through the GitHub API with the run's read-only token, scoped to that
-one step, because checkout keeps no Git credentials. While the repository was
-private an anonymous fetch was refused; the step is unchanged now that it is
-public again.
+than the registry's `dist-tags.latest` and than every plain release the
+document lists. If `latest` ever points at a prerelease, the workflow refuses
+every version until a person moves the tag back to a plain release. The tag
+check reads the current `main` commit through the GitHub API with the run's
+read-only token, scoped to that one step, because checkout keeps no Git
+credentials. While the repository was private an anonymous fetch was refused;
+the step is unchanged now that it is public again.
 
 From about 25 September until 28 October 2026 this repository was private on
 GitHub Free, where environment secrets, required reviewers and deployment

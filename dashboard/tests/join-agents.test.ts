@@ -121,6 +121,10 @@ describe("the agents' join guide at /join/agents.md", () => {
     assert.match(text, /the door accepts a request for 15 minutes after its `issued_at`/u);
     assert.match(text, /in the conversation `zerone-door`, addressed to the room's host, the hub's desk/u);
     assert.match(text, /An agent never answers that prompt\./u);
+    // The typed-yes acts stay a person's: joining, the seat lease and the daily renewal.
+    assert.match(text, /with a person at your device and at the hub\./u);
+    assert.match(text, /or that person makes a short, bounded seat lease/u);
+    assert.doesNotMatch(text, /\ban agent (?:makes|renews|types|answers|admits|knocks|approves)\b/iu);
     assert.match(text, /Until the lobby can renew them by signature, a person renews them each day/u);
     // The per-desk cap is a default the household can change, not a fixed bound.
     assert.match(text, /3 admissions a day per desk by default \(the household can set another number for each desk\)/u);

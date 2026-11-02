@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Exact package version to release (for example, 0.1.0)"
+        description: "Exact package version to release: a plain MAJOR.MINOR.PATCH above every version on npm"
         required: true
         type: string
 
@@ -128,7 +128,8 @@ jobs:
           # npm's own refusals to tag a prerelease, or a version below the
           # current latest, as latest. So accept only a plain MAJOR.MINOR.PATCH
           # release, with no prerelease or build part, that is semver-greater
-          # than the registry's dist-tags.latest.
+          # than the registry's dist-tags.latest and than every plain release
+          # the registry lists.
           if ! version_refusal="$(
             node --input-type=module --eval '
               import { readFileSync } from "node:fs";
@@ -150,9 +151,18 @@ jobs:
                 console.log("dist-tags.latest is " + JSON.stringify(latestTag ?? null) + ", not a plain release; refusing to compare");
                 process.exit(1);
               }
-              const index = next.findIndex((part, i) => part !== latest[i]);
-              if (index === -1 || next[index] < latest[index]) {
+              const greater = (a, b) => {
+                const index = a.findIndex((part, i) => part !== b[i]);
+                return index !== -1 && a[index] > b[index];
+              };
+              if (!greater(next, latest)) {
                 console.log(candidate + " is not greater than dist-tags.latest " + latestTag);
+                process.exit(1);
+              }
+              const listed = Object.keys(document.versions ?? {}).filter((version) => parts(version));
+              const highest = listed.find((version) => !listed.some((other) => greater(parts(other), parts(version))));
+              if (highest && !greater(next, parts(highest))) {
+                console.log(candidate + " is not greater than the listed release " + highest);
                 process.exit(1);
               }
             ' "$registry_document" "$package_version"

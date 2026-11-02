@@ -29,8 +29,9 @@ publication are separate events and are stated explicitly when they occur.
   workflow now also requires Node 22.14.0 or later, as trusted publishing does.
   Because it tags each stage `latest` explicitly, which turns off npm's own
   prerelease and version-order checks, it refuses a prerelease version and any
-  version not greater than the registry's `latest`. Its refusal on a 404 says the package has existed since
-  `0.1.1`. Later versions are staged through it and approved with npm 2FA; the
+  version not greater than both the registry's `latest` and every plain release
+  it lists. Its refusal on a 404 says the package has existed since `0.1.1`.
+  Later versions are staged through it and approved with npm 2FA; the
   trusted publisher is configured only when the next version is ready to stage
   within 48 hours.
 - The FL-0 receipt profile at
