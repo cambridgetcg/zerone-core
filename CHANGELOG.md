@@ -3,6 +3,25 @@
 Notable source changes are recorded here. Network activation and package
 publication are separate events and are stated explicitly when they occur.
 
+## Source — 2026-11-02 PrepareProposal and ProcessProposal coherence
+
+- `PrepareProposal` now replays each candidate transaction through the full
+  ante handler at the proposal's height and time, in proposal order, against
+  the disposable proposal state, and offers only the candidates that pass.
+  Since the signature-hardening merge (`b8cff9c1`), `ProcessProposal` replays
+  the same checks and refuses the whole block when one transaction fails, and
+  CometBFT requires a block prepared by a correct proposer to be accepted. The
+  mempool is admitted at the committed height, so before this change a
+  candidate whose validity depends on the height, the block time or an
+  earlier candidate could be offered and then refused.
+- Byte and gas selection, the vote-extension injection, `ProcessProposal`,
+  `FinalizeBlock`, ante rules, module versions and genesis are unchanged. A
+  transaction whose wire framing is not canonical is proposed in its
+  canonical encoding, the bytes that were replayed. A block from a patched
+  proposer is accepted by patched and unpatched validators alike.
+- This is a binary change with no upgrade handler. Source publication does
+  not deploy it to any network.
+
 ## Source — 2026-09-13 claim fund settlement
 
 - The separate `knowledge-fund-settlement-v1` 10→11 upgrade records prospective

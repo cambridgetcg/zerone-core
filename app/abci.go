@@ -9,6 +9,12 @@
 //  3. ProcessProposal: Validators verify injection tx format
 //  4. PreBlocker: All validators process injection tx, store in keeper state
 //  5. BeginBlocker: Phase transitions and aggregation via knowledge module
+//
+// Proposal coherence: ProcessProposal replays every regular transaction
+// through the full ante handler at the proposal's height and time, and
+// rejects the whole block if any fails. CometBFT requires a correct
+// proposer's block to be accepted, so PrepareProposal replays each candidate
+// the same way, in the same order, and offers only those that pass.
 package app
 
 import (
@@ -20,6 +26,8 @@ import (
 	"sort"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/crypto/tmhash"
+	cmttypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -141,12 +149,41 @@ func VerifyCommitmentHash(commitmentHash, roundID, verdict string, confidence ui
 // ---- ABCI++ Handlers ----
 
 // PrepareProposalHandler returns a PrepareProposal handler that injects
-// vote extension data as a pseudo-tx at position 0.
+// vote extension data as a pseudo-tx at position 0 and offers only regular
+// transactions that pass the full ante handler at the proposal height.
+//
+// BaseApp.PrepareProposalVerifyTx encodes each candidate with the BaseApp
+// transaction encoder, which NewBaseApp leaves unset, so the handler installs
+// the application's encoder (the counterpart of its decoder) before use.
 func (app *ZeroneApp) PrepareProposalHandler() sdk.PrepareProposalHandler {
-	return app.prepareProposal
+	app.SetTxEncoder(app.txConfig.TxEncoder())
+	return app.prepareProposalHandler(app.BaseApp.PrepareProposalVerifyTx)
 }
 
-func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareProposal) (resp *abci.ResponsePrepareProposal, err error) {
+// proposalTxVerifier replays one candidate through the ante handler against
+// the disposable PrepareProposal state and returns the bytes to propose. On
+// success the candidate's ante effects stay in that state, so later
+// candidates are checked after it, as ProcessProposal will check them.
+type proposalTxVerifier func(sdk.Tx) ([]byte, error)
+
+func (app *ZeroneApp) prepareProposalHandler(verify proposalTxVerifier) sdk.PrepareProposalHandler {
+	return func(ctx sdk.Context, req *abci.RequestPrepareProposal) (*abci.ResponsePrepareProposal, error) {
+		return app.prepareProposal(ctx, req, verify)
+	}
+}
+
+// proposalTxFits reports whether the SDK default selector would add a
+// transaction of txSize bytes and txGas gas to a selection that already holds
+// selectedBytes and selectedGas (baseapp defaultTxSelector, SDK v0.53.8). A
+// maxBlockGas of zero means no gas limit, as it does for that selector.
+func proposalTxFits(selectedBytes, selectedGas, txSize, txGas, maxTxBytes, maxBlockGas uint64) bool {
+	if txSize+selectedBytes > maxTxBytes {
+		return false
+	}
+	return maxBlockGas == 0 || txGas+selectedGas <= maxBlockGas
+}
+
+func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareProposal, verify proposalTxVerifier) (resp *abci.ResponsePrepareProposal, err error) {
 	logger := ctx.Logger().With("module", "abci", "handler", "PrepareProposal")
 
 	defer func() {
@@ -201,11 +238,30 @@ func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareP
 		}
 	}
 
+	// The byte and gas totals the selector already holds (only the vote
+	// extension injection, which declares no gas, can precede this loop).
+	var selectedBytes, selectedGas uint64
+	for _, selected := range selector.SelectedTxs(ctx) {
+		selectedBytes += uint64(cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{selected}))
+	}
+
 	// Select regular transactions using the SDK's canonical protobuf byte sizing
 	// and each transaction's declared gas against the current consensus params.
 	// CometBFT supplies CheckTx-admitted transactions because this app uses the
 	// SDK NoOp app mempool. A malformed entry is skipped instead of making an
 	// otherwise viable proposal fail.
+	//
+	// CheckTx admitted each candidate against the last committed height, but
+	// the proposal executes at req.Height and req.Time. A candidate bounded by
+	// height or time, or one invalidated by an earlier candidate's ante effects,
+	// can therefore sit in the mempool and still fail ProcessProposal's replay.
+	// Each candidate that would fit is replayed here, in order, against the
+	// disposable PrepareProposal state, and offered only if it passes. A replay
+	// keeps its ante effects (sequence, fee), so it runs only for a candidate
+	// the selector will then take: proposalTxFits mirrors that selector. The
+	// proposal carries the replayed bytes, so ProcessProposal checks exactly
+	// the bytes replayed here; for a canonically encoded transaction they are
+	// its own bytes.
 	for _, txBytes := range req.Txs {
 		if proposalFull {
 			break
@@ -215,21 +271,51 @@ func (app *ZeroneApp) prepareProposal(ctx sdk.Context, req *abci.RequestPrepareP
 			logger.Warn("skipping undecodable tx in PrepareProposal", "err", decodeErr)
 			continue
 		}
-		// The SDK selector adds uint64 gas limits internally. Rejecting an
-		// individually impossible gas declaration first keeps that addition
-		// bounded by maxBlockGas and prevents wraparound on adversarial bytes.
-		if gasTx, ok := tx.(baseapp.GasTx); ok && blockGasLimited && gasTx.GetGas() > maxBlockGas {
-			logger.Warn("skipping tx whose declared gas exceeds the consensus block limit",
-				"gas", gasTx.GetGas(), "max_block_gas", maxBlockGas)
+		var txGas uint64
+		if gasTx, ok := tx.(baseapp.GasTx); ok {
+			txGas = gasTx.GetGas()
+			// The SDK selector adds uint64 gas limits internally. Rejecting an
+			// individually impossible gas declaration first keeps that addition
+			// bounded by maxBlockGas and prevents wraparound on adversarial bytes.
+			if blockGasLimited && txGas > maxBlockGas {
+				logger.Warn("skipping tx whose declared gas exceeds the consensus block limit",
+					"gas", txGas, "max_block_gas", maxBlockGas)
+				continue
+			}
+		}
+		txSize := uint64(cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{txBytes}))
+		if !proposalTxFits(selectedBytes, selectedGas, txSize, txGas, maxTxBytes, maxBlockGas) {
 			continue
+		}
+		proposedBytes, verifyErr := verify(tx)
+		if verifyErr != nil {
+			logger.Info("omitting tx that fails ante verification at the proposal height",
+				"height", req.Height,
+				"tx_hash", fmt.Sprintf("%X", tmhash.Sum(txBytes)),
+				"err", verifyErr)
+			continue
+		}
+		proposedSize := uint64(cmttypes.ComputeProtoSizeForTxs([]cmttypes.Tx{proposedBytes}))
+		if !proposalTxFits(selectedBytes, selectedGas, proposedSize, txGas, maxTxBytes, maxBlockGas) {
+			// Not expected: the SDK encoder never lengthens a transaction its
+			// decoder accepted. This candidate's ante effects are already in the
+			// proposal state, so stop rather than check later candidates against
+			// a state that ProcessProposal will not reproduce.
+			logger.Error("replayed tx no longer fits the proposal; offering the selection so far",
+				"height", req.Height, "size", txSize, "replayed_size", proposedSize)
+			break
 		}
 		proposalFull = selector.SelectTxForProposal(
 			ctx,
 			maxTxBytes,
 			maxBlockGas,
 			tx,
-			txBytes,
+			proposedBytes,
 		)
+		selectedBytes += proposedSize
+		if maxBlockGas > 0 {
+			selectedGas += txGas
+		}
 	}
 	txs := selector.SelectedTxs(ctx)
 
