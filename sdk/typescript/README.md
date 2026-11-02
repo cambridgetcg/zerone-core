@@ -3,12 +3,34 @@
 TypeScript transaction codecs and interoperable identifiers for Zerone.
 
 The source repository, `cambridgetcg/zerone-core`, is public on GitHub. The
-first npm version is 0.1.1, which the package owner publishes by hand without
-an npm provenance attestation; a public repository makes provenance possible
-for later versions published through npm trusted publishing. Version 0.1.0 was
-tagged but never published: the README packed from its tag says the repository
-is private, which stopped being true on 28 October 2026, and GitHub's ruleset
-for release tags refuses changing the tag.
+first npm version, 0.1.1, was published on 2 November 2026 by the package
+owner's own hand, with npm 2FA, from the annotated `sdk-v0.1.1` tag. It has no
+npm provenance attestation. Its tarball has SHA-256
+`3df235181617eb1544f7590abe6aee76c702dee48367d4fa5436e407ae7879a2`, npm shasum
+`8484fd566c6d07a0a6614995417cccdbd7bdceab` and integrity
+`sha512-K+tiN/efOIFfwlRoi/oREAq9/qEPBMyIidbNlPS2i7DcApnx7qnIKMYoued9EGbJi6HzMCI8hZgQTmnKo//HFw==`,
+and packing the tag reproduces it byte for byte. Install an exact version, for
+example:
+
+```bash
+npm install --save-exact @zerone-chain/sdk@0.1.1
+```
+
+npm's staged publishing also made a placeholder version, `0.0.0-stage`, when
+the package was created. It holds no code; never install it.
+
+Later versions are staged by the repository's `publish-sdk.yml` workflow
+through npm trusted publishing, which lets npm attest their provenance from the
+public repository, and become public only when a package owner approves each
+one with 2FA. Check a later version's attestation on npm before relying on it.
+The release process, including when the trusted publisher is configured, is in
+`docs/standards/OPEN_CRYPTO_SDK.md` in the source repository. This README is
+packed into each release tarball, so the copy inside 0.1.1 still describes that
+version's publication as a plan.
+
+Version 0.1.0 was tagged but never published: the README packed from its tag
+says the repository is private, which stopped being true on 28 October 2026,
+and GitHub's ruleset for release tags refuses changing the tag.
 
 The first release deliberately stays at the client boundary. It does not add a
 consensus module, enable IBC, or expand the public gateway. It provides:

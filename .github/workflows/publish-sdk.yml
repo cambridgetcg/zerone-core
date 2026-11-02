@@ -43,6 +43,17 @@ jobs:
           npm install --global npm@11.19.0
           test "$(npm --version)" = "11.19.0"
 
+      - name: Require Node 22.14.0 or later for trusted publishing
+        # npm trusted publishing needs npm 11.5.1 or later (pinned above to
+        # 11.19.0) and Node 22.14.0 or later. node-version "22" takes a 22.x
+        # release from the runner's tool cache or the newest one; this step
+        # stops the run if that is ever older than 22.14.0.
+        run: |
+          node --eval '
+            const [major, minor] = process.versions.node.split(".").map(Number);
+            process.exit(major > 22 || (major === 22 && minor >= 14) ? 0 : 1);
+          '
+
       - name: Require an exact SDK tag at current main
         shell: bash
         env:
@@ -84,10 +95,11 @@ jobs:
             200)
               ;;
             404)
-              # No token path exists here. The first version is published by
-              # the package owner's own hand with npm 2FA from a verified
-              # tarball; see docs/standards/OPEN_CRYPTO_SDK.md.
-              echo "::error::${package_name} is not on npm yet; its first version is published by hand with npm 2FA, and this workflow only stages later versions"
+              # The package has been on npm since its owner published 0.1.1 by
+              # hand with npm 2FA on 2026-11-02 (docs/standards/OPEN_CRYPTO_SDK.md).
+              # A 404 now means the registry answered wrongly or the package is
+              # gone, and staging would create a new package, so refuse.
+              echo "::error::npm answered 404 for ${package_name}, which has been on npm since 0.1.1 (2026-11-02); refusing to infer release state"
               exit 1
               ;;
             *)
@@ -96,6 +108,9 @@ jobs:
               ;;
           esac
 
+          # The registry's CDN can serve a cached document for a while, so a
+          # version published moments ago may be missing here; npm still
+          # refuses to stage a version that already exists.
           if node --input-type=module --eval '
             import { readFileSync } from "node:fs";
             const document = JSON.parse(readFileSync(process.argv[1], "utf8"));
@@ -170,11 +185,14 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Stage the exact tarball with trusted publishing
-        # --provenance=false since 2026-10-27, when this repository was private
-        # and npm could not attest provenance from it. It has been public again
-        # since 2026-10-28; turning provenance back on is a separate, reviewed
-        # change.
-        run: npm stage publish "${{ steps.pack.outputs.tarball }}" --access public --tag latest --provenance=false
+        # No provenance option. From 2026-10-27 this step passed
+        # --provenance=false, because the repository was private and npm could
+        # not attest provenance from it. It has been public again since
+        # 2026-10-28, and npm generates provenance by default for a public
+        # package published through trusted publishing from a public
+        # repository; package.json's publishConfig does not turn it off.
+        # Confirm on the first staged release that the attestation appears.
+        run: npm stage publish "${{ steps.pack.outputs.tarball }}" --access public --tag latest
 
       - name: Record staged release identity
         shell: bash
@@ -189,4 +207,5 @@ jobs:
             echo "- Tarball SHA-256: \`${{ steps.pack.outputs.sha256 }}\`"
             echo "- npm shasum: \`${{ steps.pack.outputs.sha1 }}\`"
             echo "- npm integrity: \`${{ steps.pack.outputs.integrity }}\`"
+            echo "- Provenance: expected from npm for this trusted publish; after approval, confirm the version's \`dist.attestations\` on the registry"
           } >> "$GITHUB_STEP_SUMMARY"

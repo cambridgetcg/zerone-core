@@ -148,16 +148,32 @@ describe("the agents' join guide at /join/agents.md", () => {
     assert.match(prose, /The claim's text must be at least 20 and at most 1,000 bytes long/u);
   });
 
-  it("installs without install scripts, from a packed SDK, with exact versions, as ES modules", () => {
-    assert.match(guide, /npm install --ignore-scripts --save-exact @zerone-chain\/sdk@0\.1\.1 /u);
-    assert.match(prose, /On 2026-10-29 npm answered 404 for `@zerone-chain\/sdk`: it is not published yet\./u);
-    assert.match(guide, /git clone https:\/\/github\.com\/cambridgetcg\/zerone-core\.git/u);
-    assert.match(guide, /\(cd zerone-core\/sdk\/typescript && npm ci --ignore-scripts && npm run build && npm pack --ignore-scripts\)/u);
-    assert.match(guide, /npm install --ignore-scripts --save-exact \.\/zerone-core\/sdk\/typescript\/zerone-chain-sdk-0\.1\.1\.tgz/u);
-    // The old folder install linked the SDK and loaded two copies of CosmJS.
-    assert.doesNotMatch(guide, /npm install \.\/zerone-core\/sdk\/typescript /u);
+  it("installs the npm release exactly, without install scripts, as ES modules", () => {
+    assert.match(guide, /npm install --ignore-scripts --save-exact @zerone-chain\/sdk@0\.1\.1 @cosmjs\/proto-signing@0\.39\.0 \\\n {2}@cosmjs\/stargate@0\.39\.0 @cosmjs\/amino@0\.39\.0 @cosmjs\/encoding@0\.39\.0 @noble\/curves@2\.2\.0 \\\n {2}@noble\/hashes@2\.2\.0\n/u);
+    // 0.1.1 has been on npm since 2026-11-02; the old "answered 404" fallback is gone.
+    assert.match(prose, /`@zerone-chain\/sdk` has been on npm since 2 November 2026\. Its first version there is 0\.1\.1; 0\.1\.0 was tagged but never published\. Install exactly 0\.1\.1, as above\./u);
+    assert.doesNotMatch(prose, /answered 404|it is not published yet|Until it is, build it/u);
+    // npm's staged-publishing placeholder holds no code and must never be installed.
+    assert.match(prose, /\*\*Never install `0\.0\.0-stage`\*\*: npm's staged publishing made that version as a placeholder/u);
+    assert.doesNotMatch(guide, /@zerone-chain\/sdk@(?!0\.1\.1\b)/u);
+    // No provenance attestation: the guide says so and gives the bytes to check.
+    assert.match(prose, /0\.1\.1 has no npm provenance attestation: the package owner published it by hand, with npm 2FA, from a tarball built from the annotated `sdk-v0\.1\.1` tag\./u);
+    for (const value of [
+      "3df235181617eb1544f7590abe6aee76c702dee48367d4fa5436e407ae7879a2",
+      "8484fd566c6d07a0a6614995417cccdbd7bdceab",
+      "sha512-K+tiN/efOIFfwlRoi/oREAq9/qEPBMyIidbNlPS2i7DcApnx7qnIKMYoued9EGbJi6HzMCI8hZgQTmnKo//HFw==",
+    ]) {
+      assert.ok(guide.includes(`| \`${value}\` |`), `the guide must publish ${value}`);
+    }
+    assert.ok(guide.includes(`node --print "require('./package-lock.json').packages['node_modules/@zerone-chain/sdk'].integrity"`));
+    assert.match(guide, /^curl --fail -sSO https:\/\/registry\.npmjs\.org\/@zerone-chain\/sdk\/-\/sdk-0\.1\.1\.tgz$/mu);
+    assert.match(guide, /^shasum -a 256 sdk-0\.1\.1\.tgz {8}# on Linux: sha256sum sdk-0\.1\.1\.tgz$/mu);
+    // The optional rebuild starts from the annotated tag and is only compared, never installed.
+    assert.match(guide, /^git clone --branch sdk-v0\.1\.1 --depth 1 https:\/\/github\.com\/cambridgetcg\/zerone-core\.git$/mu);
+    assert.match(guide, /^git status --porcelain -- dist {14}# prints nothing: the build matches the tag$/mu);
+    assert.match(prose, /This is optional; install from npm either way\./u);
+    assert.doesNotMatch(guide, /npm install [^\n]*\.tgz|npm install \.\/zerone-core/u);
     assert.doesNotMatch(guide, /npm ci && npm run build/u);
-    assert.match(prose, /Install the packed file, not the folder/u);
     assert.match(prose, /save it in a file whose name ends in `\.mjs` \(for example `join\.mjs`\), or set `"type": "module"`/u);
   });
 
@@ -285,6 +301,10 @@ describe("the agents' join guide at /join/agents.md", () => {
     assert.match(today, new RegExp(`The door's key, ${R_ADDRESS}, is the chain's bootstrap registrar, capped by governance at 100 admissions per 34,272 blocks`, "u"));
     assert.match(today, /Agents on the household's other devices cannot use the door yet \(https:\/\/zerone\.ai\/join\/agents\.md\)/u);
     assert.doesNotMatch(llms, /door is not open|not open yet|admission remains paused/iu);
+    // The SDK has been on npm since 2026-11-02; the index pins 0.1.1 and warns off the placeholder.
+    assert.match(llms, /Its install step pins @zerone-chain\/sdk 0\.1\.1 from npm/u);
+    assert.match(llms, /^- \[TypeScript SDK\]\([^)]+\): [^\n]*On npm as @zerone-chain\/sdk 0\.1\.1 since 2 November 2026, published by hand without a provenance attestation: install exactly 0\.1\.1, never npm's 0\.0\.0-stage placeholder/mu);
+    assert.doesNotMatch(llms, /not a published npm package|not published (?:on|to) npm/iu);
     // The index never names the hub's inbox or key store either.
     assert.doesNotMatch(llms, /Keychain|keyring|\/Users\/|~\/|\/inbox\b|inbox\//iu);
     assert.ok(!llms.includes("{{"));

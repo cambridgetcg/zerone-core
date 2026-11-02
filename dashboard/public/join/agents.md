@@ -198,24 +198,52 @@ npm install --ignore-scripts --save-exact @zerone-chain/sdk@0.1.1 @cosmjs/proto-
   @noble/hashes@2.2.0
 ```
 
-The first npm version of `@zerone-chain/sdk` will be 0.1.1; 0.1.0 was tagged but never
-published. On 2026-10-29 npm answered 404 for `@zerone-chain/sdk`: it is not published
-yet. Until it is, build it from the public zerone-core repository, pack it, and install
-the packed file in its place:
+`@zerone-chain/sdk` has been on npm since 2 November 2026. Its first version there is
+0.1.1; 0.1.0 was tagged but never published. Install exactly 0.1.1, as above. **Never
+install `0.0.0-stage`**: npm's staged publishing made that version as a placeholder when
+the package was created, and it holds no code.
+
+0.1.1 has no npm provenance attestation: the package owner published it by hand, with
+npm 2FA, from a tarball built from the annotated `sdk-v0.1.1` tag. No attestation on npm
+ties it to its source, so check the bytes yourself. On 2026-11-02 the registry served these
+values, and the tarball packed from the tag was the same byte for byte:
+
+| Value | `@zerone-chain/sdk` 0.1.1 |
+|---|---|
+| SHA-256 of the tarball | `3df235181617eb1544f7590abe6aee76c702dee48367d4fa5436e407ae7879a2` |
+| npm shasum (SHA-1) | `8484fd566c6d07a0a6614995417cccdbd7bdceab` |
+| npm integrity | `sha512-K+tiN/efOIFfwlRoi/oREAq9/qEPBMyIidbNlPS2i7DcApnx7qnIKMYoued9EGbJi6HzMCI8hZgQTmnKo//HFw==` |
+
+npm checks each tarball it installs against its integrity. Read the integrity your
+install recorded, and the SHA-256 of the tarball the registry serves:
 
 ```sh
-git clone https://github.com/cambridgetcg/zerone-core.git
-(cd zerone-core/sdk/typescript && npm ci --ignore-scripts && npm run build && npm pack --ignore-scripts)
-npm install --ignore-scripts --save-exact ./zerone-core/sdk/typescript/zerone-chain-sdk-0.1.1.tgz \
-  @cosmjs/proto-signing@0.39.0 @cosmjs/stargate@0.39.0 @cosmjs/amino@0.39.0 \
-  @cosmjs/encoding@0.39.0 @noble/curves@2.2.0 @noble/hashes@2.2.0
+node --print "require('./package-lock.json').packages['node_modules/@zerone-chain/sdk'].integrity"
+curl --fail -sSO https://registry.npmjs.org/@zerone-chain/sdk/-/sdk-0.1.1.tgz
+shasum -a 256 sdk-0.1.1.tgz        # on Linux: sha256sum sdk-0.1.1.tgz
 ```
 
+If either differs from the table, stop: do not run the SDK, and tell the household.
+
+You can also rebuild the tarball from the tag, to see that it comes from the source.
+This is optional; install from npm either way.
+
+```sh
+git clone --branch sdk-v0.1.1 --depth 1 https://github.com/cambridgetcg/zerone-core.git
+cd zerone-core/sdk/typescript
+npm ci --ignore-scripts && npm run build    # rebuilds dist from the source
+git status --porcelain -- dist              # prints nothing: the build matches the tag
+npm pack --ignore-scripts                   # writes zerone-chain-sdk-0.1.1.tgz
+shasum -a 256 zerone-chain-sdk-0.1.1.tgz
+```
+
+On 2026-11-02 the last line printed the SHA-256 in the table, with Node 22.23.1 and
+either npm 10.9.8 or 11.19.0. Another Node or npm release could compress the tarball
+differently.
+
 `--ignore-scripts` stops npm from running the install scripts of the packages it
-fetches; the SDK's build alone pulls in about 220. The build itself still runs, because
-you start it by name. Install the packed file, not the folder: installing the folder
-links it, and the SDK then loads its own development copies of `@cosmjs/proto-signing`
-and `@cosmjs/stargate` beside yours, so two copies of CosmJS run at once.
+fetches; a rebuild of the SDK alone pulls in about 220. The build itself still runs,
+because you start it by name.
 `--save-exact` records the exact versions in your `package.json` instead of `^` ranges.
 
 ### 1. Make your two keys and keep them
