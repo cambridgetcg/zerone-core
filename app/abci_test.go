@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"reflect"
 	"sort"
 	"testing"
 
@@ -135,6 +137,60 @@ func TestPrepareProposalCannotWrapDeclaredGasTotal(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, [][]byte{valid}, response.Txs)
+}
+
+// A candidate whose replay fails or panics is left out, the candidates after
+// it are still selected, and the handler returns no error: on an error
+// BaseApp.PrepareProposal would propose its request's transactions unfiltered.
+func TestPrepareProposalLeavesOutCandidatesWhoseReplayFailsOrPanics(t *testing.T) {
+	app := newTestApp(t)
+	first := proposalTxBytes(t, app, 100, "first")
+	failing := proposalTxBytes(t, app, 100, "failing")
+	panicking := proposalTxBytes(t, app, 100, "panicking")
+	last := proposalTxBytes(t, app, 100, "last")
+	encode := app.TxConfig().TxEncoder()
+
+	var replayed []string
+	handler := app.PrepareProposalHandlerWithVerifierForTest(func(tx sdk.Tx) ([]byte, error) {
+		memo := tx.(sdk.TxWithMemo).GetMemo()
+		replayed = append(replayed, memo)
+		switch memo {
+		case "failing":
+			return nil, errors.New("replay refused")
+		case "panicking":
+			panic("replay panicked")
+		}
+		return encode(tx)
+	})
+
+	response, err := handler(proposalContext(app, -1), &abci.RequestPrepareProposal{
+		Height:     2,
+		MaxTxBytes: 1 << 20,
+		Txs:        [][]byte{first, failing, panicking, last},
+	})
+	require.NoError(t, err)
+	require.Equal(t, [][]byte{first, last}, response.Txs)
+	require.Equal(t, []string{"first", "failing", "panicking", "last"}, replayed)
+}
+
+// PrepareProposal leaves a candidate out on any replay error and assumes the
+// replay then wrote nothing to the proposal state. runTx writes the ante
+// handler's effects before it runs a PostHandler, so a PostHandler error would
+// break that assumption (see prepareProposal in abci.go). Wiring one requires
+// revisiting PrepareProposal first. The replay also needs BaseApp's
+// transaction encoder, which only PrepareProposalHandler installs.
+func TestPrepareProposalAssumesNoPostHandler(t *testing.T) {
+	app := newTestApp(t)
+	baseApp := reflect.ValueOf(app.BaseApp).Elem()
+
+	postHandler := baseApp.FieldByName("postHandler")
+	require.True(t, postHandler.IsValid(), "BaseApp no longer has a postHandler field; re-check this assumption")
+	require.True(t, postHandler.IsNil(),
+		"a PostHandler is wired: revisit PrepareProposal's omission path in app/abci.go before keeping it")
+
+	txEncoder := baseApp.FieldByName("txEncoder")
+	require.True(t, txEncoder.IsValid(), "BaseApp no longer has a txEncoder field; re-check PrepareProposalVerifyTx")
+	require.False(t, txEncoder.IsNil(), "PrepareProposalVerifyTx needs the BaseApp transaction encoder")
 }
 
 func TestVoteExtInjectionEncodeDecode(t *testing.T) {

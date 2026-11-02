@@ -14,13 +14,19 @@ publication are separate events and are stated explicitly when they occur.
   mempool is admitted at the committed height, so before this change a
   candidate whose validity depends on the height, the block time or an
   earlier candidate could be offered and then refused.
-- Byte and gas selection, the vote-extension injection, `ProcessProposal`,
-  `FinalizeBlock`, ante rules, module versions and genesis are unchanged. A
-  transaction whose wire framing is not canonical is proposed in its
-  canonical encoding, the bytes that were replayed. A block from a patched
-  proposer is accepted by patched and unpatched validators alike.
-- This is a binary change with no upgrade handler. Source publication does
-  not deploy it to any network.
+- A candidate whose replay fails, or panics, is left out and selection
+  continues. Each omission is logged at debug level, with one info line per
+  proposal giving the count. The handler no longer returns an error: if the
+  vote-extension injection (still behind its compiled-off latch) cannot be
+  encoded, it is dropped and the proposal is built without it.
+- Byte and gas selection, `ProcessProposal`, `FinalizeBlock`, ante rules,
+  module versions and genesis are unchanged. A transaction whose wire framing
+  is not canonical is proposed in its canonical encoding, the bytes that were
+  replayed. A block from a patched proposer is accepted by patched and
+  unpatched validators alike.
+- This is a binary change with no upgrade handler. Every release binary built
+  from a commit that contains `b8cff9c1` needs it. Source publication does not
+  deploy it to any network.
 
 ## Package and source — 2026-11-02 `@zerone-chain/sdk` 0.1.1 on npm
 
