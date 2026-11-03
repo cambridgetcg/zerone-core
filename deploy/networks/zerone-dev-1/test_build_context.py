@@ -37,6 +37,7 @@ class BuildContextTests(unittest.TestCase):
         self.assertEqual(result["source_commit"], self.head)
         self.assertTrue((output / "internal/fundsettlementmigration/context.go").is_file())
         self.assertTrue((output / "runtime/runtime.py").is_file())
+        self.assertTrue((output / "runtime/launch-binary-patch.py").is_file())
         for name in ("app/app_test.go", "app/fixture.key", "deploy/private.env", ".git"):
             self.assertFalse((output / name).exists())
         for row in result["files"]:

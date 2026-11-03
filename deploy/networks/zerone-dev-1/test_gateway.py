@@ -96,6 +96,7 @@ class DescriptorUpgradeTest(unittest.TestCase):
                 "advertised_peer": "d" * 40 + "@127.0.0.1:26656", "node_id": "d" * 40,
                 "review_window_blocks": 3600, "local_test": True, "gateway_port": 8080}
             node.upgrade_packet = None
+            node.binary_patch = None
             node.ready = lambda: 10
             node.call = lambda method: {"genesis": {"chain_id": g.CHAIN, "app_state": {"knowledge": {}}}}
             node.cli = lambda *args: b'{"module_versions":[{"name":"knowledge","version":"10"}]}'
@@ -118,6 +119,63 @@ class DescriptorUpgradeTest(unittest.TestCase):
             with self.assertRaisesRegex(g.GatewayError, "no automatic rewrite"):
                 node.descriptor()
             self.assertEqual((node.home / "public/network-knowledge-11.json").read_bytes(), target)
+
+    def test_binary_patch_descriptor_sits_beside_base_and_changes_only_binary_identity(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            node = g.Node.__new__(g.Node)
+            node.home = Path(temporary)
+            node.rpc = "http://127.0.0.1:26657"
+            node.genesis_hash = "a" * 64
+            node.manifest = {"source_commit": "b" * 40, "binary_sha256": "c" * 64,
+                "advertised_peer": "d" * 40 + "@127.0.0.1:26656", "node_id": "d" * 40,
+                "review_window_blocks": 3600, "local_test": True, "gateway_port": 8080}
+            node.ready = lambda: 10
+            node.call = lambda method: {"genesis": {"chain_id": g.CHAIN, "app_state": {"knowledge": {}}}}
+            node.cli = lambda *args: b'{"module_versions":[{"name":"knowledge","version":"11"}]}'
+            # Node.__init__ admits both modes only after the runtime's strict checks.
+            node.upgrade_packet = {"test": "already checked constructor"}
+            node.binary_patch = {"test": "already checked constructor"}
+            with self.assertRaisesRegex(g.GatewayError, "retained base descriptor"):
+                node.descriptor()
+            self.assertFalse((node.home / "public/network-knowledge-11-patch-eeeeeeeeeeee.json").exists())
+            node.binary_patch = None
+            base = node.descriptor()
+            base_bytes = node.descriptor_bytes
+            node.binary_patch = {"test": "already checked constructor"}
+            node.manifest.update(source_commit="e" * 40, binary_sha256="f" * 64)
+            path = node.home / "public/network-knowledge-11-patch-eeeeeeeeeeee.json"
+            for change in ({"advertised_peer": "e" * 40 + "@127.0.0.1:26656"}, {"node_id": "e" * 40}, {"review_window_blocks": 60}):
+                original = dict(node.manifest)
+                node.manifest.update(change)
+                with self.subTest(first=change), self.assertRaisesRegex(g.GatewayError, "beyond the binary identity"):
+                    node.descriptor()
+                node.manifest = original
+                self.assertFalse(path.exists())
+            patched = node.descriptor()
+            path = node.home / "public/network-knowledge-11-patch-eeeeeeeeeeee.json"
+            self.assertEqual(node.descriptor_bytes, path.read_bytes())
+            self.assertEqual((node.home / "public/network-knowledge-11.json").read_bytes(), base_bytes)
+            self.assertFalse((node.home / "public/network.json").exists())
+            self.assertEqual({key for key in base if base[key] != patched[key]}, {"source_commit", "runtime_binary_sha256"})
+            self.assertEqual((patched["source_commit"], patched["runtime_binary_sha256"]), ("e" * 40, "f" * 64))
+            self.assertEqual(node.descriptor(), patched)
+            self.assertEqual(path.read_bytes(), node.descriptor_bytes)
+            # Anything beyond the executable identity is refused before any write.
+            files = {p.name: p.read_bytes() for p in (node.home / "public").iterdir()}
+            for change in ({"advertised_peer": "e" * 40 + "@127.0.0.1:26656"}, {"source_commit": "e" * 39 + "1"}, {"review_window_blocks": 60}):
+                original = dict(node.manifest)
+                node.manifest.update(change)
+                with self.subTest(change=change), self.assertRaisesRegex(g.GatewayError, "beyond the binary identity|no automatic rewrite"):
+                    node.descriptor()
+                node.manifest = original
+            node.manifest["binary_sha256"] = "1" * 64
+            with self.assertRaisesRegex(g.GatewayError, "no automatic rewrite"):
+                node.descriptor()
+            self.assertEqual({p.name: p.read_bytes() for p in (node.home / "public").iterdir()}, files)
+
+    def test_patch_pin_without_upgrade_pin_is_refused_before_reading_the_home(self):
+        with self.assertRaisesRegex(g.GatewayError, "applied upgrade pin"):
+            g.Node("/nonexistent/home", "/nonexistent/zeroned", "http://127.0.0.1:26657", None, "a" * 64)
 
 
 class FaucetTest(unittest.TestCase):

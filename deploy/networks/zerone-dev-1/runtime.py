@@ -34,6 +34,11 @@ VALIDATOR_BOND = 1_000_000_000_000
 FAUCET_ALLOCATION = 1_000_000_000_000
 UPGRADE_NAME = "knowledge-fund-settlement-v1"
 UPGRADE_DIRECTORY = "fund-settlement-upgrade"
+UPGRADE_OBSERVATION = "first-applied-observation.json"
+PATCH_PREFIX = "binary-patch-"
+PATCH_SCHEMA = "zerone-development-binary-patch/v1"
+PATCH_STAGE_SCHEMA = "zerone-development-binary-patch-stage/v1"
+PLATFORMS = ("linux-amd64", "darwin-arm64")
 
 
 class RuntimeError(Exception):
@@ -502,6 +507,134 @@ def upgraded_manifest(manifest, packet):
             "binary_sha256": packet["target"]["binaries"][upgrade_platform()]}
 
 
+def validate_patch_packet(patch):
+    """A binary patch replaces only the applied target's executable, never consensus or state."""
+    exact_fields(patch, ("schema", "chain_id", "genesis_sha256", "upgrade_packet_sha256", "knowledge_version",
+                         "role", "consensus", "base", "patch"), "binary patch packet")
+    if patch["schema"] != PATCH_SCHEMA or patch["chain_id"] != CHAIN:
+        raise RuntimeError("Binary patch packet names another schema or chain.")
+    if patch["role"] != "validator" or patch["consensus"] != "unchanged":
+        raise RuntimeError("A binary patch is validator-only and must leave consensus unchanged.")
+    hash_pin(patch["genesis_sha256"])
+    hash_pin(patch["upgrade_packet_sha256"])
+    if type(patch["knowledge_version"]) is not int:
+        raise RuntimeError("Binary patch knowledge version must be an integer.")
+    for name in ("base", "patch"):
+        exact_fields(patch[name], ("source_commit", "binaries"), "binary patch " + name)
+        hash_pin(patch[name]["source_commit"], 40)
+        binaries = patch[name]["binaries"]
+        if not isinstance(binaries, dict) or not binaries or set(binaries) - set(PLATFORMS):
+            raise RuntimeError("Binary patch pins must name supported platforms only.")
+        for value in binaries.values():
+            hash_pin(value)
+    base, replacement = patch["base"], patch["patch"]
+    if set(base["binaries"]) != set(replacement["binaries"]):
+        raise RuntimeError("Binary patch base and replacement must pin the same platforms.")
+    if replacement["source_commit"] == base["source_commit"] or any(replacement["binaries"][name] == value for name, value in base["binaries"].items()):
+        raise RuntimeError("A binary patch must identify a distinct source and binary.")
+    return patch
+
+
+def patch_directory(home, patch_pin):
+    return home / (PATCH_PREFIX + hash_pin(patch_pin))
+
+
+def bind_patch(patch, packet, upgrade_pin, manifest, selected):
+    if patch["upgrade_packet_sha256"] != upgrade_pin or patch["genesis_sha256"] != packet["genesis_sha256"] or patch["knowledge_version"] != packet["target"]["knowledge_version"]:
+        raise RuntimeError("Binary patch names another applied upgrade.")
+    base = patch["base"]
+    if base["source_commit"] != packet["target"]["source_commit"] or any(packet["target"]["binaries"][name] != value for name, value in base["binaries"].items()):
+        raise RuntimeError("Binary patch base is not the applied upgrade target.")
+    if manifest["role"] != patch["role"]:
+        raise RuntimeError("Binary patch names another runtime role.")
+    if selected not in patch["patch"]["binaries"]:
+        raise RuntimeError("Binary patch pins no binary for this platform.")
+
+
+def applied_observation(home, packet, upgrade_pin, original):
+    """A patch starts only after its base target was itself observed applied."""
+    path = home / UPGRADE_DIRECTORY / UPGRADE_OBSERVATION
+    if not os.path.lexists(path):
+        raise RuntimeError("A binary patch requires the first applied observation of its base.")
+    prior = parse(read(path, 32768, private=True))
+    base = upgraded_manifest(original, packet)
+    expected = {"schema": "zerone-development-upgrade-observation/v1", "chain_id": CHAIN, "packet_sha256": upgrade_pin,
+                "source_commit": base["source_commit"], "binary_sha256": base["binary_sha256"]}
+    if any(prior.get(key) != value for key, value in expected.items()):
+        raise RuntimeError("First applied observation does not record the patch base.")
+    return digest(path)
+
+
+def stage_patch(args, home):
+    """Explicit preparation only: no node, signing, database writer or replacement of earlier files."""
+    with lock(home):
+        raw = read(Path(args.patch_packet), 32768)
+        if hashlib.sha256(raw).hexdigest() != hash_pin(args.patch_packet_sha256):
+            raise RuntimeError("Binary patch packet differs from its external pin.")
+        patch = validate_patch_packet(parse(raw))
+        packet, original = load_upgrade(home, args.upgrade_packet_sha256)
+        if not disk_upgrade_plan(home, packet):
+            raise RuntimeError("A binary patch requires the applied upgrade.")
+        observation = applied_observation(home, packet, args.upgrade_packet_sha256, original)
+        selected = upgrade_platform()
+        bind_patch(patch, packet, args.upgrade_packet_sha256, original, selected)
+        raw_binary = read(Path(args.binary), 256 * 1024 * 1024)
+        if hashlib.sha256(raw_binary).hexdigest() != patch["patch"]["binaries"][selected]:
+            raise RuntimeError("Wrong patch binary for the selected platform.")
+        directory = patch_directory(home, args.patch_packet_sha256)
+        directory.mkdir(mode=0o700)  # Existing/partial preparation is preserved and refused.
+        write_new(directory / "patch.json", raw)
+        path = directory / "patch-zeroned"
+        write_new(path, raw_binary)
+        path.chmod(0o500)
+        binary_identity(path, patch["patch"]["source_commit"])
+        write_new(directory / "stage.json", json_bytes({"schema": PATCH_STAGE_SCHEMA,
+            "patch_packet_sha256": args.patch_packet_sha256, "upgrade_packet_sha256": args.upgrade_packet_sha256,
+            "platform": selected, "original_manifest_sha256": digest(home / MARKER),
+            "applied_observation_sha256": observation}))
+        return {"status": "staged-not-running", "chain_id": CHAIN, "patch_packet_sha256": args.patch_packet_sha256,
+                "source_commit": patch["patch"]["source_commit"], "binary_sha256": patch["patch"]["binaries"][selected]}
+
+
+def load_patch(home, upgrade_pin, patch_pin, packet, original):
+    directory = patch_directory(home, patch_pin)
+    info = directory.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise RuntimeError("Unsafe binary patch directory.")
+    raw = read(directory / "patch.json", 32768, private=True)
+    if hashlib.sha256(raw).hexdigest() != patch_pin:
+        raise RuntimeError("Staged binary patch differs from its external pin.")
+    patch = validate_patch_packet(parse(raw))
+    stage = parse(read(directory / "stage.json", 32768, private=True))
+    exact_fields(stage, ("schema", "patch_packet_sha256", "upgrade_packet_sha256", "platform", "original_manifest_sha256", "applied_observation_sha256"), "binary patch stage")
+    if stage["schema"] != PATCH_STAGE_SCHEMA or stage["patch_packet_sha256"] != patch_pin or stage["upgrade_packet_sha256"] != upgrade_pin or stage["platform"] != upgrade_platform() or stage["original_manifest_sha256"] != digest(home / MARKER):
+        raise RuntimeError("Binary patch preparation no longer matches this home or platform.")
+    if not disk_upgrade_plan(home, packet):
+        raise RuntimeError("A binary patch requires the applied upgrade.")
+    if applied_observation(home, packet, upgrade_pin, original) != stage["applied_observation_sha256"]:
+        raise RuntimeError("First applied observation changed after the patch was staged.")
+    bind_patch(patch, packet, upgrade_pin, original, stage["platform"])
+    if digest(directory / "patch-zeroned") != patch["patch"]["binaries"][stage["platform"]]:
+        raise RuntimeError("The staged patch binary changed.")
+    return patch
+
+
+def patched_manifest(original, packet, patch):
+    return {**upgraded_manifest(original, packet), "source_commit": patch["patch"]["source_commit"],
+            "binary_sha256": patch["patch"]["binaries"][upgrade_platform()]}
+
+
+def retain_observation(path, receipt, keys, create=True):
+    if os.path.lexists(path):
+        prior = parse(read(path, 32768, private=True))
+        if any(prior.get(key) != receipt[key] for key in keys):
+            raise RuntimeError("Retained upgrade observation conflicts with actual applied state.")
+    elif create:
+        write_new(path, json_bytes(receipt))
+    else:
+        raise RuntimeError("A binary patch requires the first applied observation of its base.")
+
+
 def status(manifest, crosscheck=True):
     origin = f"http://127.0.0.1:{manifest['rpc_port']}"
     value = rpc(origin, "/status")
@@ -537,13 +670,19 @@ def run(args, home):
     with (nullcontext() if getattr(args, "upgrade_lock_held", False) else lock(home)):
         packet = getattr(args, "staged_upgrade", None)
         target_phase = getattr(args, "upgrade_target", False)
+        patch = getattr(args, "binary_patch", None)
         if packet is None:
             manifest = load(home, args.binary) if home.exists() else initialize(args, home)
         else:
             checked, original = load_upgrade(home, args.upgrade_packet_sha256)
             if checked != packet:
                 raise RuntimeError("Staged upgrade changed while starting.")
-            manifest = upgraded_manifest(original, packet) if target_phase else original
+            if patch is None:
+                manifest = upgraded_manifest(original, packet) if target_phase else original
+            else:
+                if not target_phase or load_patch(home, args.upgrade_packet_sha256, args.patch_packet_sha256, packet, original) != patch:
+                    raise RuntimeError("Staged binary patch changed while starting.")
+                manifest = patched_manifest(original, packet, patch)
         stopping = False
         def stop_request(_number, _frame):
             nonlocal stopping
@@ -626,24 +765,30 @@ def run(args, home):
                 raise RuntimeError("Node did not demonstrate advancing blocks before timeout.")
             if target_phase:
                 applied = verify_applied_upgrade(args.binary, home, manifest, packet)
+                # The first applied observation always records the base target. A patch
+                # run compares against it, never writes it, and keeps its own record.
+                base = upgraded_manifest(original, packet)
                 receipt = {"schema": "zerone-development-upgrade-observation/v1", "chain_id": CHAIN,
-                    "packet_sha256": args.upgrade_packet_sha256, "source_commit": manifest["source_commit"],
-                    "binary_sha256": manifest["binary_sha256"], "observed_height": str(ready["height"]), **applied}
-                receipt_path = home / UPGRADE_DIRECTORY / "first-applied-observation.json"
-                if os.path.lexists(receipt_path):
-                    prior = parse(read(receipt_path, 32768, private=True))
-                    for key in ("schema", "chain_id", "packet_sha256", "source_commit", "binary_sha256", "module_versions", "applied_height"):
-                        if prior.get(key) != receipt[key]:
-                            raise RuntimeError("Retained upgrade observation conflicts with actual applied state.")
-                else:
-                    write_new(receipt_path, json_bytes(receipt))
+                    "packet_sha256": args.upgrade_packet_sha256, "source_commit": base["source_commit"],
+                    "binary_sha256": base["binary_sha256"], "observed_height": str(ready["height"]), **applied}
+                retain_observation(home / UPGRADE_DIRECTORY / UPGRADE_OBSERVATION, receipt,
+                    ("schema", "chain_id", "packet_sha256", "source_commit", "binary_sha256", "module_versions", "applied_height"),
+                    create=patch is None)
+                if patch is not None:
+                    patched = {"schema": "zerone-development-binary-patch-observation/v1", "chain_id": CHAIN,
+                        "upgrade_packet_sha256": args.upgrade_packet_sha256, "patch_packet_sha256": args.patch_packet_sha256,
+                        "source_commit": manifest["source_commit"], "binary_sha256": manifest["binary_sha256"],
+                        "observed_height": str(ready["height"]), **applied}
+                    retain_observation(patch_directory(home, args.patch_packet_sha256) / "first-patched-observation.json", patched,
+                        ("schema", "chain_id", "upgrade_packet_sha256", "patch_packet_sha256", "source_commit", "binary_sha256", "module_versions", "applied_height"))
             if manifest["role"] == "validator":
                 gateway = Path(args.gateway).absolute()
                 read(gateway, 1024 * 1024)
                 spawn("gateway", [sys.executable, "-I", "-B", str(gateway), "--home", str(home), "--binary", str(args.binary),
                     "--port", str(manifest["gateway_port"]), "--rpc", f"http://127.0.0.1:{manifest['rpc_port']}",
                     "--bind", "127.0.0.1" if manifest["local_test"] else "0.0.0.0",
-                    *(["--upgrade-packet-sha256", args.upgrade_packet_sha256] if target_phase else [])])
+                    *(["--upgrade-packet-sha256", args.upgrade_packet_sha256] if target_phase else []),
+                    *(["--patch-packet-sha256", args.patch_packet_sha256] if patch is not None else [])])
             print(json.dumps({**ready, "source_commit": manifest["source_commit"], "binary_sha256": manifest["binary_sha256"],
                               "advertised_peer": manifest["advertised_peer"], "accounts": manifest["accounts"]}), flush=True)
             while not stopping:
@@ -678,10 +823,18 @@ def run(args, home):
 def run_upgrade(args, home):
     """Run only an explicitly staged transition, holding one lock across both processes."""
     with lock(home):
-        packet, _ = load_upgrade(home, args.upgrade_packet_sha256)
+        packet, original = load_upgrade(home, args.upgrade_packet_sha256)
         args.upgrade_lock_held = True
         args.staged_upgrade = packet
         args.upgrade_target = disk_upgrade_plan(home, packet)
+        if getattr(args, "patch_packet_sha256", None) is not None:
+            # Only an explicit external patch pin selects a staged patch, and only
+            # after the applied boundary; without it, staged patches are ignored.
+            args.binary_patch = load_patch(home, args.upgrade_packet_sha256, args.patch_packet_sha256, packet, original)
+            args.binary = patch_directory(home, args.patch_packet_sha256) / "patch-zeroned"
+            if run(args, home) == "upgrade-boundary":
+                raise RuntimeError("A patched target cannot cross an upgrade boundary.")
+            return
         while True:
             name = "target" if args.upgrade_target else "predecessor"
             args.binary = home / UPGRADE_DIRECTORY / (name + "-zeroned")
@@ -696,7 +849,7 @@ def run_upgrade(args, home):
 def arguments():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
-    for name in ("init", "run", "status", "join", "stage-upgrade", "run-upgrade", "upgrade-status"):
+    for name in ("init", "run", "status", "join", "stage-upgrade", "run-upgrade", "upgrade-status", "stage-patch"):
         cmd = sub.add_parser(name)
         cmd.add_argument("--home", default="/data/.zeroned")
         cmd.add_argument("--binary", default="/usr/local/bin/zeroned", type=Path)
@@ -713,11 +866,16 @@ def arguments():
             cmd.add_argument("--genesis-sha256", required=True)
             cmd.add_argument("--peer", required=True)
             cmd.add_argument("--reference-rpc", required=True)
-        if name in ("stage-upgrade", "run-upgrade", "upgrade-status"):
+        if name in ("stage-upgrade", "run-upgrade", "upgrade-status", "stage-patch"):
             cmd.add_argument("--upgrade-packet-sha256", required=True)
         if name == "stage-upgrade":
             cmd.add_argument("--upgrade-packet", required=True)
             cmd.add_argument("--predecessor-binary", required=True, type=Path)
+        if name in ("run-upgrade", "upgrade-status"):
+            cmd.add_argument("--patch-packet-sha256")
+        if name == "stage-patch":
+            cmd.add_argument("--patch-packet", required=True)
+            cmd.add_argument("--patch-packet-sha256", required=True)
     return parser.parse_args()
 
 
@@ -726,7 +884,7 @@ def main():
     args = arguments()
     try:
         home = home_path(args.home)
-        if args.command not in ("stage-upgrade", "run-upgrade", "upgrade-status") and not args.source_commit and args.build_info.exists():
+        if args.command not in ("stage-upgrade", "run-upgrade", "upgrade-status", "stage-patch") and not args.source_commit and args.build_info.exists():
             info = parse(read(args.build_info, 32768))
             args.source_commit = info["source_commit"]
             if digest(args.binary) != info["binary_sha256"]:
@@ -735,15 +893,24 @@ def main():
             run(args, home)
         elif args.command == "stage-upgrade":
             print(json.dumps(stage_upgrade(args, home)), flush=True)
+        elif args.command == "stage-patch":
+            print(json.dumps(stage_patch(args, home)), flush=True)
         elif args.command == "run-upgrade":
             run_upgrade(args, home)
         elif args.command == "upgrade-status":
             packet, original = load_upgrade(home, args.upgrade_packet_sha256)
-            manifest = upgraded_manifest(original, packet)
-            binary = home / UPGRADE_DIRECTORY / "target-zeroned"
+            if args.patch_packet_sha256 is None:
+                manifest = upgraded_manifest(original, packet)
+                binary, selected = home / UPGRADE_DIRECTORY / "target-zeroned", {}
+            else:
+                patch = load_patch(home, args.upgrade_packet_sha256, args.patch_packet_sha256, packet, original)
+                manifest = patched_manifest(original, packet, patch)
+                binary = patch_directory(home, args.patch_packet_sha256) / "patch-zeroned"
+                selected = {"patch_packet_sha256": args.patch_packet_sha256, "source_commit": manifest["source_commit"],
+                            "binary_sha256": manifest["binary_sha256"]}
             observed = status(manifest)
             applied = verify_applied_upgrade(binary, home, manifest, packet)
-            print(json.dumps({**observed, **applied, "packet_sha256": args.upgrade_packet_sha256}), flush=True)
+            print(json.dumps({**observed, **applied, "packet_sha256": args.upgrade_packet_sha256, **selected}), flush=True)
         elif args.command == "status":
             print(json.dumps(status(load(home, args.binary))), flush=True)
         else:

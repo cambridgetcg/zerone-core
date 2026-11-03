@@ -2,7 +2,10 @@
 """Opt-in staged supervisor test with real SDK governance and an unchanged v10 client.
 
 ZERONE_UPGRADE_PREDECESSOR_ROOT supplies the verified old checkout/package;
-ZERONE_UPGRADE_TARGET_BINARY supplies a source-built successor. All homes and
+ZERONE_UPGRADE_TARGET_BINARY supplies a source-built successor. The optional
+ZERONE_UPGRADE_PATCH_BINARY supplies a state-compatible build of another source
+commit; the test then also runs it as an explicitly pinned binary patch of the
+applied target and returns to the target without the pin. All homes and
 accounts are fresh loopback fixtures controlled by this test. No public chain.
 """
 import argparse
@@ -33,6 +36,8 @@ runtime = module("staged_runtime", Path(__file__).with_name("runtime.py"))
 BEFORE_ROOT = Path(os.environ.get("ZERONE_UPGRADE_PREDECESSOR_ROOT", "/absent"))
 BEFORE = Path(os.environ.get("ZERONE_UPGRADE_PREDECESSOR_BINARY", str(BEFORE_ROOT / "build/zeroned")))
 AFTER = Path(os.environ.get("ZERONE_UPGRADE_TARGET_BINARY", "/absent"))
+PATCH = Path(os.environ.get("ZERONE_UPGRADE_PATCH_BINARY", "/absent"))
+LAUNCHER = Path(runtime.__file__).with_name("launch-binary-patch.py")
 OLD_RUNTIME = BEFORE_ROOT / "deploy/networks/zerone-dev-1/runtime.py"
 shared.CLIENT = BEFORE_ROOT / "scripts/shared-claims.py"
 
@@ -47,7 +52,7 @@ class StagedNative(shared.NativeSharedClaimsTests):
             super().setUp()
         self.evidence.update(schema="zerone-development-staged-upgrade-test/v1", network_scope="fresh loopback zerone-dev-1 only")
         self.packet_pin = None
-        bound = [Path(__file__), Path(runtime.__file__), Path(runtime.__file__).with_name("gateway.py"), OLD_RUNTIME, OLD_RUNTIME.with_name("gateway.py"), BEFORE, AFTER, *[BEFORE_ROOT / "scripts" / name for name in ("shared-claims.py", "claim-workflow.py", "local-node.py")]]
+        bound = [Path(__file__), Path(runtime.__file__), Path(runtime.__file__).with_name("gateway.py"), OLD_RUNTIME, OLD_RUNTIME.with_name("gateway.py"), BEFORE, AFTER, *[BEFORE_ROOT / "scripts" / name for name in ("shared-claims.py", "claim-workflow.py", "local-node.py")], *([PATCH, LAUNCHER] if PATCH.is_file() else [])]
         self.bound_sources = {str(p): runtime.digest(p) for p in bound}
         self.evidence["bound_sources_before"] = self.bound_sources
         if self.reports:
@@ -232,6 +237,8 @@ class StagedNative(shared.NativeSharedClaimsTests):
             if full.poll() is None: full.terminate()
             _, error = full.communicate(timeout=35)
             self.assertEqual(full.returncode, 0, error[-2000:])
+        if PATCH.is_file():
+            self.binary_patch(manifest, new_source, target)
         self.stop()
         self.assertEqual({name:runtime.digest(self.node / name) for name in original_files}, original_files)
         for person, pins in participant_controls.items():
@@ -242,6 +249,63 @@ class StagedNative(shared.NativeSharedClaimsTests):
         self.evidence.update(result="PASS", original_runtime_controls_identity_genesis_faucet_preserved=True,
             old_participant_controls_identity_and_binary_preserved=True, old_client_precommit_postreveal=True,
             predecessor_restart=True, target_restart=True, same_supervisor_transition=True)
+
+    def binary_patch(self, manifest, base_source, target):
+        """Stage and run an explicitly pinned patch of the applied target, then return without its pin."""
+        self.stop()
+        public = self.node / "public"
+        earlier = {path.name: path.read_bytes() for path in public.iterdir()}
+        observation = self.node / runtime.UPGRADE_DIRECTORY / runtime.UPGRADE_OBSERVATION
+        observed = observation.read_bytes()
+        platform, patch_source = runtime.upgrade_platform(), self.source(PATCH)
+        self.assertNotEqual(patch_source, base_source)
+        packet = {"schema": runtime.PATCH_SCHEMA, "chain_id": "zerone-dev-1", "genesis_sha256": manifest["genesis_sha256"],
+            "upgrade_packet_sha256": self.packet_pin, "knowledge_version": 11, "role": "validator", "consensus": "unchanged",
+            "base": {"source_commit": base_source, "binaries": {platform: runtime.digest(AFTER)}},
+            "patch": {"source_commit": patch_source, "binaries": {platform: runtime.digest(PATCH)}}}
+        path = self.root / "binary-patch.json"; path.write_bytes(runtime.json_bytes(packet)); pin = runtime.digest(path)
+        directory = runtime.patch_directory(self.node, pin)
+        launch = [sys.executable, "-I", "-B", str(LAUNCHER), "--home", str(self.node), "--runtime", runtime.__file__,
+            "--upgrade-packet-sha256", self.packet_pin, "--patch-packet", str(path), "--patch-packet-sha256", pin, "--patch-binary", str(PATCH)]
+        def launched(first):
+            self.process = subprocess.Popen(launch, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if first:  # Only the first boot stages, and staging reports before the node starts.
+                readable, _, _ = select.select([self.process.stdout], [], [], 60)
+                self.assertTrue(readable, "launcher did not stage")
+                staged = json.loads(self.process.stdout.readline())
+                self.assertEqual((staged["status"], staged["source_commit"]), ("staged-not-running", patch_source))
+            return self.read_ready()
+        ready = launched(True)
+        self.assertEqual((ready["source_commit"], ready["binary_sha256"]), (patch_source, runtime.digest(PATCH)))
+        served = self.get("/network.json")
+        descriptor = json.loads(served)
+        base = json.loads(earlier["network-knowledge-11.json"])
+        self.assertEqual(descriptor, dict(base, source_commit=patch_source, runtime_binary_sha256=runtime.digest(PATCH)))
+        self.assertEqual((public / f"network-knowledge-11-patch-{patch_source[:12]}.json").read_bytes(), served)
+        self.assertEqual({name: (public / name).read_bytes() for name in earlier}, earlier)
+        self.assertEqual(observation.read_bytes(), observed)
+        status = self.command([sys.executable, "-I", "-B", runtime.__file__, "upgrade-status", "--home", self.node,
+            "--upgrade-packet-sha256", self.packet_pin, "--patch-packet-sha256", pin])
+        self.assertEqual((status["source_commit"], status["applied_height"], status["patch_packet_sha256"]), (patch_source, str(target), pin))
+        # The patched validator keeps committing ordinary signed transactions.
+        claim = self.client("reviewer2", "submit", "--content", "Synthetic patched-validator claim: 4 + 4 = 8.",
+            "--method", "M-COMPUTATIONAL", "--reasoning", "Local patch check.")["claim_id"]
+        self.assertEqual(json.loads(self.get("/claims/" + claim))["record"]["claim"]["id"], claim)
+        staged = {p.name: p.read_bytes() for p in directory.iterdir()}
+        self.assertEqual(set(staged), {"patch.json", "patch-zeroned", "stage.json", "first-patched-observation.json"})
+        self.stop()
+        self.assertEqual(launched(False)["source_commit"], patch_source, "a restart must not restage")
+        self.assertEqual({p.name: p.read_bytes() for p in directory.iterdir()}, staged)
+        self.stop()
+        # Without the patch pin the same supervisor runs the base target again; nothing is removed.
+        self.assertEqual(self.start_mode(True)["source_commit"], base_source)
+        self.assertEqual(self.get("/network.json"), earlier["network-knowledge-11.json"])
+        self.assertEqual({p.name: p.read_bytes() for p in directory.iterdir()}, staged)
+        self.assertEqual(observation.read_bytes(), observed)
+        self.evidence.update(binary_patch={"patch_source": patch_source, "patch_packet_sha256": pin, "patched_status": status,
+            "patched_descriptor_sha256": runtime.digest(public / f"network-knowledge-11-patch-{patch_source[:12]}.json"),
+            "patched_claim": claim, "launcher_restart_restaged": False, "unpinned_return_source": base_source})
+
 
 if __name__ == "__main__":
     unittest.main()
