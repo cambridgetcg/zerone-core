@@ -141,15 +141,17 @@ function defaultUpgradeNotice(publication?: DevelopmentPublication): Development
   return DEVELOPMENT_UPGRADE_PROPOSAL;
 }
 
-function packageLinks(sourceCommit: string, runtimeCommit: string, role: "original" | "participant" | "predecessor" = "original") {
+function packageLinks(sourceCommit: string, runtimeCommit: string, role: "original" | "participant" | "predecessor" = "original", patched = false) {
   const tag = `zerone-dev-1-${runtimeCommit.slice(0, 12)}${role === "participant" ? "-participants-v1" : ""}`;
   const recordPath = `deploy/networks/zerone-dev-1/${role === "predecessor" ? "release-knowledge-10.json" : "release.json"}`;
+  // Under a runtime patch, network.json is the served patch descriptor; the packages bind to the retained base.
+  const descriptorFile = role === "predecessor" ? "network-knowledge-10.json" : patched ? "network-knowledge-11.json" : "network.json";
   return {
     tag,
     releaseUrl: `${REPOSITORY}/releases/tag/${tag}`,
     recordUrl: `${REPOSITORY}/blob/${sourceCommit}/${recordPath}`,
     recordRawUrl: `https://raw.githubusercontent.com/cambridgetcg/zerone-core/${sourceCommit}/${recordPath}`,
-    descriptorUrl: `${REPOSITORY}/blob/${sourceCommit}/deploy/networks/zerone-dev-1/${role === "predecessor" ? "network-knowledge-10.json" : "network.json"}`,
+    descriptorUrl: `${REPOSITORY}/blob/${sourceCommit}/deploy/networks/zerone-dev-1/${descriptorFile}`,
     sourceScope: role === "participant" ? "The Linux package identifies the observed version-11 runtime binary. The macOS package contains a separate platform build from the same source. Both include the version-11 descriptor; the checksum record and instructions are pinned to this website's source commit." : "Package source is the runtime commit; the release record and instructions are pinned to this website's source commit.",
     verification: "Verify the archive SHA-256 against the source-pinned release record before extracting or running it. That record also identifies each platform's binary hash. A checksum identifies bytes; it is not a security audit or independent operator trust.",
     artifacts: [
@@ -246,7 +248,7 @@ export function buildDevelopmentProfile(sourceCommit: string, publication?: Deve
     source: { commit: sourceCommit, guide: source("docs/SHARED-DEVELOPMENT.md"), client: source("scripts/shared-claims.py"), scope: "Website documentation and participant client source; deployed binary source is identified separately." },
     endpoints: { descriptor: `${DEVELOPMENT_GATEWAY}/network.json`, genesis: `${DEVELOPMENT_GATEWAY}/genesis.json`, gateway: DEVELOPMENT_GATEWAY },
     publication: publication ?? null,
-    packages: basis ? packageLinks(sourceCommit, basis.runtime_source_commit, applied ? "participant" : "original") : null,
+    packages: basis ? packageLinks(sourceCommit, basis.runtime_source_commit, applied ? "participant" : "original", Boolean(patch)) : null,
     runtimePatch: patch ? {
       ...patch,
       packetUrl: source(runtimePatchPacketPath(publication!)),

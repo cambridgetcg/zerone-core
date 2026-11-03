@@ -253,6 +253,9 @@ describe("applied upgrade publication and preserved replay packages", () => {
   it("binds a runtime patch's served pins to the patch and its packages and evidence to the base", () => {
     const profile = buildDevelopmentProfile(commit, patched, applied);
     assert.equal(profile.packages?.tag, applied.participant_release_tag);
+    // The packages' descriptor is the retained base, not the served patch descriptor.
+    assert.match(profile.packages!.descriptorUrl, new RegExp(`/${commit}/deploy/networks/zerone-dev-1/network-knowledge-11\\.json$`, "u"));
+    assert.match(buildDevelopmentProfile(commit, successor, applied).packages!.descriptorUrl, /\/deploy\/networks\/zerone-dev-1\/network\.json$/u);
     assert.equal(profile.upgradeApplied?.binary_sha256, successor.binary_sha256);
     assert.equal(profile.publication?.runtime_source_commit, patched.runtime_source_commit);
     assert.match(profile.runtimePatch!.recordUrl, new RegExp(`/${commit}/docs/reports/development-binary-patch-2026-11-02\\.json$`, "u"));
