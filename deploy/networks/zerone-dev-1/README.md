@@ -25,6 +25,23 @@ machine with `fly machine update --image` and check that `init.exec` is
 unchanged. The [dated record](../../../docs/reports/development-gateway-redeploy-2026-10-26.json)
 has the hashes, checks and rollback.
 
+On 2026-11-03 an agent session, on Yu's word, moved the hosted validator to an
+explicitly pinned binary patch of the applied knowledge-11 runtime: packet
+[binary-patch-bd8cfafdfba7.json](binary-patch-bd8cfafdfba7.json) (`4b2c14a8…`).
+The patch source `bd8cfafdfba78ebf06742167c1a542e18e444969` is `5542b221` plus
+cherry-picks of the commits in PR #167, and its Linux
+binary is `2fe28bea…`. The patch is validator-only: consensus, genesis,
+identities, the faucet journal, [release.json](release.json) and the participant
+and full-node packages are unchanged. [network.json](network.json) is now the
+served patch descriptor (`33620a6a…`). It differs from the applied knowledge-11
+descriptor, kept as [network-knowledge-11.json](network-knowledge-11.json)
+(`768d7dd7…`), only in `source_commit` and `runtime_binary_sha256`. The
+machine's `init.exec` now runs the image's `launch-binary-patch.py` with both
+pins (PR #166); an image-only
+`fly machine update --image` keeps it. The
+[dated record](../../../docs/reports/development-binary-patch-2026-11-03.json)
+has the hashes, checks and rollback.
+
 The 2026-09-12 launch used source
 `ac5684e33b6946a31f6ea260ebf280eace55b033`. Its original package and descriptor
 records are preserved as [release-knowledge-10.json](release-knowledge-10.json)

@@ -1,0 +1,21 @@
+{
+  "base": {
+    "binaries": {
+      "linux-amd64": "6cbafddf0d1c8dda3e6ab9f8a5d87d49992f7b699f746ee2d7632e494115a2c6"
+    },
+    "source_commit": "5542b221864ca0080e143fa82abbef4cd2064f71"
+  },
+  "chain_id": "zerone-dev-1",
+  "consensus": "unchanged",
+  "genesis_sha256": "f8b4570b37fd41d5b63c02fbae1f89225c197c75315e8629650716f6e5f79256",
+  "knowledge_version": 11,
+  "patch": {
+    "binaries": {
+      "linux-amd64": "2fe28bea7297c6a83d0c0abecbed222ade9af4a8b94967acbfb4431027297bf7"
+    },
+    "source_commit": "bd8cfafdfba78ebf06742167c1a542e18e444969"
+  },
+  "role": "validator",
+  "schema": "zerone-development-binary-patch/v1",
+  "upgrade_packet_sha256": "04f0415a361396e28397155ecb3c0b13d578475ebf1b86c3e2e2b5d533006f75"
+}
