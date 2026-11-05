@@ -95,14 +95,31 @@ handler and is not an H1 or H2 artifact for that legacy state; use it only for
 the later SDK/IBC boundary after both H1 and H2 are committed and independently
 verified.
 
+Every release source must also keep `PrepareProposal` coherent with
+`ProcessProposal`. Since `b8cff9c1`, `ProcessProposal` replays each regular
+transaction through the ante handler and refuses the block when one fails;
+`PrepareProposal` replays its candidates the same way only from `cd6cd145`
+(#167). Before freezing a candidate source, run
+`python3 -I scripts/proposal-coherence-gate.py --commit <candidate> --out <report>`
+with Python 3.12 or later from a full clone of `main` (in a shallow clone
+ancestry is unknown and the gate declines to decide), and bind the SHA-256 of
+the `--out` file to the release evidence. The gate reads the commit's own Git
+objects and runs the coherence tests in an archive of it. A source that
+descends from `b8cff9c1`, which is every trunk commit since 2026-09-03 and so
+any H3 source frozen from the integrated tip, must report `COHERENT`. A source
+older than that, such as the H1 and H2 pins or the 2026-08-01 H3 candidate
+`335bb94f`, reports `NOT_AFFECTED`. `REFUSED`, or exit status 2, is a no-go,
+whatever the branch or tag is called.
+
 ## Operator steps
 
 1. **Freeze and attest the release.** Add the new named handler (copy the
    `v1.0.3-testnet` block in
    `app/upgrades.go`: `RunMigrations` + `ReconcileModuleAccountPerms` + a
    marker), a lineage entry in `app/upgrade_registry.go`, a
-   `RegisterStoreUpgrades` case if store keys change. Freeze the source
-   commit, build reproducibly, record checksums and provenance, and rehearse
+   `RegisterStoreUpgrades` case if store keys change. Run the
+   proposal-coherence gate on the candidate source commit (above), then
+   freeze it, build reproducibly, record checksums and provenance, and rehearse
    an old-binary-to-new-binary handoff from a trusted database copy. A
    same-binary handler test is necessary but is not proof of that handoff.
 

@@ -3,6 +3,28 @@
 Notable source changes are recorded here. Network activation and package
 publication are separate events and are stated explicitly when they occur.
 
+## Source — 2026-11-05 Proposal-coherence release gate
+
+- `scripts/proposal-coherence-gate.py` decides, for one release source
+  commit, whether `PrepareProposal` is coherent with `ProcessProposal`. It reads
+  the commit's Git objects (not a worktree) and reports `NOT_AFFECTED` when no
+  non-test Go file replays the ante in `ProcessProposal` and the commit descends
+  from neither anchor, `COHERENT` when `PrepareProposal` replays its candidates
+  and the eleven named coherence tests, with all their subtests, pass in a
+  `git archive` of the commit, and `REFUSED` otherwise, including a descendant
+  of `b8cff9c1` it no longer recognises and a descendant of `cd6cd145` that has
+  lost the fix. It exits 2 without a verdict in a shallow clone, without an
+  anchor commit, on Python older than 3.12, or when Go cannot build or run the
+  tests at all.
+- `docs/UPGRADES.md` and the `zerone-2` go/no-go checklist require its report,
+  from a full clone of `main`, before a candidate source is frozen. CI's Test
+  job, now on a full-history checkout, runs its offline self-tests and the gate
+  itself on the commit under test.
+- On 2026-11-05 it reported `NOT_AFFECTED` for zerone-1's source `2e37c4c`, the
+  H1 and H2 pins and the 2026-08-01 H3 candidate `335bb94f`; `REFUSED` for
+  `b8cff9c1` and zerone-dev-1's base `5542b221`; and `COHERENT` for `cd6cd145`
+  and zerone-dev-1's patch source `bd8cfafd`.
+
 ## Source — 2026-11-02 PrepareProposal and ProcessProposal coherence
 
 - `PrepareProposal` now replays each candidate transaction through the full

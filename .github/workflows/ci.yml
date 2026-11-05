@@ -723,12 +723,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The proposal-coherence gate needs full history to judge ancestry.
+          fetch-depth: 0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
       - name: Test
         run: make test
+      - name: Proposal-coherence release gate (offline self-tests)
+        run: python3 -I -B -m unittest discover -s scripts -p 'test_proposal_coherence_gate.py' -v
+      - name: Proposal-coherence release gate on the tested commit
+        run: python3 -I -B scripts/proposal-coherence-gate.py --commit HEAD
       - name: Offline relaunch accounting race checks
         run: go test -race ./tools/relaunch-accounting -count=1 -timeout=120s
 
