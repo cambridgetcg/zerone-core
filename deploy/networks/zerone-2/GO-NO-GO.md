@@ -9,6 +9,10 @@ deliberately different scopes.
 ## Immutable release packet
 
 - [ ] Source commit / signed annotated tag / signer fingerprint: `REPLACE`
+- [ ] `scripts/proposal-coherence-gate.py`, run with Python 3.12 or later from
+      a full clone of `main` against that source commit, reports `COHERENT` or
+      `NOT_AFFECTED` ([UPGRADES.md](../../../docs/UPGRADES.md)); SHA-256 of its
+      `--out` report: `REPLACE`
 - [ ] Out-of-band authorized OpenPGP decision signer fingerprint equals the
       release-tag signer, all five canonical operator JSON authority fields,
       and all four main-key initiation/registration evidence fields:
