@@ -68,11 +68,15 @@ func (x *Params) GetEnabled() bool {
 
 // GenesisState defines the ibcratelimit module genesis state.
 type GenesisState struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Params        *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
-	RateLimits    []*RateLimit           `protobuf:"bytes,2,rep,name=rate_limits,json=rateLimits,proto3" json:"rate_limits,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Params     *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
+	RateLimits []*RateLimit           `protobuf:"bytes,2,rep,name=rate_limits,json=rateLimits,proto3" json:"rate_limits,omitempty"`
+	// Refund-identity marker (zerone-core #127). Native genesis sets it; a
+	// file without the field imports as off. In place, only the named carrier
+	// upgrade consensus-repairs-v1 sets it.
+	RefundIdentityEnabled bool `protobuf:"varint,3,opt,name=refund_identity_enabled,json=refundIdentityEnabled,proto3" json:"refund_identity_enabled,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -119,17 +123,25 @@ func (x *GenesisState) GetRateLimits() []*RateLimit {
 	return nil
 }
 
+func (x *GenesisState) GetRefundIdentityEnabled() bool {
+	if x != nil {
+		return x.RefundIdentityEnabled
+	}
+	return false
+}
+
 var File_zerone_ibcratelimit_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_ibcratelimit_v1_genesis_proto_rawDesc = "" +
 	"\n" +
 	"$zerone/ibcratelimit/v1/genesis.proto\x12\x16zerone.ibcratelimit.v1\x1a\"zerone/ibcratelimit/v1/types.proto\"\"\n" +
 	"\x06Params\x12\x18\n" +
-	"\aenabled\x18\x01 \x01(\bR\aenabled\"\x8a\x01\n" +
+	"\aenabled\x18\x01 \x01(\bR\aenabled\"\xc2\x01\n" +
 	"\fGenesisState\x126\n" +
 	"\x06params\x18\x01 \x01(\v2\x1e.zerone.ibcratelimit.v1.ParamsR\x06params\x12B\n" +
 	"\vrate_limits\x18\x02 \x03(\v2!.zerone.ibcratelimit.v1.RateLimitR\n" +
-	"rateLimitsB5Z3github.com/zerone-chain/zerone/x/ibcratelimit/typesb\x06proto3"
+	"rateLimits\x126\n" +
+	"\x17refund_identity_enabled\x18\x03 \x01(\bR\x15refundIdentityEnabledB5Z3github.com/zerone-chain/zerone/x/ibcratelimit/typesb\x06proto3"
 
 var (
 	file_zerone_ibcratelimit_v1_genesis_proto_rawDescOnce sync.Once

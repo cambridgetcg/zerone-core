@@ -136,6 +136,12 @@ export interface GenesisState {
    * all module initialization completes; false retains historical semantics.
    */
   accountingSafetyEnabled: boolean;
+  /**
+   * Seat-runoff ordering marker (zerone-core #117). Native genesis sets it; a
+   * file without the field imports as off. In place, only the named carrier
+   * upgrade consensus-repairs-v1 sets it.
+   */
+  seatRunoffOrderingEnabled: boolean;
 }
 function createBaseParams(): Params {
   return {
@@ -507,7 +513,8 @@ function createBaseGenesisState(): GenesisState {
     nextSeatElectionNumber: BigInt(0),
     creedAmendmentPins: [],
     emergencyTransitionHold: undefined,
-    accountingSafetyEnabled: false
+    accountingSafetyEnabled: false,
+    seatRunoffOrderingEnabled: false
   };
 }
 /**
@@ -555,6 +562,9 @@ export const GenesisState = {
     if (message.accountingSafetyEnabled === true) {
       writer.uint32(96).bool(message.accountingSafetyEnabled);
     }
+    if (message.seatRunoffOrderingEnabled === true) {
+      writer.uint32(104).bool(message.seatRunoffOrderingEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -600,6 +610,9 @@ export const GenesisState = {
         case 12:
           message.accountingSafetyEnabled = reader.bool();
           break;
+        case 13:
+          message.seatRunoffOrderingEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -621,6 +634,7 @@ export const GenesisState = {
     message.creedAmendmentPins = object.creedAmendmentPins?.map(e => GenesisCreedAmendmentPin.fromPartial(e)) || [];
     message.emergencyTransitionHold = object.emergencyTransitionHold !== undefined && object.emergencyTransitionHold !== null ? EmergencyTransitionHold.fromPartial(object.emergencyTransitionHold) : undefined;
     message.accountingSafetyEnabled = object.accountingSafetyEnabled ?? false;
+    message.seatRunoffOrderingEnabled = object.seatRunoffOrderingEnabled ?? false;
     return message;
   }
 };

@@ -203,13 +203,15 @@ class Node:
             raise GatewayError("RPC genesis names a different chain")
         versions = parse(self.cli("query", "upgrade", "module-versions", "--node", self.rpc, "--output", "json"))
         knowledge = [row.get("version") for row in versions.get("module_versions", []) if row.get("name") == "knowledge"]
-        if len(knowledge) != 1 or str(knowledge[0]) not in ("10", "11"):
+        if len(knowledge) != 1 or str(knowledge[0]) not in ("10", "11", "12", "13"):
             raise GatewayError("Unsupported current knowledge module version")
         knowledge_version = int(knowledge[0])
-        if self.upgrade_packet is not None and knowledge_version != 11:
-            raise GatewayError("Staged gateway requires applied knowledge 11")
-        if knowledge_version == 11 and self.upgrade_packet is None and genesis.get("app_state", {}).get("knowledge", {}).get("fund_settlement_enabled") is not True:
+        if self.upgrade_packet is not None and knowledge_version != self.upgrade_packet["target"]["knowledge_version"]:
+            raise GatewayError("Staged gateway requires the exact pinned target knowledge version")
+        if knowledge_version >= 11 and self.upgrade_packet is None and genesis.get("app_state", {}).get("knowledge", {}).get("fund_settlement_enabled") is not True:
             raise GatewayError("Upgraded ledger requires the explicit staged gateway path")
+        if knowledge_version >= 12 and self.upgrade_packet is None and genesis.get("app_state", {}).get("knowledge", {}).get("claim_integrity_enabled") is not True:
+            raise GatewayError("Claim-integrity ledger requires the explicit staged gateway path")
         local_test = self.manifest.get("local_test") is True
         endpoint = (f"http://127.0.0.1:{self.manifest['gateway_port']}" if local_test else "https://zerone-dev-1.fly.dev")
         value = {"schema": "zerone-shared-development/v1", "chain_id": CHAIN,
@@ -228,12 +230,12 @@ class Node:
         directory.mkdir(mode=0o700, exist_ok=True)
         if directory.is_symlink() or not directory.is_dir():
             raise GatewayError("Invalid public packet directory")
-        path = directory / ("network-knowledge-11.json" if self.upgrade_packet is not None else "network.json")
+        path = directory / (f"network-knowledge-{knowledge_version}.json" if self.upgrade_packet is not None else "network.json")
         if self.binary_patch is not None:
             # A patch changes only the executable's identity. Its descriptor sits beside
             # the retained base descriptor and may differ from it in nothing else.
             base_path = path
-            path = directory / f"network-knowledge-11-patch-{self.manifest['source_commit'][:12]}.json"
+            path = directory / f"network-knowledge-{knowledge_version}-patch-{self.manifest['source_commit'][:12]}.json"
             if not base_path.exists():
                 raise GatewayError("A binary patch requires the retained base descriptor")
             base = parse(regular_bytes(base_path))

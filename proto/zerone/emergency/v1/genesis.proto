@@ -31,6 +31,10 @@ message GenesisState {
   // Finalized Guardian authorization for one exact SDK governance recovery
   // proposal in the currently active quarantine incident.
   EmergencyRecoveryAuthorization recovery_authorization = 12;
+  // Halt-reason scoping marker (zerone-core #125). Native genesis sets it; a
+  // file without the field imports as off. In place, only the named carrier
+  // upgrade consensus-repairs-v1 sets it.
+  bool halt_reason_scoping_enabled = 13;
 }
 
 // GuardianProposalCount is one canonical, sorted anti-abuse counter.

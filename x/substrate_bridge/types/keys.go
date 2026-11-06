@@ -32,6 +32,11 @@ var (
 	SourceRefPrefix = []byte{0x8E}
 
 	DedupeArmedKey = []byte{0x8F}
+
+	// QualificationSemanticsEnabledKey is the consensus-repairs-v1 marker for
+	// zerone-core #126 (keeper/qualification_semantics_activation.go). Genesis
+	// carries it as a typed field, never as a raw state entry.
+	QualificationSemanticsEnabledKey = []byte{0x90}
 )
 
 // SourceRefKey indexes the one attestation holding an external source

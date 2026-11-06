@@ -380,6 +380,10 @@ message GenesisState {
   // Claim attribution, verdict and reversal integrity (knowledge v12); requires
   // fund settlement. Import does not invent upgrade receipts or rewrite records.
   bool claim_integrity_enabled = 71;
+  // Reformulation-tie and vindication-ordering marker (zerone-core #118). Native genesis sets it; a
+  // file without the field imports as off. In place, only the named carrier
+  // upgrade consensus-repairs-v1 sets it.
+  bool reformulation_vindication_ordering_enabled = 72;
 }
 
 // Exports each ordered source/target pair once, including full provenance.

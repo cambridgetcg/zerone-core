@@ -86,13 +86,17 @@ func (k msgServer) RecordVerification(goCtx context.Context, msg *types.MsgRecor
 // AnalyzeDomain triggers a capture risk analysis for a specific domain.
 func (k msgServer) AnalyzeDomain(goCtx context.Context, msg *types.MsgAnalyzeDomain) (*types.MsgAnalyzeDomainResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	integerVariance, err := k.IntegerVarianceEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	if msg.Domain == "" {
 		return nil, fmt.Errorf("%w: domain is required", types.ErrInvalidDomain)
 	}
 
 	params := k.GetParams(ctx)
-	metrics := k.AnalyzeCaptureRisk(ctx, msg.Domain, params)
+	metrics := k.AnalyzeCaptureRisk(ctx, msg.Domain, params, integerVariance)
 
 	if metrics == nil {
 		return &types.MsgAnalyzeDomainResponse{}, nil

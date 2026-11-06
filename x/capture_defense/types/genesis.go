@@ -10,6 +10,8 @@ func DefaultGenesis() *GenesisState {
 		DomainReputations:        []*DomainReputation{},
 		CaptureMetrics:           []*CaptureMetrics{},
 		CrossStratumRequirements: DefaultCrossStratumRules(),
+		// A new chain starts with the consensus-repairs-v1 selection on.
+		IntegerVarianceEnabled: true,
 	}
 }
 

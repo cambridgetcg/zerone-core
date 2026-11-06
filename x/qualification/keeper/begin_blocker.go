@@ -18,6 +18,10 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	singleRefund, err := k.SingleRefundEnabled(ctx)
+	if err != nil {
+		return err
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	currentBlock := uint64(sdkCtx.BlockHeight())
 	params := k.GetParams(ctx)
@@ -39,7 +43,7 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		case types.QualificationStatus_QUALIFICATION_STATUS_ACTIVE:
 			// Check expiry.
 			if q.ExpiresAt > 0 && currentBlock >= q.ExpiresAt {
-				k.expireQualification(ctx, q, currentBlock, params)
+				k.expireQualification(ctx, q, currentBlock, params, singleRefund)
 			}
 
 		case types.QualificationStatus_QUALIFICATION_STATUS_PROBATIONARY:
@@ -49,7 +53,7 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 			}
 			// Also check overall expiry.
 			if q.ExpiresAt > 0 && currentBlock >= q.ExpiresAt {
-				k.expireQualification(ctx, q, currentBlock, params)
+				k.expireQualification(ctx, q, currentBlock, params, singleRefund)
 			}
 		}
 		return false
@@ -73,17 +77,60 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 }
 
 // expireQualification handles qualification expiry.
-func (k Keeper) expireQualification(ctx context.Context, q *types.DomainQualification, currentBlock uint64, params *types.Params) {
+func (k Keeper) expireQualification(ctx context.Context, q *types.DomainQualification, currentBlock uint64, params *types.Params, singleRefund bool) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	if !singleRefund {
+		// Preserve the predecessor's writes, uncached refund and events until
+		// the separately authorized carrier enables single-refund semantics.
+		q.Status = types.QualificationStatus_QUALIFICATION_STATUS_EXPIRED
+		k.SetQualification(ctx, q)
+		if q.Pathway == types.QualificationPathway_QUALIFICATION_PATHWAY_STAKE && q.StakedAmount != "" {
+			if currentBlock >= q.GrantedAt+params.StakeLockPeriod {
+				_ = k.unlockStake(ctx, q.Validator, q.StakedAmount, false)
+			}
+		}
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+			"zerone.qualification.qualification_expired",
+			sdk.NewAttribute("validator", q.Validator),
+			sdk.NewAttribute("domain", q.Domain),
+		))
+		return
+	}
+	refundCtx, write := sdkCtx.CacheContext()
 
 	q.Status = types.QualificationStatus_QUALIFICATION_STATUS_EXPIRED
-	k.SetQualification(ctx, q)
+	pendingReason := ""
 
-	// Unlock stake for stake-pathway qualifications.
+	// Commit the refund and cleared liability together. A failed bank call may
+	// already have written state or events; discard its cache, not the claim.
 	if q.Pathway == types.QualificationPathway_QUALIFICATION_PATHWAY_STAKE && q.StakedAmount != "" {
-		if currentBlock >= q.GrantedAt+params.StakeLockPeriod {
-			_ = k.unlockStake(ctx, q.Validator, q.StakedAmount)
+		if currentBlock < q.GrantedAt+params.StakeLockPeriod {
+			pendingReason = "stake_locked"
+		} else if err := k.unlockStake(refundCtx, q.Validator, q.StakedAmount, true); err != nil {
+			pendingReason = "transfer_failed"
+			k.Logger(ctx).Error("qualification stake refund pending", "validator", q.Validator, "domain", q.Domain, "error", err)
+		} else {
+			q.StakedAmount = ""
 		}
+	}
+
+	if pendingReason != "" {
+		// Reuse the existing non-eligible, withdrawable SUSPENDED state for an
+		// unpaid expiry. Retain the amount and deadline; withdrawal retries after
+		// the lock ends. Do not retry from BeginBlock or mark it EXPIRED: legacy
+		// EXPIRED records with an amount have an ambiguous refund history.
+		q.Status = types.QualificationStatus_QUALIFICATION_STATUS_SUSPENDED
+		q.ProbationUntil = 0
+		k.SetQualification(ctx, q)
+		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+			"zerone.qualification.stake_refund_pending",
+			sdk.NewAttribute("validator", q.Validator),
+			sdk.NewAttribute("domain", q.Domain),
+			sdk.NewAttribute("reason", pendingReason),
+		))
+	} else {
+		k.SetQualification(refundCtx, q)
+		write()
 	}
 
 	sdkCtx.EventManager().EmitEvent(
@@ -137,9 +184,12 @@ func (k Keeper) promoteProbationary(ctx context.Context, q *types.DomainQualific
 }
 
 // unlockStake returns staked tokens to the validator.
-func (k Keeper) unlockStake(ctx context.Context, validator string, amount string) error {
+func (k Keeper) unlockStake(ctx context.Context, validator string, amount string, singleRefund bool) error {
 	if k.bankKeeper == nil {
-		return nil
+		if !singleRefund {
+			return nil // Historical nil-adapter behavior, before activation only.
+		}
+		return fmt.Errorf("bank keeper is not configured")
 	}
 	amt := new(big.Int)
 	if _, ok := amt.SetString(amount, 10); !ok || amt.Sign() <= 0 {

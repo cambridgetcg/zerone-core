@@ -7,6 +7,8 @@ func DefaultGenesis() *GenesisState {
 		Params:      DefaultParams(),
 		Challenges:  []*CaptureChallenge{},
 		BountyPools: []*DomainBountyPool{},
+		// A new chain starts with the consensus-repairs-v1 selection on.
+		ChallengeAccountingEnabled: true,
 	}
 }
 

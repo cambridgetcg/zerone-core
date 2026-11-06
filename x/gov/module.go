@@ -12,6 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 
+	"github.com/zerone-chain/zerone/internal/consensusrepairsmigration"
 	"github.com/zerone-chain/zerone/x/gov/keeper"
 	"github.com/zerone-chain/zerone/x/gov/types"
 )
@@ -74,6 +75,9 @@ func (AppModule) IsOnePerModuleType() {}
 func (AppModule) IsAppModule()        {}
 
 func (am AppModule) RegisterServices(cfg module.Configurator) {
+	if err := cfg.RegisterMigration(types.ModuleName, 3, consensusrepairsmigration.Require); err != nil {
+		panic(err)
+	}
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServerImpl(am.keeper))
 
@@ -103,10 +107,15 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, _ codec.JSONCodec) json.RawMe
 	return bz
 }
 
-func (AppModule) ConsensusVersion() uint64 { return 3 }
+func (AppModule) ConsensusVersion() uint64 { return 4 }
 
 func (am AppModule) BeginBlock(ctx context.Context) error {
-	am.keeper.BeginBlocker(sdk.UnwrapSDKContext(ctx))
+	enabled, err := am.keeper.HaltReasonScopingEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	k := am.keeper.WithHaltReasonScoping(enabled)
+	k.BeginBlocker(sdk.UnwrapSDKContext(ctx))
 	return nil
 }
 

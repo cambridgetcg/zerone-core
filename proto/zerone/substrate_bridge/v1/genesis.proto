@@ -22,6 +22,11 @@ message GenesisState {
   // the one-source/one-mint replay wall: rebuilding from duplicate historical
   // attestations could otherwise choose a different holder.
   repeated GenesisStateEntry state_entries = 3;
+  // Qualification-semantics marker (zerone-core #126). Native genesis sets it; a
+  // file without the field imports as off. In place, only the named carrier
+  // upgrade consensus-repairs-v1 sets it.
+  // Its store key is typed state, so it never appears in state_entries.
+  bool qualification_semantics_enabled = 4;
 }
 
 // GenesisStateEntry is one allow-listed substrate_bridge KV entry.

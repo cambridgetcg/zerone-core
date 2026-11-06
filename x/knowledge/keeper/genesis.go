@@ -292,6 +292,12 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 			return err
 		}
 	}
+	// Only an explicit true writes the marker; absence keeps legacy semantics.
+	if gs.ReformulationVindicationOrderingEnabled {
+		if err := k.EnableReformulationVindicationOrdering(ctx); err != nil {
+			return err
+		}
+	}
 	claims := gs.PendingClaims
 	if gs.ClaimIntegrityEnabled {
 		// Each claim's first save below takes its dedup entries, and the file
@@ -477,6 +483,10 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	if err != nil {
 		panic(err)
 	}
+	reformulationVindicationOrdering, err := k.ReformulationVindicationOrderingEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 	transitions, cascades, historyCounters, err := k.ExportKnowledgeHistory(ctx)
 	if err != nil {
 		panic(fmt.Errorf("export knowledge history: %w", err))
@@ -627,6 +637,8 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		StatusTransitions:         transitions,
 		CascadeEvents:             cascades,
 		StatusTransitionCounters:  historyCounters,
+
+		ReformulationVindicationOrderingEnabled: reformulationVindicationOrdering,
 	}
 }
 

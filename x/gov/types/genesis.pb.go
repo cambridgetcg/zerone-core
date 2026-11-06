@@ -416,8 +416,12 @@ type GenesisState struct {
 	// Explicit native/continuation profile flag. App genesis activates only after
 	// all module initialization completes; false retains historical semantics.
 	AccountingSafetyEnabled bool `protobuf:"varint,12,opt,name=accounting_safety_enabled,json=accountingSafetyEnabled,proto3" json:"accounting_safety_enabled,omitempty"`
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
+	// Seat-runoff ordering marker (zerone-core #117). Native genesis sets it; a
+	// file without the field imports as off. In place, only the named carrier
+	// upgrade consensus-repairs-v1 sets it.
+	SeatRunoffOrderingEnabled bool `protobuf:"varint,13,opt,name=seat_runoff_ordering_enabled,json=seatRunoffOrderingEnabled,proto3" json:"seat_runoff_ordering_enabled,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -534,6 +538,13 @@ func (x *GenesisState) GetAccountingSafetyEnabled() bool {
 	return false
 }
 
+func (x *GenesisState) GetSeatRunoffOrderingEnabled() bool {
+	if x != nil {
+		return x.SeatRunoffOrderingEnabled
+	}
+	return false
+}
+
 var File_zerone_gov_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_gov_v1_genesis_proto_rawDesc = "" +
@@ -568,7 +579,7 @@ const file_zerone_gov_v1_genesis_proto_rawDesc = "" +
 	"\x12activated_at_block\x18\x02 \x01(\x04R\x10activatedAtBlock\x12,\n" +
 	"\x12latest_incident_id\x18\x03 \x01(\tR\x10latestIncidentId\x12%\n" +
 	"\x0eincident_count\x18\x04 \x01(\x04R\rincidentCount\x126\n" +
-	"\x17incident_lineage_sha256\x18\x05 \x01(\fR\x15incidentLineageSha256\"\xb9\x06\n" +
+	"\x17incident_lineage_sha256\x18\x05 \x01(\fR\x15incidentLineageSha256\"\xfa\x06\n" +
 	"\fGenesisState\x12-\n" +
 	"\x06params\x18\x01 \x01(\v2\x15.zerone.gov.v1.ParamsR\x06params\x12&\n" +
 	"\x04lips\x18\x02 \x03(\v2\x12.zerone.gov.v1.LIPR\x04lips\x12)\n" +
@@ -582,7 +593,8 @@ const file_zerone_gov_v1_genesis_proto_rawDesc = "" +
 	"\x14creed_amendment_pins\x18\n" +
 	" \x03(\v2'.zerone.gov.v1.GenesisCreedAmendmentPinR\x12creedAmendmentPins\x12b\n" +
 	"\x19emergency_transition_hold\x18\v \x01(\v2&.zerone.gov.v1.EmergencyTransitionHoldR\x17emergencyTransitionHold\x12:\n" +
-	"\x19accounting_safety_enabled\x18\f \x01(\bR\x17accountingSafetyEnabledB,Z*github.com/zerone-chain/zerone/x/gov/typesb\x06proto3"
+	"\x19accounting_safety_enabled\x18\f \x01(\bR\x17accountingSafetyEnabled\x12?\n" +
+	"\x1cseat_runoff_ordering_enabled\x18\r \x01(\bR\x19seatRunoffOrderingEnabledB,Z*github.com/zerone-chain/zerone/x/gov/typesb\x06proto3"
 
 var (
 	file_zerone_gov_v1_genesis_proto_rawDescOnce sync.Once

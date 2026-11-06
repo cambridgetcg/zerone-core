@@ -350,7 +350,7 @@ func TestHHICalculation(t *testing.T) {
 	}
 
 	params := k.GetParams(ctx)
-	metrics := k.AnalyzeCaptureRisk(ctx, "monopoly", params)
+	metrics := k.AnalyzeCaptureRisk(ctx, "monopoly", params, false)
 
 	if metrics == nil {
 		t.Fatal("expected non-nil metrics")
@@ -374,7 +374,7 @@ func TestHHICalculation(t *testing.T) {
 		})
 	}
 
-	metrics2 := k.AnalyzeCaptureRisk(ctx, "competitive", params)
+	metrics2 := k.AnalyzeCaptureRisk(ctx, "competitive", params, false)
 	if metrics2 == nil {
 		t.Fatal("expected non-nil metrics")
 	}
@@ -411,7 +411,7 @@ func TestTimingCorrelation(t *testing.T) {
 	})
 
 	params := k.GetParams(ctx)
-	metrics := k.AnalyzeCaptureRisk(ctx, "tight", params)
+	metrics := k.AnalyzeCaptureRisk(ctx, "tight", params, false)
 	if metrics == nil {
 		t.Fatal("expected non-nil metrics")
 	}
@@ -430,7 +430,7 @@ func TestTimingCorrelation(t *testing.T) {
 		BlockHeight:  100,
 	})
 
-	metrics2 := k.AnalyzeCaptureRisk(ctx, "spread", params)
+	metrics2 := k.AnalyzeCaptureRisk(ctx, "spread", params, false)
 	if metrics2 == nil {
 		t.Fatal("expected non-nil metrics")
 	}
@@ -461,7 +461,7 @@ func TestVerdictCorrelation(t *testing.T) {
 	})
 
 	params := k.GetParams(ctx)
-	metrics := k.AnalyzeCaptureRisk(ctx, "unanimous", params)
+	metrics := k.AnalyzeCaptureRisk(ctx, "unanimous", params, false)
 	if metrics == nil {
 		t.Fatal("expected non-nil metrics")
 	}
@@ -478,7 +478,7 @@ func TestVerdictCorrelation(t *testing.T) {
 		BlockHeight: 100,
 	})
 
-	metrics2 := k.AnalyzeCaptureRisk(ctx, "mixed", params)
+	metrics2 := k.AnalyzeCaptureRisk(ctx, "mixed", params, false)
 	if metrics2 == nil {
 		t.Fatal("expected non-nil metrics")
 	}
@@ -1176,7 +1176,7 @@ func TestHHI4EqualValidators(t *testing.T) {
 	}
 
 	params := k.GetParams(ctx)
-	metrics := k.AnalyzeCaptureRisk(ctx, "even", params)
+	metrics := k.AnalyzeCaptureRisk(ctx, "even", params, false)
 	if metrics == nil {
 		t.Fatal("expected non-nil metrics")
 	}

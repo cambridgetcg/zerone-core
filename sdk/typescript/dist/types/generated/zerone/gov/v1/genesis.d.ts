@@ -135,6 +135,12 @@ export interface GenesisState {
      * all module initialization completes; false retains historical semantics.
      */
     accountingSafetyEnabled: boolean;
+    /**
+     * Seat-runoff ordering marker (zerone-core #117). Native genesis sets it; a
+     * file without the field imports as off. In place, only the named carrier
+     * upgrade consensus-repairs-v1 sets it.
+     */
+    seatRunoffOrderingEnabled: boolean;
 }
 /**
  * Params defines the governance module parameters.

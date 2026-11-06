@@ -23,6 +23,12 @@ export interface Params {
 export interface GenesisState {
   params?: Params;
   rateLimits: RateLimit[];
+  /**
+   * Refund-identity marker (zerone-core #127). Native genesis sets it; a
+   * file without the field imports as off. In place, only the named carrier
+   * upgrade consensus-repairs-v1 sets it.
+   */
+  refundIdentityEnabled: boolean;
 }
 function createBaseParams(): Params {
   return {
@@ -69,7 +75,8 @@ export const Params = {
 function createBaseGenesisState(): GenesisState {
   return {
     params: undefined,
-    rateLimits: []
+    rateLimits: [],
+    refundIdentityEnabled: false
   };
 }
 /**
@@ -87,6 +94,9 @@ export const GenesisState = {
     for (const v of message.rateLimits) {
       RateLimit.encode(v!, writer.uint32(18).fork()).ldelim();
     }
+    if (message.refundIdentityEnabled === true) {
+      writer.uint32(24).bool(message.refundIdentityEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -102,6 +112,9 @@ export const GenesisState = {
         case 2:
           message.rateLimits.push(RateLimit.decode(reader, reader.uint32()));
           break;
+        case 3:
+          message.refundIdentityEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -113,6 +126,7 @@ export const GenesisState = {
     const message = createBaseGenesisState();
     message.params = object.params !== undefined && object.params !== null ? Params.fromPartial(object.params) : undefined;
     message.rateLimits = object.rateLimits?.map(e => RateLimit.fromPartial(e)) || [];
+    message.refundIdentityEnabled = object.refundIdentityEnabled ?? false;
     return message;
   }
 };

@@ -770,6 +770,12 @@ export interface GenesisState {
    * fund settlement. Import does not invent upgrade receipts or rewrite records.
    */
   claimIntegrityEnabled: boolean;
+  /**
+   * Reformulation-tie and vindication-ordering marker (zerone-core #118). Native genesis sets it; a
+   * file without the field imports as off. In place, only the named carrier
+   * upgrade consensus-repairs-v1 sets it.
+   */
+  reformulationVindicationOrderingEnabled: boolean;
 }
 /**
  * Exports each ordered source/target pair once, including full provenance.
@@ -2131,7 +2137,8 @@ function createBaseGenesisState(): GenesisState {
     factRelationState: undefined,
     claimRecordsEnabled: false,
     fundSettlementEnabled: false,
-    claimIntegrityEnabled: false
+    claimIntegrityEnabled: false,
+    reformulationVindicationOrderingEnabled: false
   };
 }
 /**
@@ -2248,6 +2255,9 @@ export const GenesisState = {
     if (message.claimIntegrityEnabled === true) {
       writer.uint32(568).bool(message.claimIntegrityEnabled);
     }
+    if (message.reformulationVindicationOrderingEnabled === true) {
+      writer.uint32(576).bool(message.reformulationVindicationOrderingEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -2362,6 +2372,9 @@ export const GenesisState = {
         case 71:
           message.claimIntegrityEnabled = reader.bool();
           break;
+        case 72:
+          message.reformulationVindicationOrderingEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -2406,6 +2419,7 @@ export const GenesisState = {
     message.claimRecordsEnabled = object.claimRecordsEnabled ?? false;
     message.fundSettlementEnabled = object.fundSettlementEnabled ?? false;
     message.claimIntegrityEnabled = object.claimIntegrityEnabled ?? false;
+    message.reformulationVindicationOrderingEnabled = object.reformulationVindicationOrderingEnabled ?? false;
     return message;
   }
 };

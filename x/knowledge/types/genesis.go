@@ -451,6 +451,8 @@ func DefaultGenesis() *GenesisState {
 		ClaimRecordsEnabled:     true,
 		FundSettlementEnabled:   true,
 		ClaimIntegrityEnabled:   true,
+		// A new chain starts with the consensus-repairs-v1 selection on.
+		ReformulationVindicationOrderingEnabled: true,
 	}
 }
 

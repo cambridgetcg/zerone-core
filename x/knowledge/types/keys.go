@@ -836,3 +836,11 @@ func PrivilegedActionKey(seq uint64) []byte {
 // successive blocks, which a plain "examine the first N" cap would not: that
 // would silently starve every fact past the cap.
 var ProbeScanCursorKey = []byte{0x80}
+
+// ReformulationVindicationOrderingEnabledKey is the consensus-repairs-v1
+// marker for zerone-core #118
+// (keeper/reformulation_vindication_ordering_activation.go). 0x90 is free: the
+// prefixes above stop at 0x80, the existing markers are 0x81 and 0x84-0x87,
+// 0x82/0x83 belong to verifier settlement, and the KARMA design reserves
+// 0x81-0x8F.
+var ReformulationVindicationOrderingEnabledKey = []byte{0x90}

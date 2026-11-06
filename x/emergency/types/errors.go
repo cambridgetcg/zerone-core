@@ -26,4 +26,7 @@ var (
 		20,
 		"emergency coordination messages require a direct authenticated transaction",
 	)
+	// ErrHaltEvidence rejects rollback only when unknown evidence is present
+	// without gridlock or a valid research-fund halt. It is not a marker fault.
+	ErrHaltEvidence = errors.Register(ModuleName, 21, "research-fund halt evidence is unknown")
 )

@@ -3,6 +3,7 @@ package keeper
 import (
 	"fmt"
 	"math/big"
+	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -250,6 +251,13 @@ func (k Keeper) VoteSeatElection(ctx sdk.Context, msg *types.MsgVoteSeatElection
 // candidate with the highest yes_stake wins if they have a clear margin (>5%),
 // otherwise a runoff is triggered.
 func (k Keeper) TallySeatElections(ctx sdk.Context) {
+	ordered, err := k.SeatRunoffOrderingEnabled(ctx)
+	if err != nil {
+		// The void caller in abci.go is authority-pinned. Under activation
+		// convention (2b), halt before tally writes with the reader's error,
+		// preserving its activation.ErrMarkerFault identity (not a string).
+		panic(err)
+	}
 	currentHeight := uint64(ctx.BlockHeight())
 	params := k.GetParams(ctx)
 
@@ -272,7 +280,7 @@ func (k Keeper) TallySeatElections(ctx sdk.Context) {
 		bySeat[prop.SeatIndex] = append(bySeat[prop.SeatIndex], prop)
 	}
 
-	for seatIndex, candidates := range bySeat {
+	tallySeat := func(seatIndex uint32, candidates []*types.SeatElectionProposal) {
 		if len(candidates) == 1 {
 			// Single candidate: standard quorum + support check.
 			prop := candidates[0]
@@ -280,11 +288,11 @@ func (k Keeper) TallySeatElections(ctx sdk.Context) {
 			if quorumMet && passed {
 				prop.Stage = types.SeatStagePassed
 				k.SetSeatElection(ctx, prop)
-				if err := k.InstallCommunitySeat(ctx, prop.SeatIndex, prop.Candidate, currentHeight); err != nil {
+				if installErr := k.InstallCommunitySeat(ctx, prop.SeatIndex, prop.Candidate, currentHeight); installErr != nil {
 					k.Logger(ctx).Error("failed to install community seat",
 						"proposal_id", prop.ProposalId,
 						"candidate", prop.Candidate,
-						"error", err,
+						"error", installErr,
 					)
 				}
 			} else {
@@ -308,6 +316,25 @@ func (k Keeper) TallySeatElections(ctx sdk.Context) {
 			// Multiple candidates for same seat: rank by yes_stake with quorum filter.
 			k.resolveContestedSeat(ctx, seatIndex, candidates, currentHeight)
 		}
+	}
+
+	if !ordered {
+		// Preserve the pre-activation map traversal, including its lack of order.
+		for seatIndex, candidates := range bySeat {
+			tallySeat(seatIndex, candidates)
+		}
+		return
+	}
+
+	// With the marker on, ascending seat index is the canonical consensus
+	// order for the shared runoff ID counter and cross-seat tally events.
+	seatIndices := make([]uint32, 0, len(bySeat))
+	for seatIndex := range bySeat {
+		seatIndices = append(seatIndices, seatIndex)
+	}
+	sort.Slice(seatIndices, func(i, j int) bool { return seatIndices[i] < seatIndices[j] })
+	for _, seatIndex := range seatIndices {
+		tallySeat(seatIndex, bySeat[seatIndex])
 	}
 }
 

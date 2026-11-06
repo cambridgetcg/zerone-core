@@ -51,7 +51,12 @@ type FundingRecorder interface {
 
 // EmergencyKeeper defines the emergency module interface for governance condition checking.
 type EmergencyKeeper interface {
+	// Legacy counting is unchanged; an invocation-local adapter supplies the
+	// enabled forward-gate count without changing authority-pinned consumers.
 	CountHaltsForReason(ctx context.Context, reason string) uint64
+	HaltReasonScopingEnabled(ctx context.Context) (bool, error)
+	// Unknown evidence blocks forward exit but does not veto valid rollback evidence.
+	CountResearchFundHalts(ctx context.Context, sinceBlock uint64) (count uint64, unknown bool)
 	IsHalted(ctx context.Context) bool
 }
 

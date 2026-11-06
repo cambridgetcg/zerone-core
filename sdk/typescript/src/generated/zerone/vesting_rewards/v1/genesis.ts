@@ -16,6 +16,14 @@ export interface GenesisState {
   clawbackRecords: ClawbackRecord[];
   blockRewardDistributions: BlockRewardDistribution[];
   claimScheduleIndexes: ClaimScheduleIndex[];
+  /**
+   * Alignment bank-supply marker (zerone-core #122). A file without the field
+   * imports as off. It switches only at the same height as Q1's not-observed
+   * neutrality: consensus-repairs-v1 never sets it, in place only the named
+   * carrier upgrade consensus-repairs-v2 sets it, and native genesis selects it
+   * only together with consensus-repairs-v2's markers.
+   */
+  alignmentBankSupplyEnabled: boolean;
 }
 /**
  * Params defines the vesting_rewards module parameters.
@@ -115,7 +123,8 @@ function createBaseGenesisState(): GenesisState {
     vestingSchedules: [],
     clawbackRecords: [],
     blockRewardDistributions: [],
-    claimScheduleIndexes: []
+    claimScheduleIndexes: [],
+    alignmentBankSupplyEnabled: false
   };
 }
 /**
@@ -145,6 +154,9 @@ export const GenesisState = {
     for (const v of message.claimScheduleIndexes) {
       ClaimScheduleIndex.encode(v!, writer.uint32(50).fork()).ldelim();
     }
+    if (message.alignmentBankSupplyEnabled === true) {
+      writer.uint32(56).bool(message.alignmentBankSupplyEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -172,6 +184,9 @@ export const GenesisState = {
         case 6:
           message.claimScheduleIndexes.push(ClaimScheduleIndex.decode(reader, reader.uint32()));
           break;
+        case 7:
+          message.alignmentBankSupplyEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -187,6 +202,7 @@ export const GenesisState = {
     message.clawbackRecords = object.clawbackRecords?.map(e => ClawbackRecord.fromPartial(e)) || [];
     message.blockRewardDistributions = object.blockRewardDistributions?.map(e => BlockRewardDistribution.fromPartial(e)) || [];
     message.claimScheduleIndexes = object.claimScheduleIndexes?.map(e => ClaimScheduleIndex.fromPartial(e)) || [];
+    message.alignmentBankSupplyEnabled = object.alignmentBankSupplyEnabled ?? false;
     return message;
   }
 };

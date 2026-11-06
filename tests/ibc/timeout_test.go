@@ -82,7 +82,7 @@ func (s *IBCTestSuite) TestErrorAckRefund() {
 	appB := GetZeroneApp(s.chainB)
 	ctxB := s.chainB.GetContext()
 	appB.IBCRateLimitKeeper.SetParams(ctxB, &ibcratelimittypes.Params{Enabled: true})
-	appB.IBCRateLimitKeeper.SetRateLimit(ctxB, &ibcratelimittypes.RateLimit{
+	appB.IBCRateLimitKeeper.SetRateLimitForActivation(ctxB, true, &ibcratelimittypes.RateLimit{
 		ChannelId:    s.transferPath.EndpointB.ChannelID,
 		Denom:        sdk.DefaultBondDenom,
 		MaxSend:      "2000000",

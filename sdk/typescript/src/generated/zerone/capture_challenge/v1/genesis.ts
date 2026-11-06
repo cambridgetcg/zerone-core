@@ -50,6 +50,12 @@ export interface GenesisState {
   params?: Params;
   challenges: CaptureChallenge[];
   bountyPools: DomainBountyPool[];
+  /**
+   * Challenge-accounting marker (zerone-core #121). Native genesis sets it; a
+   * file without the field imports as off. In place, only the named carrier
+   * upgrade consensus-repairs-v1 sets it.
+   */
+  challengeAccountingEnabled: boolean;
 }
 function createBaseParams(): Params {
   return {
@@ -152,7 +158,8 @@ function createBaseGenesisState(): GenesisState {
   return {
     params: undefined,
     challenges: [],
-    bountyPools: []
+    bountyPools: [],
+    challengeAccountingEnabled: false
   };
 }
 /**
@@ -172,6 +179,9 @@ export const GenesisState = {
     for (const v of message.bountyPools) {
       DomainBountyPool.encode(v!, writer.uint32(26).fork()).ldelim();
     }
+    if (message.challengeAccountingEnabled === true) {
+      writer.uint32(32).bool(message.challengeAccountingEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -190,6 +200,9 @@ export const GenesisState = {
         case 3:
           message.bountyPools.push(DomainBountyPool.decode(reader, reader.uint32()));
           break;
+        case 4:
+          message.challengeAccountingEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -202,6 +215,7 @@ export const GenesisState = {
     message.params = object.params !== undefined && object.params !== null ? Params.fromPartial(object.params) : undefined;
     message.challenges = object.challenges?.map(e => CaptureChallenge.fromPartial(e)) || [];
     message.bountyPools = object.bountyPools?.map(e => DomainBountyPool.fromPartial(e)) || [];
+    message.challengeAccountingEnabled = object.challengeAccountingEnabled ?? false;
     return message;
   }
 };

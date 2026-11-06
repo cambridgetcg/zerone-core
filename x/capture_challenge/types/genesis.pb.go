@@ -122,12 +122,16 @@ func (x *Params) GetRiskAnalysisInterval() uint64 {
 }
 
 type GenesisState struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Params        *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
-	Challenges    []*CaptureChallenge    `protobuf:"bytes,2,rep,name=challenges,proto3" json:"challenges,omitempty"`
-	BountyPools   []*DomainBountyPool    `protobuf:"bytes,3,rep,name=bounty_pools,json=bountyPools,proto3" json:"bounty_pools,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Params      *Params                `protobuf:"bytes,1,opt,name=params,proto3" json:"params,omitempty"`
+	Challenges  []*CaptureChallenge    `protobuf:"bytes,2,rep,name=challenges,proto3" json:"challenges,omitempty"`
+	BountyPools []*DomainBountyPool    `protobuf:"bytes,3,rep,name=bounty_pools,json=bountyPools,proto3" json:"bounty_pools,omitempty"`
+	// Challenge-accounting marker (zerone-core #121). Native genesis sets it; a
+	// file without the field imports as off. In place, only the named carrier
+	// upgrade consensus-repairs-v1 sets it.
+	ChallengeAccountingEnabled bool `protobuf:"varint,4,opt,name=challenge_accounting_enabled,json=challengeAccountingEnabled,proto3" json:"challenge_accounting_enabled,omitempty"`
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -181,6 +185,13 @@ func (x *GenesisState) GetBountyPools() []*DomainBountyPool {
 	return nil
 }
 
+func (x *GenesisState) GetChallengeAccountingEnabled() bool {
+	if x != nil {
+		return x.ChallengeAccountingEnabled
+	}
+	return false
+}
+
 var File_zerone_capture_challenge_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_capture_challenge_v1_genesis_proto_rawDesc = "" +
@@ -194,13 +205,14 @@ const file_zerone_capture_challenge_v1_genesis_proto_rawDesc = "" +
 	"\x0freward_rate_bps\x18\x05 \x01(\x04R\rrewardRateBps\x12$\n" +
 	"\x0eslash_rate_bps\x18\x06 \x01(\x04R\fslashRateBps\x12?\n" +
 	"\x1cbounty_contribution_per_fact\x18\a \x01(\tR\x19bountyContributionPerFact\x124\n" +
-	"\x16risk_analysis_interval\x18\b \x01(\x04R\x14riskAnalysisInterval\"\xec\x01\n" +
+	"\x16risk_analysis_interval\x18\b \x01(\x04R\x14riskAnalysisInterval\"\xae\x02\n" +
 	"\fGenesisState\x12;\n" +
 	"\x06params\x18\x01 \x01(\v2#.zerone.capture_challenge.v1.ParamsR\x06params\x12M\n" +
 	"\n" +
 	"challenges\x18\x02 \x03(\v2-.zerone.capture_challenge.v1.CaptureChallengeR\n" +
 	"challenges\x12P\n" +
-	"\fbounty_pools\x18\x03 \x03(\v2-.zerone.capture_challenge.v1.DomainBountyPoolR\vbountyPoolsB:Z8github.com/zerone-chain/zerone/x/capture_challenge/typesb\x06proto3"
+	"\fbounty_pools\x18\x03 \x03(\v2-.zerone.capture_challenge.v1.DomainBountyPoolR\vbountyPools\x12@\n" +
+	"\x1cchallenge_accounting_enabled\x18\x04 \x01(\bR\x1achallengeAccountingEnabledB:Z8github.com/zerone-chain/zerone/x/capture_challenge/typesb\x06proto3"
 
 var (
 	file_zerone_capture_challenge_v1_genesis_proto_rawDescOnce sync.Once

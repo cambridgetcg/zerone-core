@@ -48,8 +48,12 @@ type GenesisState struct {
 	// Finalized Guardian authorization for one exact SDK governance recovery
 	// proposal in the currently active quarantine incident.
 	RecoveryAuthorization *EmergencyRecoveryAuthorization `protobuf:"bytes,12,opt,name=recovery_authorization,json=recoveryAuthorization,proto3" json:"recovery_authorization,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Halt-reason scoping marker (zerone-core #125). Native genesis sets it; a
+	// file without the field imports as off. In place, only the named carrier
+	// upgrade consensus-repairs-v1 sets it.
+	HaltReasonScopingEnabled bool `protobuf:"varint,13,opt,name=halt_reason_scoping_enabled,json=haltReasonScopingEnabled,proto3" json:"halt_reason_scoping_enabled,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -164,6 +168,13 @@ func (x *GenesisState) GetRecoveryAuthorization() *EmergencyRecoveryAuthorizatio
 		return x.RecoveryAuthorization
 	}
 	return nil
+}
+
+func (x *GenesisState) GetHaltReasonScopingEnabled() bool {
+	if x != nil {
+		return x.HaltReasonScopingEnabled
+	}
+	return false
 }
 
 // GuardianProposalCount is one canonical, sorted anti-abuse counter.
@@ -454,7 +465,7 @@ var File_zerone_emergency_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_emergency_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"!zerone/emergency/v1/genesis.proto\x12\x13zerone.emergency.v1\x1a\x1fzerone/emergency/v1/types.proto\"\xf6\x05\n" +
+	"!zerone/emergency/v1/genesis.proto\x12\x13zerone.emergency.v1\x1a\x1fzerone/emergency/v1/types.proto\"\xb5\x06\n" +
 	"\fGenesisState\x123\n" +
 	"\x06params\x18\x01 \x01(\v2\x1b.zerone.emergency.v1.ParamsR\x06params\x12\x16\n" +
 	"\x06status\x18\x02 \x01(\tR\x06status\x12F\n" +
@@ -470,7 +481,8 @@ const file_zerone_emergency_v1_genesis_proto_rawDesc = "" +
 	"\x1alast_halt_escalation_block\x18\n" +
 	" \x01(\x04R\x17lastHaltEscalationBlock\x128\n" +
 	"\x18quarantine_release_block\x18\v \x01(\x04R\x16quarantineReleaseBlock\x12j\n" +
-	"\x16recovery_authorization\x18\f \x01(\v23.zerone.emergency.v1.EmergencyRecoveryAuthorizationR\x15recoveryAuthorization\"I\n" +
+	"\x16recovery_authorization\x18\f \x01(\v23.zerone.emergency.v1.EmergencyRecoveryAuthorizationR\x15recoveryAuthorization\x12=\n" +
+	"\x1bhalt_reason_scoping_enabled\x18\r \x01(\bR\x18haltReasonScopingEnabled\"I\n" +
 	"\x15GuardianProposalCount\x12\x1a\n" +
 	"\bguardian\x18\x01 \x01(\tR\bguardian\x12\x14\n" +
 	"\x05count\x18\x02 \x01(\x04R\x05count\"\xe9\b\n" +

@@ -107,7 +107,7 @@ class DescriptorUpgradeTest(unittest.TestCase):
                 node.descriptor()
             self.assertFalse((node.home / "public/network-knowledge-11.json").exists())
             # Node.__init__ admits this mode only after actual applied checks.
-            node.upgrade_packet = {"test": "already checked constructor"}
+            node.upgrade_packet = {"target": {"knowledge_version": 11}}
             node.manifest.update(source_commit="e" * 40, binary_sha256="f" * 64)
             self.assertEqual(node.descriptor()["knowledge_version"], 11)
             target = node.descriptor_bytes
@@ -120,7 +120,7 @@ class DescriptorUpgradeTest(unittest.TestCase):
                 node.descriptor()
             self.assertEqual((node.home / "public/network-knowledge-11.json").read_bytes(), target)
 
-    def test_binary_patch_descriptor_sits_beside_base_and_changes_only_binary_identity(self):
+    def test_carrier_descriptors_preserve_prior_publication(self):
         with tempfile.TemporaryDirectory() as temporary:
             node = g.Node.__new__(g.Node)
             node.home = Path(temporary)
@@ -131,19 +131,73 @@ class DescriptorUpgradeTest(unittest.TestCase):
                 "review_window_blocks": 3600, "local_test": True, "gateway_port": 8080}
             node.ready = lambda: 10
             node.call = lambda method: {"genesis": {"chain_id": g.CHAIN, "app_state": {"knowledge": {}}}}
-            node.cli = lambda *args: b'{"module_versions":[{"name":"knowledge","version":"11"}]}'
+            node.binary_patch = None
+            for version in (12, 13):
+                node.cli = lambda *args: g.canonical({"module_versions": [{"name": "knowledge", "version": str(version)}]})
+                node.upgrade_packet = None
+                with self.assertRaisesRegex(g.GatewayError, "explicit staged"):
+                    node.descriptor()
+                node.upgrade_packet = {"target": {"knowledge_version": version}}
+                self.assertEqual(node.descriptor()["knowledge_version"], version)
+                self.assertTrue((node.home / f"public/network-knowledge-{version}.json").exists())
+            self.assertTrue((node.home / "public/network-knowledge-12.json").exists())
+
+
+    def test_missing_claim_integrity_requires_staged_gateway(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            node = g.Node.__new__(g.Node)
+            node.home = Path(temporary)
+            node.rpc = "http://127.0.0.1:26657"
+            node.genesis_hash = "a" * 64
+            node.manifest = {"source_commit": "b" * 40, "binary_sha256": "c" * 64,
+                "advertised_peer": "d" * 40 + "@127.0.0.1:26656", "node_id": "d" * 40,
+                "review_window_blocks": 3600, "local_test": True, "gateway_port": 8080}
+            node.ready = lambda: 10
+            node.call = lambda method: {"genesis": {"chain_id": g.CHAIN,
+                "app_state": {"knowledge": {"fund_settlement_enabled": True}}}}
+            node.upgrade_packet = None
+            for version in (12, 13):
+                with self.subTest(version=version):
+                    node.cli = lambda *args: g.canonical({"module_versions": [
+                        {"name": "knowledge", "version": str(version)}]})
+                    with self.assertRaisesRegex(g.GatewayError, "Claim-integrity ledger"):
+                        node.descriptor()
+                    self.assertFalse((node.home / "public").exists())
+
+    def test_binary_patch_descriptor_sits_beside_base_and_changes_only_binary_identity(self):
+        # The patch path follows the applied target's knowledge version, so it
+        # survives each staged successor (11 today; 12 and 13 on the carrier ladder).
+        for version in (11, 12, 13):
+            with self.subTest(knowledge_version=version):
+                self.binary_patch_descriptor_case(version)
+
+    def binary_patch_descriptor_case(self, version):
+        with tempfile.TemporaryDirectory() as temporary:
+            node = g.Node.__new__(g.Node)
+            node.home = Path(temporary)
+            node.rpc = "http://127.0.0.1:26657"
+            node.genesis_hash = "a" * 64
+            node.manifest = {"source_commit": "b" * 40, "binary_sha256": "c" * 64,
+                "advertised_peer": "d" * 40 + "@127.0.0.1:26656", "node_id": "d" * 40,
+                "review_window_blocks": 3600, "local_test": True, "gateway_port": 8080}
+            node.ready = lambda: 10
+            node.call = lambda method: {"genesis": {"chain_id": g.CHAIN, "app_state": {"knowledge": {}}}}
+            node.cli = lambda *args: g.canonical({"module_versions": [{"name": "knowledge", "version": str(version)}]})
             # Node.__init__ admits both modes only after the runtime's strict checks.
-            node.upgrade_packet = {"test": "already checked constructor"}
+            node.upgrade_packet = {"target": {"knowledge_version": version}}
             node.binary_patch = {"test": "already checked constructor"}
+            base_name = f"public/network-knowledge-{version}.json"
+            patch_name = f"public/network-knowledge-{version}-patch-eeeeeeeeeeee.json"
             with self.assertRaisesRegex(g.GatewayError, "retained base descriptor"):
                 node.descriptor()
-            self.assertFalse((node.home / "public/network-knowledge-11-patch-eeeeeeeeeeee.json").exists())
+            self.assertFalse((node.home / patch_name).exists())
             node.binary_patch = None
             base = node.descriptor()
             base_bytes = node.descriptor_bytes
+            self.assertEqual(base["knowledge_version"], version)
             node.binary_patch = {"test": "already checked constructor"}
             node.manifest.update(source_commit="e" * 40, binary_sha256="f" * 64)
-            path = node.home / "public/network-knowledge-11-patch-eeeeeeeeeeee.json"
+            path = node.home / patch_name
             for change in ({"advertised_peer": "e" * 40 + "@127.0.0.1:26656"}, {"node_id": "e" * 40}, {"review_window_blocks": 60}):
                 original = dict(node.manifest)
                 node.manifest.update(change)
@@ -152,9 +206,8 @@ class DescriptorUpgradeTest(unittest.TestCase):
                 node.manifest = original
                 self.assertFalse(path.exists())
             patched = node.descriptor()
-            path = node.home / "public/network-knowledge-11-patch-eeeeeeeeeeee.json"
             self.assertEqual(node.descriptor_bytes, path.read_bytes())
-            self.assertEqual((node.home / "public/network-knowledge-11.json").read_bytes(), base_bytes)
+            self.assertEqual((node.home / base_name).read_bytes(), base_bytes)
             self.assertFalse((node.home / "public/network.json").exists())
             self.assertEqual({key for key in base if base[key] != patched[key]}, {"source_commit", "runtime_binary_sha256"})
             self.assertEqual((patched["source_commit"], patched["runtime_binary_sha256"]), ("e" * 40, "f" * 64))
@@ -172,6 +225,8 @@ class DescriptorUpgradeTest(unittest.TestCase):
             with self.assertRaisesRegex(g.GatewayError, "no automatic rewrite"):
                 node.descriptor()
             self.assertEqual({p.name: p.read_bytes() for p in (node.home / "public").iterdir()}, files)
+            # A patch never writes another version's descriptor.
+            self.assertEqual(sorted(files), sorted({base_name[len("public/"):], patch_name[len("public/"):]}))
 
     def test_patch_pin_without_upgrade_pin_is_refused_before_reading_the_home(self):
         with self.assertRaisesRegex(g.GatewayError, "applied upgrade pin"):
