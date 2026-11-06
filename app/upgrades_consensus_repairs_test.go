@@ -64,7 +64,9 @@ type archivedClaimIntegrityKnowledgeModule struct{ knowledgemodule.AppModule }
 func (archivedClaimIntegrityKnowledgeModule) ConsensusVersion() uint64 { return 12 }
 func freezeConsensusRepairsSiblingTargets(app *ZeroneApp) {
 	source := consensusRepairsSourceVersionMap()
-	for name := range consensusRepairsVersions() {
+	siblings := consensusRepairsVersions()
+	siblings["vesting_rewards"] = 0 // v2 owns vesting_rewards 3->4; earlier rungs pin its source version too
+	for name := range siblings {
 		if name != "knowledge" {
 			original := app.ModuleManager.Modules[name]
 			app.ModuleManager.Modules[name] = archivedConsensusSibling{original.(appmodule.AppModule), original.(module.HasGenesis), source[name]}
@@ -214,7 +216,7 @@ func TestConsensusRepairsAtomicUpgradeDiffAndRestart(t *testing.T) {
 	require.NoError(t, imported.ValidateAccountingAuthorityStartup())
 }
 func TestConsensusRepairsCensusBlockersLeaveEveryMarkerOff(t *testing.T) {
-	for _, scenario := range []string{"pool deficit", "bounty identity", "augmentation identity", "empty marker", "corrupt marker", "deferred bank-supply marker", "empty deferred marker", "occupied generation", "corrupt halt"} {
+	for _, scenario := range []string{"pool deficit", "bounty identity", "augmentation identity", "empty marker", "corrupt marker", "occupied generation", "corrupt halt"} {
 		t.Run(scenario, func(t *testing.T) {
 			app, ctx, _ := consensusRepairsFixture(t)
 			switch scenario {
@@ -234,11 +236,6 @@ func TestConsensusRepairsCensusBlockersLeaveEveryMarkerOff(t *testing.T) {
 				ctx.KVStore(app.keys["qualification"]).Set([]byte{0x40}, []byte{})
 			case "corrupt marker":
 				ctx.KVStore(app.keys["qualification"]).Set([]byte{0x40}, []byte{2})
-			case "deferred bank-supply marker":
-				// consensus-repairs-v2 owns this marker and refuses a source holding it.
-				ctx.KVStore(app.keys["vesting_rewards"]).Set([]byte{0x0c}, []byte{1})
-			case "empty deferred marker":
-				ctx.KVStore(app.keys["vesting_rewards"]).Set([]byte{0x0c}, []byte{})
 			case "occupied generation":
 				ctx.KVStore(app.keys["zerone_ibcrl"]).Set([]byte("\x03channel-0\x00uzrn"), make([]byte, 8))
 			case "corrupt halt":

@@ -34,7 +34,7 @@ func consensusRepairsVersions() module.VersionMap {
 
 // Every caller, including older broad migrations, must respect the complete rung.
 func requireConsensusRepairsTransitionOwner(name string, from, target module.VersionMap) error {
-	if from["knowledge"] >= 14 || target["knowledge"] >= 14 || from["alignment"] >= 3 || target["alignment"] >= 3 {
+	if from["knowledge"] >= 14 || target["knowledge"] >= 14 || from["alignment"] >= 3 || target["alignment"] >= 3 || from["vesting_rewards"] >= 4 || target["vesting_rewards"] >= 4 {
 		return requireConsensusRepairsV2TransitionOwner(name, from, target)
 	}
 	selected := false
@@ -391,8 +391,10 @@ type consensusRepairsMarkerLocation struct {
 
 // consensusRepairsDeferredMarkerLocations pairs ConsensusRepairsDeferredGenesisSelections
 // with their store keys. v1 writes none of them and refuses a source holding one.
+// The bank-supply marker (vesting_rewards 0x0c) is a v2 location now, which the
+// v2 census refuses in its own source; v1 itself is not run by this binary.
 func consensusRepairsDeferredMarkerLocations() []consensusRepairsMarkerLocation {
-	return []consensusRepairsMarkerLocation{{"vesting_rewards", []byte{0x0c}}}
+	return nil
 }
 
 func consensusRepairsMarkerLocations() []consensusRepairsMarkerLocation {

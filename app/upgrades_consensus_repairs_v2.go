@@ -25,7 +25,7 @@ func consensusRepairsV2SourceVersionMap() module.VersionMap {
 }
 func consensusRepairsV2TargetVersionMap() module.VersionMap {
 	vm := consensusRepairsV2SourceVersionMap()
-	vm["alignment"], vm["knowledge"] = 3, 14
+	vm["alignment"], vm["knowledge"], vm["vesting_rewards"] = 3, 14, 4
 	return vm
 }
 
@@ -40,7 +40,7 @@ func requireConsensusRepairsV2TransitionOwner(name string, from, target module.V
 }
 
 func consensusRepairsV2MarkerLocations() []consensusRepairsMarkerLocation {
-	return []consensusRepairsMarkerLocation{{"alignment", []byte{0x09}}, {"knowledge", []byte{0x91}}, {"knowledge", []byte{0x92}}, {"knowledge", []byte{0x93}}}
+	return []consensusRepairsMarkerLocation{{"alignment", []byte{0x09}}, {"vesting_rewards", []byte{0x0c}}, {"knowledge", []byte{0x91}}, {"knowledge", []byte{0x92}}, {"knowledge", []byte{0x93}}}
 }
 
 // V1's target branch validates its markers and receipt without consulting the
@@ -123,7 +123,7 @@ func (app *ZeroneApp) registerConsensusRepairsV2Upgrade() {
 		}
 		receipt := consensusRepairsReceipt{Height: plan.Height, ChainID: ctx.ChainID(), PlanDigest: consensusRepairsPlanDigest(plan), Census: compact}
 		markers := app.ConsensusRepairsV2Markers()
-		writes := map[string]map[string][]byte{"alignment": {}, "knowledge": {}}
+		writes := map[string]map[string][]byte{"alignment": {}, "vesting_rewards": {}, "knowledge": {}}
 		for i, loc := range consensusRepairsV2MarkerLocations() {
 			writes[loc.store][string(loc.key)] = []byte{1}
 			receipt.Markers = append(receipt.Markers, consensusRepairsMarkerReceipt{markers[i].Module, markers[i].Name, true})

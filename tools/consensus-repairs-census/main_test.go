@@ -106,7 +106,7 @@ func sourceCopyMutated(t *testing.T, badMarker bool, extraStore []bool, mutate f
 			ctx.KVStore(a.GetStoreKeyForTests("knowledge")).Set([]byte{0x92}, []byte{})
 		}
 		vm := a.CurrentModuleVersionMap()
-		vm["alignment"], vm["knowledge"] = 2, 13
+		vm["alignment"], vm["knowledge"], vm["vesting_rewards"] = 2, 13, 3 // v2 owns vesting_rewards 3->4
 		require.NoError(t, a.UpgradeKeeper.SetModuleVersionMap(ctx, vm))
 	}
 	if mutate != nil {

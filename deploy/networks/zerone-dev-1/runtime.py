@@ -46,7 +46,7 @@ CONSENSUS_REPAIRS_VERSIONS = {
     "alignment": 2, "zerone_ontology": 2, "emergency": 3,
     "substrate_bridge": 2, "ibcratelimit": 2, "home": 1, "zerone_staking": 2,
 }
-CONSENSUS_REPAIRS_V2_VERSIONS = {**CONSENSUS_REPAIRS_VERSIONS, "alignment": 3, "knowledge": 14}
+CONSENSUS_REPAIRS_V2_VERSIONS = {**CONSENSUS_REPAIRS_VERSIONS, "alignment": 3, "knowledge": 14, "vesting_rewards": 4}
 UPGRADE_OBSERVATION = "first-applied-observation.json"
 PATCH_PREFIX = "binary-patch-"
 PATCH_SCHEMA = "zerone-development-binary-patch/v1"

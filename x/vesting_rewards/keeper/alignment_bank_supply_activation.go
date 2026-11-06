@@ -9,10 +9,11 @@ import (
 
 // AlignmentBankSupplyEnabled reports whether the alignment bank-supply repair
 // of zerone-core #122 is selected. The marker at
-// types.AlignmentBankSupplyEnabledKey is the only selector. No carrier in this
-// source writes it: it must switch at the same height as Q1's not-observed
-// neutrality, so consensus-repairs-v2 will carry it, and native genesis refuses
-// it until then. No message or parameter toggles it, and nothing clears it.
+// types.AlignmentBankSupplyEnabledKey is the only selector. It must switch at
+// the same height as Q1's not-observed neutrality: native genesis writes it
+// together with Q1, and the named carrier upgrade consensus-repairs-v2 writes
+// it at its height (consensus-repairs-v1 never does). No message or parameter
+// toggles it, and nothing clears it.
 //
 // activation.Read holds the contract: the read charges no gas, and an
 // unreadable or malformed marker is an error wrapping activation.ErrMarkerFault,
@@ -22,10 +23,9 @@ func (k Keeper) AlignmentBankSupplyEnabled(ctx context.Context) (bool, error) {
 }
 
 // EnableAlignmentBankSupply selects the repair. It is idempotent and rewrites
-// no vesting schedule, clawback record or minted-supply ledger. Only genesis
-// import of an explicit true calls it here, which native genesis validation
-// refuses; consensus-repairs-v2 will call it and bump this module's
-// ConsensusVersion.
+// no vesting schedule, clawback record or minted-supply ledger. Native genesis
+// and the consensus-repairs-v2 carrier call it; the carrier also bumps this
+// module's ConsensusVersion.
 func (k Keeper) EnableAlignmentBankSupply(ctx context.Context) error {
 	return activation.Enable(ctx, k.storeService, types.AlignmentBankSupplyEnabledKey, "alignment bank-supply")
 }

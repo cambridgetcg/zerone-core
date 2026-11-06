@@ -245,13 +245,14 @@ class DescriptorUpgradeTest(unittest.TestCase):
             node.ready = lambda: 10
             node.upgrade_packet = None
             node.binary_patch = None
-            state = {"alignment": {"unobserved_health_enabled": True}, "knowledge": {
+            state = {"alignment": {"unobserved_health_enabled": True}, "vesting_rewards": {"alignment_bank_supply_enabled": True}, "knowledge": {
                 "fund_settlement_enabled": True, "claim_integrity_enabled": True,
                 "inconclusive_round_accounting_enabled": True, "calibration_smoothing_enabled": True,
                 "zero_confidence_floor_enabled": True}}
             node.call = lambda method: {"genesis": {"chain_id": g.CHAIN, "app_state": state}}
             node.cli = lambda *args: g.canonical({"module_versions": [{"name": "knowledge", "version": "14"}]})
             for module, name in (("alignment", "unobserved_health_enabled"),
+                                 ("vesting_rewards", "alignment_bank_supply_enabled"),
                                  ("knowledge", "inconclusive_round_accounting_enabled"),
                                  ("knowledge", "calibration_smoothing_enabled"),
                                  ("knowledge", "zero_confidence_floor_enabled")):

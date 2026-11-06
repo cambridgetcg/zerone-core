@@ -213,7 +213,7 @@ class Node:
         if knowledge_version >= 12 and self.upgrade_packet is None and genesis.get("app_state", {}).get("knowledge", {}).get("claim_integrity_enabled") is not True:
             raise GatewayError("Claim-integrity ledger requires the explicit staged gateway path")
         if knowledge_version >= 14 and self.upgrade_packet is None:
-            selections = {"alignment": ("unobserved_health_enabled",), "knowledge": (
+            selections = {"alignment": ("unobserved_health_enabled",), "vesting_rewards": ("alignment_bank_supply_enabled",), "knowledge": (
                 "inconclusive_round_accounting_enabled", "calibration_smoothing_enabled", "zero_confidence_floor_enabled")}
             for module, names in selections.items():
                 fields = genesis.get("app_state", {}).get(module, {})

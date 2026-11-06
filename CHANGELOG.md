@@ -3,6 +3,25 @@
 Notable source changes are recorded here. Network activation and package
 publication are separate events and are stated explicitly when they occur.
 
+## Draft source — consensus-repairs-v2 (not scheduled)
+
+- The successor to consensus-repairs-v1: Q1 not-observed neutrality, Q2
+  inconclusive-round accounting, Q5 calibration smoothing and PR37's zero
+  confidence floor, plus FX7/FX8 genesis export repairs, in one all-or-nothing
+  carrier with bounded censuses and a receipt. See
+  [docs/consensus-repairs-v2.md](docs/consensus-repairs-v2.md).
+- It now also carries #122's alignment bank-supply denominator (review finding
+  F1, 2026-11-06), moved from v1 so that it switches only at Q1's height:
+  vesting_rewards 3→4, five markers, and native genesis selects it with Q1.
+- Its `q1_health` census states the pacing shift the height causes (review
+  finding F5): category, creation and analysis pacing, claim cooldown, review
+  fee, risk-analysis interval and the expedited voting period, before and
+  after. On zerone-dev-1's measured state that is degraded to `not_observed`,
+  pacing 750,000/1,500,000 to 1,000,000/1,000,000, base fees again, and no more
+  halved parameter-LIP voting.
+- Carries main after #167; cut binaries only from a source the
+  proposal-coherence gate reports `COHERENT`, never from `7253100b`.
+
 ## Draft source — consensus-repairs-v1 (not scheduled)
 
 - Adds the all-or-nothing successor to claim-integrity: ten guarded version

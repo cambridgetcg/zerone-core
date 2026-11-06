@@ -163,6 +163,7 @@ func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context, strict bool) (re
 	}
 	name = "q1_health"
 	registered, active := 0, 0
+	activeStake := new(big.Int)
 	scan("zerone_staking", 1, func(key string, value []byte) error {
 		registered++ // Occupied malformed keys are NOT evidence of no registry.
 		var v staking.Validator
@@ -172,11 +173,13 @@ func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context, strict bool) (re
 		if e := identity(key, 1, v.OperatorAddress); e != nil {
 			return e
 		}
-		if _, e := consensusRepairsAmount(v.TotalStake); e != nil {
+		amount, e := consensusRepairsAmount(v.TotalStake)
+		if e != nil {
 			return e
 		}
 		if v.IsActive {
 			active++
+			activeStake.Add(activeStake, amount)
 		}
 		return nil
 	})
@@ -190,7 +193,12 @@ func (app *ZeroneApp) censusConsensusRepairsV2(ctx sdk.Context, strict bool) (re
 			}
 		}
 	}
-	add("alignment", "", "held", fmt.Sprintf("registered=%d active=%d; empty registry selects not_observed at next scheduled observation; stored categories and observation history retained", registered, active))
+	// F5: say what the height changes in pacing, fees and gov voting, not only the inputs.
+	if shift, e := app.consensusRepairsV2HealthShift(ctx, registered, active, activeStake); e != nil {
+		add("alignment", "", "blocker", "the first alignment observation after v2 would fail: "+e.Error())
+	} else {
+		add("alignment", "", "held", shift)
+	}
 
 	name = "q2_rounds"
 	claims := map[string]*knowledge.Claim{}

@@ -10,30 +10,35 @@ geometry refresh must travel together. No height is selected by this document.
 ## Activation contract
 
 `consensus-repairs-v2` is a height-only plan with empty Info and no deprecated
-fields. Its exact source is v1's complete target map. Only alignment 2→3 and
-knowledge 13→14 change. Alignment owns Q1's stored category, observation cadence,
-threshold and event changes. Knowledge owns Q2 round accounting, Q5 calibration
+fields. Its exact source is v1's complete target map. Only alignment 2→3,
+vesting_rewards 3→4 and knowledge 13→14 change. Alignment owns Q1's stored
+category, observation cadence, threshold and event changes. vesting_rewards owns
+#122's alignment bank-supply denominator, moved here from v1 (review finding F1,
+2026-11-06): it may only switch at Q1's height, because on an empty registry
+with a zero mint ledger and positive bank supply (zerone-dev-1 today) it turns
+the neutral economic and staking readings into zero, which without Q1 is a
+critical reading. With both on, an empty registry reads `not_observed`. Knowledge owns Q2 round accounting, Q5 calibration
 and snapshots, and PR37 confidence floors/growth. FX7 and FX8 only serialize
 retained genesis state; governance stays version 4 and neither receives a marker.
 Downstream governance consumes alignment's stored category, not a new gov code path.
 
 The handler accepts `zerone-dev-1` or an isolated `zerone-rehearsal-` lineage. It
 requires exact supplied/stored/compiled maps, completed H3/accounting/claim/v1
-lineage, absent v2 receipt/done height and all four v2 keys absent. Present-empty,
+lineage, absent v2 receipt/done height and all five v2 keys absent. Present-empty,
 malformed and already-enabled keys refuse. It requires the exact scheduled plan,
 no unsafe skip, and committed H−1 plus SDK/header H. Startup admits the source
 only at its matching local/on-chain H−1 boundary. Target restart validates all
-four marker readbacks and each receipt identity, digest and bounded summary.
+five marker readbacks and each receipt identity, digest and bounded summary.
 Native/imported selection has no invented upgrade receipt or done height.
 
 V1's handler, source and target maps remain frozen. This binary cannot execute
 v1: the v1 binary must first complete its own rung, and this binary starts at the
 separately scheduled v2 boundary. Handler registration is not replay capability.
 
-The two migrations are guarded no-ops with a v2-specific context token. V1's token
+The three migrations are guarded no-ops with a v2-specific context token. V1's token
 cannot authorize them. The handler first computes its expected write bytes from
 the read-only census, then uses one SDK cache for migrations, Q5 score refresh,
-all four `ConsensusRepairsV2Markers()` enables/readbacks and the receipt. It
+all five `ConsensusRepairsV2Markers()` enables/readbacks and the receipt. It
 compares a framed, ordered SHA-256 stream of every store against the source
 merged with exactly those expected writes, and separately compares knowledge
 0x87. Only then are state and events committed. SDK upgrade bookkeeping follows
@@ -41,7 +46,7 @@ handler success. No module-account permission reconciliation runs.
 
 Allowed carrier writes:
 
-- alignment 0x09; knowledge 0x91, 0x92, 0x93, each `{1}`;
+- alignment 0x09; vesting_rewards 0x0c; knowledge 0x91, 0x92, 0x93, each `{1}`;
 - increased knowledge 0x5a calibration scores, derived by
   `ComputeSmoothedAgentCalibrationScore`; no counts, timestamps or per-method
   data change, and the legacy permissive recompute helper is not used. Equal
@@ -64,7 +69,7 @@ There is deliberately no global state-size ceiling. The handler performs three
 whole-state streaming passes (census, expected image, actual image); startup adds
 another census. These scans bound retained selected inputs, not total I/O time.
 
-Handler/startup inventory blockers are restricted to the four v2 marker keys
+Handler/startup inventory blockers are restricted to the five v2 marker keys
 and canonical knowledge 0x5a inputs that the handler itself decodes and writes.
 Other inventory inconsistencies are HELD, including all FX7/FX8 decode, identity,
 counter, relationship and backing failures. They are counted in the compact
@@ -82,7 +87,7 @@ still fail closed; holding history does not authorize a truncated census.
 
 | Census | Declared inputs | Meaning |
 | --- | --- | --- |
-| Q1 health | alignment params/state; custom staking registry 0x01 | Occupied registry keys are observations, even at zero active stake. Malformed keys are held at activation and refuse offline; they never masquerade as empty. Strict JSON deliberately diagnoses unknown fields even though the keeper accepts them. No old category is rewritten. |
+| Q1 health | alignment params/state; custom staking registry 0x01 | Occupied registry keys are observations, even at zero active stake. Malformed keys are held at activation and refuse offline; they never masquerade as empty. Strict JSON deliberately diagnoses unknown fields even though the keeper accepts them. No old category is rewritten. One held line states the shift (review finding F5): see below. |
 | Q2 rounds | knowledge claims 0x02, rounds 0x03, params 0x06, active index 0x21 | Policy, phase, verdict and unmatched commits are held findings; no old slash/reputation replay or inferred debt. Missing historical parents are reported, not reconstructed. |
 | Q5 calibration | retained canonical knowledge 0x5a; streamed fact snapshot counts | Show stored/proposed score and genuine-zero status. Refresh only increases; hold proposed decreases. Facts do not consume Q5's selected-input budget or digest; their snapshot counts are bound by the whole-state digest. Preserve historical snapshots. |
 | PR37 support | knowledge facts 0x01 and claim citations 0x02 | Separate resolved zero contribution, missing support and contradiction edges. An old stored floor of zero alone does not identify which case occurred. No historical rewrite. |
@@ -102,6 +107,34 @@ FX8 export likewise fails closed on corrupt retained records or missing LIP
 metadata. Run the raw census on the stopped copy BEFORE depending on a repaired
 export. A successful focused census is not a certificate for unrelated exporters.
 Empty inventories do not prove that a prior export preserved all history.
+
+## What v2 changes in pacing, fees and voting (review finding F5)
+
+The `q1_health` census predicts the first scheduled alignment observation after
+the height. On a discarded cache it enables both alignment markers (Q1 and the
+bank-supply denominator) and runs alignment EndBlock's own steps (input
+selection, registry presence, observation, scores, category) against the stored
+previous category. Its held line gives, before and after: the category and
+composite, creation and analysis pacing, accelerated cadence, the knowledge claim
+cooldown (before domain pressure) and minimum review fee, the capture_defense
+risk-analysis interval, and the voting period of knowledge, alignment and
+capture_defense parameter LIPs (halved only while degraded or critical), with the
+inputs (registry, active stake, mint ledger, bank supply, both staking ratios).
+Sensors are read at the census height, so knowledge and governance readings can
+drift before the real observation. An error the first observation would also
+meet is a blocker. Nothing is written.
+
+On zerone-dev-1's measured inputs and live alignment state (empty registry, mint
+ledger 0, bank supply 3,000,000,000,000 uzrn; previous category degraded, pacing
+750,000/1,500,000) the line reads `category degraded->not_observed`,
+`creation_pacing_bps 750000->1000000 analysis_pacing_bps 1500000->1000000`, the
+review fee back to its base, and expedited parameter voting `true->false`.
+`TestConsensusRepairsV2ReportsAndCausesDev1PacingShift` then applies v2 and checks
+the first observation does exactly that; the census tool's
+`TestDev1ShapedCopiedDBV2CensusReportsPacingShift` checks the copied-DB report. A
+chain with registered but inactive validators, a zero mint ledger and positive
+supply is observed, so there the switch can move pacing toward critical, and the
+same line says so.
 
 ## Repair effects and explicit limits
 
@@ -140,8 +173,8 @@ cooling repair are unchanged. Existing zero floors are not retroactively decoded
 
 ## Genesis and offline tooling
 
-Native/imported genesis requires all ten v1 and four v2 selections explicitly
-true, with exact snake_case spelling. Case-fold (including Unicode-fold) and
+Native/imported genesis requires all nine v1 and five v2 selections explicitly
+true (#122's `vesting_rewards.alignment_bank_supply_enabled` is a v2 selection), with exact snake_case spelling. Case-fold (including Unicode-fold) and
 camelCase aliases refuse even beside canonical true. Static v2 selections are
 pinned to registry order and store locations. `initializeAccountingAuthority`
 reads every marker back after InitGenesis and before sealing lineage.
@@ -175,13 +208,17 @@ blockers, 2 includes blockers, 1 is an argument/open/identity/output error. It
 never imports, schedules, connects, writes source files or repairs state.
 
 For `--repairs v2`, `source_eligible` separately checks the exact stored v2 source
-map and completed v1 lineage (including all ten markers and a consistent applied
+map and completed v1 lineage (including all nine markers and a consistent applied
 receipt/done tuple, or native/imported selection). `source_error` explains a
 refusal. `passed` and the exit code remain inventory-only: exit 0 with
 `source_eligible: false` is not a v2 source. Conversely, source eligibility can
 be true while FX7/FX8 inventory faults produce exit 2. Neither field checks a
 scheduled/local H−1 plan, grants activation permission, or proves real-chain
 identity. The handler retains its additional plan, chain and lineage guards.
+
+Release sources follow the v1 carrier's proposal-coherence rule: cut a v2 binary
+or census tool only from a source that `scripts/proposal-coherence-gate.py`
+reports `COHERENT` (the original head `7253100b` is `REFUSED`).
 
 Dev-1 runtime/gateway tooling recognizes 13→14 and the changed sibling versions;
 that code has only been tested offline. No deployment packet or binary digest is

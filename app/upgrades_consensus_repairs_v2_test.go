@@ -35,6 +35,8 @@ func freezeConsensusRepairsV1CompiledTarget(a *ZeroneApp) {
 	a.ModuleManager.Modules["knowledge"] = archivedRepairsV1KnowledgeModule{a.ModuleManager.Modules["knowledge"].(knowledgemodule.AppModule)}
 	original := a.ModuleManager.Modules["alignment"]
 	a.ModuleManager.Modules["alignment"] = archivedConsensusSibling{original.(appmodule.AppModule), original.(module.HasGenesis), 2}
+	vesting := a.ModuleManager.Modules["vesting_rewards"] // v1's target keeps vesting_rewards at 3
+	a.ModuleManager.Modules["vesting_rewards"] = archivedConsensusSibling{vesting.(appmodule.AppModule), vesting.(module.HasGenesis), 3}
 }
 
 func consensusRepairsV2Fixture(t *testing.T, calibrations ...*knowledge.AgentCalibration) (*ZeroneApp, sdk.Context, dbm.DB) {
@@ -84,7 +86,7 @@ func TestConsensusRepairsV2ExactVersionBoundary(t *testing.T) {
 			require.Equal(t, source[entry.ModuleName]+1, target[entry.ModuleName])
 		}
 	}
-	require.Equal(t, []string{"alignment", "knowledge"}, changed)
+	require.Equal(t, []string{"alignment", "knowledge", "vesting_rewards"}, changed)
 	guards := []func(string, module.VersionMap, module.VersionMap) error{requireConsensusRepairsTransitionOwner, requireAccountingTransitionOwner, requireSurvivalHandoffTransitionOwner, requireRecordIntegrityTransitionOwner, requireReviewNeutralityTransitionOwner, requireClaimRecordsTransitionOwner, requireFundSettlementTransitionOwner, requireClaimIntegrityTransitionOwner}
 	for _, guard := range guards {
 		for _, name := range append(a.KnownUpgradeNames(), "unknown") {
@@ -143,7 +145,7 @@ func TestConsensusRepairsV2AtomicRecomputePreBlockAndRestart(t *testing.T) {
 	raw := a.KnowledgeKeeper.ReadMigrationMarker(ctx, consensusRepairsV2ReceiptKey)
 	var receipt consensusRepairsReceipt
 	require.NoError(t, json.Unmarshal([]byte(raw), &receipt))
-	require.Len(t, receipt.Markers, 4)
+	require.Len(t, receipt.Markers, 5)
 	require.Len(t, receipt.Census.Censuses, 6)
 	require.Less(t, len(raw), 8000, "receipt is summaries, never detailed inventories")
 	delete(after, "knowledge:"+string(append([]byte{0x7f, 1}, []byte(consensusRepairsV2ReceiptKey)...)))
@@ -178,6 +180,7 @@ func TestConsensusRepairsV2LateFailureIsAtomic(t *testing.T) {
 			ctx.KVStore(a.keys["bank"]).Set(key, []byte{1, 2})
 			cfg := module.NewConfigurator(a.appCodec, a.MsgServiceRouter(), a.GRPCQueryRouter())
 			require.NoError(t, cfg.RegisterMigration("knowledge", 13, consensusrepairsv2migration.Require))
+			require.NoError(t, cfg.RegisterMigration("vesting_rewards", 3, consensusrepairsv2migration.Require))
 			require.NoError(t, cfg.RegisterMigration("alignment", 2, func(cache sdk.Context) error {
 				if err := consensusrepairsv2migration.Require(cache); err != nil {
 					return err

@@ -36,11 +36,10 @@ type ActivationSelection struct {
 
 // ConsensusRepairsDeferredGenesisSelections are markers whose code is in this
 // source but which no carrier here may switch on: native genesis must leave
-// each one absent or false. #122's bank-supply denominator waits for Q1.
+// each one absent or false. None remain: #122's bank-supply denominator, which
+// consensus-repairs-v1 deferred, is a consensus-repairs-v2 selection.
 func ConsensusRepairsDeferredGenesisSelections() []ActivationSelection {
-	return []ActivationSelection{
-		{vestingrewardstypes.ModuleName, "alignment_bank_supply_enabled"},
-	}
+	return nil
 }
 
 func ConsensusRepairsV1GenesisSelections() []ActivationSelection {
@@ -66,9 +65,8 @@ func ConsensusRepairsV1GenesisSelections() []ActivationSelection {
 // #122's alignment bank-supply marker is deliberately absent. On an empty
 // staking registry with a zero mint ledger and positive bank supply (zerone-dev-1
 // today) it turns the neutral economic and staking readings into zero, so it
-// may only switch at the same height as Q1's not-observed neutrality, which
-// consensus-repairs-v2 carries. ConsensusRepairsDeferredGenesisSelections names
-// it until then.
+// may only switch at the same height as Q1's not-observed neutrality:
+// ConsensusRepairsV2Markers carries it, right after Q1.
 func (app *ZeroneApp) ConsensusRepairsV1Markers() []ActivationMarker {
 	return []ActivationMarker{
 		{zeronegovtypes.ModuleName, "seat_runoff_ordering_enabled",
@@ -95,6 +93,8 @@ func (app *ZeroneApp) ConsensusRepairsV1Markers() []ActivationMarker {
 // ConsensusRepairsV2Markers lists every consensus-repairs-v2 marker in the
 // order of their decisions in the decision ledger: zc-health-unknown-q1,
 // zc-panel-unanimity-q2, zc-calibration-cliff-q5 and zc-pr37-frontier-fixes.
+// #122's alignment bank-supply denominator follows Q1 directly: it may switch
+// only at Q1's height (review finding F1), so it moved here from v1.
 // Native genesis selects each one through its module's genesis field; the
 // consensus-repairs-v2 carrier enables each one by looping over this list.
 // It shares no module/field pair or store key with ConsensusRepairsV1Markers.
@@ -104,6 +104,8 @@ func (app *ZeroneApp) ConsensusRepairsV2Markers() []ActivationMarker {
 	return []ActivationMarker{
 		{zeronealignmenttypes.ModuleName, "unobserved_health_enabled",
 			app.AlignmentKeeper.UnobservedHealthEnabled, app.AlignmentKeeper.EnableUnobservedHealth},
+		{vestingrewardstypes.ModuleName, "alignment_bank_supply_enabled",
+			app.VestingRewardsKeeper.AlignmentBankSupplyEnabled, app.VestingRewardsKeeper.EnableAlignmentBankSupply},
 		{zeroneknowledgetypes.ModuleName, "inconclusive_round_accounting_enabled",
 			app.KnowledgeKeeper.InconclusiveRoundAccountingEnabled, app.KnowledgeKeeper.EnableInconclusiveRoundAccounting},
 		{zeroneknowledgetypes.ModuleName, "calibration_smoothing_enabled",
@@ -116,6 +118,7 @@ func (app *ZeroneApp) ConsensusRepairsV2Markers() []ActivationMarker {
 func ConsensusRepairsV2GenesisSelections() []ActivationSelection {
 	return []ActivationSelection{
 		{zeronealignmenttypes.ModuleName, "unobserved_health_enabled"},
+		{vestingrewardstypes.ModuleName, "alignment_bank_supply_enabled"},
 		{zeroneknowledgetypes.ModuleName, "inconclusive_round_accounting_enabled"},
 		{zeroneknowledgetypes.ModuleName, "calibration_smoothing_enabled"},
 		{zeroneknowledgetypes.ModuleName, "zero_confidence_floor_enabled"},

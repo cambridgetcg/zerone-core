@@ -23,7 +23,7 @@ const repairsMarkersChainID = "zerone-consensus-repairs-v1-markers"
 // owner module tests separately pin false DefaultGenesis and legacy parity.
 func seedAbsentRepairsMarkers(t *testing.T, app *zeroneapp.ZeroneApp, ctx sdk.Context) {
 	t.Helper()
-	for store, key := range map[string]byte{"zerone_gov": 0x18, "knowledge": 0x90, "capture_defense": 0x08, "qualification": 0x40, "capture_challenge": 0x05, "vesting_rewards": 0x0c, "zerone_ontology": 0x06, "emergency": 0x14, "substrate_bridge": 0x90, "zerone_ibcrl": 0x04} {
+	for store, key := range map[string]byte{"zerone_gov": 0x18, "knowledge": 0x90, "capture_defense": 0x08, "qualification": 0x40, "capture_challenge": 0x05, "zerone_ontology": 0x06, "emergency": 0x14, "substrate_bridge": 0x90, "zerone_ibcrl": 0x04} {
 		ctx.KVStore(app.GetStoreKeyForTests(store)).Delete([]byte{key})
 	}
 }
@@ -149,8 +149,8 @@ func TestConsensusRepairsV1MarkersFollowGenesisThroughTheApp(t *testing.T) {
 }
 
 // The registry the carrier loops over lists exactly the nine
-// consensus-repairs-v1 markers (#122's bank-supply marker is deferred to v2,
-// to switch with Q1), each named by the genesis field that carries
+// consensus-repairs-v1 markers (#122's bank-supply marker moved to v2, to
+// switch with Q1), each named by the genesis field that carries
 // it. Enabling every entry on a chain that started without the fields selects
 // every repair, idempotently, and an export then carries all of them.
 func TestConsensusRepairsV1RegistryEnablesEveryMarker(t *testing.T) {

@@ -18,7 +18,7 @@ import (
 var repairsV2MarkerLocations = []struct {
 	store string
 	key   byte
-}{{"alignment", 0x09}, {"knowledge", 0x91}, {"knowledge", 0x92}, {"knowledge", 0x93}}
+}{{"alignment", 0x09}, {"vesting_rewards", 0x0c}, {"knowledge", 0x91}, {"knowledge", 0x92}, {"knowledge", 0x93}}
 
 // Synthetic pre-carrier state, not an accepted fresh-genesis selection. The
 // owner module tests separately pin true DefaultGenesis and the file without
@@ -119,8 +119,9 @@ func TestConsensusRepairsV2MarkersFollowGenesisThroughTheApp(t *testing.T) {
 	}
 }
 
-// The registry the v2 carrier will loop over lists exactly the four
-// consensus-repairs-v2 markers, each named by the genesis field that carries
+// The registry the v2 carrier will loop over lists exactly the five
+// consensus-repairs-v2 markers (Q1, then #122's bank-supply denominator that
+// must switch with it, then Q2, Q5 and PR37), each named by the genesis field that carries
 // it. Enabling every entry on a chain without them selects every repair,
 // idempotently, and an export then carries all of them.
 func TestConsensusRepairsV2RegistryEnablesEveryMarker(t *testing.T) {
@@ -131,6 +132,7 @@ func TestConsensusRepairsV2RegistryEnablesEveryMarker(t *testing.T) {
 	}
 	require.Equal(t, []string{
 		"alignment/unobserved_health_enabled",
+		"vesting_rewards/alignment_bank_supply_enabled",
 		"knowledge/inconclusive_round_accounting_enabled",
 		"knowledge/calibration_smoothing_enabled",
 		"knowledge/zero_confidence_floor_enabled",
