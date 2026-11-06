@@ -251,7 +251,9 @@ func TestConsensusRepairsDomainStatusesAreHeld(t *testing.T) {
 	}
 }
 
-func TestConsensusRepairsNULIdentitiesHeldWithoutMaskingFaults(t *testing.T) {
+// zc-reformulation-id-delimiter: NUL bounty and augmentation IDs are blockers (the activated indexed
+// reader requires NUL-free legacy IDs), and they must not mask any other reformulation fault.
+func TestConsensusRepairsNULIdentitiesRefusedWithoutMaskingFaults(t *testing.T) {
 	app, ctx, _ := consensusRepairsFixture(t)
 	repairPutProto(t, app, ctx, "knowledge", knowledge.AugmentationBountyKey("b\x00x"), &knowledge.AugmentationBounty{Id: "b\x00x"})
 	for _, aug := range []*knowledge.Augmentation{{Id: "a", BountyId: "b\x00x"}, {Id: "x\x00a", BountyId: "b"}} {
@@ -259,13 +261,21 @@ func TestConsensusRepairsNULIdentitiesHeldWithoutMaskingFaults(t *testing.T) {
 		ctx.KVStore(app.keys["knowledge"]).Set(knowledge.AugmentationByBountyKey(aug.BountyId, aug.Id), []byte{1})
 	}
 	before := claimIntegrityAllStores(t, app, ctx)
-	report, err := app.CensusConsensusRepairsV1(ctx)
-	require.NoError(t, err)
+	report, nulErr := app.CensusConsensusRepairsV1(ctx)
+	require.Error(t, nulErr)
+	require.Contains(t, nulErr.Error(), "NUL bounty ID")
 	require.Equal(t, before, claimIntegrityAllStores(t, app, ctx))
 	raw, err := json.Marshal(report)
 	require.NoError(t, err)
 	require.Contains(t, string(raw), "bounties=1 augmentations_or_bounty_references=2")
 	require.Contains(t, string(raw), "primary_records=2")
+	blockers := 0
+	for _, finding := range report.Findings {
+		if finding.Census == "reformulations" && finding.Outcome == "blocker" {
+			blockers++
+		}
+	}
+	require.Equal(t, 4, blockers, "the NUL bounty, both NUL augmentation references and the ambiguous index")
 	for _, fault := range []string{"decode", "identity", "missing index", "foreign index"} {
 		t.Run(fault, func(t *testing.T) {
 			cache, _ := ctx.CacheContext()
@@ -280,8 +290,16 @@ func TestConsensusRepairsNULIdentitiesHeldWithoutMaskingFaults(t *testing.T) {
 			case "foreign index":
 				store.Set(knowledge.AugmentationByBountyKey("foreign", "x\x00a"), []byte{1})
 			}
-			_, err := app.CensusConsensusRepairsV1(cache)
+			faulted, err := app.CensusConsensusRepairsV1(cache)
 			require.Error(t, err)
+			reported := false
+			for _, finding := range faulted.Findings {
+				if finding.Census == "reformulations" && finding.Outcome == "blocker" &&
+					!strings.Contains(finding.Reason, "NUL") {
+					reported = true
+				}
+			}
+			require.True(t, reported, "the fault is reported, not masked by the NUL blockers")
 		})
 	}
 }

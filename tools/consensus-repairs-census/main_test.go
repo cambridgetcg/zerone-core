@@ -28,7 +28,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/zerone-chain/zerone/app"
 	gov "github.com/zerone-chain/zerone/x/gov/types"
-	knowledge "github.com/zerone-chain/zerone/x/knowledge/types"
+	qualification "github.com/zerone-chain/zerone/x/qualification/types"
 	customstaking "github.com/zerone-chain/zerone/x/staking/types"
 	"google.golang.org/protobuf/proto"
 )
@@ -85,9 +85,9 @@ func sourceCopyMutated(t *testing.T, badMarker bool, extraStore []bool, mutate f
 	}
 	require.NoError(t, a.UpgradeKeeper.SetModuleVersionMap(ctx, vm))
 	// Detailed held records belong in the offline JSON, not the permanent receipt.
-	bounty, err := proto.Marshal(&knowledge.AugmentationBounty{Id: "offline\x00bounty"})
+	expired, err := proto.Marshal(&qualification.DomainQualification{Validator: "validator", Domain: "offline", Status: qualification.QualificationStatus_QUALIFICATION_STATUS_EXPIRED, StakedAmount: "42"})
 	require.NoError(t, err)
-	ctx.KVStore(a.GetStoreKeyForTests("knowledge")).Set(knowledge.AugmentationBountyKey("offline\x00bounty"), bounty)
+	ctx.KVStore(a.GetStoreKeyForTests("qualification")).Set([]byte("\x01validator/offline"), expired)
 	rollback, err := json.Marshal(&gov.PhaseTransitionProposal{LipID: "offline-rollback", TargetPhase: gov.ResearchFundPhase_RESEARCH_FUND_PHASE_GENESIS_PAIR, IsRollback: true, Stage: gov.PhaseTransitionStagePending})
 	require.NoError(t, err)
 	ctx.KVStore(a.GetStoreKeyForTests("zerone_gov")).Set([]byte("\x14offline-rollback"), rollback)
@@ -145,8 +145,8 @@ func TestReadOnlyCopiedDBCensus(t *testing.T) {
 			require.Equal(t, "offline-rollback", details.Census.PendingRollbacks[0].LIPID)
 			require.Equal(t, 1, bytes.Count(out.Bytes(), []byte(`"lip_id": "offline-rollback"`)))
 			require.NotContains(t, out.String(), "pending legacy rollback")
-			require.Contains(t, out.String(), hex.EncodeToString(knowledge.AugmentationBountyKey("offline\x00bounty")))
-			require.Contains(t, out.String(), "NUL bounty ID")
+			require.Contains(t, out.String(), hex.EncodeToString([]byte("\x01validator/offline")))
+			require.Contains(t, out.String(), "EXPIRED retained amount=42")
 			if fault {
 				require.Contains(t, out.String(), "present-empty")
 			}

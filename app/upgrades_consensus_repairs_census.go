@@ -249,9 +249,13 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 		if e := identity(key, 0x62, p.Id); e != nil {
 			return e
 		}
+		// zc-reformulation-id-delimiter: the activated indexed reader splits bounty index keys on NUL,
+		// so a retained NUL bounty ID can make another, NUL-free bounty's lookup fail closed (x/knowledge
+		// reformulationBountyHold: "the carrier must reject delimiter-bearing legacy IDs before enabling
+		// this reader"). Refuse activation and surface the ID, as CensusReformulationHolds does; no rewrite.
 		if strings.ContainsRune(p.Id, 0) {
 			nulBounties++
-			add("knowledge", key, "held", "NUL bounty ID; zc-reformulation-id-delimiter hold, no rewrite")
+			add("knowledge", key, "blocker", "NUL bounty ID; zc-reformulation-id-delimiter: activation refused until a governed decision, no rewrite")
 		}
 		return nil
 	})
@@ -268,7 +272,7 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 		}
 		if strings.ContainsRune(p.Id, 0) || strings.ContainsRune(p.BountyId, 0) {
 			nulAugmentations++
-			add("knowledge", key, "held", "NUL augmentation or bounty ID; zc-reformulation-id-delimiter hold, no rewrite")
+			add("knowledge", key, "blocker", "NUL augmentation or bounty ID; zc-reformulation-id-delimiter: activation refused until a governed decision, no rewrite")
 		}
 		if p.BountyId != "" {
 			indexKey := string(knowledge.AugmentationByBountyKey(p.BountyId, p.Id))
@@ -290,11 +294,11 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 			return fmt.Errorf("dangling/foreign bounty index")
 		}
 		if strings.Count(key[1:], "\x00") > 1 {
-			add("knowledge", key, "held", fmt.Sprintf("NUL-delimited bounty index retained; primary_records=%d", indexOwners[key]))
+			add("knowledge", key, "blocker", fmt.Sprintf("ambiguous NUL-delimited bounty index; primary_records=%d", indexOwners[key]))
 		}
 		return nil
 	})
-	add("knowledge", "", "held", fmt.Sprintf("NUL IDs retained: bounties=%d augmentations_or_bounty_references=%d", nulBounties, nulAugmentations))
+	add("knowledge", "", "held", fmt.Sprintf("NUL IDs found (each is a blocker above): bounties=%d augmentations_or_bounty_references=%d", nulBounties, nulAugmentations))
 	censusName = "verification_histories"
 	histories := 0
 	scan("capture_defense", 0x05, func(key string, value []byte) error {

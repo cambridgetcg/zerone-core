@@ -207,7 +207,7 @@ func TestConsensusRepairsAtomicUpgradeDiffAndRestart(t *testing.T) {
 	require.NoError(t, imported.ValidateAccountingAuthorityStartup())
 }
 func TestConsensusRepairsCensusBlockersLeaveEveryMarkerOff(t *testing.T) {
-	for _, scenario := range []string{"pool deficit", "bounty identity", "augmentation identity", "empty marker", "corrupt marker", "deferred bank-supply marker", "empty deferred marker", "occupied generation", "corrupt halt"} {
+	for _, scenario := range []string{"pool deficit", "bounty identity", "augmentation identity", "nul bounty id", "nul augmentation bounty reference", "empty marker", "corrupt marker", "deferred bank-supply marker", "empty deferred marker", "occupied generation", "corrupt halt"} {
 		t.Run(scenario, func(t *testing.T) {
 			app, ctx, _ := consensusRepairsFixture(t)
 			switch scenario {
@@ -223,6 +223,20 @@ func TestConsensusRepairsCensusBlockersLeaveEveryMarkerOff(t *testing.T) {
 				raw, err := proto.Marshal(&knowledge.Augmentation{Id: "bad\x00id"})
 				require.NoError(t, err)
 				ctx.KVStore(app.keys["knowledge"]).Set([]byte("\x63different"), raw)
+			case "nul bounty id":
+				// Codex on #174: a retained "pool\x00evil" bounty would make the NUL-free "pool" fail closed
+				// in the activated indexed reader, so the census refuses it instead of holding it.
+				raw, err := proto.Marshal(&knowledge.AugmentationBounty{Id: "pool\x00evil"})
+				require.NoError(t, err)
+				ctx.KVStore(app.keys["knowledge"]).Set(knowledge.AugmentationBountyKey("pool\x00evil"), raw)
+			case "nul augmentation bounty reference":
+				bounty, err := proto.Marshal(&knowledge.AugmentationBounty{Id: "pool"})
+				require.NoError(t, err)
+				ctx.KVStore(app.keys["knowledge"]).Set(knowledge.AugmentationBountyKey("pool"), bounty)
+				aug, err := proto.Marshal(&knowledge.Augmentation{Id: "variant", BountyId: "pool\x00evil"})
+				require.NoError(t, err)
+				ctx.KVStore(app.keys["knowledge"]).Set(knowledge.AugmentationKey("variant"), aug)
+				ctx.KVStore(app.keys["knowledge"]).Set(knowledge.AugmentationByBountyKey("pool\x00evil", "variant"), []byte{1})
 			case "empty marker":
 				ctx.KVStore(app.keys["qualification"]).Set([]byte{0x40}, []byte{})
 			case "corrupt marker":
