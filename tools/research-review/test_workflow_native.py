@@ -86,7 +86,7 @@ class NativeResearchWorkflowTests(unittest.TestCase):
         fixture = self.fixture
         deadline = time.monotonic() + 180
         while time.monotonic() < deadline:
-            height = int(json.loads(fixture.get("/status"))["result"]["sync_info"]["latest_block_height"])
+            height = fixture.committed_height()
             def query(*args):
                 return fixture.command([fixture.homes["author"] / "bin/zeroned", "query", *args,
                     "--home", fixture.homes["author"], "--node", fixture.origin, "--height", height, "--output", "json"])
@@ -221,6 +221,29 @@ class NativeResearchWorkflowTests(unittest.TestCase):
                 output.chmod(0o600)
                 fixture.evidence["sidecars"][name] = {"sha256": w.digest(raw), "bytes": len(raw)}
             print("research-workflow native evidence: " + str(fixture.reports), flush=True)
+
+
+class CooldownHeightTests(unittest.TestCase):
+    def test_cooldown_queries_share_the_committed_height(self):
+        case = NativeResearchWorkflowTests("runTest")
+        fixture = native.NativeSharedClaimsTests("runTest")
+        case.fixture = fixture
+        fixture.homes = {"author": Path("/unused/author")}
+        fixture.origin = "http://127.0.0.1:12345"
+        fixture.evidence = {}
+        fixture.get = mock.Mock(side_effect=lambda path: json.dumps({
+            "/status": {"result": {"sync_info": {"latest_block_height": "101"}}},
+            "/abci_info": {"result": {"response": {"last_block_height": "100"}}},
+        }[path]).encode())
+        fixture.command = mock.Mock(side_effect=[{"params": {"claim_cooldown_blocks": "0"}},
+                                                {"creation_multiplier_bps": "1000000"}, {"pressure_bps": "0"}])
+        with mock.patch.object(time, "sleep") as sleep:
+            case.wait_for_author_cooldown({"height": "98"})
+        self.assertEqual([call.args[0][call.args[0].index("--height") + 1]
+                          for call in fixture.command.call_args_list], [100, 100, 100])
+        fixture.get.assert_called_once_with("/abci_info")
+        self.assertEqual(fixture.evidence["correction_admission_preflight"]["height"], 100)
+        sleep.assert_not_called()
 
 
 if __name__ == "__main__":

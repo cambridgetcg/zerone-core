@@ -15,6 +15,33 @@ applied descriptor. Linux reuses the observed runtime executable; macOS uses
 the separately pinned build from the same source release. Neither a package
 nor an endpoint observation establishes independent consensus or current health.
 
+On 2026-10-26 an agent session, on Yu's word, changed only the hosted machine's
+image so the gateway serves the committed-height claim reads of PR #151. That
+image is built from `8383dd99522d286bb8d2fd494ee26adc441efae8`, but the node
+still executes the volume-staged `5542b221` binary (`6cbafddf…`) through the
+machine's launcher override; the image's own `zeroned` and `build.json` are not
+the chain binary. `fly.toml` does not carry that override, so change this
+machine with `fly machine update --image` and check that `init.exec` is
+unchanged. The [dated record](../../../docs/reports/development-gateway-redeploy-2026-10-26.json)
+has the hashes, checks and rollback.
+
+On 2026-11-03 an agent session, on Yu's word, moved the hosted validator to an
+explicitly pinned binary patch of the applied knowledge-11 runtime: packet
+[binary-patch-bd8cfafdfba7.json](binary-patch-bd8cfafdfba7.json) (`4b2c14a8…`).
+The patch source `bd8cfafdfba78ebf06742167c1a542e18e444969` is `5542b221` plus
+cherry-picks of the commits in PR #167, and its Linux
+binary is `2fe28bea…`. The patch is validator-only: consensus, genesis,
+identities, the faucet journal, [release.json](release.json) and the participant
+and full-node packages are unchanged. [network.json](network.json) is now the
+served patch descriptor (`33620a6a…`). It differs from the applied knowledge-11
+descriptor, kept as [network-knowledge-11.json](network-knowledge-11.json)
+(`768d7dd7…`), only in `source_commit` and `runtime_binary_sha256`. The
+machine's `init.exec` now runs the image's `launch-binary-patch.py` with both
+pins (PR #166); an image-only
+`fly machine update --image` keeps it. The
+[dated record](../../../docs/reports/development-binary-patch-2026-11-03.json)
+has the hashes, checks and rollback.
+
 The 2026-09-12 launch used source
 `ac5684e33b6946a31f6ea260ebf280eace55b033`. Its original package and descriptor
 records are preserved as [release-knowledge-10.json](release-knowledge-10.json)
@@ -56,7 +83,7 @@ retention promise: measure volume growth and publish any future retention change
 Use a clean checkout of the exact intended commit. The exporter reads Git blobs,
 refuses dirty/untracked inputs, and creates a new context containing only Go
 production application code, the three Swagger embed inputs, go.mod/go.sum,
-runtime.py, gateway.py and Dockerfile. It excludes test fixtures, deployment
+runtime.py, gateway.py, launch-binary-patch.py and Dockerfile. It excludes test fixtures, deployment
 archives, node homes, keyrings, Git metadata and arbitrary repository files.
 Do not upload the repository root to a remote image builder.
 
@@ -237,6 +264,100 @@ python3 -I -B "$UPGRADE_HELPER" upgrade-status \
 
 A full node additionally reports zero power and a matching common block against its pinned reference endpoint. These are local application and endpoint observations, not independent consensus signatures. Preserve the entire home on stop. The same staging applies to the operated validator, but its gateway needs the successor `gateway.py` beside the successor runtime helper; participant/full-node packages do not need that gateway.
 
+## Run an explicitly pinned binary patch
+
+A binary patch replaces only the applied target's executable on the operated
+validator, for a change that leaves consensus rules, state, module versions,
+genesis and identities as they are. It is validator-only: participant and
+full-node packages keep their base runtime. It never replaces the upgrade
+staging, the first applied observation, a
+descriptor or any other existing file, and it runs only when its own external
+pin is given.
+
+The patch packet has exactly these fields (placeholders are not executable pins):
+
+```json
+{
+  "schema": "zerone-development-binary-patch/v1",
+  "chain_id": "zerone-dev-1",
+  "genesis_sha256": "ORIGINAL_FILE_GENESIS_SHA256",
+  "upgrade_packet_sha256": "APPLIED_UPGRADE_PACKET_SHA256",
+  "knowledge_version": 11,
+  "role": "validator",
+  "consensus": "unchanged",
+  "base": {"source_commit": "APPLIED_TARGET_COMMIT", "binaries": {"linux-amd64": "APPLIED_TARGET_LINUX_SHA256"}},
+  "patch": {"source_commit": "PATCH_COMMIT", "binaries": {"linux-amd64": "PATCH_LINUX_SHA256"}}
+}
+```
+
+`base` must equal the applied upgrade's target for every platform it names, and
+`patch` must name a distinct source and distinct binaries for the same platforms.
+Take the packet's SHA-256 from the reviewed record, outside the packet. Stop the
+runtime cleanly, then stage and run:
+
+```sh
+python3 -I -B "$UPGRADE_HELPER" stage-patch \
+  --home "$NODE_HOME" --upgrade-packet-sha256 "$UPGRADE_SHA256" \
+  --patch-packet "$PATCH_PACKET" --patch-packet-sha256 "$PATCH_SHA256" \
+  --binary "$PATCH_BINARY"
+python3 -I -B "$UPGRADE_HELPER" run-upgrade \
+  --home "$NODE_HOME" --upgrade-packet-sha256 "$UPGRADE_SHA256" \
+  --patch-packet-sha256 "$PATCH_SHA256"
+```
+
+Staging requires the applied upgrade: its halt record and the first applied
+observation of the base target. It checks the packet against its external pin and
+the applied upgrade, and the binary against its pinned digest and embedded commit.
+It then writes a new `binary-patch-<patch packet SHA-256>` directory with the
+packet, the executable and a stage record that pins the original manifest and the
+first applied observation. An existing or incomplete directory is preserved and
+refused, not overwritten.
+
+`run-upgrade` with the patch pin rechecks all of that and runs only the staged
+patch, in the applied target phase. It compares the first applied observation with
+the base target and never rewrites it, keeps its own first patched observation in
+the patch directory, and passes both pins to the gateway. The gateway writes
+`public/network-knowledge-11-patch-<first 12 hex of the patch commit>.json` beside
+the untouched earlier descriptors and serves it at `/network.json`. It refuses a
+patched descriptor that differs from the retained base descriptor in anything but
+`source_commit` and `runtime_binary_sha256`. `upgrade-status` takes the same pin.
+
+Without `--patch-packet-sha256`, `run-upgrade` behaves exactly as before and
+ignores any staged patch, so returning to the base target changes no file: start
+without the pin. Original `/genesis.json`, the faucet journal and identities are
+untouched either way.
+
+On the hosted machine, the image's `/opt/zerone-dev/launch-binary-patch.py` is the
+launch command for this path. Both pins and both input paths are its arguments, so
+they live in the machine's launch configuration rather than on the volume. It stages
+once when the pin's directory is absent, then execs `run-upgrade` with both pins on
+every boot. It never removes, repairs or retries a staged directory:
+
+```sh
+/usr/bin/python3 -I -B /opt/zerone-dev/launch-binary-patch.py \
+  --home /data/.zeroned --runtime /opt/zerone-dev/runtime.py \
+  --upgrade-packet-sha256 "$UPGRADE_SHA256" \
+  --patch-packet /ABSOLUTE/PATH/TO/VERIFIED/patch.json --patch-packet-sha256 "$PATCH_SHA256" \
+  --patch-binary /ABSOLUTE/PATH/TO/VERIFIED/zeroned
+```
+
+The development publication then carries a `runtime_patch` block. Its own pins
+name the served patch; the block records the base source, binary, descriptor and
+verification time that the participant release and the applied-upgrade evidence
+keep, the patch packet's SHA-256, and the dated record's path and SHA-256. The
+site build checks:
+
+- the committed packet (`binary-patch-<first 12 hex of the patch commit>.json`)
+  against its pin, and that it binds the served source and binary to the base;
+- the retained base descriptor (`network-knowledge-11.json`) against its pin, and
+  that the served descriptor differs from it only in `source_commit` and
+  `runtime_binary_sha256`;
+- the record (`docs/reports/development-binary-patch-YYYY-MM-DD.json`, schema
+  `zerone.development-binary-patch-observation/v1`) against its pin, and that its
+  `chain_id`, `observed_at` (the publication's verification time), `patch_packet`
+  path and SHA-256, `base` and `served` source, binary and descriptor equal the
+  publication's.
+
 ## Local tests
 
 Only the explicit `--local-test` profile permits a fresh validator outside
@@ -269,3 +390,5 @@ python3 -I -B deploy/networks/zerone-dev-1/test_upgrade_native.py
 ```
 
 Its accelerated fresh genesis, test keys and unused alternate-platform test pin are not a public release packet or independent participant demonstration.
+
+Set `ZERONE_UPGRADE_PATCH_BINARY` to a state-compatible build of another source commit to extend that test: it then stages the build through `launch-binary-patch.py` as a pinned patch of the applied target, checks the served descriptor, both observations, a restart without restaging and a committed transaction, and returns to the target by starting without the patch pin.

@@ -31,8 +31,8 @@ RUN sed -i \
 COPY --from=build /out/zeroned /usr/local/bin/zeroned
 COPY --from=build /out/build.json /opt/zerone-dev/build.json
 COPY source-context.json /opt/zerone-dev/source-context.json
-COPY runtime/runtime.py runtime/gateway.py /opt/zerone-dev/
-RUN chmod 0555 /usr/local/bin/zeroned /opt/zerone-dev/runtime.py /opt/zerone-dev/gateway.py && \
+COPY runtime/runtime.py runtime/gateway.py runtime/launch-binary-patch.py /opt/zerone-dev/
+RUN chmod 0555 /usr/local/bin/zeroned /opt/zerone-dev/runtime.py /opt/zerone-dev/gateway.py /opt/zerone-dev/launch-binary-patch.py && \
     chmod 0444 /opt/zerone-dev/build.json /opt/zerone-dev/source-context.json
 EXPOSE 26656 8080
 STOPSIGNAL SIGTERM

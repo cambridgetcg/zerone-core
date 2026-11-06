@@ -18,10 +18,18 @@ describe("optional research library", () => {
     // Complete moved ID set captured from the reviewed predecessor632f372f.
     assert.equal(createHash("sha256").update([...ids].sort().join("\n")).digest("hex"),
       "09684f4f456fb77b1e047ff75b0460b8c731c663a3e27c9b0e9ec398c94f9483");
-    for (const [, id, href] of oldLinks) {
-      assert.equal(href, `/research/#${id}`);
-      assert.equal([...home.matchAll(/\bid="([^"]+)"/gu)].filter((match) => match[1] === id).length, 1);
-      assert.equal([...library.matchAll(/\bid="([^"]+)"/gu)].filter((match) => match[1] === id).length, 1);
+    // A real id attribute, not data-mode-id and the like, and not one that only exists without JavaScript.
+    const realIds = (html: string) => [...html.replace(/<noscript\b[\s\S]*?<\/noscript>/gu, "")
+      .matchAll(/(?:^|\s)id="([^"]+)"/gu)].map((match) => match[1]!);
+    const homeIds = realIds(home);
+    const libraryIds = realIds(library);
+    for (const [, id = "", href = ""] of oldLinks) {
+      assert.equal(homeIds.filter((candidate) => candidate === id).length, 1);
+      const fragment = href.match(/^\/research\/#([A-Za-z][A-Za-z0-9-]*)$/u)?.[1];
+      assert.ok(fragment, href);
+      assert.equal(libraryIds.filter((candidate) => candidate === fragment).length, 1, `${id} → ${href}`);
+      // A link leaves its own fragment only when the library no longer holds that id.
+      if (fragment !== id) assert.ok(!libraryIds.includes(id), id);
     }
     assert.match(read("src/styles.css"), /\.research-index \.research-legacy-target:target\s*\{[^}]*display: inline-flex/u);
   });
@@ -34,7 +42,7 @@ describe("optional research library", () => {
       } as unknown as HTMLElement,
     });
     for (const [, id, href] of oldLinks) assert.equal(researchDestination(`#${id}`, root(id!, href!)), href);
-    for (const destination of ["https://attacker.example/", "//attacker.example/#skills", "/research/#other", "/research/?account=secret#skills", "javascript:alert(1)"]) {
+    for (const destination of ["https://attacker.example/", "//attacker.example/#skills", "/research/?account=secret#skills", "/research/#skills?x", "/research/#", "/elsewhere/#skills", "javascript:alert(1)"]) {
       assert.equal(researchDestination("#skills", root("skills", destination)), null);
     }
     assert.equal(researchDestination("#skills", root("skills", "/research/#skills", false)), null);

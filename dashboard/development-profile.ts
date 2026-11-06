@@ -12,6 +12,23 @@ export interface DevelopmentPublication {
   runtime_source_commit: string;
   binary_sha256: string;
   verified_at: string;
+  /** Present only while the validator runs an explicitly pinned binary patch of the applied runtime. */
+  runtime_patch?: DevelopmentRuntimePatch;
+}
+
+/**
+ * The publication's own pins name what the endpoint serves: the patch source, binary and
+ * descriptor. The participant packages and the applied-upgrade evidence keep the base they
+ * were built and observed with, recorded here.
+ */
+export interface DevelopmentRuntimePatch {
+  base_source_commit: string;
+  base_binary_sha256: string;
+  base_descriptor_sha256: string;
+  base_verified_at: string;
+  patch_packet_sha256: string;
+  record: string;
+  record_sha256: string;
 }
 
 /** A dated proposed upgrade notice, separate from the live participant publication. */
@@ -92,8 +109,9 @@ function pin(value: unknown, length: number, label: string): asserts value is st
   if (typeof value !== "string" || !new RegExp(`^[a-f0-9]{${length}}$`, "u").test(value) || /^0+$/u.test(value)) throw new Error(`Invalid ${label} pin`);
 }
 
-export function validateDevelopmentUpgradeApplied(value: DevelopmentUpgradeApplied, publication: DevelopmentPublication): void {
-  validateDevelopmentPublication(publication);
+export function validateDevelopmentUpgradeApplied(value: DevelopmentUpgradeApplied, served: DevelopmentPublication): void {
+  validateDevelopmentPublication(served);
+  const publication = participantBasis(served);
   const fields = ["status", "target_source_commit", "height", "proposal_id", "recorded_at", "observed_height", "packet_url", "packet_sha256", "release_record_url", "release_record_sha256", "knowledge_version", "descriptor_sha256", "binary_sha256", "predecessor_source_commit", "participant_release_tag"];
   if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).length !== fields.length || fields.some((key) => !Object.hasOwn(value, key))) throw new Error("Invalid applied development upgrade fields");
   const { knowledge_version, descriptor_sha256, binary_sha256, predecessor_source_commit, participant_release_tag, ...notice } = value;
@@ -104,21 +122,36 @@ export function validateDevelopmentUpgradeApplied(value: DevelopmentUpgradeAppli
   if (predecessor_source_commit === value.target_source_commit || participant_release_tag !== `zerone-dev-1-${value.target_source_commit.slice(0, 12)}-participants-v1`) throw new Error("Applied upgrade requires distinct predecessor and participant packages");
 }
 
+/** The base the participant packages and applied-upgrade evidence bind to; the publication itself when unpatched. */
+export function participantBasis(publication: DevelopmentPublication): DevelopmentPublication {
+  const patch = publication.runtime_patch;
+  if (!patch) return publication;
+  const { runtime_patch: _served, ...base } = publication;
+  return { ...base, runtime_source_commit: patch.base_source_commit, binary_sha256: patch.base_binary_sha256, descriptor_sha256: patch.base_descriptor_sha256, verified_at: patch.base_verified_at };
+}
+
+/** The repository path of a runtime patch's packet, named by the patch source. */
+export function runtimePatchPacketPath(publication: DevelopmentPublication): string {
+  return `deploy/networks/zerone-dev-1/binary-patch-${publication.runtime_source_commit.slice(0, 12)}.json`;
+}
+
 function defaultUpgradeNotice(publication?: DevelopmentPublication): DevelopmentUpgradeNotice | null {
   if (!publication) return null;
-  if (DEVELOPMENT_UPGRADE_APPLIED?.target_source_commit === publication.runtime_source_commit) return DEVELOPMENT_UPGRADE_APPLIED;
+  if (DEVELOPMENT_UPGRADE_APPLIED?.target_source_commit === participantBasis(publication).runtime_source_commit) return DEVELOPMENT_UPGRADE_APPLIED;
   return DEVELOPMENT_UPGRADE_PROPOSAL;
 }
 
-function packageLinks(sourceCommit: string, runtimeCommit: string, role: "original" | "participant" | "predecessor" = "original") {
+function packageLinks(sourceCommit: string, runtimeCommit: string, role: "original" | "participant" | "predecessor" = "original", patched = false) {
   const tag = `zerone-dev-1-${runtimeCommit.slice(0, 12)}${role === "participant" ? "-participants-v1" : ""}`;
   const recordPath = `deploy/networks/zerone-dev-1/${role === "predecessor" ? "release-knowledge-10.json" : "release.json"}`;
+  // Under a runtime patch, network.json is the served patch descriptor; the packages bind to the retained base.
+  const descriptorFile = role === "predecessor" ? "network-knowledge-10.json" : patched ? "network-knowledge-11.json" : "network.json";
   return {
     tag,
     releaseUrl: `${REPOSITORY}/releases/tag/${tag}`,
     recordUrl: `${REPOSITORY}/blob/${sourceCommit}/${recordPath}`,
     recordRawUrl: `https://raw.githubusercontent.com/cambridgetcg/zerone-core/${sourceCommit}/${recordPath}`,
-    descriptorUrl: `${REPOSITORY}/blob/${sourceCommit}/deploy/networks/zerone-dev-1/${role === "predecessor" ? "network-knowledge-10.json" : "network.json"}`,
+    descriptorUrl: `${REPOSITORY}/blob/${sourceCommit}/deploy/networks/zerone-dev-1/${descriptorFile}`,
     sourceScope: role === "participant" ? "The Linux package identifies the observed version-11 runtime binary. The macOS package contains a separate platform build from the same source. Both include the version-11 descriptor; the checksum record and instructions are pinned to this website's source commit." : "Package source is the runtime commit; the release record and instructions are pinned to this website's source commit.",
     verification: "Verify the archive SHA-256 against the source-pinned release record before extracting or running it. That record also identifies each platform's binary hash. A checksum identifies bytes; it is not a security audit or independent operator trust.",
     artifacts: [
@@ -132,11 +165,14 @@ function packageLinks(sourceCommit: string, runtimeCommit: string, role: "origin
 }
 
 /** The website links to a committed external checksum record, not a hash supplied by its archive. */
-export function validateDevelopmentRelease(value: unknown, publication: DevelopmentPublication, notice: DevelopmentUpgradeNotice | null = defaultUpgradeNotice(publication)): void {
-  validateDevelopmentPublication(publication);
+export function validateDevelopmentRelease(value: unknown, served: DevelopmentPublication, notice: DevelopmentUpgradeNotice | null = defaultUpgradeNotice(served)): void {
+  validateDevelopmentPublication(served);
+  // A runtime patch leaves the packages on their base: every pin below binds to it.
+  const publication = participantBasis(served);
+  if (served.runtime_patch && notice?.status !== "applied") throw new Error("A runtime patch requires the applied upgrade observation");
   if (publication.runtime_source_commit === DEVELOPMENT_UPGRADE_PROPOSAL?.target_source_commit && notice?.status !== "applied") throw new Error("Successor participant packages require an applied upgrade observation");
   const applied = notice?.status === "applied" ? notice : null;
-  if (applied) validateDevelopmentUpgradeApplied(applied, publication);
+  if (applied) validateDevelopmentUpgradeApplied(applied, served);
   const object = (item: unknown, fields: string[]): Record<string, unknown> => {
     if (!item || typeof item !== "object" || Array.isArray(item) || Object.keys(item).length !== fields.length || fields.some((key) => !Object.hasOwn(item, key))) throw new Error("Invalid development release fields");
     return item as Record<string, unknown>;
@@ -165,38 +201,60 @@ export function validateDevelopmentRelease(value: unknown, publication: Developm
   }
 }
 
+function verificationDate(value: unknown): asserts value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/u.test(value) || new Date(value).toISOString() !== value.replace("Z", ".000Z")) throw new Error("Invalid verification date");
+}
+
 export function validateDevelopmentPublication(value: DevelopmentPublication): void {
-  const fields = ["schema", "chain_id", "gateway", "descriptor_sha256", "genesis_sha256", "rpc_genesis_sha256", "runtime_source_commit", "binary_sha256", "verified_at"];
+  const fields = ["schema", "chain_id", "gateway", "descriptor_sha256", "genesis_sha256", "rpc_genesis_sha256", "runtime_source_commit", "binary_sha256", "verified_at", ...(value && typeof value === "object" && Object.hasOwn(value, "runtime_patch") ? ["runtime_patch"] : [])];
   if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).length !== fields.length || fields.some((key) => !Object.hasOwn(value, key))) throw new Error("Invalid development publication fields");
   if (value.schema !== "zerone.development-publication/v1" || value.chain_id !== DEVELOPMENT_CHAIN || value.gateway !== DEVELOPMENT_GATEWAY) throw new Error("Wrong development publication network");
   for (const key of ["descriptor_sha256", "genesis_sha256", "rpc_genesis_sha256", "binary_sha256"] as const) pin(value[key], 64, key);
   pin(value.runtime_source_commit, 40, "runtime source");
-  if (typeof value.verified_at !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/u.test(value.verified_at) || new Date(value.verified_at).toISOString() !== value.verified_at.replace("Z", ".000Z")) throw new Error("Invalid verification date");
+  verificationDate(value.verified_at);
+  if (value.runtime_patch === undefined) return;
+  const patch = value.runtime_patch;
+  const patchFields = ["base_source_commit", "base_binary_sha256", "base_descriptor_sha256", "base_verified_at", "patch_packet_sha256", "record", "record_sha256"];
+  if (!patch || typeof patch !== "object" || Array.isArray(patch) || Object.keys(patch).length !== patchFields.length || patchFields.some((key) => !Object.hasOwn(patch, key))) throw new Error("Invalid runtime patch fields");
+  pin(patch.base_source_commit, 40, "patch base source");
+  for (const key of ["base_binary_sha256", "base_descriptor_sha256", "patch_packet_sha256", "record_sha256"] as const) pin(patch[key], 64, key);
+  verificationDate(patch.base_verified_at);
+  if (typeof patch.record !== "string" || !/^docs\/reports\/development-binary-patch-\d{4}-\d\d-\d\d\.json$/u.test(patch.record)) throw new Error("A runtime patch requires its dated record");
+  if (patch.base_source_commit === value.runtime_source_commit || patch.base_binary_sha256 === value.binary_sha256 || patch.base_descriptor_sha256 === value.descriptor_sha256 || patch.base_verified_at >= value.verified_at) throw new Error("A runtime patch requires a distinct, later served runtime");
 }
 
 /** Build-time publication evidence, never a current network-health assertion. */
 export function buildDevelopmentProfile(sourceCommit: string, publication?: DevelopmentPublication, notice: DevelopmentUpgradeNotice | null = defaultUpgradeNotice(publication)) {
   pin(sourceCommit, 40, "website source");
   if (publication !== undefined) validateDevelopmentPublication(publication);
+  const basis = publication ? participantBasis(publication) : undefined;
   const proposal = notice?.status === "proposed" ? notice : null;
   const applied = notice?.status === "applied" ? notice : null;
   if (notice !== null && !proposal && !applied) throw new Error("Invalid development upgrade status");
-  if (publication?.runtime_source_commit === DEVELOPMENT_UPGRADE_PROPOSAL?.target_source_commit && !applied) throw new Error("Successor participant packages require an applied upgrade observation");
-  if (proposal !== null) { validateDevelopmentUpgradeProposal(proposal); if (!publication || proposal.target_source_commit === publication.runtime_source_commit) throw new Error("Proposed target requires a distinct live predecessor publication"); }
+  if (publication?.runtime_patch && !applied) throw new Error("A runtime patch requires the applied upgrade observation");
+  if (basis?.runtime_source_commit === DEVELOPMENT_UPGRADE_PROPOSAL?.target_source_commit && !applied) throw new Error("Successor participant packages require an applied upgrade observation");
+  if (proposal !== null) { validateDevelopmentUpgradeProposal(proposal); if (!basis || proposal.target_source_commit === basis.runtime_source_commit) throw new Error("Proposed target requires a distinct live predecessor publication"); }
   if (applied !== null) { if (!publication) throw new Error("Applied upgrade requires a verified publication"); validateDevelopmentUpgradeApplied(applied, publication); }
   const source = (path: string) => `${REPOSITORY}/blob/${sourceCommit}/${path}`;
+  const patch = publication?.runtime_patch;
   return {
     schema: "zerone.development-guide/v1",
     chainId: DEVELOPMENT_CHAIN,
     title: "Work on a claim together",
-    repositoryAccess: "restricted",
-    accessNote: "The source repository and GitHub-hosted client packages require repository access and are not anonymously downloadable. The public history reader remains separate. With authorized access, retrieve the exact release and its pinned checksum record; a generic source build is not a replacement for the compatible package. This notice does not change repository visibility or network admission.",
+    repositoryAccess: "public",
+    accessNote: "Since 28 October 2026 the source repository and its GitHub-hosted client packages have been public and download without a GitHub account. The public history reader remains separate. Retrieve the exact release and its pinned checksum record; a generic source build is not a replacement for the compatible package. This notice does not change network admission.",
     availability: publication ? "operator-verified-publication" : "verification-pending",
     status: publication ? `Deployment checked ${publication.verified_at}. Availability can change; reads below make a new endpoint observation.` : "Deployment verification pending. This page does not yet offer network reads or announce open participation.",
     source: { commit: sourceCommit, guide: source("docs/SHARED-DEVELOPMENT.md"), client: source("scripts/shared-claims.py"), scope: "Website documentation and participant client source; deployed binary source is identified separately." },
     endpoints: { descriptor: `${DEVELOPMENT_GATEWAY}/network.json`, genesis: `${DEVELOPMENT_GATEWAY}/genesis.json`, gateway: DEVELOPMENT_GATEWAY },
     publication: publication ?? null,
-    packages: publication ? packageLinks(sourceCommit, publication.runtime_source_commit, applied ? "participant" : "original") : null,
+    packages: basis ? packageLinks(sourceCommit, basis.runtime_source_commit, applied ? "participant" : "original", Boolean(patch)) : null,
+    runtimePatch: patch ? {
+      ...patch,
+      packetUrl: source(runtimePatchPacketPath(publication!)),
+      recordUrl: source(patch.record),
+      scope: `The hosted validator runs an explicitly pinned binary patch of the applied runtime: the deployed runtime source, binary and descriptor pins name the patch. Consensus, genesis, identities and the faucet journal are unchanged. The patch is validator-only: the participant and full-node packages keep their base runtime ${patch.base_source_commit.slice(0, 12)}, and their Linux binary is that base binary. The dated record has the hashes, checks and rollback.`,
+    } : null,
     predecessorPackages: applied ? packageLinks(sourceCommit, applied.predecessor_source_commit, "predecessor") : null,
     upgradeApplied: applied ? {
       ...applied,

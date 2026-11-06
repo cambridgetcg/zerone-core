@@ -34,6 +34,7 @@ class WorkflowTests(unittest.TestCase):
         self.w.accounts = {actor: "zrn1" + str(index + 2) * 38 for index, actor in enumerate(workflow.ACTORS)}
         self.w.wait = 0.02
         self.w.check_node = mock.Mock(return_value=20)
+        self.w.committed_height = mock.Mock(return_value=20)
         self.w.actor = mock.Mock(side_effect=lambda actor: self.w.accounts[actor])
         self.raw = b"unit-test-signed-transaction-not-a-real-tx"
         self.encoded = base64.b64encode(self.raw).decode()
@@ -261,13 +262,35 @@ class WorkflowTests(unittest.TestCase):
             self.assertNotIn(secret, raw)
         self.assertEqual(value["pending_reviews"][0]["status"], "awaiting-reveal")
         self.assertEqual(value["transactions"][0]["tx_bytes"], len(self.raw))
-        self.w.check_node.return_value = 120
+        self.w.committed_height.return_value = 120
         self.assertEqual(self.w.snapshot()["pending_reviews"][0]["status"], "reveal-missed")
 
     def test_history_rejects_wrong_context_or_claim(self):
         self.w.query = mock.Mock(return_value={"chain_id": self.w.chain, "block_height": "21", "record": {"claim_id": "claim-1"}})
         with self.assertRaisesRegex(workflow.WorkflowError, "different identity or context"):
             self.w.history("claim-1", 20)
+
+    def test_pinned_query_height_is_the_committed_application_height(self):
+        # Status already names block 21; the application has committed only 20.
+        self.w.check_node.return_value = 21
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.read.return_value = b'{"result":{"response":{"last_block_height":"20"}}}'
+        opener = mock.Mock()
+        opener.open.return_value = response
+        with mock.patch.object(workflow.urllib.request, "build_opener", return_value=opener):
+            self.assertEqual(workflow.Workflow.committed_height(self.w), 20)
+        opener.open.assert_called_once_with(self.w.rpc + "/abci_info", timeout=2)
+        self.w.check_node.assert_called_once_with()
+        self.w.query = mock.Mock(return_value={"chain_id": self.w.chain, "block_height": "20", "record": {"claim_id": "claim-1"}})
+        self.w.history("claim-1")
+        self.w.query.assert_called_once_with("knowledge", "claim-history", "claim-1", height=20)
+
+    def test_missing_committed_application_height_is_refused(self):
+        for info in ({"response": {"last_block_height": "0"}}, {"response": {}}, {}):
+            self.w.abci_info = mock.Mock(return_value=info)
+            with self.subTest(info=info), self.assertRaisesRegex(workflow.WorkflowError, "committed application height"):
+                workflow.Workflow.committed_height(self.w)
 
     def test_query_receipt_rejects_hash_height_and_gas_malformation(self):
         self.w.tx_observation = workflow.Workflow.tx_observation.__get__(self.w)

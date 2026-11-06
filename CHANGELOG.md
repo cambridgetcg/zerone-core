@@ -19,6 +19,124 @@ publication are separate events and are stated explicitly when they occur.
   is absent from the reviewed stack and is a census blocker, not silently
   treated as healthy or critical. See [limits and rehearsal](docs/consensus-repairs-v1.md).
 
+## Source — 2026-11-05 Proposal-coherence release gate
+
+- `scripts/proposal-coherence-gate.py` decides, for one release source
+  commit, whether `PrepareProposal` is coherent with `ProcessProposal`. It reads
+  the commit's Git objects (not a worktree) and reports `NOT_AFFECTED` when no
+  non-test Go file replays the ante in `ProcessProposal` and the commit descends
+  from neither anchor, `COHERENT` when `PrepareProposal` replays its candidates
+  and the eleven named coherence tests, with all their subtests, pass in a
+  `git archive` of the commit, and `REFUSED` otherwise, including a descendant
+  of `b8cff9c1` it no longer recognises and a descendant of `cd6cd145` that has
+  lost the fix. It exits 2 without a verdict in a shallow clone, without an
+  anchor commit, on Python older than 3.12, or when Go cannot build or run the
+  tests at all.
+- `docs/UPGRADES.md` and the `zerone-2` go/no-go checklist require its report,
+  from a full clone of `main`, before a candidate source is frozen. CI's Test
+  job, now on a full-history checkout, runs its offline self-tests and the gate
+  itself on the commit under test.
+- On 2026-11-05 it reported `NOT_AFFECTED` for zerone-1's source `2e37c4c`, the
+  H1 and H2 pins and the 2026-08-01 H3 candidate `335bb94f`; `REFUSED` for
+  `b8cff9c1` and zerone-dev-1's base `5542b221`; and `COHERENT` for `cd6cd145`
+  and zerone-dev-1's patch source `bd8cfafd`.
+
+## Source — 2026-11-02 PrepareProposal and ProcessProposal coherence
+
+- `PrepareProposal` now replays each candidate transaction through the full
+  ante handler at the proposal's height and time, in proposal order, against
+  the disposable proposal state, and offers only the candidates that pass.
+  Since the signature-hardening merge (`b8cff9c1`), `ProcessProposal` replays
+  the same checks and refuses the whole block when one transaction fails, and
+  CometBFT requires a block prepared by a correct proposer to be accepted. The
+  mempool is admitted at the committed height, so before this change a
+  candidate whose validity depends on the height, the block time or an
+  earlier candidate could be offered and then refused.
+- A candidate whose replay fails, or panics, is left out and selection
+  continues. Each omission is logged at debug level, with one info line per
+  proposal giving the count. The handler no longer returns an error: if the
+  vote-extension injection (still behind its compiled-off latch) cannot be
+  encoded, it is dropped and the proposal is built without it.
+- Byte and gas selection, `ProcessProposal`, `FinalizeBlock`, ante rules,
+  module versions and genesis are unchanged. A transaction whose wire framing
+  is not canonical is proposed in its canonical encoding, the bytes that were
+  replayed. A block from a patched proposer is accepted by patched and
+  unpatched validators alike.
+- This is a binary change with no upgrade handler. Every release binary built
+  from a commit that contains `b8cff9c1` needs it. Source publication does not
+  deploy it to any network.
+
+## Package and source — 2026-11-02 `@zerone-chain/sdk` 0.1.1 on npm
+
+- Package publication: the package owner published `@zerone-chain/sdk`
+  `0.1.1` to npm by hand on 2 November 2026, with npm 2FA and without an npm
+  provenance attestation, from a tarball built from the annotated `sdk-v0.1.1`
+  tag on `main` commit `38bb765f`. The registry serves it as `latest`; its
+  tarball's SHA-256 is
+  `3df235181617eb1544f7590abe6aee76c702dee48367d4fa5436e407ae7879a2`, and
+  packing the tag reproduces it byte for byte.
+  [OPEN_CRYPTO_SDK.md](docs/standards/OPEN_CRYPTO_SDK.md) records its npm
+  shasum and integrity. npm's staged publishing also created a placeholder
+  version, `0.0.0-stage`, which holds no code: install `0.1.1` exactly and
+  never `0.0.0-stage`.
+- The agents' guide at `/join/agents.md` now installs `0.1.1` from npm, gives
+  its hashes and how to check them, and keeps a rebuild from the tag only as an
+  optional comparison. `llms.txt`, `README.md`, the SDK README and
+  `OPEN_CRYPTO_SDK.md` say the package is on npm. The SDK README is packed into
+  every release tarball, so its new wording ships from the next version.
+- `publish-sdk.yml` no longer passes `--provenance=false`. Its stage step now
+  passes `--provenance`, so a stage that cannot attest provenance fails instead
+  of staging a version without it. npm's documentation says provenance is
+  generated for trusted publishes from a public repository; no staged release
+  has shown it yet, so confirm `dist.attestations` on the first one. The
+  workflow now also requires Node 22.14.0 or later, as trusted publishing does.
+  Because it tags each stage `latest` explicitly, which turns off npm's own
+  prerelease and version-order checks, it refuses a prerelease version and any
+  version not greater than both the registry's `latest` and every plain release
+  it lists. Its refusal on a 404 says the package has existed since `0.1.1`.
+  Later versions are staged through it and approved with npm 2FA; the
+  trusted publisher is configured only when the next version is ready to stage
+  within 48 hours.
+- The FL-0 receipt profile at
+  `/standards/frontier-evaluation-receipt-profile.v0.json` still lists the
+  limit `sdk-unpublished`. Its dogfood receipt, dated 2026-08-01, binds those
+  exact bytes by SHA-256, so correcting it needs a separately reviewed
+  revision.
+
+## Source — 2026-10-28 TypeScript SDK 0.1.1 and public-repository wording
+
+- `@zerone-chain/sdk` is now version `0.1.1`, the first version to publish on
+  npm. `0.1.0` was tagged as `sdk-v0.1.0` but never published: the README
+  packed from that tag says the source repository "is currently private",
+  which stopped being true on 28 October 2026, and GitHub's ruleset for
+  `sdk-v*` tags refuses updating or deleting it. This change touches only the
+  package's README and version number; the package code is that of
+  `sdk-v0.1.0`.
+- `README.md` and `docs/standards/OPEN_CRYPTO_SDK.md` state the repository's
+  visibility history: first published on 5 July 2026, access-restricted from
+  about 25 September, and public again since 28 October 2026. zerone.ai says
+  the source has been public since 28 October 2026.
+- Source publication does not publish `@zerone-chain/sdk` to npm. The package
+  owner publishes `0.1.1` by hand from the `sdk-v0.1.1` tag, as
+  [OPEN_CRYPTO_SDK.md](docs/standards/OPEN_CRYPTO_SDK.md) describes.
+
+## Source — 2026-10-27 TypeScript SDK pre-release corrections
+
+- The generated protobuf writer now encodes 64-bit varints in
+  [2^31, 2^32) correctly. Before this change, values such as a post-2038
+  `MsgRotateKey.authorization_expires_at_unix` were written as one truncated
+  byte plus zero padding. The repair is applied by `scripts/generate.mjs`, so
+  regeneration reproduces it, and it fails closed if the generator output
+  changes. A shared Go/TypeScript wire vector and a boundary test cover it.
+- The SDK README states which live networks accept the registration
+  identity proof and dual-signature rotation (neither does on the v0.50.15
+  line that `zerone-1` and `zerone-testnet-1` run), and names
+  `accounting-authority-v1` as the first `zerone-1` upgrade whose source
+  carries them. It warns against sending `MsgRotateKey` to those networks
+  before that upgrade, and documents the `system` account freeze, the
+  rotation cooldown and the metadata limit.
+- Source publication does not publish `@zerone-chain/sdk` to npm.
+
 ## Source — 2026-09-13 claim fund settlement
 
 - The separate `knowledge-fund-settlement-v1` 10→11 upgrade records prospective

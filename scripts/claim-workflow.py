@@ -25,6 +25,7 @@ import subprocess
 import sys
 import time
 import unicodedata
+import urllib.request
 
 
 def sibling(name):
@@ -542,6 +543,21 @@ class Workflow:
             raise WorkflowError("Wait for the local node to finish catching up.")
         return integer(value["sync_info"]["latest_block_height"], "local block height", 1)
 
+    def abci_info(self):
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), local.NoRedirect())
+        with opener.open(self.rpc + "/abci_info", timeout=2) as response:
+            raw = response.read(1024 * 1024 + 1)
+        if len(raw) > 1024 * 1024:
+            raise WorkflowError("Local RPC returned an oversized abci_info response.")
+        return parse_json(raw.decode()).get("result", {})
+
+    def committed_height(self):
+        # Status names the block store height. CometBFT saves a block before the
+        # app commits it, and the SDK refuses a query above its committed version,
+        # so a pinned query height is the app's own last commit.
+        self.check_node()
+        return integer(self.abci_info().get("response", {}).get("last_block_height"), "committed application height", 1)
+
     @contextmanager
     def locked(self):
         fd = os.open(self.directory / ".lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
@@ -912,7 +928,7 @@ class Workflow:
 
     def submit_context(self, context, *, resubmit_after=None, max_review_fee_uzrn=None):
         # Query both inputs to the existing effective-fee formula at one height.
-        height = self.check_node()
+        height = self.committed_height()
         params = self.query("knowledge", "params", height=height)["params"]
         pacing = self.query("alignment", "global-pacing", height=height)
         multiplier = integer(pacing.get("creation_multiplier_bps", "0"), "creation pacing") or 1000000
@@ -1014,7 +1030,7 @@ class Workflow:
             args.content, args.stake, args.reason, "--evidence-ids", ",".join(args.evidence)], context))
 
     def history(self, claim_id, height=None):
-        height = self.check_node() if height is None else height
+        height = self.committed_height() if height is None else height
         value = self.query("knowledge", "claim-history", claim_id, height=height)
         if value.get("chain_id") != self.chain or integer(value.get("block_height"), "history height") != height or value.get("record", {}).get("claim_id") != claim_id:
             raise WorkflowError("Claim history returned a different identity or context.")
@@ -1023,7 +1039,7 @@ class Workflow:
     def snapshot(self):
         with self.locked():
             self.reconcile()
-            height = self.check_node()
+            height = self.committed_height()
             attempts = [value for _, value in self.records("attempts")]
             reviews = [value for _, value in self.records("reviews")]
             ids = sorted({value["claim_id"] for value in attempts if value.get("claim_id")} |

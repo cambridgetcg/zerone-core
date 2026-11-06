@@ -6,13 +6,26 @@ implemented source from published packages and activated network behavior.
 
 ## Availability
 
-The canonical public source is
-[`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core).
-The Go module path remains `github.com/zerone-chain/zerone` pending an explicit
-module-path migration.
+The canonical source is
+[`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core),
+a public repository. It was first published on 5 July 2026, access-restricted
+from about 25 September, and public again since 28 October 2026. The Go module
+path remains `github.com/zerone-chain/zerone` pending an explicit module-path
+migration.
 
-The repository contains a package named `@zerone-chain/sdk` under
-[`sdk/typescript`](../../sdk/typescript), but it is **not published on npm**.
+The repository contains the package `@zerone-chain/sdk` under
+[`sdk/typescript`](../../sdk/typescript). Its first npm version, `0.1.1`, has
+been public since 2 November 2026 (see
+[First publication by the owner's own hand](#first-publication-by-the-owners-own-hand)).
+Install it exactly, never the `0.0.0-stage` placeholder:
+
+```bash
+npm install --ignore-scripts --save-exact @zerone-chain/sdk@0.1.1
+```
+
+`--ignore-scripts` stops npm from running the install scripts of the packages
+it fetches; `protobufjs`, one of the SDK's dependencies, has one.
+
 Build and test it from a pinned repository checkout:
 
 ```bash
@@ -21,33 +34,120 @@ npm --prefix sdk/typescript run check
 npm --prefix sdk/typescript run build
 ```
 
-Do not document `npm install @zerone-chain/sdk` as available until a separate
-registry release is verified.
+Document a later version as installable only after its registry release is
+verified as described below.
 
 The manual
 [`publish-sdk.yml`](../../.github/workflows/publish-sdk.yml) workflow is the
-package-release path. It requires an explicit matching version input, refuses
-branch refs and lightweight tags, requires `sdk-v<package version>` at the
-current `main` commit, serializes release attempts, regenerates and checks the
-SDK, audits the runtime dependency graph, rebuilds the committed distribution,
-and verifies the packed exports. Its `npm-sdk-release` environment is a
-deployment boundary, not npm authority by itself.
+release path for versions after the first. It requires an explicit matching
+version input, refuses branch refs and lightweight tags, requires
+`sdk-v<package version>` at the current `main` commit, serializes release
+attempts, regenerates and checks the SDK, audits the runtime dependency graph,
+rebuilds the committed distribution, and verifies the packed exports. It also
+refuses to run unless the npm registry returns the package's document (HTTP
+200) and that document does not list the version yet. Because the stage step
+tags each version `latest` explicitly, which turns off npm's own prerelease
+and version-order checks for that tag, the workflow accepts only a plain
+`MAJOR.MINOR.PATCH` release, with no prerelease or build part, that is greater
+than the registry's `dist-tags.latest` and than every plain release the
+document lists. If `latest` ever points at a prerelease, the workflow refuses
+every version until a person moves the tag back to a plain release. The tag
+check reads the current `main` commit through the GitHub API with the run's
+read-only token, scoped to that one step, because checkout keeps no Git
+credentials. While the repository was private an anonymous fetch was refused;
+the step is unchanged now that it is public again.
 
-Because npm trusted publishing and staged publishing require an existing
-package, the first publication uses a separately authorized, shortest-lived
-granular credential with read/write access to only the `zerone-chain` npm
-scope and the minimum necessary 2FA bypass. Store it only as the
-`npm-sdk-release` environment's `NPM_TOKEN`. The workflow permits this direct
-bootstrap path only while the package is absent, publishes with GitHub
-provenance, and downloads the public registry tarball to prove it is
-byte-identical to the packed artifact.
+From about 25 September until 28 October 2026 this repository was private on
+GitHub Free, where environment secrets, required reviewers and deployment
+branch and tag policies are unavailable, so during that time the
+`npm-sdk-release` environment could neither hold a release secret nor restrict
+which ref ran the workflow. GitHub offers all three for public repositories on
+every plan. GitHub's public API reported on 28 October 2026 that the
+environment, created on 29 July 2026, carries two rules: it admits only tags
+matching `sdk-v*`, and it waits for the required reviewer `cambridgetcg`, which
+repository administrators may bypass. The environment names the workflow
+identity that npm's trusted publisher binds to and holds no secret. Do not
+store an npm token in GitHub, as an environment or a repository secret; the
+workflow reads none.
 
-Immediately after `0.1.0`, revoke and remove that bootstrap credential. Then an
-npm owner with 2FA configures the one allowed trusted publisher as GitHub user
-or organization `cambridgetcg`, repository `zerone-core`, workflow filename
-`publish-sdk.yml`, environment `npm-sdk-release`, with **stage-only** authority.
-With the package directory as the working directory, npm 11.15 or newer can
-configure that identity with:
+The first version, `0.1.1`, has no npm provenance attestation: the owner
+published it by hand from a verified tarball with `--provenance=false`, and npm
+attests provenance only for a package published from a supported cloud CI run,
+never from a private repository. `publish-sdk.yml` was written on 29 July 2026,
+while the repository was public, to publish with provenance; on 27 October
+2026, while it was private, it was changed to pass `--provenance=false`. Since
+a change of 2 November 2026 its stage step passes `--provenance`, because the
+repository is public. npm documents provenance as the default for a public
+package published through trusted publishing from a public repository, but npm
+11.19.0 drops that default without an error when one of its checks fails; with
+the flag explicit, npm signs a provenance statement with the run's OIDC
+identity or the stage fails. npm's `npm stage` reference lists automatic
+provenance generation through trusted publishing among the options of
+`npm stage publish`, but its provenance documentation does not say whether the
+attestation stays with a staged version through approval, so confirm that on
+the first such release. npm's trusted-publishing documentation says provenance
+is not generated for a private repository, so if the repository were private
+again the stage step would fail; the approver checks for the attestation
+either way.
+
+### First publication by the owner's own hand
+
+A trusted publisher is configured in an existing package's settings, so the
+package owner published the first version, `0.1.1`, by hand, with npm 2FA and
+`--provenance=false`, on 2 November 2026 (the registry records 11:24 UTC). The
+tarball was built from the annotated `sdk-v0.1.1` tag, made on `main` commit
+`38bb765f14c977b307719ec334e03390a90224a8`. The documented procedure was to
+build it from a fresh checkout of that tag with the workflow's npm release
+(11.19.0) and its gates: `npm ci`; `npm run generate` with no change under
+`src/generated`; `npm run check`; `npm audit --omit=dev`; `npm run build` with
+no change under `dist`; `npm run check:publish`; then
+`npm pack --ignore-scripts`; record the tarball's SHA-256, npm shasum and
+integrity; publish that exact file; and confirm the registry's values
+afterwards.
+
+On 2 November 2026 the registry served `0.1.1` as `latest`, with these values,
+and the SHA-256 of the tarball it served matched:
+
+| Value | `@zerone-chain/sdk` 0.1.1 |
+| --- | --- |
+| SHA-256 | `3df235181617eb1544f7590abe6aee76c702dee48367d4fa5436e407ae7879a2` |
+| `dist.shasum` | `8484fd566c6d07a0a6614995417cccdbd7bdceab` |
+| `dist.integrity` | `sha512-K+tiN/efOIFfwlRoi/oREAq9/qEPBMyIidbNlPS2i7DcApnx7qnIKMYoued9EGbJi6HzMCI8hZgQTmnKo//HFw==` |
+
+Packing the `sdk-v0.1.1` tag with `npm pack --ignore-scripts` reproduces that
+tarball byte for byte; an agent checked this the same day under Node 22.23.1,
+with npm 10.9.8 and again with npm 11.19.0. Anyone can check an installed copy
+against the integrity above, as the agents' guide at
+<https://zerone.ai/join/agents.md> shows. Now that `0.1.1` is public, the
+package settings can require 2FA and disallow traditional token publishing.
+The release policy is that no npm token is stored for releases: the workflow
+reads none, and each version is approved with the owner's 2FA.
+
+npm's staged publishing also created a placeholder version, `0.0.0-stage`
+(description "Temporary package placeholder for staged publishing"), which npm
+makes when a package that does not exist yet is staged. Its tarball holds only
+a stub `package.json` and README, no code, and it is not the `latest` tag.
+Install `0.1.1` exactly and never install `0.0.0-stage`.
+
+`0.1.0` was tagged as `sdk-v0.1.0` but never published. The README packed from
+that tag says the source repository "is currently private", which stopped being
+true on 28 October 2026, and the tag stays as it is: GitHub's ruleset for
+`sdk-v*` tags refuses updating or deleting them. `0.1.1` carries the corrected
+README. The SDK README is packed into every release tarball, so the copy inside
+`0.1.1` still describes that version's publication as a plan; the README's
+record of the publication ships from the next version on.
+
+### Later versions: staged, then approved with 2FA
+
+Configure the trusted publisher only when a next version is merged, tagged and
+ready to stage within 48 hours: npm expires a new trusted-publisher
+configuration that has not completed a publish within 2 days, and an expired
+configuration can no longer be used or edited. An npm owner with 2FA then
+configures the one allowed trusted publisher as GitHub user or organization
+`cambridgetcg`, repository `zerone-core`, workflow filename `publish-sdk.yml`,
+environment `npm-sdk-release`, with **stage-only** authority. With the package
+directory as the working directory, npm 11.15 or newer can configure that
+identity with:
 
 ```bash
 npm trust github @zerone-chain/sdk \
@@ -57,12 +157,19 @@ npm trust github @zerone-chain/sdk \
   --allow-stage-publish
 ```
 
-For every later tag, the workflow refuses a lingering bootstrap token and
-submits the exact tarball with OIDC to npm's staging area. A maintainer must
-download and inspect that artifact, compare its recorded SHA-256, and approve
-it with 2FA before it becomes public. Package settings should then disallow
-traditional token publishing. Merging or manually viewing the workflow
-performs no publication.
+Check that the first staged publish validates the new configuration inside
+that window. For every later tag, the workflow submits the exact tarball with
+OIDC to npm's staging area and records the tag, commit, tarball SHA-256, npm
+shasum and integrity in the run summary. The environment's tag rule and
+reviewer decide which runs may stage, and a staged tarball is not published:
+the npm 2FA approval remains the release gate. The approver must download and
+inspect each staged tarball, and compare it with the run summary and the
+tagged commit, before approving it, and read the stage step's log, where npm
+prints "Signed provenance statement" and a link to the statement's
+transparency-log entry. Once a version is public, confirm that its registry
+document lists a provenance attestation (`dist.attestations`) and that its
+`dist.shasum` and `dist.integrity` equal the run summary. Merging or manually
+viewing the workflow performs no publication.
 
 ## Implemented boundary seams
 
@@ -312,21 +419,28 @@ prevent Zerone registry composition from dropping them. Grant/revoke also
 require a protobuf-direct signer because CosmJS 0.39 has no feegrant Amino
 converter.
 
-## Prepared: Cosmos Chain Registry metadata
+## Listed: Cosmos Chain Registry metadata
 
 `integrations/chain-registry/zerone/` contains a schema-valid `chain.json`,
-`assetlist.json`, and ZRN SVG submitted as
-[cosmos/chain-registry#7859](https://github.com/cosmos/chain-registry/pull/7859).
-Local checks cross-reference the committed genesis and deployment
-configuration; CI also runs the pinned upstream Chain Registry validator.
+`assetlist.json`, and ZRN SVG. An earlier snapshot was merged upstream as
+[cosmos/chain-registry#7859](https://github.com/cosmos/chain-registry/pull/7859)
+on 2026-07-31; this bundle is the corrected source for refreshing the upstream
+entry (see [its README](../../integrations/chain-registry/README.md)). Local
+checks cross-reference the committed genesis and deployment configuration; CI
+also runs the pinned upstream Chain Registry validator.
 
-The candidate advertises only the complete public CometBFT RPC and verified
-peer data. It deliberately omits general REST/gRPC, IBC channels, snapshots,
-binaries, and a recommended release because those claims are not currently
-supported by the deployed evidence. The configured SLIP-0044 value `118` is
-described as the shared Cosmos derivation path, not a Zerone-owned
-registration. Upstream completion also depends on registering the `zrn`
-Bech32 HRP in SLIP-0173.
+The bundle advertises the complete public CometBFT RPC and, as its genesis URL,
+the live `/genesis` behind the read-only edge. It lists no peers: the sole
+validator is not a seed service, and public peers are not advertised while
+validator admission is paused. It deliberately omits general REST/gRPC, IBC
+channels, snapshots, binaries, and a recommended release because those claims
+are not currently supported by the deployed evidence, and it omits links into
+this repository, which was private when the bundle was corrected on 27 October
+2026. The configured SLIP-0044 value `118` is described as the shared Cosmos
+derivation path, not a Zerone-owned registration. The `zrn`
+Bech32 HRP is registered in SLIP-0173
+([satoshilabs/slips#2039](https://github.com/satoshilabs/slips/pull/2039),
+merged 2026-07-31).
 
 ## Implemented: Zerone CIDv1 client preflight
 
@@ -357,13 +471,12 @@ The first generated client uses
 Evaluate [Interchain Kit](https://docs.hyperweb.io/interchain-kit/) only when
 its beta status and additional wallet surface fit the dashboard's needs.
 
-Track the submitted
-[Cosmos Chain Registry proposal](https://github.com/cosmos/chain-registry/pull/7859)
+The [Cosmos Chain Registry entry](https://github.com/cosmos/chain-registry/pull/7859)
 and the `zrn`
-[SLIP-0173 proposal](https://github.com/satoshilabs/slips/pull/2039) through
-review. Keep the metadata evidence-limited as public endpoints and release
-posture evolve; do not present shared coin type `118` as a Zerone-specific
-allocation.
+[SLIP-0173 registration](https://github.com/satoshilabs/slips/pull/2039) both
+merged on 2026-07-31. Keep the upstream entry in step with the local bundle and
+evidence-limited as public endpoints and release posture evolve; do not present
+shared coin type `118` as a Zerone-specific allocation.
 
 ### 2. Delegated authority only after an ante audit
 

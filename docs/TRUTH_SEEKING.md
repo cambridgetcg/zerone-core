@@ -342,10 +342,12 @@ former contribution-challenge bonus do not mint in this release. `InitChainer`
 also rejects a bank genesis whose `uzrn` supply exceeds the same hard cap,
 because genesis balances do not pass through `MintWithCap`.
 
-The published genesis declares `agenttool-invocation-v1` ACTIVE, but live
-adapter query state was not reverified, so source does not claim it is
-currently minting. `app/constants.go` carries no per-account allocation
-constants. The bootstrap pot in `genesis.json` carries configuration only:
+The published genesis declared `agenttool-invocation-v1` ACTIVE. Governance
+proposal 8 suspended it on 2026-10-29: a suspended adapter accepts no new
+attestations, and its escrowed witness rewards wait until governance
+reinstates (release) or tombstones (cancel) it. `app/constants.go` carries
+no per-account allocation constants. The bootstrap pot in `genesis.json`
+carries configuration only:
 `MakeBootstrapPotForAgent` produces a pot with `TotalAmount` = 222,000 uzrn
 (0.222 ZRN) for a single whitelisted agent, never a pre-funded balance. The
 app's `DefaultGenesis` bank is empty; the live `zerone-1` ceremony adds the two
@@ -356,13 +358,16 @@ currently claimed.
 **Continuous extension**: bootstrap admission is not closed at genesis.
 `MsgAddBootstrapEntry` is idempotent and accepts either the gov authority or a
 nonempty, governance-revocable `Params.BootstrapRegistrar`. The published
-`zerone-1` genesis sets that registrar to the operator operations address, so
-late admission is a disclosed custodial power rather than governance-only.
-Registrar batches are daily-rate-limited and both authority paths share the
-lifetime bootstrap-emission cap. Each admitted address receives the same
-mint-on-claim pot; bootstrap pots never auto-expire (`ProcessPotExpiry` skips
-the `bootstrap-` prefix). Bound by registrar/cap tests in `x/claiming_pot` and
-the late-bootstrap cross-stack tests.
+`zerone-1` genesis set that registrar to the operator operations address;
+since governance proposal 8 (2026-10-29) it is R,
+`zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu`, a key dedicated to the agents'
+admission door. Either way late admission is a disclosed custodial power
+rather than governance-only. Registrar admissions are capped per
+34,272-block window (`BootstrapDailyAdmissionCap`, 100 since proposal 8) and
+both authority paths share the lifetime bootstrap-emission cap. Each admitted
+address receives the same mint-on-claim pot; bootstrap pots never auto-expire
+(`ProcessPotExpiry` skips the `bootstrap-` prefix). Bound by registrar/cap
+tests in `x/claiming_pot` and the late-bootstrap cross-stack tests.
 
 **What would break the implemented boundary**: hiding, mislabeling, or omitting
 an operator-controlled genesis balance; a per-account

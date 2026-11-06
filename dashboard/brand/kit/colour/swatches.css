@@ -1,0 +1,45 @@
+/* Zerone */
+:root {
+  /* zerone brand */
+  --zerone-primary: #b99bff;
+  --zerone-accent: #dcff78;
+  /* zerone ground */
+  --zerone-ground-light: #ffffff;
+  --zerone-ground-dark: #09090c;
+  /* zerone primary scale */
+  --zerone-primary-50: #f7f5ff;
+  --zerone-primary-100: #ede7ff;
+  --zerone-primary-200: #ddd1ff;
+  --zerone-primary-300: #c7b4fa;
+  --zerone-primary-400: #b99bff;
+  --zerone-primary-500: #9071d1;
+  --zerone-primary-600: #7556b3;
+  --zerone-primary-700: #5e4194;
+  --zerone-primary-800: #4a3177;
+  --zerone-primary-900: #362359;
+  --zerone-primary-950: #21133a;
+  /* zerone accent scale */
+  --zerone-accent-50: #efffcb;
+  --zerone-accent-100: #dcff78;
+  --zerone-accent-200: #c8ea62;
+  --zerone-accent-300: #b0d147;
+  --zerone-accent-400: #91b018;
+  --zerone-accent-500: #789300;
+  --zerone-accent-600: #607600;
+  --zerone-accent-700: #4c5e00;
+  --zerone-accent-800: #3b4900;
+  --zerone-accent-900: #2a3600;
+  --zerone-accent-950: #192100;
+  /* zerone neutral scale */
+  --zerone-neutral-50: #f7f6f8;
+  --zerone-neutral-100: #ebebed;
+  --zerone-neutral-200: #d9d8dd;
+  --zerone-neutral-300: #c1c0c7;
+  --zerone-neutral-400: #a2a0a9;
+  --zerone-neutral-500: #86858e;
+  --zerone-neutral-600: #6c6a74;
+  --zerone-neutral-700: #56545c;
+  --zerone-neutral-800: #434148;
+  --zerone-neutral-900: #302f35;
+  --zerone-neutral-950: #1d1c20;
+}

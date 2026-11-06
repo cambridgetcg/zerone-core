@@ -139,7 +139,7 @@ class NativePayer:
                         'to_address': self.sender, 'amount': [{'denom': 'uzrn', 'amount': amount}]}
             if message != expected or sender == self.sender or int(amount) < int(reward['amount_uzrn']) + 2000000:
                 raise Error('Funding is not a sufficient exact transfer to this payer')
-            height = self.workflow.check_node()
+            height = self.workflow.committed_height()
             balance = self.workflow.query('bank', 'balances', self.sender, height=height)
             current = self._bank_amount(balance, 'balances')
             if require_balance and current < int(reward['amount_uzrn']) + 2000000:

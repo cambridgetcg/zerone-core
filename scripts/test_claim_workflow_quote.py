@@ -32,7 +32,7 @@ class FeeQuoteTests(unittest.TestCase):
                                   reasoning="Check the fee quote and later refusal, not scientific truth.")
 
     def test_failed_execution_retains_original_quote_before_broadcast(self):
-        self.w.check_node.return_value = 99
+        self.w.committed_height.return_value = 99
         self.w.query = mock.Mock(side_effect=[
             {"params": {"min_review_fee": "100000"}},
             {"creation_multiplier_bps": "1000000"},
@@ -84,7 +84,7 @@ class FeeQuoteTests(unittest.TestCase):
 
 
     def quote_at(self, height=99, pacing="1000000"):
-        self.w.check_node.return_value = height
+        self.w.committed_height.return_value = height
         values = {("knowledge", "params"): {"params": {"min_review_fee": "100000"}},
                   ("alignment", "global-pacing"): {} if pacing is None else {"creation_multiplier_bps": pacing}}
         self.w.query = mock.Mock(side_effect=lambda *args, **kwargs: values[args])

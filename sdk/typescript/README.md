@@ -2,6 +2,39 @@
 
 TypeScript transaction codecs and interoperable identifiers for Zerone.
 
+The source repository, `cambridgetcg/zerone-core`, is public on GitHub. The
+first npm version, 0.1.1, was published on 2 November 2026 by the package
+owner's own hand, with npm 2FA, from the annotated `sdk-v0.1.1` tag. It has no
+npm provenance attestation. Its tarball has SHA-256
+`3df235181617eb1544f7590abe6aee76c702dee48367d4fa5436e407ae7879a2`, npm shasum
+`8484fd566c6d07a0a6614995417cccdbd7bdceab` and integrity
+`sha512-K+tiN/efOIFfwlRoi/oREAq9/qEPBMyIidbNlPS2i7DcApnx7qnIKMYoued9EGbJi6HzMCI8hZgQTmnKo//HFw==`,
+and packing the tag reproduces it byte for byte. Install an exact version, for
+example:
+
+```bash
+npm install --ignore-scripts --save-exact @zerone-chain/sdk@0.1.1
+```
+
+`--ignore-scripts` stops npm from running the install scripts of the packages
+it fetches; `protobufjs`, one of the SDK's dependencies, has one.
+
+npm's staged publishing also made a placeholder version, `0.0.0-stage`, when
+the package was created. It holds no code; never install it.
+
+Later versions are staged by the repository's `publish-sdk.yml` workflow
+through npm trusted publishing with `--provenance`, so a stage that cannot
+attest its provenance from the public repository fails, and become public only
+when a package owner approves each one with 2FA. Check a later version's
+attestation on npm before relying on it. The release process, including when
+the trusted publisher is configured, is in `docs/standards/OPEN_CRYPTO_SDK.md`
+in the source repository. This README is packed into each release tarball, so
+the copy inside 0.1.1 still describes that version's publication as a plan.
+
+Version 0.1.0 was tagged but never published: the README packed from its tag
+says the repository is private, which stopped being true on 28 October 2026,
+and GitHub's ruleset for release tags refuses changing the tag.
+
 The first release deliberately stays at the client boundary. It does not add a
 consensus module, enable IBC, or expand the public gateway. It provides:
 
@@ -17,6 +50,46 @@ consensus module, enable IBC, or expand the public gateway. It provides:
 - a separate validator for the `did:zrn` identifiers accepted by `x/auth`;
 - registration proof-of-possession sign bytes; and
 - dual-signature operational-key rotation sign bytes.
+
+## Network support
+
+The codecs follow the repository source this package was built from. A live
+network can run older software, and a chain refuses a transaction that carries
+a message field it does not know when it decodes the transaction. As checked on
+2026-10-27:
+
+| Network | Node software | Registration with identity proof | Dual-signature `MsgRotateKey` |
+| --- | --- | --- | --- |
+| `zerone-1` (mainnet) | Cosmos SDK v0.50.15 line | Not available | Not available; do not send |
+| `zerone-testnet-1` | Cosmos SDK v0.50.15 line | Not available | Not available; do not send |
+| `zerone-dev-1` (valueless development funds) | current `x/auth` source | Available | Available |
+
+`zerone-1` is evolving through ordered software upgrades, each approved by
+on-chain governance, and these flows reach it only with the upgrade whose
+source carries them. On its upgrade ladder that is `accounting-authority-v1`,
+which follows H1 `consolidation-safety-v1`, H2 `founder-renunciation-v1`
+and H3 `sdk-0.53-ibc-10`. The H1, H2 and H3 sources keep the field sets and the
+key-replacing rotation described below. The `zerone_auth` module reports
+consensus version 1 on all of these lines, so module versions do not tell them
+apart. Confirm from the network's upgrade record that `accounting-authority-v1`
+has been applied, and simulate, before signing either flow.
+
+On the v0.50.15 line that `zerone-1` and `zerone-testnet-1` run today:
+
+- `MsgRegisterAccount` has fields 1-6. A message carrying
+  `identityProofSignature` (field 7) is expected to be refused at transaction
+  decoding, including during simulation. Registration there does not prove
+  possession of the identity key.
+- `MsgRotateKey` has fields 1-3, and that line's source replaces the account's
+  secp256k1 transaction public key with the new Ed25519 key, which its
+  signature verification does not accept. The generated codec omits a zero
+  expiry and an empty confirmation, as proto3 does, so a rotation built without
+  them would decode, and could simulate successfully, on that line. Do not send
+  `MsgRotateKey` to these networks until `accounting-authority-v1` has been
+  applied there.
+
+The registry and composers carry no network policy. Gate each message by the
+network your application has confirmed.
 
 ## Use the transaction registry
 
@@ -303,8 +376,9 @@ but has not published a W3C DID method specification.
 `zeroneAccountId` deliberately requires a `ZeroneNetwork` declared by the
 application, so a valid `zrn` address cannot accidentally be labelled as
 belonging to an unrelated Cosmos network. Use the chain ID reported by the
-connected node. A future `zerone-2` is a different CAIP-2 chain even if state
-and addresses survive a reboot.
+connected node. A network relaunched under a new chain ID is a different CAIP-2
+chain, even if state and addresses carry over. Software upgrades that keep
+the chain ID keep the CAIP-2 identifier.
 
 ## Validate memory CIDs before signing
 
@@ -405,7 +479,7 @@ const did = `did:zrn:${publicKey}`;
 const accountType = "agent" as const;
 const metadata = "";
 const proofBytes = accountRegistrationProofSignBytes({
-  chainId: "zerone-2",
+  chainId, // From trusted configuration, matched to the node's reported chain ID.
   sender,
   did,
   identityPublicKey,
@@ -440,6 +514,15 @@ the metadata bytes exactly between proof construction and the message, require
 a 64-byte signature from custody, simulate, and set a transaction timeout
 height before signing the final `TxRaw`.
 
+Registration is permanent. The chain binds the address to this identity key and
+DID once; no message replaces either later, and only the operational key can
+rotate. Keep the identity key in long-lived custody. Account type `system`
+freezes the account at registration. The chain then refuses every transaction
+the account signs, and only the governance authority can unfreeze it.
+Simulation skips that check, so a refused transaction can still simulate
+successfully. Do not offer `system` to wallet users. The chain also limits
+`metadata`, to 1,024 bytes under default parameters.
+
 ## Authorize an operational-key rotation
 
 ```ts
@@ -455,7 +538,7 @@ const authorizationExpiresAtUnix = observedBlockTimeUnix + 300n;
 const newOperationalKey = await newOperationalKeyCustody.publicKey(); // 32 bytes.
 
 const rotationProof = {
-  chainId: "zerone-2",
+  chainId, // From trusted configuration, matched to the node's reported chain ID.
   sender,
   currentKeyVersion,
   newOperationalKey,
@@ -498,6 +581,13 @@ new key differs from the current key, and require custody to return a canonical
 prime-subgroup Ed25519 public key. Validators recheck the key and both
 signatures before rotating. Simulate the final message and set a transaction
 timeout height.
+
+After an account's first rotation, the chain requires a cooldown before the next
+one (`key_rotation_cooldown`, 111 blocks under default parameters), and it
+checks the cooldown only after verifying both signatures. Read the parameter
+and the account's last rotation before asking custody to sign. The chain also
+refuses rotation when the current key version is 0 or 4294967295, although the
+helper accepts 4294967295 (it refuses 0).
 
 ## Parse an unsigned provenance projection
 
@@ -615,9 +705,10 @@ custom transaction controls:
 - require a direct signer and confirm the RPC-reported chain ID;
 - simulate, set explicit fees and limits, and validate every chain response;
 - expose `MsgRegisterAccount` only with the identity-key proof of possession
-  above;
+  above, on a network that verifies it (see Network support);
 - expose `MsgRotateKey` only through the dual-signature, current-version,
-  consensus-time-bounded flow above; and
+  consensus-time-bounded flow above, and never on a network listed above as
+  not supporting it; and
 - do not expose substrate attestations until adapter identity equality and the
   versioned, exhaustive link commitment are enforced server-side.
 

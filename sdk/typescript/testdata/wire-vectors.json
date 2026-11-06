@@ -29,6 +29,18 @@
       "hex": "0a2a7a726e31367370396c363271396a6d65747368657573387a706a6d37377a756c6e6c63723236686e6b66120600010203feff1a14deadbeef00112233445566778899aabbccddeeff20c0c2e5d4062a0405060708"
     },
     {
+      "name": "auth-rotate-key-int64-above-int32",
+      "typeUrl": "/zerone.auth.v1.MsgRotateKey",
+      "value": {
+        "sender": "zrn16sp9l62q9jmetsheus8zpjm77zulnlcr26hnkf",
+        "newOperationalKey": "AAECA/7/",
+        "authorizationSignature": "3q2+7wARIjNEVWZ3iJmqu8zd7v8=",
+        "authorizationExpiresAtUnix": "4102444800",
+        "newKeyConfirmationSignature": "BQYHCA=="
+      },
+      "hex": "0a2a7a726e31367370396c363271396a6d65747368657573387a706a6d37377a756c6e6c63723236686e6b66120600010203feff1a14deadbeef00112233445566778899aabbccddeeff2080ae99a40f2a0405060708"
+    },
+    {
       "name": "liquidity-create-pool-uint64",
       "typeUrl": "/zerone.liquiditypool.v1.MsgCreatePool",
       "value": {

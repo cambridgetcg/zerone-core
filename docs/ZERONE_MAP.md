@@ -4,12 +4,13 @@
 connects this architecture to design status, stable names, task routes and the
 read-only source-map CLI. The [public development map](https://zerone.ai/understand/#development-map)
 shares the existing module catalog; source tags are not deployment claims.
-The canonical GitHub repository is now access-restricted. Historical references
-to public source or packages below do not promise current anonymous access.
-The [27 September observations](reports/consolidation-observations-2026-09-27.json)
-confirm matching development pins and knowledge 11, while anonymous package and
-checksum-record requests return 404. Runtime availability and package access
-are separate observations.
+The canonical GitHub repository has been public again since 28 October 2026; it
+was access-restricted when the
+[27 September observations](reports/consolidation-observations-2026-09-27.json)
+confirmed matching development pins and knowledge 11 while anonymous package and
+checksum-record requests returned 404. Those packages and records have
+downloaded anonymously since the repository became public again. Runtime availability
+and package access are separate observations.
 
 **Module-purpose update: 24 September 2026.** The [module guide](https://zerone.ai/understand/#modules) now explains every registered module, its state, connections and limits alongside the research workflow. Its [shared source catalog](../dashboard/module-guide.json) is checked against the constructed application’s ModuleManager; the website and machine-readable explanation use that same catalog. The runtime and infrastructure observations below remain dated.
 

@@ -8,10 +8,10 @@ import publication from "../development-publication.json";
 import { buildNodeGuideProfile } from "../node-guide-profile";
 import { buildUnderstandGuide, understandPage } from "../understand-guide";
 
-it("discloses package access restrictions separately from dated runtime publication", () => {
+it("discloses public package access separately from dated runtime publication", () => {
   const value = buildDevelopmentProfile("a1".repeat(20), publication as DevelopmentPublication);
-  assert.equal(value.repositoryAccess, "restricted");
-  assert.match(value.accessNote, /not anonymously downloadable/u);
+  assert.equal(value.repositoryAccess, "public");
+  assert.match(value.accessNote, /download without a GitHub account/u);
   const html = developmentPage(value);
   assert.ok(html.includes('id="repository-access"'));
   assert.ok(html.includes(value.accessNote));
@@ -72,11 +72,11 @@ it("keeps current staking, governance holds and deposit custody distinct", () =>
   assert.equal(connection("zerone_staking", "auth"), undefined, "unused constructor attachment is not account access");
 });
 
-it("tags modules without renaming runtime IDs and discloses restricted source access", () => {
+it("tags modules without renaming runtime IDs and discloses public source access", () => {
   const value = guide();
   const html = understandPage(value);
-  assert.equal(value.source.repositoryAccess, "restricted");
-  assert.match(html, /Source links require repository access/u);
+  assert.equal(value.source.repositoryAccess, "public");
+  assert.match(html, /Source links open without a GitHub account/u);
   for (const module of value.modules.modules) {
     assert.deepEqual(module.tags, ["registered-source", module.family, module.group]);
     assert.ok(module.source.path && module.source.url.endsWith(module.source.path));

@@ -49,8 +49,26 @@ describe("node guide source and network boundaries", () => {
     assert.equal(guide.live.role, "gateway-reader");
     assert.equal(guide.live.replicaInstallation.availability, "not-published");
     assert.equal(guide.live.validatorJoining.availability, "not-open");
-    assert.equal(guide.live.newAccountAdmission.availability, "paused");
+    // Since 29 October 2026 the agents' door admits AI agents on the household
+    // hub, by request; there is still no website sign-up or validator joining.
+    assert.equal(guide.live.newAccountAdmission.availability, "household-hub-agents-by-request");
     assert.equal(guide.live.newAccountAdmission.websiteSignup, false);
+    assert.equal(guide.live.newAccountAdmission.door.guide, "https://zerone.ai/join/agents.md");
+    assert.equal(guide.live.newAccountAdmission.door.openSince, "2026-10-29");
+    assert.equal(guide.live.newAccountAdmission.door.registrar, "zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu");
+    // notYet is read after "Not yet included:" on /nodes/ and /understand/, so it starts in lowercase.
+    assert.match(guide.live.newAccountAdmission.door.notYet, /^desks on the household's other devices/u);
+    assert.equal(guide.live.starterFunds.availability, "door-admittees-only");
+    assert.equal(guide.live.sponsorshipOnboarding.availability, "door-admittees-only");
+    assert.equal(guide.live.rewardClaimOnboarding.availability, "paused");
+    // false means this page admits nothing; the door is a separate, named lane.
+    assert.equal(guide.boundaries.admitsValidatorsOrNewLiveAccounts, false);
+    assert.match(guide.boundaries.admitsValidatorsOrNewLiveAccountsScope, /^this guide itself admits no validator and no account; .*see live\.newAccountAdmission\.door$/u);
+    const page = nodeGuidePage(guide);
+    assert.match(page, /validator joining and reward-claim onboarding remain closed, and there is no website sign-up\. Since 2026-10-29, the household&rsquo;s admission door has been open to AI agents on the household hub/u);
+    assert.match(page, /<a href="https:\/\/zerone\.ai\/join\/agents\.md">Agents&rsquo; guide ↗<\/a>/u);
+    assert.match(page, /Not yet included: desks on the household(?:&#39;|')s other devices/u);
+    assert.doesNotMatch(page, /new-account admission, starter funds, sponsored onboarding, and reward-claim onboarding remain paused/u);
     assert.ok(guide.live.reads.every((read) => read.method === "GET"));
     assert.equal(guide.boundaries.liveNetworkMutationBySetup, false);
     assert.equal(guide.boundaries.localSetupWritesStateAndCreatesTestKeys, true);
@@ -154,8 +172,8 @@ describe("closed-beta private network lane", () => {
     assert.equal(beta.bridged, false);
     assert.equal(beta.chainIdPattern, "zerone-rehearsal-lan-*");
     assert.deepEqual(beta.admissionChecks.map((check) => check.id), ["invited", "private-addresses", "seats-only", "fixed-at-genesis"]);
-    assert.equal(guide.source.repositoryAccess, "restricted");
-    assert.match(guide.source.accessNote, /private/u);
+    assert.equal(guide.source.repositoryAccess, "public");
+    assert.match(guide.source.accessNote, /public since 28 October 2026/u);
     const text = JSON.stringify({ ...beta, evidence: { ...beta.evidence, record: "" } });
     // Address ranges may be named; no host address, endpoint, node id, genesis hash or key may appear.
     for (const match of text.matchAll(/\b\d{1,3}(?:\.\d{1,3}){3}\b(?!\/\d)/gu)) assert.fail(`host address ${match[0]} in the beta lane`);
@@ -164,6 +182,20 @@ describe("closed-beta private network lane", () => {
     assert.equal(guide.boundaries.admitsValidatorsOrNewLiveAccounts, false);
     assert.equal(guide.boundaries.activatesSuccessorNetwork, false);
     assert.equal(guide.live.validatorJoining.availability, "not-open");
+  });
+
+  it("seats only our own Macs for now, and leaves other people's Macs to a later gated stage", () => {
+    const guide = buildNodeGuideProfile(inputs);
+    const beta = guide.privateNetwork;
+    assert.equal(beta.seatOwnership, "our-own-macs-only");
+    assert.match(beta.whoCanJoin, /only our own/u);
+    const ids = beta.roadmap.map((stage) => stage.id);
+    const now = beta.roadmap.find((stage) => stage.status === "now")!;
+    assert.match(`${now.title} ${now.text}`, /our own Macs/u);
+    const others = beta.roadmap.find((stage) => stage.id === "others-at-home");
+    assert.equal(others?.status, "planned");
+    assert.ok(ids.indexOf("others-at-home") > ids.indexOf(now.id), "other people's Macs come after the current stage");
+    assert.match(nodeGuidePage(guide), /Closed beta · our own Macs/u);
   });
 
   it("dates its evidence and states its limits instead of claiming more", () => {
@@ -214,7 +246,12 @@ describe("closed-beta private network lane", () => {
     assert.match(html, /<a href="#beta">Closed beta<\/a>/u);
     assert.equal([...html.matchAll(/class="scope-row[ "]/gu)].length, 4);
     assert.equal([...html.matchAll(/class="roadmap-stage"/gu)].length, buildNodeGuideProfile(inputs).privateNetwork.roadmap.length);
-    assert.match(html, /The zerone-core repository is private/u);
+    assert.match(html, /The zerone-core repository has been public since 28 October 2026/u);
+    // No label or note on the page may say the public repository needs access.
+    assert.doesNotMatch(
+      html,
+      /repository access|access[- ]restricted|access required|(?:needs?|requires?) (?:repository |GitHub )?access|not public|(?:repository|source)[^.<]{0,40}\b(?:is|remains) (?:currently )?private|returns? 404/iu,
+    );
     assert.doesNotMatch(html, /<form\b|\sonclick=|\sstyle=/u);
   });
 });
@@ -227,6 +264,10 @@ describe("agent documentation index", () => {
     assert.match(text, /documentation index, not an agent protocol endpoint/u);
     assert.match(text, /A2A and x402 services are not published/u);
     assert.doesNotMatch(text, /\.well-known|seed phrase|\/blob\/main\//u);
+    // The repository has been public since 28 October 2026; no link may be
+    // described as needing access or returning 404.
+    assert.match(text, /The source repository has been public since 28 October 2026/u);
+    assert.doesNotMatch(text, /repository access|access-restricted|return 404/u);
     const links = [...text.matchAll(/\]\((https:\/\/[^)]+)\)/gu)].map((match) => match[1]!);
     for (const link of links) {
       const url = new URL(link);

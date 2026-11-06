@@ -1,0 +1,78 @@
+{
+  "schema": "zerone.development-gateway-redeploy/v1",
+  "observed_at": "2026-10-26T18:44:30Z",
+  "chain_id": "zerone-dev-1",
+  "written_by": "A Claude Code agent session (71e671d4), on Yu's word of 2026-10-26: \"Go ahead with redeployment of the zerone-dev-1 gateway\". These are the agent's operator observations, not an independent audit.",
+  "purpose": "Serve PR #151 (claim-history reads at the app's committed height) from the hosted gateway.",
+  "machine": {
+    "app": "zerone-dev-1",
+    "id": "8d9e11be390268",
+    "volume": "vol_vz8m1kkmmok8x7zv"
+  },
+  "image": {
+    "before": "registry.fly.io/zerone-dev-1@sha256:a07481a5d9f1f8a434ac23f204a28e2fe022f3ed8a77bd7e53889000dcc569be",
+    "after": "registry.fly.io/zerone-dev-1@sha256:674289dbd9504963218ac23787b00f7be1675fddc370d30f4c865097f0e49081",
+    "after_source_commit": "8383dd99522d286bb8d2fd494ee26adc441efae8",
+    "after_build_receipt": {
+      "version": "dev-1-8383dd99522d",
+      "binary_sha256": "7affc4ce4e35659c1499f23eadda72b2b42560150194e7d1f3fb29e494475cfc"
+    },
+    "method": "build-context.py export of 8383dd99, `fly deploy <context> --remote-only --build-only --push`, then `fly machine update 8d9e11be390268 --image registry.fly.io/zerone-dev-1:gateway-8383dd99522d`. No `fly deploy` touched the machine; Fly's release list still shows only v1."
+  },
+  "changed_files_in_use": {
+    "/opt/zerone-dev/gateway.py": {
+      "before": "15d7bfebc06e387b82cf5d143c78bd08fe328468dc075152cfbc03b39de5b2cb",
+      "after": "093bf493b98f5532990035d4bc4c1de35ee9ac9ab8363a0c0d2dc30dbc293b20",
+      "change": "PR #151 only"
+    },
+    "/opt/zerone-dev/runtime.py": {
+      "before": "1d8a05a406d7a368f526cad22965ebfa7759a44cc9932ccf63f3b8f8a00d2fcf",
+      "after": "3b22eb24d7613f2ccc4e51e1e9f471a8af8364d136186102fe10d8d6b4553abc",
+      "change": "PR #152's halt-boundary retry, which the target phase never reaches"
+    }
+  },
+  "unchanged": {
+    "node_binary": "The node still executes the volume-staged /data/.zeroned/fund-settlement-upgrade/target-zeroned (sha256 6cbafddf0d1c8dda3e6ab9f8a5d87d49992f7b699f746ee2d7632e494115a2c6, source 5542b221864ca0080e143fa82abbef4cd2064f71) through the machine's init.exec launcher override (/data/fund-settlement-5542b221864c/launch-staged-upgrade.py, packet sha256 04f0415a…). The image's /usr/local/bin/zeroned (8383dd99) is not run.",
+    "init_exec": "byte-identical before and after (machine config diff: only image and the new metadata key gateway_source_commit changed)",
+    "abci_version": "dev-1-5542b221864c",
+    "network_json_sha256": "768d7dd7b389d844670fa7f4ac7b34b41c7b9ac4994f88526369f7726dd993e1",
+    "applied_plan": "knowledge-fund-settlement-v1 at height 300000",
+    "identity": {
+      "node_id": "930f24e3a4ac6ef4e3b7164bc4383f91a962a4eb",
+      "validator": "E85D65FC900DEFEB9FF160F1E6EEA2CA00768420",
+      "earliest_block_height": 1
+    }
+  },
+  "restart": {
+    "sigterm": "2026-10-26T18:42:12Z",
+    "runtime_ready": {
+      "at": "2026-10-26T18:42:41Z",
+      "height": 3730981,
+      "binary_sha256": "6cbafddf0d1c8dda3e6ab9f8a5d87d49992f7b699f746ee2d7632e494115a2c6"
+    },
+    "gateway_listening": "2026-10-26T18:42:43Z",
+    "height_before": 3730930,
+    "height_after": [
+      {
+        "at": "2026-10-26T18:43:04Z",
+        "height": 3731000
+      },
+      {
+        "at": "2026-10-26T18:43:21Z",
+        "height": 3731015
+      }
+    ],
+    "data_volume_free": "8.4G of 20G before and after"
+  },
+  "claim_check": {
+    "claim_id": "8db0bccfb17b9a5ad1cf2389b79abd38",
+    "requests": 80,
+    "http_200": 80,
+    "block_height_not_below_prior_abci_height": 80,
+    "status": "CLAIM_STATUS_INSUFFICIENT",
+    "record_unchanged": true,
+    "scope": "Shows no regression. The 503 race #151 fixes was seen 3 times in 7 days of CI and not live, so this cannot prove it fixed."
+  },
+  "rollback": "`fly machine update 8d9e11be390268 -a zerone-dev-1 --image registry.fly.io/zerone-dev-1:fund-settlement-5542b221864c` (digest a07481a5…), then confirm init.exec is unchanged. Never `fly releases rollback` (v1 is the knowledge-10 image, whose runtime lacks run-upgrade), a volume snapshot restore, or a second machine.",
+  "caution": "release.json and participant-package.py still name a07481a5 as the participant release's runtime image; that remains the published release's provenance. The hosted machine's image receipt (/opt/zerone-dev/build.json) now names 8383dd99 and is not the chain binary."
+}

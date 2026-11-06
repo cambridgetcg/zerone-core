@@ -1,0 +1,46 @@
+GIMP Palette
+Name: Zerone
+Columns: 0
+#
+# Group: zerone brand
+185 155 255	zerone primary
+220 255 120	zerone accent
+# Group: zerone ground
+255 255 255	zerone ground light
+  9   9  12	zerone ground dark
+# Group: zerone primary scale
+247 245 255	zerone primary 50
+237 231 255	zerone primary 100
+221 209 255	zerone primary 200
+199 180 250	zerone primary 300
+185 155 255	zerone primary 400
+144 113 209	zerone primary 500
+117  86 179	zerone primary 600
+ 94  65 148	zerone primary 700
+ 74  49 119	zerone primary 800
+ 54  35  89	zerone primary 900
+ 33  19  58	zerone primary 950
+# Group: zerone accent scale
+239 255 203	zerone accent 50
+220 255 120	zerone accent 100
+200 234  98	zerone accent 200
+176 209  71	zerone accent 300
+145 176  24	zerone accent 400
+120 147   0	zerone accent 500
+ 96 118   0	zerone accent 600
+ 76  94   0	zerone accent 700
+ 59  73   0	zerone accent 800
+ 42  54   0	zerone accent 900
+ 25  33   0	zerone accent 950
+# Group: zerone neutral scale
+247 246 248	zerone neutral 50
+235 235 237	zerone neutral 100
+217 216 221	zerone neutral 200
+193 192 199	zerone neutral 300
+162 160 169	zerone neutral 400
+134 133 142	zerone neutral 500
+108 106 116	zerone neutral 600
+ 86  84  92	zerone neutral 700
+ 67  65  72	zerone neutral 800
+ 48  47  53	zerone neutral 900
+ 29  28  32	zerone neutral 950

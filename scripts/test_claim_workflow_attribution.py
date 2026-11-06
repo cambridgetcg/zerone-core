@@ -470,7 +470,7 @@ class AttributionWorkflowTests(unittest.TestCase):
         self.addCleanup(case.doCleanups)
         self.case = case
         self.w, self.calls, self.observation, self.home = case.w, case.calls, case.observation, case.home
-        self.w.check_node.return_value = 99
+        self.w.committed_height.return_value = 99
         values = {("knowledge", "params"): {"params": {"min_review_fee": "100000"}},
                   ("alignment", "global-pacing"): {"creation_multiplier_bps": "1000000"}}
         self.w.query = mock.Mock(side_effect=lambda *args, **kwargs: values[args])
@@ -606,7 +606,7 @@ class AttributionWorkflowTests(unittest.TestCase):
 
         def untouched(p):
             self.assertEqual(p.calls, [])
-            for recorder in (p.w.query, p.w.actor, p.w.check_node, p.w.tx_observation):
+            for recorder in (p.w.query, p.w.actor, p.w.check_node, p.w.committed_height, p.w.tx_observation):
                 recorder.assert_not_called()
             self.assertEqual(p.w.records("attempts"), [])
             self.assertEqual(p.w.records("reviews"), [])

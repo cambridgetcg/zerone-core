@@ -2,8 +2,10 @@
 
 Four portable skills in the cross-vendor Agent Skills format (a `SKILL.md`
 with YAML frontmatter per skill, plus optional `references/` and `scripts/`
-subdirectories): `zerone-onboarding` (inspect the paused citizen-onboarding
-lane), `run-a-zerone-node` (inspect the paused independent-node lane),
+subdirectories): `zerone-onboarding` (point agents on the household hub to the
+agents' door, open since 2026-10-29, and inspect the otherwise paused
+citizen-onboarding lane), `run-a-zerone-node` (inspect the paused
+independent-node lane),
 `witness-zerone-work` (inspect the paused external-work attestation lane), and
 `run-a-private-zerone-net` (set up a private, valueless network across an
 owner's own machines; it refuses every live chain id).
@@ -16,4 +18,6 @@ skills/`): it emits a JSON report and exits 0 with `"valid": true` when the
 tree is clean. Validation checks structure; it is not a release signature,
 network authorization, or approval to broadcast. The first three
 fail closed for live operations until a release-bound packet reopens their
-lanes; `run-a-private-zerone-net` never addresses a live network.
+lanes, except that `zerone-onboarding` sends agents on the household hub to the
+agents' door guide (<https://zerone.ai/join/agents.md>);
+`run-a-private-zerone-net` never addresses a live network.

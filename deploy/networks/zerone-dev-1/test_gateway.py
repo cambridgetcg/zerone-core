@@ -96,6 +96,7 @@ class DescriptorUpgradeTest(unittest.TestCase):
                 "advertised_peer": "d" * 40 + "@127.0.0.1:26656", "node_id": "d" * 40,
                 "review_window_blocks": 3600, "local_test": True, "gateway_port": 8080}
             node.upgrade_packet = None
+            node.binary_patch = None
             node.ready = lambda: 10
             node.call = lambda method: {"genesis": {"chain_id": g.CHAIN, "app_state": {"knowledge": {}}}}
             node.cli = lambda *args: b'{"module_versions":[{"name":"knowledge","version":"10"}]}'
@@ -130,6 +131,7 @@ class DescriptorUpgradeTest(unittest.TestCase):
                 "review_window_blocks": 3600, "local_test": True, "gateway_port": 8080}
             node.ready = lambda: 10
             node.call = lambda method: {"genesis": {"chain_id": g.CHAIN, "app_state": {"knowledge": {}}}}
+            node.binary_patch = None
             for version in (12, 13):
                 node.cli = lambda *args: g.canonical({"module_versions": [{"name": "knowledge", "version": str(version)}]})
                 node.upgrade_packet = None
@@ -161,6 +163,74 @@ class DescriptorUpgradeTest(unittest.TestCase):
                     with self.assertRaisesRegex(g.GatewayError, "Claim-integrity ledger"):
                         node.descriptor()
                     self.assertFalse((node.home / "public").exists())
+
+    def test_binary_patch_descriptor_sits_beside_base_and_changes_only_binary_identity(self):
+        # The patch path follows the applied target's knowledge version, so it
+        # survives each staged successor (11 today; 12 and 13 on the carrier ladder).
+        for version in (11, 12, 13):
+            with self.subTest(knowledge_version=version):
+                self.binary_patch_descriptor_case(version)
+
+    def binary_patch_descriptor_case(self, version):
+        with tempfile.TemporaryDirectory() as temporary:
+            node = g.Node.__new__(g.Node)
+            node.home = Path(temporary)
+            node.rpc = "http://127.0.0.1:26657"
+            node.genesis_hash = "a" * 64
+            node.manifest = {"source_commit": "b" * 40, "binary_sha256": "c" * 64,
+                "advertised_peer": "d" * 40 + "@127.0.0.1:26656", "node_id": "d" * 40,
+                "review_window_blocks": 3600, "local_test": True, "gateway_port": 8080}
+            node.ready = lambda: 10
+            node.call = lambda method: {"genesis": {"chain_id": g.CHAIN, "app_state": {"knowledge": {}}}}
+            node.cli = lambda *args: g.canonical({"module_versions": [{"name": "knowledge", "version": str(version)}]})
+            # Node.__init__ admits both modes only after the runtime's strict checks.
+            node.upgrade_packet = {"target": {"knowledge_version": version}}
+            node.binary_patch = {"test": "already checked constructor"}
+            base_name = f"public/network-knowledge-{version}.json"
+            patch_name = f"public/network-knowledge-{version}-patch-eeeeeeeeeeee.json"
+            with self.assertRaisesRegex(g.GatewayError, "retained base descriptor"):
+                node.descriptor()
+            self.assertFalse((node.home / patch_name).exists())
+            node.binary_patch = None
+            base = node.descriptor()
+            base_bytes = node.descriptor_bytes
+            self.assertEqual(base["knowledge_version"], version)
+            node.binary_patch = {"test": "already checked constructor"}
+            node.manifest.update(source_commit="e" * 40, binary_sha256="f" * 64)
+            path = node.home / patch_name
+            for change in ({"advertised_peer": "e" * 40 + "@127.0.0.1:26656"}, {"node_id": "e" * 40}, {"review_window_blocks": 60}):
+                original = dict(node.manifest)
+                node.manifest.update(change)
+                with self.subTest(first=change), self.assertRaisesRegex(g.GatewayError, "beyond the binary identity"):
+                    node.descriptor()
+                node.manifest = original
+                self.assertFalse(path.exists())
+            patched = node.descriptor()
+            self.assertEqual(node.descriptor_bytes, path.read_bytes())
+            self.assertEqual((node.home / base_name).read_bytes(), base_bytes)
+            self.assertFalse((node.home / "public/network.json").exists())
+            self.assertEqual({key for key in base if base[key] != patched[key]}, {"source_commit", "runtime_binary_sha256"})
+            self.assertEqual((patched["source_commit"], patched["runtime_binary_sha256"]), ("e" * 40, "f" * 64))
+            self.assertEqual(node.descriptor(), patched)
+            self.assertEqual(path.read_bytes(), node.descriptor_bytes)
+            # Anything beyond the executable identity is refused before any write.
+            files = {p.name: p.read_bytes() for p in (node.home / "public").iterdir()}
+            for change in ({"advertised_peer": "e" * 40 + "@127.0.0.1:26656"}, {"source_commit": "e" * 39 + "1"}, {"review_window_blocks": 60}):
+                original = dict(node.manifest)
+                node.manifest.update(change)
+                with self.subTest(change=change), self.assertRaisesRegex(g.GatewayError, "beyond the binary identity|no automatic rewrite"):
+                    node.descriptor()
+                node.manifest = original
+            node.manifest["binary_sha256"] = "1" * 64
+            with self.assertRaisesRegex(g.GatewayError, "no automatic rewrite"):
+                node.descriptor()
+            self.assertEqual({p.name: p.read_bytes() for p in (node.home / "public").iterdir()}, files)
+            # A patch never writes another version's descriptor.
+            self.assertEqual(sorted(files), sorted({base_name[len("public/"):], patch_name[len("public/"):]}))
+
+    def test_patch_pin_without_upgrade_pin_is_refused_before_reading_the_home(self):
+        with self.assertRaisesRegex(g.GatewayError, "applied upgrade pin"):
+            g.Node("/nonexistent/home", "/nonexistent/zeroned", "http://127.0.0.1:26657", None, "a" * 64)
 
 
 class FaucetTest(unittest.TestCase):
@@ -376,6 +446,42 @@ class NodeReadinessTest(unittest.TestCase):
             self.status[section][key] = value
             with self.subTest(key=key, value=value), self.assertRaises(g.GatewayError):
                 g.Node.ready(self.node)
+
+
+class NodeHistoryTest(unittest.TestCase):
+    def setUp(self):
+        # Status already names block 11; the application has committed only 10.
+        self.info = {"response": {"last_block_height": "10"}}
+        self.reported = None
+        self.heights = []
+        def cli(*args):
+            height = args[args.index("--height") + 1]
+            self.heights.append(height)
+            return g.canonical({"chain_id": g.CHAIN, "block_height": str(self.reported or height),
+                "record": {"claim_id": args[3]}})
+        self.node = SimpleNamespace(rpc="http://127.0.0.1:26657", history_slots=threading.BoundedSemaphore(2),
+            ready=lambda: 11, call=lambda method: {"abci_info": self.info}[method], cli=cli)
+
+    def test_query_height_is_the_committed_application_height(self):
+        value = g.Node.history(self.node, "a" * 32)
+        self.assertEqual(self.heights, [10])
+        self.assertEqual(value["block_height"], "10")
+
+    def test_no_committed_block_or_lagging_application_is_refused_before_query(self):
+        for info, message in (({"response": {"last_block_height": "0"}}, "no committed block"),
+                              ({"response": {}}, "no committed block"),
+                              ({"response": {"last_block_height": "9"}}, "lags its block store")):
+            self.info = info
+            with self.subTest(info=info), self.assertRaisesRegex(g.GatewayError, message):
+                g.Node.history(self.node, "a" * 32)
+        self.assertEqual(self.heights, [])
+        self.assertTrue(all(self.node.history_slots.acquire(blocking=False) for _ in range(2)))
+
+    def test_response_for_another_height_is_refused(self):
+        self.reported = 11
+        with self.assertRaisesRegex(g.GatewayError, "differs from its requested block"):
+            g.Node.history(self.node, "a" * 32)
+        self.assertEqual(self.heights, [10])
 
 
 if __name__ == "__main__":

@@ -4,7 +4,10 @@ export function researchDestination(hash: string, root: Pick<Document, "getEleme
   const link = root.getElementById(hash.slice(1));
   if (!link?.hasAttribute("data-research-destination")) return null;
   const destination = link.getAttribute("href");
-  return destination === `/research/${hash}` ? destination : null;
+  // A retained link points at its own fragment, or at the section that now holds it.
+  return destination !== null && /^\/research\/#[A-Za-z][A-Za-z0-9-]{0,198}$/u.test(destination)
+    ? destination
+    : null;
 }
 
 export function routeLegacyResearchAnchor(): void {

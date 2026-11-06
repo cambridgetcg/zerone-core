@@ -432,6 +432,10 @@ export function writeVarint64(
   buf: Uint8Array | number[],
   pos: number
 ) {
+  // Zerone repair (sdk/typescript/scripts/generate.mjs): newBits() keeps the
+  // low word signed, so values in [2^31, 2^32) must be read as unsigned here.
+  val.lo >>>= 0;
+  val.hi >>>= 0;
   while (val.hi) {
     buf[pos++] = (val.lo & 127) | 128;
     val.lo = ((val.lo >>> 7) | (val.hi << 25)) >>> 0;

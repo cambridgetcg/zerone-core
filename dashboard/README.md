@@ -10,8 +10,7 @@ authority observatory.
 
 The homepage says why Zerone exists before it shows anything live: the hero
 and `#purpose` (why, and how it works, in plain words), then the live metrics,
-`#honest-state` (the trust model carried on the page itself, because the
-repository is access-restricted and its links 404 for visitors), `#onboarding`,
+`#honest-state` (the trust model, carried on the page itself), `#onboarding`,
 `#wallet`, `#activity`, and `#network` (raw JSON links any visitor can open).
 The authority observatory, knowledge geometry, liquidity settings and the
 participation compact sit folded under `#look-closer`. The three explorers
@@ -34,8 +33,8 @@ The existing research surfaces remain linked from its optional research index.
 The development/design section uses the same `module-guide.json` input and
 separates implementation, network publication, accepted pending design and release
 gates. Module tags expose source registration, family and reading group, never
-live activation. Source links require repository access; public guide availability
-does not promise anonymous access to source or participant packages.
+live activation. Source links and participant packages open without a GitHub
+account: the repository has been public since 28 October 2026.
 
 For source navigation and current work, start at [DEVELOPMENT.md](../docs/DEVELOPMENT.md).
 The repository-only `tools/source-map.py` reuses the same module purposes,
@@ -213,14 +212,37 @@ reach the dashboard and inspect Zerone without providing credentials,
 connecting a wallet, or changing chain state. A visitor who already controls a
 `zrn1…` account may optionally connect Keplr to read that address and balance.
 
-New-account admission, key creation, starter funds, identity or passport
-claims, reward claims, Pi sign-in, fee sponsorship, and onboarding
-transactions remain paused. Reopening any of those lanes requires the current
-release-bound operator packet and explicit authorization described in
+Website sign-up, key creation, identity or passport claims, reward claims,
+Pi sign-in and onboarding transactions stay closed on this site. The one open
+admission lane is the agents' door below: since 29 October 2026 it admits AI
+agents on the household hub, by request, with a starter seed and a capped fee
+allowance. Opening any other lane requires the current release-bound operator
+packet and explicit authorization described in
 [`deploy/mainnet/JOIN.md`](../deploy/mainnet/JOIN.md). The public onboarding
 surface must not be treated as that authorization. Existing-account send tools
 remain outside the first-run path and require a separate user action and Keplr
 review.
+
+`public/join/agents.md`, served at `/join/agents.md`, is the agents' guide to the
+household's admission door (`tools/zerone-door`). It began as the door's
+`JOIN-AGENTS.md`, which now only points to it, so there is one agents' guide. The door
+opened on 29 October 2026, after governance proposal 8 made the door's key R the
+chain's bootstrap registrar and a canary admission was checked on the chain. The
+guide's first line is
+`Door status: open since 29 October 2026 to agents on the household hub; desks on the household's other devices: not yet.`;
+it publishes R's address and cites the opening and canary transactions. The
+homepage's honest-state, admission tile and `#agent-door` paragraph, `/llms.txt`,
+and the node guide's `live.newAccountAdmission` (also shown on `/understand/`) say
+the same: open to agents on the hub, by request; no website sign-up; desks on the
+household's other devices not yet. `tests/join-agents.test.ts`,
+`tests/homepage-purpose.test.ts` and `tests/onboarding.test.ts` pin that wording.
+Adding the lobby desks is a later pull request: it publishes the door room's id
+and the lobby command and changes the status line. The guide must never name the
+hub's inbox path, a keyring or Keychain item, or the hub machine; hub beings learn
+the inbox's location from the household. The guide does not claim the path is
+secret: the door's public source gives its default home, and what protects the
+inbox is that it is private to the door's user. The test keeps only a SHA-256 of
+the machine's name.
 
 The readiness strip progressively reports the live-record check and optional
 wallet connection, but its honest static defaults remain useful if JavaScript
@@ -293,12 +315,14 @@ remain visible in both modes.
 `/nodes/` is a separate static page, reachable from the onboarding card "Run
 your own local node" and the More pages list under `#look-closer`. It provides a persistent local `zerone-local-1` setup,
 public `zerone-1` reads and concrete contribution paths. Local test-key
-generation is distinct from the paused live account-admission flow. It does
+generation is distinct from live account admission, which on `zerone-1` is open
+only to agents on the household hub, through the agents' door. It does
 not promise a compatible public legacy replica download or validator opening.
 
 Its `#beta` section describes the closed beta: valueless
-`zerone-rehearsal-lan-*` chains on invited Apple silicon Macs on the
-operator's home network, run with `skills/run-a-private-zerone-net`. It says
+`zerone-rehearsal-lan-*` chains on the operator's own Apple silicon Macs on
+their home network (for now no one else's: `seatOwnership` is
+`our-own-macs-only`), run with `skills/run-a-private-zerone-net`. It says
 who can join and which checks apply (invitations decide; addresses must be
 private; only seat node keys may connect), what a seat needs and how it joins, the dated 2026-10-17 two-Mac run with its limits, and a roadmap whose
 stages open on gates, not dates. It publishes no genesis, peer address,
@@ -771,6 +795,35 @@ the eleven remaining closed release gates, and all ten local artifact/source
 digests without fetching the paper, chain, AgentTool, or any other network
 resource.
 
+## Brand kit
+
+The icons, web manifest and share card come from one brand kit.
+`brand/brand.json` and the two mark drawings beside it (`zerone-mark.svg`, the
+favicon's ring, cross and dot; `zerone-mark-small.svg`, its cut for 16 to 48 px
+tabs) build `brand/kit/` with the artcraft-brand generator (1.8, vectorcraft-cli
+0.17.0). Nothing under `brand/` is served. Never hand-edit a kit file: change
+`brand.json` or a mark, then rebuild from this directory, with the generator's
+own folder in place of `<artcraft-brand>`:
+
+```bash
+python3 -B <artcraft-brand>/scripts/brandkit.py brand/brand.json --out brand/kit --rebuild-check
+```
+
+Then copy `favicon.ico`, `apple-touch-icon.png`, `icon-192.png`,
+`icon-512.png`, `icon-maskable-512.png`, `site.webmanifest` and `og.jpg` from
+`brand/kit/web/` into `public/`, byte for byte. `public/favicon.svg` stays the
+site's own drawing of the same mark, with its signature comment ("Building
+castles in the sky — Yu and AI.", #33); the kit's `favicon.svg` is not served. `tests/brand-kit.sync.test.ts`
+fails until the copies match and every page head carries the icon links, one
+`color-scheme` `dark` and the site's single theme-color `#09090c`. The social
+lines and JSON-LD from the kit's head snippets are on `index.html` only.
+
+Before this kit, `/favicon.ico`, `/apple-touch-icon.png` and `/og.jpg` answered
+with the SPA index, and the edge kept those answers for 4 hours. After the first
+deploy that serves them, check them on the `*.pages.dev` URL; if
+`https://zerone.ai` still answers HTML, wait 4 hours or have the zone's owner
+purge them.
+
 ## Pi account onboarding pilot
 
 The repository contains a staged Pi account sign-in pilot. It is off by
@@ -980,6 +1033,12 @@ check. Deploy only the exact merged and CI-verified commit from a clean detached
 worktree. `--commit-dirty=false` records metadata; the explicit Git check is what
 refuses local drift. A non-`main` branch creates a no-index preview.
 
+`public/_routes.json` is written by hand (Quiet Doors, October 2026). Functions
+run only for `/api/*` and for discovery-shaped paths (`/.well-known/*`, `*.txt`,
+`*.json`, `*.xml`), where `functions/_middleware.ts` turns the SPA fallback into
+a 404 and passes every real file through. A new Function outside `/api/` must be
+added to its `include` list, or it will never run.
+
 Never request a new `/assets/` path on `https://zerone.ai` before that build is
 deployed. Pages answers a missing asset with the SPA index, `_headers` gives every
 `/assets/*` response `max-age=31536000, immutable`, and the Cloudflare edge then
@@ -1005,7 +1064,8 @@ live number, every visible link must open for an anonymous visitor, and the
 swap-pool card must read `0` rather than unavailable while the chain answers
 `{"pools":[]}`. The hero and compact header must reach the section; the
 zero-account route must remain usable; the existing-account action must be
-clearly optional; and the new-account lane must remain visibly paused. Confirm
+clearly optional; and the new-account lane must say it is open only to agents
+on the household hub, by request, with no website sign-up. Confirm
 that the live status reports `zerone-1` only after a fresh, non-syncing block,
 that `/api/pi/me` remains disabled, and that no onboarding action requests a
 secret, payment, signature, or transaction.

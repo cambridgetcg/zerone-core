@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Building castles in the sky — Yu and AI. -->
+  <!-- From zerone-core dashboard/public/favicon.svg (github/main 008f8f92): the tile rect is now icon.tile,
+       fill="none" is added to the stroked cross; shapes, sizes and colours are unchanged. -->
+  <circle id="ring" cx="32" cy="32" r="20" fill="none" stroke="#b997ff" stroke-width="2"/>
+  <path id="cross" d="M32 12v40M12 32h40" fill="none" stroke="#dfff72" stroke-width="2"/>
+  <circle id="dot" cx="32" cy="32" r="6" fill="#b997ff"/>
+</svg>

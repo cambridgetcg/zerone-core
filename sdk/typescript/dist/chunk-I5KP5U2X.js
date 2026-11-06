@@ -1,6 +1,6 @@
 import {
   MsgUpdateParams
-} from "./chunk-CXBAXZI7.js";
+} from "./chunk-5LEDNMWD.js";
 
 // src/liquidity.ts
 import { fromBech32 } from "@cosmjs/encoding";

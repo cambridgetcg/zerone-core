@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "description": "Quiet Doors (October 2026): Functions run for /api and for discovery-shaped paths, so a door this site does not publish answers 404 instead of the app shell. Keep /api/* first.",
+  "include": ["/api/*", "/.well-known/*", "/*.txt", "/*.json", "/*.xml"],
+  "exclude": ["/assets/*", "/llms.txt", "/robots.txt"]
+}

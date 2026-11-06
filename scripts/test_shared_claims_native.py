@@ -8,8 +8,10 @@ windows. All private key homes are controlled by this test; no human/reviewer
 independence is asserted.
 Optional ZERONE_SHARED_EVIDENCE_PARENT retains curated public observations only.
 """
+import ast
 import base64
 from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from email.message import Message
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import io
 import hashlib
@@ -40,6 +42,24 @@ fixture = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(fixture)
 PEOPLE = ("author", "reviewer1", "reviewer2", "reviewer3", "challenger")
 REVIEWERS = PEOPLE[1:4]
+# Only reviewed literal public errors may leave the GET diagnostic boundary.
+# The offline AST contract below detects new/reworded GET-reachable messages;
+# it never automatically exports new gateway text.
+PUBLIC_GET_ERRORS = frozenset({
+    "Node RPC unavailable or malformed", "Node returned an RPC error",
+    "Node response exceeds the read bound", "Unexpected upstream redirect",
+    "Development node is not ready", "Development node has no valid block time",
+    "Development blocks are stale or ahead of local time",
+    "Development command failed; no success is asserted",
+    "Development command response exceeds bound",
+    "Development application has no committed block", "Development application lags its block store",
+    "History response context differs from its requested block",
+    "History reader busy; try again", "Gateway busy", "RPC request rate exceeded",
+    "Development service unavailable; no success asserted",
+    "Malformed request or response; no success asserted", "Unknown development read route",
+    "Invalid client address", "Request path too long", "Invalid request path",
+    "Read requests must not have bodies",
+})
 
 
 @contextmanager
@@ -249,10 +269,52 @@ class NativeSharedClaimsTests(unittest.TestCase):
                     diagnostic["persistence_error_type"] = type(error).__name__
 
     def get(self, path):
-        with self.opener.open(self.origin + path, timeout=25) as response:
-            raw = response.read(8 * 1024 * 1024 + 1)
+        started = time.monotonic()
+        try:
+            with self.opener.open(self.origin + path, timeout=25) as response:
+                raw = response.read(8 * 1024 * 1024 + 1)
+        except urllib.error.HTTPError as error:
+            # A 503 can mean a failed history query, not just startup latency.
+            # Retain a bounded public diagnostic, then fail the SAME request;
+            # never retry an unclassified failure or any write-side operation.
+            try:
+                self.capture_read_failure(path, error, started)
+            except Exception:
+                pass  # Diagnostics must not replace the original HTTP failure.
+            try:
+                error.close()
+            except Exception:
+                pass  # Nor may cleanup replace it (e.g. a broken response stream).
+            raise
         self.assertLessEqual(len(raw), 8 * 1024 * 1024)
         return raw
+
+    def capture_read_failure(self, path, error, started):
+        # Only literal public gateway errors are exportable. Do not copy an
+        # arbitrary upstream body, headers, node logs or private home contents.
+        # This records one get() call. The existing startup readiness loop may
+        # separately poll /network.json again; no new retry is introduced here.
+        row = {"method": "GET", "http_status": error.code, "retried_within_get": False,
+               "path": path if re.fullmatch(r"/(?:network\.json|status|abci_info|claims/[0-9a-f]{32}|block\?height=[0-9]+)", path) else "omitted",
+               "elapsed_seconds": round(time.monotonic() - started, 3)}
+        self.evidence.setdefault("http_read_failures", []).append(row)
+        try:
+            raw = error.read(4097)
+            row["body_exceeds_bound"] = len(raw) > 4096
+            if len(raw) <= 4096:
+                value = json.loads(raw)
+                message = value.get("error") if isinstance(value, dict) else None
+                if isinstance(message, str) and message in PUBLIC_GET_ERRORS:
+                    row["gateway_error"] = message
+                else:
+                    row["body_omitted"] = True
+        except Exception as diagnostic_error:
+            row["diagnostic_error_type"] = type(diagnostic_error).__name__
+        # Keep the original HTTPError authoritative even if CI stderr is closed.
+        try:
+            print("shared-claims read failure: " + json.dumps(row, sort_keys=True), file=sys.stderr, flush=True)
+        except (OSError, ValueError):
+            pass
 
     def rpc(self, method, **params):
         data = json.dumps({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).encode()
@@ -313,12 +375,18 @@ class NativeSharedClaimsTests(unittest.TestCase):
         self.assertFalse(value["record"].get("missing_round_ids"))
         return value
 
+    def committed_height(self):
+        # The application's last committed height. /status reports the block
+        # store, which saves a block before FinalizeBlock and Commit, so a query
+        # pinned there can be refused as 'cannot query with height in the future'.
+        height = int(json.loads(self.get("/abci_info"))["result"].get("response", {}).get("last_block_height", 0))
+        self.assertGreater(height, 0, "no committed block")
+        return height
+
     def bank_snapshot(self):
         # All accounts and supply share one committed context. Only public
         # gateway queries are used; the runtime's keyring is never consulted.
-        status = json.loads(self.get("/status"))["result"]
-        height = int(status["sync_info"]["latest_block_height"])
-        self.assertGreater(height, 0)
+        height = self.committed_height()
         def query(*args):
             return self.command([self.binary, "query", *args, "--home", self.homes["author"],
                                  "--node", self.origin, "--height", height, "--output", "json"])
@@ -331,6 +399,45 @@ class NativeSharedClaimsTests(unittest.TestCase):
         supply = query("bank", "total")
         self.assertFalse(supply.get("pagination", {}).get("next_key"), "supply query must be complete")
         return {"height": height, "balances": balances, "supply": supply["supply"]}
+
+    def clear_of_observation(self, margin=10, seconds=60):
+        """Keep a review-fee quote and its execution on one side of an alignment observation.
+
+        x/alignment EndBlock re-prices claim creation when the height is a multiple
+        of its effective interval: the keeper's confidence-modulated interval, halved
+        while degraded frequency is active (x/alignment/module.go). The client quotes
+        at the height it reads, so a quote just before that block can execute after
+        it, below the raised minimum. In runs 38258297341, 39431628710 and 39460347387
+        the read before the second submit was at 98/99 and the submit executed at
+        101/102: '100000uzrn below minimum 133333uzrn'. That is 3 one-second blocks;
+        the margin covers it about three times over, with this check's own reads.
+        An interval at or below the margin leaves no clear height; with the genesis
+        base of 100 the smallest is 33 (67%, then halved).
+        """
+        def query(name, height):
+            return self.command([self.binary, "query", "alignment", name, "--home", self.homes["author"],
+                                 "--node", self.origin, "--height", height, "--output", "json"])
+        deadline = time.monotonic() + seconds
+        while True:
+            height = self.committed_height()
+            confidence = query("correction-confidence", height)
+            # Frozen a4272bfa scales the base by integer * 2 / 3, without a
+            # minimum of one. This fixture's base is 100, so the interval stays
+            # nonzero; a missing omitempty field must not disable the guard.
+            self.assertIn("effective_observation_interval", confidence)
+            interval = int(confidence["effective_observation_interval"])
+            if query("state", height).get("state", {}).get("degraded_frequency_active") and interval > 1:
+                interval //= 2
+            self.assertGreater(interval, margin, "no height is clear of an alignment observation")
+            boundary = (height // interval + 1) * interval
+            if boundary - height > margin:
+                return
+            self.evidence.setdefault("observation_boundary_waits", []).append({"height": height, "boundary": boundary, "interval": interval})
+            while height < boundary:  # Then re-read: the observation may change the interval.
+                self.assertLess(time.monotonic(), deadline, f"chain did not pass alignment observation {boundary} (interval {interval})")
+                self.assertIsNone(self.process.poll())
+                time.sleep(0.8)
+                height = self.committed_height()
 
     def funding_terms(self, history, receipt, challenge=False):
         claim = history["record"]["claim"]
@@ -521,6 +628,7 @@ class NativeSharedClaimsTests(unittest.TestCase):
             self.assertEqual(generated, (fixture.EXAMPLE / name).read_bytes())
             evidence_ids[kind] = "sha256:" + hashlib.sha256(generated).hexdigest()
             self.evidence[kind + "_evidence"] = json.loads(generated)
+        self.clear_of_observation()
         submitted = self.client("author", "submit", "--content", fixture.CLAIM, "--method", "M-COMPUTATIONAL", "--reasoning", fixture.REASONING)
         accepted_id = submitted["claim_id"]
         recovered = self.client("author", "retry", "--tx", submitted["txhash"])
@@ -545,6 +653,7 @@ class NativeSharedClaimsTests(unittest.TestCase):
         self.assertEqual(fact["content"], fixture.CLAIM)
         self.evidence["accepted_before_counterclaim"] = accepted
 
+        self.clear_of_observation()
         second_submission = self.client("author", "submit", "--content", fixture.SECOND_CLAIM, "--method", "M-COMPUTATIONAL",
                                         "--reasoning", "Synthetic signed disagreement; one rejection is intentional.")
         second_id = second_submission["claim_id"]
@@ -578,6 +687,7 @@ class NativeSharedClaimsTests(unittest.TestCase):
 
         # Empty ordinary and correction rounds prove that no review is neither
         # approval nor a lost refund. These remain synthetic signed admissions.
+        self.clear_of_observation()
         empty_submission = self.client("author", "submit", "--content", "Synthetic unreviewed funding fixture: this assertion has no supporting review.",
                                        "--reasoning", "Exercise return of the unused review budget without asserting a scientific result.")
         empty_counter = self.client("challenger", "challenge", "--fact", fact["id"],
@@ -797,6 +907,66 @@ class NativeResponseLossTests(NativeSharedClaimsTests):
             self.evidence["source_hashes_after"] = self.source_hashes
 
 
+class NativeCommittedHeightTests(unittest.TestCase):
+    """Offline fixture regressions; no native binary, home, or node is used."""
+    def read_fixture(self, committed: int | None = 100):
+        native = NativeSharedClaimsTests("runTest")
+        native.binary = Path("/unused/zeroned")
+        native.homes = {"author": Path("/unused/author")}
+        native.origin = "http://127.0.0.1:12345"
+        native.addresses = {"author": "synthetic-author", "reviewer1": "synthetic-reviewer"}
+        native.evidence = {}
+        native.get = mock.Mock(side_effect=lambda path: json.dumps({
+            "/status": {"result": {"sync_info": {"latest_block_height": "101"}}},
+            "/abci_info": {"result": {"response": {} if committed is None else {"last_block_height": str(committed)}}},
+        }[path]).encode())
+        return native, native.get
+
+    def test_bank_snapshot_pins_every_read_to_committed_height(self):
+        native, get = self.read_fixture()
+        def command(args):
+            self.assertEqual(args[args.index("--height") + 1], 100)
+            field = "balances" if args[3] == "balances" else "supply"
+            return {field: [{"denom": "uzrn", "amount": "200"}], "pagination": {}}
+        native.command = mock.Mock(side_effect=command)
+        self.assertEqual(native.bank_snapshot(), {"height": 100,
+            "balances": {"author": 200, "reviewer1": 200},
+            "supply": [{"denom": "uzrn", "amount": "200"}]})
+        self.assertEqual(native.command.call_count, 3)
+        get.assert_called_once_with("/abci_info")
+
+    def test_committed_height_accepts_first_commit(self):
+        native, get = self.read_fixture(committed=1)
+        self.assertEqual(native.committed_height(), 1)
+        get.assert_called_once_with("/abci_info")
+
+    def test_committed_height_refuses_nonpositive_before_query(self):
+        # CometBFT omits last_block_height at zero; also refuse explicit <= 0.
+        for committed in (None, 0, -1):
+            for method in ("committed_height", "bank_snapshot", "clear_of_observation"):
+                with self.subTest(committed=committed, method=method):
+                    native, get = self.read_fixture(committed=committed)
+                    native.command = mock.Mock(side_effect=AssertionError("query before committed-height refusal"))
+                    with self.assertRaisesRegex(AssertionError, "no committed block"):
+                        getattr(native, method)()
+                    native.command.assert_not_called()
+                    get.assert_called_once_with("/abci_info")
+
+    def test_observation_wait_rechecks_committed_height(self):
+        native, get = self.read_fixture()
+        get.side_effect = [json.dumps({"result": {"response": {"last_block_height": str(h)}}}).encode()
+                           for h in (99, 100, 100)]
+        native.process = mock.Mock()
+        native.process.poll.return_value = None
+        native.command = mock.Mock(side_effect=[{"effective_observation_interval": "100"}, {"state": {}}] * 2)
+        with mock.patch.object(time, "sleep") as sleep:
+            native.clear_of_observation()
+        self.assertEqual(get.call_args_list, [mock.call("/abci_info")] * 3)
+        self.assertEqual([call.args[0][call.args[0].index("--height") + 1]
+                          for call in native.command.call_args_list], [99, 99, 100, 100])
+        sleep.assert_called_once_with(0.8)
+
+
 class NativeScenarioCollectionTests(unittest.TestCase):
     def test_native_scenarios_have_separate_owners(self):
         expected = {
@@ -824,6 +994,187 @@ class NativeScenarioCollectionTests(unittest.TestCase):
 
 
 class NativeDiagnosticTests(unittest.TestCase):
+    def gateway_get_errors(self, source):
+        """Follow this gateway's direct GET calls, without importing/running it.
+
+        Resolve self, self.server and self.server.node against their source
+        owners. Include the opener's redirect hook explicitly. The dispatch
+        shape is pinned so a routing refactor requires reviewing this boundary.
+        Startup/descriptor construction and POST/faucet code are not GET calls.
+        """
+        tree = ast.parse(source)
+        definitions = {}
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef):
+                definitions["", node.name] = node
+            elif isinstance(node, ast.ClassDef):
+                for method in node.body:
+                    if isinstance(method, ast.FunctionDef):
+                        definitions[node.name, method.name] = method
+        dispatch = definitions["Handler", "dispatch"]
+        branches = [(index, node) for index, node in enumerate(dispatch.body)
+                    if isinstance(node, ast.If) and ast.unparse(node.test) == "self.command in ('GET', 'HEAD')"]
+        self.assertEqual(len(branches), 1, "review GET reachability after dispatch changes")
+        index, read = branches[0]
+        self.assertEqual(read.orelse, [], "review GET reachability after dispatch changes")
+        definitions["Handler", "dispatch"] = ast.Module(body=dispatch.body[:index] + read.body, type_ignores=[])
+        pending = [("Handler", "handle_request"), ("NoRedirect", "redirect_request")]
+        visited, messages = set(), set()
+        while pending:
+            owner, name = pending.pop()
+            if (owner, name) in visited:
+                continue
+            visited.add((owner, name))
+            for node in ast.walk(definitions[owner, name]):
+                if isinstance(node, ast.Call):
+                    call = ast.unparse(node.func)
+                    if call == "GatewayError":
+                        message = ast.literal_eval(node.args[0])
+                        self.assertIsInstance(message, str, "only literal public errors may be allowlisted")
+                        messages.add(message)
+                    target = ("", call)
+                    for prefix, target_owner in (("self.server.node.", "Node"), ("self.server.", "Server"), ("self.", owner)):
+                        if call.startswith(prefix):
+                            target = (target_owner, call[len(prefix):])
+                            break
+                    if target in definitions:
+                        pending.append(target)
+                elif isinstance(node, ast.Dict):
+                    # handle_request also returns two fixed exception categories
+                    # directly rather than constructing GatewayError instances.
+                    for key, value in zip(node.keys, node.values):
+                        if isinstance(key, ast.Constant) and key.value == "error" and isinstance(value, ast.Constant):
+                            self.assertIsInstance(value.value, str)
+                            messages.add(value.value)
+        return messages
+
+    def test_get_error_allowlist_tracks_gateway_ast(self):
+        self.assertEqual(self.gateway_get_errors(GATEWAY.read_text()), PUBLIC_GET_ERRORS)
+
+    def test_gateway_ast_collector_detects_reworded_and_new_helper_errors(self):
+        source = GATEWAY.read_text()
+        reworded = source.replace('GatewayError("Development command failed; no success is asserted")',
+                                 'GatewayError("Synthetic reworded GET failure")')
+        helper = source.replace("    def history(self, identifier):\n",
+            '    def synthetic_get_helper(self):\n        raise GatewayError("Synthetic new GET failure")\n\n'
+            '    def history(self, identifier):\n        self.synthetic_get_helper()\n')
+        for changed, message in ((reworded, "Synthetic reworded GET failure"), (helper, "Synthetic new GET failure")):
+            with self.subTest(message=message):
+                self.assertNotEqual(changed, source)
+                self.assertEqual(self.gateway_get_errors(changed) - PUBLIC_GET_ERRORS, {message})
+
+    def read_fixture(self):
+        native = NativeSharedClaimsTests("test_five_separate_participants_signed_rounds_gateway_and_restart")
+        native.evidence = {}
+        native.origin = "http://127.0.0.1:12345"
+        opener = mock.Mock()
+        native.opener = opener
+        return native, opener
+
+    def test_real_gateway_503_is_retained_and_never_retried(self):
+        spec = importlib.util.spec_from_file_location("read_failure_gateway", GATEWAY)
+        assert spec is not None and spec.loader is not None
+        gateway = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(gateway)
+        node = mock.Mock()
+        message = "Development command failed; no success is asserted"
+        node.history.side_effect = gateway.GatewayError(message)
+        server = gateway.Server(("127.0.0.1", 0), node, mock.Mock())
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        native, _ = self.read_fixture()
+        native.origin = "http://127.0.0.1:" + str(server.server_port)
+        native.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), fixture.NoRedirect())
+        path = "/claims/" + "a" * 32
+        output = io.StringIO()
+        try:
+            with redirect_stderr(output), self.assertRaises(urllib.error.HTTPError) as caught:
+                native.get(path)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+        self.assertFalse(thread.is_alive())
+        self.assertEqual(caught.exception.code, 503)
+        self.assertTrue(caught.exception.closed)
+        node.history.assert_called_once_with("a" * 32)
+        row, = native.evidence["http_read_failures"]
+        self.assertEqual((row["path"], row["gateway_error"], row["method"]), (path, message, "GET"))
+        self.assertFalse(row["retried_within_get"])
+        self.assertIn(message, output.getvalue())
+
+    def test_abci_info_failure_retains_public_path_without_retry(self):
+        native, opener = self.read_fixture()
+        error = urllib.error.HTTPError(native.origin, 503, "unavailable", Message(), io.BytesIO(b'{}'))
+        opener.open.side_effect = error
+        with redirect_stderr(io.StringIO()), self.assertRaises(urllib.error.HTTPError) as caught:
+            native.get("/abci_info")
+        self.assertIs(caught.exception, error)
+        self.assertEqual(native.evidence["http_read_failures"][0]["path"], "/abci_info")
+        opener.open.assert_called_once()
+
+    def test_http_failure_diagnostics_are_bounded_and_redact_unknown_bodies(self):
+        for body in (b'{"error":"private-shaped sentinel"}', b'{"error":[]}', b'[]', b'not JSON', b'x' * 5000):
+            with self.subTest(body_bytes=len(body)):
+                native, opener = self.read_fixture()
+                stream = io.BytesIO(body)
+                error = urllib.error.HTTPError(native.origin, 503, "unavailable", Message(), stream)
+                opener.open.side_effect = error
+                output = io.StringIO()
+                with redirect_stderr(output), self.assertRaises(urllib.error.HTTPError) as caught:
+                    native.get("/unknown?private-shaped-sentinel")
+                self.assertIs(caught.exception, error)
+                self.assertTrue(stream.closed)
+                opener.open.assert_called_once()
+                row, = native.evidence["http_read_failures"]
+                self.assertEqual(row["path"], "omitted")
+                self.assertEqual(row["body_exceeds_bound"], len(body) > 4096)
+                self.assertNotIn("gateway_error", row)
+                self.assertNotIn("private-shaped", json.dumps(row) + output.getvalue())
+
+    def test_diagnostic_body_timeout_preserves_original_http_failure(self):
+        native, opener = self.read_fixture()
+        stream = mock.Mock()
+        stream.read.side_effect = TimeoutError("unexportable diagnostic detail")
+        error = urllib.error.HTTPError(native.origin, 503, "unavailable", Message(), stream)
+        opener.open.side_effect = error
+        with redirect_stderr(io.StringIO()), self.assertRaises(urllib.error.HTTPError) as caught:
+            native.get("/status")
+        self.assertIs(caught.exception, error)
+        stream.read.assert_called_once_with(4097)
+        stream.close.assert_called_once()
+        self.assertEqual(native.evidence["http_read_failures"][0]["diagnostic_error_type"], "TimeoutError")
+        opener.open.assert_called_once()
+
+    def test_successful_get_is_unchanged_and_write_rpc_is_still_refused(self):
+        native, opener = self.read_fixture()
+        response = io.BytesIO(b'{"ok":true}')
+        opener.open.return_value = response
+        self.assertEqual(native.get("/network.json"), b'{"ok":true}')
+        self.assertEqual(native.evidence, {})
+        for method in ("broadcast_tx_sync", "faucet"):
+            with self.assertRaisesRegex(AssertionError, "must never cover a broadcast or faucet"):
+                native.rpc(method)
+        opener.open.assert_called_once()
+
+    def test_diagnostic_capture_or_close_failure_never_masks_http_error(self):
+        for broken_capture in (False, True):
+            with self.subTest(broken_capture=broken_capture):
+                native, opener = self.read_fixture()
+                stream = mock.Mock()
+                stream.read.return_value = b'{}'
+                stream.close.side_effect = OSError("synthetic cleanup failure")
+                error = urllib.error.HTTPError(native.origin, 503, "unavailable", Message(), stream)
+                opener.open.side_effect = error
+                with mock.patch.object(native, "capture_read_failure", wraps=native.capture_read_failure) as capture:
+                    if broken_capture:
+                        capture.side_effect = RuntimeError("synthetic diagnostic failure")
+                    with redirect_stderr(io.StringIO()), self.assertRaises(urllib.error.HTTPError) as caught:
+                        native.get("/status")
+                self.assertIs(caught.exception, error)
+                stream.close.assert_called_once()
+                opener.open.assert_called_once()
+
     def test_failed_client_retains_public_execution_and_preserves_original_assertion(self):
         with tempfile.TemporaryDirectory(prefix="zerone-shared-diagnostic-") as temporary:
             root = Path(temporary)

@@ -130,7 +130,7 @@ func validateNodeJSON(data []byte) {
 }
 
 func (n *nodeClient) rpc(method string, params object, out any) *rpcFailure {
-	allowed := map[string]bool{"status": true, "block": true, "genesis": true, "abci_query": true, "broadcast_tx_sync": true, "tx": true, "num_unconfirmed_txs": true, "block_results": true}
+	allowed := map[string]bool{"status": true, "block": true, "genesis": true, "abci_info": true, "abci_query": true, "broadcast_tx_sync": true, "tx": true, "num_unconfirmed_txs": true, "block_results": true}
 	require(allowed[method], "unsupported_command")
 	n.sequence++
 	id := n.sequence
@@ -171,6 +171,15 @@ func (n *nodeClient) status() *rpctypes.ResultStatus {
 	n.fresh(s.SyncInfo.LatestBlockTime)
 	return &s
 }
+func (n *nodeClient) committed(latest int64) int64 {
+	// Status names the block store, which saves a block before the app commits.
+	// Pin state reads to the app's last commit, never an uncommitted store tip.
+	var info rpctypes.ResultABCIInfo
+	known(n.rpc("abci_info", object{}, &info) == nil, "unavailable")
+	known(info.Response.LastBlockHeight > 0 && info.Response.LastBlockHeight >= latest-1, "incoherent_height")
+	// Status was sampled first; another block may have committed in between.
+	return min(info.Response.LastBlockHeight, latest)
+}
 func (n *nodeClient) fresh(t time.Time) {
 	now := n.now()
 	known(!t.IsZero() && !t.After(now) && now.Sub(t) <= time.Duration(num(n.policy, "max_observation_age_seconds"))*time.Second, "stale")
@@ -197,7 +206,7 @@ func (n *nodeClient) checkGenesis(trust trustedArtifacts) {
 }
 func (n *nodeClient) start(height any) *rpctypes.ResultBlock {
 	s := n.status()
-	h := s.SyncInfo.LatestBlockHeight
+	h := n.committed(s.SyncInfo.LatestBlockHeight)
 	if height != nil {
 		value := uint64s(height.(string), true)
 		known(value <= uint64(h), "incoherent_height")

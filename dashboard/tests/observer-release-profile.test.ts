@@ -37,7 +37,8 @@ it("binds an observer recipe to immutable signed artifacts and preserves closed 
   assert.equal(observer.sameExecutableAsLiveValidator, false);
   assert.notEqual(profile.source.commit, observer.executableBaseCommit);
   assert.equal(profile.live.validatorJoining.availability, "not-open");
-  assert.equal(profile.live.newAccountAdmission.availability, "paused");
+  assert.equal(profile.live.newAccountAdmission.availability, "household-hub-agents-by-request");
+  assert.equal(profile.live.newAccountAdmission.websiteSignup, false);
   assert.match(observer.verifyCommand, new RegExp(`checkout --detach ${publication.toolingCommit}`, "u"));
   assert.ok(observer.verifyCommand.includes(publication.archiveSha256));
   assert.match(observer.verifyCommand, /package\.py unpack/u);

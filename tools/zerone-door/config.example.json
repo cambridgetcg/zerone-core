@@ -1,0 +1,23 @@
+{
+  "_about": "Template for the door's local config.json (mode 0600). Never commit the filled file: it says where R's keyring and its passphrase live. install.sh copies this template; the household fills every <...>. chain_version is the version the door was measured on (zerone-1, 2026-10-28, h1,402,985); change it only after re-measuring gas on a new version.",
+  "schema": "zerone-door-config/v1",
+  "chain_id": "zerone-1",
+  "rpc": "http://169.155.55.44:26657",
+  "rest": "http://169.155.55.44:1317",
+  "zeroned": {
+    "path": "<absolute path of the pinned zeroned that install.sh copied>",
+    "sha256": "<its sha256, 64 lowercase hex>"
+  },
+  "chain_version": {
+    "last_upgrade": "agenttool-seam-v1",
+    "module_versions_sha256": "a727374831c19acbfe68e2db400fd8dfd65d0341b8f4a39e704f515cd8872643"
+  },
+  "registrar": {
+    "address": "<R's zrn1 address, the on-chain bootstrap_registrar>",
+    "key_name": "<R's key name inside its file keyring>",
+    "keyring_dir": "<absolute --keyring-dir of R's file keyring>",
+    "keychain_service": "<login-Keychain generic-password service that holds the keyring passphrase>"
+  },
+  "known_keys": [],
+  "lobby": null
+}

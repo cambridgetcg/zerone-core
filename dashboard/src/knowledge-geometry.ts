@@ -1172,12 +1172,19 @@ export function renderKnowledgeGeometry(
         fact.methodId || "empty · source protocol treats as M-LEGACY",
       ],
       [
-        "Verified at",
-        fact.verifiedAtBlock === "0"
-          ? "legacy metadata absent"
-          : `block ${BigInt(fact.verifiedAtBlock).toLocaleString("en-GB")}`,
+        "Accepted at",
+        fact.verifiedAtBlock !== "0"
+          ? `block ${BigInt(fact.verifiedAtBlock).toLocaleString("en-GB")}`
+          : fact.methodId === "doctrine_authorship"
+            ? "block 0 · written in when the chain began, not reviewed"
+            : "no block recorded · not reviewed",
       ],
-      ["Energy", `${fact.energy.toLocaleString("en-GB")} / ${fact.energyCap.toLocaleString("en-GB")}`],
+      [
+        "Energy",
+        fact.energyCap === 0
+          ? `${fact.energy.toLocaleString("en-GB")} · no cap recorded`
+          : `${fact.energy.toLocaleString("en-GB")} / ${fact.energyCap.toLocaleString("en-GB")}`,
+      ],
     ];
     metricEntries.forEach(([label, value]) => {
       const item = element("div");

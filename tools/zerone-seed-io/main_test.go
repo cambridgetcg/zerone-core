@@ -334,20 +334,22 @@ type fakeNode struct {
 	genesis      *cmttypes.GenesisDoc
 	blocks       map[int64]*rpctypes.ResultBlock
 	latest       int64
+	committed    int64
 	signed       []byte
 	results      []*abci.ExecTxResult
 	broadcasts   int
 	queries      []string
+	queryHeights []int64
 	fault        string
 	queryCalls   int
 }
 
 func newFake(t *testing.T) *fakeNode {
 	p, pol, plan := fixture(publicTestKey().PubKey().Bytes())
-	f := &fakeNode{t: t, p: p, pol: pol, plan: plan, blocks: map[int64]*rpctypes.ResultBlock{}, latest: 11, signed: signedFixture(plan)}
+	f := &fakeNode{t: t, p: p, pol: pol, plan: plan, blocks: map[int64]*rpctypes.ResultBlock{}, latest: 11, committed: 11, signed: signedFixture(plan)}
 	f.genesis = &cmttypes.GenesisDoc{ChainID: str(p, "chain_reference"), GenesisTime: fixtureNow.Add(-time.Hour), InitialHeight: 1, ConsensusParams: cmttypes.DefaultConsensusParams(), AppState: json.RawMessage(`{}`)}
 	f.results = []*abci.ExecTxResult{{Code: 0, GasWanted: 250000, GasUsed: 71331, Events: []abci.Event{{Type: "zerone.claiming_pot.pot_claimed", Attributes: []abci.EventAttribute{{Key: "pot_id", Value: str(pol, "pot_id")}, {Key: "claimant", Value: rawAccount(str(pol, "claimant_account"), str(p, "chain_id"))}, {Key: "amount", Value: "222000"}}}}}}
-	for h := int64(9); h <= 11; h++ {
+	for _, h := range []int64{1, 9, 10, 11} {
 		txs := []cmttypes.Tx{}
 		if h == 10 {
 			txs = append(txs, f.signed)
@@ -421,6 +423,8 @@ func (f *fakeNode) serve(w http.ResponseWriter, r *http.Request) {
 		s.SyncInfo.LatestBlockTime = f.blocks[f.latest].Block.Time
 		s.SyncInfo.CatchingUp = f.fault == "catching_up"
 		result = s
+	case "abci_info":
+		result = &rpctypes.ResultABCIInfo{Response: abci.ResponseInfo{LastBlockHeight: f.committed}}
 	case "block":
 		h, _ := strconv.ParseInt(req.Params["height"].(string), 10, 64)
 		result = f.blocks[h]
@@ -437,6 +441,7 @@ func (f *fakeNode) serve(w http.ResponseWriter, r *http.Request) {
 		f.queries = append(f.queries, path)
 		h, _ := strconv.ParseInt(req.Params["height"].(string), 10, 64)
 		var b cmtbytes.HexBytes
+		f.queryHeights = append(f.queryHeights, h)
 		e := cmtjson.Unmarshal(canonical(req.Params["data"]), &b)
 		if e != nil {
 			f.t.Error(e)
@@ -497,6 +502,9 @@ func (f *fakeNode) serve(w http.ResponseWriter, r *http.Request) {
 	w.Write(b)
 }
 func (f *fakeNode) query(path string, b []byte, h int64) *abci.ResponseQuery {
+	if h > f.committed {
+		return &abci.ResponseQuery{Code: 1, Log: "cannot query with height in the future"}
+	}
 	decode := func(v any) {
 		if e := unmarshalNative(b, v); e != nil {
 			f.t.Error(e)
@@ -623,6 +631,98 @@ func TestBoundedTypedInspection(t *testing.T) {
 		})
 	}
 }
+func TestCommittedInspectionAnchor(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		latest    int64
+		committed int64
+		height    any
+		lag       int64
+		want      string
+		reason    string
+	}{
+		{"store_leads", 11, 10, nil, 100, "10", ""},
+		{"explicit_commit", 11, 10, "10", 100, "10", ""},
+		{"historical", 11, 10, "9", 100, "9", ""},
+		{"uncommitted_explicit_tip", 11, 10, "11", 100, "", "incoherent_height"},
+		// Lag is only one, so the positive-commit guard must decide the refusal.
+		{"no_commit", 1, 0, nil, 100, "", "incoherent_height"},
+		{"app_lags_two", 11, 9, nil, 100, "", "incoherent_height"},
+		{"zero_lag_policy", 11, 10, nil, 0, "", "stale"},
+		// Status was sampled first: the app may advance before abci_info replies.
+		{"app_advanced_after_status", 11, 12, nil, 100, "11", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFake(t)
+			f.latest = tc.latest
+			f.committed = tc.committed
+			f.pol["max_height_lag"] = tc.lag
+			n := f.client(f.req("inspect"))
+			defer n.close()
+			res := n.inspect(tc.height, trustedArtifacts{f.genesis})
+			if tc.reason != "" {
+				if str(res, "status") != "unknown" || str(res, "reason") != tc.reason || f.queryCalls != 0 {
+					t.Fatalf("expected prequery refusal %s, got %s; queries=%d", tc.reason, canonical(res), f.queryCalls)
+				}
+				return
+			}
+			if str(res, "status") != "observed" {
+				t.Fatalf("expected committed observation, got %s", canonical(res))
+			}
+			evidence := obj(res["evidence"])
+			if str(obj(evidence["anchor"]), "height") != tc.want || str(evidence, "latest_height") != strconv.FormatInt(tc.latest, 10) || f.queryCalls == 0 {
+				t.Fatalf("wrong anchor/latest evidence: %s", canonical(evidence))
+			}
+			for _, h := range f.queryHeights {
+				if strconv.FormatInt(h, 10) != tc.want {
+					t.Fatalf("query at %d, want committed anchor %s", h, tc.want)
+				}
+			}
+		})
+	}
+}
+
+func TestSimulationRefusesUncommittedTipBeforeQuery(t *testing.T) {
+	// Height 10 guards simulate's existing unchanged-latest-height contract,
+	// under either anchor. Only 11 distinguishes the new committed anchor.
+	for _, height := range []string{"10", "11"} {
+		t.Run(height, func(t *testing.T) {
+			f := newFake(t)
+			f.committed = 10
+			r := f.req("simulate")
+			r["height"] = height
+			n := f.client(r)
+			defer n.close()
+			got := mustFail(t, func() { n.simulate(r, trustedArtifacts{f.genesis}) })
+			if got != nodeFailure("incoherent_height") || f.queryCalls != 0 {
+				t.Fatalf("expected prequery refusal, got %v; queries=%d", got, f.queryCalls)
+			}
+		})
+	}
+}
+
+func TestLookupUsesCommittedPoststateWhenStoreLeads(t *testing.T) {
+	f := newFake(t)
+	// The tx is in 10, committed state/successor in 11, block store in 12.
+	b := cmttypes.MakeBlock(12, nil, &cmttypes.Commit{}, nil)
+	b.ChainID, b.Time = str(f.p, "chain_reference"), fixtureNow
+	b.ValidatorsHash = bytes.Repeat([]byte{3}, 32)
+	b.LastBlockID = f.blocks[11].BlockID
+	f.blocks[12] = &rpctypes.ResultBlock{Block: b, BlockID: cmttypes.BlockID{Hash: b.Hash()}}
+	f.latest = 12
+	r := f.req("lookup")
+	r["tx_hash"] = signedSummary(f.plan, f.signed)["tx_hash"]
+	n := f.client(r)
+	defer n.close()
+	res := n.lookup(r, trustedArtifacts{f.genesis})
+	if str(res, "status") != "included" || str(obj(obj(res["evidence"])["anchor"]), "height") != "11" {
+		t.Fatalf("expected committed poststate: %s", canonical(res))
+	}
+	if fmt.Sprint(f.queryHeights) != "[10 10 11 11]" || f.broadcasts != 0 {
+		t.Fatalf("unexpected query contexts or broadcast: %v, %d", f.queryHeights, f.broadcasts)
+	}
+}
+
 func TestSimulationAndSingleSubmission(t *testing.T) {
 	f := newFake(t)
 	r := f.req("simulate")

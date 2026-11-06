@@ -112,7 +112,9 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 class Node:
-    def __init__(self, home, binary, rpc, upgrade_packet_sha256=None):
+    def __init__(self, home, binary, rpc, upgrade_packet_sha256=None, patch_packet_sha256=None):
+        if patch_packet_sha256 is not None and upgrade_packet_sha256 is None:
+            raise GatewayError("A binary patch requires its applied upgrade pin")
         self.home, self.binary, self.rpc = Path(home), Path(binary), rpc.rstrip("/")
         url = urllib.parse.urlsplit(self.rpc)
         if url.scheme != "http" or url.hostname != "127.0.0.1" or url.path or url.query or url.fragment or url.username:
@@ -127,14 +129,22 @@ class Node:
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
         self.history_slots = threading.BoundedSemaphore(2)
         self.upgrade_packet = None
+        self.binary_patch = None
         if upgrade_packet_sha256 is not None:
             spec = importlib.util.spec_from_file_location("development_runtime_upgrade", Path(__file__).with_name("runtime.py"))
             runtime = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(runtime)
             packet, original = runtime.load_upgrade(self.home, upgrade_packet_sha256)
-            self.manifest = runtime.upgraded_manifest(original, packet)
-            if runtime.digest(self.binary) != self.manifest["binary_sha256"]:
-                raise GatewayError("Gateway target binary differs from the staged upgrade")
+            if patch_packet_sha256 is None:
+                self.manifest = runtime.upgraded_manifest(original, packet)
+                if runtime.digest(self.binary) != self.manifest["binary_sha256"]:
+                    raise GatewayError("Gateway target binary differs from the staged upgrade")
+            else:
+                patch = runtime.load_patch(self.home, upgrade_packet_sha256, patch_packet_sha256, packet, original)
+                self.manifest = runtime.patched_manifest(original, packet, patch)
+                if runtime.digest(self.binary) != self.manifest["binary_sha256"]:
+                    raise GatewayError("Gateway binary differs from the staged binary patch")
+                self.binary_patch = patch
             runtime.verify_applied_upgrade(self.binary, self.home, self.manifest, packet)
             self.upgrade_packet = packet
 
@@ -221,6 +231,16 @@ class Node:
         if directory.is_symlink() or not directory.is_dir():
             raise GatewayError("Invalid public packet directory")
         path = directory / (f"network-knowledge-{knowledge_version}.json" if self.upgrade_packet is not None else "network.json")
+        if self.binary_patch is not None:
+            # A patch changes only the executable's identity. Its descriptor sits beside
+            # the retained base descriptor and may differ from it in nothing else.
+            base_path = path
+            path = directory / f"network-knowledge-{knowledge_version}-patch-{self.manifest['source_commit'][:12]}.json"
+            if not base_path.exists():
+                raise GatewayError("A binary patch requires the retained base descriptor")
+            base = parse(regular_bytes(base_path))
+            if not isinstance(base, dict) or {**base, "source_commit": value["source_commit"], "runtime_binary_sha256": value["runtime_binary_sha256"]} != value:
+                raise GatewayError("Binary patch descriptor differs from its base beyond the binary identity")
         if path.exists():
             if parse(regular_bytes(path)) != value:
                 raise GatewayError("Published development descriptor changed; no automatic rewrite")
@@ -233,7 +253,16 @@ class Node:
         if not self.history_slots.acquire(blocking=False):
             raise GatewayError("History reader busy; try again", 429)
         try:
-            height = self.ready()
+            latest = self.ready()
+            # Status names the block store height. CometBFT saves a block before
+            # the app commits it, and the SDK refuses a query above its committed
+            # version, so the query height is the app's own last commit, which
+            # trails the fresh block ready() checked by at most one.
+            height = int(self.call("abci_info").get("response", {}).get("last_block_height", 0))
+            if height < 1:
+                raise GatewayError("Development application has no committed block")
+            if height < latest - 1:
+                raise GatewayError("Development application lags its block store")
             value = parse(self.cli("query", "knowledge", "claim-history", identifier,
                 "--node", self.rpc, "--height", height, "--output", "json"))
             if value.get("chain_id") != CHAIN or int(value.get("block_height", 0)) != height:
@@ -572,8 +601,9 @@ def main():
     parser.add_argument("--port", type=int, default=8080)
     parser.add_argument("--retry-faucet", metavar="TXHASH")
     parser.add_argument("--upgrade-packet-sha256")
+    parser.add_argument("--patch-packet-sha256")
     args = parser.parse_args()
-    node = Node(args.home, args.binary, args.rpc, args.upgrade_packet_sha256)
+    node = Node(args.home, args.binary, args.rpc, args.upgrade_packet_sha256, args.patch_packet_sha256)
     node.descriptor()
     faucet = Faucet(node)
     if args.retry_faucet:

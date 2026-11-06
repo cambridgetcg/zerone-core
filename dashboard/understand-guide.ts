@@ -26,8 +26,8 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
       commit,
       url: `${REPOSITORY}/tree/${commit}`,
       evidenceCommit: EVIDENCE_COMMIT,
-      repositoryAccess: "restricted",
-      accessNote: "Source links require repository access. The public guide remains readable without a repository account; a source link is not a public download guarantee.",
+      repositoryAccess: "public",
+      accessNote: "Source links open without a GitHub account: the repository has been public since 28 October 2026.",
       scope: "Build-time explanation and declared availability; dated evidence is identified separately. This is not a fresh network check.",
     },
     effects: {
@@ -137,10 +137,11 @@ export function buildUnderstandGuide(nodeGuide: NodeGuideProfile) {
         rows: [
           { title: `Read ${nodeGuide.live.chainId}`, availability: nodeGuide.live.availability, text: "Inspect public records, compare observations and ask reproducible questions.", link: { label: "Read the existing network", url: `${nodes}#live` } },
           { title: observer ? "Run an experimental observer" : "Check observer availability", availability: nodeGuide.live.replicaInstallation.availability, text: nodeGuide.live.replicaInstallation.reason,
-            note: observer ? `New setups had to start before ${observer.expiresAt}; after that the package refuses them until a new signed package is published. The package and its tools come from the source repository, which is not public. ${observer.maintenance}` : "Use the node guide for the current publication record.",
+            note: observer ? `New setups had to start before ${observer.expiresAt}; after that the package refuses them until a new signed package is published. The package and its tools come from the public source repository. ${observer.maintenance}` : "Use the node guide for the current publication record.",
             link: { label: observer ? "Verify the observer package" : "Read the node guide", url: `${nodes}#${observer ? "observer" : "live"}` } },
-          { title: `Build on ${nodeGuide.local.chainId}`, availability: nodeGuide.local.availability, text: `${nodeGuide.local.funds} The source code is not public, so only people who already have access to it can build this. ${nodeGuide.local.apiScope}`, link: { label: "Set up a local sandbox", url: `${nodes}#local` } },
-          { title: "New zerone-1 accounts", availability: nodeGuide.live.newAccountAdmission.availability, text: `Starter funds: ${nodeGuide.live.starterFunds.availability}. Reward-claim onboarding: ${nodeGuide.live.rewardClaimOnboarding.availability}. Validator joining: ${nodeGuide.live.validatorJoining.availability}.`, link: { label: "Read participation options", url: `${nodes}#participation` } },
+          { title: `Build on ${nodeGuide.local.chainId}`, availability: nodeGuide.local.availability, text: `${nodeGuide.local.funds} The source is public; the node guide lists what a build needs. ${nodeGuide.local.apiScope}`, link: { label: "Set up a local sandbox", url: `${nodes}#local` } },
+          { title: "Run a private chain on our own Macs", availability: nodeGuide.privateNetwork.availability, text: `${nodeGuide.privateNetwork.whoCanJoin} Each run starts its own new, valueless chain, and no genesis, peer address or kit is published.`, link: { label: "Read the closed beta", url: `${nodes}#beta` } },
+          { title: "New zerone-1 accounts", availability: nodeGuide.live.newAccountAdmission.availability, text: `Since ${nodeGuide.live.newAccountAdmission.door.openSince}, the household’s admission door has been open to ${nodeGuide.live.newAccountAdmission.door.open}. Not yet included: ${nodeGuide.live.newAccountAdmission.door.notYet}. There is no website sign-up. Starter funds: ${nodeGuide.live.starterFunds.availability.replaceAll("-", " ")}. Reward-claim onboarding: ${nodeGuide.live.rewardClaimOnboarding.availability}. Validator joining: ${nodeGuide.live.validatorJoining.availability.replaceAll("-", " ")}.`, link: { label: "Read the agents’ door guide", url: nodeGuide.live.newAccountAdmission.door.guide } },
           { title: `Shared work on ${nodeGuide.development.chainId}`, availability: nodeGuide.development.availability, text: `${nodeGuide.development.status} ${nodeGuide.development.consensus}`, link: { label: "Read the development lane", url: "https://zerone.ai/development/" } },
         ],
         contributions: nodeGuide.participation.map(({ title, availability, action, url }) => ({ title, availability, text: action, url })),
@@ -223,12 +224,13 @@ export function understandPage(guide: UnderstandGuide): string {
   return `<!doctype html>
 <html lang="en"><head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#09090c" /><meta name="description" content="${escape(guide.intro.description)}" />
+  <meta name="theme-color" content="#09090c" /><meta name="color-scheme" content="dark" /><meta name="description" content="${escape(guide.intro.description)}" />
   <meta property="og:title" content="${escape(guide.intro.title)}" /><meta property="og:description" content="${escape(guide.intro.description)}" />
   <meta property="og:type" content="website" /><meta property="og:url" content="${escape(guide.documentation.humanGuide)}" />
   <link rel="canonical" href="${escape(guide.documentation.humanGuide)}" />
   <link rel="alternate" type="application/json" href="/understand/guide.json" title="Machine-readable explanation" />
-  <link rel="help" type="text/plain" href="/llms.txt" /><link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="help" type="text/plain" href="/llms.txt" /><link rel="icon" href="/favicon.ico" sizes="32x32" /><link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" /><link rel="manifest" href="/site.webmanifest" />
   <link rel="stylesheet" href="/src/understand.css" /><title>${escape(guide.intro.title)}</title>
 </head><body class="understand">
   <a class="skip-link" href="#main-content">Skip to the explanation</a>

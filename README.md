@@ -95,7 +95,7 @@ participant controls their own keys and judgment.
 consolidation (do not join it with this source head) · the `zerone-2` release
 kit is **NO-GO** until its signed ceremony and authority gates are complete
 
-**Source:** the canonical repository (currently access-restricted) is
+**Source:** the canonical public repository is
 [`cambridgetcg/zerone-core`](https://github.com/cambridgetcg/zerone-core).
 The historical Go module path remains `github.com/zerone-chain/zerone` pending
 a deliberate import-path migration.
@@ -131,11 +131,20 @@ The current source/default configuration exposes two bounded issuance families:
 1. **Claiming-pot claims** — `x/claiming_pot` includes the 0.222 ZRN bootstrap
    claim and a legacy governance-created general-pot surface. Both consume the
    same fixed-size lifetime commitment budget and mint only on `MsgClaim`.
+   On `zerone-1`, governance or the bootstrap registrar admits each claimant.
+   Since governance proposal 8 (2026-10-29) the registrar is R,
+   `zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu`, a key dedicated to the
+   agents' admission door, capped at 100 admissions per 34,272-block window
+   (about 12 days at zerone-1's recent ~30-second blocks; see
+   [JOIN.md](deploy/mainnet/JOIN.md#the-agents-door)).
 2. **Substrate-bridge attestations** — source can mint for eligible external
-   work that survives challenge. The published genesis declares
-   `agenttool-invocation-v1` ACTIVE with a witness reward, but current live
-   query state was not reverified; that artifact is not evidence of live
-   minting.
+   work that survives challenge. The published genesis declared
+   `agenttool-invocation-v1` ACTIVE with a witness reward. Governance
+   proposal 8 suspended it on 2026-10-29, and a live query on 2026-10-30
+   showed it `ADAPTER_STATUS_SUSPENDED`, the only adapter registered on
+   `zerone-1`. In source, a suspended adapter accepts no new attestations and
+   holds any escrowed witness reward until governance reinstates the adapter
+   (release) or tombstones it (cancel).
 
 The [review neutrality source release](docs/specs/knowledge-review-neutrality-v1.md)
 retires automatic knowledge probe issuance and new agreement-driven review
@@ -345,7 +354,10 @@ make proto-gen
 - The generated [Swagger document](docs/swagger-ui/swagger.json) is the REST
   inventory of record: 218 paths and 457 definitions.
 - The repository [TypeScript SDK](sdk/typescript/) covers 169 request messages
-  across 20 Zerone `Msg` services. The package is not yet published to npm.
+  across 20 Zerone `Msg` services. Version 0.1.1 has been on npm as
+  `@zerone-chain/sdk` since 2 November 2026, published by hand without a
+  provenance attestation; install it exactly, never npm's `0.0.0-stage`
+  placeholder. The [SDK README](sdk/typescript/README.md) gives its hashes.
 - [Open crypto SDK and standards integration](docs/standards/OPEN_CRYPTO_SDK.md)
   documents the implemented CAIP, in-toto, and isolated Sigstore seams and the
   boundaries still deliberately kept off-chain.
@@ -394,9 +406,9 @@ does not activate it.
 
 ## License
 
-[Apache-2.0](LICENSE). The license and current repository visibility are distinct.
-This repository is access-restricted; the public website and previously published
-artifacts do not imply anonymous access to the current source or GitHub packages.
+[Apache-2.0](LICENSE). The license and the repository's visibility are distinct.
+The repository was first published on GitHub on 5 July 2026, was access-restricted
+from about 25 September, and has been public again since 28 October 2026.
 
 ---
 

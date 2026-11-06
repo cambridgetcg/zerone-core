@@ -57,8 +57,9 @@ JOBS = {
     "frontier_macos": ({"website", "markdown", "go-test"}, ("x/auth/client/cli/",)),
     # docker build of make build plus explicitly copied, non-test files.
     "deployment_images": ({"website", "markdown", "skill", "go-test"}, ()),
-    # Local four-validator network, go test ./tests/multivalidator, and the
-    # node, claim, shared-network and private-net skill suites.
+    # Gates both consensus-rehearsal and consensus-shared-workflows: the local
+    # four-validator network, go test ./tests/multivalidator, and the node,
+    # claim, shared-network, research and private-net skill suites.
     "consensus_rehearsal": ({"website", "markdown", "go-test"}, ("tests/multivalidator/",)),
     # go build of candidate and frozen binaries plus the rehearsal scripts.
     "accounting_rehearsal": ({"website", "markdown", "skill", "go-test"}, ()),

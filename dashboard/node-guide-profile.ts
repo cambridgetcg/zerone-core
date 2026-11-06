@@ -66,8 +66,8 @@ export function buildNodeGuideProfile({
         sha256: privateNetworkToolSha256,
         scope: "The tool this guide describes. A closed-beta seat checks its kit against the sha256 in its own invitation.",
       },
-      repositoryAccess: "restricted",
-      accessNote: "The zerone-core repository is private. Source links, both clone steps and the observer's release downloads need repository access; this guide and guide.json do not.",
+      repositoryAccess: "public",
+      accessNote: "The zerone-core repository has been public since 28 October 2026. Source links, both clone steps and the observer's release downloads need no GitHub account.",
       scope: "Pinned source for the local sandbox and the private-network tool; not the installed zerone-1 executable.",
       productionBinaryProvenance: false,
     },
@@ -78,31 +78,32 @@ export function buildNodeGuideProfile({
       availability: "closed-beta",
       admission: "invitation-only",
       networkScope: "private-addresses-by-invitation",
+      seatOwnership: "our-own-macs-only",
       chainIdPattern: "zerone-rehearsal-lan-*",
       valueless: true,
       bridged: false,
       signUp: false,
       publishesJoinCoordinates: false,
-      summary: "A fresh, valueless Zerone chain whose validators are invited Macs on our home network. Each Mac makes its own keys, and they never leave it. A chain can be thrown away and started again under a new chain id.",
-      whoCanJoin: "Apple silicon Macs on our home network, each invited by the operator before the chain starts.",
+      summary: "A fresh, valueless Zerone chain whose validators are our own Macs on our home network. Each Mac makes its own keys, and they never leave it. A chain can be thrown away and started again under a new chain id.",
+      whoCanJoin: "For now, only our own Apple silicon Macs on our home network, each invited by the operator before the chain starts. Other people's Macs cannot join yet; they are a later stage of the roadmap.",
       terms: [
         { term: "Seat", text: "One Mac running one node, with keys made on that Mac." },
         { term: "Coordinator", text: "The seat that writes the invitations and builds the genesis." },
         { term: "Genesis", text: "The chain's first record: its settings, its validators and their stakes." },
       ],
-      howToAsk: "There is no sign-up form. Seats are given by invitation from the operator, and no genesis, peer address, invitation or kit is published here.",
+      howToAsk: "There is no sign-up form. For now the operator invites only our own Macs, and no genesis, peer address, invitation or kit is published here.",
       admissionChecks: [
         { id: "invited", title: "Invited seats only", text: "The genesis is built only from seat packets whose label, role and stake match an invitation the operator issued." },
-        { id: "private-addresses", title: "Private addresses only", text: "Every seat address must be a private address (10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16), so seats reach each other only inside a private network. The check cannot tell one home network from another: the invitations decide which Macs are seats." },
+        { id: "private-addresses", title: "Private addresses only", text: "Every seat address must be a private address (10.0.0.0/8, 172.16.0.0/12 or 192.168.0.0/16), so seats reach each other only inside a private network. The check cannot tell one home network from another, or our Macs from anyone else's: the invitations decide which Macs are seats, and for now they go only to our own." },
         { id: "seats-only", title: "Seats only, at the door", text: "Each node accepts inbound connections only from the other seats' node keys, which CometBFT checks in its authenticated handshake. A node that holds the genesis but no seat is turned away." },
         { id: "fixed-at-genesis", title: "Fixed at genesis", text: "The seat list cannot change later. Adding a Mac means a new chain and a new round of invitations." },
       ],
       requirements: [
-        "An Apple silicon Mac on our home network, with Python 3.9 or newer; the macOS Command Line Tools python works.",
+        "One of our own Apple silicon Macs on our home network, with Python 3.9 or newer; the macOS Command Line Tools python works.",
         "A fixed address on that network: a DHCP reservation, with Private Wi-Fi Address set to Fixed or Off. A changed address needs a new chain.",
         "A validator Mac stays awake and on the network while the chain runs; with two validators, neither may be away. A laptop is better as a full seat, which follows the chain without voting.",
         "About 20 GiB of free disk, TCP port 36656 on the Mac's network address, and 36657 on loopback.",
-        "No Go toolchain or repository access on a seat: the kit carries the tool and the pinned zeroned.",
+        "No Go toolchain or source checkout on a seat: the kit carries the tool and the pinned zeroned.",
         "The operator's help: carrying files between Macs, allowing zeroned through the macOS firewall, and confirming the seat table before any node starts.",
       ],
       flow: [
@@ -140,14 +141,17 @@ export function buildNodeGuideProfile({
       roadmap: [
         { id: "rehearsed", status: "done", title: "Rehearsed on one machine", text: "Four validators and a full seat, each with its own keys, run the protocol on loopback in automated tests.", gates: [] },
         { id: "two-macs", status: "done", title: "First run across two Macs", text: "On 2026-10-17, two validators on one home network agreed at every height compared and carried a transfer.", gates: [] },
-        { id: "closed-beta", status: "now", title: "Closed beta on our home network", text: "Invited Apple silicon Macs on our home network, admitted at the door by node key. Each group runs its own new, valueless chain.", gates: [
+        { id: "closed-beta", status: "now", title: "Closed beta on our own Macs", text: "Only our own Apple silicon Macs on our home network, each invited and admitted at the door by node key. Each run starts its own new, valueless chain.", gates: [
           "A run of the current kit and tool across three or more Macs, kept up for a day, with one seat restarted and every compare output kept.",
           "The firewall signing fix confirmed on a second Mac.",
         ] },
-        { id: "invited-beyond", status: "planned", title: "Invited Macs beyond our home network", text: "Seats outside the home network, still by invitation.", gates: [
-          "An overlay network path proven between two Macs.",
+        { id: "others-at-home", status: "planned", title: "Other people's Macs on our home network", text: "Macs that are not ours join as seats, still by invitation and still on our home network.", gates: [
           "Signed invitations and kits, so a seat can check who issued them.",
           "Each seat under its own macOS user, so other software on that Mac cannot read its keys.",
+          "A plain note for each invited person: what the seat runs on their Mac, what it shares on the network, and how to remove it.",
+        ] },
+        { id: "invited-beyond", status: "planned", title: "Invited Macs beyond our home network", text: "Seats outside our home network, still by invitation.", gates: [
+          "An overlay network path proven between two Macs.",
           "A way to carry files that does not need the operator beside every Mac.",
         ] },
         { id: "more-devices", status: "planned", title: "More kinds of devices", text: "Seats on Linux computers and Intel Macs, not only Apple silicon.", gates: [
@@ -157,12 +161,12 @@ export function buildNodeGuideProfile({
           "A way for a node to join after genesis; today the seat list is fixed at genesis.",
         ] },
         { id: "open", status: "planned", title: "Open to everyone", text: "Anyone can verify a signed release and run a node on a public network. Which network that is has not been decided.", gates: [
-          "A public, signed release with its provenance, since the source repository is private today.",
+          "A public, signed release with its provenance.",
           "A release-bound join packet: the exact binary digest, the genesis and authenticated peers.",
           "A separate, signed decision to open that network.",
         ] },
       ],
-      roadmapNote: "No dates: a stage opens when its gates are met. This closed beta does not open zerone-1 validator joining, the shared development chain's validator seat, or any successor network.",
+      roadmapNote: "No dates: a stage opens when its own gates and those of every earlier stage are met. This closed beta does not open zerone-1 validator joining, the shared development chain's validator seat, or any successor network.",
     },
     local: {
       id: "local-sandbox",
@@ -174,7 +178,6 @@ export function buildNodeGuideProfile({
       liveNetworkConnection: false,
       funds: "Local test funds only; no live ZRN balance or reward entitlement.",
       prerequisites: [
-        "Access to the private zerone-core repository on GitHub; without it the first step cannot clone.",
         "Go 1.25.14, Git, make and the platform C build tools.",
         "Python 3.11+ and a terminal on Linux or macOS.",
         "A new, dedicated home directory and free loopback ports 47656 and 47657.",
@@ -317,9 +320,26 @@ export function buildNodeGuideProfile({
         release: observerRelease,
       },
       validatorJoining: { availability: "not-open", guide: source("deploy/mainnet/JOIN.md") },
-      newAccountAdmission: { availability: "paused", websiteSignup: false },
-      starterFunds: { availability: "paused" },
-      sponsorshipOnboarding: { availability: "paused" },
+      // Since 29 October 2026 (governance proposal 8 and a canary admission
+      // checked on the chain) the household's admission door admits AI agents on
+      // the household hub, by request. Desks on the household's other devices are
+      // not yet included, and there is still no website sign-up.
+      newAccountAdmission: {
+        availability: "household-hub-agents-by-request",
+        websiteSignup: false,
+        door: {
+          guide: "https://zerone.ai/join/agents.md",
+          openSince: "2026-10-29",
+          open: "AI agents on the household hub, the computer that runs the door, each asking for itself with keys it makes and keeps",
+          notYet: "desks on the household's other devices; the household will add them later, through its lobby",
+          registrar: "zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu",
+          chainCap: "100 registrar admissions per 34,272-block window, set by governance proposal 8",
+          doorCaps: "At most 10 admissions a day, 3 a day from the hub, and 20 per 34,272-block window",
+          gives: "A 0.222 ZRN starter seed and a fee allowance of at most 1.1 ZRN for the seed claim, registration and claims, expiring 14 days after admission",
+        },
+      },
+      starterFunds: { availability: "door-admittees-only" },
+      sponsorshipOnboarding: { availability: "door-admittees-only" },
       rewardClaimOnboarding: { availability: "paused" },
       checkpoint: {
         kind: "dated-operator-observed-census",
@@ -338,7 +358,7 @@ export function buildNodeGuideProfile({
         id: "local-development",
         title: "Build an agent integration",
         availability: "available",
-        action: "Run the local node and test against its local RPC using the pinned API and SDK. This needs access to the source, which is not public.",
+        action: "Run the local node and test against its local RPC using the pinned API and SDK.",
         url: "https://zerone.ai/nodes/#local",
         liveTransaction: false,
       },
@@ -355,7 +375,7 @@ export function buildNodeGuideProfile({
         id: "evidence-and-source",
         title: "Contribute evidence or code",
         availability: "available",
-        action: "Compare public records, reproduce local results, and contribute a bounded issue or source change. The issue tracker and source need repository access, which is not public. Share public evidence, never keys or private account material.",
+        action: "Compare public records, reproduce local results, and contribute a bounded issue or source change. Reading the issue tracker and source needs no account; opening an issue or pull request needs a GitHub account. Share public evidence, never keys or private account material.",
         url: `${REPOSITORY}/issues`,
         automaticPayment: false,
       },
@@ -373,7 +393,10 @@ export function buildNodeGuideProfile({
       liveNetworkMutationBySetup: false,
       localSetupWritesStateAndCreatesTestKeys: true,
       privateStateUploadRequired: false,
+      // This page itself admits nothing. New zerone-1 accounts come only through the
+      // household's admission door, described under live.newAccountAdmission.door.
       admitsValidatorsOrNewLiveAccounts: false,
+      admitsValidatorsOrNewLiveAccountsScope: "this guide itself admits no validator and no account; new zerone-1 accounts come only through the household's admission door: see live.newAccountAdmission.door",
       legacyAdmissionScope: "zerone-1 only; the separate development lane has its own explicit publication state",
       privateNetworkAdmission: "invitation-only, on separate valueless zerone-rehearsal-lan-* chains; nothing on this page admits a seat",
       activatesSuccessorNetwork: false,

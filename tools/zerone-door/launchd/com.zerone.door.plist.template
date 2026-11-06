@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  com.zerone.door: the zerone-1 admission door, one pass every two minutes.
+  install.sh renders this into @DOOR_HOME@/launchd/com.zerone.door.plist and
+  neither copies it into ~/Library/LaunchAgents nor loads it.
+
+  Everything it runs and reads is outside ~/Desktop: launchd jobs cannot read
+  ~/Desktop (macOS TCC), and such a job fails silently except in its log.
+
+  As rendered it is a DRY RUN: it checks and simulates real requests and signs
+  nothing. Going live is a separate, deliberate edit: add the line
+      <string>--live-ack=zerone-1</string>
+  right after <string>--once</string>, then reload the job.
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.zerone.door</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>@DOOR_HOME@/bin/bun-1.3.5</string>
+    <string>--no-env-file</string>
+    <string>--config=/dev/null</string>
+    <string>@DOOR_HOME@/current/zerone-door.js</string>
+    <string>run</string>
+    <string>--once</string>
+    <string>--config</string>
+    <string>@DOOR_HOME@/config.json</string>
+  </array>
+  <key>WorkingDirectory</key><string>@DOOR_HOME@</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>HOME</key><string>@HOME@</string>
+    <key>PATH</key><string>/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+  <key>StartInterval</key><integer>120</integer>
+  <key>RunAtLoad</key><true/>
+  <key>Umask</key><integer>63</integer>
+  <key>ProcessType</key><string>Background</string>
+  <key>StandardOutPath</key><string>@DOOR_HOME@/logs/door.log</string>
+  <key>StandardErrorPath</key><string>@DOOR_HOME@/logs/door.log</string>
+</dict>
+</plist>

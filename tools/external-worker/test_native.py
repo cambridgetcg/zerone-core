@@ -63,6 +63,8 @@ class BoundedTestBackend:
         self.before_open: Callable[[], None] | None = None
         self.network_checks = 0
         self.network_error: Exception | None = None
+        self.status_height = 10
+        self.app_height = 10
 
     def open(self, home, module, workflow_type):
         self.open_calls += 1
@@ -77,6 +79,7 @@ class BoundedTestBackend:
         with mock.patch.object(module, 'verify_network', side_effect=synthetic_network):
             self.workflow = workflow_type(home)
         self.workflow.check_node = self.check_node
+        self.workflow.abci_info = lambda: {'response': {'last_block_height': str(self.app_height)}}
         self.workflow.query = self.query
         self.workflow.send = self.send
         self._reconcile = self.workflow.reconcile
@@ -103,7 +106,7 @@ class BoundedTestBackend:
 
     def check_node(self):
         self.workflow.check_files()
-        return 10
+        return self.status_height
 
     def query(self, *args, height=None):
         self.assert_locked()
@@ -209,6 +212,19 @@ class NativeTests(unittest.TestCase):
         self.assertEqual(receipt['balance_uzrn'], '10000000')
         self.assertEqual(receipt['balance_height'], 10)
         self.assertTrue(receipt['balance_sufficient'])
+        self.assertEqual(self.backend.calls, [
+            ('query', ('tx', FUNDING_HASH), None),
+            ('query', ('bank', 'balances', SENDER), 10),
+        ])
+
+    def test_funding_pins_balance_to_commit_when_status_leads(self):
+        self.configure_funding()
+        self.backend.status_height = 11
+        payer = self.payer()
+        with mock.patch.object(payer.workflow, 'check_node', wraps=payer.workflow.check_node) as check:
+            receipt = payer.funding(self.reward())
+        check.assert_called_once_with()
+        self.assertEqual(receipt['balance_height'], 10)
         self.assertEqual(self.backend.calls, [
             ('query', ('tx', FUNDING_HASH), None),
             ('query', ('bank', 'balances', SENDER), 10),
