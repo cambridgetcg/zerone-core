@@ -1,4 +1,9 @@
-# zerone-1 non-voting observer (full replay from genesis)
+# zerone-1 replay observer (full replay from genesis)
+
+Fly app and volume: `zerone-1-replay` and `zerone_replay_data`. The names `zerone-1-observer` and
+`zerone_observer_data` stay reserved for the checkpoint observer in `deploy/mainnet`
+(`fly.observer.example.toml`, `fly-cutover-authorized.sh`), so a signed cutover never deploys onto
+this node.
 
 A zero-power node for the existing zerone-1 chain. It replays the whole history from genesis by
 blocksync from the official validator over Fly's private 6PN network, and then follows the tip. Its
@@ -29,7 +34,10 @@ also records module versions newer than the genesis binary's (liquiditypool 3 ag
 The plan heights are the chain's applied plans. Each non-upgrade boundary is the first block after
 a restart gap in block times; it is exact to within one block (RUNBOOK section on boundaries).
 Historical binaries are identified only by sha256. They are copied from the binary layer of the
-release image that ran them (`extract-rung-binary.sh`). The other layers of those legacy images
+release image that ran them (`extract-rung-binary.sh`, gzip or zstd layers). The picker refuses a
+binary layer under 1 MiB before fetching it, and a layer holding anything but one
+`usr/local/bin/zeroned`. On 2026-11-06 the current release's layer gave the live validator's
+binary as the known answer before any rung was taken. The other layers of those legacy images
 bake the validator's key files, so those images are never pulled, run or unpacked whole.
 
 ## What the node is and is not
@@ -47,6 +55,8 @@ bake the validator's key files, so those images are never pulled, run or unpacke
   `block.Time >= now + tolerance` (state/validation.go:124), so replaying old blocks never trips
   it. The handshake replay path does not apply it at all. At the tip it would refuse a block more
   than 60 s ahead of this machine's clock; the script then waits and restarts the node.
+- While it catches up it is load on the only signer, so it backs off: if the validator's newest
+  block is more than 150 s old, it stops asking for blocks for 10 minutes (`validator_lag_pause`).
 - Every deliberate stop exits 0 under restart policy on-failure. The machine stays stopped and the
   volume keeps the evidence. A failed proof also writes `/data/observer/HALTED-<reason>`, and the
   script will not resume a marked volume.
@@ -82,11 +92,12 @@ The mismatch lines it acts on:
 | `Dockerfile` | COPY-only on the digest-pinned debian base the legacy observer uses |
 | `build-image.sh` | checks every input, stages a minimal context, builds linux/amd64 locally |
 | `extract-rung-binary.sh`, `rung_layer.py` | copy one historical zeroned out of its image layer |
-| `machine-config.json`, `machine-config.following.json` | Fly machine settings for the replay (performance-2x) and for following (shared-cpu-2x) |
+| `machine-config.json`, `machine-config.following.json` | Fly machine settings for the replay (performance-2x, 4 GB) and for following (shared-cpu-2x, 2 GB) |
 | `release_heights.py` | reproduce the boundary heights from public RPC block times |
 | `watch.sh` | read-only progress, cadence and cost watch |
 | `test/test-ladder.sh` | supervisor logic with stand-in binaries (no network) |
 | `test/smoke-real.sh` | init, config, InitChain and clean stop with the real lane binary (no network) |
+| `test/test_rung_layer.py` | layer picker and extractor on synthetic gzip and zstd layers |
 
 The step-by-step Fly runbook, with the release image references and machine identifiers, is kept
 with the operator rather than in this public tree.

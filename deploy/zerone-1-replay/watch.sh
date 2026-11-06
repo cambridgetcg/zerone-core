@@ -2,9 +2,9 @@
 # Read-only watch for the observer run. Changes nothing: reads Fly logs and machine state, and GETs
 # the validator's public RPC. Prints the latest OBSERVER verdict lines, the replay rate and ETA, the
 # validator's block cadence, and the running cost so far. Exit 3 means "stop the machine" advice.
-# usage: tools/watch.sh            (APP defaults to zerone-1-observer)
+# usage: tools/watch.sh            (APP defaults to zerone-1-replay)
 set -euo pipefail
-APP="${APP:-zerone-1-observer}"
+APP="${APP:-zerone-1-replay}"
 RPC="${VALIDATOR_RPC:-http://zerone-1.fly.dev:26657}"
 HOURLY_USD="${HOURLY_USD:-0.0952}"      # performance-2x in ams (iad $0.0917/h x 1.038); shared-cpu-2x 4GB ~ 0.0365
 advice=0

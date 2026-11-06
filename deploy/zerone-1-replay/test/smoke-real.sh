@@ -11,7 +11,7 @@ bin_src="${SMOKE_BINARY:?set SMOKE_BINARY to the lane zeroned}"
 genesis="$here/genesis.json"; [ -f "$genesis" ] || genesis="$here/../mainnet/artifacts/genesis.json"
 log="$here/test/.work/smoke-real.log"; mkdir -p "$here/test/.work"
 ctx="$(mktemp -d "${TMPDIR:-/tmp}/obs-smoke.XXXXXX")"
-tag="zerone-1-observer-smoke:local"; vol="zerone-1-observer-smoke-data"; name="zerone-1-observer-smoke"
+tag="zerone-1-replay-smoke:local"; vol="zerone-1-replay-smoke-data"; name="zerone-1-replay-smoke"
 D=(docker --context colima)
 cleanup() { "${D[@]}" rm -f "$name" >/dev/null 2>&1 || true; "${D[@]}" volume rm "$vol" >/dev/null 2>&1 || true; "${D[@]}" image rm "$tag" >/dev/null 2>&1 || true; rm -rf "$ctx"; }
 trap cleanup EXIT

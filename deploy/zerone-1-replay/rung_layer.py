@@ -7,7 +7,7 @@ helper lets a host fetch exactly one layer, the one created by
 `COPY --from=builder /app/build/zeroned /usr/local/bin/zeroned`, and refuses anything else, so
 the key layers are never downloaded, unpacked or run.
 
-  pick    <config.json> <manifest.json>   print "<layer digest> <media type>" for the binary layer
+  pick    <config.json> <manifest.json>   print "<layer digest> <media type>" for the binary layer (gzip or zstd)
   extract <layer blob> <out dir>          check the layer holds nothing but usr/local/bin/zeroned,
                                           write it as <out dir>/<sha256> (mode 0555), print the sha
 
@@ -26,6 +26,10 @@ ALLOWED_DIRS = {"usr", "usr/local", "usr/local/bin"}
 GZIP_TYPES = {
     "application/vnd.docker.image.rootfs.diff.tar.gzip",
     "application/vnd.oci.image.layer.v1.tar+gzip",
+}
+# Later zerone-1 releases were pushed with zstd layers. Python 3.14 reads them (compression.zstd).
+ZSTD_TYPES = {
+    "application/vnd.oci.image.layer.v1.tar+zstd",
 }
 
 
@@ -52,17 +56,33 @@ def pick(config_path, manifest_path):
     if len(hits) != 1:
         fail("expected exactly one zeroned COPY layer, found %d" % len(hits))
     layer, made = hits[0]
-    if layer.get("mediaType") not in GZIP_TYPES:
-        fail("binary layer is not a gzip tar: %s" % layer.get("mediaType"))
+    if layer.get("mediaType") not in GZIP_TYPES | ZSTD_TYPES:
+        fail("binary layer is not a gzip or zstd tar: %s" % layer.get("mediaType"))
     if layer.get("size", 0) > 400 * 1024 * 1024:
         fail("binary layer is larger than 400 MiB")
+    # zeroned compresses to tens of MB; the key layers are a few hundred bytes. Refuse anything
+    # small before it is fetched, so a mis-paired history can never pull a key layer.
+    if layer.get("size", 0) < 1024 * 1024:
+        fail("binary layer is smaller than 1 MiB (%d bytes): not zeroned" % layer.get("size", 0))
     print(layer["digest"], layer["mediaType"])
     print("created_by: " + made[:200], file=sys.stderr)
 
 
+def decompress(raw):
+    if raw[:2] == b"\x1f\x8b":
+        return gzip.decompress(raw)
+    if raw[:4] == b"\x28\xb5\x2f\xfd":
+        try:
+            from compression import zstd
+        except ImportError:
+            fail("a zstd layer needs Python 3.14 or later (compression.zstd)")
+        return zstd.decompress(raw)
+    fail("layer is neither gzip nor zstd")
+
+
 def extract(blob_path, out_dir):
     raw = open(blob_path, "rb").read()
-    with tarfile.open(fileobj=io.BytesIO(gzip.decompress(raw)), mode="r:") as tar:
+    with tarfile.open(fileobj=io.BytesIO(decompress(raw)), mode="r:") as tar:
         members = tar.getmembers()
         names = set()
         binary = None
@@ -71,6 +91,8 @@ def extract(blob_path, out_dir):
             if m.isdir() and name in ALLOWED_DIRS:
                 continue
             if m.isreg() and name == BINARY:
+                if binary is not None:
+                    fail("layer holds %s more than once" % BINARY)
                 binary = m
                 names.add(name)
                 continue

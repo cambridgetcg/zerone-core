@@ -23,7 +23,7 @@ while IFS=$'\t' read -r name _ _ _ s _; do
 done < "$src/ladder.tsv"
 [ "${#want[@]}" -ge 1 ] || die "empty ladder"
 if [ -n "${LANE_SHA:-}" ]; then [ "${want[${#want[@]}-1]}" = "$LANE_SHA" ] || die "last rung is not LANE_SHA"; fi
-stage="$(mktemp -d "${TMPDIR:-/tmp}/zerone-1-observer-build.XXXXXX")"; trap 'rm -rf "$stage"' EXIT
+stage="$(mktemp -d "${TMPDIR:-/tmp}/zerone-1-replay-build.XXXXXX")"; trap 'rm -rf "$stage"' EXIT
 mkdir "$stage/bin"
 cp "$src/Dockerfile" "$src/.dockerignore" "$src/observer-start.sh" "$src/ladder.tsv" "$stage/"
 cp "$genesis" "$stage/genesis.json"
@@ -31,7 +31,7 @@ for s in "${want[@]}"; do [ -e "$stage/bin/$s" ] || cp "$BIN_DIR/$s" "$stage/bin
 chmod 0444 "$stage/ladder.tsv" "$stage/genesis.json"; chmod 0555 "$stage/observer-start.sh" "$stage"/bin/*
 if find "$stage" \( -name 'priv_validator_key.json' -o -name 'node_key.json' -o -name '*.mnemonic' -o -name 'keyring-*' \) | grep -q .; then die "key-shaped file in the build context"; fi
 ladder_sha="$(sha "$stage/ladder.tsv")"
-tag="zerone-1-observer:ladder-${ladder_sha:0:12}"
+tag="zerone-1-replay:ladder-${ladder_sha:0:12}"
 "${D[@]}" build --platform linux/amd64 --provenance=false --sbom=false \
   --label "ai.zerone.observer.ladder_sha256=$ladder_sha" -t "$tag" "$stage"
 "${D[@]}" run --rm --platform linux/amd64 --network none --entrypoint /bin/sh "$tag" -c 'ls -l /opt/observer /opt/observer/bin'

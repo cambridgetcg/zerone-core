@@ -3,9 +3,9 @@
 # binary layer. The other layers of these images hold the validator's key files (/mainnet-seed):
 # never `docker pull`, `fly machine run` or unpack those images whole.
 #
-# Needs crane (go-containerregistry) and read access to registry.fly.io/zerone-1, for example after
-# `fly auth docker`, which writes a registry credential to ~/.docker/config.json
-# (`docker logout registry.fly.io` removes it).
+# Needs crane (go-containerregistry) and read access to registry.fly.io/zerone-1. Keep that
+# credential out of ~/.docker: `DOCKER_CONFIG=$(mktemp -d) fly auth docker`, run this with the same
+# DOCKER_CONFIG, then remove that directory. It can pull every layer, the key layers included.
 #   usage: extract-rung-binary.sh registry.fly.io/zerone-1:deployment-<ULID>
 #   BIN_DIR   where the binary lands, named by its sha256 (default: ./bin beside this script)
 #   EVIDENCE  tsv log of ref, layer digest, sha256 (default: ./rung-binaries.tsv beside this script)

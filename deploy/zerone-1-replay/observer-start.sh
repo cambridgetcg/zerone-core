@@ -42,6 +42,10 @@ MIN_FREE_KB="${OBSERVER_MIN_FREE_KB:-3145728}"          # 3 GiB
 STOP_GRACE="${OBSERVER_STOP_GRACE:-60}"
 EXPECT_FINAL_SHA="${OBSERVER_EXPECT_FINAL_SHA:-}"
 PAUSE_UNIT="${OBSERVER_PAUSE_UNIT:-10}"
+# While catching up, this node is load on the only signer. If the signer's newest block is older
+# than VALIDATOR_LAG seconds, stop asking it for blocks for VALIDATOR_PAUSE seconds.
+VALIDATOR_LAG="${OBSERVER_VALIDATOR_LAG:-150}"
+VALIDATOR_PAUSE="${OBSERVER_VALIDATOR_PAUSE:-600}"
 RUN_UID="${OBSERVER_UID:-10001}"
 
 # Lines CometBFT, the SDK and x/upgrade print for the outcomes this script must act on.
@@ -166,7 +170,7 @@ toml_set() {  # toml_set <file> <section or ""> <key> <toml literal>
 
 configure_home() {
   local h="$1" c="$1/config/config.toml" a="$1/config/app.toml"
-  toml_set "$c" "" moniker '"zerone-1-observer"'
+  toml_set "$c" "" moniker '"zerone-1-replay"'
   toml_set "$c" "" log_level '"state:error,*:info"'
   toml_set "$c" "" log_format '"json"'
   toml_set "$c" "" priv_validator_laddr '""'
@@ -250,7 +254,7 @@ init_home() {
   [ "$(sha256_of "$OPT/genesis.json")" = "$GENESIS_SHA256" ] || refuse "baked genesis is not zerone-1's" INIT
   rm -rf "$tmp"   # only ever our own half-made init directory
   mkdir -p "$tmp"
-  "$final_bin" init zerone-1-observer --chain-id "$CHAIN_ID" --home "$tmp" > /dev/null 2>&1 || refuse "zeroned init failed" INIT
+  "$final_bin" init zerone-1-replay --chain-id "$CHAIN_ID" --home "$tmp" > /dev/null 2>&1 || refuse "zeroned init failed" INIT
   cp "$OPT/genesis.json" "$tmp/config/genesis.json"
   [ "$(sha256_of "$tmp/config/genesis.json")" = "$GENESIS_SHA256" ] || refuse "genesis copy mismatch" INIT
   configure_home "$tmp"
@@ -330,6 +334,18 @@ spot_check() {  # compare this node's applied app hash at H with the validator's
   else say apphash_spot height "$h" result DIFFER applied_app_hash "$hex" validator_header_app_hash "$uph"; fi
 }
 
+validator_lagging() {  # true when the signer's newest block is older than VALIDATOR_LAG seconds
+  local st bt bts now
+  [ "$UPSTREAM" != "off" ] || return 1
+  st="$(http_get "${UPSTREAM%:*}" "${UPSTREAM##*:}" /status || true)"
+  bt="$(printf '%s' "$st" | jget latest_block_time)"
+  [ -n "$bt" ] || return 1                       # unreadable: the peerless and stall watchdogs cover it
+  bts="$(date -u -d "$bt" +%s 2>/dev/null)" || return 1
+  now="$(date -u +%s)"
+  VALIDATOR_AGE=$((now - bts))
+  [ "$VALIDATOR_AGE" -gt "$VALIDATOR_LAG" ]
+}
+
 disk_guard() {
   local free
   free="$(df -Pk "$DATA" | awk 'NR == 2 { print $4 }')"
@@ -394,6 +410,11 @@ run_rung() {  # run_rung <index>; sets OUTCOME to advanced | restart | crashed
     # 5. Progress, spot check and watchdogs.
     if [ $((now - LAST_REPORT)) -ge "$REPORT_EVERY" ]; then
       LAST_REPORT="$now"; report "$i"; disk_guard
+      if [ "${REPORT_CATCHING:-}" = "true" ] && validator_lagging; then
+        say validator_lag_pause rung "${R_NAME[i]}" validator_block_age_s "$VALIDATOR_AGE" pause_seconds "$VALIDATOR_PAUSE" \
+          note "the signer is behind; not loading it while it recovers"
+        stop_zeroned; sleep "$VALIDATOR_PAUSE" & wait "$!" || true; OUTCOME=restart; return 0
+      fi
       if [ -n "$REPORT_H" ] && [ "${REPORT_PEERS:-0}" = "0" ]; then
         [ -n "$PEERLESS_SINCE" ] || PEERLESS_SINCE="$now"
         if [ $((now - PEERLESS_SINCE)) -ge "$PEERLESS_RESTART" ]; then
