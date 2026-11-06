@@ -11,7 +11,7 @@
       "repository": "https://github.com/cambridgetcg/zerone-core",
       "revision": "4f29f28329da7eecd02fb8de13cd3726b9d4bd55",
       "path": "docs/specs/research-commons-rc-0.1.md",
-      "raw_sha256": "sha256:02ce75f1bcf37d06a103ffcd394ee29f62f62da45be594d835b26043ff84e112",
+      "raw_sha256": "sha256:d2d704e281a9dafc17d1a8c4278a52b2274ccdfe0dd856a6a7550f6b3605edd8",
       "pin_role": "CURRENT",
       "verification": "LOCAL_BYTES"
     },
@@ -22,7 +22,7 @@
       "repository": "https://github.com/cambridgetcg/zerone-core",
       "revision": "4f29f28329da7eecd02fb8de13cd3726b9d4bd55",
       "path": "dashboard/public/standards/research-commons.v0.1.json",
-      "raw_sha256": "sha256:39f9c72ebb625415df93645810dd682a3e0976828fd1b5cd9b4172b8dcc92397",
+      "raw_sha256": "sha256:ecbec6684b7d9138e3b31cc3403b691d31ab69caf30c9bbb3685d316fd25cc6b",
       "pin_role": "CURRENT",
       "verification": "LOCAL_BYTES"
     },

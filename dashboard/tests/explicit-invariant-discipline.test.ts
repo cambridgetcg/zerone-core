@@ -29,7 +29,7 @@ import { validateExplicitInvariantDisciplineRaw } from "../scripts/validate-expl
 type MutableDocument = Record<string, any>;
 
 const REVIEWED_SHA256 =
-  "3f069931be2212cb6ef28f8de20db9dd057fd677ed5d152b17a2fc89d40d3b55";
+  "ab60dab183c79902f6b76d346c309abab76998cbf30494f122be7530248c1fc5";
 const canonicalRaw = readFileSync(
   new URL(
     "../public/standards/explicit-invariant-discipline.v1.json",
@@ -488,7 +488,7 @@ describe("explicit invariant discipline v1 seal and parser", () => {
       [
         "correspondence-geometry",
         "dashboard/public/standards/correspondence-geometry.v0.json",
-        "5758bf7d746246fdc8f334bf3ed1c6ef331cd7e56de13450fa6c48f78be46497",
+        "034c51b893b1ae9d87307e8c13b4d7d192e7082407feb69cb4ed8263a2b50393",
       ],
       [
         "knowledge-methodologies",

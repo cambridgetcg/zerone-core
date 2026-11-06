@@ -16,7 +16,7 @@
     {
       "id": "knowledge-metabolism",
       "path": "x/knowledge/keeper/metabolism.go",
-      "sha256": "7b252c5134a6c78b753820890dbcd1eac9d3b263c8bf798c44bc1b41f50aafc6",
+      "sha256": "510bb59fc2c9ebf3168e46604cf6489e494cf1a840b648d0c250d22c002b6fb0",
       "role": "PROTOCOL_RESOURCE_SEMANTICS"
     },
     {
