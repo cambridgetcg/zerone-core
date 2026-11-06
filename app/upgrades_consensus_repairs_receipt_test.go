@@ -26,7 +26,7 @@ func TestConsensusRepairsReceiptSummarizesEveryCensus(t *testing.T) {
 	for i := 1; i <= count; i++ {
 		id := fmt.Sprintf("record-%03d", i)
 		repairPutJSON(t, app, ctx, "zerone_gov", gov.SeatElectionKey(uint64(i)), &gov.SeatElectionProposal{ProposalId: uint64(i), Stage: "voting"})
-		repairPutProto(t, app, ctx, "knowledge", knowledge.AugmentationBountyKey(id+"\x00"), &knowledge.AugmentationBounty{Id: id + "\x00"})
+		repairPutProto(t, app, ctx, "knowledge", knowledge.AugmentationBountyKey(id), &knowledge.AugmentationBounty{Id: id})
 		repairPutProto(t, app, ctx, "capture_defense", []byte("\x05physics/"+id), &cd.VerificationHistoryEntry{Domain: "physics", RoundId: id, SubmitBlocks: []uint64{1, 2}})
 		repairPutProto(t, app, ctx, "qualification", []byte("\x01validator/"+id), &qualification.DomainQualification{Validator: "validator", Domain: id, Status: qualification.QualificationStatus_QUALIFICATION_STATUS_EXPIRED, StakedAmount: "42"})
 		repairPutProto(t, app, ctx, "capture_challenge", []byte("\x02"+id), &cc.DomainBountyPool{Domain: id, Balance: "0"})
@@ -57,7 +57,7 @@ func TestConsensusRepairsReceiptSummarizesEveryCensus(t *testing.T) {
 	}
 	require.Contains(t, string(full), "EXPIRED retained amount=42")
 	require.Contains(t, string(full), "unsupported qualification minimum retained")
-	require.Contains(t, string(full), "NUL bounty ID")
+	require.NotContains(t, string(full), "NUL bounty ID", "NUL IDs are blockers, never held findings")
 	require.Contains(t, string(full), "out-of-window finalized halt retained")
 	require.Len(t, compact.Censuses, len(consensusRepairsCensusNames))
 	for _, name := range consensusRepairsCensusNames {
@@ -100,8 +100,8 @@ func TestConsensusRepairsReceiptSizeIndependentOfHeldRecords(t *testing.T) {
 		t.Run(fmt.Sprint(count), func(t *testing.T) {
 			app, ctx, _ := consensusRepairsFixture(t)
 			for i := 0; i < count; i++ {
-				id := fmt.Sprintf("bounty\x00%05d", i)
-				repairPutProto(t, app, ctx, "knowledge", knowledge.AugmentationBountyKey(id), &knowledge.AugmentationBounty{Id: id})
+				id := fmt.Sprintf("held-%05d", i)
+				repairPutProto(t, app, ctx, "qualification", []byte("\x01validator/"+id), &qualification.DomainQualification{Validator: "validator", Domain: id, Status: qualification.QualificationStatus_QUALIFICATION_STATUS_EXPIRED, StakedAmount: "42"})
 			}
 			height := app.CommitMultiStore().Commit().Version + 1
 			plan := upgradetypes.Plan{Name: UpgradeNameConsensusRepairsV1, Height: height}
@@ -111,7 +111,7 @@ func TestConsensusRepairsReceiptSizeIndependentOfHeldRecords(t *testing.T) {
 			require.NoError(t, err)
 			held := 0
 			for _, finding := range report.Findings {
-				if finding.Census == "reformulations" && finding.Key != "" {
+				if finding.Census == "qualification_escrow" && finding.Key != "" {
 					held++
 				}
 			}
@@ -120,8 +120,8 @@ func TestConsensusRepairsReceiptSizeIndependentOfHeldRecords(t *testing.T) {
 			raw := app.KnowledgeKeeper.ReadMigrationMarker(ctx, consensusRepairsReceiptKey)
 			var receipt consensusRepairsReceipt
 			require.NoError(t, json.Unmarshal([]byte(raw), &receipt))
-			require.Equal(t, count+1, receipt.Census.Censuses["reformulations"].HeldFindings)
-			require.Equal(t, report.Digests["reformulations"], receipt.Census.Censuses["reformulations"].Digest)
+			require.Equal(t, count+1, receipt.Census.Censuses["qualification_escrow"].HeldFindings)
+			require.Equal(t, report.Digests["qualification_escrow"], receipt.Census.Censuses["qualification_escrow"].Digest)
 			require.Less(t, len(raw), 8<<10)
 			sizes = append(sizes, len(raw))
 			t.Logf("synthetic held records=%d receipt=%d bytes", count, len(raw))
