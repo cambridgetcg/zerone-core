@@ -46,12 +46,33 @@ func (k Keeper) ProcessMetabolism(ctx context.Context, epoch uint64) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	changedDomains := make(map[string]bool) // track domains with status changes (R29-1)
 
+	// A domain's carrying capacity is computed once per domain per epoch.
+	// Recomputing it per fact walked every fact and citation in the domain
+	// for each fact, which is quadratic in domain size (DET-4, consensus
+	// review 2026-11-05). Its inputs (params, inbound cross-domain citations,
+	// mentorship graduations, capture penalty, stratum depth) are not written
+	// by this loop, which writes only fact energy and status, status history
+	// and domain population counts, so reuse gives the same capacity. Each
+	// use re-emits the stratum event an uncached computation would emit at the
+	// same point, so the block's events are unchanged as well. The population
+	// does change in the loop and stays a live read in domainPressure.
+	capacities := make(map[string]domainCapacity)
+	capacityOf := func(ctx context.Context, domain string) uint64 {
+		c, ok := capacities[domain]
+		if !ok {
+			c = k.computeDomainCarryingCapacity(ctx, domain)
+			capacities[domain] = c
+		}
+		c.emit(ctx, domain)
+		return c.capacity
+	}
+
 	for _, fact := range factsToProcess {
 		// ─── Calculate maintenance cost ───────────────────
 		cost := k.calculateMaintenanceCost(fact, params, domainCounts)
 
 		// Apply domain carrying capacity death pressure (R29-1)
-		deathMultiplier := k.GetDeathPressureMultiplier(ctx, fact.Domain)
+		deathMultiplier := k.deathPressureMultiplier(ctx, fact.Domain, capacityOf)
 		cost = safeMulDiv(cost, deathMultiplier, BPSCapacity)
 
 		// ─── Calculate energy income ──────────────────────
