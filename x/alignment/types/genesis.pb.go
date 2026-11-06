@@ -30,8 +30,12 @@ type GenesisState struct {
 	Scores        []*DimensionScores      `protobuf:"bytes,4,rep,name=scores,proto3" json:"scores,omitempty"`
 	HealthIndices []*AlignmentHealthIndex `protobuf:"bytes,5,rep,name=health_indices,json=healthIndices,proto3" json:"health_indices,omitempty"`
 	Corrections   []*CorrectionRecord     `protobuf:"bytes,6,rep,name=corrections,proto3" json:"corrections,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// Unobserved-health marker (decision zc-health-unknown-q1). Native genesis
+	// sets it; a file without the field imports as off. In place, only the
+	// named carrier upgrade consensus-repairs-v2 sets it.
+	UnobservedHealthEnabled bool `protobuf:"varint,7,opt,name=unobserved_health_enabled,json=unobservedHealthEnabled,proto3" json:"unobserved_health_enabled,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -104,6 +108,13 @@ func (x *GenesisState) GetCorrections() []*CorrectionRecord {
 		return x.Corrections
 	}
 	return nil
+}
+
+func (x *GenesisState) GetUnobservedHealthEnabled() bool {
+	if x != nil {
+		return x.UnobservedHealthEnabled
+	}
+	return false
 }
 
 // Params defines the alignment module parameters.
@@ -292,14 +303,15 @@ var File_zerone_alignment_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_alignment_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"!zerone/alignment/v1/genesis.proto\x12\x13zerone.alignment.v1\x1a\x1fzerone/alignment/v1/types.proto\"\xa6\x03\n" +
+	"!zerone/alignment/v1/genesis.proto\x12\x13zerone.alignment.v1\x1a\x1fzerone/alignment/v1/types.proto\"\xe2\x03\n" +
 	"\fGenesisState\x123\n" +
 	"\x06params\x18\x01 \x01(\v2\x1b.zerone.alignment.v1.ParamsR\x06params\x129\n" +
 	"\x05state\x18\x02 \x01(\v2#.zerone.alignment.v1.AlignmentStateR\x05state\x12M\n" +
 	"\fobservations\x18\x03 \x03(\v2).zerone.alignment.v1.AlignmentObservationR\fobservations\x12<\n" +
 	"\x06scores\x18\x04 \x03(\v2$.zerone.alignment.v1.DimensionScoresR\x06scores\x12P\n" +
 	"\x0ehealth_indices\x18\x05 \x03(\v2).zerone.alignment.v1.AlignmentHealthIndexR\rhealthIndices\x12G\n" +
-	"\vcorrections\x18\x06 \x03(\v2%.zerone.alignment.v1.CorrectionRecordR\vcorrections\"\x83\b\n" +
+	"\vcorrections\x18\x06 \x03(\v2%.zerone.alignment.v1.CorrectionRecordR\vcorrections\x12:\n" +
+	"\x19unobserved_health_enabled\x18\a \x01(\bR\x17unobservedHealthEnabled\"\x83\b\n" +
 	"\x06Params\x12>\n" +
 	"\x1bobservation_interval_blocks\x18\x01 \x01(\x04R\x19observationIntervalBlocks\x128\n" +
 	"\x18weight_knowledge_quality\x18\x02 \x01(\x04R\x16weightKnowledgeQuality\x12:\n" +

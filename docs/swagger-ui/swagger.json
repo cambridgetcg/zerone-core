@@ -4827,6 +4827,10 @@
           "title": "0-1,000,000 (how foundational this fact is)",
           "type": "string"
         },
+        "hasCalibrationSnapshot": {
+          "description": "True when an actual calibration record was captured at acceptance,\nincluding score zero; absent/false retains legacy fallback semantics.",
+          "type": "boolean"
+        },
         "id": {
           "type": "string"
         },

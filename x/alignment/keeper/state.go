@@ -338,11 +338,21 @@ func (k Keeper) InitGenesis(ctx context.Context, genState *types.GenesisState) {
 			k.AddCorrection(ctx, c)
 		}
 	}
+	// Only an explicit true writes the marker; absence keeps legacy semantics.
+	if genState.UnobservedHealthEnabled {
+		if err := k.EnableUnobservedHealth(ctx); err != nil {
+			panic("invalid alignment genesis: " + err.Error())
+		}
+	}
 }
 
 func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	params := k.GetParams(ctx)
 	state := k.GetState(ctx)
+	unobservedHealth, err := k.UnobservedHealthEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 
 	var observations []*types.AlignmentObservation
 	k.iteratePrefix(ctx, types.ObservationKeyPrefix, func(bz []byte) bool {
@@ -380,6 +390,8 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		Scores:        scores,
 		HealthIndices: healthIndices,
 		Corrections:   corrections,
+
+		UnobservedHealthEnabled: unobservedHealth,
 	}
 }
 

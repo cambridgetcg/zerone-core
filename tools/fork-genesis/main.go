@@ -1167,6 +1167,9 @@ func requireNoPendingGovernance(appState map[string]json.RawMessage) error {
 	}
 
 	var customGovernance zeronegovtypes.GenesisState
+	if err := zeronegovtypes.ValidateRetainedGenesisFieldNames(appState["zerone_gov"]); err != nil {
+		return err
+	}
 	if err := json.Unmarshal(appState["zerone_gov"], &customGovernance); err != nil {
 		return fmt.Errorf("decode zerone_gov governance state: %w", err)
 	}
@@ -1181,9 +1184,11 @@ func requireNoPendingGovernance(appState map[string]json.RawMessage) error {
 		len(customGovernance.UpgradePlans) != 0 ||
 		len(customGovernance.SeatElections) != 0 ||
 		len(customGovernance.SeatElectionVotes) != 0 ||
+		len(customGovernance.ResearchSpendProposals) != 0 ||
+		len(customGovernance.ResearchCommunityVotes) != 0 ||
 		len(customGovernance.CreedAmendmentPins) != 0 ||
 		customGovernance.EmergencyTransitionHold != nil {
-		return errors.New("zerone_gov must contain no pending proposal, vote, upgrade, election, creed amendment, or emergency transition")
+		return errors.New("zerone_gov must contain no pending proposal, vote, upgrade, election, creed amendment, emergency transition, or retained research-spend proposal/vote")
 	}
 	var upgrade map[string]any
 	if err := json.Unmarshal(appState["upgrade"], &upgrade); err != nil {

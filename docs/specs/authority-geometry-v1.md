@@ -2,8 +2,8 @@
 
 Status: **static source observatory; target gate intentionally closed**
 
-Date: 2026-08-11; source map revised 2026-09-24; source pins revised 2026-10-17
-(manifest 1.0.8)
+Date: 2026-08-11; source map revised 2026-09-24; source pins revised 2026-10-21
+(manifest 1.0.10; independent content review required before integration)
 
 Canonical machine artifact:
 `dashboard/public/standards/authority-geometry.v1.json`
@@ -209,11 +209,12 @@ caller-supplied repository root. They reject:
 - present forbidden snippets; and
 - an anchor ID referenced by no graph fact.
 
-The eighteen v1 anchors cover the authoritative design, application keeper wiring,
+The twenty-one v1 anchors cover the authoritative design, application keeper wiring,
 custom-governance terminal/dispatch ordering, custom research spending,
 knowledge fact and domain writers, knowledge pause writing, ontology domain
 writing, the defined research-fund restriction, custom-stake emergency power,
-the slash-capable knowledge staking adapter and its verdict callsites,
+the slash-capable knowledge staking adapter and its verdict, missed-reveal expiry,
+vindication and retained missed-verification helper callsites,
 alignment and claiming-pot custom-stake adapters and callsites, and both the
 application wrapper and keeper writer for the custom-governance emergency hold,
 plus qualification's bank-backed stake pathway.
@@ -335,3 +336,40 @@ contradictions and provisional-fact challenges. Direct fact adoption (which
 the attribution-template reservation does not bind), knowledge domain writers,
 knowledge pause authority, keeper wiring, custom-staking adapters and verifier
 slash callsites are unchanged, so all seven authority findings stay open.
+
+The 2026-10-21 KR2 refresh re-pins `rounds.go` after the marker-gated Q5
+calibration snapshot and PR37 resolved-zero confidence-floor repairs. It also
+registers `inconclusive_round_accounting.go` as `knowledge-expiry-slash-callsite`:
+Q2's marker-enabled EXPIRED path calls `SlashValidator` for missed reveals,
+separately from verdict processing. The existing knowledge-to-custom-staking
+slash edge adds this evidence and names expiry in its consent-boundary prose.
+There is no new node, edge, authority relationship or coin-routing permission.
+
+Nodes, capabilities, all other edges, the seven OPEN findings, static authority
+gate, H4/H5 activation gates and NO_GO assessment are unchanged. The checker
+and dashboard bind the additional source declaration and slash-edge evidence;
+this is coverage of an existing source path, not satisfaction of a target gate.
+The observatory remains source-only. This refresh is a review candidate:
+the host's dedicated independent geometry-content review is still required.
+
+The 2026-10-21 CR2 refresh (revision 1.0.10, following faef4388 and decision
+zc-authority-pin-maintenance) is not a hash-only refresh. It adds two previously
+untracked source anchors: `knowledge-vindication-slash-callsite` for
+`ExecuteVindication` in `vindication.go`, which routes majority-voter slashes to
+the knowledge module, and `knowledge-missed-verification-slash-callsite` for
+`SlashMissedVerification` in `validator_selection.go`. The latter is a retained
+callable helper with test callers but no production caller found in this snapshot;
+anchoring it does not claim it runs in block processing. Alongside verdict and
+expiry anchors, these cover every direct knowledge-keeper call to the staking
+slash interface in the inspected source, guarded by an AST census test.
+
+The existing slash edge gains both evidence references and more precise consent
+prose. Nodes, capabilities, every other edge, all findings and all gates are
+unchanged: seven OPEN findings, NO_GO, static 1/7, H4 0/24 and H5 0/14. No authority
+relationship, gate evidence or coin-routing permission is added. `rounds.go` is
+re-pinned for CR2's genuine-zero condition (`TotalSubmissions > 0`); the slash
+loop is unchanged. Every anchor hash was recomputed from bytes. The snapshot
+date is re-observed as 2026-10-21, unchanged because this is a same-day successor,
+not a fabricated later snapshot. Dedicated independent geometry-content review
+is required before integration; the carrier/code commit and this refresh travel
+together, never the intermediate stale-pin commit alone.

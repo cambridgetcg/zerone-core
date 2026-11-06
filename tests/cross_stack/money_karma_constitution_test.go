@@ -1079,6 +1079,9 @@ func requireExactKarmaProducerSurface(t *testing.T, sources []productionGoSource
 	}
 	sort.Strings(callsites)
 	expectedCallsites := []string{
+		// Q2's marker-on expiry path preserves the legacy ORDINAL event;
+		// the two phase walkers are mutually exclusive within BeginBlocker.
+		"x/knowledge/keeper/inconclusive_round_accounting.go:advanceRoundPhasesInconclusiveAccounting->emitKarmaEdgeState|kind=pending_settle|state=ORDINAL|attrs=verdict=types.Verdict_VERDICT_INCONCLUSIVE.String()",
 		"x/knowledge/keeper/msg_server.go:challengeFact->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
 		"x/knowledge/keeper/msg_server.go:challengeProvisionalFact->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
 		"x/knowledge/keeper/msg_server.go:submitClaim->emitKarmaEdgeState|kind=pending_open|state=ORDINAL|attrs=none",
@@ -1093,6 +1096,9 @@ func requireExactKarmaProducerSurface(t *testing.T, sources []productionGoSource
 		"x/knowledge/keeper/rounds.go:emitKarmaEdge->emitKarmaEdgeState|kind=$param:kind|state=RECOGNIZED|attrs=forward-param:extra",
 		"x/knowledge/keeper/rounds.go:handleChallengeSurvival->emitKarmaEdge|kind=corroborate|state=RECOGNIZED|attrs=none",
 		"x/knowledge/keeper/rounds.go:handleChallengeSurvival->emitKarmaEdge|kind=corroborated|state=RECOGNIZED|attrs=none",
+		// KR2's byte-pinned legacy creation body preserves this exact cited
+		// event. It and the marker-selected creation body are mutually exclusive.
+		"x/knowledge/keeper/rounds_repairs_legacy.go:createFactFromClaimLegacy->emitKarmaEdge|kind=cited|state=RECOGNIZED|attrs=none",
 		"x/substrate_bridge/keeper/settlement.go:finalizeSettle->emitExternalCiteKarma|kind=external|state=ORDINAL|attrs=constructor-closed",
 	}
 	sort.Strings(expectedCallsites)

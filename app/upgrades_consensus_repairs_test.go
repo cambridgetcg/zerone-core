@@ -64,7 +64,9 @@ type archivedClaimIntegrityKnowledgeModule struct{ knowledgemodule.AppModule }
 func (archivedClaimIntegrityKnowledgeModule) ConsensusVersion() uint64 { return 12 }
 func freezeConsensusRepairsSiblingTargets(app *ZeroneApp) {
 	source := consensusRepairsSourceVersionMap()
-	for name := range consensusRepairsVersions() {
+	siblings := consensusRepairsVersions()
+	siblings["vesting_rewards"] = 0 // v2 owns vesting_rewards 3->4; earlier rungs pin its source version too
+	for name := range siblings {
 		if name != "knowledge" {
 			original := app.ModuleManager.Modules[name]
 			app.ModuleManager.Modules[name] = archivedConsensusSibling{original.(appmodule.AppModule), original.(module.HasGenesis), source[name]}
@@ -73,13 +75,18 @@ func freezeConsensusRepairsSiblingTargets(app *ZeroneApp) {
 }
 func freezeClaimIntegrityCompiledTarget(app *ZeroneApp) {
 	freezeConsensusRepairsSiblingTargets(app)
-	app.ModuleManager.Modules["knowledge"] = archivedClaimIntegrityKnowledgeModule{app.ModuleManager.Modules["knowledge"].(knowledgemodule.AppModule)}
+	current := app.ModuleManager.Modules["knowledge"]
+	if frozen, ok := current.(archivedRepairsV1KnowledgeModule); ok {
+		current = frozen.AppModule
+	}
+	app.ModuleManager.Modules["knowledge"] = archivedClaimIntegrityKnowledgeModule{current.(knowledgemodule.AppModule)}
 }
 
 func consensusRepairsFixture(t *testing.T, skip ...int) (*ZeroneApp, sdk.Context, dbm.DB) {
 	t.Helper()
 	db := dbm.NewMemDB()
 	app := NewZeroneApp(log.NewNopLogger(), db, nil, true, simtestutil.AppOptionsMap{flags.FlagHome: t.TempDir(), server.FlagUnsafeSkipUpgrades: skip}, baseapp.SetChainID("zerone-dev-1"))
+	freezeConsensusRepairsV1CompiledTarget(app)
 	genesis, err := json.Marshal(sdk053IBC10GenesisWithValidator(t, app))
 	require.NoError(t, err)
 	ctx := app.NewUncachedContext(false, cmtproto.Header{ChainID: "zerone-dev-1"})
@@ -183,7 +190,9 @@ func TestConsensusRepairsAtomicUpgradeDiffAndRestart(t *testing.T) {
 	require.Equal(t, consensusRepairsTargetVersionMap(), module.VersionMap(vm))
 	app.CommitMultiStore().Commit()
 	require.NoError(t, app.ValidateAccountingAuthorityStartup())
-	restarted := NewZeroneApp(log.NewNopLogger(), db, nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(ctx.ChainID()))
+	restarted := NewZeroneApp(log.NewNopLogger(), db, nil, false, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(ctx.ChainID()))
+	freezeConsensusRepairsV1CompiledTarget(restarted)
+	require.NoError(t, restarted.LoadLatestVersion())
 	require.NoError(t, restarted.ValidateAccountingAuthorityStartup())
 	require.Error(t, app.UpgradeKeeper.ApplyUpgrade(ctx, plan))
 	genesis, err := app.ModuleManager.ExportGenesis(ctx, app.appCodec)
@@ -207,7 +216,7 @@ func TestConsensusRepairsAtomicUpgradeDiffAndRestart(t *testing.T) {
 	require.NoError(t, imported.ValidateAccountingAuthorityStartup())
 }
 func TestConsensusRepairsCensusBlockersLeaveEveryMarkerOff(t *testing.T) {
-	for _, scenario := range []string{"pool deficit", "bounty identity", "augmentation identity", "nul bounty id", "nul augmentation bounty reference", "empty marker", "corrupt marker", "deferred bank-supply marker", "empty deferred marker", "occupied generation", "corrupt halt"} {
+	for _, scenario := range []string{"pool deficit", "bounty identity", "augmentation identity", "nul bounty id", "nul augmentation bounty reference", "empty marker", "corrupt marker", "occupied generation", "corrupt halt"} {
 		t.Run(scenario, func(t *testing.T) {
 			app, ctx, _ := consensusRepairsFixture(t)
 			switch scenario {
@@ -241,11 +250,6 @@ func TestConsensusRepairsCensusBlockersLeaveEveryMarkerOff(t *testing.T) {
 				ctx.KVStore(app.keys["qualification"]).Set([]byte{0x40}, []byte{})
 			case "corrupt marker":
 				ctx.KVStore(app.keys["qualification"]).Set([]byte{0x40}, []byte{2})
-			case "deferred bank-supply marker":
-				// consensus-repairs-v2 owns this marker and refuses a source holding it.
-				ctx.KVStore(app.keys["vesting_rewards"]).Set([]byte{0x0c}, []byte{1})
-			case "empty deferred marker":
-				ctx.KVStore(app.keys["vesting_rewards"]).Set([]byte{0x0c}, []byte{})
 			case "occupied generation":
 				ctx.KVStore(app.keys["zerone_ibcrl"]).Set([]byte("\x03channel-0\x00uzrn"), make([]byte, 8))
 			case "corrupt halt":

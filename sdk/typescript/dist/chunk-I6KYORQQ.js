@@ -9175,7 +9175,8 @@ function createBaseFact() {
     trainingRevenueEarnedRecent: "",
     revenueClawbackBlock: BigInt(0),
     probeInvitedAtBlock: BigInt(0),
-    falsificationPredicate: ""
+    falsificationPredicate: "",
+    hasCalibrationSnapshot: false
   };
 }
 var Fact = {
@@ -9375,6 +9376,9 @@ var Fact = {
     }
     if (message.falsificationPredicate !== "") {
       writer.uint32(602).string(message.falsificationPredicate);
+    }
+    if (message.hasCalibrationSnapshot === true) {
+      writer.uint32(616).bool(message.hasCalibrationSnapshot);
     }
     return writer;
   },
@@ -9580,6 +9584,9 @@ var Fact = {
         case 75:
           message.falsificationPredicate = reader.string();
           break;
+        case 77:
+          message.hasCalibrationSnapshot = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -9654,6 +9661,7 @@ var Fact = {
     message.revenueClawbackBlock = object.revenueClawbackBlock !== void 0 && object.revenueClawbackBlock !== null ? BigInt(object.revenueClawbackBlock.toString()) : BigInt(0);
     message.probeInvitedAtBlock = object.probeInvitedAtBlock !== void 0 && object.probeInvitedAtBlock !== null ? BigInt(object.probeInvitedAtBlock.toString()) : BigInt(0);
     message.falsificationPredicate = object.falsificationPredicate ?? "";
+    message.hasCalibrationSnapshot = object.hasCalibrationSnapshot ?? false;
     return message;
   }
 };

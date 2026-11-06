@@ -1,4 +1,4 @@
-import { ResearchFundVoters, UpgradePlan, LIP, Vote, ResearchFundGovernanceState, SeatElectionProposal, SeatElectionVote } from "./types.js";
+import { ResearchFundVoters, UpgradePlan, ResearchFundPhase, PhaseTransitionConditions, LIP, Vote, ResearchFundGovernanceState, SeatElectionProposal, SeatElectionVote, ResearchSpendProposal } from "./types.js";
 import { BinaryReader, BinaryWriter } from "../../../binary.js";
 import { DeepPartial } from "../../../helpers.js";
 /**
@@ -86,6 +86,43 @@ export interface GenesisCreedAmendmentPin {
     commitmentsJson: Uint8Array;
 }
 /**
+ * GenesisResearchCommunityVote retains the full proposal/voter key and ballot.
+ * @name GenesisResearchCommunityVote
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.GenesisResearchCommunityVote
+ */
+export interface GenesisResearchCommunityVote {
+    proposalId: bigint;
+    voter: string;
+    vote: string;
+}
+/**
+ * GenesisDistinctVoter preserves the first recorded height, not the import height.
+ * @name GenesisDistinctVoter
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.GenesisDistinctVoter
+ */
+export interface GenesisDistinctVoter {
+    voter: string;
+    firstVotedAtBlock: bigint;
+}
+/**
+ * GenesisPhaseTransition retains the existing phase metadata without replaying
+ * submission or approval. Its lifecycle remains owned by the existing keeper.
+ * @name GenesisPhaseTransition
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.GenesisPhaseTransition
+ */
+export interface GenesisPhaseTransition {
+    lipId: string;
+    targetPhase: ResearchFundPhase;
+    conditionsSnapshot?: PhaseTransitionConditions;
+    stage: string;
+    activationBlock: bigint;
+    isRollback: boolean;
+    cancelReason: string;
+}
+/**
  * EmergencyTransitionHold is the durable post-incident review gate for every
  * automatic custom-governance transition. It is created when transaction
  * quarantine is observed and is not cleared by an ordinary resume ceremony.
@@ -141,6 +178,19 @@ export interface GenesisState {
      * upgrade consensus-repairs-v1 sets it.
      */
     seatRunoffOrderingEnabled: boolean;
+    /**
+     * Retained research-fund records (FX8). Export carries every stored record;
+     * import restores them directly, never by replaying submission, ballots,
+     * approval or phase advancement. Creed payloads use creed_amendment_pins.
+     */
+    researchSpendProposals: ResearchSpendProposal[];
+    /**
+     * Presence distinguishes a legacy omission from an explicitly stored counter.
+     */
+    nextResearchSpendNumber?: bigint;
+    researchCommunityVotes: GenesisResearchCommunityVote[];
+    distinctVoters: GenesisDistinctVoter[];
+    phaseTransitions: GenesisPhaseTransition[];
 }
 /**
  * Params defines the governance module parameters.
@@ -190,6 +240,43 @@ export declare const GenesisCreedAmendmentPin: {
     encode(message: GenesisCreedAmendmentPin, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): GenesisCreedAmendmentPin;
     fromPartial(object: DeepPartial<GenesisCreedAmendmentPin>): GenesisCreedAmendmentPin;
+};
+/**
+ * GenesisResearchCommunityVote retains the full proposal/voter key and ballot.
+ * @name GenesisResearchCommunityVote
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.GenesisResearchCommunityVote
+ */
+export declare const GenesisResearchCommunityVote: {
+    typeUrl: string;
+    encode(message: GenesisResearchCommunityVote, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): GenesisResearchCommunityVote;
+    fromPartial(object: DeepPartial<GenesisResearchCommunityVote>): GenesisResearchCommunityVote;
+};
+/**
+ * GenesisDistinctVoter preserves the first recorded height, not the import height.
+ * @name GenesisDistinctVoter
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.GenesisDistinctVoter
+ */
+export declare const GenesisDistinctVoter: {
+    typeUrl: string;
+    encode(message: GenesisDistinctVoter, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): GenesisDistinctVoter;
+    fromPartial(object: DeepPartial<GenesisDistinctVoter>): GenesisDistinctVoter;
+};
+/**
+ * GenesisPhaseTransition retains the existing phase metadata without replaying
+ * submission or approval. Its lifecycle remains owned by the existing keeper.
+ * @name GenesisPhaseTransition
+ * @package zerone.gov.v1
+ * @see proto type: zerone.gov.v1.GenesisPhaseTransition
+ */
+export declare const GenesisPhaseTransition: {
+    typeUrl: string;
+    encode(message: GenesisPhaseTransition, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): GenesisPhaseTransition;
+    fromPartial(object: DeepPartial<GenesisPhaseTransition>): GenesisPhaseTransition;
 };
 /**
  * EmergencyTransitionHold is the durable post-incident review gate for every

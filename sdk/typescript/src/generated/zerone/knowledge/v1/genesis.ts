@@ -776,6 +776,32 @@ export interface GenesisState {
    * upgrade consensus-repairs-v1 sets it.
    */
   reformulationVindicationOrderingEnabled: boolean;
+  /**
+   * Inconclusive-round accounting marker (decision zc-panel-unanimity-q2).
+   * Native genesis sets it; a file without the field imports as off. In place,
+   * only the named carrier upgrade consensus-repairs-v2 sets it.
+   */
+  inconclusiveRoundAccountingEnabled: boolean;
+  /**
+   * Calibration-smoothing marker (decision zc-calibration-cliff-q5). Native
+   * genesis sets it; a file without the field imports as off. In place, only
+   * the named carrier upgrade consensus-repairs-v2 sets it.
+   */
+  calibrationSmoothingEnabled: boolean;
+  /**
+   * Zero-confidence floor marker (decision zc-pr37-frontier-fixes). Native
+   * genesis sets it; a file without the field imports as off. In place, only
+   * the named carrier upgrade consensus-repairs-v2 sets it.
+   */
+  zeroConfidenceFloorEnabled: boolean;
+  /**
+   * Exact training-fund accounting inventories (FX7): the remaining escrow
+   * ledger and the sponsored-claim admission counters. Presence distinguishes a
+   * complete inventory, even an empty one, from an older export that omitted
+   * them, as fact_relation_state does. Absence never authorizes reconstruction
+   * from bounty creation totals or resetting the counters.
+   */
+  accountingState?: KnowledgeGenesisAccounting;
 }
 /**
  * Exports each ordered source/target pair once, including full provenance.
@@ -812,6 +838,56 @@ export interface SurvivalPendingReward {
   category: string;
   partnershipId: string;
   deadline: bigint;
+}
+/**
+ * Exact primary accounting inventories, not reconstructed claim history.
+ * Export must include every stored key, including retained inactive-bounty
+ * escrow and historical epochs; import must reject duplicate identities.
+ * @name KnowledgeGenesisAccounting
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.KnowledgeGenesisAccounting
+ */
+export interface KnowledgeGenesisAccounting {
+  augmentationEscrows: AugmentationEscrowBalance[];
+  bootstrapAddressCounts: BootstrapAddressCount[];
+  bootstrapEpochCounts: BootstrapEpochCount[];
+  /**
+   * Training-fund uzrn not attributed to the exported escrow ledger. This is
+   * not necessarily spendable: it can include vesting and retained fees.
+   * Together with the ledger it must equal training_fund_allocation and the
+   * actual bank balance imported before knowledge; it never authorizes minting.
+   */
+  trainingFundNonEscrowBalance: string;
+}
+/**
+ * Remaining 0x6B balance, not AugmentationBounty.escrow_locked at creation.
+ * @name AugmentationEscrowBalance
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.AugmentationEscrowBalance
+ */
+export interface AugmentationEscrowBalance {
+  bountyId: string;
+  remainingUzrn: string;
+}
+/**
+ * Exact address string used by the 0x35 primary key; never normalize it.
+ * @name BootstrapAddressCount
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.BootstrapAddressCount
+ */
+export interface BootstrapAddressCount {
+  address: string;
+  count: bigint;
+}
+/**
+ * The 0x36 counter is global to an epoch, not per address.
+ * @name BootstrapEpochCount
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.BootstrapEpochCount
+ */
+export interface BootstrapEpochCount {
+  epoch: bigint;
+  count: bigint;
 }
 function createBaseParams_MethodologyNormalizationBpsEntry(): Params_MethodologyNormalizationBpsEntry {
   return {
@@ -2138,7 +2214,11 @@ function createBaseGenesisState(): GenesisState {
     claimRecordsEnabled: false,
     fundSettlementEnabled: false,
     claimIntegrityEnabled: false,
-    reformulationVindicationOrderingEnabled: false
+    reformulationVindicationOrderingEnabled: false,
+    inconclusiveRoundAccountingEnabled: false,
+    calibrationSmoothingEnabled: false,
+    zeroConfidenceFloorEnabled: false,
+    accountingState: undefined
   };
 }
 /**
@@ -2258,6 +2338,18 @@ export const GenesisState = {
     if (message.reformulationVindicationOrderingEnabled === true) {
       writer.uint32(576).bool(message.reformulationVindicationOrderingEnabled);
     }
+    if (message.inconclusiveRoundAccountingEnabled === true) {
+      writer.uint32(584).bool(message.inconclusiveRoundAccountingEnabled);
+    }
+    if (message.calibrationSmoothingEnabled === true) {
+      writer.uint32(592).bool(message.calibrationSmoothingEnabled);
+    }
+    if (message.zeroConfidenceFloorEnabled === true) {
+      writer.uint32(600).bool(message.zeroConfidenceFloorEnabled);
+    }
+    if (message.accountingState !== undefined) {
+      KnowledgeGenesisAccounting.encode(message.accountingState, writer.uint32(610).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -2375,6 +2467,18 @@ export const GenesisState = {
         case 72:
           message.reformulationVindicationOrderingEnabled = reader.bool();
           break;
+        case 73:
+          message.inconclusiveRoundAccountingEnabled = reader.bool();
+          break;
+        case 74:
+          message.calibrationSmoothingEnabled = reader.bool();
+          break;
+        case 75:
+          message.zeroConfidenceFloorEnabled = reader.bool();
+          break;
+        case 76:
+          message.accountingState = KnowledgeGenesisAccounting.decode(reader, reader.uint32());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -2420,6 +2524,10 @@ export const GenesisState = {
     message.fundSettlementEnabled = object.fundSettlementEnabled ?? false;
     message.claimIntegrityEnabled = object.claimIntegrityEnabled ?? false;
     message.reformulationVindicationOrderingEnabled = object.reformulationVindicationOrderingEnabled ?? false;
+    message.inconclusiveRoundAccountingEnabled = object.inconclusiveRoundAccountingEnabled ?? false;
+    message.calibrationSmoothingEnabled = object.calibrationSmoothingEnabled ?? false;
+    message.zeroConfidenceFloorEnabled = object.zeroConfidenceFloorEnabled ?? false;
+    message.accountingState = object.accountingState !== undefined && object.accountingState !== null ? KnowledgeGenesisAccounting.fromPartial(object.accountingState) : undefined;
     return message;
   }
 };
@@ -2604,6 +2712,224 @@ export const SurvivalPendingReward = {
     message.category = object.category ?? "";
     message.partnershipId = object.partnershipId ?? "";
     message.deadline = object.deadline !== undefined && object.deadline !== null ? BigInt(object.deadline.toString()) : BigInt(0);
+    return message;
+  }
+};
+function createBaseKnowledgeGenesisAccounting(): KnowledgeGenesisAccounting {
+  return {
+    augmentationEscrows: [],
+    bootstrapAddressCounts: [],
+    bootstrapEpochCounts: [],
+    trainingFundNonEscrowBalance: ""
+  };
+}
+/**
+ * Exact primary accounting inventories, not reconstructed claim history.
+ * Export must include every stored key, including retained inactive-bounty
+ * escrow and historical epochs; import must reject duplicate identities.
+ * @name KnowledgeGenesisAccounting
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.KnowledgeGenesisAccounting
+ */
+export const KnowledgeGenesisAccounting = {
+  typeUrl: "/zerone.knowledge.v1.KnowledgeGenesisAccounting",
+  encode(message: KnowledgeGenesisAccounting, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    for (const v of message.augmentationEscrows) {
+      AugmentationEscrowBalance.encode(v!, writer.uint32(10).fork()).ldelim();
+    }
+    for (const v of message.bootstrapAddressCounts) {
+      BootstrapAddressCount.encode(v!, writer.uint32(18).fork()).ldelim();
+    }
+    for (const v of message.bootstrapEpochCounts) {
+      BootstrapEpochCount.encode(v!, writer.uint32(26).fork()).ldelim();
+    }
+    if (message.trainingFundNonEscrowBalance !== "") {
+      writer.uint32(34).string(message.trainingFundNonEscrowBalance);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): KnowledgeGenesisAccounting {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseKnowledgeGenesisAccounting();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.augmentationEscrows.push(AugmentationEscrowBalance.decode(reader, reader.uint32()));
+          break;
+        case 2:
+          message.bootstrapAddressCounts.push(BootstrapAddressCount.decode(reader, reader.uint32()));
+          break;
+        case 3:
+          message.bootstrapEpochCounts.push(BootstrapEpochCount.decode(reader, reader.uint32()));
+          break;
+        case 4:
+          message.trainingFundNonEscrowBalance = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<KnowledgeGenesisAccounting>): KnowledgeGenesisAccounting {
+    const message = createBaseKnowledgeGenesisAccounting();
+    message.augmentationEscrows = object.augmentationEscrows?.map(e => AugmentationEscrowBalance.fromPartial(e)) || [];
+    message.bootstrapAddressCounts = object.bootstrapAddressCounts?.map(e => BootstrapAddressCount.fromPartial(e)) || [];
+    message.bootstrapEpochCounts = object.bootstrapEpochCounts?.map(e => BootstrapEpochCount.fromPartial(e)) || [];
+    message.trainingFundNonEscrowBalance = object.trainingFundNonEscrowBalance ?? "";
+    return message;
+  }
+};
+function createBaseAugmentationEscrowBalance(): AugmentationEscrowBalance {
+  return {
+    bountyId: "",
+    remainingUzrn: ""
+  };
+}
+/**
+ * Remaining 0x6B balance, not AugmentationBounty.escrow_locked at creation.
+ * @name AugmentationEscrowBalance
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.AugmentationEscrowBalance
+ */
+export const AugmentationEscrowBalance = {
+  typeUrl: "/zerone.knowledge.v1.AugmentationEscrowBalance",
+  encode(message: AugmentationEscrowBalance, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.bountyId !== "") {
+      writer.uint32(10).string(message.bountyId);
+    }
+    if (message.remainingUzrn !== "") {
+      writer.uint32(18).string(message.remainingUzrn);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): AugmentationEscrowBalance {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseAugmentationEscrowBalance();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.bountyId = reader.string();
+          break;
+        case 2:
+          message.remainingUzrn = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<AugmentationEscrowBalance>): AugmentationEscrowBalance {
+    const message = createBaseAugmentationEscrowBalance();
+    message.bountyId = object.bountyId ?? "";
+    message.remainingUzrn = object.remainingUzrn ?? "";
+    return message;
+  }
+};
+function createBaseBootstrapAddressCount(): BootstrapAddressCount {
+  return {
+    address: "",
+    count: BigInt(0)
+  };
+}
+/**
+ * Exact address string used by the 0x35 primary key; never normalize it.
+ * @name BootstrapAddressCount
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.BootstrapAddressCount
+ */
+export const BootstrapAddressCount = {
+  typeUrl: "/zerone.knowledge.v1.BootstrapAddressCount",
+  encode(message: BootstrapAddressCount, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.address !== "") {
+      writer.uint32(10).string(message.address);
+    }
+    if (message.count !== BigInt(0)) {
+      writer.uint32(16).uint64(message.count);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): BootstrapAddressCount {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseBootstrapAddressCount();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.address = reader.string();
+          break;
+        case 2:
+          message.count = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<BootstrapAddressCount>): BootstrapAddressCount {
+    const message = createBaseBootstrapAddressCount();
+    message.address = object.address ?? "";
+    message.count = object.count !== undefined && object.count !== null ? BigInt(object.count.toString()) : BigInt(0);
+    return message;
+  }
+};
+function createBaseBootstrapEpochCount(): BootstrapEpochCount {
+  return {
+    epoch: BigInt(0),
+    count: BigInt(0)
+  };
+}
+/**
+ * The 0x36 counter is global to an epoch, not per address.
+ * @name BootstrapEpochCount
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.BootstrapEpochCount
+ */
+export const BootstrapEpochCount = {
+  typeUrl: "/zerone.knowledge.v1.BootstrapEpochCount",
+  encode(message: BootstrapEpochCount, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.epoch !== BigInt(0)) {
+      writer.uint32(8).uint64(message.epoch);
+    }
+    if (message.count !== BigInt(0)) {
+      writer.uint32(16).uint64(message.count);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): BootstrapEpochCount {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseBootstrapEpochCount();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.epoch = reader.uint64();
+          break;
+        case 2:
+          message.count = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<BootstrapEpochCount>): BootstrapEpochCount {
+    const message = createBaseBootstrapEpochCount();
+    message.epoch = object.epoch !== undefined && object.epoch !== null ? BigInt(object.epoch.toString()) : BigInt(0);
+    message.count = object.count !== undefined && object.count !== null ? BigInt(object.count.toString()) : BigInt(0);
     return message;
   }
 };

@@ -314,6 +314,214 @@ func (x *GenesisCreedAmendmentPin) GetCommitmentsJson() []byte {
 	return nil
 }
 
+// GenesisResearchCommunityVote retains the full proposal/voter key and ballot.
+type GenesisResearchCommunityVote struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ProposalId    uint64                 `protobuf:"varint,1,opt,name=proposal_id,json=proposalId,proto3" json:"proposal_id,omitempty"`
+	Voter         string                 `protobuf:"bytes,2,opt,name=voter,proto3" json:"voter,omitempty"`
+	Vote          string                 `protobuf:"bytes,3,opt,name=vote,proto3" json:"vote,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GenesisResearchCommunityVote) Reset() {
+	*x = GenesisResearchCommunityVote{}
+	mi := &file_zerone_gov_v1_genesis_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GenesisResearchCommunityVote) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GenesisResearchCommunityVote) ProtoMessage() {}
+
+func (x *GenesisResearchCommunityVote) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_gov_v1_genesis_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GenesisResearchCommunityVote.ProtoReflect.Descriptor instead.
+func (*GenesisResearchCommunityVote) Descriptor() ([]byte, []int) {
+	return file_zerone_gov_v1_genesis_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *GenesisResearchCommunityVote) GetProposalId() uint64 {
+	if x != nil {
+		return x.ProposalId
+	}
+	return 0
+}
+
+func (x *GenesisResearchCommunityVote) GetVoter() string {
+	if x != nil {
+		return x.Voter
+	}
+	return ""
+}
+
+func (x *GenesisResearchCommunityVote) GetVote() string {
+	if x != nil {
+		return x.Vote
+	}
+	return ""
+}
+
+// GenesisDistinctVoter preserves the first recorded height, not the import height.
+type GenesisDistinctVoter struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Voter             string                 `protobuf:"bytes,1,opt,name=voter,proto3" json:"voter,omitempty"`
+	FirstVotedAtBlock uint64                 `protobuf:"varint,2,opt,name=first_voted_at_block,json=firstVotedAtBlock,proto3" json:"first_voted_at_block,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *GenesisDistinctVoter) Reset() {
+	*x = GenesisDistinctVoter{}
+	mi := &file_zerone_gov_v1_genesis_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GenesisDistinctVoter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GenesisDistinctVoter) ProtoMessage() {}
+
+func (x *GenesisDistinctVoter) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_gov_v1_genesis_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GenesisDistinctVoter.ProtoReflect.Descriptor instead.
+func (*GenesisDistinctVoter) Descriptor() ([]byte, []int) {
+	return file_zerone_gov_v1_genesis_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *GenesisDistinctVoter) GetVoter() string {
+	if x != nil {
+		return x.Voter
+	}
+	return ""
+}
+
+func (x *GenesisDistinctVoter) GetFirstVotedAtBlock() uint64 {
+	if x != nil {
+		return x.FirstVotedAtBlock
+	}
+	return 0
+}
+
+// GenesisPhaseTransition retains the existing phase metadata without replaying
+// submission or approval. Its lifecycle remains owned by the existing keeper.
+type GenesisPhaseTransition struct {
+	state              protoimpl.MessageState     `protogen:"open.v1"`
+	LipId              string                     `protobuf:"bytes,1,opt,name=lip_id,json=lipId,proto3" json:"lip_id,omitempty"`
+	TargetPhase        ResearchFundPhase          `protobuf:"varint,2,opt,name=target_phase,json=targetPhase,proto3,enum=zerone.gov.v1.ResearchFundPhase" json:"target_phase,omitempty"`
+	ConditionsSnapshot *PhaseTransitionConditions `protobuf:"bytes,3,opt,name=conditions_snapshot,json=conditionsSnapshot,proto3" json:"conditions_snapshot,omitempty"`
+	Stage              string                     `protobuf:"bytes,4,opt,name=stage,proto3" json:"stage,omitempty"`
+	ActivationBlock    uint64                     `protobuf:"varint,5,opt,name=activation_block,json=activationBlock,proto3" json:"activation_block,omitempty"`
+	IsRollback         bool                       `protobuf:"varint,6,opt,name=is_rollback,json=isRollback,proto3" json:"is_rollback,omitempty"`
+	CancelReason       string                     `protobuf:"bytes,7,opt,name=cancel_reason,json=cancelReason,proto3" json:"cancel_reason,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *GenesisPhaseTransition) Reset() {
+	*x = GenesisPhaseTransition{}
+	mi := &file_zerone_gov_v1_genesis_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GenesisPhaseTransition) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GenesisPhaseTransition) ProtoMessage() {}
+
+func (x *GenesisPhaseTransition) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_gov_v1_genesis_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GenesisPhaseTransition.ProtoReflect.Descriptor instead.
+func (*GenesisPhaseTransition) Descriptor() ([]byte, []int) {
+	return file_zerone_gov_v1_genesis_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *GenesisPhaseTransition) GetLipId() string {
+	if x != nil {
+		return x.LipId
+	}
+	return ""
+}
+
+func (x *GenesisPhaseTransition) GetTargetPhase() ResearchFundPhase {
+	if x != nil {
+		return x.TargetPhase
+	}
+	return ResearchFundPhase_RESEARCH_FUND_PHASE_UNSPECIFIED
+}
+
+func (x *GenesisPhaseTransition) GetConditionsSnapshot() *PhaseTransitionConditions {
+	if x != nil {
+		return x.ConditionsSnapshot
+	}
+	return nil
+}
+
+func (x *GenesisPhaseTransition) GetStage() string {
+	if x != nil {
+		return x.Stage
+	}
+	return ""
+}
+
+func (x *GenesisPhaseTransition) GetActivationBlock() uint64 {
+	if x != nil {
+		return x.ActivationBlock
+	}
+	return 0
+}
+
+func (x *GenesisPhaseTransition) GetIsRollback() bool {
+	if x != nil {
+		return x.IsRollback
+	}
+	return false
+}
+
+func (x *GenesisPhaseTransition) GetCancelReason() string {
+	if x != nil {
+		return x.CancelReason
+	}
+	return ""
+}
+
 // EmergencyTransitionHold is the durable post-incident review gate for every
 // automatic custom-governance transition. It is created when transaction
 // quarantine is observed and is not cleared by an ordinary resume ceremony.
@@ -336,7 +544,7 @@ type EmergencyTransitionHold struct {
 
 func (x *EmergencyTransitionHold) Reset() {
 	*x = EmergencyTransitionHold{}
-	mi := &file_zerone_gov_v1_genesis_proto_msgTypes[4]
+	mi := &file_zerone_gov_v1_genesis_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -348,7 +556,7 @@ func (x *EmergencyTransitionHold) String() string {
 func (*EmergencyTransitionHold) ProtoMessage() {}
 
 func (x *EmergencyTransitionHold) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_gov_v1_genesis_proto_msgTypes[4]
+	mi := &file_zerone_gov_v1_genesis_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -361,7 +569,7 @@ func (x *EmergencyTransitionHold) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmergencyTransitionHold.ProtoReflect.Descriptor instead.
 func (*EmergencyTransitionHold) Descriptor() ([]byte, []int) {
-	return file_zerone_gov_v1_genesis_proto_rawDescGZIP(), []int{4}
+	return file_zerone_gov_v1_genesis_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *EmergencyTransitionHold) GetIncidentId() string {
@@ -420,13 +628,22 @@ type GenesisState struct {
 	// file without the field imports as off. In place, only the named carrier
 	// upgrade consensus-repairs-v1 sets it.
 	SeatRunoffOrderingEnabled bool `protobuf:"varint,13,opt,name=seat_runoff_ordering_enabled,json=seatRunoffOrderingEnabled,proto3" json:"seat_runoff_ordering_enabled,omitempty"`
-	unknownFields             protoimpl.UnknownFields
-	sizeCache                 protoimpl.SizeCache
+	// Retained research-fund records (FX8). Export carries every stored record;
+	// import restores them directly, never by replaying submission, ballots,
+	// approval or phase advancement. Creed payloads use creed_amendment_pins.
+	ResearchSpendProposals []*ResearchSpendProposal `protobuf:"bytes,14,rep,name=research_spend_proposals,json=researchSpendProposals,proto3" json:"research_spend_proposals,omitempty"`
+	// Presence distinguishes a legacy omission from an explicitly stored counter.
+	NextResearchSpendNumber *uint64                         `protobuf:"varint,15,opt,name=next_research_spend_number,json=nextResearchSpendNumber,proto3,oneof" json:"next_research_spend_number,omitempty"`
+	ResearchCommunityVotes  []*GenesisResearchCommunityVote `protobuf:"bytes,16,rep,name=research_community_votes,json=researchCommunityVotes,proto3" json:"research_community_votes,omitempty"`
+	DistinctVoters          []*GenesisDistinctVoter         `protobuf:"bytes,17,rep,name=distinct_voters,json=distinctVoters,proto3" json:"distinct_voters,omitempty"`
+	PhaseTransitions        []*GenesisPhaseTransition       `protobuf:"bytes,18,rep,name=phase_transitions,json=phaseTransitions,proto3" json:"phase_transitions,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
 	*x = GenesisState{}
-	mi := &file_zerone_gov_v1_genesis_proto_msgTypes[5]
+	mi := &file_zerone_gov_v1_genesis_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -438,7 +655,7 @@ func (x *GenesisState) String() string {
 func (*GenesisState) ProtoMessage() {}
 
 func (x *GenesisState) ProtoReflect() protoreflect.Message {
-	mi := &file_zerone_gov_v1_genesis_proto_msgTypes[5]
+	mi := &file_zerone_gov_v1_genesis_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -451,7 +668,7 @@ func (x *GenesisState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenesisState.ProtoReflect.Descriptor instead.
 func (*GenesisState) Descriptor() ([]byte, []int) {
-	return file_zerone_gov_v1_genesis_proto_rawDescGZIP(), []int{5}
+	return file_zerone_gov_v1_genesis_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GenesisState) GetParams() *Params {
@@ -545,6 +762,41 @@ func (x *GenesisState) GetSeatRunoffOrderingEnabled() bool {
 	return false
 }
 
+func (x *GenesisState) GetResearchSpendProposals() []*ResearchSpendProposal {
+	if x != nil {
+		return x.ResearchSpendProposals
+	}
+	return nil
+}
+
+func (x *GenesisState) GetNextResearchSpendNumber() uint64 {
+	if x != nil && x.NextResearchSpendNumber != nil {
+		return *x.NextResearchSpendNumber
+	}
+	return 0
+}
+
+func (x *GenesisState) GetResearchCommunityVotes() []*GenesisResearchCommunityVote {
+	if x != nil {
+		return x.ResearchCommunityVotes
+	}
+	return nil
+}
+
+func (x *GenesisState) GetDistinctVoters() []*GenesisDistinctVoter {
+	if x != nil {
+		return x.DistinctVoters
+	}
+	return nil
+}
+
+func (x *GenesisState) GetPhaseTransitions() []*GenesisPhaseTransition {
+	if x != nil {
+		return x.PhaseTransitions
+	}
+	return nil
+}
+
 var File_zerone_gov_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_gov_v1_genesis_proto_rawDesc = "" +
@@ -572,14 +824,32 @@ const file_zerone_gov_v1_genesis_proto_rawDesc = "" +
 	"\x18GenesisCreedAmendmentPin\x12\x15\n" +
 	"\x06lip_id\x18\x01 \x01(\tR\x05lipId\x12%\n" +
 	"\x0ecanonical_hash\x18\x02 \x01(\fR\rcanonicalHash\x12)\n" +
-	"\x10commitments_json\x18\x03 \x01(\fR\x0fcommitmentsJson\"\xf5\x01\n" +
+	"\x10commitments_json\x18\x03 \x01(\fR\x0fcommitmentsJson\"i\n" +
+	"\x1cGenesisResearchCommunityVote\x12\x1f\n" +
+	"\vproposal_id\x18\x01 \x01(\x04R\n" +
+	"proposalId\x12\x14\n" +
+	"\x05voter\x18\x02 \x01(\tR\x05voter\x12\x12\n" +
+	"\x04vote\x18\x03 \x01(\tR\x04vote\"]\n" +
+	"\x14GenesisDistinctVoter\x12\x14\n" +
+	"\x05voter\x18\x01 \x01(\tR\x05voter\x12/\n" +
+	"\x14first_voted_at_block\x18\x02 \x01(\x04R\x11firstVotedAtBlock\"\xd6\x02\n" +
+	"\x16GenesisPhaseTransition\x12\x15\n" +
+	"\x06lip_id\x18\x01 \x01(\tR\x05lipId\x12C\n" +
+	"\ftarget_phase\x18\x02 \x01(\x0e2 .zerone.gov.v1.ResearchFundPhaseR\vtargetPhase\x12Y\n" +
+	"\x13conditions_snapshot\x18\x03 \x01(\v2(.zerone.gov.v1.PhaseTransitionConditionsR\x12conditionsSnapshot\x12\x14\n" +
+	"\x05stage\x18\x04 \x01(\tR\x05stage\x12)\n" +
+	"\x10activation_block\x18\x05 \x01(\x04R\x0factivationBlock\x12\x1f\n" +
+	"\vis_rollback\x18\x06 \x01(\bR\n" +
+	"isRollback\x12#\n" +
+	"\rcancel_reason\x18\a \x01(\tR\fcancelReason\"\xf5\x01\n" +
 	"\x17EmergencyTransitionHold\x12\x1f\n" +
 	"\vincident_id\x18\x01 \x01(\tR\n" +
 	"incidentId\x12,\n" +
 	"\x12activated_at_block\x18\x02 \x01(\x04R\x10activatedAtBlock\x12,\n" +
 	"\x12latest_incident_id\x18\x03 \x01(\tR\x10latestIncidentId\x12%\n" +
 	"\x0eincident_count\x18\x04 \x01(\x04R\rincidentCount\x126\n" +
-	"\x17incident_lineage_sha256\x18\x05 \x01(\fR\x15incidentLineageSha256\"\xfa\x06\n" +
+	"\x17incident_lineage_sha256\x18\x05 \x01(\fR\x15incidentLineageSha256\"\xc4\n" +
+	"\n" +
 	"\fGenesisState\x12-\n" +
 	"\x06params\x18\x01 \x01(\v2\x15.zerone.gov.v1.ParamsR\x06params\x12&\n" +
 	"\x04lips\x18\x02 \x03(\v2\x12.zerone.gov.v1.LIPR\x04lips\x12)\n" +
@@ -594,7 +864,13 @@ const file_zerone_gov_v1_genesis_proto_rawDesc = "" +
 	" \x03(\v2'.zerone.gov.v1.GenesisCreedAmendmentPinR\x12creedAmendmentPins\x12b\n" +
 	"\x19emergency_transition_hold\x18\v \x01(\v2&.zerone.gov.v1.EmergencyTransitionHoldR\x17emergencyTransitionHold\x12:\n" +
 	"\x19accounting_safety_enabled\x18\f \x01(\bR\x17accountingSafetyEnabled\x12?\n" +
-	"\x1cseat_runoff_ordering_enabled\x18\r \x01(\bR\x19seatRunoffOrderingEnabledB,Z*github.com/zerone-chain/zerone/x/gov/typesb\x06proto3"
+	"\x1cseat_runoff_ordering_enabled\x18\r \x01(\bR\x19seatRunoffOrderingEnabled\x12^\n" +
+	"\x18research_spend_proposals\x18\x0e \x03(\v2$.zerone.gov.v1.ResearchSpendProposalR\x16researchSpendProposals\x12@\n" +
+	"\x1anext_research_spend_number\x18\x0f \x01(\x04H\x00R\x17nextResearchSpendNumber\x88\x01\x01\x12e\n" +
+	"\x18research_community_votes\x18\x10 \x03(\v2+.zerone.gov.v1.GenesisResearchCommunityVoteR\x16researchCommunityVotes\x12L\n" +
+	"\x0fdistinct_voters\x18\x11 \x03(\v2#.zerone.gov.v1.GenesisDistinctVoterR\x0edistinctVoters\x12R\n" +
+	"\x11phase_transitions\x18\x12 \x03(\v2%.zerone.gov.v1.GenesisPhaseTransitionR\x10phaseTransitionsB\x1d\n" +
+	"\x1b_next_research_spend_numberB,Z*github.com/zerone-chain/zerone/x/gov/typesb\x06proto3"
 
 var (
 	file_zerone_gov_v1_genesis_proto_rawDescOnce sync.Once
@@ -608,40 +884,52 @@ func file_zerone_gov_v1_genesis_proto_rawDescGZIP() []byte {
 	return file_zerone_gov_v1_genesis_proto_rawDescData
 }
 
-var file_zerone_gov_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_zerone_gov_v1_genesis_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_zerone_gov_v1_genesis_proto_goTypes = []any{
-	(*Params)(nil),                      // 0: zerone.gov.v1.Params
-	(*CategoryConfig)(nil),              // 1: zerone.gov.v1.CategoryConfig
-	(*GenesisUpgradePlan)(nil),          // 2: zerone.gov.v1.GenesisUpgradePlan
-	(*GenesisCreedAmendmentPin)(nil),    // 3: zerone.gov.v1.GenesisCreedAmendmentPin
-	(*EmergencyTransitionHold)(nil),     // 4: zerone.gov.v1.EmergencyTransitionHold
-	(*GenesisState)(nil),                // 5: zerone.gov.v1.GenesisState
-	(*ResearchFundVoters)(nil),          // 6: zerone.gov.v1.ResearchFundVoters
-	(*UpgradePlan)(nil),                 // 7: zerone.gov.v1.UpgradePlan
-	(*LIP)(nil),                         // 8: zerone.gov.v1.LIP
-	(*Vote)(nil),                        // 9: zerone.gov.v1.Vote
-	(*ResearchFundGovernanceState)(nil), // 10: zerone.gov.v1.ResearchFundGovernanceState
-	(*SeatElectionProposal)(nil),        // 11: zerone.gov.v1.SeatElectionProposal
-	(*SeatElectionVote)(nil),            // 12: zerone.gov.v1.SeatElectionVote
+	(*Params)(nil),                       // 0: zerone.gov.v1.Params
+	(*CategoryConfig)(nil),               // 1: zerone.gov.v1.CategoryConfig
+	(*GenesisUpgradePlan)(nil),           // 2: zerone.gov.v1.GenesisUpgradePlan
+	(*GenesisCreedAmendmentPin)(nil),     // 3: zerone.gov.v1.GenesisCreedAmendmentPin
+	(*GenesisResearchCommunityVote)(nil), // 4: zerone.gov.v1.GenesisResearchCommunityVote
+	(*GenesisDistinctVoter)(nil),         // 5: zerone.gov.v1.GenesisDistinctVoter
+	(*GenesisPhaseTransition)(nil),       // 6: zerone.gov.v1.GenesisPhaseTransition
+	(*EmergencyTransitionHold)(nil),      // 7: zerone.gov.v1.EmergencyTransitionHold
+	(*GenesisState)(nil),                 // 8: zerone.gov.v1.GenesisState
+	(*ResearchFundVoters)(nil),           // 9: zerone.gov.v1.ResearchFundVoters
+	(*UpgradePlan)(nil),                  // 10: zerone.gov.v1.UpgradePlan
+	(ResearchFundPhase)(0),               // 11: zerone.gov.v1.ResearchFundPhase
+	(*PhaseTransitionConditions)(nil),    // 12: zerone.gov.v1.PhaseTransitionConditions
+	(*LIP)(nil),                          // 13: zerone.gov.v1.LIP
+	(*Vote)(nil),                         // 14: zerone.gov.v1.Vote
+	(*ResearchFundGovernanceState)(nil),  // 15: zerone.gov.v1.ResearchFundGovernanceState
+	(*SeatElectionProposal)(nil),         // 16: zerone.gov.v1.SeatElectionProposal
+	(*SeatElectionVote)(nil),             // 17: zerone.gov.v1.SeatElectionVote
+	(*ResearchSpendProposal)(nil),        // 18: zerone.gov.v1.ResearchSpendProposal
 }
 var file_zerone_gov_v1_genesis_proto_depIdxs = []int32{
 	1,  // 0: zerone.gov.v1.Params.category_configs:type_name -> zerone.gov.v1.CategoryConfig
-	6,  // 1: zerone.gov.v1.Params.research_fund_voters:type_name -> zerone.gov.v1.ResearchFundVoters
-	7,  // 2: zerone.gov.v1.GenesisUpgradePlan.plan:type_name -> zerone.gov.v1.UpgradePlan
-	0,  // 3: zerone.gov.v1.GenesisState.params:type_name -> zerone.gov.v1.Params
-	8,  // 4: zerone.gov.v1.GenesisState.lips:type_name -> zerone.gov.v1.LIP
-	9,  // 5: zerone.gov.v1.GenesisState.votes:type_name -> zerone.gov.v1.Vote
-	2,  // 6: zerone.gov.v1.GenesisState.upgrade_plans:type_name -> zerone.gov.v1.GenesisUpgradePlan
-	10, // 7: zerone.gov.v1.GenesisState.research_fund_governance:type_name -> zerone.gov.v1.ResearchFundGovernanceState
-	11, // 8: zerone.gov.v1.GenesisState.seat_elections:type_name -> zerone.gov.v1.SeatElectionProposal
-	12, // 9: zerone.gov.v1.GenesisState.seat_election_votes:type_name -> zerone.gov.v1.SeatElectionVote
-	3,  // 10: zerone.gov.v1.GenesisState.creed_amendment_pins:type_name -> zerone.gov.v1.GenesisCreedAmendmentPin
-	4,  // 11: zerone.gov.v1.GenesisState.emergency_transition_hold:type_name -> zerone.gov.v1.EmergencyTransitionHold
-	12, // [12:12] is the sub-list for method output_type
-	12, // [12:12] is the sub-list for method input_type
-	12, // [12:12] is the sub-list for extension type_name
-	12, // [12:12] is the sub-list for extension extendee
-	0,  // [0:12] is the sub-list for field type_name
+	9,  // 1: zerone.gov.v1.Params.research_fund_voters:type_name -> zerone.gov.v1.ResearchFundVoters
+	10, // 2: zerone.gov.v1.GenesisUpgradePlan.plan:type_name -> zerone.gov.v1.UpgradePlan
+	11, // 3: zerone.gov.v1.GenesisPhaseTransition.target_phase:type_name -> zerone.gov.v1.ResearchFundPhase
+	12, // 4: zerone.gov.v1.GenesisPhaseTransition.conditions_snapshot:type_name -> zerone.gov.v1.PhaseTransitionConditions
+	0,  // 5: zerone.gov.v1.GenesisState.params:type_name -> zerone.gov.v1.Params
+	13, // 6: zerone.gov.v1.GenesisState.lips:type_name -> zerone.gov.v1.LIP
+	14, // 7: zerone.gov.v1.GenesisState.votes:type_name -> zerone.gov.v1.Vote
+	2,  // 8: zerone.gov.v1.GenesisState.upgrade_plans:type_name -> zerone.gov.v1.GenesisUpgradePlan
+	15, // 9: zerone.gov.v1.GenesisState.research_fund_governance:type_name -> zerone.gov.v1.ResearchFundGovernanceState
+	16, // 10: zerone.gov.v1.GenesisState.seat_elections:type_name -> zerone.gov.v1.SeatElectionProposal
+	17, // 11: zerone.gov.v1.GenesisState.seat_election_votes:type_name -> zerone.gov.v1.SeatElectionVote
+	3,  // 12: zerone.gov.v1.GenesisState.creed_amendment_pins:type_name -> zerone.gov.v1.GenesisCreedAmendmentPin
+	7,  // 13: zerone.gov.v1.GenesisState.emergency_transition_hold:type_name -> zerone.gov.v1.EmergencyTransitionHold
+	18, // 14: zerone.gov.v1.GenesisState.research_spend_proposals:type_name -> zerone.gov.v1.ResearchSpendProposal
+	4,  // 15: zerone.gov.v1.GenesisState.research_community_votes:type_name -> zerone.gov.v1.GenesisResearchCommunityVote
+	5,  // 16: zerone.gov.v1.GenesisState.distinct_voters:type_name -> zerone.gov.v1.GenesisDistinctVoter
+	6,  // 17: zerone.gov.v1.GenesisState.phase_transitions:type_name -> zerone.gov.v1.GenesisPhaseTransition
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_zerone_gov_v1_genesis_proto_init() }
@@ -650,13 +938,14 @@ func file_zerone_gov_v1_genesis_proto_init() {
 		return
 	}
 	file_zerone_gov_v1_types_proto_init()
+	file_zerone_gov_v1_genesis_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_gov_v1_genesis_proto_rawDesc), len(file_zerone_gov_v1_genesis_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

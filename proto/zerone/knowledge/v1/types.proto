@@ -351,6 +351,10 @@ message Fact {
   // ordinary fact. A non-empty predicate on a PROVISIONAL fact is the
   // chain's standing invitation to destroy it.
   string falsification_predicate = 75;
+
+  // True when an actual calibration record was captured at acceptance,
+  // including score zero; absent/false retains legacy fallback semantics.
+  bool has_calibration_snapshot = 77;
 }
 
 // CurriculumTier orders training examples by difficulty and foundational depth.

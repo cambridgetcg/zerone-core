@@ -28,18 +28,6 @@ func (k Keeper) ComputeScores(ctx context.Context, obs *types.AlignmentObservati
 	}
 }
 
-// CategorizeHealth maps a composite score to a health category.
-func (k Keeper) CategorizeHealth(ctx context.Context, composite uint64) string {
-	params := k.GetParams(ctx)
-	if composite < params.CriticalThreshold {
-		return types.CategoryCritical
-	}
-	if composite < params.HealthyThreshold {
-		return types.CategoryDegraded
-	}
-	return types.CategoryHealthy
-}
-
 // BuildHealthIndex creates a complete health index from scores and corrections.
 func (k Keeper) BuildHealthIndex(scores *types.DimensionScores, category string, numCorrections uint32) *types.AlignmentHealthIndex {
 	return &types.AlignmentHealthIndex{
