@@ -32,6 +32,10 @@ LDFLAGS := -s -w \
 # (x/knowledge/types/unicode_tables.go). Under the default GOTOOLCHAIN=auto an
 # older local Go fetches the pinned release; a newer one does not, so run
 # GOTOOLCHAIN=$(GO_VERSION_PIN) make <target>.
+# go-version-check is defined before build, so name the default goal: a plain
+# `make` still builds the daemon.
+.DEFAULT_GOAL := build
+
 GO_VERSION_PIN := $(shell awk '$$1 == "go" { print "go" $$2; exit }' go.mod)
 
 go-version-check:
