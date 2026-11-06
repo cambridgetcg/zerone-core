@@ -27,6 +27,10 @@ import runtime_smoke
 CHAIN = "zerone-testnet-1"
 NAME = "consolidation-safety-v1"
 IMAGE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}")
+MACHINE = re.compile(r"[0-9a-f]{14}")
+# Review finding H1-F6: a drill receipt must describe state close to H, not a
+# copy from weeks earlier. 35,000 blocks is about one day at testnet's ~2.5 s.
+MAX_DRILL_LAG_BLOCKS = 35_000
 
 
 def validate_image(value):
@@ -38,8 +42,23 @@ def plan_info(image):
     return json.dumps({"commit": p.SOURCE_COMMIT, "image": validate_image(image)}, sort_keys=True, separators=(",", ":"))
 
 
-def deployment_command(config, image):
+def deployment_command(config, image, machine=None):
+    if machine is not None:
+        # In-place image swap of the existing machine: keeps its volume, services, env and
+        # restart policy, exactly like the legacy-binary swap. Never a TOML-driven redeploy.
+        p.require(MACHINE.fullmatch(machine), "--fly-machine must be a 14-hex Fly machine ID")
+        return ["fly", "machine", "update", machine, "--app", CHAIN, "--image", validate_image(image)]
     return ["fly", "deploy", "--config", str(config), "--app", CHAIN, "--image", validate_image(image)]
+
+
+def check_drill_fresh(drill_receipt, target):
+    drill = json.loads(drill_receipt.read_text())
+    copied = drill.get("copy_metadata", {}).get("height")
+    p.require(type(copied) is int and 0 < copied < target,
+              "drill copy height must be a positive height below H")
+    p.require(target - copied <= MAX_DRILL_LAG_BLOCKS,
+              f"drill copy at {copied} is {target - copied} blocks before H; re-drill a copy within "
+              f"{MAX_DRILL_LAG_BLOCKS} blocks of H (review finding H1-F6)")
 
 
 def wait_halt(read_heights, target, *, polls=600, interval=8, sleep=time.sleep):
@@ -83,6 +102,8 @@ def readiness(image, image_receipt, drill_receipt, runtime_receipt=None):
     p.require(drill.get("source_commit") == p.SOURCE_COMMIT and
               drill.get("source_sha256") == built.get("source_sha256") == p.SOURCE_ARCHIVE_SHA256,
               "drill/image source differs from frozen closure pin")
+    runtime_smoke.check_build_closure(built, "image receipt")
+    runtime_smoke.check_build_closure(drill, "drill receipt")
     p.require(runtime_receipt is not None, "packaged version and network-none start proof required BEFORE H")
     runtime_smoke.validate_receipt(runtime_receipt, image, built, drill_receipt)
 
@@ -201,11 +222,13 @@ def execute(args):
     p.require(args.operator and args.operator.lower() != "faucet", "use the validator operator, never the zero-power faucet")
     p.require(args.image_receipt and args.drill_receipt, "image and provided-state drill receipts required")
     readiness(args.image, args.image_receipt, args.drill_receipt, args.runtime_receipt)
-    config = tomllib.loads(args.fly_config.read_text())
-    p.require(config.get("app") == CHAIN, "reviewed testnet Fly config required; retired/mainnet configs refused")
-    ignored = {"MONIKER", "EXTERNAL_ADDRESS", "EXTRA_START_FLAGS"} & config.get("env", {}).keys()
-    p.require(not ignored, "scratch runtime ignores legacy environment variables: " + ", ".join(sorted(ignored)) +
-              "; translate them to reviewed config/explicit argv")
+    check_drill_fresh(args.drill_receipt, args.height)
+    if args.fly_machine is None:
+        config = tomllib.loads(args.fly_config.read_text())
+        p.require(config.get("app") == CHAIN, "reviewed testnet Fly config required; retired/mainnet configs refused")
+        ignored = {"MONIKER", "EXTERNAL_ADDRESS", "EXTRA_START_FLAGS"} & config.get("env", {}).keys()
+        p.require(not ignored, "scratch runtime ignores legacy environment variables: " + ", ".join(sorted(ignored)) +
+                  "; translate them to reviewed config/explicit argv")
     if args.resume_proposal:
         # Read-only recovery: no key lookup, proposal write, tx submission or vote.
         height(args)  # Still authenticate the RPC chain before reading its plan.
@@ -258,7 +281,7 @@ def finish_halt(args):
     halted = wait_halt(lambda: (height(args), application_height(args)), args.height, polls=args.halt_polls)
     state = "pre-H stall (H-1, H-1); H has not been staged" if halted[0] == args.height - 1 else "staged-H stall (H, H-1); H is not committed"
     print(f"Four frozen-height polls: {state}; Comet={halted[0]}, ABCI={halted[1]}; deployment NOT performed.")
-    print(shlex.join(deployment_command(args.fly_config, args.image)))
+    print(shlex.join(deployment_command(args.fly_config, args.image, args.fly_machine)))
     print("Separate operator deployment only; verify applied H, K6/P2/L5/V1 and resumed blocks afterward.")
 
 
@@ -272,7 +295,9 @@ def main():
     parser.add_argument("--keyring-backend", choices=["file", "os", "test"], default="file")
     parser.add_argument("--node", required=True)
     parser.add_argument("--image", required=True)
-    parser.add_argument("--fly-config", type=Path, required=True, help="separately reviewed non-retired TESTNET config")
+    deploy = parser.add_mutually_exclusive_group(required=True)
+    deploy.add_argument("--fly-config", type=Path, help="separately reviewed non-retired TESTNET config")
+    deploy.add_argument("--fly-machine", help="existing testnet machine ID: print an in-place `fly machine update --image` swap")
     parser.add_argument("--height", type=int, required=True)
     parser.add_argument("--proposal", type=Path, help="new local proposal output, required unless resuming; never overwritten")
     parser.add_argument("--resume-proposal", help="exact PASSED proposal ID; recheck plan and wait only, NEVER submit or vote")
@@ -300,7 +325,8 @@ def main():
             print(json.dumps({"status": "offline-plan-only", "cli": str(args.zeroned), "voter": args.operator,
                               "mode": "resume-wait-only" if args.resume_proposal else "new-proposal",
                               "resume_proposal": args.resume_proposal, "gas": args.gas, "fees": args.fees,
-                              "plan_info": plan_info(args.image), "deploy_argv": deployment_command(args.fly_config, args.image),
+                              "plan_info": plan_info(args.image),
+                              "deploy_argv": deployment_command(args.fly_config, args.image, args.fly_machine),
                               "network_contact": False, "authorization": "not granted by this plan"}, sort_keys=True))
     except (OSError, ValueError, KeyError, subprocess.SubprocessError) as error:
         print(f"REFUSED: {error}", file=sys.stderr)

@@ -49,8 +49,13 @@ def main():
               "legacy source closure no longer reproduces trunk provenance recipe")
     p.require(helpers["h1"]["source_sha256"] == dry["source_sha256"] == p.SOURCE_ARCHIVE_SHA256,
               "independent H1 source exports differ")
+    p.require(helpers["h1"]["build_source_sha256"] == dry["build_source_sha256"] == p.BUILD_SOURCE_SHA256 and
+              helpers["h1"]["dependency_patch_sha256"] == p.DEPENDENCY_PATCH_SHA256,
+              "H1 helper and image dry run do not share the pinned CometBFT build closure")
+    p.require(helpers["old"]["dependency_patch_sha256"] is None, "the legacy helper must stay unpatched")
     result = {"status": "passed", "evidence_class": "offline-synthetic-fixture-only",
               "commands": commands, "h1_source_sha256": dry["source_sha256"],
+              "h1_build_source_sha256": dry["build_source_sha256"],
               "image_built": False, "actual_testnet_copy_used": False}
     p.write_json(out / "verification.json", result)
     print(json.dumps(result, sort_keys=True))

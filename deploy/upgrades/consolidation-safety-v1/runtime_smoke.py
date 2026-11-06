@@ -35,6 +35,9 @@ def check_version(value):
     p.require(value.get("name") == "zerone" and value.get("server_name") == "zeroned" and
               value.get("commit") == p.SOURCE_COMMIT and value.get("version") == p.VERSION,
               "CLI version/commit differs from the frozen H1 profile")
+    deps = value.get("build_deps")
+    p.require(isinstance(deps, list) and f"github.com/cometbft/cometbft@{p.COMETBFT_VERSION}" in deps,
+              "CLI does not link the pinned CometBFT " + p.COMETBFT_VERSION + " (cometbft-3)")
 
 
 def run_argv(image, host, home=None, cidfile=None, user=None):
@@ -53,7 +56,16 @@ def run_argv(image, host, home=None, cidfile=None, user=None):
                    f"type=bind,src={home},dst=/data/.zeroned", image, *START_FLAGS]
 
 
+def check_build_closure(receipt, label):
+    # A frozen-H1 receipt without the dependency patch is the vulnerable v0.38.20 build.
+    p.require(receipt.get("dependency_patch_sha256") == p.DEPENDENCY_PATCH_SHA256 and
+              receipt.get("build_source_sha256") == p.BUILD_SOURCE_SHA256,
+              label + " is not the pinned CometBFT " + p.COMETBFT_VERSION + " build closure (cometbft-3)")
+
+
 def check_inputs(image, built, drill):
+    check_build_closure(built, "image receipt")
+    check_build_closure(drill, "drill receipt")
     p.require(built.get("status") == "built-local" and built.get("reproduced") is True and
               built.get("schema") == "zerone-h1-testnet-image/v1" and
               built.get("source_commit") == p.SOURCE_COMMIT and built.get("source_sha256") == p.SOURCE_ARCHIVE_SHA256 and
