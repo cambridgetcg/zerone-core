@@ -14,7 +14,7 @@
   },
   "app_state": {
     "vesting_rewards": {
-      "alignment_bank_supply_enabled": true,
+      "alignment_bank_supply_enabled": false,
       "params": {
         "block_reward": "10000000",
         "founder_share_bps": "70000",

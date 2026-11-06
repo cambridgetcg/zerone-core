@@ -52,7 +52,7 @@ func repairPutProto(t *testing.T, app *ZeroneApp, ctx sdk.Context, store string,
 func TestConsensusRepairsRegistryLocationsAndSelections(t *testing.T) {
 	app, ctx, _ := consensusRepairsFixture(t)
 	markers, locations, selections := app.ConsensusRepairsV1Markers(), consensusRepairsMarkerLocations(), ConsensusRepairsV1GenesisSelections()
-	require.Len(t, markers, 10)
+	require.Len(t, markers, 9)
 	require.Len(t, locations, len(markers))
 	require.Len(t, selections, len(markers))
 	for i, marker := range markers {
@@ -209,14 +209,13 @@ func TestConsensusRepairsZeroStakeDiscontinuityTruthTable(t *testing.T) {
 					raw, err := sdk.IntValue.Encode(sdkmath.NewInt(supply))
 					require.NoError(t, err)
 					ctx.KVStore(app.keys["bank"]).Set([]byte("\x00uzrn"), raw)
+					// v1 keeps the mint-ledger denominator; consensus-repairs-v2 switches
+					// it together with Q1, so no input row blocks v1 any more.
 					report, err := app.CensusConsensusRepairsV1(ctx)
-					if stake == 0 && mint == 0 && supply > 0 {
-						require.ErrorContains(t, err, "changes neutral to zero")
-					} else {
-						require.NoError(t, err)
-					}
+					require.NoError(t, err)
 					raw, err = json.Marshal(report)
 					require.NoError(t, err)
+					require.Contains(t, string(raw), "v1 keeps the mint-ledger denominator")
 					require.Contains(t, string(raw), fmt.Sprintf("legacy_staking_ratio_bps=%d fixed_staking_ratio_bps=%d", consensusRepairsRatio(big.NewInt(stake), big.NewInt(mint)), consensusRepairsRatio(big.NewInt(stake), big.NewInt(supply))))
 				})
 			}

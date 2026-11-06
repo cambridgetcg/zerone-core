@@ -28,7 +28,7 @@ func consensusRepairsTargetVersionMap() module.VersionMap {
 	return vm
 }
 func consensusRepairsVersions() module.VersionMap {
-	return module.VersionMap{"zerone_gov": 4, "knowledge": 13, "capture_defense": 2, "qualification": 2, "capture_challenge": 2, "vesting_rewards": 4, "alignment": 2, "zerone_ontology": 2, "emergency": 3, "substrate_bridge": 2, "ibcratelimit": 2}
+	return module.VersionMap{"zerone_gov": 4, "knowledge": 13, "capture_defense": 2, "qualification": 2, "capture_challenge": 2, "alignment": 2, "zerone_ontology": 2, "emergency": 3, "substrate_bridge": 2, "ibcratelimit": 2}
 }
 
 // Every caller, including older broad migrations, must respect the complete rung.
@@ -165,7 +165,7 @@ func (app *ZeroneApp) registerConsensusRepairsUpgrade() {
 		if err != nil {
 			return nil, err
 		}
-		// Hash the source merged with the eleven expected writes BEFORE any
+		// Hash the source merged with the ten expected writes BEFORE any
 		// migrations or marker writers run. No full image is retained at H.
 		compact, err := census.receipt()
 		if err != nil {
@@ -263,6 +263,28 @@ func ValidateConsensusRepairsGenesisSelection(genesis GenesisState) error {
 			return fmt.Errorf("native %s genesis requires explicit %s=true", marker.Module, marker.Name)
 		}
 	}
+	// A deferred marker's later carrier refuses a source where it is already on,
+	// and switching it without its companion repair is the discontinuity the
+	// carriers exist to avoid. Refuse any spelling that could select it.
+	for _, marker := range ConsensusRepairsDeferredGenesisSelections() {
+		if len(genesis[marker.Module]) == 0 {
+			continue // An absent module section selects nothing.
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(genesis[marker.Module], &fields); err != nil {
+			return fmt.Errorf("consensus repairs genesis %s: %w", marker.Module, err)
+		}
+		alias := consensusRepairsCamelCase(marker.Name)
+		for name, raw := range fields {
+			if !strings.EqualFold(name, marker.Name) && !strings.EqualFold(name, alias) {
+				continue
+			}
+			var value *bool
+			if err := json.Unmarshal(raw, &value); err != nil || name != marker.Name || (value != nil && *value) {
+				return fmt.Errorf("native %s genesis must leave %s absent or false: it switches only with consensus-repairs-v2's Q1", marker.Module, marker.Name)
+			}
+		}
+	}
 	return nil
 }
 
@@ -358,6 +380,12 @@ type consensusRepairsMarkerLocation struct {
 	key   []byte
 }
 
+// consensusRepairsDeferredMarkerLocations pairs ConsensusRepairsDeferredGenesisSelections
+// with their store keys. v1 writes none of them and refuses a source holding one.
+func consensusRepairsDeferredMarkerLocations() []consensusRepairsMarkerLocation {
+	return []consensusRepairsMarkerLocation{{"vesting_rewards", []byte{0x0c}}}
+}
+
 func consensusRepairsMarkerLocations() []consensusRepairsMarkerLocation {
-	return []consensusRepairsMarkerLocation{{"zerone_gov", []byte{0x18}}, {"knowledge", []byte{0x90}}, {"capture_defense", []byte{0x08}}, {"qualification", []byte{0x40}}, {"capture_challenge", []byte{0x05}}, {"vesting_rewards", []byte{0x0c}}, {"zerone_ontology", []byte{0x06}}, {"emergency", []byte{0x14}}, {"substrate_bridge", []byte{0x90}}, {"zerone_ibcrl", []byte{0x04}}}
+	return []consensusRepairsMarkerLocation{{"zerone_gov", []byte{0x18}}, {"knowledge", []byte{0x90}}, {"capture_defense", []byte{0x08}}, {"qualification", []byte{0x40}}, {"capture_challenge", []byte{0x05}}, {"zerone_ontology", []byte{0x06}}, {"emergency", []byte{0x14}}, {"substrate_bridge", []byte{0x90}}, {"zerone_ibcrl", []byte{0x04}}}
 }

@@ -142,6 +142,13 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 		} else if on { /* raw presence already reported */
 		}
 	}
+	// A deferred marker belongs to a later carrier, which refuses a source where
+	// it is already present; refuse it here too, before v1 commits that source.
+	for _, loc := range consensusRepairsDeferredMarkerLocations() {
+		if ctx.KVStore(app.keys[loc.store]).Has(loc.key) {
+			add(loc.store, string(loc.key), "blocker", "deferred marker present before its carrier (enabled or malformed)")
+		}
+	}
 
 	// #117: retain original IDs and check historical parent/child relationships.
 	censusName = "seat_runoffs"
@@ -442,7 +449,7 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 		mint = new(big.Int)
 	}
 	supply := app.BankKeeper.GetSupply(ctx, "uzrn").Amount.BigInt()
-	add("alignment", "", "held", fmt.Sprintf("prospective inputs only; bank_supply=%s mint_ledger=%s registry=%d active=%d active_stake=%s domains=%d active_domains=%d legacy_staking_ratio_bps=%d fixed_staking_ratio_bps=%d", supply, mint, registry, active, stake, domains, activeDomains, consensusRepairsRatio(stake, mint), consensusRepairsRatio(stake, supply)))
+	add("alignment", "", "held", fmt.Sprintf("prospective inputs only; v1 keeps the mint-ledger denominator and consensus-repairs-v2 switches it to bank supply together with Q1; bank_supply=%s mint_ledger=%s registry=%d active=%d active_stake=%s domains=%d active_domains=%d legacy_staking_ratio_bps=%d fixed_staking_ratio_bps=%d", supply, mint, registry, active, stake, domains, activeDomains, consensusRepairsRatio(stake, mint), consensusRepairsRatio(stake, supply)))
 	statuses := make([]string, 0, len(report.DomainStatuses))
 	for status := range report.DomainStatuses {
 		statuses = append(statuses, status)
@@ -453,9 +460,8 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 			add("zerone_ontology", "", "held", fmt.Sprintf("inactive domain status=%q count=%d", status, report.DomainStatuses[status]))
 		}
 	}
-	if stake.Sign() == 0 && mint.Sign() == 0 && supply.Sign() > 0 {
-		add("alignment", "", "blocker", "Q1 not-observed/neutral pacing is absent: zero active stake and mint ledger with positive bank supply changes neutral to zero")
-	}
+	// No Q1 blocker here: v1 no longer switches the denominator (#122 moved to
+	// consensus-repairs-v2 together with Q1), so neutral readings stay neutral.
 
 	censusName = "halt_reasons"
 	phase := *gov.DefaultResearchFundGovernanceState()

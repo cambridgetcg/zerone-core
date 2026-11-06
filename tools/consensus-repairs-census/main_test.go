@@ -35,6 +35,11 @@ import (
 
 func sourceCopy(t *testing.T, badMarker bool, extraStore ...bool) (string, int64, string) {
 	t.Helper()
+	return sourceCopyMutated(t, badMarker, extraStore, nil)
+}
+
+func sourceCopyMutated(t *testing.T, badMarker bool, extraStore []bool, mutate func(*app.ZeroneApp, sdk.Context)) (string, int64, string) {
+	t.Helper()
 	home, err := filepath.EvalSymlinks(t.TempDir())
 	require.NoError(t, err)
 	data := filepath.Join(home, "data")
@@ -89,6 +94,9 @@ func sourceCopy(t *testing.T, badMarker bool, extraStore ...bool) (string, int64
 	lip, err := json.Marshal(&gov.LIP{Id: "offline-rollback", Category: gov.CategoryPhaseRollback})
 	require.NoError(t, err)
 	ctx.KVStore(a.GetStoreKeyForTests("zerone_gov")).Set(gov.LIPKey("offline-rollback"), lip)
+	if mutate != nil {
+		mutate(a, ctx)
+	}
 	commit := a.CommitMultiStore().Commit()
 	require.NoError(t, db.Close())
 	return home, commit.Version, hex.EncodeToString(commit.Hash)
@@ -215,4 +223,54 @@ func TestCommandRefusesMissingOrSymlinkLOCKWithoutCreatingFiles(t *testing.T) {
 			require.Equal(t, before, fileDigests(t, home))
 		})
 	}
+}
+
+// dev1CensusShape gives the copy zerone-dev-1's alignment inputs as the
+// 2026-10-28 C-dev1 drill census measured them at h3,828,519: an empty
+// zerone_staking registry, mint ledger "0", bank supply 3,000,000,000,000 uzrn
+// (a synthetic supply row; no balances back it) and the 7 default domains, all
+// active. That drill's tool, built from a72ca85e, refused v1 with the Q1 blocker.
+func dev1CensusShape(a *app.ZeroneApp, ctx sdk.Context) {
+	registry := ctx.KVStore(a.GetStoreKeyForTests("zerone_staking"))
+	iterator := registry.Iterator([]byte{1}, []byte{2})
+	var keys [][]byte
+	for ; iterator.Valid(); iterator.Next() {
+		keys = append(keys, append([]byte(nil), iterator.Key()...))
+	}
+	if err := iterator.Close(); err != nil {
+		panic(err)
+	}
+	for _, key := range keys {
+		registry.Delete(key)
+	}
+	ctx.KVStore(a.GetStoreKeyForTests("vesting_rewards")).Set([]byte{0x0b}, []byte("0"))
+	supply, err := sdk.IntValue.Encode(sdkmath.NewInt(3_000_000_000_000))
+	if err != nil {
+		panic(err)
+	}
+	ctx.KVStore(a.GetStoreKeyForTests("bank")).Set([]byte("\x00uzrn"), supply)
+}
+
+func TestDev1ShapedCopiedDBCensusPasses(t *testing.T) {
+	home, height, hash := sourceCopyMutated(t, false, nil, dev1CensusShape)
+	before := fileDigests(t, home)
+	args := []string{"--copied-db", "--home", home, "--chain-id", "zerone-rehearsal-census", "--expected-height", strconv.FormatInt(height, 10), "--expected-app-hash", hash}
+	var out, diagnostics bytes.Buffer
+	require.Equal(t, 0, run(args, &out, &diagnostics), diagnostics.String()+out.String())
+	var report struct {
+		Passed bool                       `json:"passed"`
+		Census app.ConsensusRepairsCensus `json:"census"`
+	}
+	require.NoError(t, json.Unmarshal(out.Bytes(), &report))
+	require.True(t, report.Passed)
+	found := false
+	for _, finding := range report.Census.Findings {
+		require.NotEqual(t, "blocker", finding.Outcome, finding.Reason)
+		if finding.Census == "alignment_inputs" && strings.Contains(finding.Reason, "bank_supply=3000000000000 mint_ledger=0 registry=0 active=0 active_stake=0 domains=7 active_domains=7 legacy_staking_ratio_bps=500000 fixed_staking_ratio_bps=0") {
+			found = true
+			require.Contains(t, finding.Reason, "v1 keeps the mint-ledger denominator")
+		}
+	}
+	require.True(t, found, "the held line carries dev-1's measured inputs")
+	require.Equal(t, before, fileDigests(t, home), "the copied database is only read")
 }

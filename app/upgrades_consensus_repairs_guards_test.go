@@ -155,7 +155,7 @@ func TestConsensusRepairsReceiptFaultsRefuseRestart(t *testing.T) {
 			case "false marker readback":
 				receipt.Markers[0].Enabled = false
 			case "missing readback":
-				receipt.Markers = receipt.Markers[:9]
+				receipt.Markers = receipt.Markers[:8]
 			case "census blocker":
 				summary := receipt.Census.Censuses["reformulations"]
 				summary.Blockers = 1

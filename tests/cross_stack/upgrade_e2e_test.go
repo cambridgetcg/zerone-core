@@ -635,8 +635,8 @@ func TestUpgrade_ChainVersionReportWellFormed(t *testing.T) {
 				"liquiditypool module advertises the LP-only fee ConsensusVersion")
 		case vestingrewardstypes.ModuleName:
 			sawVestingRewards = true
-			require.Equal(t, uint64(4), m.ConsensusVersion,
-				"vesting_rewards advertises the consensus repairs ConsensusVersion")
+			require.Equal(t, uint64(3), m.ConsensusVersion,
+				"vesting_rewards keeps ConsensusVersion 3: its bank-supply step belongs to consensus-repairs-v2")
 		}
 	}
 	require.True(t, sawKnowledge, "knowledge module appears in report")

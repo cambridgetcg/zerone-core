@@ -934,7 +934,7 @@ func checkConsensusRepairsMarkers(c *checker, g map[string]interface{}) {
 		c.fail("%v", err)
 		return
 	}
-	c.pass("All ten consensus-repairs-v1 markers explicitly true with exact spelling")
+	c.pass("All nine consensus-repairs-v1 markers explicitly true with exact spelling; deferred markers off")
 }
 
 // ════════════════════════════════════════════════════════════════════════

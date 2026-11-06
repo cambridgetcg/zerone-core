@@ -31,9 +31,11 @@ type GenesisState struct {
 	ClawbackRecords          []*ClawbackRecord          `protobuf:"bytes,4,rep,name=clawback_records,json=clawbackRecords,proto3" json:"clawback_records,omitempty"`
 	BlockRewardDistributions []*BlockRewardDistribution `protobuf:"bytes,5,rep,name=block_reward_distributions,json=blockRewardDistributions,proto3" json:"block_reward_distributions,omitempty"`
 	ClaimScheduleIndexes     []*ClaimScheduleIndex      `protobuf:"bytes,6,rep,name=claim_schedule_indexes,json=claimScheduleIndexes,proto3" json:"claim_schedule_indexes,omitempty"`
-	// Alignment bank-supply marker (zerone-core #122). Native genesis sets it; a
-	// file without the field imports as off. In place, only the named carrier
-	// upgrade consensus-repairs-v1 sets it.
+	// Alignment bank-supply marker (zerone-core #122). A file without the field
+	// imports as off. It switches only at the same height as Q1's not-observed
+	// neutrality: consensus-repairs-v1 never sets it, in place only the named
+	// carrier upgrade consensus-repairs-v2 sets it, and native genesis selects it
+	// only together with consensus-repairs-v2's markers.
 	AlignmentBankSupplyEnabled bool `protobuf:"varint,7,opt,name=alignment_bank_supply_enabled,json=alignmentBankSupplyEnabled,proto3" json:"alignment_bank_supply_enabled,omitempty"`
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache

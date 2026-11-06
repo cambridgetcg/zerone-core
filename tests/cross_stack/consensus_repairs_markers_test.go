@@ -148,8 +148,9 @@ func TestConsensusRepairsV1MarkersFollowGenesisThroughTheApp(t *testing.T) {
 	}
 }
 
-// The registry the carrier loops over lists exactly the ten
-// consensus-repairs-v1 markers, each named by the genesis field that carries
+// The registry the carrier loops over lists exactly the nine
+// consensus-repairs-v1 markers (#122's bank-supply marker is deferred to v2,
+// to switch with Q1), each named by the genesis field that carries
 // it. Enabling every entry on a chain that started without the fields selects
 // every repair, idempotently, and an export then carries all of them.
 func TestConsensusRepairsV1RegistryEnablesEveryMarker(t *testing.T) {
@@ -164,7 +165,6 @@ func TestConsensusRepairsV1RegistryEnablesEveryMarker(t *testing.T) {
 		"capture_defense/integer_variance_enabled",
 		"qualification/single_refund_enabled",
 		"capture_challenge/challenge_accounting_enabled",
-		"vesting_rewards/alignment_bank_supply_enabled",
 		"zerone_ontology/active_domain_count_enabled",
 		"emergency/halt_reason_scoping_enabled",
 		"substrate_bridge/qualification_semantics_enabled",

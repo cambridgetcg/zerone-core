@@ -103,6 +103,7 @@ func TestConsensusRepairsExactVersionBoundary(t *testing.T) {
 	source, target := consensusRepairsSourceVersionMap(), consensusRepairsTargetVersionMap()
 	require.Equal(t, target, app.CurrentModuleVersionMap())
 	require.Equal(t, uint64(1), target["home"])
+	require.Equal(t, uint64(3), target["vesting_rewards"], "the bank-supply step belongs to consensus-repairs-v2")
 	changes := 0
 	for name, version := range source {
 		if target[name] != version {
@@ -110,7 +111,7 @@ func TestConsensusRepairsExactVersionBoundary(t *testing.T) {
 			require.Equal(t, version+1, target[name])
 		}
 	}
-	require.Equal(t, 11, changes)
+	require.Equal(t, 10, changes)
 	guards := []func(string, module.VersionMap, module.VersionMap) error{requireConsensusRepairsTransitionOwner, requireAccountingTransitionOwner, requireSurvivalHandoffTransitionOwner, requireRecordIntegrityTransitionOwner, requireReviewNeutralityTransitionOwner, requireClaimRecordsTransitionOwner, requireFundSettlementTransitionOwner, requireClaimIntegrityTransitionOwner}
 	for _, guard := range guards {
 		for _, name := range append(app.KnownUpgradeNames(), "unrelated") {
@@ -163,7 +164,7 @@ func TestConsensusRepairsAtomicUpgradeDiffAndRestart(t *testing.T) {
 	require.True(t, present)
 	var receipt consensusRepairsReceipt
 	require.NoError(t, json.Unmarshal([]byte(receiptRaw), &receipt))
-	require.Len(t, receipt.Markers, 10)
+	require.Len(t, receipt.Markers, 9)
 	require.Equal(t, plan.Height, receipt.Height)
 	delete(after, "knowledge:"+string(append([]byte{0x7f, 1}, []byte(consensusRepairsReceiptKey)...)))
 	doneKey := append([]byte{upgradetypes.DoneByte}, binary.BigEndian.AppendUint64(nil, uint64(plan.Height))...)
@@ -206,7 +207,7 @@ func TestConsensusRepairsAtomicUpgradeDiffAndRestart(t *testing.T) {
 	require.NoError(t, imported.ValidateAccountingAuthorityStartup())
 }
 func TestConsensusRepairsCensusBlockersLeaveEveryMarkerOff(t *testing.T) {
-	for _, scenario := range []string{"pool deficit", "bounty identity", "augmentation identity", "empty marker", "corrupt marker", "neutral discontinuity", "occupied generation", "corrupt halt"} {
+	for _, scenario := range []string{"pool deficit", "bounty identity", "augmentation identity", "empty marker", "corrupt marker", "deferred bank-supply marker", "empty deferred marker", "occupied generation", "corrupt halt"} {
 		t.Run(scenario, func(t *testing.T) {
 			app, ctx, _ := consensusRepairsFixture(t)
 			switch scenario {
@@ -226,8 +227,11 @@ func TestConsensusRepairsCensusBlockersLeaveEveryMarkerOff(t *testing.T) {
 				ctx.KVStore(app.keys["qualification"]).Set([]byte{0x40}, []byte{})
 			case "corrupt marker":
 				ctx.KVStore(app.keys["qualification"]).Set([]byte{0x40}, []byte{2})
-			case "neutral discontinuity":
-				ctx.KVStore(app.keys["vesting_rewards"]).Delete([]byte{0x0b})
+			case "deferred bank-supply marker":
+				// consensus-repairs-v2 owns this marker and refuses a source holding it.
+				ctx.KVStore(app.keys["vesting_rewards"]).Set([]byte{0x0c}, []byte{1})
+			case "empty deferred marker":
+				ctx.KVStore(app.keys["vesting_rewards"]).Set([]byte{0x0c}, []byte{})
 			case "occupied generation":
 				ctx.KVStore(app.keys["zerone_ibcrl"]).Set([]byte("\x03channel-0\x00uzrn"), make([]byte, 8))
 			case "corrupt halt":
@@ -269,7 +273,7 @@ func TestConsensusRepairsExpiredAmountsAreHeldNotMoved(t *testing.T) {
 }
 func TestConsensusRepairsRequiresAllExplicitGenesisSelections(t *testing.T) {
 	app, _, _ := newAccountingAuthorityFixture(t)
-	require.Len(t, app.ConsensusRepairsV1Markers(), 10)
+	require.Len(t, app.ConsensusRepairsV1Markers(), 9)
 	for _, marker := range app.ConsensusRepairsV1Markers() {
 		for _, selection := range []string{"absent", "false", "null", "uppercase", "mixed-case", "camelCase", "alias-after-canonical"} {
 			t.Run(marker.Module+"/"+selection, func(t *testing.T) {

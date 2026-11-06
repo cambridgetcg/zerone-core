@@ -33,6 +33,15 @@ type ActivationSelection struct {
 	Name   string
 }
 
+// ConsensusRepairsDeferredGenesisSelections are markers whose code is in this
+// source but which no carrier here may switch on: native genesis must leave
+// each one absent or false. #122's bank-supply denominator waits for Q1.
+func ConsensusRepairsDeferredGenesisSelections() []ActivationSelection {
+	return []ActivationSelection{
+		{vestingrewardstypes.ModuleName, "alignment_bank_supply_enabled"},
+	}
+}
+
 func ConsensusRepairsV1GenesisSelections() []ActivationSelection {
 	return []ActivationSelection{
 		{zeronegovtypes.ModuleName, "seat_runoff_ordering_enabled"},
@@ -40,7 +49,6 @@ func ConsensusRepairsV1GenesisSelections() []ActivationSelection {
 		{zeronecdtypes.ModuleName, "integer_variance_enabled"},
 		{zeronequalificationtypes.ModuleName, "single_refund_enabled"},
 		{zeronecctypes.ModuleName, "challenge_accounting_enabled"},
-		{vestingrewardstypes.ModuleName, "alignment_bank_supply_enabled"},
 		{zeroneontologytypes.ModuleName, "active_domain_count_enabled"},
 		{zeroneemergencytypes.ModuleName, "halt_reason_scoping_enabled"},
 		{substratebridgetypes.ModuleName, "qualification_semantics_enabled"},
@@ -53,6 +61,13 @@ func ConsensusRepairsV1GenesisSelections() []ActivationSelection {
 // selects each one through its module's genesis field; the carrier upgrade
 // enables each one by looping over this list. It lives outside app.go because
 // the authority-graph manifest pins app.go's SHA-256.
+//
+// #122's alignment bank-supply marker is deliberately absent. On an empty
+// staking registry with a zero mint ledger and positive bank supply (zerone-dev-1
+// today) it turns the neutral economic and staking readings into zero, so it
+// may only switch at the same height as Q1's not-observed neutrality, which
+// consensus-repairs-v2 carries. ConsensusRepairsDeferredGenesisSelections names
+// it until then.
 func (app *ZeroneApp) ConsensusRepairsV1Markers() []ActivationMarker {
 	return []ActivationMarker{
 		{zeronegovtypes.ModuleName, "seat_runoff_ordering_enabled",
@@ -65,8 +80,6 @@ func (app *ZeroneApp) ConsensusRepairsV1Markers() []ActivationMarker {
 			app.QualificationKeeper.SingleRefundEnabled, app.QualificationKeeper.EnableSingleRefund},
 		{zeronecctypes.ModuleName, "challenge_accounting_enabled",
 			app.CaptureChallengeKeeper.ChallengeAccountingEnabled, app.CaptureChallengeKeeper.EnableChallengeAccounting},
-		{vestingrewardstypes.ModuleName, "alignment_bank_supply_enabled",
-			app.VestingRewardsKeeper.AlignmentBankSupplyEnabled, app.VestingRewardsKeeper.EnableAlignmentBankSupply},
 		{zeroneontologytypes.ModuleName, "active_domain_count_enabled",
 			app.ZeroneOntologyKeeper.ActiveDomainCountEnabled, app.ZeroneOntologyKeeper.EnableActiveDomainCount},
 		{zeroneemergencytypes.ModuleName, "halt_reason_scoping_enabled",

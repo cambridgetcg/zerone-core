@@ -1,4 +1,4 @@
-// Package consensusrepairsmigration reserves the eleven no-op version steps for
+// Package consensusrepairsmigration reserves the ten no-op version steps for
 // the atomic consensus-repairs-v1 application handler. This is not release authority.
 package consensusrepairsmigration
 

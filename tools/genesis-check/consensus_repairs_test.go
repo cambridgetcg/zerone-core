@@ -19,7 +19,7 @@ func TestConsensusRepairsGenesisMarkers(t *testing.T) {
 	c := &checker{}
 	checkConsensusRepairsMarkers(c, markerGenesis())
 	if c.failed != 0 {
-		t.Fatal("all ten exact true selections must pass")
+		t.Fatal("all nine exact true selections must pass")
 	}
 	for _, marker := range app.ConsensusRepairsV1GenesisSelections() {
 		for _, invalid := range []string{"absent", "false", "null", "case alias", "camel alias", "null module"} {

@@ -17,9 +17,11 @@ export interface GenesisState {
   blockRewardDistributions: BlockRewardDistribution[];
   claimScheduleIndexes: ClaimScheduleIndex[];
   /**
-   * Alignment bank-supply marker (zerone-core #122). Native genesis sets it; a
-   * file without the field imports as off. In place, only the named carrier
-   * upgrade consensus-repairs-v1 sets it.
+   * Alignment bank-supply marker (zerone-core #122). A file without the field
+   * imports as off. It switches only at the same height as Q1's not-observed
+   * neutrality: consensus-repairs-v1 never sets it, in place only the named
+   * carrier upgrade consensus-repairs-v2 sets it, and native genesis selects it
+   * only together with consensus-repairs-v2's markers.
    */
   alignmentBankSupplyEnabled: boolean;
 }

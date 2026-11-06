@@ -5,30 +5,42 @@ It does not schedule an upgrade, activate a network, move legacy funds, or chang
 `app/app.go`, the frozen H2 map, or an authority-geometry pin. Independent review
 and a dev-1-copy rehearsal remain necessary.
 
-## Conditional Q1 blocker, not a claimed fix
+## The bank-supply denominator waits for Q1 (review finding F1, 2026-11-06)
 
-The requested Q1 “not observed means neutral” behavior is **not in this stack**.
-The input-selection repair changes the supply denominator/domain count but does
-not add a registry-observation signal or a third health state. See
-`x/staking/keeper/alignment_adapters.go`, `x/alignment/keeper/sensors.go:185-191`
-and `x/alignment/module.go`.
+The requested Q1 “not observed means neutral” behavior is **not in this stack**;
+consensus-repairs-v2 carries it. #122's switch of the alignment supply
+denominator from the vesting_rewards mint ledger to bank `uzrn` supply is
+therefore **not carried by v1 either**: v1 carries only #124's active-domain
+count from the input-selection repair. The marker code stays in the source, but
+no v1 list names it, `vesting_rewards` keeps ConsensusVersion 3, and
+consensus-repairs-v2 owns its 3-to-4 step and the marker, at the same height as Q1.
 
-The census blocks the Q1 discontinuity only when active custom stake is zero,
-the legacy mint ledger (`vesting_rewards/0x0b`) is zero, and bank `uzrn` supply
-is positive: legacy staking ratio is neutral and the fixed reading is zero.
-An empty registry and an all-inactive registry are equivalent here. If both
-denominators are positive, both zero-stake readings are zero; if both are zero,
-both are neutral. Every other well-formed input is held and
-surfaced, including both ratio readings. A conditional refusal is **not an
-implementation of neutral pacing**. Real copy values decide whether a separate
-Q1 fix is necessary; seeded fixtures do not establish dev-1 readiness.
-Fresh-genesis marker validation does not implement Q1. The #124 endorsement
-gate is not included: there are exactly ten markers, not an eleventh.
+Why: on zerone-dev-1's measured inputs (2026-10-28 copied census at h3,828,519:
+bank supply 3,000,000,000,000 uzrn, mint ledger 0, empty custom staking
+registry, 7 of 7 domains active) the switch alone turns the neutral economic and
+staking readings (500,000) into 0. Health falls from degraded (composite
+249,800, pacing 750,000/1,500,000) to critical (49,800, 500,000/2,000,000),
+which doubles claim cooldowns and minimum review fees. The earlier version of
+this carrier blocked itself on exactly that condition, so v1 could not activate
+on dev-1 and v2, which requires v1's receipt, could never run. The recorded
+policy (zc-health-unknown-q1, zc-carrier-design call 6) is that the denominator
+switch is never on at a height where Q1 is off. With the switch moved, v1
+changes no alignment input on that state, and `TestConsensusRepairsV1PassesOnDev1CensusInputs`
+and the census tool's `TestDev1ShapedCopiedDBCensusPasses` pin it.
+
+The census still reports both ratio readings (`legacy_staking_ratio_bps` and
+`fixed_staking_ratio_bps`) as a held line, for v2 planning; v1 has no
+alignment-input blocker. A source in which the deferred marker
+(`vesting_rewards/0x0c`) is already present, enabled or malformed, is refused,
+because v2 refuses such a source. Native genesis must leave
+`alignment_bank_supply_enabled` absent or false (any alias or a non-boolean is
+refused too); `ConsensusRepairsDeferredGenesisSelections` names it. The #124
+endorsement gate is not included: there are exactly nine markers.
 
 ## Version boundary
 
 The exact source is `claimIntegrityTargetVersionMap()`; the target differs only
-in these eleven entries:
+in these ten entries:
 
 | Module | Source | Target |
 |---|---:|---:|
@@ -37,14 +49,13 @@ in these eleven entries:
 | capture_defense | 1 | 2 |
 | qualification | 1 | 2 |
 | capture_challenge | 1 | 2 |
-| vesting_rewards | 3 | 4 |
 | alignment | 1 | 2 |
 | zerone_ontology | 1 | 2 |
 | emergency | 2 | 3 |
 | substrate_bridge | 1 | 2 |
 | ibcratelimit | 1 | 2 |
 
-`home` stays at 1. Each module registers the shared
+`home` stays at 1 and `vesting_rewards` at 3. Each module registers the shared
 `consensusrepairsmigration.Require` as a guarded no-op migration. Only the named
 application handler supplies that execution context. Earlier release fixtures
 pin their original compiled targets; the historical target maps are not edited.
@@ -63,18 +74,18 @@ new boundary to the exact full-map owner check.
    no carrier receipt, done height or unsafe-skip height; every marker absent/off
    and free of faults; no census blocker. The public census runs inside a
    throwaway CacheContext, never released even if a future helper writes.
-3. Run all eleven guarded no-op migrations in one cache. Require the returned
+3. Run all ten guarded no-op migrations in one cache. Require the returned
    map to equal the target. Do not call `ReconcileModuleAccountPerms`.
 4. Enable every entry by looping over `ConsensusRepairsV1Markers()`. Read back
    each entry immediately and require true. There is no partial-success mode.
 5. Write `upgrade_receipt_consensus-repairs-v1` through the knowledge migration
-   marker API: height, chain ID, SHA-256 of the canonical JSON plan, all ten
+   marker API: height, chain ID, SHA-256 of the canonical JSON plan, all nine
    marker readbacks and a compact census receipt. Every named census has one
    fixed-shape summary containing record/byte counts, its digest, held-finding
    count, zero blockers and pending-rollback count. No per-record finding,
    rollback identity or arbitrary status string is permanently receipted.
 6. Compare the streamed SHA-256 of every mounted persistent store with the
-   streamed source merged with exactly ten marker keys and that receipt. The
+   streamed source merged with exactly nine marker keys and that receipt. The
    expected digest is computed **before** migrations/marker writers. A separate
    knowledge `0x87` prefix digest must also remain equal. No complete image is
    materialised or cloned. Any unexpected insert, deletion, replacement or later
@@ -120,7 +131,8 @@ measured on an authorized stopped copy, not inferred from a synthetic pass.
 | ibc_refunds | zerone_ibcrl: `01`, `02`, `03` |
 
 Bank keys use the SDK collection codecs, not manually reconstructed addresses.
-Marker presence and official readers are checked separately for all ten rows.
+Marker presence and official readers are checked separately for all nine rows,
+and raw presence for the deferred `vesting_rewards/0x0c` row.
 The report gives full-image totals, per-store and first-byte-prefix record/byte
 counts, and per-census selected sizes/digests. `census_reads` breaks each census
 down by its exact selected store/prefix or singleton, including zero counts.
@@ -149,7 +161,7 @@ receipt; it is a consensus-changing carrier revision, not a live-state migration
 | #119 histories | Count of histories with at least two submission blocks plus census digest; future analysis uses integer variance | Malformed history or identity |
 | #120 qualification | Each EXPIRED record with a **positive** retained amount, its amount, module balance and ambiguous payment history; zero/empty amounts are not per-record holds | Invalid amount/key, StakeLockPeriod addition overflow; no historical refund is inferred |
 | #121 challenge backing | Backing total and balance; all records untouched | Any RESOLVED+REJECTED record, inconsistent status/resolution, or balance below pools plus OPEN/EVIDENCE/UNDER_REVIEW refundable stakes |
-| #122/#124 alignment inputs | Bank supply, legacy mint ledger, registry/active stake/count, both staking ratios, all/active domains and full status histogram; every status other than exact `active` is held, including `archived` and arbitrary strings | Malformed inputs; zero active stake AND zero mint ledger AND positive bank supply |
+| #122/#124 alignment inputs | Bank supply, legacy mint ledger, registry/active stake/count, both staking ratios (v1 keeps the legacy one; v2 switches with Q1), all/active domains and full status histogram; every status other than exact `active` is held, including `archived` and arbitrary strings | Malformed inputs; the deferred bank-supply marker already present |
 | #125 halt reasons | Legacy/scoped counts and unknown evidence; each pending rollback's LIP ID, activation block, due-now flag and execute/cancel prediction on current state; out-of-window finalized halt payloads retained without decoding | Malformed envelopes/metadata or identity/LIP mismatch; malformed or mismatched halt payloads only inside the inclusive phase-start/current-height window, not the mere existence of a pending rollback |
 | #126 adapter minima | Unsupported required-domain minima retained; new work refused by the selected semantics | Malformed registration/key; fresh-genesis unsupported minima separately fail `tools/genesis-check` |
 | #127 IBC refunds | Count plus digest of legacy flows retained, no quota debit on refund; capacity retained until window reset | Occupied `0x03` generation prefix, malformed generation/flow/rule, pre-carrier charge identity, invalid amounts or overflow-prone window |
@@ -179,8 +191,8 @@ contract to the actual registry. After InitGenesis, initializeAccountingAuthorit
 reads every marker back before sealing lineage and fails InitChain if any is
 off or malformed. Pre-carrier exports may omit false fields (`omitempty`);
 absent or false is rejected. Export/import carries the selection without
-manufacturing applied history. The genesis checker uses the same ten-marker
-validator and refuses required-domain adapters with DISTINGUISHED or unknown
+manufacturing applied history. The deferred bank-supply field must be absent
+or false. The genesis checker uses the same nine-marker validator and refuses required-domain adapters with DISTINGUISHED or unknown
 minima under either snake_case or camelCase spelling. Both spellings together
 are rejected. UNSPECIFIED, PROBATIONARY and ACTIVE are the supported floors;
 an open adapter has no qualification floor.
@@ -245,7 +257,7 @@ Supply these real values to Yu, not extrapolations from the synthetic tests:
 - #120: positive-amount EXPIRED rows and total against qualification escrow.
 - #121: module bank balance against pools plus refundable active stakes.
 - #122: registry, active count/stake, mint ledger, bank supply and both staking
-  ratios; also latest health category and composite score under each selection.
+  ratios (v1 keeps the legacy reading; record them for v2, which switches).
 - #124: the complete status histogram, with only exact `active` counted active.
 - #125: each pending LIP, activation block, due-now state and predicted outcome.
 - #126: unsupported required-domain minima and malformed registrations.
@@ -278,16 +290,18 @@ gas. The plan's #123 HomeCounter restoration is also absent from this stack's
 unproved and is not fixed by keeping the module version at 1.
 
 The dev-1 runtime recognizes the exact 10→11, 11→12 and 12→13 named packet pairs;
-applied-carrier checks require all eleven target versions plus unchanged
-home/staking. Gateway descriptors accept knowledge 12/13 and retain versioned
-publications. These are source-level contracts, not a tested multi-rung staging
+applied-carrier checks require all ten target versions plus unchanged
+home/staking/vesting_rewards. Gateway descriptors accept knowledge 12/13 and retain versioned
+publications, and the binary-patch descriptor follows the applied knowledge
+version (`network-knowledge-<v>-patch-<commit>.json` beside its base). These are source-level contracts, not a tested multi-rung staging
 workflow: the existing immutable single preparation directory and original
 manifest are deliberately not automatically replaced or promoted. The rehearsal
 lane must account for sequential deployment custody rather than overwrite them.
 
 ## Decisions and delivery boundary
 
-- Obtain independent review; resolve Q1 in its owner if the measured condition blocks.
+- Obtain independent review. Re-run the C-dev1 copied census with a tool built
+  from this source (`--repairs v1`, expect `passed: true`) under its own authorization.
 - Rehearse the dev-1 copy; re-run the census at H−k and cancel before H if it blocks.
 - Ask Yu for both claim-integrity and carrier heights together only after that.
 - If #120 finds positive ambiguous EXPIRED amounts, attach the census and obtain

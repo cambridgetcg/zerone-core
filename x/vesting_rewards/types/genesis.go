@@ -94,8 +94,10 @@ func DefaultGenesis() *GenesisState {
 		Params:           DefaultParams(),
 		CategoryConfigs:  DefaultCategoryConfigs(),
 		VestingSchedules: []*VestingSchedule{},
-		// A new chain starts with the consensus-repairs-v1 selection on.
-		AlignmentBankSupplyEnabled: true,
+		// Off: the bank-supply denominator switches only together with Q1's
+		// not-observed neutrality, which consensus-repairs-v2 carries. Native
+		// genesis refuses true until then (ConsensusRepairsDeferredGenesisSelections).
+		AlignmentBankSupplyEnabled: false,
 	}
 }
 

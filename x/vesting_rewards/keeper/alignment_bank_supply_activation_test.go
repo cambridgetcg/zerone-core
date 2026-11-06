@@ -79,7 +79,9 @@ func (f *alignmentBankSupplyFixture) genesisJSON(t *testing.T, field *bool) json
 	t.Helper()
 	var fields map[string]json.RawMessage
 	require.NoError(t, json.Unmarshal(f.am.DefaultGenesis(f.cdc), &fields))
-	require.JSONEq(t, "true", string(fields[alignmentBankSupplyGenesisField]), "native genesis selects the marker")
+	if value, ok := fields[alignmentBankSupplyGenesisField]; ok {
+		require.JSONEq(t, "false", string(value), "native genesis defers the marker to consensus-repairs-v2")
+	}
 	if field == nil {
 		delete(fields, alignmentBankSupplyGenesisField)
 	} else {
@@ -140,18 +142,19 @@ func TestAlignmentBankSupplyExportRefusesMalformedMarker(t *testing.T) {
 	}
 }
 
-func TestAlignmentBankSupplyNativeGenesisSelectsMarker(t *testing.T) {
+// The denominator switch waits for Q1's not-observed neutrality, which
+// consensus-repairs-v2 carries, so a new chain from this source starts with it
+// off. The app's native genesis validation refuses an explicit true.
+func TestAlignmentBankSupplyNativeGenesisDefersMarker(t *testing.T) {
 	require.Equal(t, []byte{0x0C}, types.AlignmentBankSupplyEnabledKey)
 	gs := types.DefaultGenesis()
-	require.True(t, gs.AlignmentBankSupplyEnabled, "a new chain starts with the repair selected")
+	require.False(t, gs.AlignmentBankSupplyEnabled, "a new chain starts with the switch deferred")
 	require.NoError(t, gs.Validate())
-	gs.AlignmentBankSupplyEnabled = false
-	require.NoError(t, gs.Validate(), "off stays valid")
 
 	f := newAlignmentBankSupplyFixture(t)
 	f.initGenesis(t, f.am.DefaultGenesis(f.cdc))
-	require.Equal(t, []byte{1}, f.marker())
-	require.True(t, f.enabled(t))
+	require.Nil(t, f.marker())
+	require.False(t, f.enabled(t))
 }
 
 func TestAlignmentBankSupplyGenesisRoundTripsMarker(t *testing.T) {

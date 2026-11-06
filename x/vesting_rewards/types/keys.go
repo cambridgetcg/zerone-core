@@ -47,7 +47,8 @@ var (
 	ActiveVestingPrefix       = []byte{0x09} // {vestingId} -> nil (index)
 	BlockRewardFundBalanceKey = []byte{0x0A} // DEPRECATED
 	TotalMintedKey            = []byte{0x0B} // -> string (shared MintWithCap ledger, not complete supply history)
-	// AlignmentBankSupplyEnabledKey is the consensus-repairs-v1 marker for
-	// zerone-core #122 (keeper/alignment_bank_supply_activation.go).
+	// AlignmentBankSupplyEnabledKey is the alignment bank-supply marker for
+	// zerone-core #122 (keeper/alignment_bank_supply_activation.go). It is
+	// deferred from consensus-repairs-v1 to v2, to switch together with Q1.
 	AlignmentBankSupplyEnabledKey = []byte{0x0C}
 )

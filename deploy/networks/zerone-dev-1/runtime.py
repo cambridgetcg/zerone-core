@@ -41,7 +41,7 @@ UPGRADE_VERSIONS = {
 }
 CONSENSUS_REPAIRS_VERSIONS = {
     "zerone_gov": 4, "knowledge": 13, "capture_defense": 2,
-    "qualification": 2, "capture_challenge": 2, "vesting_rewards": 4,
+    "qualification": 2, "capture_challenge": 2, "vesting_rewards": 3,
     "alignment": 2, "zerone_ontology": 2, "emergency": 3,
     "substrate_bridge": 2, "ibcratelimit": 2, "home": 1, "zerone_staking": 2,
 }
