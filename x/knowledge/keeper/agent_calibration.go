@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"google.golang.org/protobuf/proto"
 
@@ -120,12 +121,15 @@ func ensureMethodStats(c *types.AgentCalibration, methodId string) *types.AgentM
 
 // RecordSubmissionOutcome is called from CompleteRound after a verdict is
 // determined. Updates the submitter's lifetime + per-method stats.
-func (k Keeper) RecordSubmissionOutcome(
+func (k roundsExecution) RecordSubmissionOutcome(
 	ctx context.Context,
 	submitter string,
 	methodId string,
 	verdict types.Verdict,
 ) error {
+	if !k.calibrationSmoothing {
+		return k.recordSubmissionOutcomeLegacy(ctx, submitter, methodId, verdict)
+	}
 	neutral, err := k.ReviewNeutralityEnabled(ctx)
 	if err != nil || neutral {
 		return err
@@ -160,7 +164,7 @@ func (k Keeper) RecordSubmissionOutcome(
 		c.Inconclusive++
 	}
 
-	c.CalibrationScoreBps = ComputeAgentCalibrationScore(c)
+	c.CalibrationScoreBps = ComputeSmoothedAgentCalibrationScore(c)
 	c.LastUpdatedBlock = height
 	_ = k.SetAgentCalibration(ctx, c)
 	k.EmitCalibrationUpdated(ctx, c)
@@ -169,11 +173,14 @@ func (k Keeper) RecordSubmissionOutcome(
 
 // RecordCorroborationForSubmitter is called from handleChallengeSurvival
 // (a challenge was rejected → the cited fact survived).
-func (k Keeper) RecordCorroborationForSubmitter(
+func (k roundsExecution) RecordCorroborationForSubmitter(
 	ctx context.Context,
 	submitter string,
 	methodId string,
 ) error {
+	if !k.calibrationSmoothing {
+		return k.recordCorroborationForSubmitterLegacy(ctx, submitter, methodId)
+	}
 	neutral, err := k.ReviewNeutralityEnabled(ctx)
 	if err != nil || neutral {
 		return err
@@ -190,7 +197,7 @@ func (k Keeper) RecordCorroborationForSubmitter(
 	stats := ensureMethodStats(c, methodId)
 	stats.CorroborationsEarned++
 
-	c.CalibrationScoreBps = ComputeAgentCalibrationScore(c)
+	c.CalibrationScoreBps = ComputeSmoothedAgentCalibrationScore(c)
 	c.LastUpdatedBlock = height
 	_ = k.SetAgentCalibration(ctx, c)
 	k.EmitCalibrationUpdated(ctx, c)
@@ -199,11 +206,14 @@ func (k Keeper) RecordCorroborationForSubmitter(
 
 // RecordDisprovalForSubmitter is called from cascadeFalsification / direct
 // disproof — the submitter's previously-accepted fact was invalidated.
-func (k Keeper) RecordDisprovalForSubmitter(
+func (k roundsExecution) RecordDisprovalForSubmitter(
 	ctx context.Context,
 	submitter string,
 	methodId string,
 ) error {
+	if !k.calibrationSmoothing {
+		return k.recordDisprovalForSubmitterLegacy(ctx, submitter, methodId)
+	}
 	neutral, err := k.ReviewNeutralityEnabled(ctx)
 	if err != nil || neutral {
 		return err
@@ -220,7 +230,7 @@ func (k Keeper) RecordDisprovalForSubmitter(
 	stats := ensureMethodStats(c, methodId)
 	stats.Disproven++
 
-	c.CalibrationScoreBps = ComputeAgentCalibrationScore(c)
+	c.CalibrationScoreBps = ComputeSmoothedAgentCalibrationScore(c)
 	c.LastUpdatedBlock = height
 	_ = k.SetAgentCalibration(ctx, c)
 	k.EmitCalibrationUpdated(ctx, c)
@@ -229,11 +239,14 @@ func (k Keeper) RecordDisprovalForSubmitter(
 
 // RecordChallengeOutcome tracks the challenger's side of the ledger. A
 // challenge is "successful" when the target fact is marked DISPROVEN.
-func (k Keeper) RecordChallengeOutcome(
+func (k roundsExecution) RecordChallengeOutcome(
 	ctx context.Context,
 	challenger string,
 	succeeded bool,
 ) error {
+	if !k.calibrationSmoothing {
+		return k.recordChallengeOutcomeLegacy(ctx, challenger, succeeded)
+	}
 	neutral, err := k.ReviewNeutralityEnabled(ctx)
 	if err != nil || neutral {
 		return err
@@ -252,7 +265,7 @@ func (k Keeper) RecordChallengeOutcome(
 	} else {
 		c.ChallengesFailed++
 	}
-	c.CalibrationScoreBps = ComputeAgentCalibrationScore(c)
+	c.CalibrationScoreBps = ComputeSmoothedAgentCalibrationScore(c)
 	c.LastUpdatedBlock = height
 	_ = k.SetAgentCalibration(ctx, c)
 	k.EmitCalibrationUpdated(ctx, c)
@@ -261,13 +274,13 @@ func (k Keeper) RecordChallengeOutcome(
 
 // ─── Score computation ──────────────────────────────────────────────────
 
-// ComputeAgentCalibrationScore returns a BPS score in [0, BPS] summarising a
+// ComputeSmoothedAgentCalibrationScore returns a BPS score in [0, BPS] summarising a
 // submitter's track record. Formula:
 //
 //	decisive        = total_submissions − inconclusive     (outcomes the panel judged)
 //	acceptance_rate = accepted / decisive                  (reaching credit if no decisive)
 //	corr_bonus      = min(cap, corroborations × scale / accepted)
-//	disproval_pen   = disproven × BPS / accepted
+//	disproval_pen   = disproven × BPS / (accepted + 1)
 //	score           = acceptance_rate + corr_bonus - disproval_pen
 //	                  clamped to [0, BPS]
 //
@@ -279,15 +292,17 @@ func (k Keeper) RecordChallengeOutcome(
 // where the panel reached a content judgement) measure calibration. A submitter
 // whose every attempt was inconclusive has no calibration evidence: they score a
 // tiny "reaching credit" (unproven, not wrong) that sits strictly above a
-// submitter whose decisive claims were refuted (which scores 0). The change is
-// monotonic — excluding inconclusive can only raise or hold a score, never lower
-// it; a record with no inconclusive outcomes is scored identically to before.
+// submitter whose decisive claims were refuted (which scores 0). Q5 further
+// smooths the disproval denominator: a first accepted claim later disproven
+// scores 500,000 rather than falling to zero. Adding inconclusive attempts
+// still cannot lower a score. This does not promise that removing the separate
+// zero-snapshot sentinel's neutral uplift cannot lower downstream TVW.
 //
 // This score is NOT cosmetic: x/trust_score reads it as submission accuracy,
 // and the structured corpus export denormalises it for training weighting. A
 // legacy training-fund formula also reads it, but public disbursement is
 // release-disabled until one-shot eligibility and replay protection exist.
-func ComputeAgentCalibrationScore(c *types.AgentCalibration) uint64 {
+func ComputeSmoothedAgentCalibrationScore(c *types.AgentCalibration) uint64 {
 	if c == nil || c.TotalSubmissions == 0 {
 		return 0
 	}
@@ -306,41 +321,38 @@ func ComputeAgentCalibrationScore(c *types.AgentCalibration) uint64 {
 		return CalibrationReachingCreditBps
 	}
 
-	acceptanceBps := c.Accepted * bps / decisive
-
-	var corrBonus uint64
+	// Evaluate the v2 formula exactly, including Accepted+1 at MaxUint64.
+	// All products fit sdkmath.Int; clamping occurs only after composition.
+	accepted := sdkmath.NewIntFromUint64(c.Accepted)
+	acceptanceBps := accepted.MulRaw(int64(bps)).Quo(sdkmath.NewIntFromUint64(decisive))
+	corrBonus := sdkmath.ZeroInt()
 	if c.Accepted > 0 {
-		corrBonus = c.CorroborationsEarned * CalibrationCorroborationScaleBps / c.Accepted
-		if corrBonus > CalibrationCorroborationBonusCapBps {
-			corrBonus = CalibrationCorroborationBonusCapBps
+		corrBonus = sdkmath.NewIntFromUint64(c.CorroborationsEarned).MulRaw(int64(CalibrationCorroborationScaleBps)).Quo(accepted)
+		if corrBonus.GT(sdkmath.NewIntFromUint64(CalibrationCorroborationBonusCapBps)) {
+			corrBonus = sdkmath.NewIntFromUint64(CalibrationCorroborationBonusCapBps)
 		}
 	}
 
-	var disprovalPenalty uint64
-	if c.Accepted > 0 {
-		disprovalPenalty = c.DisprovenCount * bps / c.Accepted
-	}
-
-	// Compose — signed-ish math in uint64 space.
-	score := acceptanceBps + corrBonus
-	if disprovalPenalty >= score {
+	disprovalPenalty := sdkmath.NewIntFromUint64(c.DisprovenCount).MulRaw(int64(bps)).Quo(accepted.AddRaw(1))
+	score := acceptanceBps.Add(corrBonus).Sub(disprovalPenalty)
+	if !score.IsPositive() {
 		return 0
 	}
-	score -= disprovalPenalty
-	if score > bps {
-		score = bps
+	if score.GT(sdkmath.NewIntFromUint64(bps)) {
+		return bps
 	}
-	return score
+	return score.Uint64()
 }
 
 // RecomputeAllCalibrationScores re-derives CalibrationScoreBps for every stored
-// calibration record under the current formula, in one deterministic pass (store
+// calibration record under the historical formula, in one deterministic pass (store
 // key order). Used by the compassion-calibration-v1 upgrade to refresh stored
 // scores when the formula changes (the inconclusive-excluding rule), so stored
 // state matches the live computation on every node from the upgrade height.
 // Idempotent — running it twice yields identical scores. Returns the count
 // refreshed. Only CalibrationScoreBps is touched; counts and per-method stats
-// are untouched.
+// are untouched. The v2 carrier must NOT use this helper: it owns a strict
+// census and applies ComputeSmoothedAgentCalibrationScore explicitly.
 func (k Keeper) RecomputeAllCalibrationScores(ctx context.Context) (int, error) {
 	var recs []*types.AgentCalibration
 	k.IterateAgentCalibrations(ctx, func(c *types.AgentCalibration) bool {

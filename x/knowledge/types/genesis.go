@@ -453,6 +453,10 @@ func DefaultGenesis() *GenesisState {
 		ClaimIntegrityEnabled:   true,
 		// A new chain starts with the consensus-repairs-v1 selection on.
 		ReformulationVindicationOrderingEnabled: true,
+		// And with the consensus-repairs-v2 selections on.
+		InconclusiveRoundAccountingEnabled: true,
+		CalibrationSmoothingEnabled:        true,
+		ZeroConfidenceFloorEnabled:         true,
 	}
 }
 
@@ -519,6 +523,9 @@ func (gs *GenesisState) Validate() error {
 		return err
 	}
 	if err := ValidateFactRelationGenesis(gs); err != nil {
+		return err
+	}
+	if err := ValidateGenesisAccounting(gs); err != nil {
 		return err
 	}
 

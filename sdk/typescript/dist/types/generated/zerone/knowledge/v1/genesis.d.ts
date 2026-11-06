@@ -775,6 +775,32 @@ export interface GenesisState {
      * upgrade consensus-repairs-v1 sets it.
      */
     reformulationVindicationOrderingEnabled: boolean;
+    /**
+     * Inconclusive-round accounting marker (decision zc-panel-unanimity-q2).
+     * Native genesis sets it; a file without the field imports as off. In place,
+     * only the named carrier upgrade consensus-repairs-v2 sets it.
+     */
+    inconclusiveRoundAccountingEnabled: boolean;
+    /**
+     * Calibration-smoothing marker (decision zc-calibration-cliff-q5). Native
+     * genesis sets it; a file without the field imports as off. In place, only
+     * the named carrier upgrade consensus-repairs-v2 sets it.
+     */
+    calibrationSmoothingEnabled: boolean;
+    /**
+     * Zero-confidence floor marker (decision zc-pr37-frontier-fixes). Native
+     * genesis sets it; a file without the field imports as off. In place, only
+     * the named carrier upgrade consensus-repairs-v2 sets it.
+     */
+    zeroConfidenceFloorEnabled: boolean;
+    /**
+     * Exact training-fund accounting inventories (FX7): the remaining escrow
+     * ledger and the sponsored-claim admission counters. Presence distinguishes a
+     * complete inventory, even an empty one, from an older export that omitted
+     * them, as fact_relation_state does. Absence never authorizes reconstruction
+     * from bounty creation totals or resetting the counters.
+     */
+    accountingState?: KnowledgeGenesisAccounting;
 }
 /**
  * Exports each ordered source/target pair once, including full provenance.
@@ -811,6 +837,56 @@ export interface SurvivalPendingReward {
     category: string;
     partnershipId: string;
     deadline: bigint;
+}
+/**
+ * Exact primary accounting inventories, not reconstructed claim history.
+ * Export must include every stored key, including retained inactive-bounty
+ * escrow and historical epochs; import must reject duplicate identities.
+ * @name KnowledgeGenesisAccounting
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.KnowledgeGenesisAccounting
+ */
+export interface KnowledgeGenesisAccounting {
+    augmentationEscrows: AugmentationEscrowBalance[];
+    bootstrapAddressCounts: BootstrapAddressCount[];
+    bootstrapEpochCounts: BootstrapEpochCount[];
+    /**
+     * Training-fund uzrn not attributed to the exported escrow ledger. This is
+     * not necessarily spendable: it can include vesting and retained fees.
+     * Together with the ledger it must equal training_fund_allocation and the
+     * actual bank balance imported before knowledge; it never authorizes minting.
+     */
+    trainingFundNonEscrowBalance: string;
+}
+/**
+ * Remaining 0x6B balance, not AugmentationBounty.escrow_locked at creation.
+ * @name AugmentationEscrowBalance
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.AugmentationEscrowBalance
+ */
+export interface AugmentationEscrowBalance {
+    bountyId: string;
+    remainingUzrn: string;
+}
+/**
+ * Exact address string used by the 0x35 primary key; never normalize it.
+ * @name BootstrapAddressCount
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.BootstrapAddressCount
+ */
+export interface BootstrapAddressCount {
+    address: string;
+    count: bigint;
+}
+/**
+ * The 0x36 counter is global to an epoch, not per address.
+ * @name BootstrapEpochCount
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.BootstrapEpochCount
+ */
+export interface BootstrapEpochCount {
+    epoch: bigint;
+    count: bigint;
 }
 /**
  * @name Params_MethodologyNormalizationBpsEntry
@@ -884,4 +960,54 @@ export declare const SurvivalPendingReward: {
     encode(message: SurvivalPendingReward, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): SurvivalPendingReward;
     fromPartial(object: DeepPartial<SurvivalPendingReward>): SurvivalPendingReward;
+};
+/**
+ * Exact primary accounting inventories, not reconstructed claim history.
+ * Export must include every stored key, including retained inactive-bounty
+ * escrow and historical epochs; import must reject duplicate identities.
+ * @name KnowledgeGenesisAccounting
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.KnowledgeGenesisAccounting
+ */
+export declare const KnowledgeGenesisAccounting: {
+    typeUrl: string;
+    encode(message: KnowledgeGenesisAccounting, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): KnowledgeGenesisAccounting;
+    fromPartial(object: DeepPartial<KnowledgeGenesisAccounting>): KnowledgeGenesisAccounting;
+};
+/**
+ * Remaining 0x6B balance, not AugmentationBounty.escrow_locked at creation.
+ * @name AugmentationEscrowBalance
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.AugmentationEscrowBalance
+ */
+export declare const AugmentationEscrowBalance: {
+    typeUrl: string;
+    encode(message: AugmentationEscrowBalance, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): AugmentationEscrowBalance;
+    fromPartial(object: DeepPartial<AugmentationEscrowBalance>): AugmentationEscrowBalance;
+};
+/**
+ * Exact address string used by the 0x35 primary key; never normalize it.
+ * @name BootstrapAddressCount
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.BootstrapAddressCount
+ */
+export declare const BootstrapAddressCount: {
+    typeUrl: string;
+    encode(message: BootstrapAddressCount, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): BootstrapAddressCount;
+    fromPartial(object: DeepPartial<BootstrapAddressCount>): BootstrapAddressCount;
+};
+/**
+ * The 0x36 counter is global to an epoch, not per address.
+ * @name BootstrapEpochCount
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.BootstrapEpochCount
+ */
+export declare const BootstrapEpochCount: {
+    typeUrl: string;
+    encode(message: BootstrapEpochCount, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): BootstrapEpochCount;
+    fromPartial(object: DeepPartial<BootstrapEpochCount>): BootstrapEpochCount;
 };

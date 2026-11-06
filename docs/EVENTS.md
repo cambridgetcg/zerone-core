@@ -51,9 +51,21 @@ Module enabled or disabled.
 *EndBlock.* Periodic AHI observation completed.
 - `height` -- block height
 - `composite_score` -- composite alignment score (BPS)
-- `category` -- health category (`healthy`, `warning`, `critical`)
-- `correction_count` -- number of corrections applied
+- `category` -- health category (`healthy`, `degraded`, `critical`; with the
+  `unobserved_health_enabled` marker, `not_observed` when registry presence is
+  unavailable or the custom staking registry is empty, including no active
+  validators only when there are also no inactive entries)
+- `correction_count` -- number of corrections generated (currently advisory)
 - `observation_count` -- cumulative observation count
+- `creation_multiplier_bps`, `analysis_multiplier_bps` -- stored pacing
+  multipliers. With Q1 selected they describe this observation, not the previous
+  category; `not_observed` is neutral (1,000,000 / 1,000,000). Raw scores and
+  advisory corrections remain recorded and are not proof of observed health.
+
+With Q1 selected, health below `CriticalThreshold` is critical, and below
+`DegradedThreshold` is degraded. At or above `HealthyThreshold` it is healthy.
+Between the degraded and healthy thresholds, a previously healthy chain stays
+healthy; otherwise it is degraded until recovery (including a first sample).
 
 ---
 
@@ -85,13 +97,18 @@ Result of a correction recorded for confidence tracking.
 
 ### zerone.alignment.network_health_critical
 Network health composite dropped to critical level; defensive pacing activated.
+With `unobserved_health_enabled`, also emitted on the first genuine observation
+of a chain born critical, or on `not_observed` → `critical`. Not repeated while
+critical persists. An empty registry alone never emits it on the Q1 path.
 - `analysis_multiplier_bps` -- pacing multiplier for analysis in BPS
 - `composite` -- composite health score
 - `creation_multiplier_bps` -- pacing multiplier for creation in BPS
 - `height` -- block height
 
 ### zerone.alignment.network_health_degraded
-Network health composite dropped below degraded threshold.
+Network health composite transitioned from healthy to degraded. With Q1 selected
+this uses `DegradedThreshold`, not the healthy threshold, and reports the new
+observation's pacing multipliers.
 - `analysis_multiplier_bps` -- pacing multiplier for analysis in BPS
 - `composite` -- composite health score
 - `creation_multiplier_bps` -- pacing multiplier for creation in BPS
@@ -1449,6 +1466,7 @@ Claim integrity (knowledge v12): the check for whether a CONTESTED fact may be r
 
 ### zerone.knowledge.confidence_clamped_to_floor
 On fact creation, the new fact's confidence was capped to its `dependency_confidence_floor` (ToK Wave 2). Emitted when a proof chain inherits a weaker ceiling than its own verification would give it.
+With the consensus-repairs-v2 zero-confidence-floor marker (0x93), resolved supporting citations that contribute zero also clamp and emit this event with `dependency_floor_bps=0`. Missing/unresolved or contradiction-only citations do not create a floor. Marker off retains the historical positive-floor-only event behavior. This is prospective; existing facts are not rewritten.
 - `fact_id` -- newly created fact
 - `dependency_floor_bps` -- inherited floor in BPS
 - `axiom_distance` -- minimum hops to a genesis axiom
@@ -1567,6 +1585,7 @@ Emitted when a fact's escrowed submitter reward is cancelled because the fact wa
 
 ### zerone.knowledge.agent_calibration_updated
 Submitter's track record changed — Phase 5 feedback loop. Emitted after round outcomes, corroborations earned, and disprovals. Closes the loop between training-pipeline output and on-chain evaluation.
+When calibration smoothing (0x92) is selected, `calibration_score_bps` uses the disproval penalty `DisprovenCount*BPS/(Accepted+1)`. The score remains a panel-history heuristic, not truth. Marker off preserves the historical formula and event bytes; review-neutrality retirement still suppresses these producers. The carrier's score-only recomputation does not replay these events or rewrite fact snapshots.
 - `address` -- submitter address
 - `account_type` -- "agent" / "human" / "hybrid"
 - `total_submissions` -- lifetime submission count
@@ -1607,6 +1626,7 @@ Governance amended the on-chain tokenizer contract (Route B Wave 3a). The caller
 
 ### zerone.knowledge.contributions_attributed
 Model owner declared the fact IDs consumed by training, creating the reverse fact→model index. New policy-1 records are declarations without computed valuation: `computed_tvw` is zero, calibration snapshots are absent, and any `total_weight` is owner-declared. Historical policy-0 records used corroboration/calibration heuristics.
+With calibration smoothing (0x92), newly computed policy-0 TVW honors a present zero calibration snapshot (`Fact.has_calibration_snapshot`), while unknown legacy zeros retain the neutral fallback. Existing contribution records and policy-1 behavior are unchanged; this does not enable disbursement.
 - `model_id` -- ModelCard being attributed
 - `attributed_by` -- owner (must equal ModelCard.owner_address)
 - `fact_count` -- deduplicated fact count actually recorded

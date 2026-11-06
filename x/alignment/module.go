@@ -16,6 +16,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
+	"github.com/zerone-chain/zerone/app/consensusrepairsv2migration"
 	"github.com/zerone-chain/zerone/internal/consensusrepairsmigration"
 	"github.com/zerone-chain/zerone/x/alignment/client/cli"
 	"github.com/zerone-chain/zerone/x/alignment/keeper"
@@ -89,6 +90,9 @@ func (am AppModule) IsAppModule()        {}
 
 // RegisterServices registers module services.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
+	if err := cfg.RegisterMigration(types.ModuleName, 2, consensusrepairsv2migration.Require); err != nil {
+		panic(err)
+	}
 	if err := cfg.RegisterMigration(types.ModuleName, 1, consensusrepairsmigration.Require); err != nil {
 		panic(err)
 	}
@@ -116,8 +120,9 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 	return bz
 }
 
-// ConsensusVersion returns the module's consensus version.
-func (AppModule) ConsensusVersion() uint64 { return 2 }
+// Version 3 selects Q1's stored not_observed category, threshold/event and
+// observation-cadence behavior. Downstream pacing and governance read that state.
+func (AppModule) ConsensusVersion() uint64 { return 3 }
 
 // BeginBlock is a no-op for alignment.
 func (am AppModule) BeginBlock(_ context.Context) error {
@@ -129,6 +134,20 @@ func (am AppModule) BeginBlock(_ context.Context) error {
 // When health degrades, enables 2x observation frequency (halved interval).
 // When health recovers to healthy, restores normal frequency.
 func (am AppModule) EndBlock(ctx context.Context) error {
+	unobservedHealth, err := am.keeper.UnobservedHealthEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if !unobservedHealth {
+		return am.endBlockLegacy(ctx)
+	}
+	return am.endBlockUnobservedHealth(ctx)
+}
+
+// endBlockUnobservedHealth is selected only by EndBlock's single marker read.
+// The selected result is persisted in PreviousCategory, not re-selected by
+// gas-metered pacing consumers in other modules.
+func (am AppModule) endBlockUnobservedHealth(ctx context.Context) error {
 	var err error
 	ctx, err = am.keeper.SelectInputs(ctx)
 	if err != nil {
@@ -165,6 +184,13 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 		return nil
 	}
 
+	// Establish presence before any observation writes or sensor events. Zero
+	// active stake is not absence: registered inactive validators are observed.
+	observed, err := am.keeper.HasHealthObservation(ctx)
+	if err != nil {
+		return fmt.Errorf("%w: %w", types.ErrHealthObservationFault, err)
+	}
+
 	// 1. Observe
 	obs := am.keeper.ObserveAll(ctx)
 	am.keeper.SetObservation(ctx, obs)
@@ -181,7 +207,10 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 	am.keeper.ApplyCorrections(ctx, corrections)
 
 	// 4. Health index
-	category := am.keeper.CategorizeHealth(ctx, scores.Composite)
+	category := types.CategoryNotObserved
+	if observed {
+		category = am.keeper.CategorizeObservedHealth(ctx, scores.Composite, state.PreviousCategory)
+	}
 	hi := am.keeper.BuildHealthIndex(scores, category, uint32(len(corrections)))
 	am.keeper.SetHealthIndex(ctx, hi)
 
@@ -197,14 +226,19 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 	)
 
 	// 5. Health transition responses
-	// Compute pacing for event enrichment (R29-6).
+	// Store this observation's pacing category before reading it for events.
+	// This also makes unknown neutral and clears stale accelerated cadence.
+	previousCategory := state.PreviousCategory
+	state.PreviousCategory = category
+	state.DegradedFrequencyActive = category == types.CategoryDegraded || category == types.CategoryCritical
+	state.LastObservationHeight = height
+	state.ObservationCount++
+	am.keeper.SetState(ctx, state)
 	creationPacing, analysisPacing := am.keeper.GetGlobalPacingMultiplier(ctx)
 
-	previousCategory := state.PreviousCategory
-	if previousCategory != "" && previousCategory != category {
+	if previousCategory != category {
 		switch {
 		case category == types.CategoryDegraded && previousCategory == types.CategoryHealthy:
-			state.DegradedFrequencyActive = true
 			sdkCtx.EventManager().EmitEvent(
 				sdk.NewEvent("zerone.alignment.network_health_degraded",
 					sdk.NewAttribute("height", fmt.Sprintf("%d", height)),
@@ -214,7 +248,6 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 				),
 			)
 		case category == types.CategoryCritical:
-			state.DegradedFrequencyActive = true
 			sdkCtx.EventManager().EmitEvent(
 				sdk.NewEvent("zerone.alignment.network_health_critical",
 					sdk.NewAttribute("height", fmt.Sprintf("%d", height)),
@@ -224,7 +257,6 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 				),
 			)
 		case category == types.CategoryHealthy && (previousCategory == types.CategoryDegraded || previousCategory == types.CategoryCritical):
-			state.DegradedFrequencyActive = false
 			sdkCtx.EventManager().EmitEvent(
 				sdk.NewEvent("zerone.alignment.network_health_recovered",
 					sdk.NewAttribute("height", fmt.Sprintf("%d", height)),
@@ -235,13 +267,6 @@ func (am AppModule) EndBlock(ctx context.Context) error {
 			)
 		}
 	}
-	state.PreviousCategory = category
-
-	// 6. Update state
-	state.LastObservationHeight = height
-	state.ObservationCount++
-	am.keeper.SetState(ctx, state)
-
 	// 6.5 Prune old correction outcomes (R29-4).
 	am.keeper.PruneOldOutcomes(ctx)
 

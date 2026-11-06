@@ -36,20 +36,22 @@ class ConsensusRepairsVersions(unittest.TestCase):
                 r.matching_upgrade_plan({"name": "wrong", "height": "42"}, p)
 
     def test_applied_carrier_requires_all_versions(self):
-        p = packet()
-        for missing in (None, *r.CONSENSUS_REPAIRS_VERSIONS):
-            vm = dict(r.CONSENSUS_REPAIRS_VERSIONS)
-            if missing:
-                del vm[missing]
-            results = [{"module_versions": [{"name": n, "version": str(v)} for n, v in vm.items()]}, {"height": "42"}]
-            with mock.patch.object(r, "upgrade_query", side_effect=results) as query:
+        for name, expected in (("consensus-repairs-v1", r.CONSENSUS_REPAIRS_VERSIONS),
+                               ("consensus-repairs-v2", r.CONSENSUS_REPAIRS_V2_VERSIONS)):
+            p = packet(name)
+            for missing in (None, *expected):
+                vm = dict(expected)
                 if missing:
-                    with self.assertRaises(r.RuntimeError):
-                        r.verify_applied_upgrade(None, None, None, p)
-                else:
-                    result = r.verify_applied_upgrade(None, None, None, p)
-                    self.assertEqual(result["module_versions"], vm)
-                    self.assertEqual(query.call_args.args[-1], "consensus-repairs-v1")
+                    del vm[missing]
+                results = [{"module_versions": [{"name": n, "version": str(v)} for n, v in vm.items()]}, {"height": "42"}]
+                with mock.patch.object(r, "upgrade_query", side_effect=results) as query:
+                    if missing:
+                        with self.assertRaises(r.RuntimeError):
+                            r.verify_applied_upgrade(None, None, None, p)
+                    else:
+                        result = r.verify_applied_upgrade(None, None, None, p)
+                        self.assertEqual(result["module_versions"], vm)
+                        self.assertEqual(query.call_args.args[-1], name)
 
 
 if __name__ == "__main__":

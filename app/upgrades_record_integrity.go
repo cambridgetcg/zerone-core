@@ -28,7 +28,7 @@ func recordIntegrityTargetVersionMap() module.VersionMap {
 // Earlier named releases retain their original target. No broad migration may
 // append knowledge 7->8, skip its predecessor, or downgrade current records.
 func requireRecordIntegrityTransitionOwner(name string, fromVM, targetVM module.VersionMap) error {
-	if fromVM["knowledge"] == 13 || targetVM["knowledge"] == 13 {
+	if fromVM["knowledge"] >= 13 || targetVM["knowledge"] >= 13 {
 		return requireConsensusRepairsTransitionOwner(name, fromVM, targetVM)
 	}
 	from, fromOK := fromVM["knowledge"]
