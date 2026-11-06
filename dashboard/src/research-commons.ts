@@ -4,7 +4,7 @@ export const RESEARCH_COMMONS_ENDPOINT =
   "/standards/research-commons.v0.1.json";
 export const RESEARCH_COMMONS_MAX_BYTES = 65_536;
 export const RESEARCH_COMMONS_SHA256 =
-  "39f9c72ebb625415df93645810dd682a3e0976828fd1b5cd9b4172b8dcc92397";
+  "ecbec6684b7d9138e3b31cc3403b691d31ab69caf30c9bbb3685d316fd25cc6b";
 export const RESEARCH_COMMONS_SCHEMA = "zerone.research-commons/v0.1";
 export const RESEARCH_COMMONS_RECIPROCAL_PROFILE_PATH =
   "docs/examples/agenttool-research-receipt/zerone-research-adapter-reciprocal.v0.1.json";
@@ -512,14 +512,14 @@ const RELATED_ARTIFACTS = [
     "correspondence-geometry-v0",
     "zerone.correspondence-geometry/v0",
     "dashboard/public/standards/correspondence-geometry.v0.json",
-    "5758bf7d746246fdc8f334bf3ed1c6ef331cd7e56de13450fa6c48f78be46497",
+    "034c51b893b1ae9d87307e8c13b4d7d192e7082407feb69cb4ed8263a2b50393",
     "RELATED_READING_DISCIPLINE_NOT_IMPORTED",
   ],
   [
     "explicit-invariant-discipline-v1",
     "zerone.explicit-invariant-discipline/v1",
     "dashboard/public/standards/explicit-invariant-discipline.v1.json",
-    "3f069931be2212cb6ef28f8de20db9dd057fd677ed5d152b17a2fc89d40d3b55",
+    "ab60dab183c79902f6b76d346c309abab76998cbf30494f122be7530248c1fc5",
     "PINNED_METHOD_INPUT_WITHOUT_SCIENTIFIC_RESULT_IMPORT",
   ],
 ] as const;
@@ -1398,7 +1398,7 @@ export function parseResearchCommons(value: unknown): ResearchCommons {
   );
   literal(
     methodInput.eid_sha256,
-    "3f069931be2212cb6ef28f8de20db9dd057fd677ed5d152b17a2fc89d40d3b55",
+    "ab60dab183c79902f6b76d346c309abab76998cbf30494f122be7530248c1fc5",
     "$.pilot.method_input.eid_sha256",
   );
   literal(
