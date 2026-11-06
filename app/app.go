@@ -542,6 +542,14 @@ func newZeroneApp(
 	activationPreflightReadOnly bool,
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) *ZeroneApp {
+	// Refuse to start, before touching any store, if this binary's Unicode
+	// tables are not the chain's: claim canonical hashes and index keys follow
+	// them, so such a node would fork on the first claim with a code point
+	// assigned after the pinned version.
+	if err := zeroneknowledgetypes.ValidateUnicodeTables(); err != nil {
+		panic(fmt.Errorf("refusing to start: %w", err))
+	}
+
 	interfaceRegistry, err := codectypes.NewInterfaceRegistryWithOptions(codectypes.InterfaceRegistryOptions{
 		ProtoFiles: proto.HybridResolver,
 		SigningOptions: signing.Options{

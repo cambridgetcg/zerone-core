@@ -1,4 +1,4 @@
-.PHONY: build install test lint proto-gen proto-swagger-gen proto-check creed-check authority-check clean pr-check cosmovisor-init boot-test genesis-check \
+.PHONY: build install go-version-check test lint proto-gen proto-swagger-gen proto-check creed-check authority-check clean pr-check cosmovisor-init boot-test genesis-check \
        build-linux-amd64 build-linux-arm64 build-darwin-arm64 build-all release \
        darwin-acl-helper frontier-intake-darwin-acl-helper \
        frontier-intake-macos-package frontier-intake-macos-package-check
@@ -25,12 +25,29 @@ LDFLAGS := -s -w \
 # hash discipline. Its hash is pinned at .makefile-hash; drift fails
 # make creed-check. No on-chain Contribution record is implied.
 
-build:
+# Binaries are built only with the exact Go release go.mod names, which CI and
+# the Dockerfiles pin too. Claim canonical hashes and index keys follow the
+# toolchain's Unicode tables, so a binary from another Go release can fork the
+# chain; the app also refuses to start on other tables
+# (x/knowledge/types/unicode_tables.go). Under the default GOTOOLCHAIN=auto an
+# older local Go fetches the pinned release; a newer one does not, so run
+# GOTOOLCHAIN=$(GO_VERSION_PIN) make <target>.
+GO_VERSION_PIN := $(shell awk '$$1 == "go" { print "go" $$2; exit }' go.mod)
+
+go-version-check:
+	@actual="$$(go env GOVERSION)"; \
+	if [ -z "$(GO_VERSION_PIN)" ] || [ "$$actual" != "$(GO_VERSION_PIN)" ]; then \
+		echo "Go '$$actual' is not the pinned '$(GO_VERSION_PIN)' from go.mod; its Unicode tables may differ and fork the chain." >&2; \
+		echo "Build with: GOTOOLCHAIN=$(GO_VERSION_PIN) make <target>" >&2; \
+		exit 1; \
+	fi
+
+build: go-version-check
 	mkdir -p build
 	@if [ "$$(/usr/bin/uname -s)" = Darwin ]; then $(MAKE) darwin-acl-helper; fi
 	$(GO_BUILD_ENV) go build -trimpath -buildvcs=true -ldflags "$(LDFLAGS)" -o build/zeroned ./cmd/zeroned
 
-install:
+install: go-version-check
 	@if [ "$$(/usr/bin/uname -s)" = Darwin ]; then $(MAKE) darwin-acl-helper; fi
 	@if [ "$$(/usr/bin/uname -s)" = Darwin ]; then \
 		bin_dir="$$(go env GOBIN)"; \
@@ -105,15 +122,15 @@ recursion-check:
 
 # ── Cross-compile targets ──────────────────────────────────────────────
 
-build-linux-amd64:
+build-linux-amd64: go-version-check
 	mkdir -p build
 	$(GO_BUILD_ENV) GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -buildvcs=true -ldflags "$(LDFLAGS)" -o build/zeroned-linux-amd64 ./cmd/zeroned
 
-build-linux-arm64:
+build-linux-arm64: go-version-check
 	mkdir -p build
 	$(GO_BUILD_ENV) GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath -buildvcs=true -ldflags "$(LDFLAGS)" -o build/zeroned-linux-arm64 ./cmd/zeroned
 
-build-darwin-arm64:
+build-darwin-arm64: go-version-check
 	@case "$$(/usr/bin/uname -s)" in Darwin) ;; *) \
 		echo "build-darwin-arm64 requires macOS so its mandatory ACL helper can be built" >&2; \
 		exit 1 ;; esac

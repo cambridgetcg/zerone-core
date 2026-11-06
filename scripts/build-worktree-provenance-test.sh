@@ -13,7 +13,11 @@ PARENT="$SCRATCH/parent checkout"
 WORKTREE="$PARENT/.worktrees/release candidate"
 mkdir -p "$PARENT/cmd/zeroned"
 cp "$ROOT/Makefile" "$PARENT/Makefile"
-printf 'module example.invalid/zerone-build-fixture\n\ngo 1.25.0\n' > "$PARENT/go.mod"
+# The Makefile's go-version-check builds only with the exact Go release the
+# go line names, so the fixture carries the repository's own go line.
+GO_LINE=$(awk '$1 == "go" { print $2; exit }' "$ROOT/go.mod")
+test -n "$GO_LINE"
+printf 'module example.invalid/zerone-build-fixture\n\ngo %s\n' "$GO_LINE" > "$PARENT/go.mod"
 printf 'package main\n\nfunc main() {}\n' > "$PARENT/cmd/zeroned/main.go"
 printf '/build/\n/.worktrees/\n' > "$PARENT/.gitignore"
 git -c init.defaultBranch=fixture init --quiet "$PARENT"
