@@ -41,6 +41,8 @@ for required in \
   '/internal/claimrecordmigration/context.go' \
   '/internal/fundsettlementmigration/context.go' \
   '/internal/claimintegritymigration/context.go' \
+  '/internal/consensusrepairsmigration/context.go' \
+  '/internal/activation/activation.go' \
   '/runtime/entrypoint.sh' '/public/genesis.json'; do
   grep -q "${required}$" "${TMP}/context-files" || fail "context omitted ${required}"
 done
