@@ -22,7 +22,10 @@ publication are separate events and are stated explicitly when they occur.
 - Fresh genesis must explicitly select all nine repairs. An offline copied-DB
   census supports re-checks before a height; dev-1 tooling recognizes knowledge
   12/13 without scheduling an upgrade.
-- Not scheduled. See [limits and rehearsal](docs/consensus-repairs-v1.md).
+- This source carries main after #167 (review finding F2): a carrier binary must
+  come from a source the proposal-coherence gate reports `COHERENT`, never from
+  the original head `a72ca85e`. Not scheduled. See
+  [limits and rehearsal](docs/consensus-repairs-v1.md).
 
 ## Source — 2026-11-05 Proposal-coherence release gate
 

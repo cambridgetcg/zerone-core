@@ -208,7 +208,9 @@ state repair, never log-and-skip or silently downgrade.
 
 ## Offline re-check
 
-Build without network access using the existing dependency cache:
+Cut the census tool, like any carrier binary, only from a source that the
+proposal-coherence gate reports `COHERENT` (below). Build without network access
+using the existing dependency cache:
 
     GOFLAGS='-mod=readonly -p=4' GOPROXY=off go build -buildvcs=false -trimpath -o <output>/consensus-repairs-census ./tools/consensus-repairs-census
 
@@ -242,6 +244,23 @@ The report includes the stored module version map. It can run before
 claim-integrity, but a successful census alone does not satisfy the handler's
 exact predecessor/plan checks. Tests compare every copied source file before
 and after both passing and failing scans.
+
+## Release source: proposal coherence (review finding F2)
+
+Every carrier source descends from `b8cff9c1`, so `ProcessProposal` replays the
+ante handler. A binary cut from the original carrier heads (`a72ca85e` for v1,
+`7253100b` for v2), which predate #167, would let a proposer offer a block its
+own `ProcessProposal` refuses, and one public transaction could stall dev-1
+again. This source merges main after #167 and #169. Before freezing a carrier or
+census-tool source, run, from a full clone of `main` with Python 3.12 or later:
+
+    python3 -I scripts/proposal-coherence-gate.py --commit <carrier-source> --out <report>
+
+and require `COHERENT`, binding the SHA-256 of the report to the release
+evidence ([UPGRADES.md](UPGRADES.md)). The gate refuses both original heads.
+`deploy/networks/zerone-dev-1/build-context.py` applies the gate's structural
+check itself and refuses to export a build context from a source the gate
+already refuses without running tests.
 
 ## Rehearsal still required — separate lane
 

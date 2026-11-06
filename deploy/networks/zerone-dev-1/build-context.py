@@ -2,6 +2,7 @@
 """Export only committed application/build inputs into a NEW Docker context."""
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path, PurePosixPath
@@ -17,12 +18,47 @@ FIXED = {"go.mod": "go.mod", "go.sum": "go.sum",
          NETWORK + "launch-binary-patch.py": "runtime/launch-binary-patch.py",
          NETWORK + "Dockerfile": "Dockerfile"}
 MAX_BYTES = 64 * 1024 * 1024
+# #169's release gate, read from this checkout. Its structural check runs here.
+GATE = Path(__file__).resolve().parents[3] / "scripts" / "proposal-coherence-gate.py"
 
 
 def git(repo, *args):
     env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
     env.update(GIT_NO_REPLACE_OBJECTS="1", GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull)
     return subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True, env=env).stdout
+
+
+def proposal_coherence(repo, commit):
+    """Refuse what scripts/proposal-coherence-gate.py refuses without running tests.
+
+    Since b8cff9c1 ProcessProposal replays the ante handler; a source in which it
+    does, but PrepareProposal does not replay its candidates with #167's coherence
+    tests in place, lets one public transaction stall the chain. The original
+    consensus-repairs carrier heads (a72ca85e, 7253100b) are such sources. A
+    source that passes this check still needs the full gate's COHERENT report
+    (docs/UPGRADES.md); the gate's ancestry checks need a full clone and are not
+    repeated here.
+    """
+    spec = importlib.util.spec_from_file_location("proposal_coherence_gate", GATE)
+    if spec is None or spec.loader is None:
+        raise ValueError("The proposal-coherence gate is missing from this checkout")
+    gate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gate)
+    try:
+        replay = any(gate.files_naming(repo, commit, marker) for marker in gate.REPLAY_MARKERS)
+        if not replay:
+            return "not-affected"
+        prepare = bool(gate.files_naming(repo, commit, gate.PREPARE_MARKER))
+        test_file = git(repo, "ls-tree", "--name-only", commit, "--", gate.COHERENCE_TEST_FILE).strip() != b""
+        missing = [name for directory, names in gate.REQUIRED_TESTS.items()
+                   for name in sorted(set(names) - gate.test_functions(repo, commit, directory))]
+    except gate.GateError as error:
+        raise ValueError(f"Proposal-coherence check could not read the source: {error}") from error
+    if not prepare or not test_file or missing:
+        raise ValueError("ProcessProposal replays the ante handler but PrepareProposal does not replay its "
+                         "candidates with the coherence tests in place; include cd6cd145 (#167) and run "
+                         "scripts/proposal-coherence-gate.py")
+    return "replays-with-coherence-tests"
 
 
 def destination(name):
@@ -47,6 +83,7 @@ def export(repo, commit, output):
         raise ValueError("Output must be a new path with an existing parent")
     if output == repo or repo in output.parents:
         raise ValueError("Keep the build context outside the repository")
+    proposal_coherence(repo, commit)
     entries, total = [], 0
     for row in git(repo, "ls-tree", "-rz", "--full-tree", commit).split(b"\0"):
         if not row:
