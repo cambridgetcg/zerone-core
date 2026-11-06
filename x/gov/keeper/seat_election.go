@@ -3,6 +3,7 @@ package keeper
 import (
 	"fmt"
 	"math/big"
+	"sort"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -249,6 +250,11 @@ func (k Keeper) VoteSeatElection(ctx sdk.Context, msg *types.MsgVoteSeatElection
 // has passed, and resolves them. For contested seats (multiple candidates), the
 // candidate with the highest yes_stake wins if they have a clear margin (>5%),
 // otherwise a runoff is triggered.
+//
+// Seats are tallied in ascending seat index, and each seat's candidates in
+// ascending ProposalId. Runoffs draw their IDs from one shared counter, so the
+// order in which seats are visited is consensus state: it must never follow Go
+// map iteration, which differs from run to run.
 func (k Keeper) TallySeatElections(ctx sdk.Context) {
 	currentHeight := uint64(ctx.BlockHeight())
 	params := k.GetParams(ctx)
@@ -272,7 +278,18 @@ func (k Keeper) TallySeatElections(ctx sdk.Context) {
 		bySeat[prop.SeatIndex] = append(bySeat[prop.SeatIndex], prop)
 	}
 
-	for seatIndex, candidates := range bySeat {
+	// Visit seats in ascending index, never in map order.
+	seatIndexes := make([]uint32, 0, len(bySeat))
+	for seatIndex := range bySeat {
+		seatIndexes = append(seatIndexes, seatIndex)
+	}
+	sort.Slice(seatIndexes, func(i, j int) bool { return seatIndexes[i] < seatIndexes[j] })
+
+	for _, seatIndex := range seatIndexes {
+		candidates := bySeat[seatIndex]
+		// The store iterates big-endian ProposalId keys, so this is already
+		// the order; sorting states it rather than relying on the key layout.
+		sort.Slice(candidates, func(i, j int) bool { return candidates[i].ProposalId < candidates[j].ProposalId })
 		if len(candidates) == 1 {
 			// Single candidate: standard quorum + support check.
 			prop := candidates[0]
