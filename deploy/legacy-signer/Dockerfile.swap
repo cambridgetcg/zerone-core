@@ -1,0 +1,32 @@
+# check=skip=InvalidDefaultArgInFrom
+# Binary-only swap image for the zerone-1 and zerone-testnet-1 signers.
+#
+# Written by an agent (Claude Code, delegate of session 8d4c201e) on 2026-11-06,
+# for Yu's word of 2026-11-05: "yes I want CometBFT patched on zerone-1 ahead of H3".
+#
+# BASE must be the signer's CURRENT image, pinned by manifest digest:
+#   zerone-1:         registry.fly.io/zerone-1@sha256:ba73fea59838503c9a099887a4604945b4e959a273b2015fd7eaf1baaf3f861a
+#                     (tag deployment-01KYBXWXV3PC24WX788CBZEE67)
+#   zerone-testnet-1: registry.fly.io/zerone-testnet-1@sha256:8c5a859572cea6eda34de062cce81ca82d46d36f7afaf64fabd1cb668bac311d
+#                     (tag deployment-01KYBXMYV8H1JGR4HC11K84XJS)
+#
+# The build context holds exactly one file, `zeroned`: 2e37c4c plus
+# deploy/legacy-observer/observer-dependencies.patch (CometBFT 0.38.25, Go 1.25.14),
+# sha256 d6391ea7e500425c898b6b98cb422f76a4262361d45452955182d9b92b743443,
+# 100651816 bytes (the signed zerone-1-observer-20260909.2 executable).
+#
+# Everything else is inherited from BASE unchanged: the entrypoint
+# (/usr/local/bin/entrypoint.sh, which execs `zeroned start` by PATH), the baked
+# seed directory (/mainnet-seed or /testnet-seed), ENV ZERONE_HOME, EXPOSE,
+# ENTRYPOINT and CMD. No label, user, workdir or other file is added, so the
+# only filesystem difference is one layer holding /usr/local/bin/zeroned.
+# verify-swap-image.py checks that against BASE before anything is pushed.
+#
+# build-swap-image.sh builds this twice with --no-cache, SOURCE_DATE_EPOCH set
+# to the 2e37c4c commit time (1784959094) and rewrite-timestamp=true, so the
+# manifest digest is reproducible for a given BASE and can be recorded before
+# the push. The parser directive on line 1 only silences BuildKit's warning
+# that BASE has no default; the build script always passes it.
+ARG BASE
+FROM ${BASE}
+COPY --chmod=0755 zeroned /usr/local/bin/zeroned
