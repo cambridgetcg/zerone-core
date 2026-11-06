@@ -76,8 +76,8 @@ class KitTests(unittest.TestCase):
         binary.write_bytes(b"\x7fELFunit-test-only-not-executable")
         ca = self.root / "synthetic-public-ca"
         ca.write_bytes(b"-----BEGIN CERTIFICATE-----\nunit-test-packaging-only\n-----END CERTIFICATE-----\n")
-        first = p.package_oci(binary, self.root, "b" * 64, ca)
-        second = p.package_oci(binary, self.root, "b" * 64, ca)
+        first = p.package_oci(binary, self.root, "b" * 64, ca, "c" * 64, p.DEPENDENCY_PATCH_SHA256)
+        second = p.package_oci(binary, self.root, "b" * 64, ca, "c" * 64, p.DEPENDENCY_PATCH_SHA256)
         self.assertEqual(first, second)
         with tarfile.open(self.root / "image.oci.tar") as archive:
             index = json.loads(archive_bytes(archive, "index.json"))
@@ -89,6 +89,8 @@ class KitTests(unittest.TestCase):
             config = json.loads(archive_bytes(archive, "blobs/sha256/" + manifest["config"]["digest"].split(":")[1]))
             self.assertEqual(config["config"]["Cmd"], ["start", "--home", "/data/.zeroned", "--minimum-gas-prices", p.MIN_GAS_PRICES])
             self.assertEqual(config["config"]["Env"], ["SSL_CERT_FILE=" + p.CA_PATH])
+            self.assertEqual(config["config"]["Labels"]["money.zerone.cometbft"], p.COMETBFT_VERSION)
+            self.assertEqual(config["config"]["Labels"]["money.zerone.dependency-patch-sha256"], p.DEPENDENCY_PATCH_SHA256)
             layer = archive_bytes(archive, "blobs/sha256/" + manifest["layers"][0]["digest"].split(":")[1])
             with tarfile.open(fileobj=io.BytesIO(layer)) as contents:
                 self.assertEqual(archive_bytes(contents, p.CA_PATH.lstrip("/")), ca.read_bytes())
@@ -178,12 +180,13 @@ class KitTests(unittest.TestCase):
 
     def test_readiness_requires_the_actual_source_pin(self):
         image, state = self.root / "image.json", self.root / "drill.json"
+        closure = {"dependency_patch_sha256": p.DEPENDENCY_PATCH_SHA256, "build_source_sha256": p.BUILD_SOURCE_SHA256}
         built = {"schema": "zerone-h1-testnet-image/v1", "status": "built-local", "reproduced": True,
                  "source_commit": p.SOURCE_COMMIT, "image_digest": IMAGE.split("@")[1], "binary_sha256": "b" * 64,
-                 "source_sha256": p.SOURCE_ARCHIVE_SHA256}
+                 "source_sha256": p.SOURCE_ARCHIVE_SHA256, **closure}
         report = {"schema": "zerone-h1-state-copy-drill/v1", "passed": True, "input_unchanged": True,
                   "evidence_class": "provided-state-copy-synthetic-abci", "copy_metadata": {"chain_id": ship.CHAIN},
-                  "source_commit": p.SOURCE_COMMIT, "source_sha256": p.SOURCE_ARCHIVE_SHA256}
+                  "source_commit": p.SOURCE_COMMIT, "source_sha256": p.SOURCE_ARCHIVE_SHA256, **closure}
         p.write_json(image, built)
         p.write_json(state, report)
         with mock.patch.object(ship.runtime_smoke, "validate_receipt") as checked:
@@ -247,9 +250,10 @@ class KitTests(unittest.TestCase):
         executable.chmod(0o700)
         config = self.root / "testnet.toml"
         config.write_text('app = "zerone-testnet-1"\n')
+        p.write_json(self.root / "drill.json", {"copy_metadata": {"height": 150}})  # freshness input only
         args = argparse.Namespace(image=IMAGE, image_available=True, zeroned=executable, ops_home=self.root,
                                   operator="validator", keyring_backend="test", image_receipt=self.root / "image.json",
-                                  drill_receipt=self.root / "drill.json", fly_config=config, height=200,
+                                  drill_receipt=self.root / "drill.json", fly_config=config, fly_machine=None, height=200,
                                   node="tcp://unit-test.invalid:26657", proposal=self.root / "proposal.json",
                                   runtime_receipt=self.root / "runtime.json", resume_proposal=None,
                                   gas="450000", fees="400000uzrn", halt_polls=4)
@@ -258,7 +262,8 @@ class KitTests(unittest.TestCase):
             calls.append(argv)
             command = argv[1:]
             if command[:2] == ["version", "--long"]:
-                return json.dumps({"name": "zerone", "server_name": "zeroned", "commit": p.SOURCE_COMMIT, "version": p.VERSION})
+                return json.dumps({"name": "zerone", "server_name": "zeroned", "commit": p.SOURCE_COMMIT, "version": p.VERSION,
+                                   "build_deps": ["github.com/cometbft/cometbft@" + p.COMETBFT_VERSION, "github.com/cosmos/cosmos-sdk@v0.50.15"]})
             if command[:2] == ["keys", "show"]:
                 return "zrnvaloper1fixture\n"
             if command[0] == "status":

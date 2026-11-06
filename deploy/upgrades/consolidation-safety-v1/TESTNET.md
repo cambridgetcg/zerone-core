@@ -6,6 +6,12 @@ permission and not a replacement for the mainnet release bar. Source remains
 The preserve branches are immutable review references. A PR based on
 `preserve/h1-ignition-kit` is for review only, not a merge into preserve.
 
+**Since 2026-11-06 the image is built with one pinned dependency patch**
+(`h1-dependencies.patch`, CometBFT v0.38.20 → v0.38.25). The application source
+is still exactly 65c19cd8; only `go.mod` and `go.sum` change in the build
+closure. Why, and what it changes, is in [Dependency patch](#dependency-patch-cometbft-v03825).
+The halt itself follows [TESTNET-HALT-RUNBOOK.md](TESTNET-HALT-RUNBOOK.md).
+
 ## Gates and evidence classes
 
 | Gate | Testnet | Mainnet (unchanged) |
@@ -44,8 +50,8 @@ H1's normalized 674-file closure is pinned to:
 
 The explicit differences from the forensic observer recipe are intentional:
 
-- Frozen **H1**, not the old live executable or the observer dependency patch.
-  No dependency/source patch is applied.
+- Frozen **H1** application source, not the old live executable. Its `go.mod`
+  and `go.sum` go through the pinned dependency patch below; nothing else changes.
 - The pinned Go 1.25.14 Linux amd64 builder from trunk's observer build notes:
   `registry-1.docker.io/library/golang@sha256:c268a04d59aea0b180ed9946a658cfab9e7b3391dc90eed6e4969ccff98c851f`.
 - `CGO_ENABLED=0`, matching H1's existing static cross-build target, instead of
@@ -68,13 +74,68 @@ By default an actual build requires a **native Linux/amd64 host**, as in the
 observer recipe. Dry runs work on other platforms. The explicit
 `--allow-emulated` alternative permits a Darwin/arm64 Studio's local VM/emulator,
 but requires **both** fresh-cache binaries to equal the pinned H1 cross-build:
-`f35c98b59aba9d9b77062dede87bbe18a688ee26adad5c0b961f156598633495`.
+`df70456f9296b3bd6593652466a405e1ee34a93f2136b5d668888764aaf8c592`
+(the patched closure; the retired v0.38.20 pin `f35c98b5…3495` is refused).
 It records `native_platform: "emulated"`, even if the flag is supplied on a native
 host. Reproducing a different hash twice is not sufficient: mismatch fails before
 OCI packaging, with `status: build-failed` and `reproduced: false`. This opt-in
 does not change the source, builder, build flags, offline rules or runtime gates.
 A missing prerequisite fails closed; these tools never install or fetch it.
 All outputs must be NEW directories under an explicitly selected scratch parent.
+
+### Dependency patch (CometBFT v0.38.25)
+
+The consensus review of 2026-11-05 (finding **cometbft-3**, high) found that
+65c19cd8 pins CometBFT v0.38.20, which reports itself as 0.38.19. That engine
+lets any peer that reaches P2P crash a sole validator with one oversized
+blocksync message (cometbft-1, critical, reproduced; fixed in v0.38.24) and
+carries GHSA-c32p-wcqj-j677 (cometbft-2, Tachyon; fixed in v0.38.21). Yu said on
+2026-11-05, "yes I want CometBFT patched on zerone-1 ahead of H3". Building H1
+from the unpatched closure would put a patched validator back on v0.38.20 at H1.
+
+So the build closure applies `h1-dependencies.patch`, byte-identical to trunk's
+reviewed `deploy/legacy-observer/observer-dependencies.patch`. It changes only
+these five `go.mod` requirements (and adds their `go.sum` lines): CometBFT
+v0.38.20 → v0.38.25, `lib/pq` v1.12.0, `highwayhash` v1.0.4, `goid` a731cc31b4fe,
+`go-deadlock` v0.3.9. Cosmos SDK v0.50.15 and IBC v8.8.0 are unchanged. The
+review found block protocol 11 and P2P 8 unchanged from 0.38.20 to 0.38.25, and
+a local chain swapped 0.38.20 → 0.38.25 mid-chain replayed to the same app hash.
+That evidence covers mostly empty blocks (review finding cometbft-5).
+
+| Pin | Value |
+| --- | --- |
+| Patch SHA-256 | `3eb79d1fa44f76fe8a5c8edbcf90445b5cd78b7b2d08d51a296143135fdd14ce` |
+| Frozen `go.mod` / `go.sum` (= legacy 2e37c4c) | `4ff80378…9ea9` / `1b9e1545…42bf` |
+| Patched `go.mod` / `go.sum` (= observer recipe targets) | `0a0e5514…1420` / `748a52dc…d30a` |
+| Frozen closure tar (`source.tar`, unchanged) | `2ab7a6b96ad6f2294ad7bbb7ddf5140c47763b8fca3ad9ae864e23927e49e722` |
+| Built closure tar (`build-source.tar`) | `7fee65036f2dddb6697ba6c4bece2c277825d8e15cead37778a5608b67730e7f` |
+| Linux amd64 executable (`CROSS_BUILD_SHA256`) | `df70456f9296b3bd6593652466a405e1ee34a93f2136b5d668888764aaf8c592` |
+| Version linker field | `h1-testnet-65c19cd8-cometbft-v0.38.25` |
+| OCI image manifest digest (built 2026-11-06) | `sha256:fdfa9ade6a239c39fb4867203fe8db46c379cd8a99b7b5133b72d61132a4e280` |
+| OCI archive SHA-256 | `3a046e2f6a4864145c54ddee36c92058d1620a70eafb87056468b66d516f3acd` |
+
+The applier is observer-build.py's strict one: exact context and counts, pinned
+inputs and outputs, no fuzz. `source-closure.json` (schema v2) keeps the frozen
+Git blob list and adds the patch hash, the patched files and `build_files`.
+Image and drill receipts carry `dependency_patch_sha256` and
+`build_source_sha256`; readiness and the runtime smoke refuse any receipt
+without them, so the 2026-10-28 image (`sha256:a4598514…e327`, binary
+`f35c98b5…`) and drill receipt no longer qualify. `build()` also refuses a
+binary whose `go version -m` does not link CometBFT v0.38.25 with SDK v0.50.15,
+and `check_version` requires `github.com/cometbft/cometbft@v0.38.25` in the
+CLI's `build_deps`. The drill's H1 helper uses the patched closure; the legacy
+helper stays unpatched, because it stands for the binary running before H.
+
+How the executable pin was set: two `GOOS=linux GOARCH=amd64 CGO_ENABLED=0`
+cross-builds on the Studio with the official go1.25.14 toolchain (from
+proxy.golang.org), fresh caches, the exact build flags above. The same method
+reproduces the retired pin `f35c98b5…` from the unpatched closure, so the
+method matches the pinned Docker builder. The two emulated builds through
+`provenance.py --allow-emulated` must then equal it.
+
+This amends the lighter bar of `zc-h1-testnet-bar` ("image built from 65c19cd8"):
+the source is the same commit, but the executable is a different, patched build.
+That amendment is the host's to record in the decision ledger.
 
 ### Populate the public module cache (separately authorized network step)
 
@@ -381,13 +442,18 @@ never overwrites the installed copy. It fixes the four defects:
    `$HOME/go/bin/zeroned` fallback. The installed CLI location is operator input,
    not guessed by this offline preparation run. Before contacting RPC or opening
    an operator key, `version --long --output json` runs in a NEW temporary home
-   and must match the frozen H1 commit and `h1-testnet-65c19cd8` version/name.
+   and must match the frozen H1 commit and `h1-testnet-65c19cd8-cometbft-v0.38.25`
+   version/name, and list `github.com/cometbft/cometbft@v0.38.25` in `build_deps`.
    Build/adopt this CLI with the documented H1 linker fields, not an unstamped
    `dev` binary. A matching self-reported version is not a signature.
 2. Uses the same explicit bonded `--operator` for proposing and voting, rejects
    `faucet`, and checks the operator is unjailed/bonded with voting power.
 3. Emits `fly deploy --config <reviewed-testnet-config> --app zerone-testnet-1
-   --image <registry/name@sha256:...>`. It never invokes Fly or builds at the halt.
+   --image <registry/name@sha256:...>`, or with `--fly-machine <id>` (preferred
+   since 2026-11-06) the in-place swap `fly machine update <id> --app
+   zerone-testnet-1 --image <registry/name@sha256:...>`, which keeps the
+   machine's volume, services, env and restart policy. It never invokes Fly or
+   builds at the halt.
 4. Requires **four consecutive successful equal-height pairs**: Comet status at
    H−1 or H, and ABCI committed height exactly H−1. Comet can stage H before ABCI
    refuses it; a status value H alone does not prove whether H committed.
@@ -418,7 +484,7 @@ an installed compatible Go 1.25.x, from the repository root:
   export GOMODCACHE=/path/to/public-go-module-cache GOCACHE="$WORK/cli-go-cache" HOME="$WORK/cli-home"
   go mod verify
   go build -p 4 -buildvcs=false -trimpath \
-    -ldflags '-s -w -X github.com/cosmos/cosmos-sdk/version.Name=zerone -X github.com/cosmos/cosmos-sdk/version.AppName=zeroned -X github.com/cosmos/cosmos-sdk/version.Version=h1-testnet-65c19cd8 -X github.com/cosmos/cosmos-sdk/version.Commit=65c19cd8b00bdfff9b80705b776fd0d49719398a' \
+    -ldflags '-s -w -X github.com/cosmos/cosmos-sdk/version.Name=zerone -X github.com/cosmos/cosmos-sdk/version.AppName=zeroned -X github.com/cosmos/cosmos-sdk/version.Version=h1-testnet-65c19cd8-cometbft-v0.38.25 -X github.com/cosmos/cosmos-sdk/version.Commit=65c19cd8b00bdfff9b80705b776fd0d49719398a' \
     -o "$WORK/cli/zeroned" ./cmd/zeroned
   "$WORK/cli/zeroned" version --long --output json --home "$WORK/cli-home"
   shasum -a 256 "$WORK/cli/zeroned"
@@ -426,8 +492,8 @@ an installed compatible Go 1.25.x, from the repository root:
 ```
 
 Use an absolute `WORK` path; stop if export, verification or build fails. Check
-`name=zerone`, `server_name=zeroned`, `version=h1-testnet-65c19cd8` and the full
-H1 commit above, then pass `--zeroned "$WORK/cli/zeroned"` only after operator
+`name=zerone`, `server_name=zeroned`, `version=h1-testnet-65c19cd8-cometbft-v0.38.25`,
+`github.com/cometbft/cometbft@v0.38.25` in `build_deps` and the full H1 commit above, then pass `--zeroned "$WORK/cli/zeroned"` only after operator
 adoption. No existing home or key is used by these build/version commands.
 The helper executables from the state-copy drill cannot substitute for this CLI.
 
@@ -439,7 +505,7 @@ bash "$KIT/ship-consolidation-safety.sh" --chain-id zerone-testnet-1 \
   --zeroned /path/to/current/verified/zeroned --ops-home /operator/supplied/home \
   --operator validator --node tcp://operator-supplied-endpoint:26657 \
   --image registry/name@sha256:<actual-manifest-digest> \
-  --fly-config /path/to/reviewed-testnet.toml --height <chosen-H> \
+  --fly-machine <testnet-machine-id> --height <chosen-H> \
   --proposal /new/local/proposal.json
 ```
 
@@ -449,10 +515,13 @@ requires `SHIP_ACK=zerone-testnet-1` after Yu's explicit testnet halt yes,
 operator's verification that the prebuilt digest is available before proposing;
 it is not a registry check by the script. The real provided-state drill and
 image must identify the same frozen source. Dry runs/fixtures cannot qualify.
+The drill copy must also be recent: `--execute` refuses a drill whose copy
+height is more than 35,000 blocks (about a day at ~2.5 s) below H, or not below
+H at all (review finding H1-F6; the 2026-10-28 copy at 3,585,179 is far older).
 Review the voting period, block cadence and chosen H; the simple height-headroom
 check is not a timing guarantee. Failed/ambiguous transactions require exact
 reconciliation, never blind resubmission. Proposal ID comes from the included
-submit transaction, not the latest voting proposal. `--gas` (default `300000`)
+submit transaction, not the latest voting proposal. `--gas` (default `400000` for the submit)
 and `--fees` (default `300000uzrn`) are independently configurable positive
 integers; `auto` simulation is refused. The same selections apply to submission
 and vote. Select them before authorizing transactions; no fee policy or assertion

@@ -25,7 +25,8 @@ class ReviewTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         self.host = "unix:///home/operator/.colima/default/docker.sock"
-        self.version = {"name": "zerone", "server_name": "zeroned", "commit": p.SOURCE_COMMIT, "version": p.VERSION}
+        self.version = {"name": "zerone", "server_name": "zeroned", "commit": p.SOURCE_COMMIT, "version": p.VERSION,
+                        "build_deps": ["github.com/cometbft/cometbft@" + p.COMETBFT_VERSION, "github.com/cosmos/cosmos-sdk@v0.50.15"]}
 
     def inputs(self):
         image = self.root / "image.json"
@@ -35,13 +36,14 @@ class ReviewTests(unittest.TestCase):
         (home / "data/application.db/CURRENT").write_text("MANIFEST-000001\n")
         (home / "data/application.db/MANIFEST-000001").write_text("unit mock, not a database")
         (home / ".h1-disposable-copy").write_text("local-only; never a validator home\n")
+        closure = {"dependency_patch_sha256": p.DEPENDENCY_PATCH_SHA256, "build_source_sha256": p.BUILD_SOURCE_SHA256}
         built = {"schema": "zerone-h1-testnet-image/v1", "status": "built-local", "reproduced": True,
-                 "source_commit": p.SOURCE_COMMIT, "source_sha256": p.SOURCE_ARCHIVE_SHA256,
+                 "source_commit": p.SOURCE_COMMIT, "source_sha256": p.SOURCE_ARCHIVE_SHA256, **closure,
                  "image_digest": IMAGE.split("@")[1], "binary_sha256": "b" * 64, "ca_bundle_sha256": "c" * 64}
         drill = {"schema": "zerone-h1-state-copy-drill/v1", "passed": True, "input_unchanged": True,
-                 "source_commit": p.SOURCE_COMMIT, "source_sha256": p.SOURCE_ARCHIVE_SHA256,
+                 "source_commit": p.SOURCE_COMMIT, "source_sha256": p.SOURCE_ARCHIVE_SHA256, **closure,
                  "evidence_class": "provided-state-copy-synthetic-abci", "copy_metadata": {"chain_id": ship.CHAIN,
-                 "provenance": "UNIT MOCK ONLY, NOT PROVIDED STATE"},
+                 "height": 150, "provenance": "UNIT MOCK ONLY, NOT PROVIDED STATE"},
                  "working_file_sha256": runtime.drill_tool.working_inventory(home)}
         p.write_json(image, built)
         p.write_json(folder / "drill.json", drill)
@@ -146,8 +148,9 @@ class ReviewTests(unittest.TestCase):
     def fake_export(self, repository, output):
         (output / "src").mkdir()
         (output / "src/go.mod").write_text("unit fixture only\n")
-        return {"source_sha256": p.SOURCE_ARCHIVE_SHA256,
-                "files": [{"path": "go.mod", "sha256": p.sha256(output / "src/go.mod")}]}
+        files = [{"path": "go.mod", "sha256": p.sha256(output / "src/go.mod")}]
+        return {"source_sha256": p.SOURCE_ARCHIVE_SHA256, "files": files, "build_files": files,
+                "dependency_patch_sha256": p.DEPENDENCY_PATCH_SHA256, "build_source_sha256": p.BUILD_SOURCE_SHA256}
 
     def test_dry_run_records_socket_without_subprocess(self):
         with mock.patch.object(p, "export_source", side_effect=self.fake_export), \
@@ -171,7 +174,7 @@ class ReviewTests(unittest.TestCase):
                 directory = Path(mount.split("src=", 1)[1].split(",dst=")[0])
                 (directory / "zeroned").write_bytes(b"\x7fELFunit mock only")
             elif "-m" in argv:
-                kwargs["stdout"].write(b"/out/zeroned: go1.25.14\n build GOOS=linux\n build GOARCH=amd64\n build CGO_ENABLED=0\n")
+                kwargs["stdout"].write(b"/out/zeroned: go1.25.14\n\tdep\tgithub.com/cometbft/cometbft\tv0.38.25\th1:unit\n\tdep\tgithub.com/cosmos/cosmos-sdk\tv0.50.15\th1:unit\n build GOOS=linux\n build GOARCH=amd64\n build CGO_ENABLED=0\n")
             elif "cat" in argv:
                 kwargs["stdout"].write(b"-----BEGIN CERTIFICATE-----\nunit packaging fixture\n-----END CERTIFICATE-----\n")
             return subprocess.CompletedProcess(argv, 0)
@@ -309,9 +312,11 @@ class ReviewTests(unittest.TestCase):
         cli.chmod(0o700)
         config = self.root / "testnet.toml"
         config.write_text('app = "zerone-testnet-1"\n')
+        p.write_json(self.root / "drill.json", {"copy_metadata": {"height": 150}})  # freshness input only
         return argparse.Namespace(zeroned=cli, ops_home=self.root / "never-open-home", operator="validator", image=IMAGE,
                                   image_available=True, image_receipt=self.root / "image.json", drill_receipt=self.root / "drill.json",
-                                  runtime_receipt=self.root / "runtime.json", fly_config=config, resume_proposal="12", height=200,
+                                  runtime_receipt=self.root / "runtime.json", fly_config=config, fly_machine=None,
+                                  resume_proposal="12", height=200,
                                   halt_polls=4, gas="300000", fees="300000uzrn", proposal=None, node="tcp://invalid.invalid:1")
 
     def test_timeout_can_resume_without_key_access_submission_or_vote(self):

@@ -1,5 +1,5 @@
 {
-  "_comment": "consolidation-safety-v1 gov proposal template. plan.info MUST be canonical compact sorted-key JSON (>=1 key, <=4096 bytes) — H1's startup lineage wall verifies it byte-for-byte against data/upgrade-info.json; free text bricks the swap. Replace <HEIGHT> and <IMAGE-DIGEST-REF>; deposit is the live min_deposit (100 ZRN).",
+  "_comment": "consolidation-safety-v1 gov proposal template. plan.info MUST be canonical compact sorted-key JSON (>=1 key, <=4096 bytes) — H1's startup lineage wall verifies it byte-for-byte against data/upgrade-info.json; free text bricks the swap. Replace <HEIGHT> and <IMAGE-DIGEST-REF>; deposit is zerone-1's live min_deposit (100 ZRN; testnet is 10 ZRN). Prefer h1-proposal.py draft, which builds and validates Info, pins the deposit per chain and writes an unsigned tx.",
   "messages": [
     {
       "@type": "/cosmos.upgrade.v1beta1.MsgSoftwareUpgrade",

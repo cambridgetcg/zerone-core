@@ -85,6 +85,8 @@ def build_helpers(repository, destination):
             subprocess.run(argv, cwd=export / "src", env=env, stdout=log, stderr=subprocess.STDOUT,
                            check=True, timeout=1800)
         receipt[label] = {"source_commit": commit, "source_sha256": closure["source_sha256"],
+                          "dependency_patch_sha256": closure["dependency_patch_sha256"],
+                          "build_source_sha256": closure["build_source_sha256"],
                           "executable_sha256": p.sha256(output / (label + "-helper")), "command": argv}
     p.write_json(output / "helpers.json", receipt)
     return receipt
@@ -119,6 +121,9 @@ def drill(source, helpers, destination, synthetic=False):
     receipt = json.loads((helpers / "helpers.json").read_text())
     p.require(receipt.get("schema") == "zerone-h1-drill-helpers/v1", "unknown helper receipt")
     p.require(receipt.get("helper_source_sha256") == p.sha256(HERE / "rehearsal.go"), "helper source drift")
+    p.require(receipt.get("h1", {}).get("build_source_sha256") == p.BUILD_SOURCE_SHA256 and
+              receipt["h1"].get("dependency_patch_sha256") == p.DEPENDENCY_PATCH_SHA256,
+              "H1 helper predates the pinned CometBFT " + p.COMETBFT_VERSION + " build closure; rebuild helpers")
     for label, commit in (("old", p.OLD_COMMIT), ("h1", p.SOURCE_COMMIT)):
         binary = helpers / (label + "-helper")
         p.require(binary.is_file() and not binary.is_symlink(), "helper is not a regular executable")
@@ -138,6 +143,8 @@ def drill(source, helpers, destination, synthetic=False):
     report = {"schema": "zerone-h1-state-copy-drill/v1", "passed": False,
               "evidence_class": "synthetic-fixture" if synthetic else "provided-state-copy-synthetic-abci",
               "source_commit": p.SOURCE_COMMIT, "source_sha256": receipt["h1"]["source_sha256"],
+              "dependency_patch_sha256": receipt["h1"].get("dependency_patch_sha256"),
+              "build_source_sha256": receipt["h1"].get("build_source_sha256"),
               "copy_metadata": meta, "input_file_sha256": before, "helpers": receipt,
               "plan_info": info, "phases": [], "input_unchanged": False,
               "limitations": "Local plan staging and synthetic empty ABCI blocks; no signer, quorum, RPC halt polling, governance or image-runtime proof."}

@@ -104,6 +104,27 @@ K5/P1/L3/V1):
    `upgrade-info.json` to the completed-H2 plan (byte content from the H2
    halt), then `--unsafe-skip-upgrades <H3-height>` starts and clears the
    bad plan. Plan H3's proposal carefully — the escape hatch is narrow.
+9. **The H1 binary's rollback path closes after an H2 halt too** (consensus
+   review 2026-11-05, finding H1-F1, reproduced end to end). When the H1 binary
+   halts at H2 it writes `data/upgrade-info.json` naming
+   `founder-renunciation-v1`. If the H2 binary then fails, restarting the H1
+   binary, even with `--unsafe-skip-upgrades <H2>`, panics:
+   `refusing unsafe consolidation lineage at startup: local upgrade-info.json
+   conflicts with completed H1 height <H1>` (`app/consolidation_lineage.go:279-289`).
+   A chain born on H1 (native lineage) refuses **any** packet (`:322-326`).
+   The H2 source's docs (`36728afb docs/UPGRADES.md:94-98`) send recovery to a
+   "signed ceremony runbook" that does not exist in the repository. The H1-side
+   recovery is written out in
+   [TESTNET-HALT-RUNBOOK.md, "If H2 later fails"](TESTNET-HALT-RUNBOOK.md#if-h2-later-fails-h1-f1):
+   check the committed plan equals the packet at latest+1, snapshot, move the
+   packet aside (never delete it), then start H1 with the skip height as explicit
+   argv, because the scratch H1 image ignores `EXTRA_START_FLAGS`. Rehearse it on
+   a disposable testnet copy after testnet H1, before any mainnet H2.
+10. **H1 is built with CometBFT v0.38.25** (finding cometbft-3): the frozen
+   source plus the pinned dependency patch `h1-dependencies.patch`. See
+   [TESTNET.md](TESTNET.md#dependency-patch-cometbft-v03825). H2 (36728afb)
+   needs the same five module bumps, but this patch does not apply to its
+   `go.mod` (different require-block context); it needs its own reviewed patch.
 
 ## Files
 
@@ -121,6 +142,16 @@ K5/P1/L3/V1):
   halt. The installed operator-home script is not modified by this kit.
 - `test-offline.py`, `test_kit.py`, `test-fixture.go` — offline unit/adapter tests
   and a real synthetic old→H1 migration/restart fixture, not current testnet state.
+- `h1-dependencies.patch` — the pinned CometBFT v0.38.25 dependency patch
+  (byte-identical to trunk's `deploy/legacy-observer/observer-dependencies.patch`).
+- `h1-proposal.py` — canonical plan.Info and an UNSIGNED MsgSoftwareUpgrade
+  proposal tx with pinned gov authority and deposit (finding H1-F2); never signs
+  or broadcasts. `plan-info-corpus.json` holds the real Go validator's verdicts
+  that its port must match; `plan_info_crosscheck_test.go` regenerates them.
+- `pre-h-census.py` — read-only PASS/FAIL census of the states that make the H1
+  handler fail at H (finding H1-F4 and the liquiditypool settings).
+- `TESTNET-HALT-RUNBOOK.md` — proposal, vote, halt, image swap, checks, rollback,
+  and the H2 recovery gap.
 
 ## Still needs the operator (nothing here ships without it)
 
