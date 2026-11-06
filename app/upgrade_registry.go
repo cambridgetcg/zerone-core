@@ -68,7 +68,7 @@ func (app *ZeroneApp) BuildChainVersionReport() ChainVersionReport {
 	// coherence; the test in Wave 10.2 asserts parity between this list
 	// and the registered handlers so drift gets caught immediately.
 	known := []UpgradeLineageEntry{
-		{UpgradeName: UpgradeNameConsensusRepairsV2, Description: "consensus-repairs-v2 — exact v1 predecessor; alignment 2->3 and knowledge 13->14, four atomic markers and Q5 score recompute, bounded censuses and receipt; no redistribution."},
+		{UpgradeName: UpgradeNameConsensusRepairsV2, Description: "consensus-repairs-v2 — exact v1 predecessor; alignment 2->3, knowledge 13->14 and vesting_rewards 3->4, five atomic markers (Q1 and the bank-supply denominator together) and Q5 score recompute, bounded censuses and receipt; no redistribution."},
 		{UpgradeName: UpgradeNameConsensusRepairsV1, Description: "consensus-repairs-v1 — exact claim-integrity predecessor; ten guarded version steps and nine markers (the bank-supply marker waits for v2 and Q1), bounded read-only censuses, atomic receipt; no redistribution."},
 		{UpgradeName: UpgradeNameKnowledgeClaimIntegrityV1, Description: "knowledge-claim-integrity-v1 — exact completed fund-settlement predecessor; knowledge 11->12 selects claim-integrity semantics (marker 0x87 and its receipt only) for future execution; rewrites no claim, fact, index, round or history record and rebuilds nothing."},
 		{UpgradeName: UpgradeNameKnowledgeFundSettlementV1, Description: "knowledge-fund-settlement-v1 — exact completed claim-records predecessor; knowledge 10->11 records future admission funding terms and terminal fund outcomes; preserves prior claims, obligations and balances without inferred historical refunds."},
