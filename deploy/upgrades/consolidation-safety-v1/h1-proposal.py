@@ -319,6 +319,10 @@ def check_unsigned(tx, chain_id, image, height):
 
 
 def draft(args):
+    # The kit's image is the testnet build (VERSION h1-testnet-...); no mainnet bar exists yet,
+    # so a zerone-1 draft would propose the testnet build to mainnet.
+    require(args.chain_id != "zerone-1",
+            "zerone-1 drafts are refused: this kit builds the testnet image, and the mainnet bar does not exist yet")
     rpc, rest = _endpoint(args.rpc, "rpc"), _endpoint(args.rest, "rest")
     image = ship.validate_image(args.image)
     observed = observe(rpc, rest, args.chain_id)
@@ -388,7 +392,9 @@ def main():
     make.add_argument("--extra-blocks", type=int, default=120)
     make.add_argument("--submit-seconds", type=int, default=DEFAULT_SUBMIT_SECONDS)
     make.add_argument("--after-pass-seconds", type=int, default=DEFAULT_AFTER_PASS_SECONDS)
-    make.add_argument("--gas", default="300000")
+    # Measured submit cost is about 69k + 193 gas per tx byte (testnet proposals 2-4, mainnet 6);
+    # a signed H1 draft is about 740 B, about 212k. 400000 leaves ~1.9x headroom at no extra fee.
+    make.add_argument("--gas", default="400000")
     make.add_argument("--fees", default="300000uzrn")
     make.add_argument("--summary", default="H1 consolidation-safety-v1: frozen source " + p.SOURCE_COMMIT +
                       ", CometBFT " + p.COMETBFT_VERSION + " dependency patch")

@@ -83,7 +83,11 @@ What works without changing the kit's contract:
    destroyed, and check the inventory hashes against `drill.json` on arrival.
 3. Run `runtime_smoke.py --execute` on the Mac in colima against the exact image
    digest (loaded so that `name@sha256:<digest>` resolves locally, as the
-   2026-10-28 start check did). Needs about 20 GB free on the Mac.
+   2026-10-28 start check did). Needs about 20 GB free on the Mac; the Studio
+   had 11-18 GiB free on 2026-11-06, so free space first. The drilled home leaves
+   the disposable app through `fly ssh sftp get` of a tar made on its volume, and
+   is checked against `drill.json` on arrival. It is keyless only if G3's scrub
+   receipt says so; never copy a home whose scrub did not pass.
 
 If bringing the drilled home back is not acceptable, the halt stays gated. The
 alternative is a Fly-native smoke in the same disposable app: start a second
@@ -110,8 +114,9 @@ Each gate must hold. Record the evidence beside the receipts.
   2026-11-06: binary `df70456f…c592` (= the pinned cross-build), OCI manifest
   `sha256:fdfa9ade6a239c39fb4867203fe8db46c379cd8a99b7b5133b72d61132a4e280`, archive `3a046e2f…3acd`. Done.
 - **G2 Image on Fly's registry, by digest.** Publishing to
-  `registry.fly.io/zerone-testnet-1` is an outward act; it rides the halt yes
-  only if the host reads it that way and says so. Use a transfer that keeps the
+  `registry.fly.io/zerone-testnet-1` is a push to the app's own private
+  registry; it rides the halt yes only if the host reads it that way and says so
+  in the record. Keep the registry login in a throwaway `DOCKER_CONFIG`. Use a transfer that keeps the
   OCI manifest digest (`skopeo copy --preserve-digests oci-archive:$WORK/image-build-emulated/image.oci.tar docker://registry.fly.io/zerone-testnet-1:h1-c25`,
   with a short-lived Fly registry token), then read the manifest back and compare:
   `skopeo inspect --raw docker://$IMAGE | shasum -a 256` must equal the receipt's
@@ -122,13 +127,52 @@ Each gate must hold. Record the evidence beside the receipts.
   than 35,000 blocks below H. The 2026-10-28 drill tooling (`drills-v3`) was in
   `/private/tmp` and has been swept; only `RUNBOOK-v3.md` and the evidence remain
   in `~/.kingdom/motifs/carrier/drills-20261028/`. The tooling must be restored or
-  rebuilt (the observer lane needs the same scrub gate). A fresh Fly copy is a
-  Fly write; TESTNET.md says fetching a copy needs its own yes, so the host
-  decides whether the halt yes covers it.
+  rebuilt, and rebuilt tooling is reviewed before use. A fresh Fly copy is a
+  Fly write and a new paid resource (an app and a 20-40 GB volume for a few
+  hours); TESTNET.md says fetching a copy needs its own yes, so the host
+  decides whether the halt yes covers it and says so in the record.
+
+  The restored volume holds the live testnet validator's
+  `priv_validator_key.json`, `node_key.json` and `keyring-test` (drill B
+  inventory, 2026-10-28), and testnet has one bonded validator holding all bonded
+  stake. A copy that starts `zeroned` with that key signs heights the live chain
+  already signed; if that evidence reached the live node over 6PN
+  (`zerone-testnet-1.internal:26656` still listens), it would tombstone the only
+  validator and halt testnet for good. So, every time, with a kept receipt:
+
+  1. Only a drill image whose entrypoint never starts `zeroned` mounts the
+     restored volume. Never the legacy image (its entrypoint `exec`s `zeroned
+     start` on an existing volume) and never the H1 image.
+  2. Before any `zeroned` process runs, the scrub passes: new consensus and node
+     keys replace the copied ones (the consensus pubkey must differ from the
+     live one), keyrings removed, key-file paths and `priv_validator_laddr`
+     forced, P2P and RPC on loopback, and no peers, seeds or address book.
+  3. The drill app is on its own custom 6PN network (`fly apps create --network
+     <drill-net>`), with no IPs and no services, so it cannot reach the live node.
+  4. Afterwards destroy the machine, the volume and the app, and confirm with
+     `fly apps list`, `fly volumes list` and the snapshot list that nothing is
+     left.
+
+  The H2-recovery rehearsal below uses the same rules.
+- **G3b Fly boots this digest.** In the G3 drill app, before proposing, run the
+  exact `$IMAGE` digest keyless on a throwaway volume: `version`, and a
+  `start --with-comet=false` on a fresh home. The H1 binary panics at init with
+  `$HOME is not defined` when HOME is unset (65c19cd8 app/app.go:303-305), the
+  image is scratch with no `/etc/passwd`, and the kit's own smoke injects
+  `HOME=/tmp`, so whether Fly sets HOME for this image, and whether it unpacks
+  its uncompressed OCI layer, is unchecked until this runs. If HOME is unset, the
+  step-5 machine update must add `--env HOME=/data` (or the image must set it).
+- **G3c Rollback rehearsed.** On the G3 copy, halted at H by the H1 plan, run
+  the legacy rollback image with `--unsafe-skip-upgrades H` and expect block H
+  committed and the plan cleared. Nothing in the kit or the 10-28 drills has
+  exercised the skip yet.
 - **G4 Runtime smoke.** `runtime_smoke.py --execute` receipt for `$IMAGE` and
   the G3 drill (see the section above).
 - **G5 Census.** `python3 $KIT/pre-h-census.py --rpc $RPC --rest $REST --output $WORK/census-0`
-  prints `PASS`.
+  prints `PASS`. The run at H-1 is mandatory, not best effort: the
+  governance-quiet check sees only x/gov proposals open at the census height, so
+  a 120 s proposal can pass between runs, and zerone_gov proposals are not read
+  at all. Check zerone_gov by hand at H-1 until the census reads it.
 - **G6 CLI.** `$CLI version --long --output json --home $(mktemp -d)` shows
   `h1-testnet-65c19cd8-cometbft-v0.38.25`, commit 65c19cd8 and
   `github.com/cometbft/cometbft@v0.38.25` in `build_deps`.
@@ -320,14 +364,14 @@ upgrade-info.json conflicts with completed H1 height <H1>`. Recovery:
    `fly machine update $MACHINE -a $APP --image <busybox@sha256:…> --entrypoint /bin/sh --command "-c 'mv /data/.zeroned/data/upgrade-info.json /data/.zeroned/data/upgrade-info.json.h2-halt-<H2> && sync && sleep 3600'" --yes`,
    and check `fly logs` shows it exited the `mv` cleanly.
 4. Start H1 with the skip as explicit argv and no entrypoint override:
-   `fly machine update $MACHINE -a $APP --image "$IMAGE" --entrypoint "" --command "start --home /data/.zeroned --minimum-gas-prices 0.025uzrn --unsafe-skip-upgrades <H2>" --yes`,
-   then `fly machine status $MACHINE -a $APP -d` must show `init.entrypoint`
-   empty and `init.cmd` equal to that argv.
+   `fly machine update $MACHINE -a $APP --image "$IMAGE" --entrypoint /usr/local/bin/zeroned --command "start --home /data/.zeroned --minimum-gas-prices 0.025uzrn --unsafe-skip-upgrades <H2>" --yes`
+   (an explicit entrypoint: `--entrypoint ""` may not clear step 3's `/bin/sh`
+   override), then `fly machine status $MACHINE -a $APP -d` must show
+   `init.entrypoint` `["/usr/local/bin/zeroned"]` and `init.cmd` equal to that argv.
 5. Expect `lineage=h1-completed`, block H2 committed by H1, `current_plan` null.
    At the next planned restart, drop the skip by restoring the default command.
 
 A chain born on H1 (native lineage) refuses any packet, so step 3 always
 applies there. The H2 source's docs point to a "signed ceremony runbook" that
 does not exist; this is the H1 half of it. Rehearse steps 1-5 on a disposable
-testnet copy after testnet H1 and before any H2 proposal; the exact flyctl
-`--entrypoint ""` behaviour is unverified here.
+testnet copy, under G3's key rules, after testnet H1 and before any H2 proposal.

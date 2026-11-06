@@ -131,6 +131,13 @@ class PlanInfoTests(unittest.TestCase):
         with mock.patch.object(tool, "get_json", side_effect=chain(network="zerone-1")), self.assertRaises(tool.Refused):
             tool.observe("http://rpc.invalid", "http://rest.invalid", "zerone-testnet-1", 40)
 
+    def test_draft_refuses_zerone_1(self):
+        # The kit builds the testnet image; no mainnet bar exists, so no zerone-1 draft is written.
+        with mock.patch.object(tool, "get_json", side_effect=AssertionError("no GET before the refusal")), \
+                self.assertRaises(tool.Refused):
+            tool.draft(self.draft_args(chain_id="zerone-1"))
+        self.assertFalse((self.root / "draft").exists())
+
     def draft_args(self, **overrides):
         values = dict(chain_id="zerone-testnet-1", rpc="http://rpc.invalid:26657", rest="http://rest.invalid:1317",
                       image=IMAGE, proposer=FAUCET, height=None, extra_blocks=120, submit_seconds=600,

@@ -521,7 +521,7 @@ H at all (review finding H1-F6; the 2026-10-28 copy at 3,585,179 is far older).
 Review the voting period, block cadence and chosen H; the simple height-headroom
 check is not a timing guarantee. Failed/ambiguous transactions require exact
 reconciliation, never blind resubmission. Proposal ID comes from the included
-submit transaction, not the latest voting proposal. `--gas` (default `300000`)
+submit transaction, not the latest voting proposal. `--gas` (default `400000` for the submit)
 and `--fees` (default `300000uzrn`) are independently configurable positive
 integers; `auto` simulation is refused. The same selections apply to submission
 and vote. Select them before authorizing transactions; no fee policy or assertion
