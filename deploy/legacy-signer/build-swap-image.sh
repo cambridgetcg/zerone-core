@@ -1,96 +1,101 @@
 #!/usr/bin/env bash
-# Build the binary-only swap image for a legacy signer and check it against its base.
+# Assemble the binary-only swap image for a legacy signer at the registry, and check it.
 #
-# Written by an agent (Claude Code, delegate of session 8d4c201e) on 2026-11-06.
-# This script builds and verifies locally. It never pushes, never calls fly and
-# never reads a key. Pulling the real base needs the operator's registry login
-# (`fly auth docker`); that pull and the later push are the operator's acts.
+# Written by an agent (Claude Code, session 8d4c201e) on 2026-11-06.
 #
-# It builds the image twice from scratch (--no-cache) into OCI archives with
-# SOURCE_DATE_EPOCH and rewrite-timestamp=true, requires the two manifest
-# digests to be equal, loads the first archive under the target tag, and runs
-# verify-swap-image.py against the base. The printed manifest digest is the
-# one `docker push` must report and `fly machine update --image` must use.
+# The signer images bake priv_validator_key.json and node_key.json in their own layers. So this
+# script never pulls, saves, loads or runs a base image, and no base layer blob is downloaded:
+# `crane append` reads the base's manifest and config (JSON), uploads one new layer, and writes a
+# manifest that references the base layers by digest. swap-layer.py then rebuilds what that
+# manifest and config must be from the base's metadata and the new layer alone, and refuses any
+# other difference. crane's request log (method and path only, no query strings or headers) must
+# show no GET of a base layer blob.
+#
+# The push of the new tag is the one write. It changes nothing running: a machine moves to the
+# image only through `fly machine update --image` (README, live steps).
 #
 # Usage:
-#   build-swap-image.sh --app zerone-1|zerone-testnet-1 --binary /path/to/zeroned \
-#     --docker-host unix:///path/to/docker.sock --out NEW_DIR
-#   build-swap-image.sh --local-test --base localhost/name:tag --seed-dir /mainnet-seed \
-#     --tag localhost/name:new --binary ... --docker-host ... --out NEW_DIR
+#   DOCKER_CONFIG=<throwaway dir holding only a registry login> \
+#   build-swap-image.sh --app zerone-1|zerone-testnet-1 --binary /path/to/zeroned --out NEW_DIR
+#   build-swap-image.sh --local-test --registry localhost:5000 --base <repo>@sha256:<digest> \
+#     --tag <repo>:<tag> --binary /path/to/zeroned --out NEW_DIR     (plain-HTTP test registry)
+#   CRANE: crane binary (go-containerregistry v0.20.2; default `crane` on PATH)
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BINARY_SHA256=d6391ea7e500425c898b6b98cb422f76a4262361d45452955182d9b92b743443
-BINARY_BYTES=100651816
-SOURCE_DATE_EPOCH=1784959094   # committer time of 2e37c4c86c31e67515d6aa07b6fd406083e012ea
-APP="" BINARY="" HOST="" OUT="" BASE="" SEED="" TAG="" LOCAL=0
+CRANE="${CRANE:-crane}"
+APP="" BINARY="" OUT="" BASE="" TAG="" LOCAL=0 REGISTRY=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --app) APP="$2"; shift 2 ;;
     --binary) BINARY="$2"; shift 2 ;;
-    --docker-host) HOST="$2"; shift 2 ;;
     --out) OUT="$2"; shift 2 ;;
     --local-test) LOCAL=1; shift ;;
+    --registry) REGISTRY="$2"; shift 2 ;;
     --base) BASE="$2"; shift 2 ;;
-    --seed-dir) SEED="$2"; shift 2 ;;
     --tag) TAG="$2"; shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
 
+INSECURE=()
 case "$APP" in
   zerone-1)
     BASE=registry.fly.io/zerone-1@sha256:ba73fea59838503c9a099887a4604945b4e959a273b2015fd7eaf1baaf3f861a
-    SEED=/mainnet-seed
     TAG=registry.fly.io/zerone-1:cometbft-0.38.25-d6391ea7 ;;
   zerone-testnet-1)
     BASE=registry.fly.io/zerone-testnet-1@sha256:8c5a859572cea6eda34de062cce81ca82d46d36f7afaf64fabd1cb668bac311d
-    SEED=/testnet-seed
     TAG=registry.fly.io/zerone-testnet-1:cometbft-0.38.25-d6391ea7 ;;
   "")
-    [ "$LOCAL" = 1 ] || { echo "--app is required (or --local-test with --base/--seed-dir/--tag)" >&2; exit 2; }
-    [ -n "$BASE" ] && [ -n "$SEED" ] && [ -n "$TAG" ] || { echo "--local-test needs --base, --seed-dir and --tag" >&2; exit 2; }
-    case "$TAG" in localhost/*) ;; *) echo "--local-test tags must start with localhost/" >&2; exit 2 ;; esac ;;
+    [ "$LOCAL" = 1 ] || { echo "--app is required (or --local-test)" >&2; exit 2; }
+    [[ "$REGISTRY" =~ ^(localhost|127\.0\.0\.1):[0-9]+$ ]] || { echo "--local-test needs --registry localhost:<port>" >&2; exit 2; }
+    case "$BASE" in "$REGISTRY"/*@sha256:*) ;; *) echo "--base must be $REGISTRY/<repo>@sha256:<digest>" >&2; exit 2 ;; esac
+    case "$TAG" in "$REGISTRY"/*:*) ;; *) echo "--tag must be $REGISTRY/<repo>:<tag>" >&2; exit 2 ;; esac
+    INSECURE=(--insecure) ;;
   *) echo "unknown app: $APP" >&2; exit 2 ;;
 esac
-
-[[ "$HOST" =~ ^unix:///[A-Za-z0-9._/-]+$ ]] || { echo "--docker-host must be a literal unix:/// path" >&2; exit 2; }
+if [ "$LOCAL" = 0 ]; then
+  [ -n "${DOCKER_CONFIG:-}" ] && [ "$DOCKER_CONFIG" != "$HOME/.docker" ] || {
+    echo "set DOCKER_CONFIG to a throwaway directory holding only the registry login (never ~/.docker)" >&2; exit 2; }
+fi
+[ "${BASE%@sha256:*}" = "${TAG%:*}" ] || { echo "the tag must be in the base's repository" >&2; exit 2; }
 [ -n "$OUT" ] && [ ! -e "$OUT" ] || { echo "--out must be a new directory" >&2; exit 2; }
 [ -f "$BINARY" ] && [ ! -L "$BINARY" ] || { echo "--binary must be a regular file" >&2; exit 2; }
+"$CRANE" version > /dev/null
 
-actual=$(shasum -a 256 "$BINARY" | cut -d' ' -f1)
-bytes=$(wc -c < "$BINARY" | tr -d ' ')
-[ "$actual" = "$BINARY_SHA256" ] && [ "$bytes" = "$BINARY_BYTES" ] || {
-  echo "binary differs from the pinned build: sha256 $actual, $bytes bytes" >&2; exit 1; }
+umask 077
+mkdir -p "$OUT"
+cr() { "$CRANE" "${INSECURE[@]}" "$@"; }
 
-mkdir -p "$OUT/context"
-install -m 0755 "$BINARY" "$OUT/context/zeroned"
-install -m 0644 "$HERE/Dockerfile.swap" "$OUT/context/Dockerfile"
+# 1. The layer, twice: it must be byte-identical.
+python3 -I "$HERE/swap-layer.py" layer --binary "$BINARY" --out "$OUT/layer.tar" > "$OUT/layer.sha256"
+python3 -I "$HERE/swap-layer.py" layer --binary "$BINARY" --out "$OUT/layer-again.tar" > /dev/null
+cmp -s "$OUT/layer.tar" "$OUT/layer-again.tar" || { echo "the layer tar is not reproducible" >&2; exit 1; }
+rm "$OUT/layer-again.tar"
 
-if [ "$LOCAL" = 0 ]; then
-  # The base is the signer's current image, pinned by manifest digest.
-  docker --host "$HOST" pull --platform linux/amd64 "$BASE"
-fi
+# 2. The base's metadata only.
+cr manifest "$BASE" > "$OUT/base-manifest.json"
+cr config "$BASE" > "$OUT/base-config.json"
+[ "sha256:$(shasum -a 256 "$OUT/base-manifest.json" | cut -d' ' -f1)" = "${BASE#*@}" ] || {
+  echo "the base manifest does not hash to its digest (an index? pass the linux/amd64 manifest)" >&2; exit 1; }
 
-digest_of() { tar -xOf "$1" index.json | python3 -I -c 'import sys,json; m=json.load(sys.stdin)["manifests"]; assert len(m)==1, m; print(m[0]["digest"])'; }
-for n in 1 2; do
-  docker --host "$HOST" buildx build --no-cache --platform linux/amd64 --provenance=false --sbom=false \
-    --build-arg "BASE=$BASE" --build-arg "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH" \
-    --output "type=oci,dest=$OUT/image-$n.oci.tar,name=$TAG,rewrite-timestamp=true" \
-    "$OUT/context" > "$OUT/build-$n.log" 2>&1 || { tail -30 "$OUT/build-$n.log" >&2; exit 1; }
-done
-D1=$(digest_of "$OUT/image-1.oci.tar"); D2=$(digest_of "$OUT/image-2.oci.tar")
-[ "$D1" = "$D2" ] || { echo "the two builds differ: $D1 vs $D2" >&2; exit 1; }
-echo "$D1" > "$OUT/manifest-digest.txt"
+# 3. Append at the registry. Keep only "METHOD path" from crane's request log.
+cr append -v -b "$BASE" -f "$OUT/layer.tar" -t "$TAG" 2> >(sed -n -E 's#^.*--> ([A-Z]+) https?://[^/]+(/[^? ]*).*$#\1 \2#p' > "$OUT/requests.log") > "$OUT/append.out"
+sleep 1   # let the log filter finish
+NEW="$(cr digest "$TAG")"
+[[ "$NEW" =~ ^sha256:[0-9a-f]{64}$ ]] || { echo "no digest for $TAG" >&2; exit 1; }
+cr manifest "${TAG%:*}@$NEW" > "$OUT/new-manifest.json"
+cr config "${TAG%:*}@$NEW" > "$OUT/new-config.json"
+ADDED="$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["layers"][-1]["digest"])' "$OUT/new-manifest.json")"
+python3 -I -c 'import json,sys; b={l["digest"] for l in json.load(open(sys.argv[1]))["layers"]}; sys.exit(sys.argv[2] in b)' \
+  "$OUT/base-manifest.json" "$ADDED" || { echo "the last layer is a base layer; refusing to fetch it" >&2; exit 1; }
+cr blob "${TAG%:*}@$ADDED" > "$OUT/layer.blob"
 
-docker --host "$HOST" load -i "$OUT/image-1.oci.tar" > "$OUT/load.log"
-LOADED=$(docker --host "$HOST" image inspect "$TAG" --format '{{.Id}}')
-[ "$LOADED" = "$D1" ] || { echo "loaded image id $LOADED is not the built manifest $D1" >&2; exit 1; }
-
-python3 -I "$HERE/verify-swap-image.py" --docker-host "$HOST" --base "$BASE" --new "$TAG" \
-  --expected-binary-sha256 "$BINARY_SHA256" --seed-dir "$SEED" --receipt "$OUT/verify.json" | tee "$OUT/verify.log"
-
-shasum -a 256 "$OUT"/image-*.oci.tar > "$OUT/oci-archives.sha256"
-echo "built $TAG, manifest $D1 (two no-cache builds agree); verify receipt $OUT/verify.json"
-echo "Not pushed. Pushing is a live act for the operator (see the runbook)."
+# 4. Check.
+python3 -I "$HERE/swap-layer.py" check --base-manifest "$OUT/base-manifest.json" --base-config "$OUT/base-config.json" \
+  --new-manifest "$OUT/new-manifest.json" --new-config "$OUT/new-config.json" --layer-tar "$OUT/layer.tar" \
+  --layer-blob "$OUT/layer.blob" --requests "$OUT/requests.log" --receipt "$OUT/check.json" | tee "$OUT/check.log"
+echo "$NEW" > "$OUT/manifest-digest.txt"
+echo "pushed $TAG = $NEW (base layers referenced, none downloaded); receipt $OUT/check.json"
+echo "Nothing running changed. The machine update is a separate live step (README)."

@@ -30,6 +30,7 @@ import json
 import os
 from pathlib import Path
 import re
+import subprocess
 import sys
 import types
 
@@ -82,26 +83,54 @@ def main() -> int:
     # in the receipt below instead.
     recipe.platform = types.SimpleNamespace(system=lambda: "Linux", machine=lambda: "x86_64")
 
-    try:
-        report = recipe.build(args.source_archive, args.dependency_patch, args.output, args.expected_sha256)
-    except (OSError, ValueError) as error:
-        print(json.dumps({"result": "REFUSED", "reason": str(error)}), file=sys.stderr)
-        return 1
-
-    report["native_platform"] = None
-    report["execution_platform"] = {
+    output = args.output.expanduser().absolute()
+    emulated = {
         "container_platform": "linux/amd64",
         "host": "darwin/arm64 Mac Studio",
         "virtualisation": "Colima (Lima, macOS Virtualization.framework) with Rosetta amd64 translation",
         "docker_host": args.docker_host,
         "note": "Not the recipe's native Linux amd64 host. Counts only through byte identity with the expected executable.",
     }
+
+    def correct_failed_receipt(reason):
+        # The recipe writes provenance.json claiming its native host before it refuses a failed
+        # build. Leave no receipt behind that says so.
+        receipt = output / "provenance.json"
+        if not receipt.is_file():
+            return
+        try:
+            partial = json.loads(receipt.read_text())
+        except ValueError:
+            receipt.rename(receipt.with_name("provenance.unreadable.json"))
+            return
+        partial.update({"native_platform": None, "execution_platform": emulated, "passed": False,
+                        "wrapper_result": "REFUSED: " + reason})
+        receipt.write_text(json.dumps(partial, indent=2, sort_keys=True) + "\n")
+
+    try:
+        report = recipe.build(args.source_archive, args.dependency_patch, args.output, args.expected_sha256)
+    except (KeyboardInterrupt, subprocess.TimeoutExpired) as error:
+        # The recipe's own cleanup stops the container through /var/run/docker.sock, which is not
+        # Colima's socket; stop it through the socket the build used.
+        cid = output / "container.cid"
+        if cid.is_file() and re.fullmatch(r"[0-9a-f]{64}", cid.read_text().strip()):
+            subprocess.run(["docker", "--host", args.docker_host, "stop", "--time", "10", cid.read_text().strip()],
+                           check=False, timeout=30, stdout=subprocess.DEVNULL)
+        correct_failed_receipt(type(error).__name__)
+        print(json.dumps({"result": "REFUSED", "reason": type(error).__name__}), file=sys.stderr)
+        return 1
+    except (OSError, ValueError) as error:
+        correct_failed_receipt(str(error))
+        print(json.dumps({"result": "REFUSED", "reason": str(error)}), file=sys.stderr)
+        return 1
+
+    report["native_platform"] = None
+    report["execution_platform"] = emulated
     report["recipe_file"] = str(recipe_path.relative_to(args.repository.resolve()))
     report["recipe_file_sha256"] = recipe.base.sha256(recipe_path)
     report["wrapper"] = "deploy/legacy-signer/build-emulated.py (socket, platform-check and optional tmpfs override only)"
     report["tmp_mount"] = "tmpfs" if args.tmpfs_tmp else "bind (recipe default)"
-    report["docker_argv"] = build_argv(args.output.expanduser().absolute())
-    output = args.output.expanduser().absolute()
+    report["docker_argv"] = build_argv(output)
     (output / "provenance.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(json.dumps({k: report[k] for k in ("passed", "source_status", "executable_sha256", "executable_bytes",
                                              "matches_expected_executable")}, sort_keys=True))

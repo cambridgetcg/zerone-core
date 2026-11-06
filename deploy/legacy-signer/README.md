@@ -3,9 +3,8 @@
 Written by an agent: a Claude Code delegate of session 8d4c201e, on
 2026-11-06. It follows Yu's words of 2026-11-05, "yes I want CometBFT patched on
 zerone-1 ahead of H3" and "yes to observer". This directory is a recipe and a
-runbook. Nothing in it has been pushed to a registry or run against a live
-machine. Every live step below still needs the operator, and Yu's word for that
-step, before it runs.
+runbook. Its live steps are run by the host session under those words, testnet
+first, and each is recorded in the dated report the runbook ends with.
 
 The two signers run the legacy application `2e37c4c`, built with Go 1.24.13 and
 CometBFT v0.38.20 (which reports itself as `0.38.19`). The swap replaces only
@@ -22,6 +21,20 @@ directory, the volume and the machine configuration stay as they are.
 | Source | `2e37c4c86c31e67515d6aa07b6fd406083e012ea` plus `deploy/legacy-observer/observer-dependencies.patch` (SHA-256 `3eb79d1f…`) |
 | Toolchain | Go 1.25.14 in `golang@sha256:c268a04d…` (linux/amd64), `CGO_ENABLED=1`, `GOAMD64=v1`, `-trimpath`, `VERSION=dev COMMIT=unknown` |
 | Release | the same bytes as `zeroned` in the signed pre-release `zerone-1-observer-20260909.2` |
+
+**The toolchain is a choice, stated here so it is not mistaken for part of the
+patch.** CometBFT 0.38.25 and the module bumps it forces (lib/pq, highwayhash;
+goid and go-deadlock in `go.mod` only) are the patch. Go 1.25.14 instead of the
+live binary's Go 1.24.13 is a second change. It was chosen, by the host agent
+(session 8d4c201e), for three reasons. It is the exact signed and reviewed
+observer executable, and that executable is the one the zerone-1-replay
+observer is proving against real history. Go 1.24 has had no security releases
+since Go 1.26 shipped. And the equivalence evidence below found no difference
+on the consensus path. The alternative, a Go 1.24.13 build of `2e37c4c` plus the
+same patch, would change only CometBFT, but it would be a new executable with no
+signature, no review and no replay proof, so each of those would have to be done
+again for it. Yu can choose that alternative; nothing below depends on the
+toolchain except the pinned digest.
 
 It is the observer executable, not a new build profile. On 2026-11-06 three
 fresh-cache builds on a Colima/Rosetta host, running the unchanged
@@ -76,20 +89,31 @@ regexp class, apart from `regexp/syntax` itself and a test-data generator.
 
 ## The image
 
-`Dockerfile.swap` starts `FROM` the signer's current image, pinned by digest,
-and adds one layer holding `/usr/local/bin/zeroned` (root, 0755). The base
-images were deployed on 2026-07-25 a few minutes after `2e37c4c` was committed,
-and their binary `94d76a0a…` reproduces from it, so they are taken to come from
-`2e37c4c`'s `deploy/mainnet/Dockerfile` and `deploy/testnet/Dockerfile`:
-`ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]`, and the entrypoint `exec`s
-`zeroned start --home /data/.zeroned --minimum-gas-prices 0.025uzrn` by `PATH`.
-The real bases have not been pulled here; `verify-swap-image.py` checks their
-binary, entrypoint and seed directory when the image is built.
+The signer images bake the validator's `priv_validator_key.json` and
+`node_key.json` in their own layers (`/mainnet-seed`, `/testnet-seed`). So the
+swap image is assembled at the registry, and nothing here pulls, saves, loads
+or runs a signer image, or downloads any of its layers.
 
-On an existing volume the entrypoint rewrites only `external_address`,
-`minimum-gas-prices` and (zerone-1 only) the gRPC bind address, with the same
-lines in both images. It writes the full configuration only when
-`config/genesis.json` is missing.
+`build-swap-image.sh` runs `crane append` (go-containerregistry v0.20.2): it
+reads the base's manifest and config (JSON), uploads one new layer holding
+`/usr/local/bin/zeroned` (root, 0755; `swap-layer.py layer` writes it
+byte-for-byte reproducibly), and pushes a manifest that references the base
+layers by digest. It then fetches back the new manifest, the new config and the
+new layer (its own), and `swap-layer.py check` passes only when:
+
+- the base layer descriptors are kept, in order and unchanged, and exactly one is added;
+- the added descriptor's blob decompresses to the layer tar, which holds only
+  `usr/local/bin/zeroned` (the pinned digest) and its parent directories;
+- the config equals the base's apart from one added `diff_id` and one added
+  history entry (entrypoint, command, environment, ports, labels, everything else
+  unchanged), and the manifest's other fields are unchanged;
+- crane's request log (method and path only) shows no GET of a base layer blob:
+  only existence checks (HEAD), the base config, and the two uploads.
+
+Because every base layer is kept by digest, every other file in the image,
+the entrypoint and the seed directory included, is unchanged without being
+read. The entrypoint `exec`s `zeroned start` by `PATH`, and the new layer puts
+the patched binary at the same `/usr/local/bin/zeroned`.
 
 | App | Machine | Volume | Base image (current) | Seed dir |
 |---|---|---|---|---|
@@ -99,29 +123,19 @@ lines in both images. It writes the full configuration only when
 These values were read on 2026-11-06 with `fly machines list --json`. Read them
 again before using them.
 
-`build-swap-image.sh --app <app> --binary <zeroned> --docker-host unix://<socket> --out <new dir>`
-checks the executable's digest and pulls the base by digest. It then builds the
-image twice with `--no-cache`, `SOURCE_DATE_EPOCH=1784959094` (the `2e37c4c`
-commit time) and `rewrite-timestamp=true` into OCI archives, and requires both
-manifest digests to be equal. It loads the first archive under
-`registry.fly.io/<app>:cometbft-0.38.25-d6391ea7` and runs `verify-swap-image.py`.
-The verifier compares the new image with its base and passes only when:
+The registry login is a credential that can pull every layer, the key layers
+included. Keep it in a throwaway directory, never `~/.docker`:
+`export DOCKER_CONFIG=$(mktemp -d)`, `fly auth docker`, run the script, then
+remove the directory. `fly auth docker` mints a token for the apps that exist
+when it runs; refresh it if the registry answers `NAME_UNKNOWN`.
 
-- the image configuration (entrypoint, command, environment, working directory,
-  ports, user, volumes, labels, stop signal) is unchanged;
-- the base layers are kept in order and exactly one layer is added, holding only
-  `usr/local/bin/zeroned` and its parent directories, with the pinned digest,
-  root ownership and mode 0755;
-- every other file is the same in name, size, mode, owner and content, including
-  the entrypoint and every file in the seed directory (compared, never printed);
-- `zeroned` resolves on `PATH` only to `/usr/local/bin/zeroned`;
-- `zeroned version --long` reports go1.25.14, CometBFT v0.38.25, SDK v0.50.15
-  and ibc-go v8.8.0.
-
-Pulling the base needs a registry login (`fly auth docker`, which stores a
-registry credential in `~/.docker/config.json`). The script never pushes. The
-manifest digest it prints is the one the push must report. The load check needs
-Docker's containerd image store, where an image ID is its manifest digest.
+Rehearsed on 2026-11-06 against a local registry holding a stand-in signer
+image with the real shape (OCI manifest, zstd layers, a throwaway seed): two
+runs gave the same manifest digest, every check passed, the request log showed
+no base layer GET, nine tampered variants (environment, entrypoint, an extra,
+swapped or reordered layer, rewritten history, a wrong blob, a fetched base
+layer, a dropped diff_id) were each refused, and the assembled image resolved
+`zeroned` to `d6391ea7…` (root, 0755) with the entrypoint unchanged.
 
 ## Configuration under 0.38.25
 
@@ -158,8 +172,18 @@ files before the swap rather than assume them.
 3. The signer's clock is NTP-synced, and its latest block time is behind wall-clock
    time.
 4. The old image still resolves by digest in the registry, so a rollback is possible.
-5. Yu's word for each live step: push, snapshot, update. Testnet goes first, and
-   zerone-1 waits for a clean testnet soak.
+5. Yu's word covers the swap ("yes I want CometBFT patched on zerone-1 ahead of
+   H3", 2026-11-05). Testnet goes first, and zerone-1 waits for a clean testnet
+   soak of at least 24 hours.
+6. The testnet soak does not overlap the testnet H1 halt, and the H1 image
+   carries CometBFT 0.38.25 too (review item cometbft-3), so the halt cannot
+   bring the old engine back.
+
+Vulnerability scope: govulncheck with the 2026-11-05 database still reports 61
+findings on this executable, every one of which is also on the live binary (89).
+The September review covered the observer's way of running. A signer also
+publishes RPC (26657), REST (1317) and, on zerone-1, gRPC (9090); moving those
+reads off the signer is separate work.
 
 The observer proof must show, on the same executable, all of the following:
 
@@ -193,21 +217,26 @@ must show. Stop at the first step that does not.
    recorded (zerone-1: 26657, 1317, 9090; testnet: 26657, 1317; no 26656),
    `node_info.version` `0.38.19`, `voting_power` 11111 (zerone-1) or 100000
    (testnet), and a height that advances between two reads.
-2. **Build and verify the image** (local, no live effect):
-   `deploy/legacy-signer/build-swap-image.sh --app $APP --binary <verified zeroned> --docker-host unix://<socket> --out <new dir>`.
-   Expect: every check `PASS`, `RESULT PASS`, and one manifest digest `NEW`.
-3. **Push** (a live act):
-   `docker push registry.fly.io/$APP:cometbft-0.38.25-d6391ea7`.
-   Expect: the final line reports `digest: NEW`, and
-   `docker buildx imagetools inspect registry.fly.io/$APP@NEW` shows linux/amd64.
-   If the digest differs, stop: do not update with anything else.
-4. **Snapshot the volume** (a live act):
+2. **Assemble and check the image at the registry** (a push to the app's own
+   registry; nothing running changes):
+   `DOCKER_CONFIG=<throwaway> CRANE=<crane v0.20.2> deploy/legacy-signer/build-swap-image.sh --app $APP --binary <verified zeroned> --out <new dir>`.
+   Expect: every check `PASS`, `RESULT PASS`, and one manifest digest `NEW` in
+   `manifest-digest.txt`. Run it a second time into another new directory: it
+   must print the same `NEW`.
+3. **Keep the rollback image referenced:** `crane tag $OLD rollback-94d76a0a`
+   (with the same `DOCKER_CONFIG`), so the old manifest keeps a tag through the
+   soak. `crane digest registry.fly.io/$APP:rollback-94d76a0a` must print `OLD`'s digest.
+4. **Snapshot the volume** (a live act; a snapshot is billed at $0.08/GB-month
+   past the free 10 GB):
    `fly volumes snapshots create $VOL -a $APP`, then
    `fly volumes snapshots list $VOL -a $APP`. Expect: a new snapshot id in state `created`.
-5. **Update the image only** (a live act):
-   `fly machine update $ID -a $APP --image registry.fly.io/$APP@NEW --yes`.
-   No other flag. Expect the machine to restart once. On 2026-11-06 a restart
-   of zerone-1 paused blocks for 71 s.
+5. **Update the image only** (a live act). Run it from an empty directory, so
+   no stray `fly.toml` is read (`2e37c4c`'s `deploy/mainnet/fly.toml` still
+   declares the public 26656 service), and first without `--yes`:
+   `cd "$(mktemp -d)" && fly machine update $ID -a $APP --image registry.fly.io/$APP@NEW`.
+   Read flyctl's config diff: only the image may change. Then confirm. Expect
+   the machine to restart once. On 2026-11-06 a restart of zerone-1 paused
+   blocks for 71 s.
 6. **Check.**
    - `fly machine status $ID -a $APP --display-config > after.json`. Expect
      `image_ref.digest` = `NEW`, state `started`, and no other difference from
@@ -215,7 +244,8 @@ must show. Stop at the first step that does not.
      (still no 26656), mounts, guest, restart policy, environment names and
      `init` must be unchanged.
    - `fly logs -a $APP` from the restart. Expect `[entrypoint] existing volume — resuming`,
-     `Version info` with `tendermint_version=0.38.25 block=11 p2p=8`,
+     a `Version info` line matching `tendermint_version=0.38.25` (the real line
+     reads `Version info abci=2.0.0 block=11 commit_hash= module=server p2p=8 tendermint_version=0.38.25`),
      `ABCI Handshake App Info` / `ABCI Replay Blocks` at the stopped height,
      `Completed ABCI Handshake - CometBFT and App are synced`, then
      `finalized block` / `committed state` lines. Any of these means roll back at
@@ -236,6 +266,8 @@ must show. Stop at the first step that does not.
 
 ## Rollback
 
+First `crane digest registry.fly.io/$APP:rollback-94d76a0a` must still print
+`OLD`'s digest. Then, from an empty directory,
 `fly machine update $ID -a $APP --image $OLD --yes`, with `OLD` the before
 image by digest, followed by the same checks with `0.38.19` expected. The local
 rehearsal showed the v0.38.20 binary resuming on a home written by v0.38.25.
@@ -254,8 +286,11 @@ rehearsal used a local stand-in. It has the original `94d76a0a` at
 `/usr/local/bin/zeroned`, the `2e37c4c` mainnet entrypoint, a `/mainnet-seed`
 directory and the same `ENV`/`EXPOSE`/`ENTRYPOINT`, on the local Go builder's
 Debian bookworm instead of `debian:bookworm-slim`. The seed is a throwaway chain
-`zerone-swaptest-1`. The swap image came from `build-swap-image.sh --local-test`
-(all checks passed; the two no-cache builds gave one manifest digest). Every
+`zerone-swaptest-1`. The swap image came from the kit's first design, a local
+`FROM <base>` build adding the same `/usr/local/bin/zeroned` (two no-cache builds
+gave one manifest digest). That design pulled the base, key layers included, so
+it was replaced the same day by the registry-side assembly above; the binary,
+its path and the inherited entrypoint are the same in both. Every
 container ran with `--network none`, on one volume:
 
 - heights 1–30 on the old image (fresh volume; the entrypoint seeded it);
