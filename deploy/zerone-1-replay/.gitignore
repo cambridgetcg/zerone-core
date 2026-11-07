@@ -1,0 +1,4 @@
+bin/
+genesis.json
+rung-binaries.tsv
+test/.work/
