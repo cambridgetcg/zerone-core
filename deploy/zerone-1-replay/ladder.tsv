@@ -20,6 +20,15 @@
 # Go 1.25.14). d6391ea7... is that recipe's signed 2026-09-09 build; replace it with the lane
 # binary's sha256 if the rebuild differs. The 2026-11-06 lane rebuilds gave d6391ea7... three times.
 #
+# A Fly release is not proof that its binary ran. Release v10 (05468804..., 2026-07-23 07:51Z)
+# links 44 x/ modules where v9, v11 and v13 link 24, and the replay showed that binary cannot load
+# v9's state: "version of store <research|inquiry|disputes|...> mismatch root store's version;
+# expected 461774 got 0". The live chain paused 648 s before block 461776, and an agent note of
+# 2026-07-23 records the same boot crash ("version of store channels mismatch") from a fresh
+# rebuild. The machine went back to its previous image by a machine-level update, which leaves no
+# release record. So R07 is v9's binary again; it executed no v10 block. The replay checks this:
+# any other binary at 461775-514051 stops it with a wrong AppHash at the first differing block.
+#
 # rung	first	last	end	sha256	label
 R00	1	44635	upgrade:liquiditypool-hardening-v1	59394e83b34dd6a762ee2f19b2eb0d5ee9c1dbac0f045ff10bb8a120c2cf841b	fly-release-v3 (re-genesis #2 binary; source likely 4389118d)
 R01	44636	57139	halt	7bbf3e049abcb616d6c62a59167c537277c75877468635db93d8e97c766a0c4b	fly-release-v4 (plan liquiditypool-hardening-v1; source likely 0b5f0c0a)
@@ -28,7 +37,7 @@ R03	66304	93961	halt	41e65268a8b51cabbd6c8049a0068a848c0ecd8c9bc831f6d6c8b20253f
 R04	93962	235865	upgrade:doctrine-metabolism-exempt-v1	790f55e6090b2d8d553ac879b483427eac12c1d3f6e9bdee7f945d0b4636da61	fly-release-v7 (source likely 3cb67ec3)
 R05	235866	394098	halt	17c0dcc515045769b4e3d6e9fc9970fdbc853de5699b076ae76686fc2ab8d75e	fly-release-v8 (plan doctrine-metabolism-exempt-v1; built from clean worktree 7d2b72f)
 R06	394099	461774	halt	354b2b683860ada7953bc1e62992717e27dd3938bd2cbb7505610a6901b07171	fly-release-v9 (source unknown)
-R07	461775	514051	upgrade:substrate-dedupe-v1	054688040d5ba80c16456a5c717aad12dfdd98204e37b214d058d1c1970cab80	fly-release-v10 (source unknown)
+R07	461775	514051	upgrade:substrate-dedupe-v1	354b2b683860ada7953bc1e62992717e27dd3938bd2cbb7505610a6901b07171	fly-release-v9 again (v10 05468804 boot-crashed on 20 new store keys and was rolled back)
 R08	514052	515313	halt	fb4c647d0779ff394793de8248e804be2a237a8edb32ea35a06f090f28a18343	fly-release-v11 (plan substrate-dedupe-v1; uncommitted tree)
 R09	515314	527602	upgrade:agenttool-seam-v1	fb4c647d0779ff394793de8248e804be2a237a8edb32ea35a06f090f28a18343	fly-release-v12 (cosmovisor image; uncommitted tree)
 R10	527603	-	tip	d6391ea7e500425c898b6b98cb422f76a4262361d45452955182d9b92b743443	lane binary (2e37c4c + CometBFT 0.38.25); executes plan agenttool-seam-v1
