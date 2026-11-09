@@ -34,9 +34,12 @@ const oracleConfigTemplate = `
 
 [oracle]
 
-# Enable oracle queries during vote extension commit phase.
-# When enabled, the validator queries the oracle sidecar before voting.
-# Oracle failure never blocks consensus — falls back to default accept.
+# Enable oracle queries for the Proof-of-Truth vote-extension commit phase.
+# This binary compiles that transport off (potVoteExtensionsReleaseEnabled =
+# false in app/vote_extensions.go), so zeroned never queries the oracle and
+# this setting changes nothing.
+# Where the transport is on, a validator with no usable oracle verdict casts
+# no vote for that claim. It does not fall back to accept.
 enabled = {{ .Oracle.Enabled }}
 
 # HTTP endpoint of the zerone-oracle sidecar.
@@ -47,8 +50,8 @@ endpoint = "{{ .Oracle.Endpoint }}"
 timeout = "{{ .Oracle.Timeout }}"
 
 # Minimum confidence threshold to use the oracle's verdict.
-# Verdicts below this threshold are treated as uncertain (default: accept).
-# Protects validators from slashing on weak oracle signals.
+# A verdict below this threshold counts as uncertain, and the validator casts
+# no vote for that claim.
 min-confidence = {{ printf "%.2f" .Oracle.MinConfidence }}
 `
 
