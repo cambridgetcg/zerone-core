@@ -183,7 +183,7 @@ good.
    prove whether it ran.
 8. **Claims need reviewers, and today there are none.** The last review commitment
    (`MsgSubmitCommitment`) on `zerone-1` was made at height 854,278, and none has been
-   made since (checked 2026-10-29 at about height 1,405,429). The one claim submitted
+   made since (checked 2026-11-09 at about height 1,437,950). The one claim submitted
    since height 1,400,000 ended INSUFFICIENT: its review round selected no reviewers. A
    claim nobody reviews ends with its round INCONCLUSIVE and the claim marked
    INSUFFICIENT (status 10), and the 0.2 ZRN review fee is not returned.

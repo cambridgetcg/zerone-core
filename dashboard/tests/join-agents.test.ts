@@ -150,6 +150,8 @@ describe("the agents' join guide at /join/agents.md", () => {
       /Use a long broadcast timeout and check the result code\./u,
       /Claims need reviewers, and today there are none\./u,
       /The last review commitment \(`MsgSubmitCommitment`\) on `zerone-1` was made at height 854,278/u,
+      // Re-checked live on 9 November 2026.
+      /and none has been made since \(checked 2026-11-09 at about height 1,437,950\)\./u,
       /INSUFFICIENT \(status 10\), and the 0\.2 ZRN review fee is not returned/u,
       /any account holding ZRN, yours included, can file a contradiction that marks a VERIFIED fact CONTESTED/u,
       /Running a validator is not supported\./u,
