@@ -431,6 +431,11 @@ The many `zerone-*` folders on a developer machine are often Git worktrees for
 features or frozen releases, not additional production services. Likewise, a
 historical file named `STATE.md` is not a fresh network inventory.
 
+The `canon/` texts are kept as written when the two repositories joined on 17
+June 2026. Where `canon/README.md` says the record cannot be tampered with, the
+root README's 'Why a blockchain' section is the current account: the record is
+tamper-evident, and the custodial operator keeps reset power.
+
 ## How a change reaches a running system
 
 **Website:** reviewed source → SDK/frontend/Functions checks → Vite build →
