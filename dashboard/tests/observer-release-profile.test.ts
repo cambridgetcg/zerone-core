@@ -77,6 +77,18 @@ it("records a closed bootstrap window by exact release ID, never by the clock", 
   assert.ok(html.includes("command-observer-start"));
   assert.ok(html.includes("command-observer-status"));
   assert.doesNotMatch(html, /command-observer-(?:verify|init)"/u);
+  // The signed expiry is why a new home cannot start; the 2026-11-09 check adds that no later package was pinned.
+  assert.equal(
+    release.expiry,
+    "The signed window for new homes closed at the expiry, so a new home cannot start from this release. On 2026-11-09 this site pinned no later signed package. A home that synced before the expiry can resume with its original verified package.",
+  );
+  // A closed card invites no install.
+  const card = html.match(/<article class="live-availability" id="observer">[\s\S]*?<\/article>/u)?.[0] ?? "";
+  assert.ok(card.includes("New observer setups"));
+  assert.doesNotMatch(card, /before installing/u);
+  assert.match(release.maintenance, /The release notes list the retained dependency risks; long-term maintenance is not established\.$/u);
+  // Resume needs a completed first sync, which can finish after the expiry if it started before it.
+  assert.ok(html.includes("Only a home that completed its first sync from this release can start again, from the package it was verified with. New homes had to start before 2026-09-16T19:19:13Z."));
 
   // The same expired deadline under a release ID with no closure record keeps the open card:
   // nothing compares expiresAt with the build clock.
@@ -88,6 +100,7 @@ it("records a closed bootstrap window by exact release ID, never by the clock", 
   assert.ok(openHtml.includes("command-observer-verify"));
   assert.ok(openHtml.includes("command-observer-init"));
   assert.doesNotMatch(openHtml, /New observer setups/u);
+  assert.match(open.live.replicaInstallation.release?.maintenance ?? "", /before installing/u);
 });
 
 it("refuses moving source pins, unsafe release names, added capabilities and malformed checkpoints", () => {

@@ -75,6 +75,7 @@ describe("shared explanatory guide", () => {
     assert.equal(today.rows[1].availability, "signed-legacy-observer-bootstrap-closed");
     assert.equal(today.rows[1].title, "Observer: new setups closed");
     assert.equal(today.rows[1].link.label, "Read the observer release record");
+    assert.doesNotMatch(today.rows[1].note ?? "", /before installing/u);
     // The same expired deadline under another release ID stays open: the build never reads the clock.
     const unrecorded = build({ ...publication, releaseId: "zerone-1-observer-test", expiresAt: "2020-01-01T00:00:00Z" });
     const open = unrecorded.guide.sections[5].rows[1];
