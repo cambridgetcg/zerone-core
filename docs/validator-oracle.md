@@ -13,14 +13,22 @@ Messages API-compatible LLM endpoint for a non-uncertain response.
   `accept`, `reject`, or `uncertain` with confidence and reasoning.
 - `POST /prefetch` warms the in-memory cache asynchronously.
 - `GET /health` reports sidecar liveness.
-- the cache is in-memory and non-consensus;
-- an absent/unreachable oracle falls back to `accept` at 600,000 confidence;
-  and
-- an `uncertain` sidecar verdict is also mapped to `accept` by the validator
-  integration.
+- The cache is in-memory and non-consensus.
+- `zeroned` never queries the sidecar from this source. The Proof-of-Truth
+  vote-extension transport is compiled off
+  (`potVoteExtensionsReleaseEnabled = false` in `app/vote_extensions.go`), and
+  no code path sets the validator's vote-extension configuration.
+- Where that transport is on, the validator integration casts no vote for a
+  claim when it has no usable verdict: the oracle is off, unreachable or
+  erroring, the verdict is `uncertain` or below `min-confidence`, or the claim
+  cannot be found.
 
-That fallback is fail-open. The sidecar is advisory, not an independent truth
-proof, and operators must not describe it as one.
+Until November 2026 the integration voted `accept` in each of those cases: at
+600,000 confidence when the oracle was off, unreachable or erroring or the
+claim could not be found, and at the oracle's own confidence when the verdict
+was `uncertain` or below `min-confidence`. That fail-open default is how a
+false claim passed unanimously in R25 testing. The sidecar is advisory, not an
+independent truth proof, and operators must not describe it as one.
 
 ## Local development
 
