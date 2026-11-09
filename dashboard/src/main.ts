@@ -445,11 +445,11 @@ function forgetKept(height: number): void {
   keptViews.delete(height);
   keeperMessage = "";
   renderBlockKeeper();
-  // The pressed Forget button left with its block; keep focus in the keeper.
-  const next = !keepBlockButton.disabled
-    ? keepBlockButton
-    : (keptBlocksList.querySelector<HTMLButtonElement>("button") ?? keeperHeading);
-  next.focus();
+  // The pressed Forget button left with its block, so focus goes to the
+  // keeper's heading, which activates nothing. On a button, a second Enter
+  // would keep a block nobody asked for or forget another, and a kept block
+  // is the visitor's only copy.
+  keeperHeading.focus();
 }
 
 // Each kept block is read once, in sequence, and judged against the status

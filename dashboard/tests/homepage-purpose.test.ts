@@ -145,7 +145,10 @@ describe("purpose-first homepage", () => {
     // Keyboard focus survives Check again and Forget.
     assert.match(main, /const hadFocus = document\.activeElement === checkKeptButton;/u);
     assert.match(main, /hadFocus &&\s*!checkKeptButton\.disabled[\s\S]{0,120}checkKeptButton\.focus\(\);/u);
-    assert.match(main, /: \(keptBlocksList\.querySelector<HTMLButtonElement>\("button"\) \?\? keeperHeading\);\s*next\.focus\(\);/u);
+    // After Forget, focus lands on the heading, which a second Enter cannot activate.
+    const forget = main.slice(main.indexOf("function forgetKept("), main.indexOf("async function checkKeptBlocks("));
+    assert.match(forget, /keeperHeading\.focus\(\);/u);
+    assert.equal(forget.match(/\.focus\(/gu)?.length, 1, "Forget moves focus only to the heading");
   });
 
   it("folds each deeper view and loads it only when opened or deep-linked", () => {
