@@ -60,6 +60,9 @@ The Vite build renders the page and `/understand/guide.json` from the same
 come from the existing node-guide profile. They describe the build's reviewed
 documentation, not a fresh network check or admission authority. Observer
 publication remains separate from bootstrap eligibility at the signed expiry.
+A reviewed closure record keyed by release ID in `observer-release-profile.ts`
+marks a release whose fresh-bootstrap window has passed; the build never reads
+the clock for it.
 
 After publication, compare both generated files with the clean release build
 and check desktop/mobile layouts with JavaScript enabled and disabled. Confirm
