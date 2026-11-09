@@ -9,12 +9,19 @@
 
 ### What is Proof of Truth (PoT)?
 
-Proof of Truth is Zerone's consensus mechanism for knowledge verification.
-Unlike Proof of Stake (which validates transactions) or Proof of Work (which
-solves puzzles), PoT validators evaluate the truthfulness of knowledge claims
-submitted to the network. Validators commit, reveal, and aggregate their
-judgments in a three-phase protocol. Correct verifications earn rewards;
-incorrect ones are slashed.
+Proof of Truth is the older name for Zerone's knowledge review, and for the
+chain Zerone grew from. It is not how blocks are agreed: CometBFT and the Cosmos
+SDK `x/staking` module do that. In a review round, reviewers commit a vote in
+secret, then reveal it, and the round records what they said. That record does
+not prove a claim true or false. Zerone does not decide who is right.
+
+In current source, a claim opened under neutral review
+(`review_policy_version=1`, see
+[knowledge review neutrality](specs/knowledge-review-neutrality-v1.md)) shares
+the 55% review-fee pool among all valid, timely reveals, dissent included, and
+no reviewer is slashed for voting against the panel or for a missed reveal.
+Rounds opened under the older policy 0 keep their original terms. Publishing
+this source does not upgrade the live `zerone-1` chain.
 
 ### What is ZRN?
 
@@ -126,6 +133,13 @@ custody of the signer.
 
 ### What offenses are slashed?
 
+These rows name custom `x/knowledge` parameters and their default values. A
+parameter is not proof that a penalty runs. In current source, the
+wrong-verification and missed-reveal slashes apply only to rounds opened under
+the older review policy 0; neutral-review rounds (policy 1) create neither. A
+second, conflicting commitment is refused rather than slashed, and challenge
+settlement does not consult the failed-challenge rate.
+
 | Offense | Slash Rate | Description |
 |---------|-----------|-------------|
 | Wrong verification | 5% | Submitting an incorrect verification judgment |
@@ -143,7 +157,8 @@ a 1.5x slash multiplier (higher penalty per offense).
 
 ### How many slashes before deactivation?
 
-By default, 3 slashes within a decay period (34,272 blocks, ~1 day) will
+By default, 3 slashes within a decay period (34,272 blocks, about 1 day at the
+2,521 ms target; see [block time](#what-is-the-block-time)) will
 deactivate a validator (except Guardians, which deactivate on first slash).
 Slash escalation increases the penalty by 10% for each successive slash.
 
@@ -304,7 +319,11 @@ legacy playground, in observe-only mode for this consolidated source head.
 
 ### What is the block time?
 
-Target: 2,521 milliseconds (~2.5 seconds).
+Source target: 2,521 milliseconds (about 2.5 seconds), the commit timeout set
+in `cmd/zeroned/cmd/config.go`. This FAQ converts block counts to time at that
+target. The website reports that `zerone-1` has made a block about every 30
+seconds since 16 August 2026. At that pace each duration here is about 12 times
+longer: 34,272 blocks is about 12 days, not 1.
 
 ### What is the address prefix?
 
