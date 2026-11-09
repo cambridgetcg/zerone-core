@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"time"
 )
@@ -85,40 +86,38 @@ func (c *HTTPOracleClient) Evaluate(claim, domain, claimType string) (*OracleEva
 	return &result, nil
 }
 
-// EvaluateWithOracle calls the oracle client and maps the result to a verdict
-// string and uint64 confidence value suitable for vote extensions.
-//
-// If the client is nil or an error occurs, safe defaults are returned:
-// verdict="accept", confidence=600_000.
-//
-// The "uncertain" verdict is mapped to "accept" (with the oracle's confidence).
-// Confidence is scaled from float64 [0,1] to uint64 [0,1_000_000] and capped.
-func EvaluateWithOracle(client OracleClient, claim, domain, claimType string) (string, uint64) {
-	const (
-		defaultVerdict    = "accept"
-		defaultConfidence = uint64(600_000)
-	)
-
+// EvaluateWithOracle returns ok=false when there is no usable verdict: no
+// client, an error, an "uncertain" verdict (including one downgraded for low
+// confidence), or any verdict other than "accept" or "reject". The caller then
+// casts no vote for that claim.
+func EvaluateWithOracle(client OracleClient, claim, domain, claimType string) (verdict string, confidence uint64, ok bool) {
 	if client == nil {
-		return defaultVerdict, defaultConfidence
+		return "", 0, false
 	}
 
 	result, err := client.Evaluate(claim, domain, claimType)
-	if err != nil {
-		return defaultVerdict, defaultConfidence
+	if err != nil || result == nil {
+		return "", 0, false
 	}
 
-	// Map confidence: float64 [0,1] -> uint64 [0,1_000_000], capped at 1_000_000.
-	conf := uint64(result.Confidence * 1_000_000)
-	if conf > 1_000_000 {
-		conf = 1_000_000
+	// Only "accept" and "reject" are usable ballots. "uncertain", "malformed"
+	// and any other word mean no vote, never a default accept.
+	switch result.Verdict {
+	case "accept", "reject":
+	default:
+		return "", 0, false
 	}
 
-	// Map verdict: "uncertain" -> "accept" (with oracle's confidence).
-	verdict := result.Verdict
-	if verdict == "uncertain" {
-		verdict = "accept"
+	// Map confidence: float64 [0,1] -> uint64 [0,1_000_000], capped at
+	// 1_000_000. Clamp before converting, because Go leaves the conversion of
+	// a negative, NaN or out-of-range float64 to uint64 implementation-defined.
+	c := result.Confidence
+	if math.IsNaN(c) || c < 0 {
+		return "", 0, false
+	}
+	if c > 1 {
+		c = 1
 	}
 
-	return verdict, conf
+	return result.Verdict, uint64(c * 1_000_000), true
 }
