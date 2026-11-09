@@ -68,7 +68,7 @@ export function loadNodeGuideProfile(repositoryRoot: string) {
     observerPublication = parseObserverPublication(committed);
   }
   // New participant instructions must name source bytes present at the pin too.
-  for (const path of ["scripts/shared-claims.py", "docs/SHARED-DEVELOPMENT.md"]) {
+  for (const path of ["scripts/shared-claims.py", "docs/SHARED-DEVELOPMENT.md", "docs/DEVELOPMENT-REVIEW-HANDOFF.md"]) {
     let committed: Buffer;
     try { committed = git("show", `${sourceCommit}:${path}`); }
     catch { throw new Error(`Development guide requires ${path} committed at HEAD`); }
