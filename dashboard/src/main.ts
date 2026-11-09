@@ -1,15 +1,33 @@
 import "./styles.css";
 import { routeLegacyResearchAnchor } from "./research-links";
 import {
+  getBlockAt,
   getNetworkSnapshot,
   getRecentBlocks,
+  IncompleteBlockReplyError,
   microToDisplay,
+  type BlockAtHeight,
   type LiquidityParams,
   type LiquidityPool,
   type LiquidityPoolRegistry,
   type NetworkSnapshot,
   type RecentBlock,
 } from "./api";
+import {
+  assessKeptBlock,
+  forgetKeptBlock,
+  keepBlock,
+  keepResultMessage,
+  keeperNotice,
+  keptBlocksDownload,
+  readKeptBlocks,
+  renderKeptBlocks,
+  saveKeptBlocksFile,
+  writeKeptBlocks,
+  type KeptBlock,
+  type KeptBlockView,
+  type KeptStorage,
+} from "./block-checkpoint";
 import {
   CHAIN_ID,
   NETWORK_PROFILE,
@@ -88,6 +106,12 @@ const frontierParticipationRoot = byId<HTMLElement>(
   "frontier-participation-root",
 );
 const piPilotSection = byId<HTMLElement>("contribute");
+const keepBlockButton = byId<HTMLButtonElement>("keep-block");
+const checkKeptButton = byId<HTMLButtonElement>("check-kept");
+const copyKeptButton = byId<HTMLButtonElement>("copy-kept");
+const downloadKeptButton = byId<HTMLButtonElement>("download-kept");
+const keptBlocksList = byId<HTMLOListElement>("kept-blocks");
+const blockKeeperStatus = byId<HTMLParagraphElement>("block-keeper-status");
 const toast = byId<HTMLDivElement>("toast");
 const onboarding = initialiseOnboarding(byId<HTMLElement>("onboarding"));
 
@@ -101,6 +125,18 @@ let paramsSignature = "";
 let sendPending = false;
 let feeGrantPending = false;
 let walletEpoch = 0;
+
+// The block keeper. Only a visitor's "Keep" stores anything, through
+// block-checkpoint.ts; when storage is blocked, kept blocks live in this page.
+const initialKept = readKeptBlocks();
+let keptBlocks: KeptBlock[] = initialKept.blocks;
+let keptStorage: KeptStorage = initialKept.storage;
+let keptUnreadable = initialKept.unreadable;
+let keeperMessage = "";
+let shownBlocks: RecentBlock[] = [];
+const keptViews = new Map<number, KeptBlockView>();
+let keptCheckStarted = false;
+let keptCheckRunning = false;
 
 const loadWallet = () => import("./wallet");
 const BANK_SEND_FEE_UZRN = 200_000n;
@@ -343,6 +379,8 @@ function renderPoolRegistry(registry: LiquidityPoolRegistry | null): void {
 }
 
 function renderBlocks(blocks: RecentBlock[]): void {
+  shownBlocks = blocks;
+  keepBlockButton.disabled = blocks.length === 0;
   blockRows.replaceChildren();
   if (blocks.length === 0) {
     const row = element("tr");
@@ -362,10 +400,126 @@ function renderBlocks(blocks: RecentBlock[]): void {
     age.dataset.timestamp = block.time;
     const transactions = element("td", "", String(block.transactionCount));
     const hash = element("td");
+    hash.title = block.hash;
     hash.append(element("code", "hash-code", shortValue(block.hash, 12, 8)));
     row.append(height, age, transactions, hash);
     blockRows.append(row);
   });
+}
+
+function renderBlockKeeper(): void {
+  renderKeptBlocks(keptBlocksList, keptBlocks, keptViews, forgetKept);
+  blockKeeperStatus.textContent = keeperNotice({
+    message: keeperMessage,
+    storage: keptStorage,
+    unreadable: keptUnreadable,
+  });
+  keepBlockButton.disabled = shownBlocks.length === 0;
+  checkKeptButton.disabled = keptBlocks.length === 0 || keptCheckRunning;
+  copyKeptButton.disabled = keptBlocks.length === 0;
+  downloadKeptButton.disabled = keptBlocks.length === 0;
+}
+
+// Another tab may have kept or forgotten blocks since this page loaded, so a
+// change starts from what storage holds, or from this page when it holds none.
+function currentKeptBlocks(): KeptBlock[] {
+  const stored = readKeptBlocks();
+  return stored.storage === "saved" && !stored.unreadable
+    ? stored.blocks
+    : keptBlocks;
+}
+
+function keepNewestBlock(): void {
+  const newest = shownBlocks.reduce<RecentBlock | null>(
+    (highest, block) =>
+      highest === null || block.height > highest.height ? block : highest,
+    null,
+  );
+  if (newest === null) return;
+  const current = currentKeptBlocks();
+  const result = keepBlock(current, newest, new Date());
+  keeperMessage = keepResultMessage(result);
+  if (result.kind === "kept") {
+    keptBlocks = result.blocks;
+    keptStorage = writeKeptBlocks(keptBlocks);
+    if (keptStorage === "saved") keptUnreadable = false;
+    keptViews.set(result.block.height, { kind: "kept" });
+  } else {
+    keptBlocks = current;
+  }
+  renderBlockKeeper();
+}
+
+function forgetKept(height: number): void {
+  keptBlocks = forgetKeptBlock(currentKeptBlocks(), height);
+  keptViews.delete(height);
+  keptStorage = writeKeptBlocks(keptBlocks);
+  keeperMessage = "";
+  renderBlockKeeper();
+  if (!keepBlockButton.disabled) keepBlockButton.focus();
+}
+
+async function readKeptHeight(
+  height: number,
+): Promise<{ block: BlockAtHeight | null; readFailed: boolean }> {
+  try {
+    return { block: await getBlockAt(height), readFailed: false };
+  } catch (error) {
+    // A reply that was not exactly this block is incomplete, not a failed read.
+    return {
+      block: null,
+      readFailed: !(error instanceof IncompleteBlockReplyError),
+    };
+  }
+}
+
+// Each kept block is read once, in sequence, and judged against the status
+// read in the same refresh. The 20-second poll never calls this.
+async function checkKeptBlocks(
+  readStatus: () => Promise<NetworkSnapshot | null>,
+): Promise<void> {
+  if (keptCheckRunning) return;
+  keptCheckStarted = true;
+  keptCheckRunning = true;
+  const blocks = [...keptBlocks];
+  blocks.forEach((kept) => keptViews.set(kept.height, { kind: "checking" }));
+  renderBlockKeeper();
+  let foundDifferent = false;
+  try {
+    const status = await readStatus();
+    for (const kept of blocks) {
+      const reading =
+        status === null
+          ? { block: null, readFailed: true }
+          : await readKeptHeight(kept.height);
+      const assessment = assessKeptBlock(kept, {
+        ...reading,
+        latestHeight: status?.height ?? null,
+        catchingUp: status?.catchingUp ?? null,
+        earliestHeight: status?.earliestHeight ?? null,
+      });
+      const stillKept = keptBlocks.some(
+        (block) => block.height === kept.height && block.keptAt === kept.keptAt,
+      );
+      if (!stillKept) continue;
+      keptViews.set(kept.height, {
+        kind: "checked",
+        assessment,
+        checkedAt: new Date().toISOString(),
+      });
+      if (assessment.state === "different") foundDifferent = true;
+      renderBlockKeeper();
+    }
+  } finally {
+    keptCheckRunning = false;
+    renderBlockKeeper();
+  }
+  if (foundDifferent) {
+    showToast(
+      "A block you kept is DIFFERENT. See Keep a block, check it later, under Check it yourself.",
+      "error",
+    );
+  }
 }
 
 function updateSnapshot(next: NetworkSnapshot): void {
@@ -503,6 +657,8 @@ async function refreshNetwork(showFailure = true): Promise<void> {
     } catch {
       renderBlocks([]);
     }
+    // Kept blocks are checked once per visit, against this refresh's status.
+    if (!keptCheckStarted) void checkKeptBlocks(async () => next);
   } catch (error) {
     setNetworkState("offline", "Mainnet unavailable");
     onboarding.setNetwork("unavailable");
@@ -1158,6 +1314,32 @@ feeGrantDialog.addEventListener("click", (event) => {
 feeGrantDialog.addEventListener("cancel", (event) => {
   if (feeGrantPending) event.preventDefault();
 });
+keepBlockButton.addEventListener("click", keepNewestBlock);
+checkKeptButton.addEventListener("click", () => {
+  void checkKeptBlocks(async () => {
+    try {
+      return await getNetworkSnapshot();
+    } catch {
+      return null;
+    }
+  });
+});
+copyKeptButton.addEventListener("click", async () => {
+  if (keptBlocks.length === 0) return;
+  try {
+    await navigator.clipboard.writeText(
+      keptBlocksDownload(keptBlocks, window.location.origin),
+    );
+    showToast("Kept blocks copied.");
+  } catch {
+    showToast("Copy is unavailable. Download the kept blocks instead.", "error");
+  }
+});
+downloadKeptButton.addEventListener("click", () => {
+  if (keptBlocks.length === 0) return;
+  saveKeptBlocksFile(keptBlocksDownload(keptBlocks, window.location.origin));
+});
+renderBlockKeeper();
 feeGrantForm.addEventListener("submit", (event) => void handleFeeGrant(event));
 feeGrantRevokeForm.addEventListener(
   "submit",
@@ -1223,7 +1405,7 @@ let initialHashInputsSettled = false;
 let initialHashAligned = false;
 const alignInitialHash = (): void => {
   if (!initialHashInputsSettled || initialHashAligned) return;
-  if (!["#network", "#look-closer", "#authority", "#understanding", "#liquidity", "#research", "#participate", "#more-pages"].includes(window.location.hash)) return;
+  if (!["#network", "#block-keeper", "#look-closer", "#authority", "#understanding", "#liquidity", "#research", "#participate", "#more-pages"].includes(window.location.hash)) return;
   initialHashAligned = true;
   window.requestAnimationFrame(() => {
     document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: "start", behavior: "instant" });

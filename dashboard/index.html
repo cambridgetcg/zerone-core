@@ -208,9 +208,10 @@
 
         <noscript>
           <p class="metrics-noscript">
-            The latest block, the four numbers above, the live-record check below and the
-            latest-blocks table are filled in by JavaScript; without it they keep their
-            dashes or loading text. The raw block, supply and validator data are linked
+            The latest block, the four numbers above, the live-record check below, the
+            latest-blocks table and the block keeper under Check it yourself are filled in
+            by JavaScript; without it they keep their dashes, loading text or switched-off
+            buttons. The raw block, supply and validator data are linked
             under <a href="#network">Check it yourself</a>.
           </p>
         </noscript>
@@ -240,8 +241,9 @@
             <p class="truth-protect">
               <strong>What you can rely on:</strong> the record is public and read live.
               Each block carries the hash of the one before it, so if you note a block&rsquo;s
-              height and full hash today (<a href="#network">Check it yourself</a> shows
-              how), you can later see whether the history up to it was changed. That shows a
+              height and full hash today (<a href="#block-keeper">Check it yourself</a> can
+              keep one in this browser for you), you can later see whether the history up to
+              it was changed. That shows a
               rewrite; it does not prevent one. The aim is for independent operators to run
               validators they alone control. That has not happened yet,
               and no date is promised.
@@ -463,10 +465,10 @@
               Each link returns JSON fetched through this site from the household&rsquo;s
               node. The first five are the node&rsquo;s own replies; the knowledge record is
               a short summary this site makes of the node&rsquo;s entries. None is an
-              independent check. To check history yourself, note a block&rsquo;s height and
-              hash today and look it up again later. If the chain was rolled back or
-              rewritten at or before that block, its hash would not match, or the block
-              would be missing. Changes after that block would not show.
+              independent check. To check history yourself, keep a block below, or note a
+              block&rsquo;s height and hash today and look it up again later. If the chain
+              was rolled back or rewritten at or before that block, its hash would not
+              match, or the block would be missing. Changes after that block would not show.
             </p>
           </div>
 
@@ -478,6 +480,21 @@
             <li><a href="/api/rest/cosmos/bank/v1beta1/balances/zrn17h5scv3zu7xa8ep9kaqy47ae08h9x6c5fanwkh/by_denom?denom=uzrn">Operations account</a><span>The founding household&rsquo;s second account</span></li>
             <li><a href="/api/knowledge">The knowledge record</a><span>A summary this site makes of up to 100 entries: each one&rsquo;s text, status and links, and whether any were left out.</span></li>
           </ul>
+
+          <div class="block-keeper reveal" id="block-keeper" role="region" aria-labelledby="block-keeper-title">
+            <h3 id="block-keeper-title">Keep a block, check it later</h3>
+            <p>Keep the newest block shown under Latest blocks. This page saves its height and full hash in this browser. When you come back, it asks the node for that block again and says whether the hash is the same.</p>
+            <div class="block-keeper-actions">
+              <button class="button button-ghost" id="keep-block" type="button" data-js-required="keeper" disabled>Keep the newest block</button>
+              <button class="button button-ghost" id="check-kept" type="button" data-js-required="keeper" disabled>Check again</button>
+              <button class="button button-ghost" id="copy-kept" type="button" data-js-required="keeper" disabled>Copy</button>
+              <button class="button button-ghost" id="download-kept" type="button" data-js-required="keeper" disabled>Download kept blocks</button>
+            </div>
+            <p class="block-keeper-status" id="block-keeper-status" role="status"></p>
+            <ol class="kept-blocks" id="kept-blocks" aria-label="Blocks kept in this browser" aria-live="polite"></ol>
+            <p class="block-keeper-limits" id="block-keeper-limits">Both readings come from the household&rsquo;s own node, through this site. This catches a change made after you kept a block. It cannot catch a node that gave you a false block in the first place, or one that tells the same story every time. Kept blocks stay only in this browser, on this device; clearing this site&rsquo;s data deletes them. Copy or download them to keep them anywhere else.</p>
+            <noscript><p class="block-keeper-noscript">Keeping a block needs JavaScript. Without it, open One block by height above, note the hash under block_id, and open the same link later.</p></noscript>
+          </div>
 
           <div class="network-grid">
             <article class="genesis-card reveal">

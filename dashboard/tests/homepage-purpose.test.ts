@@ -91,6 +91,46 @@ describe("purpose-first homepage", () => {
     assert.doesNotMatch(html, /href="\/api\/rpc\/(?:status|net_info)"/u);
   });
 
+  it("lets a visitor keep a block in this browser and check it later, with three states and its limits stated", () => {
+    const network = sectionById("network");
+    const keeperStart = network.indexOf('id="block-keeper"');
+    assert.ok(keeperStart >= 0, "#block-keeper must sit in #network");
+    assert.ok(network.indexOf('class="verify-links') < keeperStart, "the keeper follows the raw links");
+    assert.match(
+      network,
+      /<button class="button button-ghost" id="keep-block" type="button" data-js-required="keeper" disabled>Keep the newest block<\/button>/u,
+    );
+    for (const id of ["check-kept", "copy-kept", "download-kept"]) {
+      assert.match(network, new RegExp(`<button[^>]*id="${id}"[^>]*data-js-required="keeper" disabled>`, "u"), id);
+    }
+    assert.ok(
+      network.includes(
+        '<p class="block-keeper-limits" id="block-keeper-limits">Both readings come from the household&rsquo;s own node, through this site. This catches a change made after you kept a block. It cannot catch a node that gave you a false block in the first place, or one that tells the same story every time. Kept blocks stay only in this browser, on this device; clearing this site&rsquo;s data deletes them. Copy or download them to keep them anywhere else.</p>',
+      ),
+      "the keeper states its limits exactly",
+    );
+    assert.match(
+      network.slice(keeperStart),
+      /<noscript><p[^>]*>Keeping a block needs JavaScript\. Without it, open One block by height above, note the hash under block_id, and open the same link later\.<\/p><\/noscript>/u,
+    );
+    // The trust model points at the keeper with an in-page link.
+    const honest = html.slice(html.indexOf('id="honest-state"'), html.indexOf("</aside>"));
+    assert.match(honest, /<a href="#block-keeper">Check it yourself<\/a> can\s+keep one in this browser for you/u);
+
+    const keeper = readFileSync(new URL("../src/block-checkpoint.ts", import.meta.url), "utf8");
+    assert.match(main, /from "\.\/block-checkpoint";/u);
+    assert.doesNotMatch(
+      keeper,
+      /innerHTML|outerHTML|insertAdjacentHTML|sessionStorage|indexedDB|sendBeacon|XMLHttpRequest|eval\(|method:\s*["']POST/u,
+    );
+    assert.match(keeper, /export const KEPT_BLOCKS_KEY = "zerone\.kept-blocks\.v1";/u);
+    assert.doesNotMatch(main, /localStorage/u);
+    // Checked once after the first good refresh and on "Check again"; the poll never checks.
+    assert.equal(main.match(/checkKeptBlocks\(/gu)?.length, 3);
+    assert.match(main, /if \(!keptCheckStarted\) void checkKeptBlocks\(async \(\) => next\);/u);
+    assert.match(main, /checkKeptButton\.addEventListener\("click", \(\) => \{\s*void checkKeptBlocks\(/u);
+  });
+
   it("folds each deeper view and loads it only when opened or deep-linked", () => {
     const folds: ReadonlyArray<readonly [string, string]> = [
       ["authority", "authority-geometry-root"],
