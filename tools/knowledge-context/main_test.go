@@ -249,3 +249,75 @@ func TestFetchFactsRefusesNonOKStatus(t *testing.T) {
 		t.Fatalf("/health answered %d while the node returned 500, want %d", recorder.Code, http.StatusServiceUnavailable)
 	}
 }
+
+// useNodeAnswering points the package at a test node that answers every path with handler. Like
+// useNode it restores *nodeURL and maxNodeResponseBytes afterwards, and its callers may not call
+// t.Parallel.
+func useNodeAnswering(t *testing.T, handler http.HandlerFunc) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(handler)
+	previousNode := *nodeURL
+	previousLimit := maxNodeResponseBytes
+	*nodeURL = server.URL
+	t.Cleanup(func() {
+		*nodeURL = previousNode
+		maxNodeResponseBytes = previousLimit
+		server.Close()
+	})
+	return server
+}
+
+func TestNodeProxiesAnswer502OnNodeErrors(t *testing.T) {
+	proxies := map[string]http.HandlerFunc{
+		"/bounties":    bountiesHandler,
+		"/demand_gaps": demandGapsHandler,
+	}
+	nodes := map[string]http.HandlerFunc{
+		"node 500": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`{"code":13,"message":"x"}`))
+		},
+		"node 404": http.NotFound,
+		"oversized body": func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"x":"` + strings.Repeat("x", 2048) + `"}`))
+		},
+		"unreachable node": nil,
+	}
+
+	for nodeName, node := range nodes {
+		for path, proxy := range proxies {
+			t.Run(nodeName+" "+path, func(t *testing.T) {
+				server := useNodeAnswering(t, node)
+				if node == nil {
+					server.Close()
+				}
+				maxNodeResponseBytes = 1024
+
+				recorder := httptest.NewRecorder()
+				proxy(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+				if recorder.Code != http.StatusBadGateway {
+					t.Fatalf("%s answered %d for %s, want %d:\n%s", path, recorder.Code, nodeName, http.StatusBadGateway, recorder.Body.String())
+				}
+			})
+		}
+	}
+
+	// Control: a 200 within the bound passes through unchanged.
+	const nodeBody = `{"bounties":[]}`
+	for path, proxy := range proxies {
+		t.Run("node 200 "+path, func(t *testing.T) {
+			useNodeAnswering(t, func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(nodeBody))
+			})
+
+			recorder := httptest.NewRecorder()
+			proxy(recorder, httptest.NewRequest(http.MethodGet, path, nil))
+			if recorder.Code != http.StatusOK || recorder.Body.String() != nodeBody {
+				t.Fatalf("%s answered %d %q for a healthy node, want 200 %q", path, recorder.Code, recorder.Body.String(), nodeBody)
+			}
+		})
+	}
+}
