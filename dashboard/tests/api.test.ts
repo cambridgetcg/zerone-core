@@ -13,6 +13,7 @@ const {
   getBlockAt,
   getLiquidityPoolRegistry,
   getNetworkSnapshot,
+  getNodeStatus,
   IncompleteBlockReplyError,
   LIQUIDITY_POOL_PAGE_LIMIT,
   LIQUIDITY_POOL_RECORD_CAP,
@@ -433,5 +434,43 @@ describe("block keeper reads", () => {
       assert.equal(snapshot.height, HEIGHT);
       assert.equal(snapshot.earliestHeight, expected, String(earliest));
     }
+  });
+
+  it("reads only the node's status for Check again, with the same checks as the full snapshot", async () => {
+    const status = {
+      result: {
+        node_info: { network: "zerone-1", version: "0.38.19", moniker: "node" },
+        sync_info: {
+          latest_block_height: String(HEIGHT),
+          latest_block_time: "2026-11-09T22:29:50Z",
+          earliest_block_height: "1",
+          catching_up: false,
+        },
+      },
+    };
+    const paths: string[] = [];
+    globalThis.fetch = async (input) => {
+      paths.push(new URL(String(input)).pathname);
+      return Response.json(status);
+    };
+    assert.deepEqual(await getNodeStatus(), {
+      chainId: "zerone-1",
+      height: HEIGHT,
+      earliestHeight: 1,
+      blockTime: "2026-11-09T22:29:50Z",
+      catchingUp: false,
+    });
+    assert.deepEqual(paths, ["/api/rpc/status"], "one GET, and no net_info, supply, validators or pool reads");
+
+    for (const [name, syncInfo] of [
+      ["no catching_up", { ...status.result.sync_info, catching_up: undefined }],
+      ["no height", { ...status.result.sync_info, latest_block_height: undefined }],
+    ] as const) {
+      globalThis.fetch = async () => Response.json({ result: { ...status.result, sync_info: syncInfo } });
+      await assert.rejects(getNodeStatus(), /complete zerone-1 mainnet status/u, name);
+    }
+    globalThis.fetch = async () =>
+      Response.json({ result: { ...status.result, node_info: { ...status.result.node_info, network: "zerone-local-1" } } });
+    await assert.rejects(getNodeStatus(), /complete zerone-1 mainnet status/u);
   });
 });

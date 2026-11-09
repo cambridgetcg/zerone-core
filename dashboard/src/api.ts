@@ -420,8 +420,13 @@ export async function getLiquidityPoolRegistry(): Promise<LiquidityPoolRegistry>
   throw new Error("Liquidity pool response exceeded its record cap.");
 }
 
-export async function getNetworkSnapshot(): Promise<NetworkSnapshot> {
-  const status = await fetchJson<RpcStatusResponse>(rpcUrl("status"));
+/** The fields of the node's own status that the homepage relies on. */
+export type NodeStatus = Pick<
+  NetworkSnapshot,
+  "chainId" | "height" | "earliestHeight" | "blockTime" | "catchingUp"
+>;
+
+function nodeStatusFrom(status: RpcStatusResponse): NodeStatus {
   const statusResult = status.result;
   const chainId = statusResult?.node_info?.network;
   const height = uint(statusResult?.sync_info?.latest_block_height);
@@ -438,6 +443,27 @@ export async function getNetworkSnapshot(): Promise<NetworkSnapshot> {
   ) {
     throw new Error(`Expected a complete ${CHAIN_ID} mainnet status response`);
   }
+  const earliestHeight = uint(statusResult.sync_info?.earliest_block_height);
+  return {
+    chainId,
+    height,
+    earliestHeight:
+      earliestHeight !== null && earliestHeight > 0 ? earliestHeight : null,
+    blockTime,
+    catchingUp,
+  };
+}
+
+/** One status read and nothing else, for a check that needs only the node's tip. */
+export async function getNodeStatus(): Promise<NodeStatus> {
+  return nodeStatusFrom(await fetchJson<RpcStatusResponse>(rpcUrl("status")));
+}
+
+export async function getNetworkSnapshot(): Promise<NetworkSnapshot> {
+  const status = await fetchJson<RpcStatusResponse>(rpcUrl("status"));
+  const { chainId, height, earliestHeight, blockTime, catchingUp } =
+    nodeStatusFrom(status);
+  const nodeInfo = status.result?.node_info;
 
   const [netInfoResult, supplyResult, validatorsResult, poolsResult, paramsResult] =
     await Promise.allSettled([
@@ -463,15 +489,13 @@ export async function getNetworkSnapshot(): Promise<NetworkSnapshot> {
   const issuedSupply =
     supply.amount?.denom === DENOM ? amount(supply.amount.amount) : null;
   const validatorTotal = uint(validators.result?.total);
-  const earliestHeight = uint(statusResult.sync_info?.earliest_block_height);
   return {
     chainId,
     height,
-    earliestHeight:
-      earliestHeight !== null && earliestHeight > 0 ? earliestHeight : null,
+    earliestHeight,
     blockTime,
     catchingUp,
-    cometVersion: statusResult.node_info?.version ?? "unknown",
+    cometVersion: nodeInfo?.version ?? "unknown",
     peers:
       netInfoResult.status === "fulfilled" && peerCount !== null ? peerCount : null,
     supplyUzrn:
@@ -480,9 +504,7 @@ export async function getNetworkSnapshot(): Promise<NetworkSnapshot> {
       validatorsResult.status === "fulfilled" && validatorList !== null
         ? (validatorTotal ?? validatorList.length)
         : null,
-    validatorMonikers: statusResult.node_info?.moniker
-      ? [statusResult.node_info.moniker]
-      : [],
+    validatorMonikers: nodeInfo?.moniker ? [nodeInfo.moniker] : [],
     poolRegistry:
       poolsResult.status === "fulfilled" ? poolsResult.value : null,
     liquidityParams:

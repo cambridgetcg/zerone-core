@@ -3,12 +3,14 @@ import { routeLegacyResearchAnchor } from "./research-links";
 import {
   getBlockAt,
   getNetworkSnapshot,
+  getNodeStatus,
   getRecentBlocks,
   microToDisplay,
   type LiquidityParams,
   type LiquidityPool,
   type LiquidityPoolRegistry,
   type NetworkSnapshot,
+  type NodeStatus,
   type RecentBlock,
 } from "./api";
 import {
@@ -441,7 +443,7 @@ function forgetKept(height: number): void {
 // Each kept block is read once, in sequence, and judged against the status
 // read in the same refresh. The 20-second poll never calls this.
 async function checkKeptBlocks(
-  readStatus: () => Promise<NetworkSnapshot | null>,
+  readStatus: () => Promise<NodeStatus | null>,
 ): Promise<void> {
   if (keptCheckRunning) return;
   keptCheckStarted = true;
@@ -1284,7 +1286,7 @@ keepBlockButton.addEventListener("click", keepNewestBlock);
 checkKeptButton.addEventListener("click", () => {
   void checkKeptBlocks(async () => {
     try {
-      return await getNetworkSnapshot();
+      return await getNodeStatus();
     } catch {
       return null;
     }

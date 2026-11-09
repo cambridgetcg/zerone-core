@@ -133,7 +133,7 @@ describe("purpose-first homepage", () => {
     // Checked once after the first good refresh and on "Check again"; the poll never checks.
     assert.equal(main.match(/checkKeptBlocks\(/gu)?.length, 3);
     assert.match(main, /if \(!keptCheckStarted\) void checkKeptBlocks\(async \(\) => next\);/u);
-    assert.match(main, /checkKeptButton\.addEventListener\("click", \(\) => \{\s*void checkKeptBlocks\(/u);
+    assert.match(main, /checkKeptButton\.addEventListener\("click", \(\) => \{\s*void checkKeptBlocks\(async \(\) => \{\s*try \{\s*return await getNodeStatus\(\);/u);
   });
 
   it("folds each deeper view and loads it only when opened or deep-linked", () => {
