@@ -49,8 +49,14 @@ function reading(overrides: Partial<KeptBlockReading> = {}): KeptBlockReading {
     latestHeight: KEPT.height + 120,
     catchingUp: false,
     earliestHeight: 1,
+    checkedAt: CHECKED_AT,
     ...overrides,
   };
+}
+
+/** KEPT.keptAt moved by a number of milliseconds, as an ISO 8601 time. */
+function afterKept(ms: number): string {
+  return new Date(Date.parse(KEPT.keptAt) + ms).toISOString();
 }
 
 function wording(assessment: KeptBlockAssessment): string {
@@ -227,6 +233,43 @@ describe("block keeper", () => {
     }
   });
 
+  it("never calls a block kept less than a minute before the check missing, since the edge may serve an older status", () => {
+    // The visitor keeps the newest block, then presses Check again: the status
+    // can come from the edge's cache one height lower, while the block read fails.
+    const justBelow = KEPT.height - 1;
+    const missingAt = (checkedAt: string) =>
+      assessKeptBlock(KEPT, reading({ block: null, readFailed: true, latestHeight: justBelow, checkedAt }));
+
+    const justKept = missingAt(afterKept(59_000));
+    assert.deepEqual(justKept, { state: "unknown", reason: "just-kept" });
+    assert.equal(
+      describeAssessment(KEPT, justKept, afterKept(59_000), "UTC"),
+      "Could not check. The node’s newest block reads lower than this block, which you kept less than a minute ago. Check again in a minute. This does not mean the block is unchanged. Tried on 9 November 2026, 22:31 UTC.",
+    );
+    assert.deepEqual(missingAt(KEPT.keptAt), { state: "unknown", reason: "just-kept" }, "checked at the same instant");
+
+    const missing = { state: "different", reason: "missing", latestHeight: justBelow };
+    assert.deepEqual(missingAt(afterKept(60_000)), missing, "exactly a minute");
+    assert.deepEqual(missingAt(afterKept(24 * 60 * 60 * 1_000)), missing, "a day later");
+    // A check time before the kept time: the two clock readings cannot be compared.
+    assert.deepEqual(missingAt(afterKept(-1_000)), missing, "a check before the block was kept");
+    assert.deepEqual(missingAt("not a time"), missing, "an unreadable check time");
+
+    // The guard does not touch the hash comparison.
+    const oneSecondOn = afterKept(1_000);
+    assert.deepEqual(
+      assessKeptBlock(
+        KEPT,
+        reading({ block: { chainId: "zerone-1", height: KEPT.height, hash: OTHER_HASH }, latestHeight: justBelow, checkedAt: oneSecondOn }),
+      ),
+      { state: "different", reason: "hash" },
+    );
+    assert.deepEqual(
+      assessKeptBlock(KEPT, reading({ latestHeight: justBelow, checkedAt: oneSecondOn })),
+      { state: "same" },
+    );
+  });
+
   it("reports could not check for a failed read, a pruned height, a malformed reply or a node catching up, and never as the same", () => {
     const cases: Array<[string, Partial<KeptBlockReading>, string, string]> = [
       ["failed read", { block: null, readFailed: true }, "no-answer", "The node gave no usable answer."],
@@ -338,6 +381,10 @@ describe("block keeper", () => {
     assert.equal(
       checkSummary([{ state: "unknown", reason: "catching-up" }, { state: "unknown", reason: "pruned" }]),
       "Checked 2 kept blocks: 2 could not be checked.",
+    );
+    assert.equal(
+      checkSummary([{ state: "same" }, { state: "unknown", reason: "just-kept" }]),
+      "Checked 2 kept blocks: 1 still the same, 1 could not be checked.",
     );
     assert.equal(keepResultMessage({ kind: "kept", blocks: [KEPT], block: KEPT }), "Kept block #1,437,954.");
   });

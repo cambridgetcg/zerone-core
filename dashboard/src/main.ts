@@ -475,22 +475,20 @@ async function checkKeptBlocks(
         status === null
           ? { block: null, readFailed: true }
           : await readKeptHeight(block.height, getBlockAt);
+      const checkedAt = new Date().toISOString();
       const assessment = assessKeptBlock(block, {
         ...reading,
         latestHeight: status?.height ?? null,
         catchingUp: status?.catchingUp ?? null,
         earliestHeight: status?.earliestHeight ?? null,
+        checkedAt,
       });
       const stillKept = kept.blocks.some(
         (current) =>
           current.height === block.height && current.keptAt === block.keptAt,
       );
       if (!stillKept) continue;
-      keptViews.set(block.height, {
-        kind: "checked",
-        assessment,
-        checkedAt: new Date().toISOString(),
-      });
+      keptViews.set(block.height, { kind: "checked", assessment, checkedAt });
       assessments.push(assessment);
       if (assessment.state === "different") foundDifferent = true;
       renderBlockKeeper();

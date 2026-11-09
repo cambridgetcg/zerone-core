@@ -27,14 +27,15 @@ and the time kept) in this browser's `localStorage` under
 through the same edge, as a one-height `blockchain` window, and shows one of
 three states: still the same, DIFFERENT, or could not check. A failed or
 incomplete read is never shown as the same. A block above the node's newest
-height counts as DIFFERENT only when that read failed and the node is not
-catching up. Both readings come from the household's node, so this catches a
-later change, not a node that misreports consistently. The keeper stores
-nothing else. A check reads the node's status once (the first check on a visit
-uses the homepage's own status read) and then each kept height; no request
-carries anything kept beyond a height. The page works when storage is blocked.
-It is legacy-only: observer builds replace this page and offer their own block
-lookup.
+height counts as DIFFERENT only when that read failed, the node is not
+catching up and the block was not kept in the minute before the check, because
+the edge may serve a status reading a few seconds old. Both readings come from
+the household's node, so this catches a later change, not a node that
+misreports consistently. The keeper stores nothing else. A check reads the
+node's status once (the first check on a visit uses the homepage's own status
+read) and then each kept height; no request carries anything kept beyond a
+height. The page works when storage is blocked. It is legacy-only: observer
+builds replace this page and offer their own block lookup.
 
 ## Understanding Zerone
 

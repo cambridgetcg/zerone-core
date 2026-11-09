@@ -1,8 +1,10 @@
 // The block keeper on the legacy homepage. A visitor keeps a block's height and
 // full hash in this browser; on a later visit the page asks the node for that
 // height again and says whether the hash is the same. Both readings come from
-// the household's own node through this site, so this catches a change made
-// after a block was kept, not a node that misreports the same way every time.
+// the household's own node through this site, so this catches a later change
+// to that block, or to any block before it, in what this site returns. It
+// cannot catch a node that gave a false block in the first place, or one that
+// tells the same story every time.
 //
 // Only a visitor's explicit "Keep" stores anything. Every touch of browser
 // storage sits inside try/catch, and the page works when storage is blocked.
@@ -19,6 +21,11 @@ const KEPT_HASH = /^[A-F0-9]{64}$/u;
 const ANY_CASE_HASH = /^[A-F0-9]{64}$/iu;
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/u;
 const KEPT_BLOCK_KEYS = ["blockTime", "chainId", "hash", "height", "keptAt"];
+// The site's edge caches the status read for a few seconds (max-age=2,
+// s-maxage=3 in functions/api/_proxy.ts), so a check just after a Keep can get
+// a newest height lower than the block just kept. One minute is a wide margin
+// over that cache.
+const JUST_KEPT_MS = 60_000;
 
 export const STORAGE_BLOCKED_MESSAGE =
   "This browser is not letting the page save anything, so kept blocks last only until you leave. Copy or download them.";
@@ -45,7 +52,12 @@ export interface ObservedBlock {
   hash: string;
 }
 
-export type UnknownReason = "no-answer" | "pruned" | "catching-up" | "incomplete";
+export type UnknownReason =
+  | "no-answer"
+  | "pruned"
+  | "catching-up"
+  | "incomplete"
+  | "just-kept";
 
 export type KeptBlockAssessment =
   | { state: "same" }
@@ -62,6 +74,8 @@ export interface KeptBlockReading {
   latestHeight: number | null;
   catchingUp: boolean | null;
   earliestHeight?: number | null;
+  /** When this check ran (ISO 8601, UTC). */
+  checkedAt: string;
 }
 
 export type KeptStorage = "saved" | "unavailable";
@@ -281,8 +295,12 @@ export async function readKeptHeight(
 /**
  * Compares a kept block with a later reading. "same" needs the same chain,
  * the same height and an equal hash. A missing block is DIFFERENT only when
- * the read of that height failed and the same refresh's status reports a lower
- * newest height from a node that is not catching up. Everything else that is
+ * the read of that height failed, the same refresh's status reports a lower
+ * newest height from a node that is not catching up, and the block was kept a
+ * minute or more before the check. A block kept less than a minute before is
+ * "unknown" instead, because the edge may serve a status reading from before
+ * it was kept. A check time before the kept time means the two clock readings
+ * cannot be compared, and does not soften DIFFERENT. Everything else that is
  * not a clean answer is "unknown", never "same".
  */
 export function assessKeptBlock(
@@ -302,6 +320,10 @@ export function assessKeptBlock(
   if (block === null) {
     if (!readFailed) return { state: "unknown", reason: "incomplete" };
     if (latestHeight < kept.height) {
+      const age = timestampMs(reading.checkedAt) - timestampMs(kept.keptAt);
+      if (Number.isFinite(age) && age >= 0 && age < JUST_KEPT_MS) {
+        return { state: "unknown", reason: "just-kept" };
+      }
       return { state: "different", reason: "missing", latestHeight };
     }
     if (earliestHeight !== null && kept.height < earliestHeight) {
@@ -357,6 +379,8 @@ const UNKNOWN_REASONS: Record<UnknownReason, string> = {
   "catching-up": "The node is catching up.",
   // Also a reply naming another chain or another height.
   incomplete: "The reply was not a complete record of this block.",
+  "just-kept":
+    "The node’s newest block reads lower than this block, which you kept less than a minute ago. Check again in a minute.",
 };
 
 export function describeAssessment(
