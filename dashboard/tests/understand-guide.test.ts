@@ -42,7 +42,8 @@ describe("shared explanatory guide", () => {
     assert.equal(today.rows[4].availability, node.live.newAccountAdmission.availability);
     // notYet continues the sentence "Not yet included: ...", so it starts in lowercase.
     assert.match(today.rows[4].text, /Not yet included: desks on the household's other devices/u);
-    assert.ok(today.rows[4].text.includes(`There is no website sign-up. ${node.live.newAccountAdmission.door.reviews} Starter funds:`));
+    // The review caveat closes the row, so "Starter funds" is not read as a fact about zerone-dev-1.
+    assert.ok(today.rows[4].text.endsWith(`Validator joining: not open. ${node.live.newAccountAdmission.door.reviews}`));
     assert.equal(today.freshNetworkCheck, false);
     assert.equal(today.availabilityKind, "build-time-declaration");
     assert.doesNotMatch(understandPage(guide), /href="https:\/\/zerone\.ai\/nodes\/#observer"/u);
