@@ -197,7 +197,7 @@ func TestPromptBannerDoesNotCertifyTruth(t *testing.T) {
 
 	facts := []Fact{{ID: "a1b2c3", Content: "c", Domain: "physics", Confidence: "900000", Status: "FACT_STATUS_VERIFIED"}}
 	prompt := formatXML(facts, "q", false)
-	for _, banned := range []string{"stake-weighted", "has been verified", "verified knowledge"} {
+	for _, banned := range []string{"stake-weighted", "has been verified", "verified knowledge", "recorded review outcome", "is not all knowledge"} {
 		if strings.Contains(prompt, banned) {
 			t.Fatalf("prompt still claims %q:\n%s", banned, prompt)
 		}
