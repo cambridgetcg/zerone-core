@@ -114,9 +114,13 @@ describe("purpose-first homepage", () => {
     assert.match(network, /<h3 id="block-keeper-title" tabindex="-1">/u);
     assert.ok(
       network.includes(
-        '<p class="block-keeper-limits" id="block-keeper-limits">Both readings come from the household&rsquo;s own node, through this site. This catches a change made after you kept a block. It cannot catch a node that gave you a false block in the first place, or one that tells the same story every time. Kept blocks stay only in this browser, on this device; clearing this site&rsquo;s data deletes them. Copy or download them to keep them anywhere else.</p>',
+        '<p class="block-keeper-limits" id="block-keeper-limits">Both readings come from the household&rsquo;s own node, through this site. This catches a later change to that block, or to any block before it, in what this site returns. It cannot catch a node that gave you a false block in the first place, or one that tells the same story every time. Kept blocks stay only in this browser, on this device; clearing this site&rsquo;s data deletes them. Copy or download them to keep them anywhere else.</p>',
       ),
       "the keeper states its limits exactly",
+    );
+    assert.ok(
+      network.includes("This page saves its height, full hash, block time and the time you kept it, in this browser."),
+      "the keeper names every field it stores",
     );
     assert.match(
       network.slice(keeperStart),

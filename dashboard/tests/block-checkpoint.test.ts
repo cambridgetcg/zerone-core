@@ -10,6 +10,7 @@ import {
   assessKeptBlock,
   checkSummary,
   describeAssessment,
+  describeView,
   forgetFromPage,
   forgetKeptBlock,
   formatKeeperDate,
@@ -180,12 +181,15 @@ describe("block keeper", () => {
     ]) {
       assert.deepEqual(assessKeptBlock(KEPT, reading({ block })), { state: "unknown", reason: "incomplete" });
     }
+    // Like DIFFERENT, it says what this site returned, not what the chain holds.
     assert.equal(
       wording({ state: "same" }),
-      "Still the same. On 10 November 2026, 09:12, block #1,437,954 has the hash you kept on 9 November 2026, 22:31.",
+      "Still the same. On 10 November 2026, 09:12 UTC, this site returned block #1,437,954 with the hash you kept on 9 November 2026, 22:31 UTC.",
     );
-    assert.equal(formatKeeperDate("2026-11-09T14:05:00Z", "UTC"), "9 November 2026, 14:05");
-    assert.equal(formatKeeperDate(KEPT.blockTime, "UTC"), "9 November 2026, 22:29");
+    // Times name their zone, because the copy and the download give UTC.
+    assert.equal(formatKeeperDate("2026-11-09T14:05:00Z", "UTC"), "9 November 2026, 14:05 UTC");
+    assert.equal(formatKeeperDate("2026-11-09T14:05:00Z", "Asia/Tokyo"), "9 November 2026, 23:05 GMT+9");
+    assert.equal(formatKeeperDate(KEPT.blockTime, "UTC"), "9 November 2026, 22:29 UTC");
   });
 
   it("reports DIFFERENT for a changed hash, and for a missing block only when the read failed, the tip is lower and the node is not catching up", () => {
@@ -196,7 +200,7 @@ describe("block keeper", () => {
     assert.deepEqual(changed, { state: "different", reason: "hash" });
     assert.equal(
       wording(changed),
-      "DIFFERENT. Block #1,437,954 now has another hash than the one you kept on 9 November 2026, 22:31. The record this site reads has changed at or before this block since then. Checked on 10 November 2026, 09:12.",
+      "DIFFERENT. Block #1,437,954 now has another hash than the one you kept on 9 November 2026, 22:31 UTC. The record this site reads has changed at or before this block since then. Checked on 10 November 2026, 09:12 UTC.",
     );
 
     const tipBelow = KEPT.height - 400;
@@ -207,7 +211,7 @@ describe("block keeper", () => {
     assert.deepEqual(missing, { state: "different", reason: "missing", latestHeight: tipBelow });
     assert.equal(
       wording(missing),
-      "DIFFERENT. Block #1,437,954 is missing: the node’s newest block is now #1,437,554, lower than the block you kept on 9 November 2026, 22:31. Checked on 10 November 2026, 09:12.",
+      "DIFFERENT. Block #1,437,954 is missing: the node’s newest block is now #1,437,554, lower than the block you kept on 9 November 2026, 22:31 UTC. Checked on 10 November 2026, 09:12 UTC.",
     );
 
     // Each of the three conditions is needed; without any one, it is not DIFFERENT.
@@ -225,13 +229,13 @@ describe("block keeper", () => {
 
   it("reports could not check for a failed read, a pruned height, a malformed reply or a node catching up, and never as the same", () => {
     const cases: Array<[string, Partial<KeptBlockReading>, string, string]> = [
-      ["failed read", { block: null, readFailed: true }, "no-answer", "The node did not answer."],
+      ["failed read", { block: null, readFailed: true }, "no-answer", "The node gave no usable answer."],
       ["pruned height", { block: null, readFailed: true, earliestHeight: KEPT.height + 1 }, "pruned", "The node no longer serves this block."],
-      ["malformed reply", { block: null, readFailed: false }, "incomplete", "The reply was incomplete."],
-      ["reply with a bad hash", { block: { chainId: "zerone-1", height: KEPT.height, hash: "not a hash" } }, "incomplete", "The reply was incomplete."],
-      ["contradictory reading", { readFailed: true }, "incomplete", "The reply was incomplete."],
+      ["malformed reply", { block: null, readFailed: false }, "incomplete", "The reply was not a complete record of this block."],
+      ["reply with a bad hash", { block: { chainId: "zerone-1", height: KEPT.height, hash: "not a hash" } }, "incomplete", "The reply was not a complete record of this block."],
+      ["contradictory reading", { readFailed: true }, "incomplete", "The reply was not a complete record of this block."],
       ["catching up, with an equal hash", { catchingUp: true }, "catching-up", "The node is catching up."],
-      ["no status, with an equal hash", { latestHeight: null, catchingUp: null }, "no-answer", "The node did not answer."],
+      ["no status, with an equal hash", { latestHeight: null, catchingUp: null }, "no-answer", "The node gave no usable answer."],
     ];
     for (const [name, overrides, reason, sentence] of cases) {
       const assessment = assessKeptBlock(KEPT, reading(overrides));
@@ -239,10 +243,26 @@ describe("block keeper", () => {
       assert.deepEqual(assessment, { state: "unknown", reason }, name);
       assert.equal(
         wording(assessment),
-        `Could not check. ${sentence} This does not mean the block is unchanged. Tried on 10 November 2026, 09:12.`,
+        `Could not check. ${sentence} This does not mean the block is unchanged. Tried on 10 November 2026, 09:12 UTC.`,
         name,
       );
     }
+  });
+
+  it("says a block kept while saving fails lasts for this visit only", () => {
+    assert.equal(
+      describeView(KEPT, { kind: "kept" }, "saved", "UTC"),
+      "Kept on 9 November 2026, 22:31 UTC. The page asks the node for this block again when you come back, or when you press Check again.",
+    );
+    assert.equal(
+      describeView(KEPT, { kind: "kept" }, "unavailable", "UTC"),
+      "Kept on 9 November 2026, 22:31 UTC, for this visit only. Press Check again to ask the node for it.",
+    );
+    assert.doesNotMatch(describeView(KEPT, { kind: "kept" }, "unavailable", "UTC"), /when you come back/u);
+    assert.equal(
+      describeView(KEPT, { kind: "checked", assessment: { state: "same" }, checkedAt: CHECKED_AT }, "unavailable", "UTC"),
+      wording({ state: "same" }),
+    );
   });
 
   it("keeps working when browser storage is missing or throws on access", () => {

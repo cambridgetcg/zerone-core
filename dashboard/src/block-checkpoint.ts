@@ -326,7 +326,10 @@ function formatHeight(height: number): string {
   return new Intl.NumberFormat("en-GB").format(height);
 }
 
-/** "9 November 2026, 14:05", in the visitor's time zone unless one is given. */
+/**
+ * "9 November 2026, 14:05 GMT", in the visitor's time zone unless one is
+ * given. The zone is named because the copy and the download give UTC.
+ */
 export function formatKeeperDate(value: string, timeZone?: string): string {
   const ms = timestampMs(value);
   if (!Number.isFinite(ms)) return value;
@@ -342,15 +345,18 @@ export function formatKeeperDate(value: string, timeZone?: string): string {
     minute: "2-digit",
     hourCycle: "h23",
     timeZone,
+    timeZoneName: "short",
   }).format(date);
   return `${day}, ${time}`;
 }
 
 const UNKNOWN_REASONS: Record<UnknownReason, string> = {
-  "no-answer": "The node did not answer.",
+  // Also an HTTP error reply or a failed status read, not only silence.
+  "no-answer": "The node gave no usable answer.",
   pruned: "The node no longer serves this block.",
   "catching-up": "The node is catching up.",
-  incomplete: "The reply was incomplete.",
+  // Also a reply naming another chain or another height.
+  incomplete: "The reply was not a complete record of this block.",
 };
 
 export function describeAssessment(
@@ -363,7 +369,8 @@ export function describeAssessment(
   const keptOn = formatKeeperDate(kept.keptAt, timeZone);
   const checkedOn = formatKeeperDate(checkedAt, timeZone);
   if (assessment.state === "same") {
-    return `Still the same. On ${checkedOn}, block ${height} has the hash you kept on ${keptOn}.`;
+    // Only this site's reading is known, as in the DIFFERENT sentence below.
+    return `Still the same. On ${checkedOn}, this site returned block ${height} with the hash you kept on ${keptOn}.`;
   }
   if (assessment.state === "different" && assessment.reason === "hash") {
     return `DIFFERENT. Block ${height} now has another hash than the one you kept on ${keptOn}. The record this site reads has changed at or before this block since then. Checked on ${checkedOn}.`;
@@ -377,13 +384,17 @@ export function describeAssessment(
 export function describeView(
   kept: KeptBlock,
   view: KeptBlockView,
+  storage: KeptStorage,
   timeZone?: string,
 ): string {
   switch (view.kind) {
     case "waiting":
       return "Not checked yet on this visit.";
     case "kept":
-      return `Kept on ${formatKeeperDate(kept.keptAt, timeZone)}. The page asks the node for this block again when you come back, or when you press Check again.`;
+      // When the last save failed, a block kept now is gone after this visit.
+      return storage === "saved"
+        ? `Kept on ${formatKeeperDate(kept.keptAt, timeZone)}. The page asks the node for this block again when you come back, or when you press Check again.`
+        : `Kept on ${formatKeeperDate(kept.keptAt, timeZone)}, for this visit only. Press Check again to ask the node for it.`;
     case "checking":
       return `Asking the node for block #${formatHeight(kept.height)}.`;
     case "checked":
@@ -502,6 +513,7 @@ export function renderKeptBlocks(
   list: HTMLElement,
   blocks: readonly KeptBlock[],
   views: ReadonlyMap<number, KeptBlockView>,
+  storage: KeptStorage,
   onForget: (height: number) => void,
 ): void {
   const existing = new Map<string, HTMLLIElement>();
@@ -515,7 +527,7 @@ export function renderKeptBlocks(
     const view = views.get(kept.height) ?? { kind: "waiting" };
     item.dataset.state = view.kind === "checked" ? view.assessment.state : "pending";
     const result = item.querySelector<HTMLElement>(".kept-block-result");
-    const text = describeView(kept, view);
+    const text = describeView(kept, view, storage);
     if (result && result.textContent !== text) result.textContent = text;
     return item;
   });

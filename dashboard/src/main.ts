@@ -407,7 +407,7 @@ function renderBlocks(blocks: RecentBlock[]): void {
 }
 
 function renderBlockKeeper(): void {
-  renderKeptBlocks(keptBlocksList, kept.blocks, keptViews, forgetKept);
+  renderKeptBlocks(keptBlocksList, kept.blocks, keptViews, kept.storage, forgetKept);
   // The status line is the keeper's one announcement, so it changes only
   // when its words do.
   const notice = keeperNotice({
