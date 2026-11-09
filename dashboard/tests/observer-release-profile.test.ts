@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { it } from "node:test";
@@ -56,6 +56,38 @@ it("binds an observer recipe to immutable signed artifacts and preserves closed 
   assert.ok(html.includes("command-observer-start"));
   assert.ok(html.includes("zero voting power"));
   assert.doesNotMatch(html, /supported live replica installation and validator joining are not open/u);
+});
+
+it("records a closed bootstrap window by exact release ID, never by the clock", () => {
+  const pinned = JSON.parse(readFileSync(new URL("../observer-release.json", import.meta.url), "utf8")) as ObserverPublication;
+  const profile = buildNodeGuideProfile({ sourceCommit: "a8".repeat(20), helperSha256: "b9".repeat(32), observerPublication: pinned });
+  const release = profile.live.replicaInstallation.release!;
+  assert.equal(profile.live.replicaInstallation.availability, "signed-legacy-observer-bootstrap-closed");
+  assert.equal(release.bootstrapClosedRecordedOn, "2026-11-09");
+  assert.match(release.verifyCommand, /package\.py unpack/u);
+  assert.ok(release.initCommand.includes("observer.py\" init"));
+  assert.equal(release.validatorPower, 0);
+  const html = nodeGuidePage(profile);
+  assert.ok(html.includes('id="observer"'));
+  assert.ok(html.includes("New observer setups"));
+  assert.ok(html.includes("zero voting power"));
+  assert.ok(html.includes(pinned.expiresAt));
+  assert.ok(html.includes(release.releaseUrl));
+  assert.ok(html.includes(release.guideUrl));
+  assert.ok(html.includes("command-observer-start"));
+  assert.ok(html.includes("command-observer-status"));
+  assert.doesNotMatch(html, /command-observer-(?:verify|init)"/u);
+
+  // The same expired deadline under a release ID with no closure record keeps the open card:
+  // nothing compares expiresAt with the build clock.
+  const open = buildNodeGuideProfile({ sourceCommit: "a8".repeat(20), helperSha256: "b9".repeat(32),
+    observerPublication: { ...publication, expiresAt: "2020-01-01T00:00:00Z" } });
+  assert.equal(open.live.replicaInstallation.availability, "signed-legacy-observer");
+  assert.equal(open.live.replicaInstallation.release?.bootstrapClosedRecordedOn, null);
+  const openHtml = nodeGuidePage(open);
+  assert.ok(openHtml.includes("command-observer-verify"));
+  assert.ok(openHtml.includes("command-observer-init"));
+  assert.doesNotMatch(openHtml, /New observer setups/u);
 });
 
 it("refuses moving source pins, unsafe release names, added capabilities and malformed checkpoints", () => {

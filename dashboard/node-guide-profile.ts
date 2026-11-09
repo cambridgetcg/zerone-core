@@ -313,10 +313,13 @@ export function buildNodeGuideProfile({
       clientGuidance: "For automated reads, send an honest application User-Agent, such as zerone-node-guide/1.0, and set a timeout. Some generic client signatures are blocked by the gateway. Treat non-200 responses as unavailable.",
       trustGuide: source("deploy/mainnet/TRUST.md"),
       replicaInstallation: {
-        availability: observerRelease ? "signed-legacy-observer" : "not-published",
-        reason: observerRelease
-          ? "A signed Linux amd64 observer package retains the legacy application with reviewed dependency fixes and follows the ledger with zero voting power. Check the bootstrap expiry before installing."
-          : "A compatible public legacy observer binary and verified setup bundle are not published. Current source is not a drop-in live-node binary.",
+        availability: !observerRelease ? "not-published"
+          : observerRelease.bootstrapClosedRecordedOn ? "signed-legacy-observer-bootstrap-closed" : "signed-legacy-observer",
+        reason: !observerRelease
+          ? "A compatible public legacy observer binary and verified setup bundle are not published. Current source is not a drop-in live-node binary."
+          : observerRelease.bootstrapClosedRecordedOn
+            ? "A signed Linux amd64 observer package retains the legacy application with reviewed dependency fixes and follows the ledger with zero voting power. Its window for new setups has closed. A home that synced before then can resume; a new home cannot start from this release."
+            : "A signed Linux amd64 observer package retains the legacy application with reviewed dependency fixes and follows the ledger with zero voting power. Check the bootstrap expiry before installing.",
         release: observerRelease,
       },
       validatorJoining: { availability: "not-open", guide: source("deploy/mainnet/JOIN.md") },

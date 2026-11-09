@@ -71,6 +71,16 @@ describe("shared explanatory guide", () => {
     assert.ok(html.includes("https://zerone.ai/nodes/#observer"));
     assert.match(html, /not a live health check/u);
     assert.equal(node.live.replicaInstallation.release?.validatorPower, 0);
+    // The pinned release carries a reviewed closure record keyed by its exact ID.
+    assert.equal(today.rows[1].availability, "signed-legacy-observer-bootstrap-closed");
+    assert.equal(today.rows[1].title, "Observer: new setups closed");
+    assert.equal(today.rows[1].link.label, "Read the observer release record");
+    // The same expired deadline under another release ID stays open: the build never reads the clock.
+    const unrecorded = build({ ...publication, releaseId: "zerone-1-observer-test", expiresAt: "2020-01-01T00:00:00Z" });
+    const open = unrecorded.guide.sections[5].rows[1];
+    assert.equal(open.availability, "signed-legacy-observer");
+    assert.equal(open.availability, unrecorded.node.live.replicaInstallation.availability);
+    assert.equal(open.title, "Run an experimental observer");
   });
 
   it("renders shared prose as inert text and gives every local link a unique target", () => {
