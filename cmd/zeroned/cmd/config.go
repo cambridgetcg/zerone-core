@@ -36,8 +36,9 @@ const oracleConfigTemplate = `
 
 # Enable oracle queries for the Proof-of-Truth vote-extension commit phase.
 # This binary compiles that transport off (potVoteExtensionsReleaseEnabled =
-# false in app/vote_extensions.go), so zeroned never queries the oracle and
-# this setting changes nothing.
+# false in app/vote_extensions.go), so zeroned never queries the oracle.
+# Enabling it only builds an unused client and logs "oracle sidecar enabled"
+# at startup.
 # Where the transport is on, a validator with no usable oracle verdict casts
 # no vote for that claim. It does not fall back to accept.
 enabled = {{ .Oracle.Enabled }}
