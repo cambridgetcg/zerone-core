@@ -20,15 +20,25 @@ Messages API-compatible LLM endpoint for a non-uncertain response.
   no code path sets the validator's vote-extension configuration.
 - Where that transport is on, the validator integration casts no vote for a
   claim when it has no usable verdict: the oracle is off, unreachable or
-  erroring, the verdict is `uncertain` or below `min-confidence`, or the claim
-  cannot be found.
+  erroring, the verdict is `uncertain`, below `min-confidence` or any word
+  other than `accept` or `reject`, the confidence is negative or not a number,
+  or the claim cannot be found.
+- `zeroned` writes the `[oracle]` comments only into a new `app.toml`. An
+  `app.toml` created before November 2026 keeps the old comments, which say the
+  validator falls back to default accept; they no longer describe the code.
 
-Until November 2026 the integration voted `accept` in each of those cases: at
-600,000 confidence when the oracle was off, unreachable or erroring or the
-claim could not be found, and at the oracle's own confidence when the verdict
-was `uncertain` or below `min-confidence`. That fail-open default is how a
-false claim passed unanimously in R25 testing. The sidecar is advisory, not an
-independent truth proof, and operators must not describe it as one.
+Until November 2026 the integration was written to vote `accept` in these
+cases instead: at 600,000 confidence when the oracle was off, unreachable or
+erroring or the claim could not be found, and at the oracle's own confidence
+when the verdict was `uncertain` or below `min-confidence`. That default was
+chosen on purpose in the approved 2026-02-27 design
+(`docs/plans/2026-02-27-validator-oracle-design.md`), so that an absent oracle
+changed nothing and a weak oracle signal did not expose a validator to
+slashing. This source reverses that decision. The same default, `accept` at
+600,000 confidence, was hard-coded for every claim before the oracle existed,
+and that is how a false claim passed unanimously in R25 testing. The sidecar is
+advisory, not an independent truth proof, and operators must not describe it
+as one.
 
 ## Local development
 
