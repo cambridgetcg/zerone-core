@@ -21,6 +21,7 @@ interface RpcStatusResponse {
     sync_info?: {
       latest_block_height?: string;
       latest_block_time?: string;
+      earliest_block_height?: string;
       catching_up?: boolean;
     };
   };
@@ -87,6 +88,8 @@ interface RawAccountIdentifier {
 export interface NetworkSnapshot {
   chainId: string;
   height: number;
+  /** The lowest height the node still serves, or null when its status omits it. */
+  earliestHeight: number | null;
   blockTime: string;
   catchingUp: boolean;
   cometVersion: string;
@@ -103,6 +106,23 @@ export interface RecentBlock {
   time: string;
   transactionCount: number;
   hash: string;
+}
+
+/** One block read by height, with the chain its header names. */
+export interface BlockAtHeight extends RecentBlock {
+  chainId: string;
+}
+
+/**
+ * The node answered a block read, but not with exactly the block asked for.
+ * A failed request (no answer, an HTTP error, an unreadable body) throws an
+ * ordinary Error instead, so callers can tell the two apart.
+ */
+export class IncompleteBlockReplyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "IncompleteBlockReplyError";
+  }
 }
 
 export interface AccountIdentifier {
@@ -443,9 +463,12 @@ export async function getNetworkSnapshot(): Promise<NetworkSnapshot> {
   const issuedSupply =
     supply.amount?.denom === DENOM ? amount(supply.amount.amount) : null;
   const validatorTotal = uint(validators.result?.total);
+  const earliestHeight = uint(statusResult.sync_info?.earliest_block_height);
   return {
     chainId,
     height,
+    earliestHeight:
+      earliestHeight !== null && earliestHeight > 0 ? earliestHeight : null,
     blockTime,
     catchingUp,
     cometVersion: statusResult.node_info?.version ?? "unknown",
@@ -498,6 +521,69 @@ export async function getRecentBlocks(latestHeight: number, count = 5): Promise<
     }
     return [{ height, time, transactionCount, hash }];
   });
+}
+
+/**
+ * Reads one block by height as a one-height `blockchain` window: the block's
+ * meta and header without its transactions, bounded like every other strict
+ * read. A failed request throws an ordinary Error; a reply that is not exactly
+ * this zerone-1 block throws IncompleteBlockReplyError.
+ */
+export async function getBlockAt(height: number): Promise<BlockAtHeight> {
+  if (!Number.isSafeInteger(height) || height < 1) {
+    throw new RangeError("A block height is a whole number from 1.");
+  }
+  const body = await fetchBoundedJson(
+    rpcUrl("blockchain", {
+      minHeight: String(height),
+      maxHeight: String(height),
+    }),
+  );
+  const metas =
+    isRecord(body) && isRecord(body.result) ? body.result.block_metas : undefined;
+  if (!Array.isArray(metas) || metas.length !== 1) {
+    throw new IncompleteBlockReplyError(
+      `Mainnet did not return exactly one block for height ${height}.`,
+    );
+  }
+  const meta: unknown = metas[0];
+  if (!isRecord(meta) || !isRecord(meta.header) || !isRecord(meta.block_id)) {
+    throw new IncompleteBlockReplyError(
+      `Mainnet returned an incomplete block for height ${height}.`,
+    );
+  }
+  const chainId = meta.header.chain_id;
+  const time = meta.header.time;
+  const hash = meta.block_id.hash;
+  const transactionCount = uint(meta.num_txs);
+  if (chainId !== CHAIN_ID) {
+    throw new IncompleteBlockReplyError(
+      `Mainnet returned a block that is not from ${CHAIN_ID}.`,
+    );
+  }
+  if (uint(meta.header.height) !== height) {
+    throw new IncompleteBlockReplyError(
+      `Mainnet returned another height when asked for block ${height}.`,
+    );
+  }
+  if (
+    typeof hash !== "string" ||
+    !/^[A-F0-9]{64}$/i.test(hash) ||
+    typeof time !== "string" ||
+    !Number.isFinite(Date.parse(time)) ||
+    transactionCount === null
+  ) {
+    throw new IncompleteBlockReplyError(
+      `Mainnet returned an incomplete block for height ${height}.`,
+    );
+  }
+  return {
+    chainId,
+    height,
+    time,
+    transactionCount,
+    hash: hash.toUpperCase(),
+  };
 }
 
 export async function getWalletBalance(address: string): Promise<string> {
