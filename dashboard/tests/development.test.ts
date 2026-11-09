@@ -92,11 +92,20 @@ describe("separate development publication and read-only surface", () => {
   it("keeps the review offer tied to its public template and the handoff's recorded status", () => {
     const template = readFileSync(new URL("../../.github/ISSUE_TEMPLATE/review-offer.md", import.meta.url), "utf8");
     assert.ok(template.startsWith("---\nname: "));
+    const frontMatter = template.split("\n---\n", 1)[0]!;
+    assert.match(frontMatter, /^about: \S/mu);
+    assert.match(frontMatter, /^title: \S/mu);
     assert.ok(template.includes("Never paste a private key"));
-    // The page says the handoff records no completed participant review; this fails once that status changes.
+    assert.match(template, /salt/u);
+    assert.match(template, /unrevealed review/u);
+    // The page states the handoff's preparation date and that it records no completed participant review;
+    // this fails once the handoff's status line changes either.
+    const review = buildDevelopmentProfile(commit, publication).reviewHandoff!;
+    const prepared = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${review.prepared}T00:00:00Z`));
     const handoff = readFileSync(new URL("../../docs/DEVELOPMENT-REVIEW-HANDOFF.md", import.meta.url), "utf8");
-    assert.ok(handoff.includes("participant review not yet completed"));
-    assert.match(buildDevelopmentProfile(commit, publication).reviewHandoff!.text, /records no completed participant review/u);
+    assert.ok(handoff.includes(`Status: **prepared ${prepared}; participant review not yet completed.**`));
+    assert.ok(review.text.includes(`prepared on ${prepared},`));
+    assert.match(review.text, /records no completed participant review/u);
   });
   it("refuses arbitrary endpoints, incomplete pins, extra fields and invalid dates", () => {
     for (const change of [{ gateway: "https://evil.invalid" }, { chain_id: "zerone-1" }, { binary_sha256: "0".repeat(64) }, { runtime_source_commit: "main" }, { descriptor_sha256: publication.descriptor_sha256.toUpperCase().replace("12", "AB") }, { verified_at: "2026-02-31T00:00:00Z" }, { extra: true }]) assert.throws(() => buildDevelopmentProfile(commit, { ...publication, ...change } as DevelopmentPublication));
