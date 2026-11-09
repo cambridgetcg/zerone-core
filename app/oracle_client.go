@@ -88,8 +88,8 @@ func (c *HTTPOracleClient) Evaluate(claim, domain, claimType string) (*OracleEva
 
 // EvaluateWithOracle returns ok=false when there is no usable verdict: no
 // client, an error, an "uncertain" verdict (including one downgraded for low
-// confidence), or any verdict other than "accept" or "reject". The caller then
-// casts no vote for that claim.
+// confidence), any verdict other than "accept" or "reject", a nil result, or a
+// negative or NaN confidence. The caller then casts no vote for that claim.
 func EvaluateWithOracle(client OracleClient, claim, domain, claimType string) (verdict string, confidence uint64, ok bool) {
 	if client == nil {
 		return "", 0, false

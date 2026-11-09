@@ -187,8 +187,10 @@ func (app *ZeroneApp) handleCommitPhase(
 	// phase reveals nothing for this round and no slash path applies.
 	//
 	// A declined round is evaluated again on each later block of its commit
-	// phase. Whoever opens the release latch should add a per-round declined
-	// marker; a sentinel LocalCommitment would be revealed as an invalid verdict.
+	// phase, and each re-evaluation is a synchronous oracle call that can block
+	// ExtendVote for up to oracle.timeout per declined round. Whoever opens the
+	// release latch should add a per-round declined marker; a sentinel
+	// LocalCommitment would be revealed as an invalid verdict.
 	claim, found := app.KnowledgeKeeper.GetClaim(ctx, round.ClaimId)
 	verdict, confidence, ok := potVerdictForClaim(config.OracleClient, claim, found)
 	if !ok {
