@@ -19,6 +19,7 @@ describe("separate development publication and read-only surface", () => {
     assert.equal(guide.development.publication, null);
     assert.equal(guide.development.packages, null);
     assert.equal(guide.development.exampleClaim, null);
+    assert.equal(guide.development.reviewHandoff, null);
     assert.equal(guide.development.effects.browserReads, "none");
     assert.equal(guide.live.chainId, "zerone-1");
     assert.equal(guide.live.newAccountAdmission.availability, "household-hub-agents-by-request");
@@ -28,6 +29,7 @@ describe("separate development publication and read-only surface", () => {
     assert.match(html, /Deployment verification pending/u);
     assert.doesNotMatch(html, /id="development-reader"|data-descriptor-sha256/u);
     assert.doesNotMatch(html, /id="example-claim"/u);
+    assert.doesNotMatch(html, /id="review-handoff"/u);
     assert.match(html, /id="claim-read"[^>]*disabled/u);
     assert.match(html, /<noscript>/u);
     assert.match(nodeGuidePage(guide), /id="development"/u);
@@ -75,6 +77,26 @@ describe("separate development publication and read-only surface", () => {
     assert.match(profile.exampleClaim!.scope, /no reviews or challenges/u);
     assert.match(profile.exampleClaim!.scope, /no claim of acceptance or independent endorsement/u);
     assert.ok(html.includes(profile.exampleClaim!.url));
+    const review = profile.reviewHandoff!;
+    assert.ok(review.guide.endsWith(`/${commit}/docs/DEVELOPMENT-REVIEW-HANDOFF.md`));
+    assert.equal(review.offer, "https://github.com/cambridgetcg/zerone-core/issues/new?template=review-offer.md");
+    assert.ok(html.includes(`href="${review.guide}"`));
+    assert.ok(html.includes(`href="${review.offer}"`));
+    assert.match(html, /id="review-handoff"/u);
+    assert.match(html, /opens no review round/u);
+    assert.match(html, /Never include keys, salts or unrevealed reviews/u);
+    // An offer route, not a review queue: still one claim-ID form and the pending-work boundary.
+    assert.equal(html.split("<form").length - 1, 1);
+    assert.match(html, /not a pending-work feed/u);
+  });
+  it("keeps the review offer tied to its public template and the handoff's recorded status", () => {
+    const template = readFileSync(new URL("../../.github/ISSUE_TEMPLATE/review-offer.md", import.meta.url), "utf8");
+    assert.ok(template.startsWith("---\nname: "));
+    assert.ok(template.includes("Never paste a private key"));
+    // The page says the handoff records no completed participant review; this fails once that status changes.
+    const handoff = readFileSync(new URL("../../docs/DEVELOPMENT-REVIEW-HANDOFF.md", import.meta.url), "utf8");
+    assert.ok(handoff.includes("participant review not yet completed"));
+    assert.match(buildDevelopmentProfile(commit, publication).reviewHandoff!.text, /records no completed participant review/u);
   });
   it("refuses arbitrary endpoints, incomplete pins, extra fields and invalid dates", () => {
     for (const change of [{ gateway: "https://evil.invalid" }, { chain_id: "zerone-1" }, { binary_sha256: "0".repeat(64) }, { runtime_source_commit: "main" }, { descriptor_sha256: publication.descriptor_sha256.toUpperCase().replace("12", "AB") }, { verified_at: "2026-02-31T00:00:00Z" }, { extra: true }]) assert.throws(() => buildDevelopmentProfile(commit, { ...publication, ...change } as DevelopmentPublication));
