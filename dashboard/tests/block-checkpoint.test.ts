@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
+import { IncompleteBlockReplyError } from "../src/api";
 import {
   AT_LIMIT_MESSAGE,
   KEPT_BLOCKS_KEY,
@@ -8,19 +9,23 @@ import {
   UNREADABLE_MESSAGE,
   assessKeptBlock,
   describeAssessment,
+  forgetFromPage,
   forgetKeptBlock,
   formatKeeperDate,
   keepBlock,
+  keepIntoPage,
   keepResultMessage,
   keeperNotice,
   keptBlockFrom,
   keptBlocksDownload,
   parseKeptBlocks,
   readKeptBlocks,
+  readKeptHeight,
   writeKeptBlocks,
   type KeptBlock,
   type KeptBlockAssessment,
   type KeptBlockReading,
+  type KeptBlocksRead,
 } from "../src/block-checkpoint";
 
 const HASH = "9F86D081884C7D659A2FEAA0C55AD015A3BF4F1B2B0B822CD15D6C15B0F00A08";
@@ -294,6 +299,91 @@ describe("block keeper", () => {
       `${AT_LIMIT_MESSAGE} ${STORAGE_BLOCKED_MESSAGE}`,
     );
     assert.equal(keeperNotice({ message: "", storage: "saved", unreadable: false }), "");
+  });
+
+  it("keeps every block kept on this visit when storage reads but refuses writes", () => {
+    const block = (height: number) => ({ height, hash: HASH, time: KEPT.blockTime });
+    const heights = (page: KeptBlocksRead) => page.blocks.map((kept) => kept.height);
+
+    // getItem works and setItem throws, as when the site's storage is full.
+    const full = memoryStorage();
+    full.setItem = () => {
+      throw new Error("QuotaExceededError");
+    };
+    setWindow({ localStorage: full });
+    let page = readKeptBlocks();
+    assert.deepEqual(page, { blocks: [], storage: "saved", unreadable: false });
+    for (const height of [100, 106, 112]) {
+      const next = keepIntoPage(page, block(height), new Date(Date.UTC(2026, 10, 9, 22, 31)));
+      assert.equal(next.result.kind, "kept", String(height));
+      page = next.page;
+      assert.equal(page.storage, "unavailable");
+    }
+    assert.deepEqual(heights(page), [100, 106, 112], "each Keep adds to the list, never replaces it");
+    assert.equal(keeperNotice({ message: "", ...page }), STORAGE_BLOCKED_MESSAGE);
+    assert.deepEqual(keepIntoPage(page, block(106), new Date()).result, { kind: "already-kept", height: 106 });
+    assert.deepEqual(heights(keepIntoPage(page, block(106), new Date()).page), [100, 106, 112]);
+
+    page = forgetFromPage(page, 112);
+    assert.deepEqual(heights(page), [100, 106], "Forget removes one block, not the unsaved ones");
+    assert.equal(page.storage, "unavailable");
+    // Forgetting the last one removes the key, which works, so saving resumes.
+    page = forgetFromPage(forgetFromPage(page, 100), 106);
+    assert.deepEqual(page, { blocks: [], storage: "saved", unreadable: false });
+    assert.equal(full.values.size, 0);
+
+    // Storage already held a block from an earlier visit; a block that fails to save is not lost.
+    const earlier = memoryStorage();
+    earlier.setItem(KEPT_BLOCKS_KEY, JSON.stringify([KEPT]));
+    earlier.setItem = () => {
+      throw new Error("QuotaExceededError");
+    };
+    setWindow({ localStorage: earlier });
+    page = readKeptBlocks();
+    page = keepIntoPage(page, block(200), new Date()).page;
+    page = keepIntoPage(page, block(201), new Date()).page;
+    assert.deepEqual(heights(page), [KEPT.height, 200, 201]);
+  });
+
+  it("starts a Keep or Forget from what another tab saved while this page's writes land", () => {
+    const storage = memoryStorage();
+    setWindow({ localStorage: storage });
+    let page = keepIntoPage(readKeptBlocks(), { height: 100, hash: HASH, time: KEPT.blockTime }, new Date()).page;
+    assert.equal(page.storage, "saved");
+    // Another tab keeps a block of its own.
+    storage.setItem(KEPT_BLOCKS_KEY, JSON.stringify([...page.blocks, KEPT]));
+    page = keepIntoPage(page, { height: 300, hash: HASH, time: KEPT.blockTime }, new Date()).page;
+    assert.deepEqual(page.blocks.map((kept) => kept.height), [100, KEPT.height, 300]);
+    assert.deepEqual(parseKeptBlocks(storage.values.get(KEPT_BLOCKS_KEY)), { readable: true, blocks: page.blocks });
+
+    // Unreadable data under the key is replaced by the first write that lands.
+    storage.setItem(KEPT_BLOCKS_KEY, "{not json");
+    page = readKeptBlocks();
+    assert.deepEqual(page, { blocks: [], storage: "saved", unreadable: true });
+    page = keepIntoPage(page, { height: 7, hash: HASH, time: KEPT.blockTime }, new Date()).page;
+    assert.equal(page.unreadable, false);
+    assert.deepEqual(page.blocks.map((kept) => kept.height), [7]);
+  });
+
+  it("counts a reply that is not this block as an answer, and anything else that throws as a failed read", async () => {
+    const observed = { chainId: "zerone-1", height: KEPT.height, hash: HASH };
+    assert.deepEqual(await readKeptHeight(KEPT.height, async () => observed), { block: observed, readFailed: false });
+    const throws = (error: unknown) => async (): Promise<never> => {
+      throw error;
+    };
+    const timeout = new Error("The operation was aborted due to timeout");
+    timeout.name = "TimeoutError";
+    const cases: Array<[string, unknown, boolean]> = [
+      ["a reply that is not exactly this block", new IncompleteBlockReplyError("another chain"), false],
+      ["HTTP 500", new Error("Mainnet returned HTTP 500"), true],
+      ["no answer", new TypeError("Failed to fetch"), true],
+      ["a timeout", timeout, true],
+      ["an unreadable body", new Error("Mainnet returned malformed JSON."), true],
+      ["something that is not an Error", { name: "IncompleteBlockReplyError" }, true],
+    ];
+    for (const [name, error, readFailed] of cases) {
+      assert.deepEqual(await readKeptHeight(KEPT.height, throws(error)), { block: null, readFailed }, name);
+    }
   });
 
   it("writes a download naming chain, height, hash, block time, kept time and the raw lookup link", () => {

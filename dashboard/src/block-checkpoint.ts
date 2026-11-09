@@ -223,6 +223,62 @@ export function forgetKeptBlock(
 }
 
 /**
+ * The list a Keep or Forget starts from. Another tab may have kept or
+ * forgotten blocks since this page loaded, so readable storage wins while this
+ * page's writes are landing. Once a write has failed, blocks kept only in this
+ * page exist nowhere else, so the page's own list wins until a write lands.
+ */
+export function startingKeptBlocks(page: KeptBlocksRead): KeptBlock[] {
+  if (page.storage === "unavailable") return [...page.blocks];
+  const stored = readKeptBlocks();
+  return stored.storage === "saved" && !stored.unreadable
+    ? stored.blocks
+    : [...page.blocks];
+}
+
+function savedPage(blocks: KeptBlock[], page: KeptBlocksRead): KeptBlocksRead {
+  const storage = writeKeptBlocks(blocks);
+  // A write that landed replaced whatever unreadable data storage held.
+  return { blocks, storage, unreadable: storage === "saved" ? false : page.unreadable };
+}
+
+/** Keeps a block into the page's list and saves the list when storage allows. */
+export function keepIntoPage(
+  page: KeptBlocksRead,
+  block: { height: number; hash: string; time: string },
+  keptAt: Date,
+): { page: KeptBlocksRead; result: KeepResult } {
+  const current = startingKeptBlocks(page);
+  const result = keepBlock(current, block, keptAt);
+  if (result.kind !== "kept") return { page: { ...page, blocks: current }, result };
+  return { page: savedPage(result.blocks, page), result };
+}
+
+/** Forgets a height from the page's list and saves the list when storage allows. */
+export function forgetFromPage(page: KeptBlocksRead, height: number): KeptBlocksRead {
+  return savedPage(forgetKeptBlock(startingKeptBlocks(page), height), page);
+}
+
+/**
+ * Reads one kept height through `read` (getBlockAt on the page). A reply that
+ * was not exactly this block (api.ts throws IncompleteBlockReplyError) is an
+ * answer, not a failed read. Anything else that throws, such as no answer, an
+ * HTTP error, a timeout or an unreadable body, is a failed read.
+ */
+export async function readKeptHeight(
+  height: number,
+  read: (height: number) => Promise<ObservedBlock>,
+): Promise<Pick<KeptBlockReading, "block" | "readFailed">> {
+  try {
+    return { block: await read(height), readFailed: false };
+  } catch (error) {
+    const incomplete =
+      error instanceof Error && error.name === "IncompleteBlockReplyError";
+    return { block: null, readFailed: !incomplete };
+  }
+}
+
+/**
  * Compares a kept block with a later reading. "same" needs the same chain,
  * the same height and an equal hash. A missing block is DIFFERENT only when
  * the read of that height failed and the same refresh's status reports a lower

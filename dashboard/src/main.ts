@@ -4,9 +4,7 @@ import {
   getBlockAt,
   getNetworkSnapshot,
   getRecentBlocks,
-  IncompleteBlockReplyError,
   microToDisplay,
-  type BlockAtHeight,
   type LiquidityParams,
   type LiquidityPool,
   type LiquidityPoolRegistry,
@@ -15,18 +13,17 @@ import {
 } from "./api";
 import {
   assessKeptBlock,
-  forgetKeptBlock,
-  keepBlock,
+  forgetFromPage,
+  keepIntoPage,
   keepResultMessage,
   keeperNotice,
   keptBlocksDownload,
   readKeptBlocks,
+  readKeptHeight,
   renderKeptBlocks,
   saveKeptBlocksFile,
-  writeKeptBlocks,
-  type KeptBlock,
+  type KeptBlocksRead,
   type KeptBlockView,
-  type KeptStorage,
 } from "./block-checkpoint";
 import {
   CHAIN_ID,
@@ -128,10 +125,7 @@ let walletEpoch = 0;
 
 // The block keeper. Only a visitor's "Keep" stores anything, through
 // block-checkpoint.ts; when storage is blocked, kept blocks live in this page.
-const initialKept = readKeptBlocks();
-let keptBlocks: KeptBlock[] = initialKept.blocks;
-let keptStorage: KeptStorage = initialKept.storage;
-let keptUnreadable = initialKept.unreadable;
+let kept: KeptBlocksRead = readKeptBlocks();
 let keeperMessage = "";
 let shownBlocks: RecentBlock[] = [];
 const keptViews = new Map<number, KeptBlockView>();
@@ -408,25 +402,16 @@ function renderBlocks(blocks: RecentBlock[]): void {
 }
 
 function renderBlockKeeper(): void {
-  renderKeptBlocks(keptBlocksList, keptBlocks, keptViews, forgetKept);
+  renderKeptBlocks(keptBlocksList, kept.blocks, keptViews, forgetKept);
   blockKeeperStatus.textContent = keeperNotice({
     message: keeperMessage,
-    storage: keptStorage,
-    unreadable: keptUnreadable,
+    storage: kept.storage,
+    unreadable: kept.unreadable,
   });
   keepBlockButton.disabled = shownBlocks.length === 0;
-  checkKeptButton.disabled = keptBlocks.length === 0 || keptCheckRunning;
-  copyKeptButton.disabled = keptBlocks.length === 0;
-  downloadKeptButton.disabled = keptBlocks.length === 0;
-}
-
-// Another tab may have kept or forgotten blocks since this page loaded, so a
-// change starts from what storage holds, or from this page when it holds none.
-function currentKeptBlocks(): KeptBlock[] {
-  const stored = readKeptBlocks();
-  return stored.storage === "saved" && !stored.unreadable
-    ? stored.blocks
-    : keptBlocks;
+  checkKeptButton.disabled = kept.blocks.length === 0 || keptCheckRunning;
+  copyKeptButton.disabled = kept.blocks.length === 0;
+  downloadKeptButton.disabled = kept.blocks.length === 0;
 }
 
 function keepNewestBlock(): void {
@@ -436,41 +421,21 @@ function keepNewestBlock(): void {
     null,
   );
   if (newest === null) return;
-  const current = currentKeptBlocks();
-  const result = keepBlock(current, newest, new Date());
-  keeperMessage = keepResultMessage(result);
-  if (result.kind === "kept") {
-    keptBlocks = result.blocks;
-    keptStorage = writeKeptBlocks(keptBlocks);
-    if (keptStorage === "saved") keptUnreadable = false;
-    keptViews.set(result.block.height, { kind: "kept" });
-  } else {
-    keptBlocks = current;
+  const next = keepIntoPage(kept, newest, new Date());
+  kept = next.page;
+  keeperMessage = keepResultMessage(next.result);
+  if (next.result.kind === "kept") {
+    keptViews.set(next.result.block.height, { kind: "kept" });
   }
   renderBlockKeeper();
 }
 
 function forgetKept(height: number): void {
-  keptBlocks = forgetKeptBlock(currentKeptBlocks(), height);
+  kept = forgetFromPage(kept, height);
   keptViews.delete(height);
-  keptStorage = writeKeptBlocks(keptBlocks);
   keeperMessage = "";
   renderBlockKeeper();
   if (!keepBlockButton.disabled) keepBlockButton.focus();
-}
-
-async function readKeptHeight(
-  height: number,
-): Promise<{ block: BlockAtHeight | null; readFailed: boolean }> {
-  try {
-    return { block: await getBlockAt(height), readFailed: false };
-  } catch (error) {
-    // A reply that was not exactly this block is incomplete, not a failed read.
-    return {
-      block: null,
-      readFailed: !(error instanceof IncompleteBlockReplyError),
-    };
-  }
 }
 
 // Each kept block is read once, in sequence, and judged against the status
@@ -481,28 +446,29 @@ async function checkKeptBlocks(
   if (keptCheckRunning) return;
   keptCheckStarted = true;
   keptCheckRunning = true;
-  const blocks = [...keptBlocks];
-  blocks.forEach((kept) => keptViews.set(kept.height, { kind: "checking" }));
+  const blocks = [...kept.blocks];
+  blocks.forEach((block) => keptViews.set(block.height, { kind: "checking" }));
   renderBlockKeeper();
   let foundDifferent = false;
   try {
     const status = await readStatus();
-    for (const kept of blocks) {
+    for (const block of blocks) {
       const reading =
         status === null
           ? { block: null, readFailed: true }
-          : await readKeptHeight(kept.height);
-      const assessment = assessKeptBlock(kept, {
+          : await readKeptHeight(block.height, getBlockAt);
+      const assessment = assessKeptBlock(block, {
         ...reading,
         latestHeight: status?.height ?? null,
         catchingUp: status?.catchingUp ?? null,
         earliestHeight: status?.earliestHeight ?? null,
       });
-      const stillKept = keptBlocks.some(
-        (block) => block.height === kept.height && block.keptAt === kept.keptAt,
+      const stillKept = kept.blocks.some(
+        (current) =>
+          current.height === block.height && current.keptAt === block.keptAt,
       );
       if (!stillKept) continue;
-      keptViews.set(kept.height, {
+      keptViews.set(block.height, {
         kind: "checked",
         assessment,
         checkedAt: new Date().toISOString(),
@@ -1325,10 +1291,10 @@ checkKeptButton.addEventListener("click", () => {
   });
 });
 copyKeptButton.addEventListener("click", async () => {
-  if (keptBlocks.length === 0) return;
+  if (kept.blocks.length === 0) return;
   try {
     await navigator.clipboard.writeText(
-      keptBlocksDownload(keptBlocks, window.location.origin),
+      keptBlocksDownload(kept.blocks, window.location.origin),
     );
     showToast("Kept blocks copied.");
   } catch {
@@ -1336,8 +1302,8 @@ copyKeptButton.addEventListener("click", async () => {
   }
 });
 downloadKeptButton.addEventListener("click", () => {
-  if (keptBlocks.length === 0) return;
-  saveKeptBlocksFile(keptBlocksDownload(keptBlocks, window.location.origin));
+  if (kept.blocks.length === 0) return;
+  saveKeptBlocksFile(keptBlocksDownload(kept.blocks, window.location.origin));
 });
 renderBlockKeeper();
 feeGrantForm.addEventListener("submit", (event) => void handleFeeGrant(event));
