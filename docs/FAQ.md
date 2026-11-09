@@ -12,16 +12,18 @@
 Proof of Truth is the older name for Zerone's knowledge review, and for the
 chain Zerone grew from. It is not how blocks are agreed: CometBFT and the Cosmos
 SDK `x/staking` module do that. In a review round, reviewers commit a vote in
-secret, then reveal it, and the round records what they said. That record does
-not prove a claim true or false. Zerone does not decide who is right.
+secret, then reveal it. The round ends in a panel verdict that summarizes what
+the reviewers said, and an accepted claim is recorded as a fact. Neither proves
+the claim true or false.
 
 In current source, a claim opened under neutral review
 (`review_policy_version=1`, see
 [knowledge review neutrality](specs/knowledge-review-neutrality-v1.md)) shares
 the 55% review-fee pool among all valid, timely reveals, dissent included, and
 no reviewer is slashed for voting against the panel or for a missed reveal.
-Rounds opened under the older policy 0 keep their original terms. Publishing
-this source does not upgrade the live `zerone-1` chain.
+Rounds opened under the older policy 0 keep their original financial terms:
+there the verdict decides who is paid and who is slashed. Publishing this
+source does not upgrade the live `zerone-1` chain.
 
 ### What is ZRN?
 
