@@ -115,7 +115,7 @@ Reputation increases by +0.01% per correct verification and decreases by
 
 ### What is the unbonding period?
 
-268,560 blocks (~7 days at 2,521ms block time). During unbonding, your
+268,560 blocks (about 8 days at 2,521 ms). During unbonding, your
 tokens are locked and do not earn rewards. The redelegation cooldown
 (moving stake between validators) is 1,111 blocks (~46 minutes).
 
@@ -325,9 +325,9 @@ legacy playground, in observe-only mode for this consolidated source head.
 
 Source target: 2,521 milliseconds (about 2.5 seconds), the commit timeout set
 in `cmd/zeroned/cmd/config.go`. This FAQ converts block counts to time at that
-target. The website reports that `zerone-1` has made a block about every 30
-seconds since 16 August 2026. At that pace each duration here is about 12 times
-longer: 34,272 blocks is about 12 days, not 1.
+target. On 9 November 2026 the website reported that `zerone-1` had made a
+block about every 30 seconds since 16 August 2026. At that pace each duration
+here is about 12 times longer: 34,272 blocks is about 12 days, not 1.
 
 ### What is the address prefix?
 
