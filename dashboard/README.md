@@ -1039,6 +1039,14 @@ run only for `/api/*` and for discovery-shaped paths (`/.well-known/*`, `*.txt`,
 a 404 and passes every real file through. A new Function outside `/api/` must be
 added to its `include` list, or it will never run.
 
+Every public page names its own absolute `https://zerone.ai/...` canonical, the
+URL that answers 200 (directory pages keep their slash), so the
+`zerone-ai.pages.dev` mirror points home. The frozen research reading copies keep
+their pinned bytes and carry theirs as a `Link` header in `public/_headers`.
+`public/sitemap.xml` lists exactly those URLs and `public/robots.txt` names it;
+`tests/canonical-sitemap.test.ts` keeps the three in step, so a new page needs
+its canonical and its sitemap entry together.
+
 Never request a new `/assets/` path on `https://zerone.ai` before that build is
 deployed. Pages answers a missing asset with the SPA index, `_headers` gives every
 `/assets/*` response `max-age=31536000, immutable`, and the Cloudflare edge then

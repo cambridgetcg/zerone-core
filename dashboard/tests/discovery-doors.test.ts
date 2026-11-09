@@ -27,7 +27,8 @@ describe("Quiet Doors: missing discovery doors answer 404", () => {
     }
   });
 
-  for (const path of ["/llms-full.txt", "/humans.txt", "/sitemap.xml", "/.well-known/mcp.json", "/.well-known/agent-card.json", "/.well-known/ai-plugin.json"]) {
+  // /sitemap.xml is a real file now; /sitemap_index.xml is a probe this site does not publish.
+  for (const path of ["/llms-full.txt", "/humans.txt", "/sitemap_index.xml", "/.well-known/mcp.json", "/.well-known/agent-card.json", "/.well-known/ai-plugin.json"]) {
     it(`answers 404 instead of the app shell at ${path}`, async () => {
       const response = await request(path, async () => shell());
       assert.equal(response.status, 404);
@@ -37,7 +38,7 @@ describe("Quiet Doors: missing discovery doors answer 404", () => {
   }
 
   it("answers HEAD with a bodyless 404", async () => {
-    const response = await request("/sitemap.xml", async () => shell(), "HEAD");
+    const response = await request("/sitemap_index.xml", async () => shell(), "HEAD");
     assert.equal(response.status, 404);
     assert.equal(await response.text(), "");
   });
@@ -61,7 +62,10 @@ describe("Quiet Doors: missing discovery doors answer 404", () => {
 
 describe("Quiet Doors: robots.txt and the route rule", () => {
   it("serves a plain allow-all robots.txt with no new limit or training signal", () => {
-    assert.equal(readFileSync(new URL("../public/robots.txt", import.meta.url), "utf8"), "User-agent: *\nAllow: /\n");
+    assert.equal(
+      readFileSync(new URL("../public/robots.txt", import.meta.url), "utf8"),
+      "User-agent: *\nAllow: /\n\nSitemap: https://zerone.ai/sitemap.xml\n",
+    );
   });
 
   it("runs Functions only for /api and discovery-shaped paths", () => {
