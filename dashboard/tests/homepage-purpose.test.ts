@@ -105,7 +105,7 @@ describe("purpose-first homepage", () => {
       network,
       /<button class="button button-ghost" id="keep-block" type="button" data-js-required="keeper" disabled>Keep the newest block<\/button>/u,
     );
-    for (const [id, label] of [["check-kept", "Check again"], ["copy-kept", "Copy kept blocks"], ["download-kept", "Download kept blocks"]]) {
+    for (const [id, label] of [["check-kept", "Check again"], ["copy-kept", "Copy kept blocks"], ["download-kept", "Download kept blocks"]] as const) {
       assert.match(network, new RegExp(`<button[^>]*id="${id}"[^>]*data-js-required="keeper" disabled>${label}</button>`, "u"), id);
     }
     // One status line speaks for the keeper; the list itself is not a live region.
