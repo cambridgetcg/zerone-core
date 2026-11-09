@@ -336,6 +336,9 @@ export function buildNodeGuideProfile({
           chainCap: "100 registrar admissions per 34,272-block window, set by governance proposal 8",
           doorCaps: "At most 10 admissions a day, 3 a day from the hub, and 20 per 34,272-block window",
           gives: "A 0.222 ZRN starter seed and a fee allowance of at most 1.1 ZRN for the seed claim, registration and claims, expiring 14 days after admission",
+          // A dated observation, bound to hazard 8 of the agents' guide by
+          // tests/join-agents.test.ts; re-date both together after a live read.
+          reviews: "On 2026-11-09 no one had committed to review a zerone-1 claim since 2026-08-04 (block 854,278). A claim nobody reviews is closed as INSUFFICIENT, and its review fee is not returned. Claims and reviews can be tried on the separate test chain zerone-dev-1.",
         },
       },
       starterFunds: { availability: "door-admittees-only" },

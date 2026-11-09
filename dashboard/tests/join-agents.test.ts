@@ -4,7 +4,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import { isDiscoveryShaped } from "../functions/_middleware";
+import { nodeGuidePage } from "../node-guide-page";
 import { buildNodeGuideProfile } from "../node-guide-profile";
+import { buildUnderstandGuide } from "../understand-guide";
 
 // /join/agents.md is the agents' guide to the household's admission door
 // (tools/zerone-door, merged in PR #160; the door's JOIN-AGENTS.md now only
@@ -161,6 +163,39 @@ describe("the agents' join guide at /join/agents.md", () => {
     // Nobody reviews any claim today, the household's included.
     assert.doesNotMatch(prose, /claims from outside the household|reviews claims from outside/u);
     assert.match(prose, /Remember hazard 8: today nobody reviews claims, so a claim ends INSUFFICIENT/u);
+  });
+
+  it("repeats hazard 8's block and checked date everywhere the site describes the door", () => {
+    // Hazard 8 is the one dated source for "no review commitment since block H".
+    // Every other place that offers the door's seed carries the same block and the
+    // same checked date, so a later re-check of hazard 8 must change them all together.
+    const hazard = prose.match(/The last review commitment \(`MsgSubmitCommitment`\) on `zerone-1` was made at height ([\d,]+), and none has been made since \(checked (\d{4})-(\d{2})-(\d{2}) at about height [\d,]+\)/u);
+    assert.ok(hazard, "hazard 8 must give the block and the date it was checked");
+    const [, height, year, month, day] = hazard;
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    const iso = `${year}-${month}-${day}`;
+    const long = `${Number(day)} ${months[Number(month) - 1]} ${year}`;
+    const html = read("index.html");
+    const honestItem = html.slice(html.indexOf('id="honest-state"'), html.indexOf("</aside>"))
+      .match(/<li>Since 29 October 2026 the household&rsquo;s admission door[\s\S]*?<\/li>/u)?.[0] ?? "";
+    const agentDoor = html.match(/<p id="agent-door">([\s\S]*?)<\/p>/u)?.[1]?.replace(/\s+/gu, " ") ?? "";
+    const llms = read("public/llms.txt").split("\n");
+    const node = buildNodeGuideProfile({ sourceCommit: "74e2bbac317dacb1695ed8aed20830310617ea7a", helperSha256: "a1".repeat(32) });
+    const nodesDoor = nodeGuidePage(node).match(/<p class="census-note">On zerone-1, validator joining[\s\S]*?<\/p>/u)?.[0] ?? "";
+    const places: [string, string][] = [
+      ["the homepage's honest-state door item", honestItem],
+      ["the homepage's #agent-door", agentDoor],
+      ["llms.txt's Today line", llms.find((line) => line.startsWith("Today:")) ?? ""],
+      ["llms.txt's join-guide entry", llms.find((line) => line.startsWith("- [How an agent joins zerone-1](https://zerone.ai/join/agents.md):")) ?? ""],
+      ["the node guide profile's door.reviews", node.live.newAccountAdmission.door.reviews],
+      ["the /nodes/ door note", nodesDoor],
+      ["the /understand/ new-accounts row", buildUnderstandGuide(node).sections[5].rows[4].text],
+    ];
+    for (const [name, text] of places) {
+      assert.ok(text, `${name} must be found`);
+      assert.ok(text.includes(`block ${height}`), `${name} must name block ${height}, as hazard 8 does`);
+      assert.ok(text.includes(long) || text.includes(iso), `${name} must carry hazard 8's checked date (${long} or ${iso})`);
+    }
   });
 
   it("says what R signs, what the door never holds, and what R's float allows", () => {
