@@ -15,6 +15,7 @@ import {
 } from "./api";
 import {
   assessKeptBlock,
+  checkSummary,
   forgetFromPage,
   keepIntoPage,
   keepResultMessage,
@@ -24,6 +25,7 @@ import {
   readKeptHeight,
   renderKeptBlocks,
   saveKeptBlocksFile,
+  type KeptBlockAssessment,
   type KeptBlocksRead,
   type KeptBlockView,
 } from "./block-checkpoint";
@@ -105,6 +107,7 @@ const frontierParticipationRoot = byId<HTMLElement>(
   "frontier-participation-root",
 );
 const piPilotSection = byId<HTMLElement>("contribute");
+const keeperHeading = byId<HTMLHeadingElement>("block-keeper-title");
 const keepBlockButton = byId<HTMLButtonElement>("keep-block");
 const checkKeptButton = byId<HTMLButtonElement>("check-kept");
 const copyKeptButton = byId<HTMLButtonElement>("copy-kept");
@@ -405,11 +408,16 @@ function renderBlocks(blocks: RecentBlock[]): void {
 
 function renderBlockKeeper(): void {
   renderKeptBlocks(keptBlocksList, kept.blocks, keptViews, forgetKept);
-  blockKeeperStatus.textContent = keeperNotice({
+  // The status line is the keeper's one announcement, so it changes only
+  // when its words do.
+  const notice = keeperNotice({
     message: keeperMessage,
     storage: kept.storage,
     unreadable: kept.unreadable,
   });
+  if (blockKeeperStatus.textContent !== notice) {
+    blockKeeperStatus.textContent = notice;
+  }
   keepBlockButton.disabled = shownBlocks.length === 0;
   checkKeptButton.disabled = kept.blocks.length === 0 || keptCheckRunning;
   copyKeptButton.disabled = kept.blocks.length === 0;
@@ -437,7 +445,11 @@ function forgetKept(height: number): void {
   keptViews.delete(height);
   keeperMessage = "";
   renderBlockKeeper();
-  if (!keepBlockButton.disabled) keepBlockButton.focus();
+  // The pressed Forget button left with its block; keep focus in the keeper.
+  const next = !keepBlockButton.disabled
+    ? keepBlockButton
+    : (keptBlocksList.querySelector<HTMLButtonElement>("button") ?? keeperHeading);
+  next.focus();
 }
 
 // Each kept block is read once, in sequence, and judged against the status
@@ -448,10 +460,14 @@ async function checkKeptBlocks(
   if (keptCheckRunning) return;
   keptCheckStarted = true;
   keptCheckRunning = true;
+  // Check again is disabled while it runs, which drops its focus to the page;
+  // focus goes back to it afterwards unless the visitor has moved on.
+  const hadFocus = document.activeElement === checkKeptButton;
   const blocks = [...kept.blocks];
   blocks.forEach((block) => keptViews.set(block.height, { kind: "checking" }));
   renderBlockKeeper();
   let foundDifferent = false;
+  const assessments: KeptBlockAssessment[] = [];
   try {
     const status = await readStatus();
     for (const block of blocks) {
@@ -475,12 +491,22 @@ async function checkKeptBlocks(
         assessment,
         checkedAt: new Date().toISOString(),
       });
+      assessments.push(assessment);
       if (assessment.state === "different") foundDifferent = true;
       renderBlockKeeper();
     }
   } finally {
     keptCheckRunning = false;
+    keeperMessage = checkSummary(assessments);
     renderBlockKeeper();
+    const active = document.activeElement;
+    if (
+      hadFocus &&
+      !checkKeptButton.disabled &&
+      (active === null || active === document.body)
+    ) {
+      checkKeptButton.focus();
+    }
   }
   if (foundDifferent) {
     showToast(

@@ -105,9 +105,13 @@ describe("purpose-first homepage", () => {
       network,
       /<button class="button button-ghost" id="keep-block" type="button" data-js-required="keeper" disabled>Keep the newest block<\/button>/u,
     );
-    for (const id of ["check-kept", "copy-kept", "download-kept"]) {
-      assert.match(network, new RegExp(`<button[^>]*id="${id}"[^>]*data-js-required="keeper" disabled>`, "u"), id);
+    for (const [id, label] of [["check-kept", "Check again"], ["copy-kept", "Copy kept blocks"], ["download-kept", "Download kept blocks"]]) {
+      assert.match(network, new RegExp(`<button[^>]*id="${id}"[^>]*data-js-required="keeper" disabled>${label}</button>`, "u"), id);
     }
+    // One status line speaks for the keeper; the list itself is not a live region.
+    assert.match(network, /<p class="block-keeper-status" id="block-keeper-status" role="status"><\/p>/u);
+    assert.match(network, /<ol class="kept-blocks" id="kept-blocks" aria-label="Blocks kept in this browser"><\/ol>/u);
+    assert.match(network, /<h3 id="block-keeper-title" tabindex="-1">/u);
     assert.ok(
       network.includes(
         '<p class="block-keeper-limits" id="block-keeper-limits">Both readings come from the household&rsquo;s own node, through this site. This catches a change made after you kept a block. It cannot catch a node that gave you a false block in the first place, or one that tells the same story every time. Kept blocks stay only in this browser, on this device; clearing this site&rsquo;s data deletes them. Copy or download them to keep them anywhere else.</p>',
@@ -134,6 +138,10 @@ describe("purpose-first homepage", () => {
     assert.equal(main.match(/checkKeptBlocks\(/gu)?.length, 3);
     assert.match(main, /if \(!keptCheckStarted\) void checkKeptBlocks\(async \(\) => next\);/u);
     assert.match(main, /checkKeptButton\.addEventListener\("click", \(\) => \{\s*void checkKeptBlocks\(async \(\) => \{\s*try \{\s*return await getNodeStatus\(\);/u);
+    // Keyboard focus survives Check again and Forget.
+    assert.match(main, /const hadFocus = document\.activeElement === checkKeptButton;/u);
+    assert.match(main, /hadFocus &&\s*!checkKeptButton\.disabled[\s\S]{0,120}checkKeptButton\.focus\(\);/u);
+    assert.match(main, /: \(keptBlocksList\.querySelector<HTMLButtonElement>\("button"\) \?\? keeperHeading\);\s*next\.focus\(\);/u);
   });
 
   it("folds each deeper view and loads it only when opened or deep-linked", () => {

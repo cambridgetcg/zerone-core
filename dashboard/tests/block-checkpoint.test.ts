@@ -8,6 +8,7 @@ import {
   STORAGE_BLOCKED_MESSAGE,
   UNREADABLE_MESSAGE,
   assessKeptBlock,
+  checkSummary,
   describeAssessment,
   forgetFromPage,
   forgetKeptBlock,
@@ -138,7 +139,7 @@ describe("block keeper", () => {
       assert.equal(result.kind, "kept");
       if (result.kind !== "kept") return;
       assert.equal(result.block.hash, HASH, "a kept hash is stored in uppercase");
-      assert.equal(keepResultMessage(result), "");
+      assert.equal(keepResultMessage(result), `Kept block #${100 + index}.`);
       blocks = result.blocks;
     }
     assert.equal(blocks.length, 5);
@@ -299,6 +300,26 @@ describe("block keeper", () => {
       `${AT_LIMIT_MESSAGE} ${STORAGE_BLOCKED_MESSAGE}`,
     );
     assert.equal(keeperNotice({ message: "", storage: "saved", unreadable: false }), "");
+  });
+
+  it("sums up a finished check in one status line", () => {
+    assert.equal(checkSummary([]), "");
+    assert.equal(checkSummary([{ state: "same" }]), "Checked 1 kept block: 1 still the same.");
+    assert.equal(
+      checkSummary([
+        { state: "same" },
+        { state: "unknown", reason: "no-answer" },
+        { state: "different", reason: "hash" },
+        { state: "same" },
+        { state: "different", reason: "missing", latestHeight: 5 },
+      ]),
+      "Checked 5 kept blocks: 2 still the same, 2 DIFFERENT, 1 could not be checked.",
+    );
+    assert.equal(
+      checkSummary([{ state: "unknown", reason: "catching-up" }, { state: "unknown", reason: "pruned" }]),
+      "Checked 2 kept blocks: 2 could not be checked.",
+    );
+    assert.equal(keepResultMessage({ kind: "kept", blocks: [KEPT], block: KEPT }), "Kept block #1,437,954.");
   });
 
   it("keeps every block kept on this visit when storage reads but refuses writes", () => {

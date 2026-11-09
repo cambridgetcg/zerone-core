@@ -486,16 +486,16 @@
           </ul>
 
           <div class="block-keeper reveal" id="block-keeper" role="region" aria-labelledby="block-keeper-title">
-            <h3 id="block-keeper-title">Keep a block, check it later</h3>
+            <h3 id="block-keeper-title" tabindex="-1">Keep a block, check it later</h3>
             <p>Keep the newest block shown under Latest blocks. This page saves its height and full hash in this browser. When you come back, it asks the node for that block again and says whether the hash is the same.</p>
             <div class="block-keeper-actions">
               <button class="button button-ghost" id="keep-block" type="button" data-js-required="keeper" disabled>Keep the newest block</button>
               <button class="button button-ghost" id="check-kept" type="button" data-js-required="keeper" disabled>Check again</button>
-              <button class="button button-ghost" id="copy-kept" type="button" data-js-required="keeper" disabled>Copy</button>
+              <button class="button button-ghost" id="copy-kept" type="button" data-js-required="keeper" disabled>Copy kept blocks</button>
               <button class="button button-ghost" id="download-kept" type="button" data-js-required="keeper" disabled>Download kept blocks</button>
             </div>
             <p class="block-keeper-status" id="block-keeper-status" role="status"></p>
-            <ol class="kept-blocks" id="kept-blocks" aria-label="Blocks kept in this browser" aria-live="polite"></ol>
+            <ol class="kept-blocks" id="kept-blocks" aria-label="Blocks kept in this browser"></ol>
             <p class="block-keeper-limits" id="block-keeper-limits">Both readings come from the household&rsquo;s own node, through this site. This catches a change made after you kept a block. It cannot catch a node that gave you a false block in the first place, or one that tells the same story every time. Kept blocks stay only in this browser, on this device; clearing this site&rsquo;s data deletes them. Copy or download them to keep them anywhere else.</p>
             <noscript><p class="block-keeper-noscript">Keeping a block needs JavaScript. Without it, open One block by height above, note the hash under block_id, and open the same link later.</p></noscript>
           </div>

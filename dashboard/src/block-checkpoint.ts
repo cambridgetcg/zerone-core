@@ -394,7 +394,7 @@ export function describeView(
 export function keepResultMessage(result: KeepResult): string {
   switch (result.kind) {
     case "kept":
-      return "";
+      return `Kept block #${formatHeight(result.block.height)}.`;
     case "already-kept":
       return `Block #${formatHeight(result.height)} is already kept.`;
     case "full":
@@ -402,6 +402,29 @@ export function keepResultMessage(result: KeepResult): string {
     case "incomplete":
       return "The newest block could not be kept: its record from the node was incomplete.";
   }
+}
+
+/**
+ * One line for the status after a check, so a screen reader hears the check
+ * once instead of every kept block's progress.
+ */
+export function checkSummary(
+  assessments: readonly KeptBlockAssessment[],
+): string {
+  if (assessments.length === 0) return "";
+  const count = (state: KeptBlockAssessment["state"]) =>
+    assessments.filter((assessment) => assessment.state === state).length;
+  const parts = (
+    [
+      [count("same"), "still the same"],
+      [count("different"), "DIFFERENT"],
+      [count("unknown"), "could not be checked"],
+    ] as const
+  )
+    .filter(([total]) => total > 0)
+    .map(([total, label]) => `${total} ${label}`);
+  const blocks = assessments.length === 1 ? "block" : "blocks";
+  return `Checked ${assessments.length} kept ${blocks}: ${parts.join(", ")}.`;
 }
 
 export function keeperNotice(state: {
