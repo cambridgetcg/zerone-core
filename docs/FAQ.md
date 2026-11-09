@@ -140,7 +140,9 @@ parameter is not proof that a penalty runs. In current source, the
 wrong-verification and missed-reveal slashes apply only to rounds opened under
 the older review policy 0; neutral-review rounds (policy 1) create neither. A
 second, conflicting commitment is refused rather than slashed, and challenge
-settlement does not consult the failed-challenge rate.
+settlement does not consult the failed-challenge rate: a rejected challenge
+returns 15% of its stake to the challenger, and the rest goes to the reviewers'
+pool (55%) and the protocol treasury (30%).
 
 | Offense | Slash Rate | Description |
 |---------|-----------|-------------|
