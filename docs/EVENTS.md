@@ -1669,10 +1669,10 @@ Sponsor vetoed a passing verdict, forfeiting the payout amount to the research f
 - `reason` -- free-form rationale
 
 ### zerone.knowledge.training_revenue_clawed
-Disproval clawback — future training-use revenue is cut for this fact (Route B Wave 4b). Cleared `training_revenue_earned_recent` is moved to the research fund.
+Emitted by `ClawbackOnDisproval` (Route B Wave 4b), which stamps `revenue_clawback_block` on the fact so that it earns no training value. No production code calls that function, so a running chain does not emit this event; disproof zeroes training value through the DISPROVEN status instead. No coins move.
 - `fact_id`
 - `submitter`
-- `cleared_recent` -- uzrn amount cleared from the 30-epoch recent window
+- `cleared_recent` -- the fact's `training_revenue_earned_recent` field as stored; no production code writes it
 
 ### zerone.knowledge.contribution_challenge_opened
 A fact submitter disputed a ContributionRecord and locked a bond in the training fund (Route B Wave 4e). `dispute_type` is "missing" (omitted attribution) or "fraudulent" (listed-but-unused fact).

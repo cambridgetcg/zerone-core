@@ -229,8 +229,9 @@ func DefaultParams() Params {
 		MinHeadcountAgreement: 3,
 
 		// ─── Risk-scaled challenge stake (T12) ───────────────────────────
-		// 1× linear: stake = base × (1 + confidence/BPS).
-		// At 880k confidence → stake ~1.88× base; at 100k → ~1.1×.
+		// EffectiveMinChallengeStake discounts the stake as confidence rises:
+		// stake = base × max(10%, 1 − confidence × scaling / BPS).
+		// At 1× scaling: 880k confidence → 0.12× base; 100k → 0.9× base.
 		ChallengeConfidenceScalingBps: 1_000_000,
 
 		// ─── Independence reward modulation (T3) ─────────────────────────
