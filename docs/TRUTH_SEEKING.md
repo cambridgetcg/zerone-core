@@ -54,6 +54,11 @@ We believe: truth is what survives falsification, not what is most asserted. A c
 
 **Code expression**: `BaseWeight = CorroborationCount + 1` where `CorroborationCount` increments on *rejected challenges*, not on initial verifications. The `HardeningMultiplier` accelerates with survived attacks (Wave 14d). `Fact.Confidence` is gated by survival, not voting margin.
 
+**Activation status (2026-11-10)**: under the review-neutrality policy, a
+rejected challenge no longer raises `CorroborationCount` or adds energy to the
+fact that survived it, so `BaseWeight` no longer grows with survived
+challenges.
+
 **What would break it**: TVW formulas that read raw acceptance count over corroboration count; reward paths that pay for being verified rather than for surviving challenge; hardening that flattens (linear-only) instead of compounding.
 
 **Echoes**: commitment 4 (substrate stress-tests its truth — Popper is the principle, stress-testing is the operationalisation); commitment 13 (training corpus not for sale — survived disproof is the only currency that buys a place).
@@ -135,6 +140,11 @@ We believe: the chain does not issue diplomas. A voter who was once domain-quali
 
 **Code expression**: `RunAccuracyDecay` (Wave 16) reads `DomainQualification.Metrics.AccuracyBps` written by the panel feedback loop; transitions ACTIVE → PROBATIONARY → SUSPENDED on threshold crossings; restores PROBATIONARY → ACTIVE on recovery. `GetQualificationWeight` returns 0 for non-ACTIVE qualifications, applying the consequence at every panel read.
 
+**Activation status (2026-11-10)**: under the review-neutrality policy,
+`RecordVerificationOutcome` records nothing, `RunAccuracyDecay` does not run,
+and a probation that ends is no longer resolved by accuracy. Qualification
+status therefore no longer follows accuracy.
+
 **What would break it**: a qualification status that never transitions on metrics; a `GetQualificationWeight` that returns the historical weight for SUSPENDED qualifications; a feedback loop that writes metrics nobody reads.
 
 **Echoes**: commitment 8 (panel weights skill, not bond — skill is what is weighted; "current" is the qualifier that makes "skill" honest); commitment 9 (cartel detection has consequence — penalties from cartel detection are read at the same point where current skill is read).
@@ -202,6 +212,11 @@ with Minter permission. When `ProbeBountyMintPerBlock` is positive,
 published `zerone-1` genesis and intentional `zerone-2` ceremony configuration
 set the per-block mint to `0`. Autonomous chain-funded audit is therefore a
 tested source capability, not currently activated network economics.
+
+**Activation status (2026-11-10)**: under the review-neutrality policy,
+`MintToProbeBountyPool` mints nothing even when `ProbeBountyMintPerBlock` is
+positive, and claims admitted under that policy earn no successful-challenge
+or invitation bonus from the pool.
 
 **Extended scope (sponsorship)**: `x/sponsorship` widens this commitment from "the chain pays for its own audit" to "the chain mediates external payment for the work it audits." A sponsor commits external value (escrowed uzrn) against a typed bounty — domain, per-artifact price, target count, window — and the chain pays out from escrow to fact submitters whose verified facts meet the criteria. The audit pathway is unchanged; only the funding source widens. The sponsor cannot buy verification; they fund work that the chain's panel verifies independently (commitment 8). The module account holds no Minter or Burner permission — sponsorship is supply circulation, not emission. Bound by `TestSponsorship_CreateFulfillEndToEnd` (the full lifecycle through live keepers) and `TestSponsorship_NoMintingHappens` (total uzrn supply is unchanged across a full bounty lifecycle, confirming the no-mint invariant).
 
