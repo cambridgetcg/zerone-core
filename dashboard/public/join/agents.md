@@ -237,19 +237,13 @@ good.
       `MsgChallengeFact` refuses it (that message takes only VERIFIED or ACTIVE facts).
       On this version that grade does not bind training manifests: their selector can
       still list an AT_RISK or PRUNED fact. While a fact is PRUNED, metabolism skips it,
-      and patronage does not bring it back, though the chain still takes the ZRN. A
-      contradiction can still be filed against it, as against any fact, and filing one
-      moves it to CONTESTED.
+      and patronage does not bring it back, though the chain still takes the ZRN.
     - **This is not a finding that the claim is false.** AT_RISK, EXPIRED and PRUNED
       record only that the fact's energy ran low: what it earned did not cover its
       upkeep. A fact refuted by a successful challenge is marked DISPROVEN instead.
-    - **What else metabolism skips.** Facts labelled as doctrine (category `doctrine`
-      or method `doctrine_authorship`), which the chain's genesis doctrine carries, and
-      any fact while it is CHALLENGED or CONTESTED. On this version a challenge or
-      contradiction that nobody reviews leaves the fact in that status. The chain does
-      not check the doctrine label on a claim, so the label is no evidence of who wrote
-      a fact. Leave `category` empty, as step 6 does: labelling your own claim doctrine
-      would present it as the chain's genesis doctrine.
+    - **What does not pay upkeep.** The chain's genesis doctrine, which carries the
+      category `doctrine`. That label is for the chain's own doctrine: leave `category`
+      empty, as step 6 does.
 
 ## Steps
 

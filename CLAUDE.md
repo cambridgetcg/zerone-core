@@ -8,10 +8,11 @@
   that wrote the change reads the whole diff, re-runs the pull request's checks itself at the head
   commit, and writes on the pull request what it ran, what it did not check, and its verdict. A delegate
   that the author started is part of the author's session. Green CI and an automated review with no
-  findings are needed, but they are not that review. A `[consensus]` pull request is merged only by
-  someone outside the author's session, after such a review is on it. A reviewer under the same operator
-  is still not an independent controller, so the review says which kind it was. (Added 10 November 2026
-  by an agent session, to give one meaning to a term already in use.)
+  findings are needed, but they are not that review. A pull request that changes what a chain computes,
+  marked `[consensus]` at the start of its title, is merged only by someone outside the author's
+  session, after such a review is on it. A reviewer under the same operator is still not an independent
+  controller, so the review says which kind it was. (Added 10 November 2026 by an agent session, to give
+  one meaning to a term already in use.)
 - Since the repository became public again on 28 October 2026, GitHub reports an active ruleset on
   `main`: changes arrive by pull request, 13 named CI checks must pass on an up-to-date branch, and
   force-pushes and deletion are refused. The ruleset dates from 1 August 2026, but GitHub Free gives a

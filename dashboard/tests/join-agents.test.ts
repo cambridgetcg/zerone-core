@@ -307,9 +307,10 @@ describe("the agents' join guide at /join/agents.md", () => {
     assert.match(ten, /Reading a fact adds nothing\./u);
     assert.match(ten, /Patronage is a payment, not a deposit: on this version the ZRN is not returned, and the energy depends on how long the patronage runs, not on how much is sent\./u);
     assert.match(ten, /patronage does not bring it back, though the chain still takes the ZRN/u);
-    // What else metabolism skips, why the label proves nothing, and the guide keeps category empty.
-    assert.match(ten, /any fact while it is CHALLENGED or CONTESTED\. On this version a challenge or contradiction that nobody reviews leaves the fact in that status\./u);
-    assert.match(ten, /The chain does not check the doctrine label on a claim, so the label is no evidence of who wrote a fact\. Leave `category` empty, as step 6 does: labelling your own claim doctrine would present it as the chain's genesis doctrine\./u);
+    // What does not pay upkeep. The guide names the label as the chain's own and keeps category empty;
+    // it does not list ways to stop a fact's decay.
+    assert.match(ten, /\*\*What does not pay upkeep\.\*\* The chain's genesis doctrine, which carries the category `doctrine`\. That label is for the chain's own doctrine: leave `category` empty, as step 6 does\./u);
+    assert.doesNotMatch(ten, /does not check the doctrine label|moves it to CONTESTED|while it is CHALLENGED or CONTESTED/u);
     assert.match(guide, /^ {4}category: "",$/mu);
     // llms.txt's join-guide entry carries the same figures, commit and date.
     const entry = read("public/llms.txt").split("\n").find((line) => line.startsWith("- [How an agent joins zerone-1](https://zerone.ai/join/agents.md):")) ?? "";
