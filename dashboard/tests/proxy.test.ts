@@ -331,6 +331,33 @@ test("an upstream network failure becomes a bounded 502 without leaking the erro
   assert.equal(testHarness.calls.length, 1);
 });
 
+test("legacy edge forwards a one-height blockchain window", async () => {
+  // The homepage block keeper reads each kept height this way, and counts a
+  // height above the node's newest block (HTTP 500 upstream) as a failed read.
+  const route = "https://dashboard.invalid/api/rpc/blockchain?minHeight=1437954&maxHeight=1437954";
+  const testHarness = harness(async () => Response.json({ result: { block_metas: [] } }));
+  const { context, waits } = pagesContext(route, "blockchain");
+
+  const response = await proxyRequest(context, "rpc", testHarness.runtime);
+  await Promise.all(waits);
+
+  assert.equal(response.status, 200);
+  assert.equal(testHarness.calls.length, 1);
+  assert.equal(
+    String(testHarness.calls[0]?.input),
+    "https://rpc.invalid/blockchain?minHeight=1437954&maxHeight=1437954",
+  );
+  assert.equal(testHarness.calls[0]?.init?.method, "GET");
+  assert.equal(testHarness.cachePuts.length, 1);
+
+  const failing = harness(async () => new Response('{"error":{"code":-32603}}', { status: 500 }));
+  const failed = pagesContext(route, "blockchain");
+  const failedResponse = await proxyRequest(failed.context, "rpc", failing.runtime);
+  await Promise.all(failed.waits);
+  assert.equal(failedResponse.status, 500);
+  assert.equal(failing.cachePuts.length, 0);
+});
+
 test("the syncing compatibility route uses only the injected RPC status endpoint", async () => {
   const testHarness = harness(async () =>
     new Response(

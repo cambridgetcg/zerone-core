@@ -1,0 +1,96 @@
+{
+  "format": "brandkit.project/1",
+  "name": "Zerone",
+  "kind": "generated",
+  "owner": "zerone-core's dashboard (zerone.ai); no named lane is recorded",
+  "decided": [
+    {
+      "part": "the mark",
+      "status": "not-recorded",
+      "what": "the ring, cross and dot of public/favicon.svg, violet on the #0b0b10 tile",
+      "record": "CREDITS.md: first committed in 4d5ffb49 (\"launch live Zerone mainnet frontend\", git author \"YOU\"); its signature comment, \"Building castles in the sky — Yu and AI.\", came in #33 (02999d82). Who drew or chose the mark is not recorded"
+    },
+    {
+      "part": "the kit",
+      "by": "agent (Claude Code session dd025d89)",
+      "under": "Yu's word of 2026-10-27, \"yes, go ahead and wire the kits into the sites\", whose scope was a kit from each site's current look (ledger artcraft-estate-wiring)",
+      "date": "2026-10-27",
+      "what": "the site's existing look made into a kit: the favicon's mark in violet #b99bff and acid #dcff78 on the #0b0b10 tile, dark ground #09090c, wordmark ZERONE in Inter SemiBold",
+      "record": "zerone-core PR #156, 'Look decisions' (\"an agent's proposals, not Yu's decisions\"); ledger artcraft-estate-wiring; release card R-008"
+    }
+  ],
+  "spec": "brand.json",
+  "kit": "kit",
+  "site": {
+    "urls": [
+      "https://zerone.ai"
+    ],
+    "framework": "vite",
+    "html": [
+      "../index.html",
+      "../research/index.html",
+      "../research/review/index.html",
+      "../research/adagrad/index.html",
+      "../node-guide-page.ts",
+      "../understand-guide.ts",
+      "../development-page.ts",
+      "../compositions.ts"
+    ]
+  },
+  "serve": {
+    "to": "../public",
+    "files": [
+      "favicon.ico",
+      "apple-touch-icon.png",
+      "icon-192.png",
+      "icon-512.png",
+      "icon-maskable-512.png",
+      "site.webmanifest",
+      "og.jpg"
+    ],
+    "omit": [
+      {
+        "file": "favicon.svg",
+        "why": "public/favicon.svg is the site's own drawing of the same mark and keeps its signature comment, \"Building castles in the sky — Yu and AI.\" (#33); serving the kit's file would drop it (PR #156)"
+      }
+    ]
+  },
+  "build": {
+    "command": "python3 -B <artcraft-brand>/scripts/brandkit.py brand.json --out kit --rebuild-check",
+    "cwd": ".",
+    "fonts": [
+      {
+        "family": "Inter Light",
+        "file": "Inter-Light.otf",
+        "licence": "SIL OFL 1.1 (the file's own licence string)",
+        "source": "https://github.com/rsms/inter (the installed file says Version 4.001;git-9221beed3; where this copy was downloaded from is not recorded)",
+        "sha256": "0817fd071377740a8e1cba673baf2c726ef5e5c4e6e0962c6e5bdc096329586d"
+      }
+    ],
+    "tools": [
+      {
+        "name": "vectorcraft-cli",
+        "version": "0.17.0"
+      }
+    ]
+  },
+  "guards": [
+    {
+      "path": "../tests/brand-kit.sync.test.ts",
+      "runs": "/dashboard/package.json",
+      "match": "tests/*.test.ts"
+    }
+  ],
+  "deploy": {
+    "on_merge": "nothing deploys on merge. zerone.ai is the Cloudflare Pages project zerone-ai, deployed by hand with wrangler pages deploy dist from a clean detached worktree of the merged, CI-verified commit (../README.md, Deploy). Nothing under brand/ is served, so a change here alone changes no served byte",
+    "after_deploy": "check new or changed files on the deployment's *.pages.dev URL first, and never request a new path on zerone.ai before it is deployed: Pages answers a missing path with the SPA index and the edge can keep that answer (the icon paths held cached HTML for 4 hours, max-age=14400; /assets/* is immutable). A purge is the zone owner's act. Each release gets a release card (R-008 for this kit)",
+    "rules": "/AGENTS.md and /CLAUDE.md: never push to main; a branch named <agent>/<topic>, a pull request, and a merge only after CI has finished green with review comments answered (main's ruleset requires 13 named checks). A production deploy changes a live service and needs Yu's word for it; R-008 went out on Yu's word of 2026-10-27 (ledger artcraft-estate-wiring)"
+  },
+  "media": [],
+  "notes": [
+    "tests/brand-kit.sync.test.ts runs in CI through npm test (tsx --test tests/*.test.ts in dashboard/package.json), which npm run check calls inside npm run build, in the job \"TypeScript SDK and dashboard\" of /.github/workflows/ci.yml (one of the 13 checks main's ruleset requires). Neither file names the test: the glob picks it up.",
+    "site.html lists the four static HTML heads and the four TypeScript modules that write page heads; observer-page.ts serves only non-legacy profiles and /pi/callback/ keeps img-src 'none', so neither carries the icon block.",
+    "Every page keeps the site's own theme-color #09090c, the kit's #09090C in lower case.",
+    "kit.json records fonts by family and style: Inter SemiBold and JetBrains Mono are bundled with vectorcraft-cli 0.17.0, and Inter Light came from the copy installed on the Studio, so build.fonts names the Studio's Inter-Light.otf (an inference)."
+  ]
+}
