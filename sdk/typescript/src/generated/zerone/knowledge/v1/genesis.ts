@@ -809,6 +809,20 @@ export interface GenesisState {
    * it in place yet.
    */
   doctrineIdentityEnabled: boolean;
+  /**
+   * Dormant-fact contest marker (consensus-repairs-v3): a fact that lost
+   * standing through disuse stays open to challenge and contradiction, and a
+   * pruned conjecture stays an open question. Native genesis sets it; a file
+   * without the field imports as off. No carrier upgrade sets it in place yet.
+   */
+  dormantFactContestEnabled: boolean;
+  /**
+   * Reviewer-balance parameter marker (consensus-repairs-v3): the balance a
+   * reviewer must hold to commit is read from a knowledge parameter instead of
+   * a fixed constant. Native genesis sets it; a file without the field imports
+   * as off. No carrier upgrade sets it in place yet.
+   */
+  reviewerBalanceParamEnabled: boolean;
 }
 /**
  * Exports each ordered source/target pair once, including full provenance.
@@ -2226,7 +2240,9 @@ function createBaseGenesisState(): GenesisState {
     calibrationSmoothingEnabled: false,
     zeroConfidenceFloorEnabled: false,
     accountingState: undefined,
-    doctrineIdentityEnabled: false
+    doctrineIdentityEnabled: false,
+    dormantFactContestEnabled: false,
+    reviewerBalanceParamEnabled: false
   };
 }
 /**
@@ -2361,6 +2377,12 @@ export const GenesisState = {
     if (message.doctrineIdentityEnabled === true) {
       writer.uint32(616).bool(message.doctrineIdentityEnabled);
     }
+    if (message.dormantFactContestEnabled === true) {
+      writer.uint32(624).bool(message.dormantFactContestEnabled);
+    }
+    if (message.reviewerBalanceParamEnabled === true) {
+      writer.uint32(632).bool(message.reviewerBalanceParamEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -2493,6 +2515,12 @@ export const GenesisState = {
         case 77:
           message.doctrineIdentityEnabled = reader.bool();
           break;
+        case 78:
+          message.dormantFactContestEnabled = reader.bool();
+          break;
+        case 79:
+          message.reviewerBalanceParamEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -2543,6 +2571,8 @@ export const GenesisState = {
     message.zeroConfidenceFloorEnabled = object.zeroConfidenceFloorEnabled ?? false;
     message.accountingState = object.accountingState !== undefined && object.accountingState !== null ? KnowledgeGenesisAccounting.fromPartial(object.accountingState) : undefined;
     message.doctrineIdentityEnabled = object.doctrineIdentityEnabled ?? false;
+    message.dormantFactContestEnabled = object.dormantFactContestEnabled ?? false;
+    message.reviewerBalanceParamEnabled = object.reviewerBalanceParamEnabled ?? false;
     return message;
   }
 };
