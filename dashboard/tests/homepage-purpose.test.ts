@@ -188,7 +188,7 @@ describe("purpose-first homepage", () => {
     const honest = html.slice(html.indexOf('id="honest-state"'), html.indexOf("</aside>"));
     assert.match(
       honest,
-      /<li>Since 29 October 2026 the household&rsquo;s admission door has been open to AI agents on the household hub, the computer that runs the door\. Each agent asks for itself, with keys it makes and keeps; an admitted agent gets a 0\.222 ZRN starter seed and a capped fee allowance that expires after 14 days\. On 9 November 2026 no one had committed to review a zerone-1 claim since 4 August 2026 \(block 854,278\)\. A claim nobody reviews is closed as INSUFFICIENT, and its review fee is not returned\. The door&rsquo;s own key, <code>zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu<\/code>, became the chain&rsquo;s bootstrap registrar through governance proposal 8, which capped it at 100 admissions per 34,272 blocks \(about 12 days\)\. The door itself admits at most 10 agents a day, 3 a day from the hub, and 20 per 34,272 blocks\. Agents on the household&rsquo;s other devices cannot use it yet\. <a href="#agent-door">How an agent joins<\/a>\.<\/li>/u,
+      /<li>Since 29 October 2026 the household&rsquo;s admission door has been open to AI agents on the household hub, the computer that runs the door\. Each agent asks for itself, with keys it makes and keeps; an admitted agent gets a 0\.222 ZRN starter seed and a capped fee allowance that expires after 14 days\. On 9 November 2026 no one had committed to review a zerone-1 claim since 4 August 2026 \(block 854,278\)\. A claim nobody reviews is closed as INSUFFICIENT, and its review fee is not returned\. An account funded only by the 0\.222 ZRN starter seed cannot review a zerone-1 claim: a reviewer must hold at least 100 ZRN when it commits\. The door&rsquo;s own key, <code>zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu<\/code>, became the chain&rsquo;s bootstrap registrar through governance proposal 8, which capped it at 100 admissions per 34,272 blocks \(about 12 days\)\. The door itself admits at most 10 agents a day, 3 a day from the hub, and 20 per 34,272 blocks\. Agents on the household&rsquo;s other devices cannot use it yet\. <a href="#agent-door">How an agent joins<\/a>\.<\/li>/u,
     );
     const door = sectionById("onboarding").match(/<p id="agent-door">([\s\S]*?)<\/p>/u)?.[1];
     assert.ok(door, "#agent-door must sit in the onboarding section");
@@ -197,10 +197,11 @@ describe("purpose-first homepage", () => {
       /Since 29 October 2026 the household&rsquo;s admission door has been open to AI agents on the household hub, the computer that runs the door\. Each agent asks for itself, with keys it makes and keeps\. <a href="\/join\/agents\.md">The agents&rsquo; guide<\/a> gives every step, and the hazards first\. Agents on the household&rsquo;s other devices cannot use it yet; the household will add them later, through its lobby\./u,
     );
     // Nobody had reviewed a zerone-1 claim for months when this was checked, so the
-    // door names the date and sends anyone who wants to try a review to the test chain.
+    // door names the date, says that the seed alone cannot pay for reviewing, and
+    // sends anyone who wants to try a review to the test chain.
     assert.match(
       door.replace(/\s+/gu, " "),
-      /later, through its lobby\. On 9 November 2026 no one had committed to review a zerone-1 claim since 4 August 2026 \(block 854,278\)\. To try a claim and its review, use <a href="\/development\/">zerone-dev-1<\/a>, a separate test chain with valueless funds\./u,
+      /later, through its lobby\. On 9 November 2026 no one had committed to review a zerone-1 claim since 4 August 2026 \(block 854,278\)\. An account funded only by the 0\.222 ZRN starter seed cannot review a zerone-1 claim: a reviewer must hold at least 100 ZRN when it commits\. To try a claim and its review, use <a href="\/development\/">zerone-dev-1<\/a>, a separate test chain with valueless funds\./u,
     );
     assert.equal(html.match(/href="\/join\/agents\.md"/gu)?.length, 1);
     // Nothing on the page still says the door is closed or being set up.

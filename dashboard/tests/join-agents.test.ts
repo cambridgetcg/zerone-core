@@ -206,6 +206,50 @@ describe("the agents' join guide at /join/agents.md", () => {
     }
   });
 
+  it("repeats hazard 9's sentence on who cannot review wherever the site offers the seed beside hazard 8", () => {
+    // Hazard 9 is the one source for why the door's seed alone cannot pay for
+    // reviewing on zerone-1: at 2e37c4c, MsgSubmitCommitment refuses a balance below
+    // 100,000,000 uzrn. Every place that offers the seed beside hazard 8's dated
+    // sentence carries hazard 9's sentence word for word, so a change to the seed
+    // or the threshold must change them all together.
+    const hazard = prose.match(/9\. \*\*Reviewing and other roles\.\*\* (An account funded only by the ([\d.]+) ZRN starter seed cannot review a zerone-1 claim: a reviewer must hold at least ([\d,]+) ZRN when it commits\.)/u);
+    assert.ok(hazard, "hazard 9 must open with the sentence on who cannot review");
+    const [, sentence = "", seedZrn = "", minimumZrn = ""] = hazard;
+    // The sentence's figures match the rest of the guide.
+    assert.match(prose, new RegExp(`This makes a \\*\\*starter seed\\*\\* of ${seedZrn.replace(".", "\\.")} ZRN`, "u"));
+    const minimumUzrn = (Number(minimumZrn.replaceAll(",", "")) * 1_000_000).toLocaleString("en-US");
+    assert.match(prose, new RegExp(`\`MsgSubmitCommitment\` refuses an account whose balance is below ${minimumUzrn} uzrn`, "u"));
+    // It points to where a review can be practised, and promises nothing there.
+    const nine = prose.slice(prose.indexOf("9. **Reviewing and other roles.**"), prose.indexOf("## Steps"));
+    assert.match(nine, /use the separate test chain `zerone-dev-1` \(<https:\/\/zerone\.ai\/development\/>\)/u);
+    assert.match(nine, /`docs\/DEVELOPMENT-REVIEW-HANDOFF\.md` in the source repository/u);
+    assert.ok(existsSync(new URL("../../docs/DEVELOPMENT-REVIEW-HANDOFF.md", import.meta.url)), "the review handoff hazard 9 names must exist");
+    assert.match(nine, /An offer to review there opens no review round, and no response time is promised\./u);
+    assert.match(nine, /Running a validator is not supported\./u);
+    const html = read("index.html");
+    const honestItem = html.slice(html.indexOf('id="honest-state"'), html.indexOf("</aside>"))
+      .match(/<li>Since 29 October 2026 the household&rsquo;s admission door[\s\S]*?<\/li>/u)?.[0] ?? "";
+    const agentDoor = html.match(/<p id="agent-door">([\s\S]*?)<\/p>/u)?.[1]?.replace(/\s+/gu, " ") ?? "";
+    const llms = read("public/llms.txt").split("\n");
+    const node = buildNodeGuideProfile({ sourceCommit: "74e2bbac317dacb1695ed8aed20830310617ea7a", helperSha256: "a1".repeat(32) });
+    const nodesDoor = nodeGuidePage(node).match(/<p class="census-note">On zerone-1, validator joining[\s\S]*?<\/p>/u)?.[0] ?? "";
+    const places: [string, string][] = [
+      ["the homepage's honest-state door item", honestItem],
+      ["the homepage's #agent-door", agentDoor],
+      ["llms.txt's Today line", llms.find((line) => line.startsWith("Today:")) ?? ""],
+      ["the node guide profile's door.reviews", node.live.newAccountAdmission.door.reviews],
+      ["the /nodes/ door note", nodesDoor],
+      ["the /understand/ new-accounts row", buildUnderstandGuide(node).sections[5].rows[4].text],
+    ];
+    for (const [name, text] of places) {
+      assert.ok(text, `${name} must be found`);
+      assert.ok(text.includes(sentence), `${name} must carry hazard 9's sentence: ${sentence}`);
+      // Beside hazard 8's dated sentence, not somewhere else on the page.
+      const dated = text.search(/no one had committed to review a zerone-1 claim since/u);
+      assert.ok(dated >= 0 && text.indexOf(sentence) > dated, `${name} must put hazard 9's sentence after hazard 8's dated sentence`);
+    }
+  });
+
   it("says what R signs, what the door never holds, and what R's float allows", () => {
     assert.match(prose, /R signs its own registration \(item 3 below\) and the door's admissions, re-grants and revocations, and nothing else\./u);
     assert.doesNotMatch(prose, /signs admissions and nothing else/u);
