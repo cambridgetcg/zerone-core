@@ -115,13 +115,15 @@ the entrypoint and the seed directory included, is unchanged without being
 read. The entrypoint `exec`s `zeroned start` by `PATH`, and the new layer puts
 the patched binary at the same `/usr/local/bin/zeroned`.
 
-| App | Machine | Volume | Base image (current) | Seed dir |
-|---|---|---|---|---|
-| `zerone-testnet-1` | `d8d3736f455508` | `vol_vp25peqkw9dw66k4` | `registry.fly.io/zerone-testnet-1@sha256:8c5a859572cea6eda34de062cce81ca82d46d36f7afaf64fabd1cb668bac311d` | `/testnet-seed` |
-| `zerone-1` | `8629d6be267178` | `vol_4ojnz571g2zwmmpr` | `registry.fly.io/zerone-1@sha256:ba73fea59838503c9a099887a4604945b4e959a273b2015fd7eaf1baaf3f861a` | `/mainnet-seed` |
+| App | Seed dir |
+|---|---|
+| `zerone-testnet-1` | `/testnet-seed` |
+| `zerone-1` | `/mainnet-seed` |
 
-These values were read on 2026-11-06 with `fly machines list --json`. Read them
-again before using them.
+The machine, its volume and its current image are not written here: read them
+at the time of the swap with `fly machine list -a $APP --json` (`id`,
+`config.mounts[0].volume`, `image_ref`), and pass the image to
+`build-swap-image.sh --base`. The operator's own record keeps them.
 
 The registry login is a credential that can pull every layer, the key layers
 included. Keep it in a throwaway directory, never `~/.docker`:
@@ -206,8 +208,8 @@ The observer proof must show, on the same executable, all of the following:
 
 ## Runbook (testnet first, then zerone-1)
 
-Set `APP`, `ID` (machine), `VOL`, `OLD` (current image by digest) and `RPC`
-(`http://<app>.fly.dev:26657`) from the table above. Each step lists what it
+Set `APP` and `RPC` (`http://<app>.fly.dev:26657`), and read `ID` (machine), `VOL`
+and `OLD` (current image, `registry.fly.io/$APP@sha256:<digest>`) as above. Each step lists what it
 must show. Stop at the first step that does not.
 
 1. **Record the before state.**
@@ -219,7 +221,7 @@ must show. Stop at the first step that does not.
    (testnet), and a height that advances between two reads.
 2. **Assemble and check the image at the registry** (a push to the app's own
    registry; nothing running changes):
-   `DOCKER_CONFIG=<throwaway> CRANE=<crane v0.20.2> deploy/legacy-signer/build-swap-image.sh --app $APP --binary <verified zeroned> --out <new dir>`.
+   `DOCKER_CONFIG=<throwaway> CRANE=<crane v0.20.2> deploy/legacy-signer/build-swap-image.sh --app $APP --base $OLD --binary <verified zeroned> --out <new dir>`.
    Expect: every check `PASS`, `RESULT PASS`, and one manifest digest `NEW` in
    `manifest-digest.txt`. Run it a second time into another new directory: it
    must print the same `NEW`.

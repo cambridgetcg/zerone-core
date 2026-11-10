@@ -16,7 +16,10 @@
 #
 # Usage:
 #   DOCKER_CONFIG=<throwaway dir holding only a registry login> \
-#   build-swap-image.sh --app zerone-1|zerone-testnet-1 --binary /path/to/zeroned --out NEW_DIR
+#   build-swap-image.sh --app zerone-1|zerone-testnet-1 --base registry.fly.io/<app>@sha256:<digest> \
+#     --binary /path/to/zeroned --out NEW_DIR
+#   --base is the signer's current image, read just before (`fly machine status <id> -a <app>
+#   --display-config`, image_ref): no locator is kept in this repository.
 #   build-swap-image.sh --local-test --registry localhost:5000 --base <repo>@sha256:<digest> \
 #     --tag <repo>:<tag> --binary /path/to/zeroned --out NEW_DIR     (plain-HTTP test registry)
 #   CRANE: crane binary (go-containerregistry v0.20.2; default `crane` on PATH)
@@ -41,12 +44,10 @@ done
 
 INSECURE=()
 case "$APP" in
-  zerone-1)
-    BASE=registry.fly.io/zerone-1@sha256:ba73fea59838503c9a099887a4604945b4e959a273b2015fd7eaf1baaf3f861a
-    TAG=registry.fly.io/zerone-1:cometbft-0.38.25-d6391ea7 ;;
-  zerone-testnet-1)
-    BASE=registry.fly.io/zerone-testnet-1@sha256:8c5a859572cea6eda34de062cce81ca82d46d36f7afaf64fabd1cb668bac311d
-    TAG=registry.fly.io/zerone-testnet-1:cometbft-0.38.25-d6391ea7 ;;
+  zerone-1|zerone-testnet-1)
+    [[ "$BASE" =~ ^registry\.fly\.io/$APP@sha256:[0-9a-f]{64}$ ]] || {
+      echo "--base must be the signer's current image, registry.fly.io/$APP@sha256:<digest>" >&2; exit 2; }
+    TAG="registry.fly.io/$APP:cometbft-0.38.25-d6391ea7" ;;
   "")
     [ "$LOCAL" = 1 ] || { echo "--app is required (or --local-test)" >&2; exit 2; }
     [[ "$REGISTRY" =~ ^(localhost|127\.0\.0\.1):[0-9]+$ ]] || { echo "--local-test needs --registry localhost:<port>" >&2; exit 2; }
