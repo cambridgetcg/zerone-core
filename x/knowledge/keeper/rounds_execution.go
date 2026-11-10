@@ -29,10 +29,13 @@ func (k Keeper) selectRoundsExecution(ctx context.Context) (roundsExecution, err
 	if err != nil {
 		return roundsExecution{}, err
 	}
-	// Selected here, at BeginBlocker entry, so an unreadable or malformed
-	// marker halts the block before any write. BeginBlocker logs a
-	// ProcessMetabolism error and carries on, so a fault read only at the
-	// fitness epoch would skip metabolism quietly instead.
+	// Selected here, at entry (BeginBlocker, and the standalone CompleteRound
+	// and AdvanceRoundPhases), so an unreadable or malformed marker halts the
+	// block before any write. BeginBlocker logs a ProcessMetabolism error and
+	// carries on, so a fault read only at the fitness epoch would skip
+	// metabolism quietly instead. The two standalone entries never reach
+	// metabolism, but they read the marker too and so also return its fault,
+	// as they do for the other two markers.
 	doctrine, err := k.DoctrineIdentityEnabled(ctx)
 	if err != nil {
 		return roundsExecution{}, err
