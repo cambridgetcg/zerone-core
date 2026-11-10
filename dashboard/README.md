@@ -20,6 +20,23 @@ hash, so a first visit fetches none of their artifacts. `#authority`,
 on `hashchange`. Visible homepage links go only to places a visitor can open;
 `tests/homepage-purpose.test.ts` holds that order and these boundaries.
 
+`#network` also holds the block keeper (`src/block-checkpoint.ts`). A visitor
+can keep up to five `zerone-1` blocks (chain ID, height, full hash, block time
+and the time kept) in this browser's `localStorage` under
+`zerone.kept-blocks.v1`. On a later visit the page reads each kept height again
+through the same edge, as a one-height `blockchain` window, and shows one of
+three states: still the same, DIFFERENT, or could not check. A failed or
+incomplete read is never shown as the same. A block above the node's newest
+height counts as DIFFERENT only when that read failed, the node is not
+catching up and the block was not kept in the minute before the check, because
+the edge may serve a status reading a few seconds old. Both readings come from
+the household's node, so this catches a later change, not a node that
+misreports consistently. The keeper stores nothing else. A check reads the
+node's status once (the first check on a visit uses the homepage's own status
+read) and then each kept height; no request carries anything kept beyond a
+height. The page works when storage is blocked. It is legacy-only: observer
+builds replace this page and offer their own block lookup.
+
 ## Understanding Zerone
 
 `/understand/` introduces the purpose, an explicitly fictional contribution,
@@ -46,6 +63,9 @@ The Vite build renders the page and `/understand/guide.json` from the same
 come from the existing node-guide profile. They describe the build's reviewed
 documentation, not a fresh network check or admission authority. Observer
 publication remains separate from bootstrap eligibility at the signed expiry.
+A reviewed closure record keyed by release ID in `observer-release-profile.ts`
+marks a release whose fresh-bootstrap window has passed; the build never reads
+the clock for it.
 
 After publication, compare both generated files with the clean release build
 and check desktop/mobile layouts with JavaScript enabled and disabled. Confirm
@@ -1039,6 +1059,14 @@ run only for `/api/*` and for discovery-shaped paths (`/.well-known/*`, `*.txt`,
 a 404 and passes every real file through. A new Function outside `/api/` must be
 added to its `include` list, or it will never run.
 
+Every public page names its own absolute `https://zerone.ai/...` canonical, the
+URL that answers 200 (directory pages keep their slash), so the
+`zerone-ai.pages.dev` mirror points home. The frozen research reading copies keep
+their pinned bytes and carry theirs as a `Link` header in `public/_headers`.
+`public/sitemap.xml` lists exactly those URLs and `public/robots.txt` names it;
+`tests/canonical-sitemap.test.ts` keeps the three in step, so a new page needs
+its canonical and its sitemap entry together.
+
 Never request a new `/assets/` path on `https://zerone.ai` before that build is
 deployed. Pages answers a missing asset with the SPA index, `_headers` gives every
 `/assets/*` response `max-age=31536000, immutable`, and the Cloudflare edge then
@@ -1086,6 +1114,10 @@ secret, payment, signature, or transaction.
 - The edge RPC proxy allows public query methods plus transaction broadcast,
   and rejects every other JSON-RPC method.
 - Chain-provided strings are rendered with `textContent`, never `innerHTML`.
+- The homepage's only browser storage is the visitor's kept blocks
+  (`zerone.kept-blocks.v1`, at most five). They are read with a strict schema
+  inside try/catch, rendered with `textContent`, and never sent anywhere; the
+  page asks the edge only for their heights.
 - Authority Geometry strings are also rendered with DOM text nodes. The
   digest-pinned artifact is source evidence only: it neither probes nor
   establishes live authority, and it cannot schedule H4/H5 or mutate chain

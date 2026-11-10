@@ -1,5 +1,7 @@
 const REPOSITORY = "https://github.com/cambridgetcg/zerone-core";
 const FINGERPRINT = "09327B031F8FF2C2EE49B18F2234027FC5B68C19";
+// Reviewed closure records, keyed by exact release ID. The date is the day an agent checked that the signed fresh-bootstrap window had passed and that this site pins no later package. The build never compares expiresAt with the clock, and a new release ID carries no closure.
+const BOOTSTRAP_CLOSURES = new Map<string, string>([["zerone-1-observer-20260909.2", "2026-11-09"]]);
 
 export interface ObserverPublication {
   schema: "zerone.observer-publication/v1";
@@ -37,6 +39,11 @@ export function buildObserverRelease(value: ObserverPublication) {
       new Date(value.expiresAt).toISOString() !== value.expiresAt.replace(/Z$/u, ".000Z")) {
     throw new Error("Invalid observer checkpoint/expiry");
   }
+  const bootstrapClosedRecordedOn = BOOTSTRAP_CLOSURES.get(value.releaseId) ?? null;
+  if (bootstrapClosedRecordedOn !== null && (!/^\d{4}-\d\d-\d\d$/u.test(bootstrapClosedRecordedOn) ||
+      bootstrapClosedRecordedOn < value.expiresAt.slice(0, 10))) {
+    throw new Error("A bootstrap closure must be recorded on or after the signed expiry");
+  }
   const releaseUrl = `${REPOSITORY}/releases/tag/${value.releaseId}`;
   const archiveUrl = `${REPOSITORY}/releases/download/${value.releaseId}/observer-release.tar.gz`;
   const receiptUrl = `${REPOSITORY}/releases/download/${value.releaseId}/REHEARSAL-RECEIPT.json`;
@@ -63,7 +70,10 @@ export function buildObserverRelease(value: ObserverPublication) {
     completeHistoricalReplay: false,
     transactionAdmission: false,
     validatorAdmission: false,
-    maintenance: "Experimental legacy runtime: SDK 0.50 is end of life and Go 1.25 is outside upstream support. Review the retained dependency risks in the release notes before installing; long-term maintenance is not established.",
+    // A closed release takes no new installs, so its note does not say "before installing".
+    maintenance: bootstrapClosedRecordedOn
+      ? "Experimental legacy runtime: SDK 0.50 is end of life and Go 1.25 is outside upstream support. The release notes list the retained dependency risks; long-term maintenance is not established."
+      : "Experimental legacy runtime: SDK 0.50 is end of life and Go 1.25 is outside upstream support. Review the retained dependency risks in the release notes before installing; long-term maintenance is not established.",
     prerequisites: "Linux amd64, Python 3.11+, gpgv, local Docker, 2 available CPUs, 6 GiB available memory and at least 20 GiB free disk for an initial trial.",
     verifyCommand: [
       `git clone ${REPOSITORY}.git zerone-observer-tools`,
@@ -82,6 +92,9 @@ export function buildObserverRelease(value: ObserverPublication) {
     statusCommand: 'python3 -I -B "$HOME/zerone-observer-package/observer.py" status --home "$HOME/zerone-observer-home"',
     stop: "Press Ctrl-C in the start terminal; keep the package and home. Repeat start to resume the same observer.",
     completion: "Wait for FOLLOWING: the fresh zero-power observer has synced and advanced with recent blocks. RPC listens at http://127.0.0.1:27657.",
-    expiry: "New bootstrap is refused after the signed expiry. Obtain a refreshed signed package then. A successfully synced home can resume with its original verified package.",
+    bootstrapClosedRecordedOn,
+    expiry: bootstrapClosedRecordedOn
+      ? `The signed window for new homes closed at the expiry, so a new home cannot start from this release. On ${bootstrapClosedRecordedOn} this site pinned no later signed package. A home that synced before the expiry can resume with its original verified package.`
+      : "New bootstrap is refused after the signed expiry. Obtain a refreshed signed package then. A successfully synced home can resume with its original verified package.",
   };
 }

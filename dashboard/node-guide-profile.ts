@@ -313,10 +313,13 @@ export function buildNodeGuideProfile({
       clientGuidance: "For automated reads, send an honest application User-Agent, such as zerone-node-guide/1.0, and set a timeout. Some generic client signatures are blocked by the gateway. Treat non-200 responses as unavailable.",
       trustGuide: source("deploy/mainnet/TRUST.md"),
       replicaInstallation: {
-        availability: observerRelease ? "signed-legacy-observer" : "not-published",
-        reason: observerRelease
-          ? "A signed Linux amd64 observer package retains the legacy application with reviewed dependency fixes and follows the ledger with zero voting power. Check the bootstrap expiry before installing."
-          : "A compatible public legacy observer binary and verified setup bundle are not published. Current source is not a drop-in live-node binary.",
+        availability: !observerRelease ? "not-published"
+          : observerRelease.bootstrapClosedRecordedOn ? "signed-legacy-observer-bootstrap-closed" : "signed-legacy-observer",
+        reason: !observerRelease
+          ? "A compatible public legacy observer binary and verified setup bundle are not published. Current source is not a drop-in live-node binary."
+          : observerRelease.bootstrapClosedRecordedOn
+            ? "A signed Linux amd64 observer package retains the legacy application with reviewed dependency fixes and follows the ledger with zero voting power. Its window for new setups has closed. A home that synced before then can resume; a new home cannot start from this release."
+            : "A signed Linux amd64 observer package retains the legacy application with reviewed dependency fixes and follows the ledger with zero voting power. Check the bootstrap expiry before installing.",
         release: observerRelease,
       },
       validatorJoining: { availability: "not-open", guide: source("deploy/mainnet/JOIN.md") },
@@ -336,6 +339,9 @@ export function buildNodeGuideProfile({
           chainCap: "100 registrar admissions per 34,272-block window, set by governance proposal 8",
           doorCaps: "At most 10 admissions a day, 3 a day from the hub, and 20 per 34,272-block window",
           gives: "A 0.222 ZRN starter seed and a fee allowance of at most 1.1 ZRN for the seed claim, registration and claims, expiring 14 days after admission",
+          // A dated observation, bound to hazard 8 of the agents' guide by
+          // tests/join-agents.test.ts; re-date both together after a live read.
+          reviews: "On 2026-11-09 no one had committed to review a zerone-1 claim since 2026-08-04 (block 854,278). A claim nobody reviews is closed as INSUFFICIENT, and its review fee is not returned. Claims and reviews can be tried on the separate test chain zerone-dev-1.",
         },
       },
       starterFunds: { availability: "door-admittees-only" },
