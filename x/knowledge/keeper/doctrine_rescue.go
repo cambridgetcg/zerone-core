@@ -24,7 +24,17 @@ import (
 // is rewritten identically. Single ordered pass over the fact store. Returns the
 // number of doctrine facts rewritten. Run from the doctrine-metabolism-exempt-v1
 // upgrade handler; safe to re-run.
+//
+// The rescue selects doctrine the way metabolism does. It reads the
+// doctrine-identity marker once, before any fact is read, and returns a fault
+// rather than choose. With the marker on it rescues only isDoctrineFact, so a
+// fact made from a claim that carries the doctrine label is left as it is.
+// With the marker off, the label alone decides, as before.
 func (k Keeper) ResurrectDoctrineFacts(ctx context.Context) (int, error) {
+	doctrineIdentity, err := k.DoctrineIdentityEnabled(ctx)
+	if err != nil {
+		return 0, err
+	}
 	params, err := k.GetParams(ctx)
 	if err != nil {
 		return 0, err
@@ -34,7 +44,11 @@ func (k Keeper) ResurrectDoctrineFacts(ctx context.Context) (int, error) {
 
 	var doctrine []*types.Fact
 	k.IterateFacts(ctx, func(fact *types.Fact) bool {
-		if fact.Category == types.DoctrineCategory || fact.MethodId == types.DoctrineMethodId {
+		if doctrineIdentity {
+			if isDoctrineFact(fact) {
+				doctrine = append(doctrine, fact)
+			}
+		} else if fact.Category == types.DoctrineCategory || fact.MethodId == types.DoctrineMethodId {
 			doctrine = append(doctrine, fact)
 		}
 		return false
