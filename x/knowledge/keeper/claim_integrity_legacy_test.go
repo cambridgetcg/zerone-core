@@ -64,6 +64,8 @@ func setupV11SemanticsTest(t *testing.T) *v11Fixture {
 	gs.InconclusiveRoundAccountingEnabled = false
 	gs.CalibrationSmoothingEnabled = false
 	gs.ZeroConfidenceFloorEnabled = false
+	// Nor the consensus-repairs-v3 marker (0x94).
+	gs.DoctrineIdentityEnabled = false
 
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })

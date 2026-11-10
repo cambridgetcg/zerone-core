@@ -457,6 +457,8 @@ func DefaultGenesis() *GenesisState {
 		InconclusiveRoundAccountingEnabled: true,
 		CalibrationSmoothingEnabled:        true,
 		ZeroConfidenceFloorEnabled:         true,
+		// And with the consensus-repairs-v3 selection on.
+		DoctrineIdentityEnabled: true,
 	}
 }
 

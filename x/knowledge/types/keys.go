@@ -862,3 +862,8 @@ var CalibrationSmoothingEnabledKey = []byte{0x92}
 // decision zc-pr37-frontier-fixes
 // (keeper/zero_confidence_floor_activation.go), unused like 0x91.
 var ZeroConfidenceFloorEnabledKey = []byte{0x93}
+
+// DoctrineIdentityEnabledKey is the consensus-repairs-v3 marker for the
+// doctrine-identity repair (keeper/doctrine_identity_activation.go). It
+// continues after the v2 markers at 0x91-0x93 and is unused like 0x91.
+var DoctrineIdentityEnabledKey = []byte{0x94}

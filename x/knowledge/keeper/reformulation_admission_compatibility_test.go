@@ -33,6 +33,8 @@ func initReformulationAdmissionGenesis(t *testing.T, k keeper.Keeper, ctx sdk.Co
 	gs.InconclusiveRoundAccountingEnabled = false
 	gs.CalibrationSmoothingEnabled = false
 	gs.ZeroConfidenceFloorEnabled = false
+	// And the consensus-repairs-v3 marker (0x94).
+	gs.DoctrineIdentityEnabled = false
 	gs.BootstrapFundAllocation = "0"
 	require.NoError(t, k.InitGenesis(ctx, gs))
 }
