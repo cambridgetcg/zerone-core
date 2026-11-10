@@ -45,9 +45,12 @@ func TestTrainingProvenanceV2ReviewCoverageComposition(t *testing.T) {
 			Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT,
 			Reveals: []*knowledgetypes.RevealEntry{{Verifier: "synthetic-reviewer", Vote: "accept"}},
 		},
+		// Completed and accepted, but with no revealed vote: unreviewed. The
+		// phase and verdict do not decide; a reveal does.
 		{
 			Id: "round-silent", ClaimId: "claim-silent",
-			Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_EXPIRED,
+			Phase:   knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE,
+			Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT,
 		},
 	}
 	for _, round := range rounds {

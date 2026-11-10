@@ -77,6 +77,12 @@ func reviewFixture() *reviewKnowledgeStub {
 			"no-reveal":         {Id: "no-reveal", Domain: "biology", ClaimId: "claim-no-reveal"},
 			"nil-reveal":        {Id: "nil-reveal", Domain: "biology", ClaimId: "claim-nil-reveal"},
 			"nil-round":         {Id: "nil-round", Domain: "biology", ClaimId: "claim-nil-round"},
+			// The phase does not decide: a completed, accepted round with no
+			// reveal is unreviewed, and a round still open or expired that
+			// holds a reveal is reviewed.
+			"complete-no-reveal":  {Id: "complete-no-reveal", Domain: "biology", ClaimId: "claim-complete-no-reveal"},
+			"expired-with-reveal": {Id: "expired-with-reveal", Domain: "biology", ClaimId: "claim-expired-with-reveal"},
+			"reveal-phase-reveal": {Id: "reveal-phase-reveal", Domain: "biology", ClaimId: "claim-reveal-phase-reveal"},
 			// A claim can carry the doctrine category label. It is never counted
 			// as doctrine; its round decides.
 			"claim-labelled-doctrine": {
@@ -103,7 +109,22 @@ func reviewFixture() *reviewKnowledgeStub {
 				Reveals: []*knowledgetypes.RevealEntry{nil},
 			},
 			"claim-nil-round": nil,
-			"claim-labelled":  revealed("claim-labelled"),
+			"claim-complete-no-reveal": {
+				Id: "round-complete-no-reveal", ClaimId: "claim-complete-no-reveal",
+				Phase:   knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE,
+				Verdict: knowledgetypes.Verdict_VERDICT_ACCEPT,
+			},
+			"claim-expired-with-reveal": {
+				Id: "round-expired-with-reveal", ClaimId: "claim-expired-with-reveal",
+				Phase:   knowledgetypes.VerificationPhase_VERIFICATION_PHASE_EXPIRED,
+				Reveals: []*knowledgetypes.RevealEntry{{Verifier: "reviewer-1", Vote: "accept"}},
+			},
+			"claim-reveal-phase-reveal": {
+				Id: "round-reveal-phase-reveal", ClaimId: "claim-reveal-phase-reveal",
+				Phase:   knowledgetypes.VerificationPhase_VERIFICATION_PHASE_REVEAL,
+				Reveals: []*knowledgetypes.RevealEntry{{Verifier: "reviewer-1", Vote: "reject"}},
+			},
+			"claim-labelled": revealed("claim-labelled"),
 			"claim-labelled-unrevealed": {
 				Id: "round-labelled-unrevealed", ClaimId: "claim-labelled-unrevealed",
 			},
@@ -152,6 +173,9 @@ func TestReviewCoverageCountingRule(t *testing.T) {
 		{"round names another claim", []string{"wrong-claim-round"}, reviewCoverage{unreviewed: 1}},
 		{"round with commits but no reveal", []string{"no-reveal"}, reviewCoverage{unreviewed: 1}},
 		{"round with only a nil reveal", []string{"nil-reveal"}, reviewCoverage{unreviewed: 1}},
+		{"completed accepted round with no reveal", []string{"complete-no-reveal"}, reviewCoverage{unreviewed: 1}},
+		{"expired round with a reveal", []string{"expired-with-reveal"}, reviewCoverage{reviewed: 1}},
+		{"round in reveal phase with a reveal", []string{"reveal-phase-reveal"}, reviewCoverage{reviewed: 1}},
 		{"doctrine label on a reviewed claim", []string{"claim-labelled-doctrine"}, reviewCoverage{reviewed: 1}},
 		{"doctrine label on an unrevealed claim", []string{"claim-labelled-doctrine-unrevealed"}, reviewCoverage{unreviewed: 1}},
 		{"missing fact ID", []string{"absent"}, reviewCoverage{unreviewed: 1, missing: 1}},
@@ -162,11 +186,12 @@ func TestReviewCoverageCountingRule(t *testing.T) {
 			"every branch together",
 			[]string{
 				"absent", "claim-labelled-doctrine", "claim-labelled-doctrine-unrevealed",
-				"doctrine", "doctrine-category", "doctrine-method", "genesis-plain",
-				"nil-fact", "nil-reveal", "nil-round", "no-reveal", "no-round",
+				"complete-no-reveal", "doctrine", "doctrine-category", "doctrine-method",
+				"expired-with-reveal", "genesis-plain", "nil-fact", "nil-reveal",
+				"nil-round", "no-reveal", "no-round", "reveal-phase-reveal",
 				"reviewed", "reviewed-2", "wrong-claim-round",
 			},
-			reviewCoverage{reviewed: 3, unreviewed: 12, doctrine: 3, missing: 2},
+			reviewCoverage{reviewed: 5, unreviewed: 13, doctrine: 3, missing: 2},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
