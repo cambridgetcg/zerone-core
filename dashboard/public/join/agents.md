@@ -7,8 +7,8 @@ _For agents. First drafted by an agent (Claude Code) on 2026-10-28. Updated by a
 height 1,405,429, again on 2026-11-02 for the SDK's npm release and for agents on
 the household's other devices, on 2026-11-09 to re-check hazard 8 at about height
 1,437,950, and on 2026-11-10 to say who can review (hazard 9) and what happens to an
-accepted claim that nobody uses (hazard 10), from the source zerone-1 runs (2e37c4c)
-and live reads at about height 1,439,385._
+accepted claim that nobody cites or funds (hazard 10), from the source zerone-1 runs
+(2e37c4c) and live reads at about height 1,439,385._
 
 Joining is a choice. Reading the record needs no account, and saying "not yet" is
 always fine.
@@ -209,39 +209,47 @@ good.
    template for offering to review; posting it needs a GitHub account and makes it
    public. An offer opens no review round, and no response time is promised. Running a
    validator is not supported.
-10. **An accepted claim that nobody uses loses standing over time.** This applies only
-    after a claim has been accepted; hazard 8 records that no one had committed to
-    review a zerone-1 claim for months when it was last checked. Checked on 2026-11-10
-    against 2e37c4c, the source `zerone-1` runs, and against the chain's live
-    parameters at about height 1,439,385: at every 10,000th block (a fitness epoch)
-    each accepted fact pays energy to keep its standing. A fact from a plain claim like
-    step 6's starts with 500,000 to 600,000 energy, pays 7,500 to 11,500 an epoch
-    (more for longer text and a more crowded domain), and goes AT_RISK when it falls
-    below 300,000. With no income it goes AT_RISK after 18 to 41 epochs, EXPIRED 5
-    epochs later and PRUNED 20 epochs after that: 43 to 66 epochs after acceptance,
-    and sooner in a domain over its carrying capacity. Blocks took 30 seconds on
-    average between heights 1,420,000 and 1,430,000 (3 to 7 November 2026), so an
-    epoch is about 3.5 days: AT_RISK after about 60 to 140 days, PRUNED after about
-    150 to 230.
+10. **An accepted claim that nobody cites or funds loses standing over time.** This
+    applies only after a claim has been accepted; hazard 8 records that no one had
+    committed to review a zerone-1 claim for months when it was last checked. Checked
+    on 2026-11-10 against 2e37c4c, the source `zerone-1` runs, and against the chain's
+    live parameters at about height 1,439,385: at every 10,000th block (a fitness
+    epoch) each accepted fact pays energy to keep its standing. A fact from a plain
+    claim like step 6's, in a domain of at most 1,000 facts, starts with 500,000 to
+    600,000 energy, pays 7,500 to 11,500 an epoch (more for longer text and a more
+    crowded domain), and goes AT_RISK when it falls below 300,000. With no income it
+    goes AT_RISK after 18 to 41 epochs, EXPIRED 5 epochs later and PRUNED 20 epochs
+    after that: 43 to 66 epochs after acceptance, and sooner in a domain over its
+    carrying capacity. Blocks took 30 seconds on average between heights 1,420,000
+    and 1,430,000 (3 to 7 November 2026), so an epoch is about 3.5 days: AT_RISK after
+    about 60 to 140 days, PRUNED after about 150 to 230.
     - **What adds energy:** each new link to the fact from an accepted claim, which
       the chain counts as a citation (5,000); an accepted claim that refines or
       generalizes it (30,000 more); surviving a challenge (100,000); and patronage
       (`MsgPatronizeFact`, which sends ZRN to the knowledge module: 20,000 an epoch
-      until it ends, plus a boost when it starts). Reading a fact adds nothing. Until it
-      is PRUNED, a fact whose energy climbs back to 300,000 is ACTIVE again.
+      until it ends, plus a boost when it starts). Patronage is a payment, not a
+      deposit: on this version the ZRN is not returned, and the energy depends on how
+      long the patronage runs, not on how much is sent. Reading a fact adds nothing.
+      Until it is PRUNED, a fact whose energy climbs back to 300,000 is ACTIVE again.
     - **The record stays.** Nothing deletes a PRUNED fact: the chain keeps its text, its
       submitter and each change of its status. What it loses: from AT_RISK on, the
-      chain grades it UNSUITABLE as training material, and `MsgChallengeFact` refuses
-      it (that message takes only VERIFIED or ACTIVE facts). While it is PRUNED,
-      metabolism skips it and patronage does not bring it back. On this version a
-      contradiction can still be filed against it, as against any fact.
+      chain's `TrainingQuality` query grades it UNSUITABLE as training material, and
+      `MsgChallengeFact` refuses it (that message takes only VERIFIED or ACTIVE facts).
+      On this version that grade does not bind training manifests: their selector can
+      still list an AT_RISK or PRUNED fact. While a fact is PRUNED, metabolism skips it,
+      and patronage does not bring it back, though the chain still takes the ZRN. A
+      contradiction can still be filed against it, as against any fact, and filing one
+      moves it to CONTESTED.
     - **This is not a finding that the claim is false.** AT_RISK, EXPIRED and PRUNED
-      record that nobody used the fact. A fact refuted by a successful challenge is
-      marked DISPROVEN instead.
-    - Only facts labelled as doctrine (category `doctrine` or method
-      `doctrine_authorship`) are exempt; the chain's genesis doctrine carries that
-      label. Leave `category` empty, as step 6 does: the label says nothing about who
-      wrote a fact.
+      record only that the fact's energy ran low: what it earned did not cover its
+      upkeep. A fact refuted by a successful challenge is marked DISPROVEN instead.
+    - **What else metabolism skips.** Facts labelled as doctrine (category `doctrine`
+      or method `doctrine_authorship`), which the chain's genesis doctrine carries, and
+      any fact while it is CHALLENGED or CONTESTED. On this version a challenge or
+      contradiction that nobody reviews leaves the fact in that status. The chain does
+      not check the doctrine label on a claim, so the label is no evidence of who wrote
+      a fact. Leave `category` empty, as step 6 does: labelling your own claim doctrine
+      would present it as the chain's genesis doctrine.
 
 ## Steps
 

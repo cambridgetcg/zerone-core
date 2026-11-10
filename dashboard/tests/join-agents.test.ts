@@ -272,8 +272,8 @@ describe("the agents' join guide at /join/agents.md", () => {
     }
   });
 
-  it("says in hazard 10 what happens to an accepted claim nobody uses, dated, and llms.txt says the same", () => {
-    const start = prose.indexOf("10. **An accepted claim that nobody uses loses standing over time.**");
+  it("says in hazard 10 what happens to an accepted claim nobody cites or funds, dated, and llms.txt says the same", () => {
+    const start = prose.indexOf("10. **An accepted claim that nobody cites or funds loses standing over time.**");
     assert.ok(start > prose.indexOf("9. **Reviewing and other roles.**") && start < prose.indexOf("## Steps"), "hazard 10 follows hazard 9, before the steps");
     const ten = prose.slice(start, prose.indexOf("## Steps"));
     // It applies only after acceptance, and points back to hazard 8 rather than saying "today".
@@ -291,21 +291,32 @@ describe("the agents' join guide at /join/agents.md", () => {
     assert.equal(prunedLow, low + expired + pruned);
     assert.equal(prunedHigh, high + expired + pruned);
     assert.match(ten, /at every 10,000th block \(a fitness epoch\)/u);
-    assert.match(ten, /so an epoch is about 3\.5 days: AT_RISK after about 60 to 140 days, PRUNED after about 150 to 230\./u);
+    assert.match(ten, /A fact from a plain claim like step 6's, in a domain of at most 1,000 facts, starts with/u);
+    // The days follow from the epochs and the measured block time, rounded to the nearest 10.
+    const blockSeconds = Number(ten.match(/Blocks took (\d+) seconds on average/u)?.[1] ?? Number.NaN);
+    const epochDays = (10_000 * blockSeconds) / 86_400;
+    const days = (epochs: number) => Math.round((epochs * epochDays) / 10) * 10;
+    const pacing = `so an epoch is about ${epochDays.toFixed(1)} days: AT_RISK after about ${days(low)} to ${days(high)} days, PRUNED after about ${days(prunedLow)} to ${days(prunedHigh)}.`;
+    assert.ok(ten.includes(pacing), `hazard 10's days must follow from its epochs and block time: ${pacing}`);
     // What it keeps, what it loses, and what it is not.
     assert.match(ten, /\*\*The record stays\.\*\* Nothing deletes a PRUNED fact/u);
-    assert.match(ten, /from AT_RISK on, the chain grades it UNSUITABLE as training material, and `MsgChallengeFact` refuses it/u);
-    assert.match(ten, /\*\*This is not a finding that the claim is false\.\*\*/u);
+    assert.match(ten, /from AT_RISK on, the chain's `TrainingQuality` query grades it UNSUITABLE as training material, and `MsgChallengeFact` refuses it/u);
+    // At 2e37c4c the manifest selector grades by another function that does not.
+    assert.match(ten, /On this version that grade does not bind training manifests: their selector can still list an AT_RISK or PRUNED fact\./u);
+    assert.match(ten, /\*\*This is not a finding that the claim is false\.\*\* AT_RISK, EXPIRED and PRUNED record only that the fact's energy ran low/u);
     assert.match(ten, /Reading a fact adds nothing\./u);
-    // The exemption is described by its label, and the guide keeps category empty.
-    assert.match(ten, /Leave `category` empty, as step 6 does: the label says nothing about who wrote a fact\./u);
+    assert.match(ten, /Patronage is a payment, not a deposit: on this version the ZRN is not returned, and the energy depends on how long the patronage runs, not on how much is sent\./u);
+    assert.match(ten, /patronage does not bring it back, though the chain still takes the ZRN/u);
+    // What else metabolism skips, why the label proves nothing, and the guide keeps category empty.
+    assert.match(ten, /any fact while it is CHALLENGED or CONTESTED\. On this version a challenge or contradiction that nobody reviews leaves the fact in that status\./u);
+    assert.match(ten, /The chain does not check the doctrine label on a claim, so the label is no evidence of who wrote a fact\. Leave `category` empty, as step 6 does: labelling your own claim doctrine would present it as the chain's genesis doctrine\./u);
     assert.match(guide, /^ {4}category: "",$/mu);
     // llms.txt's join-guide entry carries the same figures, commit and date.
     const entry = read("public/llms.txt").split("\n").find((line) => line.startsWith("- [How an agent joins zerone-1](https://zerone.ai/join/agents.md):")) ?? "";
     const [year, month, day] = checkedIso.split("-");
     const longDate = `${Number(day)} ${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][Number(month) - 1]} ${year}`;
     assert.ok(
-      entry.includes(`Its hazard 10 says what happens to an accepted claim that nobody cites or funds: on the version zerone-1 runs (${commit}, with parameters read on ${longDate}) it goes AT_RISK after ${low} to ${high} fitness epochs of 10,000 blocks (about 60 to 140 days at 30-second blocks), sooner in a domain over its carrying capacity, and is PRUNED ${expired + pruned} epochs later. Its record stays, and this is not a finding that the claim is false.`),
+      entry.includes(`Its hazard 10 says what happens to an accepted claim that nobody cites or funds: on the version zerone-1 runs (${commit}, with parameters read on ${longDate}), in a domain of at most 1,000 facts, it goes AT_RISK after ${low} to ${high} fitness epochs of 10,000 blocks (about ${days(low)} to ${days(high)} days at ${blockSeconds}-second blocks), sooner in a domain over its carrying capacity, and is PRUNED ${expired + pruned} epochs later. Its record stays, and this is not a finding that the claim is false.`),
       "llms.txt's join-guide entry must repeat hazard 10's figures, commit and date",
     );
   });
