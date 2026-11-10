@@ -2,6 +2,7 @@ package deploy_test
 
 import (
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -897,6 +898,86 @@ func TestTopologyManifestsKeepSignerOutsidePublicServices(t *testing.T) {
 			len(manifest.SignerBoundary.PublicServices) != 0 ||
 			manifest.SignerBoundary.RestartPolicy != "no" {
 			t.Fatalf("%s does not preserve the signer boundary", path)
+		}
+	}
+}
+
+func TestTopologyManifestsBindGenesisValidatorAddress(t *testing.T) {
+	manifestPaths, err := filepath.Glob(filepath.Join("topology", "*", "topology.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(manifestPaths) != 2 {
+		t.Fatalf("want two topology manifests, got %d", len(manifestPaths))
+	}
+	addressPattern := regexp.MustCompile(`^[0-9A-F]{40}$`)
+	for _, path := range manifestPaths {
+		bodyBytes, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var manifest struct {
+			Network                 string `json:"network"`
+			ChainID                 string `json:"chain_id"`
+			GenesisSHA256           string `json:"genesis_sha256"`
+			GenesisValidatorAddress string `json:"genesis_validator_address"`
+		}
+		if err := json.Unmarshal(bodyBytes, &manifest); err != nil {
+			t.Fatal(err)
+		}
+		if manifest.Network != filepath.Base(filepath.Dir(path)) {
+			t.Fatalf("%s names network %q, not its directory", path, manifest.Network)
+		}
+		genesisBytes, err := os.ReadFile(filepath.Join(manifest.Network, "artifacts", "genesis.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if fullNodeSHA256(genesisBytes) != manifest.GenesisSHA256 {
+			t.Fatalf("%s genesis_sha256 does not match %s/artifacts/genesis.json", path, manifest.Network)
+		}
+		var genesis struct {
+			ChainID  string `json:"chain_id"`
+			AppState struct {
+				Genutil struct {
+					GenTxs []struct {
+						Body struct {
+							Messages []struct {
+								Type   string `json:"@type"`
+								Pubkey struct {
+									Type string `json:"@type"`
+									Key  string `json:"key"`
+								} `json:"pubkey"`
+							} `json:"messages"`
+						} `json:"body"`
+					} `json:"gen_txs"`
+				} `json:"genutil"`
+			} `json:"app_state"`
+		}
+		if err := json.Unmarshal(genesisBytes, &genesis); err != nil {
+			t.Fatal(err)
+		}
+		if genesis.ChainID != manifest.ChainID {
+			t.Fatalf("%s chain_id %q does not match genesis chain_id %q", path, manifest.ChainID, genesis.ChainID)
+		}
+		var keys []string
+		for _, tx := range genesis.AppState.Genutil.GenTxs {
+			for _, message := range tx.Body.Messages {
+				if message.Type == "/cosmos.staking.v1beta1.MsgCreateValidator" && message.Pubkey.Type == "/cosmos.crypto.ed25519.PubKey" {
+					keys = append(keys, message.Pubkey.Key)
+				}
+			}
+		}
+		if len(keys) != 1 {
+			t.Fatalf("%s/artifacts/genesis.json has %d Ed25519 genesis validators, want 1", manifest.Network, len(keys))
+		}
+		publicKey, err := base64.StdEncoding.DecodeString(keys[0])
+		if err != nil || len(publicKey) != 32 {
+			t.Fatalf("%s/artifacts/genesis.json genesis validator key is not a 32-byte Ed25519 key", manifest.Network)
+		}
+		digest := sha256.Sum256(publicKey)
+		want := strings.ToUpper(hex.EncodeToString(digest[:20]))
+		if !addressPattern.MatchString(manifest.GenesisValidatorAddress) || manifest.GenesisValidatorAddress != want {
+			t.Fatalf("%s genesis_validator_address is %q, want %s, the address derived from the genesis validator public key", path, manifest.GenesisValidatorAddress, want)
 		}
 	}
 }

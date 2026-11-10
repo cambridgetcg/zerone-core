@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -14,7 +15,7 @@ func makeGenesis(overrides map[string]interface{}) map[string]interface{} {
 		"genesis_time": "2026-03-01T00:00:00Z",
 		"consensus": {
 			"params": {
-				"abci": {"vote_extensions_enable_height": "1"}
+				"abci": {"vote_extensions_enable_height": "0"}
 			}
 		},
 		"app_state": {
@@ -287,14 +288,88 @@ func TestGovernance_VotingLessThanDiscussion(t *testing.T) {
 // Vote Extensions
 // ────────────────────────────────────────────────────────────────────
 
-func TestVoteExtensions_Disabled(t *testing.T) {
+func TestVoteExtensions_OffPasses(t *testing.T) {
+	layouts := map[string]map[string]interface{}{
+		"consensus.params.abci": {
+			"consensus.params.abci.vote_extensions_enable_height": "0",
+		},
+		"legacy consensus_params.abci": {
+			"consensus.params.abci":                               map[string]interface{}{},
+			"consensus_params.abci.vote_extensions_enable_height": "0",
+		},
+	}
+	for layout, overrides := range layouts {
+		for _, profile := range []string{"testnet", "production"} {
+			c := &checker{profile: profile}
+			checkVoteExtensions(c, makeGenesis(overrides))
+			if c.failed != 0 || c.warnings != 0 || c.passed != 1 {
+				t.Fatalf("%s, %s profile: height \"0\" gave %d passed, %d failed, %d warnings; want 1, 0, 0",
+					layout, profile, c.passed, c.failed, c.warnings)
+			}
+		}
+	}
+}
+
+func TestVoteExtensions_OnWarnsTestnetFailsProduction(t *testing.T) {
+	for _, height := range []string{"1", "100"} {
+		g := makeGenesis(map[string]interface{}{
+			"consensus.params.abci.vote_extensions_enable_height": height,
+		})
+
+		testnet := &checker{profile: "testnet"}
+		checkVoteExtensions(testnet, g)
+		if testnet.failed != 0 || testnet.warnings != 1 {
+			t.Fatalf("testnet profile, height %q: got %d failed, %d warnings; want 0 failed, 1 warning",
+				height, testnet.failed, testnet.warnings)
+		}
+
+		production := &checker{profile: "production"}
+		checkVoteExtensions(production, g)
+		if production.failed != 1 {
+			t.Fatalf("production profile, height %q: got %d failed, want 1", height, production.failed)
+		}
+	}
+}
+
+func TestVoteExtensions_MalformedFails(t *testing.T) {
+	for _, height := range []string{"", "-1", "one", "1.0"} {
+		g := makeGenesis(map[string]interface{}{
+			"consensus.params.abci.vote_extensions_enable_height": height,
+		})
+		for _, profile := range []string{"testnet", "production"} {
+			c := &checker{profile: profile}
+			checkVoteExtensions(c, g)
+			if c.failed != 1 {
+				t.Fatalf("%s profile, height %q: got %d failed, want 1", profile, height, c.failed)
+			}
+		}
+	}
+}
+
+func TestVoteExtensions_Missing(t *testing.T) {
 	g := makeGenesis(map[string]interface{}{
-		"consensus.params.abci.vote_extensions_enable_height": "0",
+		"consensus.params.abci": map[string]interface{}{},
 	})
 	c := runCheck(t, checkVoteExtensions, g)
 	if c.failed != 1 {
-		t.Fatalf("expected 1 failure for disabled vote extensions, got %d", c.failed)
+		t.Fatalf("expected 1 failure for a missing vote_extensions_enable_height, got %d", c.failed)
 	}
+}
+
+// TestVoteExtensionsCheckFollowsReleaseLatch trips when the PoT release latch opens, because
+// checkVoteExtensions and its messages assume the latch is closed.
+func TestVoteExtensionsCheckFollowsReleaseLatch(t *testing.T) {
+	source, err := os.ReadFile("../../app/vote_extensions.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const latch = "const potVoteExtensionsReleaseEnabled = false"
+	for _, line := range strings.Split(string(source), "\n") {
+		if strings.TrimRight(line, "\r") == latch {
+			return
+		}
+	}
+	t.Fatalf("the PoT release latch in app/vote_extensions.go changed; revisit checkVoteExtensions in tools/genesis-check (no line reads %q)", latch)
 }
 
 // ────────────────────────────────────────────────────────────────────

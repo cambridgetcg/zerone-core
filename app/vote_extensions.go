@@ -34,7 +34,7 @@ type VoteExtensionConfig struct {
 	LocalStore *LocalCommitmentStore
 
 	// OracleClient is an optional client for querying the oracle sidecar.
-	// If nil, the default accept verdict is used.
+	// If nil, the validator casts no PoT vote for any claim.
 	OracleClient OracleClient
 }
 
@@ -182,21 +182,22 @@ func (app *ZeroneApp) handleCommitPhase(
 		}, nil
 	}
 
-	// Evaluate claim via oracle sidecar (if configured).
-	// Falls back to accept@600K if oracle is nil, unreachable, or returns error.
-	var verdict string
-	var confidence uint64
+	// Evaluate the claim via the oracle sidecar. With no usable verdict the
+	// validator casts no vote: nothing is stored in LocalStore, so the reveal
+	// phase reveals nothing for this round and no slash path applies.
+	//
+	// A declined round is evaluated again on each later block of its commit
+	// phase, and each re-evaluation is a synchronous oracle call that can block
+	// ExtendVote for up to oracle.timeout per declined round. Whoever opens the
+	// release latch should add a per-round declined marker; a sentinel
+	// LocalCommitment would be revealed as an invalid verdict.
 	claim, found := app.KnowledgeKeeper.GetClaim(ctx, round.ClaimId)
-	if !found || claim == nil {
-		verdict = "accept"
-		confidence = 600_000
-	} else {
-		verdict, confidence = EvaluateWithOracle(
-			config.OracleClient,
-			claim.FactContent,
-			claim.Domain,
-			claim.ClaimType.String(),
-		)
+	verdict, confidence, ok := potVerdictForClaim(config.OracleClient, claim, found)
+	if !ok {
+		if !found || claim == nil {
+			return nil, fmt.Errorf("claim %s not found; casting no vote for round %s", round.ClaimId, round.Id)
+		}
+		return nil, fmt.Errorf("no usable oracle verdict; casting no vote for round %s", round.Id)
 	}
 
 	// Generate random salt
@@ -225,6 +226,16 @@ func (app *ZeroneApp) handleCommitPhase(
 		VRFProof:       hex.EncodeToString(vrfProof),
 		Height:         uint64(ctx.BlockHeight()),
 	}, nil
+}
+
+// potVerdictForClaim decides this validator's commit-phase verdict for one
+// claim. It returns ok=false, and the caller casts no vote, when the claim is
+// missing or the oracle gives no usable verdict (see EvaluateWithOracle).
+func potVerdictForClaim(client OracleClient, claim *knowledgetypes.Claim, found bool) (string, uint64, bool) {
+	if !found || claim == nil {
+		return "", 0, false
+	}
+	return EvaluateWithOracle(client, claim.FactContent, claim.Domain, claim.ClaimType.String())
 }
 
 // handleRevealPhase generates a reveal for a round in reveal phase.
