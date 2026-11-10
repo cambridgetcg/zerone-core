@@ -19,7 +19,8 @@ two readings and say how.
 
 The reason for v2: under predicate v1, `trustGrade` is `A` whenever three
 warning counts are zero. The grade has no review input. A manifest made only of
-doctrine or genesis facts, which no verification round reviewed, grades `A`.
+doctrine facts or other facts without a claim ID, which no verification round
+reviewed, grades `A`.
 Predicate v2 keeps the same warning rubric under a name that says what it
 measures, and adds the review reading beside it.
 
@@ -75,9 +76,10 @@ Its fields are `manifestId`, `pipelineId`, `merkleRoot`, `factCount`,
 `incidentCount`, `cartelResolutionCount`, `warningGrade`,
 `warningExplanation`, `computedAtBlock`, `sourceChainId`,
 `reviewedFactCount`, `unreviewedFactCount`, `doctrineFactCount`,
-`missingFactCount`, `reviewState` and `reviewExplanation`. Protobuf JSON omits
-zero counts and empty strings; a consumer reads an omitted count as zero.
-64-bit counts are decimal strings.
+`missingFactCount`, `reviewState` and `reviewExplanation`. Zero counts, empty
+strings and empty lists may be present or omitted: protobuf JSON with default
+options omits them, and the REST gateway emits them. A consumer must accept
+both and reads an omitted count as zero. 64-bit counts are decimal strings.
 
 The subject, `sourceChainId`, `observedOnChainId` and the subject digest have
 the same meaning as in predicate v1. The digest commits to the manifest's
@@ -126,7 +128,8 @@ Review coverage is counted per entry of the manifest's directly included fact
 IDs, in stored order. Each entry is classified once, by the first rule that
 applies:
 
-1. The fact store has no fact under the ID: **unreviewed**, and counted in
+1. The fact store has no readable fact under the ID (none is stored, or the
+   stored record does not decode): **unreviewed**, and counted in
    `missingFactCount`.
 2. The fact's `claim_id` is empty: **unreviewed**. If its category is
    `doctrine` or its method is `doctrine_authorship`, it is also counted in
@@ -138,14 +141,20 @@ applies:
 6. Otherwise: **reviewed**.
 
 Empty claim IDs cover doctrine loaded at genesis, facts supplied in genesis
-state and facts added by authority. A missing fact ID counts as unreviewed: the
+state without a claim ID, and facts added by authority. A fact imported from an
+exported genesis keeps its claim ID, and its round where the export retained
+it, so the same rules read it. A missing fact ID counts as unreviewed: the
 worst reading wins, and an unknown is never counted as reviewed. A fact with a
 claim ID is never counted as doctrine, whatever its category, because a claim
 can carry the `doctrine` category label.
 
-`doctrineFactCount` is reported so that doctrine is described, not graded.
-Doctrine facts are commitments the chain loads as canon; they did not pass a
-verification round, and this predicate says so without ranking them.
+`doctrineFactCount` is reported so that doctrine is described, not graded. It
+counts facts without a claim ID that carry the `doctrine` category or the
+`doctrine_authorship` method. They include the commitments the chain loads as
+canon at genesis. A fact added by authority with the `doctrine` category is
+counted the same way; adding it also records a privileged action naming the
+fact. None of these facts passed a verification round, and this predicate says
+so without ranking them.
 
 The counts satisfy:
 
@@ -176,6 +185,18 @@ unreviewed, doctrine and missing counts in base 10 without leading zeros:
 ```text
 reviewed_fact_count=<r> of fact_count=<n> have a retained verification round with at least one revealed vote; unreviewed_fact_count=<u>, including doctrine_fact_count=<d> and missing_fact_count=<m>
 ```
+
+### What the review reading covers
+
+The review reading speaks only for the manifest's directly included fact IDs.
+A manifest also lists included trace, pair, drift-augmentation and
+normative-commitment IDs, and the subject digest commits to those sets too.
+They are not counted, and this predicate describes none of them as reviewed or
+unreviewed. A manifest that includes no fact IDs reads `empty`, whatever else
+it includes. For a composed manifest, the certificate counts only the child's
+directly stored fact IDs and not its parent's. So `reviewed` means that every
+directly included fact ID has a revealed review. It does not mean that
+everything the subject digest commits to was reviewed.
 
 ### What "reviewed" does not mean
 
