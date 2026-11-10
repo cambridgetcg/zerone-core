@@ -27,6 +27,12 @@ message GenesisState {
   // upgrade consensus-repairs-v1 sets it.
   // Its store key is typed state, so it never appears in state_entries.
   bool qualification_semantics_enabled = 4;
+  // Cited-reward escrow marker (consensus-repairs-v3): the reward for an
+  // attestation that cites existing facts waits in the witness escrow window.
+  // Native genesis sets it; a file without the field imports as off. No
+  // carrier upgrade sets it in place yet.
+  // Its store key is typed state, so it never appears in state_entries.
+  bool cited_reward_escrow_enabled = 5;
 }
 
 // GenesisStateEntry is one allow-listed substrate_bridge KV entry.

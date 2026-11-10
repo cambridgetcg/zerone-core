@@ -37,6 +37,12 @@ var (
 	// zerone-core #126 (keeper/qualification_semantics_activation.go). Genesis
 	// carries it as a typed field, never as a raw state entry.
 	QualificationSemanticsEnabledKey = []byte{0x90}
+
+	// CitedRewardEscrowEnabledKey is the consensus-repairs-v3 marker for the
+	// cited-reward escrow repair (keeper/cited_reward_escrow_activation.go).
+	// Like 0x90 it lies outside the reserved 0x80-0x8F range, and genesis
+	// carries it as a typed field, never as a raw state entry.
+	CitedRewardEscrowEnabledKey = []byte{0x91}
 )
 
 // SourceRefKey indexes the one attestation holding an external source

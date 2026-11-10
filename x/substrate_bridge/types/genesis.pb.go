@@ -42,8 +42,14 @@ type GenesisState struct {
 	// upgrade consensus-repairs-v1 sets it.
 	// Its store key is typed state, so it never appears in state_entries.
 	QualificationSemanticsEnabled bool `protobuf:"varint,4,opt,name=qualification_semantics_enabled,json=qualificationSemanticsEnabled,proto3" json:"qualification_semantics_enabled,omitempty"`
-	unknownFields                 protoimpl.UnknownFields
-	sizeCache                     protoimpl.SizeCache
+	// Cited-reward escrow marker (consensus-repairs-v3): the reward for an
+	// attestation that cites existing facts waits in the witness escrow window.
+	// Native genesis sets it; a file without the field imports as off. No
+	// carrier upgrade sets it in place yet.
+	// Its store key is typed state, so it never appears in state_entries.
+	CitedRewardEscrowEnabled bool `protobuf:"varint,5,opt,name=cited_reward_escrow_enabled,json=citedRewardEscrowEnabled,proto3" json:"cited_reward_escrow_enabled,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -100,6 +106,13 @@ func (x *GenesisState) GetStateEntries() []*GenesisStateEntry {
 func (x *GenesisState) GetQualificationSemanticsEnabled() bool {
 	if x != nil {
 		return x.QualificationSemanticsEnabled
+	}
+	return false
+}
+
+func (x *GenesisState) GetCitedRewardEscrowEnabled() bool {
+	if x != nil {
+		return x.CitedRewardEscrowEnabled
 	}
 	return false
 }
@@ -161,12 +174,13 @@ var File_zerone_substrate_bridge_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_substrate_bridge_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"(zerone/substrate_bridge/v1/genesis.proto\x12\x1azerone.substrate_bridge.v1\x1a'zerone/substrate_bridge/v1/params.proto\x1a(zerone/substrate_bridge/v1/adapter.proto\"\xb3\x02\n" +
+	"(zerone/substrate_bridge/v1/genesis.proto\x12\x1azerone.substrate_bridge.v1\x1a'zerone/substrate_bridge/v1/params.proto\x1a(zerone/substrate_bridge/v1/adapter.proto\"\xf2\x02\n" +
 	"\fGenesisState\x12:\n" +
 	"\x06params\x18\x01 \x01(\v2\".zerone.substrate_bridge.v1.ParamsR\x06params\x12K\n" +
 	"\badapters\x18\x02 \x03(\v2/.zerone.substrate_bridge.v1.AdapterRegistrationR\badapters\x12R\n" +
 	"\rstate_entries\x18\x03 \x03(\v2-.zerone.substrate_bridge.v1.GenesisStateEntryR\fstateEntries\x12F\n" +
-	"\x1fqualification_semantics_enabled\x18\x04 \x01(\bR\x1dqualificationSemanticsEnabled\";\n" +
+	"\x1fqualification_semantics_enabled\x18\x04 \x01(\bR\x1dqualificationSemanticsEnabled\x12=\n" +
+	"\x1bcited_reward_escrow_enabled\x18\x05 \x01(\bR\x18citedRewardEscrowEnabled\";\n" +
 	"\x11GenesisStateEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\fR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\fR\x05valueB9Z7github.com/zerone-chain/zerone/x/substrate_bridge/typesb\x06proto3"

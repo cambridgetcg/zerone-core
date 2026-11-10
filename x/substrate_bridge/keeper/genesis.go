@@ -40,6 +40,11 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 			return err
 		}
 	}
+	if gs.CitedRewardEscrowEnabled {
+		if err := k.EnableCitedRewardEscrow(ctx); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -49,7 +54,11 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	if err != nil {
 		panic(err)
 	}
-	gs := &types.GenesisState{Params: params, QualificationSemanticsEnabled: qualificationSemantics}
+	citedRewardEscrow, err := k.CitedRewardEscrowEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
+	gs := &types.GenesisState{Params: params, QualificationSemanticsEnabled: qualificationSemantics, CitedRewardEscrowEnabled: citedRewardEscrow}
 	k.IterateAdapters(ctx, func(a *types.AdapterRegistration) bool {
 		gs.Adapters = append(gs.Adapters, a)
 		return false
