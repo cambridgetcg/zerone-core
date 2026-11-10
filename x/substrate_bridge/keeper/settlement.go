@@ -15,9 +15,30 @@ import (
 //   - PARTIAL (reduced reward, lineage propagation on the partial)
 //   - REJECTED (slash; attestation closed; no lineage)
 //
+// With the cited-reward escrow marker on, a link with cited facts and no
+// pending claims settles with its bond returned and nothing minted, and its
+// reward waits in the witness escrow (see escrowCitedReward). Witness-only
+// links, links with pending claims and both rejection paths are the same in
+// either state.
+//
 // Eager: called synchronously when an attestation reaches READY or
 // when BeginBlocker detects timeout or rejection-threshold trip.
+//
+// SettleAttestation is a standalone entry point: it reads the marker once,
+// before any write, and returns a marker fault instead of settling.
+// BeginBlocker reads the marker once per block and calls settleAttestation.
 func (k Keeper) SettleAttestation(ctx context.Context, attestationID string) error {
+	citedRewardEscrow, err := k.CitedRewardEscrowEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	return k.settleAttestation(ctx, attestationID, citedRewardEscrow)
+}
+
+// settleAttestation is SettleAttestation with the cited-reward escrow marker
+// already read. With citedRewardEscrow false it is the settlement that ran
+// before the marker existed.
+func (k Keeper) settleAttestation(ctx context.Context, attestationID string, citedRewardEscrow bool) error {
 	att, found := k.GetAttestation(ctx, attestationID)
 	if !found {
 		return types.ErrAttestationNotFound
@@ -82,6 +103,19 @@ func (k Keeper) SettleAttestation(ctx context.Context, attestationID string) err
 		finalStatus = types.AttestationStatus_ATTESTATION_STATUS_PARTIAL
 	}
 
+	if citedRewardEscrow && len(att.Link.PendingClaims) == 0 {
+		// A cited-fact link adds no newly verified knowledge: citation checks
+		// only that the fact exists. Its reward follows survival, like a
+		// witness reward: settlement returns the bond and mints nothing, and
+		// the reward is escrowed under the challenge window
+		// (witness_escrow.go).
+		if err := k.finalizeSettle(ctx, att, sdkmath.ZeroInt(), finalStatus); err != nil {
+			return err
+		}
+		k.escrowCitedReward(ctx, att, reward)
+		return nil
+	}
+
 	return k.finalizeSettle(ctx, att, reward, finalStatus)
 }
 
@@ -118,8 +152,11 @@ func (k Keeper) computeReward(att *types.ExternalAttestation, verifiedRatioBps u
 }
 
 // emitExternalCiteKarma emits one zerone.karma.edge per cited fact when an
-// attestation settles: the cited facts raised the attester's mint above, and
-// until now their authors heard nothing about being relied on. Ordinal
+// attestation settles: the cited facts earned the attester's reward above
+// (paid at settlement, or escrowed under the challenge window when the
+// cited-reward escrow marker is on, in which case the edges are emitted even
+// if the escrow is later cancelled), and until now their authors heard
+// nothing about being relied on. Ordinal
 // recognition only — no magnitude until a buyer's settled payment exists to
 // partition (K-alpha; pricing is a later stage). Runs on the BeginBlocker
 // drain, so it never errors: a fact that no longer resolves, or resolves

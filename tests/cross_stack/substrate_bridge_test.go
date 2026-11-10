@@ -24,6 +24,11 @@ import (
 //  6. Verify attestation has SETTLED status and non-zero reward.
 func TestSubstrateBridge_HappyPathSettlement(t *testing.T) {
 	h := NewTestHarness(t)
+	// The marker-off case: an existing chain that has not run a
+	// consensus-repairs-v3 carrier. Native genesis selects the cited-reward
+	// escrow marker, so clear it here. The marker-on case is
+	// TestSubstrateBridge_CitedRewardWaitsForSurvival.
+	h.Ctx.KVStore(h.App.GetStoreKeyForTests(substratebridgetypes.StoreKey)).Delete(substratebridgetypes.CitedRewardEscrowEnabledKey)
 
 	// 1. Register adapter.
 	require.NoError(t, h.SubstrateBridgeKeeper.WriteAdapter(h.Ctx, &substratebridgetypes.AdapterRegistration{
@@ -107,6 +112,114 @@ func TestSubstrateBridge_HappyPathSettlement(t *testing.T) {
 	final := h.App.BankKeeper.GetBalance(h.Ctx, submitter, "uzrn")
 	require.True(t, final.Amount.Equal(preSubmit.Amount.Add(reward)),
 		"settlement must return the whole bond and pay the minted reward")
+}
+
+// TestSubstrateBridge_CitedRewardWaitsForSurvival is the marker-on case of the
+// happy path, on native genesis, which selects the cited-reward escrow marker.
+// The cited-fact attestation settles at the first BeginBlocker with its bond
+// back whole and nothing minted. Its reward waits in the witness escrow, and
+// the BeginBlocker at the deadline, with the adapter still ACTIVE, mints it
+// once through MintWithCap and pays the submitter.
+func TestSubstrateBridge_CitedRewardWaitsForSurvival(t *testing.T) {
+	h := NewTestHarness(t)
+	enabled, err := h.SubstrateBridgeKeeper.CitedRewardEscrowEnabled(h.Ctx)
+	require.NoError(t, err)
+	require.True(t, enabled, "native genesis selects the cited-reward escrow marker")
+
+	require.NoError(t, h.SubstrateBridgeKeeper.WriteAdapter(h.Ctx, &substratebridgetypes.AdapterRegistration{
+		AdapterId:              "test-wiki",
+		Status:                 substratebridgetypes.AdapterStatus_ADAPTER_STATUS_ACTIVE,
+		MinAttestationBondUzrn: "222000",
+		MinPerClaimBondUzrn:    "222",
+		AxisBounds:             &substratebridgetypes.AxisBounds{AxisSubstrateMax: 1_000_000},
+	}))
+	require.NoError(t, h.KnowledgeKeeper.SetDomain(h.Ctx, &knowledgetypes.Domain{
+		Name:   "test-domain",
+		Status: knowledgetypes.DomainStatus_DOMAIN_STATUS_ACTIVE,
+	}))
+	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
+		Id:              "seed-fact",
+		Domain:          "test-domain",
+		Status:          knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+		VerifiedAtBlock: 1,
+	}))
+	link := &substratebridgetypes.SubstrateLink{
+		AdapterId: "test-wiki",
+		Source: &substratebridgetypes.ExternalSource{
+			AdapterId:   "test-wiki",
+			SourceId:    "article-survival",
+			ContentHash: make([]byte, 32),
+		},
+		CitedFacts: []*substratebridgetypes.FactCitation{
+			{FactId: "seed-fact", CitationType: substratebridgetypes.CitationType_CITATION_TYPE_SUPPORTS},
+		},
+		RecursionWeight: &substratebridgetypes.AxisProjection{AxisSubstrate: 100_000},
+	}
+	link.LinkHash = substratebridgekeeper.ComputeLinkHash(link)
+
+	submitter := testAddr("sb_survival_submitter")
+	require.NoError(t, h.FundAccount(submitter, sdk.NewCoins(sdk.NewInt64Coin("uzrn", 10_000_000))))
+	preSubmit := h.App.BankKeeper.GetBalance(h.Ctx, submitter, "uzrn")
+
+	srv := substratebridgekeeper.NewMsgServerImpl(h.SubstrateBridgeKeeper)
+	resp, err := srv.SubmitExternalAttestation(h.Ctx, &substratebridgetypes.MsgSubmitExternalAttestation{
+		Submitter:   submitter.String(),
+		AdapterId:   "test-wiki",
+		WorkClassId: "translation",
+		Link:        link,
+		BondUzrn:    "1000000",
+	})
+	require.NoError(t, err)
+	attID := resp.AttestationId
+
+	// First BeginBlocker: settled, bond home, nothing minted, reward escrowed.
+	sdkCtx := sdk.UnwrapSDKContext(h.Ctx)
+	preMinted := h.VestingRewardsKeeper.GetTotalMinted(sdkCtx)
+	require.NoError(t, h.SubstrateBridgeKeeper.BeginBlocker(h.Ctx))
+
+	att, found := h.SubstrateBridgeKeeper.GetAttestation(h.Ctx, attID)
+	require.True(t, found)
+	require.Equal(t, substratebridgetypes.AttestationStatus_ATTESTATION_STATUS_SETTLED, att.Status)
+	require.Equal(t, "0", att.RewardUzrn, "nothing paid at settlement")
+	require.True(t, h.App.BankKeeper.GetBalance(h.Ctx, submitter, "uzrn").Amount.Equal(preSubmit.Amount),
+		"settlement returns the whole bond and pays nothing yet")
+	require.Equal(t, preMinted.String(), h.VestingRewardsKeeper.GetTotalMinted(sdkCtx).String(), "nothing minted at settlement")
+
+	params := h.SubstrateBridgeKeeper.GetParams(h.Ctx)
+	pr, found := h.SubstrateBridgeKeeper.GetWitnessPendingReward(h.Ctx, attID)
+	require.True(t, found, "the cited reward waits in the witness escrow")
+	require.Equal(t, submitter.String(), pr.Recipient)
+	require.Equal(t, "test-wiki", pr.AdapterId)
+	require.Equal(t, uint64(h.Ctx.BlockHeight())+params.WitnessRewardChallengeWindowBlocks, pr.Deadline)
+	// computeReward: base + base x 10,000/10,000 x 100,000 x 5,000 / 10^8 = 6 x base.
+	base, ok := sdkmath.NewIntFromString(params.AttestationMinBondUzrn)
+	require.True(t, ok)
+	require.Equal(t, base.MulRaw(6).String(), pr.Amount, "the escrow holds the reward settlement computed")
+	reward, ok := sdkmath.NewIntFromString(pr.Amount)
+	require.True(t, ok)
+
+	// One block before the deadline nothing is released.
+	window := int64(params.WitnessRewardChallengeWindowBlocks)
+	require.NoError(t, h.SubstrateBridgeKeeper.BeginBlocker(h.Ctx.WithBlockHeight(h.Ctx.BlockHeight()+window-1)))
+	require.Equal(t, preMinted.String(), h.VestingRewardsKeeper.GetTotalMinted(sdkCtx).String())
+
+	// At the deadline, with the adapter still ACTIVE, the reward mints once.
+	due := h.Ctx.WithBlockHeight(h.Ctx.BlockHeight() + window)
+	require.NoError(t, h.SubstrateBridgeKeeper.BeginBlocker(due))
+	mintedDelta := new(big.Int).Sub(h.VestingRewardsKeeper.GetTotalMinted(sdkCtx), preMinted)
+	require.Equal(t, pr.Amount, mintedDelta.String(),
+		"vesting_rewards.TotalMinted delta (%s) must equal the escrowed reward (%s)", mintedDelta, pr.Amount)
+	require.True(t, h.App.BankKeeper.GetBalance(h.Ctx, submitter, "uzrn").Amount.Equal(preSubmit.Amount.Add(reward)),
+		"release pays the minted reward on top of the returned bond")
+	att, found = h.SubstrateBridgeKeeper.GetAttestation(h.Ctx, attID)
+	require.True(t, found)
+	require.Equal(t, pr.Amount, att.RewardUzrn)
+	_, found = h.SubstrateBridgeKeeper.GetWitnessPendingReward(h.Ctx, attID)
+	require.False(t, found)
+
+	require.NoError(t, h.SubstrateBridgeKeeper.BeginBlocker(due))
+	require.Equal(t, mintedDelta.String(), new(big.Int).Sub(h.VestingRewardsKeeper.GetTotalMinted(sdkCtx), preMinted).String(),
+		"exactly once")
 }
 
 // TestSubstrateBridge_PendingClaimResolutionMachinery exercises the

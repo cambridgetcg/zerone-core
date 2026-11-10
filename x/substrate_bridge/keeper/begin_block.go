@@ -16,6 +16,14 @@ import (
 func (k Keeper) BeginBlocker(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
+	// Select the cited-reward escrow repair once, before any begin-block write.
+	// The reader is gas-free; a malformed or unreadable marker wraps
+	// activation.ErrMarkerFault and is returned, never read as off.
+	citedRewardEscrow, err := k.CitedRewardEscrowEnabled(ctx)
+	if err != nil {
+		return err
+	}
+
 	// Fail closed while enforcement is unarmed. Every mint path — settlement
 	// (SettleAttestation) and witness-reward release (SweepWitnessRewards) —
 	// is reached only from here, and each authorizes a mint by consulting the
@@ -48,7 +56,7 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		return false
 	})
 	for _, id := range timedOut {
-		if err := k.SettleAttestation(ctx, id); err != nil {
+		if err := k.settleAttestation(ctx, id, citedRewardEscrow); err != nil {
 			k.Logger(sdkCtx).Error("timeout-settle failed", "attestation_id", id, "err", err)
 		}
 	}
@@ -60,7 +68,7 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		return false
 	})
 	for _, id := range ready {
-		if err := k.SettleAttestation(ctx, id); err != nil {
+		if err := k.settleAttestation(ctx, id, citedRewardEscrow); err != nil {
 			k.Logger(sdkCtx).Error("ready-settle failed", "attestation_id", id, "err", err)
 		}
 	}
