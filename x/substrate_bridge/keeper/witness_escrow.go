@@ -262,6 +262,16 @@ func (k Keeper) SweepWitnessRewards(ctx context.Context) error {
 // is CHALLENGED or CONTESTED; otherwise release. A witness-only escrow cites
 // nothing and is released as before. With citedRewardEscrow false no fact is
 // read: this is the sweep that ran before the marker existed.
+//
+// Both deferrals repeat at each new deadline, with no count, no limit and no
+// event, until the adapter or the cited facts let the sweep decide. A cited
+// fact can stay CONTESTED with no end. x/knowledge's metabolism does not
+// process CONTESTED facts. With claim integrity on, a fact whose contest check
+// cannot finish stays CONTESTED until a challenge refutes it
+// (x/knowledge/keeper/claim_integrity_contest.go). With claim integrity off, a
+// CONTESTED fact cannot be challenged at all, and admitting a contradiction of
+// a VERIFIED or ACTIVE fact makes it CONTESTED at once. Such an escrow stays
+// pending for as long as the fact stays CONTESTED.
 func (k Keeper) sweepWitnessRewards(ctx context.Context, citedRewardEscrow bool) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
@@ -335,7 +345,7 @@ const (
 	// citedStand: every cited fact stands, or nothing is cited. Release.
 	citedStand citedStanding = iota
 	// citedChallenged: a cited fact is CHALLENGED or CONTESTED and none has
-	// fallen. Defer one window.
+	// fallen. Defer one window; the next sweep decides again, with no limit.
 	citedChallenged
 	// citedFallen: a cited fact is missing, DISPROVEN or REVOKED. Cancel.
 	citedFallen
@@ -346,8 +356,12 @@ const (
 // fact that is missing from the knowledge store, DISPROVEN or REVOKED makes
 // the result citedFallen, and reason names that fact. Otherwise any CHALLENGED
 // or CONTESTED fact makes it citedChallenged. Every other status stands. In
-// particular AT_RISK, EXPIRED and PRUNED stand: a fact that lost standing
-// through disuse has not been found false.
+// particular AT_RISK, EXPIRED and PRUNED stand: x/knowledge sets them through
+// energy decay, niche competition, or the energy a child fact loses when its
+// parent is disproven, and none of these finds the fact itself false. The
+// statuses this rule does not name also stand: UNSPECIFIED, PENDING,
+// PROVISIONAL, VERIFIED, ACTIVE, SUPERSEDED, and any value this build does
+// not know.
 //
 // Admission bounds new links at MaxCitedFactsPerLink. This reads every fact a
 // stored link cites, so a failing fact past that bound still decides.
@@ -356,6 +370,11 @@ const (
 // stands here because releaseWitnessReward cancels it. A keeper wired without
 // a knowledge keeper reads no fact and stands, as submission and settlement
 // read no fact without one; the app always wires it.
+//
+// It reads the attestation for every escrow the adapter rule would release, a
+// witness-only one included. So with the marker on, a witness-only escrow
+// costs one more store read at release; its state, events and coins are the
+// same as with the marker off.
 func (k Keeper) citedFactStanding(ctx context.Context, pr WitnessPendingReward) (citedStanding, string) {
 	if k.knowledgeKeeper == nil {
 		return citedStand, ""

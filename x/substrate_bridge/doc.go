@@ -45,10 +45,17 @@
 //     Where the adapter rule would release, the cited facts decide: the
 //     reward is cancelled if any cited fact is missing, DISPROVEN or REVOKED,
 //     deferred one window if any is CHALLENGED or CONTESTED, and released
-//     otherwise. A fact that lost standing through disuse (AT_RISK, EXPIRED,
-//     PRUNED) does not stop the release. Karma edges for the cited facts are
-//     emitted at settlement whatever the sweep later decides. Native genesis
-//     selects the marker; no carrier upgrade sets it on an existing chain yet.
+//     otherwise. The deferral repeats at each new deadline, with no limit and
+//     no event, until every cited fact stands (release) or one falls
+//     (cancel). A fact can stay CONTESTED with no end, and the reward then
+//     stays pending with it. A fact that lost standing without itself being
+//     found false (AT_RISK, EXPIRED, PRUNED: energy decay, niche competition,
+//     or a disproven parent) does not stop the release. Nor do the statuses
+//     the rule does not name: UNSPECIFIED, PENDING, PROVISIONAL, VERIFIED,
+//     ACTIVE, SUPERSEDED, or a value this build does not know. Karma edges
+//     for the cited facts are emitted at settlement whatever the sweep later
+//     decides. Native genesis selects the marker; no carrier upgrade sets it
+//     on an existing chain yet.
 //
 //   - Cross-class lineage accountant (M6): DAG-by-timestamp citation graph
 //     with depth-decayed accounting at downstream settlement. The cumulative

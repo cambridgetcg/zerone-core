@@ -2252,8 +2252,12 @@ escrowed under the same window with the same `witness_reward_*` events.
 When that window closes, the adapter decides first, as for a witness reward.
 Where the adapter would release, the cited facts decide: the reward is
 cancelled if any cited fact is missing, DISPROVEN or REVOKED, deferred one
-window (with no event) if any is CHALLENGED or CONTESTED, and released
-otherwise. AT_RISK, EXPIRED and PRUNED facts do not stop the release.
+window per sweep (with no event) while any is CHALLENGED or CONTESTED, and
+released otherwise. The deferral has no limit: it repeats until every cited
+fact stands (release) or one falls (cancel), and a fact can stay CONTESTED
+with no end, so the reward can stay pending with it. AT_RISK, EXPIRED and
+PRUNED facts do not stop the release, and nor do UNSPECIFIED, PENDING,
+SUPERSEDED or a status value the build does not know.
 Without the marker it is minted and paid at settlement. Native genesis selects
 the marker; no carrier upgrade sets it on an existing chain yet.
 
