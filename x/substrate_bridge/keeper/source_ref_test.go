@@ -468,7 +468,7 @@ func TestSweepWitnessRewards_PreUpgradeDuplicateReleasesOnce(t *testing.T) {
 	require.Equal(t, "att-100-1", holder)
 
 	// Sweep past the deadline: only the ref-holder's reward mints.
-	k.SweepWitnessRewards(ctx)
+	require.NoError(t, k.SweepWitnessRewards(ctx))
 
 	require.Equal(t, 0, big.NewInt(222000).Cmp(vk.minted[types.AuditBountyPoolModuleName]),
 		"only the source's ref-holder mints its single witness reward, not both")

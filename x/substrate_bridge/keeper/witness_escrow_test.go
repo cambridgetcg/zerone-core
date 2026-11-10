@@ -66,12 +66,12 @@ func TestWitnessReward_ReleasedAfterWindow(t *testing.T) {
 	require.NoError(t, k.SettleAttestation(ctx, "att-w1"))
 
 	// Before the deadline: sweep is a no-op.
-	k.SweepWitnessRewards(ctx.WithBlockHeight(ctx.BlockHeight() + 5))
+	require.NoError(t, k.SweepWitnessRewards(ctx.WithBlockHeight(ctx.BlockHeight()+5)))
 	require.Nil(t, vk.minted[types.AuditBountyPoolModuleName])
 
 	// Past the deadline: released.
 	late := ctx.WithBlockHeight(ctx.BlockHeight() + 11)
-	k.SweepWitnessRewards(late)
+	require.NoError(t, k.SweepWitnessRewards(late))
 
 	require.Equal(t, big.NewInt(222000), vk.minted[types.AuditBountyPoolModuleName])
 	require.Equal(t, "1222000", bk.payments[submitter].String()) // bond + reward
@@ -81,7 +81,7 @@ func TestWitnessReward_ReleasedAfterWindow(t *testing.T) {
 	require.False(t, found)
 
 	// Exactly-once: a second sweep pays nothing more.
-	k.SweepWitnessRewards(late)
+	require.NoError(t, k.SweepWitnessRewards(late))
 	require.Equal(t, big.NewInt(222000), vk.minted[types.AuditBountyPoolModuleName])
 	require.Equal(t, "1222000", bk.payments[submitter].String())
 }
@@ -98,7 +98,7 @@ func TestWitnessReward_CancelledOnTombstone(t *testing.T) {
 	_, found := k.GetWitnessPendingReward(ctx, "att-w1")
 	require.False(t, found) // cancelled eagerly at tombstone
 
-	k.SweepWitnessRewards(ctx.WithBlockHeight(ctx.BlockHeight() + 11))
+	require.NoError(t, k.SweepWitnessRewards(ctx.WithBlockHeight(ctx.BlockHeight()+11)))
 	require.Nil(t, vk.minted[types.AuditBountyPoolModuleName])
 	require.Equal(t, "1000000", bk.payments[submitter].String()) // only the bond, ever
 }
@@ -112,7 +112,7 @@ func TestWitnessReward_DeferredWhileSuspended(t *testing.T) {
 	require.NoError(t, k.SuspendAdapter(ctx, "agenttool-invocation-v1", "under investigation"))
 
 	afterFirst := ctx.WithBlockHeight(ctx.BlockHeight() + 11)
-	k.SweepWitnessRewards(afterFirst)
+	require.NoError(t, k.SweepWitnessRewards(afterFirst))
 
 	pr, found := k.GetWitnessPendingReward(ctx, "att-w1")
 	require.True(t, found) // deferred, not decided
@@ -124,7 +124,7 @@ func TestWitnessReward_DeferredWhileSuspended(t *testing.T) {
 	adapter.Status = types.AdapterStatus_ADAPTER_STATUS_ACTIVE
 	require.NoError(t, k.WriteAdapter(ctx, adapter))
 
-	k.SweepWitnessRewards(ctx.WithBlockHeight(afterFirst.BlockHeight() + 11))
+	require.NoError(t, k.SweepWitnessRewards(ctx.WithBlockHeight(afterFirst.BlockHeight()+11)))
 	require.Equal(t, big.NewInt(222000), vk.minted[types.AuditBountyPoolModuleName])
 	require.Equal(t, "1222000", bk.payments[submitter].String())
 }
@@ -136,7 +136,7 @@ func TestWitnessReward_CapClippedAtRelease(t *testing.T) {
 	require.NoError(t, k.SettleAttestation(ctx, "att-w1"))
 
 	vk.capRemaining = big.NewInt(1000) // cap nearly exhausted before release
-	k.SweepWitnessRewards(ctx.WithBlockHeight(ctx.BlockHeight() + 11))
+	require.NoError(t, k.SweepWitnessRewards(ctx.WithBlockHeight(ctx.BlockHeight()+11)))
 
 	settled, _ := k.GetAttestation(ctx, "att-w1")
 	require.Equal(t, "1000", settled.RewardUzrn)                 // clipped, honestly recorded
