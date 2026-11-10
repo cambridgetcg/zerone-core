@@ -39,9 +39,15 @@
 //     the CitedRewardEscrowEnabled marker (0x91), a cited-fact link with no
 //     pending claims mints its reward when the next block settles it. With
 //     the marker on, it settles with its bond returned and nothing minted,
-//     and its reward waits in the witness escrow (keeper/witness_escrow.go):
-//     released if the adapter is still ACTIVE when the window closes,
-//     deferred while SUSPENDED, cancelled if TOMBSTONED. Native genesis
+//     and its reward waits in the witness escrow (keeper/witness_escrow.go).
+//     When the window closes the adapter decides first, as for a witness
+//     reward: deferred one window while SUSPENDED, cancelled if TOMBSTONED.
+//     Where the adapter rule would release, the cited facts decide: the
+//     reward is cancelled if any cited fact is missing, DISPROVEN or REVOKED,
+//     deferred one window if any is CHALLENGED or CONTESTED, and released
+//     otherwise. A fact that lost standing through disuse (AT_RISK, EXPIRED,
+//     PRUNED) does not stop the release. Karma edges for the cited facts are
+//     emitted at settlement whatever the sweep later decides. Native genesis
 //     selects the marker; no carrier upgrade sets it on an existing chain yet.
 //
 //   - Cross-class lineage accountant (M6): DAG-by-timestamp citation graph
