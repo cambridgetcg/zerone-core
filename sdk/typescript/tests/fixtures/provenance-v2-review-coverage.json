@@ -1,0 +1,44 @@
+{
+  "_type": "https://in-toto.io/Statement/v1",
+  "subject": [
+    {
+      "name": "zerone://provenance-origin/training-corpus/review-coverage",
+      "digest": {
+        "sha256": "011b46a9b2e74a2c5d449f1fada1ae5392c19a24e8448b1806fb4dc41527c636"
+      }
+    }
+  ],
+  "predicateType": "https://github.com/cambridgetcg/zerone-core/blob/fbfd5ef046c4b0c5eb263ff9a8d14d62796c2219/docs/specs/attestations/training-provenance-v2.md",
+  "predicate": {
+    "sourceChainId": "provenance-origin",
+    "observedOnChainId": "provenance-observer",
+    "certificate": {
+      "manifestId": "review-coverage",
+      "pipelineId": "synthetic-pipeline",
+      "merkleRoot": "011b46a9b2e74a2c5d449f1fada1ae5392c19a24e8448b1806fb4dc41527c636",
+      "factCount": "6",
+      "finalizedAtBlock": "12",
+      "status": "MANIFEST_STATUS_FINALIZED",
+      "domains": [
+        {
+          "domain": "doctrine_truth_seeking",
+          "factCount": "1"
+        },
+        {
+          "domain": "mathematics",
+          "factCount": "4"
+        }
+      ],
+      "warningGrade": "A",
+      "warningExplanation": "no privileged actions touched the manifest's facts; no incidents touched the knowledge module; no cartel resolutions in covered domains",
+      "computedAtBlock": "77",
+      "sourceChainId": "provenance-origin",
+      "reviewedFactCount": "1",
+      "unreviewedFactCount": "5",
+      "doctrineFactCount": "1",
+      "missingFactCount": "1",
+      "reviewState": "partly_reviewed",
+      "reviewExplanation": "reviewed_fact_count=1 of fact_count=6 have a retained verification round with at least one revealed vote; unreviewed_fact_count=5, including doctrine_fact_count=1 and missing_fact_count=1"
+    }
+  }
+}

@@ -621,6 +621,45 @@ from the application's real query method, checked by
 `TestTrainingProvenanceDomainWarningComposition` and the SDK source/packed-export
 tests. It is not a live response or independent review evidence.
 
+### Predicate v2: warning grade and review coverage
+
+In predicate v1, `trustGrade` `A` means none of three counted warning signals
+is present. It is not evidence that the manifest's facts were reviewed: a
+manifest of doctrine or genesis facts, which no verification round reviewed,
+grades `A`. Predicate v2 reports two readings and no combined letter. Source
+for v2 is in this repository; a released package version that contains it is
+not asserted here.
+
+```ts
+import {
+  parseUnsignedZeroneInTotoStatementV2,
+} from "@zerone-chain/sdk/provenance";
+
+// JSON from /zerone/training_provenance/v1/in-toto-v2/<manifest-id>
+const parsed = parseUnsignedZeroneInTotoStatementV2(json, {
+  manifestId: selectedManifestId,
+  observedOnChainId: connectedChainId,
+});
+const { warningGrade, reviewState } = parsed.statement.predicate.certificate;
+```
+
+- `warningGrade` and `warningExplanation` are the v1 rubric and wording. They
+  must not be read as review.
+- `reviewedFactCount` counts included fact IDs whose fact has a claim and a
+  retained verification round with at least one revealed vote.
+  `unreviewedFactCount` counts every other included ID; `missingFactCount`
+  (IDs with no fact in the store) and `doctrineFactCount` (doctrine without a
+  claim) are subsets of it.
+- `reviewState` is `reviewed`, `partly_reviewed`, `unreviewed` or `empty`.
+
+The v2 parser is as strict as v1: exact keys, caller pins, and the warning
+grade, review state and both explanations recomputed from the counts. Each
+parser refuses the other predicate type. A revealed vote records that review
+took place; it does not show that the fact is true. The shared
+`tests/fixtures/provenance-v2-review-coverage.json` is synthetic output from
+the real query method, checked by
+`TestTrainingProvenanceV2ReviewCoverageComposition`.
+
 ## Retained claim history
 
 `queryClaimHistory` reads the bounded `zerone.knowledge.v1.Query/ClaimHistory`
