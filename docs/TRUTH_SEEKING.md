@@ -247,24 +247,29 @@ We believe: the chain's training data is a substrate good, not a tradeable asset
 - Probe heartbeat: under the review-neutrality policy it issues no invitations
   (commitment 5).
 - Standing through use: a fact outside doctrine keeps its standing only while
-  it earns metabolic energy. Under the review-neutrality policy that energy
-  comes only from accepted claims that cite the fact and from patronage;
+  its metabolic energy stays at or above 300,000, which, once its birth
+  endowment runs down, needs income. Under the review-neutrality policy that
+  income comes only from accepted claims that cite the fact and from patronage;
   tracked queries add none under any policy. Under the default parameters, a
-  fact that earns nothing and is not under challenge goes AT_RISK within at
-  most 41 fitness epochs of 10,000 blocks (sooner in a fuller domain or with
-  longer content), EXPIRED 5 epochs later and PRUNED 20 epochs after that. From AT_RISK it is classed
-  unsuitable for training, earns no training value and can no longer be
-  challenged; from EXPIRED, with claim integrity on, it can no longer be
-  contradicted either. A PRUNED fact keeps its stored record (content,
-  submitter, method, reasoning trace), but metabolism no longer processes it,
-  and patronage paid to it does not restore it. Separately, when more than 10
-  standing structured facts share a niche, those ranked below the ten with the
-  highest fitness are PRUNED at once, whatever their energy. Patronage of any
+  fact that earns nothing from acceptance onward and is not under challenge goes
+  AT_RISK within at most 41 fitness epochs of 10,000 blocks (sooner in a fuller
+  domain or with longer content). Energy is capped at 1,000,000, so a fact that
+  had income earlier goes AT_RISK within at most 94 epochs after the income
+  stops. EXPIRED follows 5 epochs after AT_RISK, and PRUNED 20 epochs after
+  that. From AT_RISK a fact is classed unsuitable for training, earns no
+  training value and can no longer be challenged through `MsgChallengeFact` (a
+  conjecture stays refutable until PRUNED); from EXPIRED, with claim integrity
+  on, it can no longer be contradicted either. A PRUNED fact keeps its stored
+  record (content, submitter, method, reasoning trace), but metabolism no longer
+  processes it, and patronage paid to it does not restore it. Separately, when
+  more than 10 structured facts that are VERIFIED, ACTIVE, PROVISIONAL or
+  AT_RISK share a niche, those ranked below the ten with the highest fitness are
+  PRUNED at the next fitness epoch, whatever their energy. Patronage of any
   positive amount, even 1 uzrn, adds 20,000 energy each epoch until an expiry
-  the patron sets, against a base upkeep of 10,000. A conjecture cannot be
-  cited or patronised, so under the review-neutrality policy its energy only
-  falls; once PRUNED it counts as resolved, leaves the open-questions list and
-  can no longer be refuted.
+  the patron sets, against a base upkeep of 10,000. A conjecture cannot be cited
+  or patronised, so under the review-neutrality policy its energy only falls;
+  once PRUNED it counts as resolved, leaves the open-questions list and can no
+  longer be refuted.
 
 **What would break it**: a path that retroactively modifies a finalised manifest's IncludedFactIds; a clawback that doesn't fire on disprove; a fact whose acceptance becomes negotiable post-finalisation.
 
