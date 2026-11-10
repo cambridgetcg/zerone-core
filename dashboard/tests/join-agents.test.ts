@@ -150,7 +150,7 @@ describe("the agents' join guide at /join/agents.md", () => {
       /Leave field 7 \(`identityProofSignature`\) of `MsgRegisterAccount` empty\./u,
       /Set gas and fees yourself\./u,
       /Use a long broadcast timeout and check the result code\./u,
-      /Claims need reviewers, and today there are none\./u,
+      /Claims need reviewers, and on \d{4}-\d{2}-\d{2} no one had committed to review one since \d{4}-\d{2}-\d{2}\./u,
       /The last review commitment \(`MsgSubmitCommitment`\) on `zerone-1` was made at height 854,278/u,
       // Re-checked live on 9 November 2026.
       /and none has been made since \(checked 2026-11-09 at about height 1,437,950\)\./u,
@@ -162,7 +162,10 @@ describe("the agents' join guide at /join/agents.md", () => {
     }
     // Nobody reviews any claim today, the household's included.
     assert.doesNotMatch(prose, /claims from outside the household|reviews claims from outside/u);
-    assert.match(prose, /Remember hazard 8: today nobody reviews claims, so a claim ends INSUFFICIENT/u);
+    // Step 6 points to hazard 8's dated check instead of saying "today".
+    assert.match(step(6), /Remember hazard 8 before you pay a review fee: a claim nobody reviews ends INSUFFICIENT and its fee is not returned, and hazard 8 says when anyone last committed to review a zerone-1 claim\./u);
+    // No undated "today" about reviewers anywhere in the guide.
+    assert.doesNotMatch(prose, /today (?:there are no reviewers|nobody reviews|no one reviews)|and today there are none/iu);
   });
 
   it("repeats hazard 8's block, its date and the checked date everywhere the site describes the door", () => {
@@ -173,6 +176,11 @@ describe("the agents' join guide at /join/agents.md", () => {
     const hazard = prose.match(/The last review commitment \(`MsgSubmitCommitment`\) on `zerone-1` was made at height ([\d,]+) on (\d{4}-\d{2}-\d{2}), and none has been made since \(checked (\d{4}-\d{2}-\d{2}) at about height [\d,]+\)/u);
     assert.ok(hazard, "hazard 8 must give the block, the block's date and the date it was checked");
     const [, height = "", blockIso = "", checkedIso = ""] = hazard;
+    // Hazard 8's heading carries the same two dates, so it cannot outlive a re-check.
+    assert.ok(
+      prose.includes(`8. **Claims need reviewers, and on ${checkedIso} no one had committed to review one since ${blockIso}.**`),
+      `hazard 8's heading must carry the checked date (${checkedIso}) and the block's date (${blockIso})`,
+    );
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     // A date in either form the site writes, never part of a longer date or number,
     // so "19 November 2026" does not pass for "9 November 2026".
@@ -204,6 +212,114 @@ describe("the agents' join guide at /join/agents.md", () => {
       assert.match(text, new RegExp(dated(checkedIso), "u"), `${name} must carry hazard 8's checked date (${checkedIso})`);
       if (datesBlock) assert.match(text, blockSince, `${name} must date block ${height} as hazard 8 does (${blockIso})`);
     }
+  });
+
+  it("repeats hazard 9's sentence on who cannot review wherever the site offers the seed beside hazard 8", () => {
+    // Hazard 9 is the one source for why the door's seed alone cannot pay for
+    // reviewing on zerone-1: at 2e37c4c, MsgSubmitCommitment refuses a balance below
+    // 100,000,000 uzrn. Every place that offers the seed beside hazard 8's dated
+    // sentence carries hazard 9's sentence word for word, so a change to the seed
+    // or the threshold must change them all together.
+    const hazard = prose.match(/9\. \*\*Reviewing and other roles\.\*\* (An account funded only by the ([\d.]+) ZRN starter seed cannot review a zerone-1 claim: a reviewer must hold at least ([\d,]+) ZRN when it commits\.)/u);
+    assert.ok(hazard, "hazard 9 must open with the sentence on who cannot review");
+    const [, sentence = "", seedZrn = "", minimumZrn = ""] = hazard;
+    // The sentence's figures match the rest of the guide.
+    assert.match(prose, new RegExp(`This makes a \\*\\*starter seed\\*\\* of ${seedZrn.replace(".", "\\.")} ZRN`, "u"));
+    const minimumUzrn = (Number(minimumZrn.replaceAll(",", "")) * 1_000_000).toLocaleString("en-US");
+    assert.match(prose, new RegExp(`\`MsgSubmitCommitment\` refuses an account whose balance is below ${minimumUzrn} uzrn`, "u"));
+    // It points to where a review can be practised, and promises nothing there.
+    const nine = prose.slice(prose.indexOf("9. **Reviewing and other roles.**"), prose.indexOf("10. **"));
+    assert.match(nine, /use the separate test chain `zerone-dev-1` \(<https:\/\/zerone\.ai\/development\/>\)/u);
+    assert.match(nine, /`docs\/DEVELOPMENT-REVIEW-HANDOFF\.md` in the source repository/u);
+    assert.ok(existsSync(new URL("../../docs/DEVELOPMENT-REVIEW-HANDOFF.md", import.meta.url)), "the review handoff hazard 9 names must exist");
+    // The handoff's own status line still says what hazard 9 repeats from it.
+    const handoffStatus = read("../docs/DEVELOPMENT-REVIEW-HANDOFF.md").match(/^Status: \*\*prepared (\d{1,2} \w+ \d{4}); participant review not yet completed\.\*\*/mu);
+    assert.ok(handoffStatus, "the review handoff's status line must still record no completed participant review");
+    assert.ok(nine.includes(`it was prepared on ${handoffStatus[1]} and records no completed participant review.`), "hazard 9 must repeat the handoff's status line");
+    // The dev chain's balance check is dated, and names the runtime the dev descriptor serves.
+    const devRuntime = (JSON.parse(read("../deploy/networks/zerone-dev-1/network.json")) as { source_commit: string }).source_commit.slice(0, 8);
+    assert.match(nine, new RegExp(`The same 100 ZRN check is in the source that chain runs \\(5542b221, and the validator patch ${devRuntime}; checked \\d{4}-\\d{2}-\\d{2}\\)\\.`, "u"));
+    // The offer is the development page's public issue template; posting it is public.
+    const development = read("development-profile.ts");
+    assert.ok(development.includes("/issues/new?template=review-offer.md") && development.includes("Posting the issue needs a GitHub account and makes it public."), "the development page must still link the public offer template");
+    assert.ok(existsSync(new URL("../../.github/ISSUE_TEMPLATE/review-offer.md", import.meta.url)), "the offer template must exist");
+    assert.match(nine, /That page also links a public GitHub issue template for offering to review; posting it needs a GitHub account and makes it public\. An offer opens no review round, and no response time is promised\./u);
+    // Holding the balance is not enough, and validators commit another way.
+    assert.match(nine, /The balance is not enough on its own: the message's later checks can still refuse a reviewer that is not qualified in the claim's domain\./u);
+    assert.match(nine, /Running a validator is not supported\./u);
+    const html = read("index.html");
+    const honestItem = html.slice(html.indexOf('id="honest-state"'), html.indexOf("</aside>"))
+      .match(/<li>Since 29 October 2026 the household&rsquo;s admission door[\s\S]*?<\/li>/u)?.[0] ?? "";
+    const agentDoor = html.match(/<p id="agent-door">([\s\S]*?)<\/p>/u)?.[1]?.replace(/\s+/gu, " ") ?? "";
+    const llms = read("public/llms.txt").split("\n");
+    const node = buildNodeGuideProfile({ sourceCommit: "74e2bbac317dacb1695ed8aed20830310617ea7a", helperSha256: "a1".repeat(32) });
+    const nodesDoor = nodeGuidePage(node).match(/<p class="census-note">On zerone-1, validator joining[\s\S]*?<\/p>/u)?.[0] ?? "";
+    const places: [string, string][] = [
+      ["the homepage's honest-state door item", honestItem],
+      ["the homepage's #agent-door", agentDoor],
+      ["llms.txt's Today line", llms.find((line) => line.startsWith("Today:")) ?? ""],
+      ["llms.txt's join-guide entry", llms.find((line) => line.startsWith("- [How an agent joins zerone-1](https://zerone.ai/join/agents.md):")) ?? ""],
+      ["the node guide profile's door.reviews", node.live.newAccountAdmission.door.reviews],
+      ["the /nodes/ door note", nodesDoor],
+      ["the /understand/ new-accounts row", buildUnderstandGuide(node).sections[5].rows[4].text],
+    ];
+    for (const [name, text] of places) {
+      assert.ok(text, `${name} must be found`);
+      assert.ok(text.includes(sentence), `${name} must carry hazard 9's sentence: ${sentence}`);
+      // Beside hazard 8's dated sentence, not somewhere else on the page.
+      const dated = text.search(/no one had committed to review a zerone-1 claim since/u);
+      assert.ok(dated >= 0 && text.indexOf(sentence) > dated, `${name} must put hazard 9's sentence after hazard 8's dated sentence`);
+    }
+  });
+
+  it("says in hazard 10 what happens to an accepted claim nobody cites or funds, dated, and llms.txt says the same", () => {
+    const start = prose.indexOf("10. **An accepted claim that nobody cites or funds loses standing over time.**");
+    assert.ok(start > prose.indexOf("9. **Reviewing and other roles.**") && start < prose.indexOf("## Steps"), "hazard 10 follows hazard 9, before the steps");
+    const ten = prose.slice(start, prose.indexOf("## Steps"));
+    // It applies only after acceptance, and points back to hazard 8 rather than saying "today".
+    assert.match(ten, /This applies only after a claim has been accepted; hazard 8 records that no one had committed to review a zerone-1 claim for months when it was last checked\./u);
+    // The source, the date and the live height it was checked at.
+    const checked = ten.match(/Checked on (\d{4}-\d{2}-\d{2}) against (2e37c4c), the source `zerone-1` runs, and against the chain's live parameters at about height ([\d,]+)/u);
+    assert.ok(checked, "hazard 10 must name its date, commit and height");
+    const [, checkedIso = "", commit = ""] = checked;
+    // The pace, in epochs and in days. PRUNED is AT_RISK plus 5 + 20 epochs.
+    const pace = ten.match(/With no income it goes AT_RISK after (\d+) to (\d+) epochs, EXPIRED (\d+) epochs later and PRUNED (\d+) epochs after that: (\d+) to (\d+) epochs after acceptance/u);
+    assert.ok(pace, "hazard 10 must give the AT_RISK, EXPIRED and PRUNED steps in epochs");
+    // Every group is required by the pattern; the defaults only satisfy the type checker
+    // and could never pass the sums below.
+    const [low = 0, high = 0, expired = 0, pruned = 0, prunedLow = -1, prunedHigh = -1] = pace.slice(1).map(Number);
+    assert.equal(prunedLow, low + expired + pruned);
+    assert.equal(prunedHigh, high + expired + pruned);
+    assert.match(ten, /at every 10,000th block \(a fitness epoch\)/u);
+    assert.match(ten, /A fact from a plain claim like step 6's, in a domain of at most 1,000 facts, starts with/u);
+    // The days follow from the epochs and the measured block time, rounded to the nearest 10.
+    const blockSeconds = Number(ten.match(/Blocks took (\d+) seconds on average/u)?.[1] ?? Number.NaN);
+    const epochDays = (10_000 * blockSeconds) / 86_400;
+    const days = (epochs: number) => Math.round((epochs * epochDays) / 10) * 10;
+    const pacing = `so an epoch is about ${epochDays.toFixed(1)} days: AT_RISK after about ${days(low)} to ${days(high)} days, PRUNED after about ${days(prunedLow)} to ${days(prunedHigh)}.`;
+    assert.ok(ten.includes(pacing), `hazard 10's days must follow from its epochs and block time: ${pacing}`);
+    // What it keeps, what it loses, and what it is not.
+    assert.match(ten, /\*\*The record stays\.\*\* Nothing deletes a PRUNED fact/u);
+    assert.match(ten, /from AT_RISK on, the chain's `TrainingQuality` query grades it UNSUITABLE as training material, and `MsgChallengeFact` refuses it/u);
+    // At 2e37c4c the manifest selector grades by another function that does not.
+    assert.match(ten, /On this version that grade does not bind training manifests: their selector can still list an AT_RISK or PRUNED fact\./u);
+    assert.match(ten, /\*\*This is not a finding that the claim is false\.\*\* AT_RISK, EXPIRED and PRUNED record only that the fact's energy ran low/u);
+    assert.match(ten, /Reading a fact adds nothing\./u);
+    assert.match(ten, /Patronage is a payment, not a deposit: on this version the ZRN is not returned, and the energy depends on how long the patronage runs, not on how much is sent\./u);
+    assert.match(ten, /patronage does not bring it back, though the chain still takes the ZRN/u);
+    // What does not pay upkeep. The guide names the label as the chain's own and keeps category empty;
+    // it does not list ways to stop a fact's decay.
+    assert.match(ten, /\*\*What does not pay upkeep\.\*\* The chain's genesis doctrine, which carries the category `doctrine`\. That label is for the chain's own doctrine: leave `category` empty, as step 6 does\./u);
+    assert.doesNotMatch(ten, /does not check the doctrine label|moves it to CONTESTED|while it is CHALLENGED or CONTESTED/u);
+    assert.match(guide, /^ {4}category: "",$/mu);
+    // llms.txt's join-guide entry carries the same figures, commit and date.
+    const entry = read("public/llms.txt").split("\n").find((line) => line.startsWith("- [How an agent joins zerone-1](https://zerone.ai/join/agents.md):")) ?? "";
+    const [year, month, day] = checkedIso.split("-");
+    const longDate = `${Number(day)} ${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][Number(month) - 1]} ${year}`;
+    assert.ok(
+      entry.includes(`Its hazard 10 says what happens to an accepted claim that nobody cites or funds: on the version zerone-1 runs (${commit}, with parameters read on ${longDate}), in a domain of at most 1,000 facts, it goes AT_RISK after ${low} to ${high} fitness epochs of 10,000 blocks (about ${days(low)} to ${days(high)} days at ${blockSeconds}-second blocks), sooner in a domain over its carrying capacity, and is PRUNED ${expired + pruned} epochs later. Its record stays, and this is not a finding that the claim is false.`),
+      "llms.txt's join-guide entry must repeat hazard 10's figures, commit and date",
+    );
   });
 
   it("says what R signs, what the door never holds, and what R's float allows", () => {
@@ -369,6 +485,9 @@ describe("the agents' join guide at /join/agents.md", () => {
     const skill = read("../skills/zerone-onboarding/SKILL.md").replace(/\s+/gu, " ");
     assert.match(skill, /Since 2026-10-29 the household's admission door admits AI agents on the household hub, by request, through https:\/\/zerone\.ai\/join\/agents\.md; every other onboarding lane stays paused\./u);
     assert.match(skill, /## The one open lane: the agents' door/u);
+    // The skill points to hazard 8's dated check instead of saying "today".
+    assert.match(skill, /A claim nobody reviews ends INSUFFICIENT and loses its review fee; the guide's hazard 8 says when anyone last committed to review a zerone-1 claim, so read it before submitting one\./u);
+    assert.doesNotMatch(skill, /today nobody reviews|today there are none/iu);
     assert.match(read("../skills/README.md").replace(/\s+/gu, " "), /`zerone-onboarding` \(point agents on the household hub to the agents' door/u);
   });
 
