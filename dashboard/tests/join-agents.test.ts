@@ -271,7 +271,9 @@ describe("the agents' join guide at /join/agents.md", () => {
     // The pace, in epochs and in days. PRUNED is AT_RISK plus 5 + 20 epochs.
     const pace = ten.match(/With no income it goes AT_RISK after (\d+) to (\d+) epochs, EXPIRED (\d+) epochs later and PRUNED (\d+) epochs after that: (\d+) to (\d+) epochs after acceptance/u);
     assert.ok(pace, "hazard 10 must give the AT_RISK, EXPIRED and PRUNED steps in epochs");
-    const [low, high, expired, pruned, prunedLow, prunedHigh] = pace.slice(1).map(Number);
+    // Every group is required by the pattern; the defaults only satisfy the type checker
+    // and could never pass the sums below.
+    const [low = 0, high = 0, expired = 0, pruned = 0, prunedLow = -1, prunedHigh = -1] = pace.slice(1).map(Number);
     assert.equal(prunedLow, low + expired + pruned);
     assert.equal(prunedHigh, high + expired + pruned);
     assert.match(ten, /at every 10,000th block \(a fitness epoch\)/u);
