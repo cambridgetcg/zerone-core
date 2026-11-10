@@ -82,14 +82,20 @@ func TestDoctrineIdentity_ClaimDerivedDoctrineLabelIsMetabolisedOnlyWithMarker(t
 	}
 }
 
-// With the marker on, the chain's own doctrine stays exempt: the 47 genesis
-// doctrine facts and a doctrine fact the authority adds with MsgAddFact. An
-// ordinary fact in the same run is metabolised, so the run did happen.
-func TestDoctrineIdentity_ChainDoctrineStaysExemptWithMarker(t *testing.T) {
+// In both marker states the chain's own doctrine stays exempt: the 47 genesis
+// doctrine facts, a doctrine fact the authority adds with MsgAddFact, and a
+// claimless fact that carries only the doctrine_authorship method (as an
+// imported genesis fact could). An ordinary fact in the same run is
+// metabolised, so the run did happen and the exemption is not a blanket one.
+func TestDoctrineIdentity_ChainDoctrineStaysExemptInBothMarkerStates(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		setup func(t *testing.T) (keeper.Keeper, sdk.Context)
 	}{
+		{"marker off", func(t *testing.T) (keeper.Keeper, sdk.Context) {
+			k, ctx, _ := setupDoctrineIdentityTest(t, doctrineIdentityGenesis(false))
+			return k, ctx
+		}},
 		{"native genesis", func(t *testing.T) (keeper.Keeper, sdk.Context) {
 			k, ctx, _ := setupDoctrineIdentityTest(t, doctrineIdentityGenesis(true))
 			return k, ctx
@@ -116,17 +122,23 @@ func TestDoctrineIdentity_ChainDoctrineStaysExemptWithMarker(t *testing.T) {
 			require.Empty(t, added.ClaimId)
 			require.Equal(t, types.DoctrineCategory, added.Category)
 
+			methodOnly := makeEnergyFact("fact-method-only", "A claimless fact with only the doctrine method", "physics", 500_000, types.FactStatus_FACT_STATUS_VERIFIED)
+			methodOnly.Category = "formal"
+			methodOnly.MethodId = types.DoctrineMethodId
+			require.NoError(t, k.SetFact(ctx, methodOnly))
+
 			ordinary := makeEnergyFact("fact-ordinary", "An ordinary verified fact", "physics", 500_000, types.FactStatus_FACT_STATUS_VERIFIED)
 			require.NoError(t, k.SetFact(ctx, ordinary))
 
 			doctrine := map[string]*types.Fact{}
 			k.IterateFacts(ctx, func(f *types.Fact) bool {
-				if f.Category == types.DoctrineCategory {
+				if f.Category == types.DoctrineCategory || f.MethodId == types.DoctrineMethodId {
 					doctrine[f.Id] = f
 				}
 				return false
 			})
-			require.Len(t, doctrine, 47+1, "47 genesis doctrine facts and the added one")
+			require.Len(t, doctrine, 47+2, "47 genesis doctrine facts, the added one and the method-only one")
+			require.Contains(t, doctrine, methodOnly.Id)
 
 			require.NoError(t, k.ProcessMetabolism(ctx, 1))
 
