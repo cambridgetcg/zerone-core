@@ -43,7 +43,7 @@ The exact authority statement is:
 The reviewed raw-byte SHA-256 digest of the manifest is:
 
 ```text
-ff926cb67c43c7eba4b86abcf3a595468563e30f09d5173bc499983cc1780246
+eb8809073998055fbaa2d5ee9799d5134310ae71443ef9b6a25ba03570248eb2
 ```
 
 This is non-circular: the specification is not a local source binding inside
@@ -305,7 +305,7 @@ nor the manifest binds itself.
 | ID | Repository path | Raw SHA-256 |
 |---|---|---|
 | `constructive-intelligence-tree` | `dashboard/public/standards/constructive-intelligence-tree.v1.json` | `8070d8d1b7ea28a314f5a8550c675d7ccbe5d9b234ef02d54d4913c650c01aaf` |
-| `correspondence-geometry` | `dashboard/public/standards/correspondence-geometry.v0.json` | `cf1745825e3e024a1a0c8ec3abb99bf190fb449514ff353cd2187365c6fe7133` |
+| `correspondence-geometry` | `dashboard/public/standards/correspondence-geometry.v0.json` | `7df226afe79515a8ceb1a9118da0abf7ed8a181796a08270e26b6be60526be45` |
 | `knowledge-methodologies` | `x/knowledge/types/methodologies.go` | `fa16ac33e7f2c10a19ed76541af6c2378edb79683578f2cec6f1a0563ebec386` |
 | `knowledge-types` | `proto/zerone/knowledge/v1/types.proto` | `03b34c08d582a05f8b5cb0a0c1a66fc5ab78c2a8c694caeb682acb0283b93a6f` |
 

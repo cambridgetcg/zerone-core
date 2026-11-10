@@ -108,7 +108,7 @@
     {
       "id": "correspondence-geometry",
       "path": "dashboard/public/standards/correspondence-geometry.v0.json",
-      "rawSha256": "cf1745825e3e024a1a0c8ec3abb99bf190fb449514ff353cd2187365c6fe7133",
+      "rawSha256": "7df226afe79515a8ceb1a9118da0abf7ed8a181796a08270e26b6be60526be45",
       "role": "Pins CG-0 as the current precedent for scoped mappings, explicit loss, counterexamples, and non-transfer walls.",
       "boundary": "CG-0 is a static precedent, not evidence that any EID-1 analogy is equivalent, deployed, or true."
     },
