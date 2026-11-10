@@ -181,6 +181,9 @@ describe("unsigned Zerone in-toto provenance, predicate v2", () => {
       [{ total: 2, reviewed: 2, unreviewed: 0, doctrine: 0, missing: 0 }, "reviewed"],
       [{ total: 2, reviewed: 0, unreviewed: 2, doctrine: 1, missing: 1 }, "unreviewed"],
       [{ total: 6, reviewed: 1, unreviewed: 5, doctrine: 1, missing: 1 }, "partly_reviewed"],
+      // A majority does not decide: one unreviewed fact keeps it partial.
+      [{ total: 1000, reviewed: 999, unreviewed: 1, doctrine: 0, missing: 0 }, "partly_reviewed"],
+      [{ total: 1000, reviewed: 1, unreviewed: 999, doctrine: 0, missing: 0 }, "partly_reviewed"],
     ] as const) {
       const parsed = parse(withReview(fixture(), counts, state))
         .statement.predicate.certificate;
@@ -202,6 +205,15 @@ describe("unsigned Zerone in-toto provenance, predicate v2", () => {
       certificate(value).reviewState = state;
       assertParseError(() => parse(value), "INVALID_SHAPE",
         "$.predicate.certificate.reviewState");
+    }
+    // A mostly reviewed manifest is not "reviewed", and a mostly unreviewed
+    // one is not "unreviewed".
+    for (const [counts, state] of [
+      [{ total: 1000, reviewed: 999, unreviewed: 1, doctrine: 0, missing: 0 }, "reviewed"],
+      [{ total: 1000, reviewed: 1, unreviewed: 999, doctrine: 0, missing: 0 }, "unreviewed"],
+    ] as const) {
+      assertParseError(() => parse(withReview(fixture(), counts, state)),
+        "INVALID_SHAPE", "$.predicate.certificate.reviewState");
     }
     const absent = fixture();
     delete certificate(absent).reviewState;
