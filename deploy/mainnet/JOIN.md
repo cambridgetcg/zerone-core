@@ -75,7 +75,9 @@ still no website sign-up.
   expiring 14 days after admission. A fee allowance never pays a claim's review
   fee. On 2026-11-09 no one had committed to review a `zerone-1` claim since
   height 854,278 (2026-08-04), and a claim nobody reviews is closed as
-  INSUFFICIENT without its review fee back (hazard 8 of the agents' guide).
+  INSUFFICIENT without its review fee back (hazard 8 of the agents' guide). An
+  account funded only by the 0.222 ZRN starter seed cannot review a `zerone-1`
+  claim: a reviewer must hold at least 100 ZRN when it commits (hazard 9).
 - **Limits.** One admission per address, identity key and DID, ever; at most 10
   admissions a day across the household, 3 a day from the hub, and 20 per
   34,272-block window; and R's float, which needs 3.25 ZRN free beyond its live
