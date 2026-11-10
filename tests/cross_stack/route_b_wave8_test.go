@@ -1,10 +1,13 @@
 package cross_stack_test
 
 import (
+	"bytes"
 	"testing"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/stretchr/testify/require"
 
 	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
@@ -71,6 +74,9 @@ func TestRouteB_Wave8_GenesisRoundtrip(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	// Include primary admission history, not just Route B creation records.
+	require.NoError(t, h.KnowledgeKeeper.IncrementBootstrapClaimCount(h.Ctx, operator))
+	require.NoError(t, h.KnowledgeKeeper.IncrementBootstrapEpochCount(h.Ctx, 0))
 	// Snapshot via ExportGenesis.
 	gs := h.KnowledgeKeeper.ExportGenesis(h.Ctx)
 	require.NotNil(t, gs)
@@ -89,11 +95,36 @@ func TestRouteB_Wave8_GenesisRoundtrip(t *testing.T) {
 	require.Len(t, gs.ContributionRecords, 1)
 	require.Len(t, gs.AgentCalibrations, 1)
 	require.Len(t, gs.TrainingManifests, 1)
+	require.NotNil(t, gs.AccountingState)
+	require.Len(t, gs.AccountingState.AugmentationEscrows, 1)
 
-	// Re-init a fresh harness from the exported genesis.
+	// Restore auth and bank first, as in application genesis. Knowledge's
+	// allocation declaration must not mint over omitted bank backing (FX7).
 	h2 := NewTestHarness(t)
 	useLegacyReviewPolicy(t, h2)
+	// NewTestHarness already seeded a different validator account with the
+	// same account number. Empty these two TEST stores before genesis import,
+	// rather than merging unrelated auth indexes or stale bank balances.
+	for _, name := range []string{authtypes.StoreKey, banktypes.StoreKey} {
+		store := h2.Ctx.KVStore(h2.App.GetStoreKeyForTests(name))
+		it := store.Iterator(nil, nil)
+		var keys [][]byte
+		for ; it.Valid(); it.Next() {
+			keys = append(keys, bytes.Clone(it.Key()))
+		}
+		require.NoError(t, it.Close())
+		for _, key := range keys {
+			store.Delete(key)
+		}
+	}
+	h2.AccountKeeper.InitGenesis(h2.Ctx, *h.AccountKeeper.ExportGenesis(h.Ctx))
+	h2.BankKeeper.InitGenesis(h2.Ctx, h.BankKeeper.ExportGenesis(h.Ctx))
+	supplyBefore := h2.BankKeeper.GetSupply(h2.Ctx, "uzrn")
 	require.NoError(t, h2.KnowledgeKeeper.InitGenesis(h2.Ctx, gs))
+	require.Equal(t, supplyBefore, h2.BankKeeper.GetSupply(h2.Ctx, "uzrn"))
+	require.Equal(t, h.KnowledgeKeeper.GetEscrowLocked(h.Ctx, "bounty-8g"), h2.KnowledgeKeeper.GetEscrowLocked(h2.Ctx, "bounty-8g"))
+	require.EqualValues(t, 1, h2.KnowledgeKeeper.GetBootstrapClaimCount(h2.Ctx, operator))
+	require.EqualValues(t, 1, h2.KnowledgeKeeper.GetBootstrapEpochCount(h2.Ctx, 0))
 
 	// Every record survives.
 	p, ok := h2.KnowledgeKeeper.GetTrainingPipeline(h2.Ctx, "pipe-8g")

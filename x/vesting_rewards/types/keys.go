@@ -49,6 +49,6 @@ var (
 	TotalMintedKey            = []byte{0x0B} // -> string (shared MintWithCap ledger, not complete supply history)
 	// AlignmentBankSupplyEnabledKey is the alignment bank-supply marker for
 	// zerone-core #122 (keeper/alignment_bank_supply_activation.go). It is
-	// deferred from consensus-repairs-v1 to v2, to switch together with Q1.
+	// a consensus-repairs-v2 marker (deferred from v1), switching with Q1.
 	AlignmentBankSupplyEnabledKey = []byte{0x0C}
 )

@@ -14,6 +14,12 @@ export interface GenesisState {
     scores: DimensionScores[];
     healthIndices: AlignmentHealthIndex[];
     corrections: CorrectionRecord[];
+    /**
+     * Unobserved-health marker (decision zc-health-unknown-q1). Native genesis
+     * sets it; a file without the field imports as off. In place, only the
+     * named carrier upgrade consensus-repairs-v2 sets it.
+     */
+    unobservedHealthEnabled: boolean;
 }
 /**
  * Params defines the alignment module parameters.

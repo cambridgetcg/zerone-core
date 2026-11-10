@@ -251,3 +251,11 @@ Commons source rows to commit `4f29f28329da7eecd02fb8de13cd3726b9d4bd55` after t
 local protobuf source hash changed. The remaining source revisions, schema,
 fixtures, observation semantics, pending bindings and every effect/activation
 gate are unchanged. This is offline source compatibility, with no hosted action.
+
+The 2026-10-21 calibration-presence refresh binds only the two current Zerone
+Research Commons source rows to commit `82f85f66ebb5b0dde9468e41b12d96efd943ccbb`
+after their local protobuf source hash changed. The only protobuf change is the
+`has_calibration_snapshot` presence bit on `Fact` (field 77, schema only). The
+remaining source revisions, schema, fixtures, observation semantics, pending
+bindings and every effect/activation gate are unchanged. This is offline source
+compatibility, with no hosted action.

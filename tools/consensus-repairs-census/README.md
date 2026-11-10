@@ -1,4 +1,4 @@
-# Offline consensus-repairs-v1 census
+# Offline consensus-repairs-v1/v2 census
 
 Read-only GoLevelDB census over a separately acquired stopped-node copy. It
 shares the application's bounded census; it does not import genesis, open keys,
@@ -6,6 +6,15 @@ contact a node, schedule an upgrade or repair a finding.
 
     GOFLAGS='-mod=readonly -p=4' GOPROXY=off go build -buildvcs=false -trimpath -o <output>/consensus-repairs-census ./tools/consensus-repairs-census
     <output>/consensus-repairs-census --copied-db --home <absolute-copy-home> --chain-id zerone-dev-1 --expected-height <committed-height> --expected-app-hash <lowercase-64-hex>
+
+The default remains `--repairs v1`. Use `--repairs v2` explicitly on the
+completed-v1 source copy before v2 activation and before relying on repaired
+export. V2 emits schema `zerone.consensus-repairs-census/v2` and six inventories:
+Q1 health, Q2 rounds, Q5 calibration, PR37 support, FX7 accounting and FX8 retained
+governance. FX7/FX8 are genesis-only, with no markers. Invalid escrow backing,
+orphan/noncanonical records, counter widths and unsafe FX8 zero/exhausted next
+IDs block before an exporter can panic. No data is repaired by this command.
+See [the v2 carrier contract](../../docs/consensus-repairs-v2.md).
 
 The tuple must come from independent evidence: the AppHash committed at that
 height (`last_block_app_hash`), not the pre-state hash in that block's header.
@@ -38,7 +47,7 @@ prefixes/singletons. The complete image is hashed as a stream, with record and
 byte counts per store and first-byte prefix; `census_reads` also gives each
 census's counts per selected prefix/exact key. Only selected rows are retained.
 Unrelated alignment observations, SDK staking history and bank accounts do not
-consume these budgets. Q1 blocks only zero active stake AND zero mint ledger
+consume these budgets. In the v1 census, Q1 blocks only zero active stake AND zero mint ledger
 AND positive bank supply. Other valid readings are held, not rejected merely
 because the registry is empty. Reports include both staking ratios, the domain
 status histogram, NUL counts and each pending rollback's current-state forecast.

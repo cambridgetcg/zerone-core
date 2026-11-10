@@ -2156,6 +2156,9 @@ type Fact struct {
 	// ordinary fact. A non-empty predicate on a PROVISIONAL fact is the
 	// chain's standing invitation to destroy it.
 	FalsificationPredicate string `protobuf:"bytes,75,opt,name=falsification_predicate,json=falsificationPredicate,proto3" json:"falsification_predicate,omitempty"`
+	// True when an actual calibration record was captured at acceptance,
+	// including score zero; absent/false retains legacy fallback semantics.
+	HasCalibrationSnapshot bool `protobuf:"varint,77,opt,name=has_calibration_snapshot,json=hasCalibrationSnapshot,proto3" json:"has_calibration_snapshot,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -2643,6 +2646,13 @@ func (x *Fact) GetFalsificationPredicate() string {
 		return x.FalsificationPredicate
 	}
 	return ""
+}
+
+func (x *Fact) GetHasCalibrationSnapshot() bool {
+	if x != nil {
+		return x.HasCalibrationSnapshot
+	}
+	return false
 }
 
 // TokenizerSpec is the governance-ratified contract that names the special
@@ -8840,7 +8850,7 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x05scope\x18\x04 \x01(\tR\x05scope\x12%\n" +
 	"\x0etemporal_scope\x18\x05 \x01(\tR\rtemporalScope\x12\x1c\n" +
 	"\tnegatable\x18\x06 \x01(\bR\tnegatable\x12\x12\n" +
-	"\x04tags\x18\a \x03(\tR\x04tags\"\x9b\x16\n" +
+	"\x04tags\x18\a \x03(\tR\x04tags\"\xd5\x16\n" +
 	"\x04Fact\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12\x16\n" +
@@ -8917,7 +8927,8 @@ const file_zerone_knowledge_v1_types_proto_rawDesc = "" +
 	"\x1etraining_revenue_earned_recent\x18H \x01(\tR\x1btrainingRevenueEarnedRecent\x124\n" +
 	"\x16revenue_clawback_block\x18I \x01(\x04R\x14revenueClawbackBlock\x123\n" +
 	"\x16probe_invited_at_block\x18J \x01(\x04R\x13probeInvitedAtBlock\x127\n" +
-	"\x17falsification_predicate\x18K \x01(\tR\x16falsificationPredicate\"\xe0\x05\n" +
+	"\x17falsification_predicate\x18K \x01(\tR\x16falsificationPredicate\x128\n" +
+	"\x18has_calibration_snapshot\x18M \x01(\bR\x16hasCalibrationSnapshot\"\xe0\x05\n" +
 	"\rTokenizerSpec\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\x04R\aversion\x12*\n" +
 	"\x11ratified_at_block\x18\x02 \x01(\x04R\x0fratifiedAtBlock\x12.\n" +

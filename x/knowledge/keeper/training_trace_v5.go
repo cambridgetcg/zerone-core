@@ -6,12 +6,14 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/zerone-chain/zerone/internal/activation"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
@@ -161,6 +163,11 @@ func defaultTraceSchemaV1() *types.TraceSchema {
 // that cannot return an error. Authoritative query endpoints use Checked.
 func (k Keeper) BuildMethodologyApplicationTrace(ctx context.Context, factID string) (*types.MethodologyApplicationTrace, bool) {
 	trace, found, err := k.BuildMethodologyApplicationTraceChecked(ctx, factID)
+	if errors.Is(err, activation.ErrMarkerFault) {
+		// The compatibility bool API cannot return a marker fault. Ordinary
+		// historical errors still produce not-found; never swallow this fault.
+		panic(err)
+	}
 	return trace, found && err == nil
 }
 
@@ -168,8 +175,16 @@ func (k Keeper) BuildMethodologyApplicationTrace(ctx context.Context, factID str
 // output, including the legacy all-claim and augmentation scans. It refuses
 // unreadable records rather than presenting a partial row as complete.
 func (k Keeper) BuildMethodologyApplicationTraceChecked(ctx context.Context, factID string) (trace *types.MethodologyApplicationTrace, found bool, err error) {
+	calibrationSmoothing, err := k.CalibrationSmoothingEnabled(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	return k.buildMethodologyApplicationTraceChecked(ctx, factID, calibrationSmoothing)
+}
+
+func (k Keeper) buildMethodologyApplicationTraceChecked(ctx context.Context, factID string, calibrationSmoothing bool) (trace *types.MethodologyApplicationTrace, found bool, err error) {
 	k, guard := k.guardedToK()
-	trace, found = k.buildMethodologyApplicationTrace(ctx, factID)
+	trace, found = k.buildMethodologyApplicationTrace(ctx, factID, calibrationSmoothing)
 	if guard.err != nil {
 		return nil, false, guard.err
 	}
@@ -179,7 +194,7 @@ func (k Keeper) BuildMethodologyApplicationTraceChecked(ctx context.Context, fac
 	return trace, found, nil
 }
 
-func (k Keeper) buildMethodologyApplicationTrace(ctx context.Context, factID string) (*types.MethodologyApplicationTrace, bool) {
+func (k Keeper) buildMethodologyApplicationTrace(ctx context.Context, factID string, calibrationSmoothing bool) (*types.MethodologyApplicationTrace, bool) {
 	fact, ok := k.GetFact(ctx, factID)
 	if !ok || fact == nil {
 		return nil, false
@@ -266,7 +281,7 @@ func (k Keeper) buildMethodologyApplicationTrace(ctx context.Context, factID str
 	trace.ContradictingFactIds = k.collectContradictingFactIds(ctx, fact.Id)
 
 	// Training weight (Popper-weighted from Wave 4).
-	tvw := k.ComputeTrainingValueWeight(ctx, fact.Id)
+	tvw := k.computeTrainingValueWeight(ctx, fact.Id, calibrationSmoothing)
 	trace.TrainingValueWeightBps = tvw.Final
 
 	// Curriculum + quality tiers (reusing existing logic).

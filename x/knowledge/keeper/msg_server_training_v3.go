@@ -51,6 +51,13 @@ func (m *msgServer) AmendTokenizerSpec(ctx context.Context, msg *types.MsgAmendT
 // heuristic weights remain a historical representation; neither proves use or
 // authorizes a training-fund payment. Normative commitments remain excluded.
 func (m *msgServer) AttributeContributions(ctx context.Context, msg *types.MsgAttributeContributions) (*types.MsgAttributeContributionsResponse, error) {
+	calibrationSmoothing, err := m.keeper.CalibrationSmoothingEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !calibrationSmoothing {
+		return (calibrationMsgLegacy{calibrationKeeperLegacy{m.keeper}}).AttributeContributions(ctx, msg)
+	}
 	neutral, err := m.keeper.ReviewNeutralityEnabled(ctx)
 	if err != nil {
 		return nil, err
@@ -91,7 +98,7 @@ func (m *msgServer) AttributeContributions(ctx context.Context, msg *types.MsgAt
 				totalWeight += 1
 				perFactCal = append(perFactCal, 0)
 			}
-			tvw := m.keeper.ComputeTrainingValueWeight(ctx, f)
+			tvw := m.keeper.computeTrainingValueWeight(ctx, f, calibrationSmoothing)
 			computedTVW += tvw.Final
 		}
 		if msg.TotalWeight != 0 {

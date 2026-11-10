@@ -71,7 +71,7 @@ func sourceCopyMutated(t *testing.T, badMarker bool, extraStore []bool, mutate f
 	for store, key := range map[string]byte{"zerone_gov": 0x18, "knowledge": 0x90, "capture_defense": 0x08, "qualification": 0x40, "capture_challenge": 0x05, "vesting_rewards": 0x0c, "zerone_ontology": 0x06, "emergency": 0x14, "substrate_bridge": 0x90, "zerone_ibcrl": 0x04} {
 		ctx.KVStore(a.GetStoreKeyForTests(store)).Delete([]byte{key})
 	}
-	if badMarker {
+	if badMarker && !(len(extraStore) > 1 && extraStore[1]) {
 		ctx.KVStore(a.GetStoreKeyForTests("qualification")).Set([]byte{0x40}, []byte{})
 	}
 	registry, err := json.Marshal(&customstaking.Validator{OperatorAddress: address.String(), TotalStake: "0", SelfDelegation: "0", DelegatedStake: "0"})
@@ -94,6 +94,21 @@ func sourceCopyMutated(t *testing.T, badMarker bool, extraStore []bool, mutate f
 	lip, err := json.Marshal(&gov.LIP{Id: "offline-rollback", Category: gov.CategoryPhaseRollback})
 	require.NoError(t, err)
 	ctx.KVStore(a.GetStoreKeyForTests("zerone_gov")).Set(gov.LIPKey("offline-rollback"), lip)
+	if len(extraStore) > 1 && extraStore[1] {
+		for _, marker := range a.ConsensusRepairsV1Markers() {
+			require.NoError(t, marker.Enable(ctx))
+		}
+		ctx.KVStore(a.GetStoreKeyForTests("alignment")).Delete([]byte{0x09})
+		for _, key := range []byte{0x91, 0x92, 0x93} {
+			ctx.KVStore(a.GetStoreKeyForTests("knowledge")).Delete([]byte{key})
+		}
+		if badMarker {
+			ctx.KVStore(a.GetStoreKeyForTests("knowledge")).Set([]byte{0x92}, []byte{})
+		}
+		vm := a.CurrentModuleVersionMap()
+		vm["alignment"], vm["knowledge"], vm["vesting_rewards"] = 2, 13, 3 // v2 owns vesting_rewards 3->4
+		require.NoError(t, a.UpgradeKeeper.SetModuleVersionMap(ctx, vm))
+	}
 	if mutate != nil {
 		mutate(a, ctx)
 	}

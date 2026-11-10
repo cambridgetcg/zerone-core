@@ -556,7 +556,7 @@ func validateAccountingGenesisSelection(genesis map[string]json.RawMessage) erro
 func (app *ZeroneApp) initializeAccountingAuthority(ctx sdk.Context, genesis GenesisState) error {
 	// InitGenesis has run. Check actual keeper state, not just JSON selection:
 	// no codec alias or future module regression may silently leave a marker off.
-	for _, marker := range app.ConsensusRepairsV1Markers() {
+	for _, marker := range append(app.ConsensusRepairsV1Markers(), app.ConsensusRepairsV2Markers()...) {
 		on, err := marker.Enabled(ctx)
 		if err != nil {
 			return fmt.Errorf("consensus repairs genesis %s.%s readback: %w", marker.Module, marker.Name, err)
