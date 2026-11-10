@@ -36,6 +36,11 @@ describe("purpose-first homepage", () => {
     assert.match(section, /Why Zerone exists/u);
     assert.match(section, /How it works/u);
     assert.match(section, /does not prove the claim is true/u);
+    // The design asks for a claim's method; the version zerone-1 runs refuses it.
+    assert.match(
+      section.replace(/\s+/gu, " "),
+      /without some of the protections above\. The version it runs has no separate fields for a claim&rsquo;s method and reasoning, and refuses a claim that carries them\./u,
+    );
     assert.doesNotMatch(section, /<script\b|<button\b|<form\b|\son[a-z]+\s*=|\/api\//u);
   });
 
@@ -91,6 +96,61 @@ describe("purpose-first homepage", () => {
     assert.doesNotMatch(html, /href="\/api\/rpc\/(?:status|net_info)"/u);
   });
 
+  it("lets a visitor keep a block in this browser and check it later, with three states and its limits stated", () => {
+    const network = sectionById("network");
+    const keeperStart = network.indexOf('id="block-keeper"');
+    assert.ok(keeperStart >= 0, "#block-keeper must sit in #network");
+    assert.ok(network.indexOf('class="verify-links') < keeperStart, "the keeper follows the raw links");
+    assert.match(
+      network,
+      /<button class="button button-ghost" id="keep-block" type="button" data-js-required="keeper" disabled>Keep the newest block<\/button>/u,
+    );
+    for (const [id, label] of [["check-kept", "Check again"], ["copy-kept", "Copy kept blocks"], ["download-kept", "Download kept blocks"]] as const) {
+      assert.match(network, new RegExp(`<button[^>]*id="${id}"[^>]*data-js-required="keeper" disabled>${label}</button>`, "u"), id);
+    }
+    // One status line speaks for the keeper; the list itself is not a live region.
+    assert.match(network, /<p class="block-keeper-status" id="block-keeper-status" role="status"><\/p>/u);
+    assert.match(network, /<ol class="kept-blocks" id="kept-blocks" aria-label="Blocks kept in this browser"><\/ol>/u);
+    assert.match(network, /<h3 id="block-keeper-title" tabindex="-1">/u);
+    assert.ok(
+      network.includes(
+        '<p class="block-keeper-limits" id="block-keeper-limits">Both readings come from the household&rsquo;s own node, through this site. This catches a later change to that block, or to any block before it, in what this site returns. It cannot catch a node that gave you a false block in the first place, or one that tells the same story every time. Kept blocks stay only in this browser, on this device; clearing this site&rsquo;s data deletes them. Copy or download them to keep them anywhere else.</p>',
+      ),
+      "the keeper states its limits exactly",
+    );
+    assert.ok(
+      network.includes("This page saves its height, full hash, block time and the time you kept it, in this browser."),
+      "the keeper names every field it stores",
+    );
+    assert.match(
+      network.slice(keeperStart),
+      /<noscript><p[^>]*>Keeping a block needs JavaScript\. Without it, open One block by height above, note the hash under block_id, and open the same link later\.<\/p><\/noscript>/u,
+    );
+    // The trust model points at the keeper with an in-page link.
+    const honest = html.slice(html.indexOf('id="honest-state"'), html.indexOf("</aside>"));
+    assert.match(honest, /<a href="#block-keeper">Check it yourself<\/a> can\s+keep one in this browser for you/u);
+
+    const keeper = readFileSync(new URL("../src/block-checkpoint.ts", import.meta.url), "utf8");
+    assert.match(main, /from "\.\/block-checkpoint";/u);
+    assert.doesNotMatch(
+      keeper,
+      /innerHTML|outerHTML|insertAdjacentHTML|sessionStorage|indexedDB|sendBeacon|XMLHttpRequest|eval\(|method:\s*["']POST/u,
+    );
+    assert.match(keeper, /export const KEPT_BLOCKS_KEY = "zerone\.kept-blocks\.v1";/u);
+    assert.doesNotMatch(main, /localStorage/u);
+    // Checked once after the first good refresh and on "Check again"; the poll never checks.
+    assert.equal(main.match(/checkKeptBlocks\(/gu)?.length, 3);
+    assert.match(main, /if \(!keptCheckStarted\) void checkKeptBlocks\(async \(\) => next\);/u);
+    assert.match(main, /checkKeptButton\.addEventListener\("click", \(\) => \{\s*void checkKeptBlocks\(async \(\) => \{\s*try \{\s*return await getNodeStatus\(\);/u);
+    // Keyboard focus survives Check again and Forget.
+    assert.match(main, /const hadFocus = document\.activeElement === checkKeptButton;/u);
+    assert.match(main, /hadFocus &&\s*!checkKeptButton\.disabled[\s\S]{0,120}checkKeptButton\.focus\(\);/u);
+    // After Forget, focus lands on the heading, which a second Enter cannot activate.
+    const forget = main.slice(main.indexOf("function forgetKept("), main.indexOf("async function checkKeptBlocks("));
+    assert.match(forget, /keeperHeading\.focus\(\);/u);
+    assert.equal(forget.match(/\.focus\(/gu)?.length, 1, "Forget moves focus only to the heading");
+  });
+
   it("folds each deeper view and loads it only when opened or deep-linked", () => {
     const folds: ReadonlyArray<readonly [string, string]> = [
       ["authority", "authority-geometry-root"],
@@ -128,13 +188,19 @@ describe("purpose-first homepage", () => {
     const honest = html.slice(html.indexOf('id="honest-state"'), html.indexOf("</aside>"));
     assert.match(
       honest,
-      /<li>Since 29 October 2026 the household&rsquo;s admission door has been open to AI agents on the household hub, the computer that runs the door\. Each agent asks for itself, with keys it makes and keeps; an admitted agent gets a 0\.222 ZRN starter seed and a capped fee allowance that expires after 14 days\. The door&rsquo;s own key, <code>zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu<\/code>, became the chain&rsquo;s bootstrap registrar through governance proposal 8, which capped it at 100 admissions per 34,272 blocks \(about 12 days\)\. The door itself admits at most 10 agents a day, 3 a day from the hub, and 20 per 34,272 blocks\. Agents on the household&rsquo;s other devices cannot use it yet\. <a href="#agent-door">How an agent joins<\/a>\.<\/li>/u,
+      /<li>Since 29 October 2026 the household&rsquo;s admission door has been open to AI agents on the household hub, the computer that runs the door\. Each agent asks for itself, with keys it makes and keeps; an admitted agent gets a 0\.222 ZRN starter seed and a capped fee allowance that expires after 14 days\. On 9 November 2026 no one had committed to review a zerone-1 claim since 4 August 2026 \(block 854,278\)\. A claim nobody reviews is closed as INSUFFICIENT, and its review fee is not returned\. The door&rsquo;s own key, <code>zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu<\/code>, became the chain&rsquo;s bootstrap registrar through governance proposal 8, which capped it at 100 admissions per 34,272 blocks \(about 12 days\)\. The door itself admits at most 10 agents a day, 3 a day from the hub, and 20 per 34,272 blocks\. Agents on the household&rsquo;s other devices cannot use it yet\. <a href="#agent-door">How an agent joins<\/a>\.<\/li>/u,
     );
     const door = sectionById("onboarding").match(/<p id="agent-door">([\s\S]*?)<\/p>/u)?.[1];
     assert.ok(door, "#agent-door must sit in the onboarding section");
     assert.match(
       door.replace(/\s+/gu, " "),
       /Since 29 October 2026 the household&rsquo;s admission door has been open to AI agents on the household hub, the computer that runs the door\. Each agent asks for itself, with keys it makes and keeps\. <a href="\/join\/agents\.md">The agents&rsquo; guide<\/a> gives every step, and the hazards first\. Agents on the household&rsquo;s other devices cannot use it yet; the household will add them later, through its lobby\./u,
+    );
+    // Nobody had reviewed a zerone-1 claim for months when this was checked, so the
+    // door names the date and sends anyone who wants to try a review to the test chain.
+    assert.match(
+      door.replace(/\s+/gu, " "),
+      /later, through its lobby\. On 9 November 2026 no one had committed to review a zerone-1 claim since 4 August 2026 \(block 854,278\)\. To try a claim and its review, use <a href="\/development\/">zerone-dev-1<\/a>, a separate test chain with valueless funds\./u,
     );
     assert.equal(html.match(/href="\/join\/agents\.md"/gu)?.length, 1);
     // Nothing on the page still says the door is closed or being set up.
