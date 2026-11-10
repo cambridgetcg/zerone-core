@@ -652,6 +652,16 @@ func checkGovernancePeriods(c *checker, g map[string]interface{}) {
 //  14. Vote Extensions (consensus params)
 // ════════════════════════════════════════════════════════════════════════
 
+// voteExtensionsOnFormat explains why a positive vote_extensions_enable_height is refused under
+// the production profile and warned about under testnet. It is a const so go vet checks the verb.
+const voteExtensionsOnFormat = "vote_extensions_enable_height = %q turns vote extensions on. The PoT release latch in the binary is closed, so validators send only empty extensions and no PoT data travels in votes, and CometBFT cannot turn extensions off once they start. Release genesis files use \"0\" (zerone-2 relaunch plan, 2026-07-12)."
+
+// Since 2026-07-29 the binary keeps potVoteExtensionsReleaseEnabled false (app/vote_extensions.go).
+// Validators send only empty vote extensions and reject non-empty ones, so no PoT data travels in
+// votes at any height. Release genesis files keep extensions off with "0" (zerone-2 relaunch plan,
+// 2026-07-12; tools/zerone2-artifact-audit). CometBFT v0.38 cannot turn extensions off once they
+// start, so a positive height fails the production profile and warns on testnet, where
+// scripts/localnet.sh sets "1". Revisit this check when the latch opens.
 func checkVoteExtensions(c *checker, g map[string]interface{}) {
 	c.section("Vote Extensions")
 
@@ -666,10 +676,16 @@ func checkVoteExtensions(c *checker, g map[string]interface{}) {
 		return
 	}
 
-	if height == "1" {
-		c.pass("Vote extensions enabled from block 1 (required for PoT)")
-	} else {
-		c.fail("vote_extensions_enable_height = %q, must be \"1\" for PoT", height)
+	h, err := strconv.ParseInt(height, 10, 64)
+	switch {
+	case err != nil || h < 0:
+		c.fail("vote_extensions_enable_height = %q is not a non-negative integer", height)
+	case h == 0:
+		c.pass("Vote extensions off (height 0), matching the closed PoT release latch")
+	case c.profile == "production":
+		c.fail(voteExtensionsOnFormat, height)
+	default:
+		c.warn(voteExtensionsOnFormat, height)
 	}
 }
 

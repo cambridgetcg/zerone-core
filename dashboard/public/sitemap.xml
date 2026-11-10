@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- zerone.ai: every page here answers 200 at exactly this URL (directory pages with their slash). -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://zerone.ai/</loc></url>
+  <url><loc>https://zerone.ai/understand/</loc></url>
+  <url><loc>https://zerone.ai/nodes/</loc></url>
+  <url><loc>https://zerone.ai/development/</loc></url>
+  <url><loc>https://zerone.ai/compositions/</loc></url>
+  <url><loc>https://zerone.ai/research/</loc></url>
+  <url><loc>https://zerone.ai/research/adagrad/</loc></url>
+  <url><loc>https://zerone.ai/research/review/</loc></url>
+  <url><loc>https://zerone.ai/research/checkpoints/</loc></url>
+  <url><loc>https://zerone.ai/research/checkpoints/2026-09-14-demimetric-v1/packets/v0.1/REPORT</loc></url>
+  <url><loc>https://zerone.ai/research/checkpoints/2026-09-14-demimetric-v1/packets/followups/translation-v0.1/NOTE</loc></url>
+  <url><loc>https://zerone.ai/research/checkpoints/2026-09-14-demimetric-v1/packets/followups/restricted-repair-v0.1/NOTE</loc></url>
+</urlset>

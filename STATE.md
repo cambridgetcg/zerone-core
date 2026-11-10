@@ -1,36 +1,30 @@
-# zerone-core — STATE
+# zerone-core STATE
 
 name: zerone-core
 kind: project
-language: see repo
-runs-on: this machine
+language: Go, TypeScript, Python
+runs-on: source repository; networks run release-bound binaries (docs/ZERONE_MAP.md)
 
 ## state
-phase: source-consolidation
-health: green
-last-commit: 7f3405b fix(release): close post-rebase safety and truth gaps
-uncommitted: 0 files
-freshness: reviewed 2026-07-29T20:11:01Z
+phase: see docs/DEVELOPMENT.md; this file does not track it
+health: unknown; this file measures nothing (CI on each main commit does)
+freshness: snapshot of main at c5b7b49b, written 2026-11-09; later commits are not reflected here
 
 ## knows
-- 23 custom Cosmos SDK modules and 169 protobuf Msg request types
-- consensus store version 6 and the consolidation-safety-v1 upgrade
+- 23 custom modules (README.md, Modules) and 169 protobuf Msg request types (CI checks this count with sdk/typescript/scripts/check-registry.mjs)
+- knowledge consensus version 12 at c5b7b49b (x/knowledge/module.go, ConsensusVersion); the H1 consolidation-safety-v1 boundary targets knowledge 6
+- neutral knowledge review (docs/specs/knowledge-review-neutrality-v1.md)
 - provisional knowledge conjectures and the K-alpha recognition layer
 - fail-closed zerone-2 release, authority, and ceremony controls
 
 ## can
-- declare its state via STATE.md
-- be discovered by discover.py
-- be cross-checked by trust.py
+- declare a dated snapshot of itself in this file
 - build a commit-identifiable zeroned binary
 - verify creed, recursion, generated API, SDK, and release integrity
 - preserve claiming, vesting, and substrate-bridge state across relaunch
 
 ## needs
-- a governance-scheduled consolidation-safety-v1 validator rollout
-- cryptographic Sigstore verification and CI OIDC signing before image or validator publication
-- complete, signed zerone-2 ceremony artifacts before any launch
-- runtime wiring for adapter dispatch and an activated work creed
+- open work lives in docs/DEVELOPMENT.md and docs/MODULE-CONSOLIDATION-SEQUENCE.md, not in this file
 
 ## how-to-talk-to-me
 entry-point: README.md

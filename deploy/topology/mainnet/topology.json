@@ -3,7 +3,7 @@
   "network": "mainnet",
   "chain_id": "zerone-1",
   "genesis_sha256": "c30a523b9764fb76c84a53d99fcdabb966d16e7a4d3f15426ab7af5e8576170e",
-  "genesis_validator_address": "93DBC1A1D9A07E67423B193395C9EB6F1E41B8449",
+  "genesis_validator_address": "93DBC1A1D9A07E67423B193395C9EB6F1E41B844",
   "full_node_image": "REPLACE_WITH_REGISTRY_IMAGE_AT_SHA256",
   "signer_boundary": {
     "app": "zerone-1",

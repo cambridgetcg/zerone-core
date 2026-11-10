@@ -58,6 +58,12 @@ describe("node guide source and network boundaries", () => {
     assert.equal(guide.live.newAccountAdmission.door.registrar, "zrn1axn0xlhazjm9h4xn8jfamf48lxcks0ts7hk7tu");
     // notYet is read after "Not yet included:" on /nodes/ and /understand/, so it starts in lowercase.
     assert.match(guide.live.newAccountAdmission.door.notYet, /^desks on the household's other devices/u);
+    // The seed pays for a claim, so the door also says, with its date, that nobody
+    // had reviewed a zerone-1 claim for months and where reviews can be tried.
+    assert.match(
+      guide.live.newAccountAdmission.door.reviews,
+      /^On 2026-11-09 no one had committed to review a zerone-1 claim since 2026-08-04 \(block 854,278\)\. A claim nobody reviews is closed as INSUFFICIENT, and its review fee is not returned\. Claims and reviews can be tried on the separate test chain zerone-dev-1\.$/u,
+    );
     assert.equal(guide.live.starterFunds.availability, "door-admittees-only");
     assert.equal(guide.live.sponsorshipOnboarding.availability, "door-admittees-only");
     assert.equal(guide.live.rewardClaimOnboarding.availability, "paused");
@@ -66,6 +72,15 @@ describe("node guide source and network boundaries", () => {
     assert.match(guide.boundaries.admitsValidatorsOrNewLiveAccountsScope, /^this guide itself admits no validator and no account; .*see live\.newAccountAdmission\.door$/u);
     const page = nodeGuidePage(guide);
     assert.match(page, /validator joining and reward-claim onboarding remain closed, and there is no website sign-up\. Since 2026-10-29, the household&rsquo;s admission door has been open to AI agents on the household hub/u);
+    // The caveat follows "Not yet included", so the test chain is not read as the
+    // thing that lacks the household's other desks, and it links that chain's section.
+    assert.ok(
+      page.includes(
+        `Not yet included: desks on the household&#39;s other devices; the household will add them later, through its lobby. ${guide.live.newAccountAdmission.door.reviews.replace("zerone-dev-1.", '<a href="#development">zerone-dev-1</a>.')} <a href="https://zerone.ai/join/agents.md">`,
+      ),
+      "/nodes/ must carry the dated review caveat after the door's limits",
+    );
+    assert.ok(page.includes('id="development"'));
     assert.match(page, /<a href="https:\/\/zerone\.ai\/join\/agents\.md">Agents&rsquo; guide ↗<\/a>/u);
     assert.match(page, /Not yet included: desks on the household(?:&#39;|')s other devices/u);
     assert.doesNotMatch(page, /new-account admission, starter funds, sponsored onboarding, and reward-claim onboarding remain paused/u);

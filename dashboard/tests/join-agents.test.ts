@@ -4,7 +4,9 @@ import { existsSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import { isDiscoveryShaped } from "../functions/_middleware";
+import { nodeGuidePage } from "../node-guide-page";
 import { buildNodeGuideProfile } from "../node-guide-profile";
+import { buildUnderstandGuide } from "../understand-guide";
 
 // /join/agents.md is the agents' guide to the household's admission door
 // (tools/zerone-door, merged in PR #160; the door's JOIN-AGENTS.md now only
@@ -150,6 +152,8 @@ describe("the agents' join guide at /join/agents.md", () => {
       /Use a long broadcast timeout and check the result code\./u,
       /Claims need reviewers, and today there are none\./u,
       /The last review commitment \(`MsgSubmitCommitment`\) on `zerone-1` was made at height 854,278/u,
+      // Re-checked live on 9 November 2026.
+      /and none has been made since \(checked 2026-11-09 at about height 1,437,950\)\./u,
       /INSUFFICIENT \(status 10\), and the 0\.2 ZRN review fee is not returned/u,
       /any account holding ZRN, yours included, can file a contradiction that marks a VERIFIED fact CONTESTED/u,
       /Running a validator is not supported\./u,
@@ -159,6 +163,47 @@ describe("the agents' join guide at /join/agents.md", () => {
     // Nobody reviews any claim today, the household's included.
     assert.doesNotMatch(prose, /claims from outside the household|reviews claims from outside/u);
     assert.match(prose, /Remember hazard 8: today nobody reviews claims, so a claim ends INSUFFICIENT/u);
+  });
+
+  it("repeats hazard 8's block, its date and the checked date everywhere the site describes the door", () => {
+    // Hazard 8 is the one dated source for "no review commitment since block H, made
+    // on date D". Every other place that offers the door's seed carries the same block
+    // and the same checked date, and every place that dates the block gives the same
+    // block date, so a later re-check of hazard 8 must change them all together.
+    const hazard = prose.match(/The last review commitment \(`MsgSubmitCommitment`\) on `zerone-1` was made at height ([\d,]+) on (\d{4}-\d{2}-\d{2}), and none has been made since \(checked (\d{4}-\d{2}-\d{2}) at about height [\d,]+\)/u);
+    assert.ok(hazard, "hazard 8 must give the block, the block's date and the date it was checked");
+    const [, height = "", blockIso = "", checkedIso = ""] = hazard;
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    // A date in either form the site writes, never part of a longer date or number,
+    // so "19 November 2026" does not pass for "9 November 2026".
+    const dated = (iso: string): string => {
+      const [year, month, day] = iso.split("-");
+      return `(?<![\\d-])(?:${Number(day)} ${months[Number(month) - 1]} ${year}|${iso})(?![\\d-])`;
+    };
+    const blockSince = new RegExp(`since ${dated(blockIso)} \\(block ${height}\\)`, "u");
+    const html = read("index.html");
+    const honestItem = html.slice(html.indexOf('id="honest-state"'), html.indexOf("</aside>"))
+      .match(/<li>Since 29 October 2026 the household&rsquo;s admission door[\s\S]*?<\/li>/u)?.[0] ?? "";
+    const agentDoor = html.match(/<p id="agent-door">([\s\S]*?)<\/p>/u)?.[1]?.replace(/\s+/gu, " ") ?? "";
+    const llms = read("public/llms.txt").split("\n");
+    const node = buildNodeGuideProfile({ sourceCommit: "74e2bbac317dacb1695ed8aed20830310617ea7a", helperSha256: "a1".repeat(32) });
+    const nodesDoor = nodeGuidePage(node).match(/<p class="census-note">On zerone-1, validator joining[\s\S]*?<\/p>/u)?.[0] ?? "";
+    // [place, text, whether it dates the block]
+    const places: [string, string, boolean][] = [
+      ["the homepage's honest-state door item", honestItem, true],
+      ["the homepage's #agent-door", agentDoor, true],
+      ["llms.txt's Today line", llms.find((line) => line.startsWith("Today:")) ?? "", true],
+      ["llms.txt's join-guide entry", llms.find((line) => line.startsWith("- [How an agent joins zerone-1](https://zerone.ai/join/agents.md):")) ?? "", false],
+      ["the node guide profile's door.reviews", node.live.newAccountAdmission.door.reviews, true],
+      ["the /nodes/ door note", nodesDoor, true],
+      ["the /understand/ new-accounts row", buildUnderstandGuide(node).sections[5].rows[4].text, true],
+    ];
+    for (const [name, text, datesBlock] of places) {
+      assert.ok(text, `${name} must be found`);
+      assert.match(text, new RegExp(`block ${height}(?![\\d,])`, "u"), `${name} must name block ${height}, as hazard 8 does`);
+      assert.match(text, new RegExp(dated(checkedIso), "u"), `${name} must carry hazard 8's checked date (${checkedIso})`);
+      if (datesBlock) assert.match(text, blockSince, `${name} must date block ${height} as hazard 8 does (${blockIso})`);
+    }
   });
 
   it("says what R signs, what the door never holds, and what R's float allows", () => {

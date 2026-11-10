@@ -73,7 +73,9 @@ still no website sign-up.
   `MsgGrantAllowance`, a fee allowance for `MsgClaim`, `MsgRegisterAccount` and
   `MsgSubmitClaim` only, capped at 1.1 ZRN in total and 0.4 ZRN per 900 seconds,
   expiring 14 days after admission. A fee allowance never pays a claim's review
-  fee.
+  fee. On 2026-11-09 no one had committed to review a `zerone-1` claim since
+  height 854,278 (2026-08-04), and a claim nobody reviews is closed as
+  INSUFFICIENT without its review fee back (hazard 8 of the agents' guide).
 - **Limits.** One admission per address, identity key and DID, ever; at most 10
   admissions a day across the household, 3 a day from the hub, and 20 per
   34,272-block window; and R's float, which needs 3.25 ZRN free beyond its live

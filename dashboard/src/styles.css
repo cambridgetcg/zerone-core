@@ -12809,6 +12809,135 @@
   .closer .research-index {
     margin-top: 1rem;
   }
+
+  /* The block keeper sits under the raw links in #network. Its states are
+     set through data-state, never inline styles (the CSP refuses them). */
+  .block-keeper {
+    margin-top: 1.2rem;
+    border: 1px solid var(--line);
+    padding: clamp(1.2rem, 3vw, 2rem);
+    background: var(--surface);
+    scroll-margin-top: 92px;
+  }
+
+  .block-keeper h3 {
+    font-family: var(--serif);
+    font-size: clamp(1.25rem, 2.2vw, 1.6rem);
+    font-weight: 400;
+    line-height: 1.2;
+  }
+
+  .block-keeper > p,
+  .block-keeper-noscript {
+    max-width: 760px;
+    margin-top: 0.6rem;
+    color: var(--muted-strong);
+    font-size: 0.86rem;
+    line-height: 1.6;
+  }
+
+  .block-keeper-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 1.2rem;
+  }
+
+  .block-keeper > .block-keeper-status {
+    margin-top: 1rem;
+    color: var(--ink-soft);
+    font-size: 0.82rem;
+  }
+
+  .block-keeper-status:empty,
+  .kept-blocks:empty {
+    display: none;
+  }
+
+  .kept-blocks {
+    display: grid;
+    gap: 0.6rem;
+    margin: 1.2rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .kept-blocks li {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.45rem 1rem;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--muted);
+    padding: 0.9rem 1rem;
+    background: var(--bg-soft);
+  }
+
+  .kept-blocks li > :not(.button) {
+    grid-column: 1;
+  }
+
+  .kept-blocks li > .button {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    align-self: start;
+  }
+
+  .kept-blocks li[data-state="same"] {
+    border-left-color: var(--green);
+  }
+
+  .kept-blocks li[data-state="different"] {
+    border-color: rgba(255, 132, 124, 0.36);
+    border-left-color: var(--red);
+    background: rgba(255, 132, 124, 0.06);
+  }
+
+  .kept-blocks li[data-state="unknown"] {
+    border-left-color: var(--amber);
+  }
+
+  .kept-block-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.3rem 0.8rem;
+  }
+
+  .kept-block-head code {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+  }
+
+  .kept-block-times {
+    color: var(--muted);
+    font-size: 0.72rem;
+  }
+
+  .kept-block-hash {
+    color: var(--violet-soft);
+    font-family: var(--mono);
+    font-size: 0.74rem;
+    overflow-wrap: anywhere;
+  }
+
+  .kept-block-result {
+    color: var(--ink-soft);
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+
+  .kept-blocks li[data-state="different"] .kept-block-result {
+    color: var(--ink);
+  }
+
+  .block-keeper > .block-keeper-limits {
+    margin-top: 1.2rem;
+    border-top: 1px solid rgba(255, 197, 111, 0.18);
+    padding-top: 0.9rem;
+    font-size: 0.8rem;
+  }
 }
 
 @layer utilities {
@@ -12935,6 +13064,17 @@
 
     .home-blocks .hash-code {
       overflow-wrap: anywhere;
+    }
+
+    /* Kept blocks give their sentence the full width; Forget follows it. */
+    .kept-blocks li {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .kept-blocks li > .button {
+      grid-column: 1;
+      grid-row: auto;
+      justify-self: start;
     }
 
     .hero-purpose h1 {
