@@ -783,7 +783,7 @@
     {
       "id": "knowledge-writers",
       "path": "x/knowledge/keeper/msg_server.go",
-      "sha256": "1b3a64a7a2567ce40eacabe1a010ac69cfb6cca89887b1281088b8ba17611bbf",
+      "sha256": "c74e5f79bbbe027db2de6dcc930b529ad8eb41fbc94e4decfccd4cdbd126c52d",
       "requiredSnippets": [
         "func (m *msgServer) AddFact(ctx context.Context, msg *types.MsgAddFact)",
         "func (m *msgServer) ProposeDomain(ctx context.Context, msg *types.MsgProposeDomain)",
