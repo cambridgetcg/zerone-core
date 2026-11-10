@@ -802,6 +802,13 @@ export interface GenesisState {
    * from bounty creation totals or resetting the counters.
    */
   accountingState?: KnowledgeGenesisAccounting;
+  /**
+   * Doctrine-identity marker (consensus-repairs-v3): the metabolism exemption
+   * for doctrine follows provenance, not the category label. Native genesis
+   * sets it; a file without the field imports as off. No carrier upgrade sets
+   * it in place yet.
+   */
+  doctrineIdentityEnabled: boolean;
 }
 /**
  * Exports each ordered source/target pair once, including full provenance.
@@ -2218,7 +2225,8 @@ function createBaseGenesisState(): GenesisState {
     inconclusiveRoundAccountingEnabled: false,
     calibrationSmoothingEnabled: false,
     zeroConfidenceFloorEnabled: false,
-    accountingState: undefined
+    accountingState: undefined,
+    doctrineIdentityEnabled: false
   };
 }
 /**
@@ -2350,6 +2358,9 @@ export const GenesisState = {
     if (message.accountingState !== undefined) {
       KnowledgeGenesisAccounting.encode(message.accountingState, writer.uint32(610).fork()).ldelim();
     }
+    if (message.doctrineIdentityEnabled === true) {
+      writer.uint32(616).bool(message.doctrineIdentityEnabled);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): GenesisState {
@@ -2479,6 +2490,9 @@ export const GenesisState = {
         case 76:
           message.accountingState = KnowledgeGenesisAccounting.decode(reader, reader.uint32());
           break;
+        case 77:
+          message.doctrineIdentityEnabled = reader.bool();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -2528,6 +2542,7 @@ export const GenesisState = {
     message.calibrationSmoothingEnabled = object.calibrationSmoothingEnabled ?? false;
     message.zeroConfidenceFloorEnabled = object.zeroConfidenceFloorEnabled ?? false;
     message.accountingState = object.accountingState !== undefined && object.accountingState !== null ? KnowledgeGenesisAccounting.fromPartial(object.accountingState) : undefined;
+    message.doctrineIdentityEnabled = object.doctrineIdentityEnabled ?? false;
     return message;
   }
 };
