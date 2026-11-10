@@ -321,8 +321,9 @@ func TestCitedSurvival_DeferredWhileACitedFactIsChallenged(t *testing.T) {
 	}
 }
 
-// A fact that lost standing through disuse has not been found false: AT_RISK,
-// EXPIRED and PRUNED neither cancel nor defer the escrow.
+// A fact that lost standing without itself being found false (energy decay,
+// niche competition, a disproven parent): AT_RISK, EXPIRED and PRUNED neither
+// cancel nor defer the escrow.
 func TestCitedSurvival_DisuseDoesNotStopRelease(t *testing.T) {
 	for _, status := range []knowledgetypes.FactStatus{
 		knowledgetypes.FactStatus_FACT_STATUS_AT_RISK,
@@ -339,6 +340,93 @@ func TestCitedSurvival_DisuseDoesNotStopRelease(t *testing.T) {
 			require.Empty(t, f.events(keeper.EventTypeWitnessRewardCancelled))
 		})
 	}
+}
+
+// The statuses the rule does not name release, as the rule's "otherwise
+// release" says: SUPERSEDED, PENDING, UNSPECIFIED and a value this build does
+// not know. This pins the present choice so that a change to it is deliberate.
+func TestCitedSurvival_UnplacedStatusesRelease(t *testing.T) {
+	for _, status := range []knowledgetypes.FactStatus{
+		knowledgetypes.FactStatus_FACT_STATUS_SUPERSEDED,
+		knowledgetypes.FactStatus_FACT_STATUS_PENDING,
+		knowledgetypes.FactStatus_FACT_STATUS_UNSPECIFIED,
+		knowledgetypes.FactStatus(99),
+	} {
+		t.Run(status.String(), func(t *testing.T) {
+			f := newCitedSurvivalFixture(t, true, "fact-1")
+			require.NoError(t, f.k.SettleAttestation(f.ctx, "att-c1"))
+			f.setFact("fact-1", status, false)
+
+			require.Equal(t, 1, f.sweep(t, f.at(citedWindow)))
+			f.requireReleased(t)
+			require.Empty(t, f.events(keeper.EventTypeWitnessRewardCancelled))
+		})
+	}
+}
+
+// The deferral has no limit: while a cited fact stays CONTESTED, every new
+// deadline defers the escrow one more window, with nothing minted, no event,
+// and exactly one pending entry and one deadline-index entry.
+func TestCitedSurvival_DeferralRepeatsWhileContested(t *testing.T) {
+	f := newCitedSurvivalFixture(t, true, "fact-1")
+	require.NoError(t, f.k.SettleAttestation(f.ctx, "att-c1"))
+	f.setFact("fact-1", knowledgetypes.FactStatus_FACT_STATUS_CONTESTED, false)
+
+	for n := uint64(1); n <= 5; n++ {
+		at := f.at(n * citedWindow)
+		require.Equal(t, 1, f.sweep(t, at))
+		f.requireDeferredTo(t, uint64(at.BlockHeight())+citedWindow)
+		indexEntries := 0
+		iter := f.ctx.KVStore(f.key).Iterator(types.WitnessDeadlineIndexPrefix, storetypes.PrefixEndBytes(types.WitnessDeadlineIndexPrefix))
+		for ; iter.Valid(); iter.Next() {
+			indexEntries++
+		}
+		require.NoError(t, iter.Close())
+		require.Equal(t, 1, indexEntries, "one deadline-index entry after deferral %d", n)
+	}
+}
+
+// A pending reward whose attestation is missing reads no fact and is
+// cancelled by the release path with its own reason, in both marker states.
+func TestCitedSurvival_MissingAttestationCancelledAtRelease(t *testing.T) {
+	for _, state := range citedMarkerStates {
+		t.Run(state.name, func(t *testing.T) {
+			f := newCitedSurvivalFixture(t, state.on, "fact-1")
+			f.k.SetWitnessPendingReward(f.ctx, keeper.WitnessPendingReward{
+				AttestationId: "att-ghost", AdapterId: citedAdapter, Recipient: f.submitter,
+				Amount: citedReward, Deadline: uint64(f.ctx.BlockHeight()) + citedWindow,
+			})
+
+			require.Zero(t, f.sweep(t, f.at(citedWindow)))
+			require.Equal(t, "0", f.minted())
+			_, pending := f.k.GetWitnessPendingReward(f.ctx, "att-ghost")
+			require.False(t, pending)
+			require.Equal(t, []map[string]string{{
+				keeper.AttrAttestationID: "att-ghost", keeper.AttrAdapterID: citedAdapter,
+				keeper.AttrRecipient: f.submitter, keeper.AttrReason: "attestation missing at release",
+			}}, f.events(keeper.EventTypeWitnessRewardCancelled))
+		})
+	}
+}
+
+// Admission bounds a new link at MaxCitedFactsPerLink, but the sweep reads
+// every fact a stored link cites. A link stored with one fact past the bound,
+// as a link admitted before the bound existed could be, is cancelled when only
+// that last fact is DISPROVEN.
+func TestCitedSurvival_ReadsEveryCitedFactPastTheAdmissionBound(t *testing.T) {
+	n := types.MaxCitedFactsPerLink + 1
+	ids := make([]string, n)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("fact-%d", i+1)
+	}
+	f := newCitedSurvivalFixture(t, true, ids...)
+	require.Len(t, f.attestation(t, "att-c1").Link.CitedFacts, n)
+	require.NoError(t, f.k.SettleAttestation(f.ctx, "att-c1"))
+	last := ids[n-1]
+	f.setFact(last, knowledgetypes.FactStatus_FACT_STATUS_DISPROVEN, false)
+
+	require.Equal(t, n, f.sweep(t, f.at(citedWindow)))
+	f.requireCancelled(t, fmt.Sprintf("cited fact %s is FACT_STATUS_DISPROVEN", last))
 }
 
 // The adapter rule decides first, exactly as before, and the cited-fact rule
