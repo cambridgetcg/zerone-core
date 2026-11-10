@@ -35,6 +35,14 @@
 //     pending_claims list because the x/knowledge submission bridge is not
 //     wired. Partial settlement helpers remain unreachable from that public
 //     message until the bridge is implemented.
+//     The cited-fact check is existence only, in any fact status. Without
+//     the CitedRewardEscrowEnabled marker (0x91), a cited-fact link with no
+//     pending claims mints its reward when the next block settles it. With
+//     the marker on, it settles with its bond returned and nothing minted,
+//     and its reward waits in the witness escrow (keeper/witness_escrow.go):
+//     released if the adapter is still ACTIVE when the window closes,
+//     deferred while SUSPENDED, cancelled if TOMBSTONED. Native genesis
+//     selects the marker; no carrier upgrade sets it on an existing chain yet.
 //
 //   - Cross-class lineage accountant (M6): DAG-by-timestamp citation graph
 //     with depth-decayed accounting at downstream settlement. The cumulative

@@ -2245,6 +2245,12 @@ Witness-only attestations (no cited facts, no pending claims) carry provenance
 without verifiable knowledge — if their adapter registers a
 `witness_reward_uzrn`, the reward is escrowed under a challenge window and
 minted only on survival (mirror of the knowledge survival-gate).
+With the consensus-repairs-v3 marker `cited_reward_escrow_enabled` on, a
+cited-fact link with no pending claims waits the same way: it settles with its
+bond returned and nothing minted, and the reward settlement computed is
+escrowed under the same window with the same `witness_reward_*` events.
+Without the marker it is minted and paid at settlement. Native genesis selects
+the marker; no carrier upgrade sets it on an existing chain yet.
 
 ### external_attestation_submitted
 An attestation passed validation and its bond was escrowed. Current public
@@ -2262,7 +2268,7 @@ Attestation recorded on-chain with its substrate link.
 Attestation settled in full: bond returned whole, reward (if any) minted via
 `MintWithCap` into the audit bounty pool and paid to the submitter.
 - `attestation_id` -- attestation id
-- `reward_uzrn` -- amount actually minted and paid (cap-clip honest; 0 for witness-only links at settle)
+- `reward_uzrn` -- amount actually minted and paid (cap-clip honest; 0 at settle for witness-only links, and for cited-fact links with no pending claims when `cited_reward_escrow_enabled` is on)
 - `useful_work_commitment` -- "UW"
 - `mechanism` -- "M4" (reward formula R = base + L × W × Q)
 
@@ -2285,13 +2291,14 @@ of dead weight in the module escrow.
 
 ### witness_reward_escrowed
 A witness-only attestation settled through an adapter carrying a
-`witness_reward_uzrn`. Nothing minted: the reward is escrowed under the
-challenge window (`witness_reward_challenge_window_blocks`). Issuance follows
-survival, not acceptance.
+`witness_reward_uzrn`, or, with `cited_reward_escrow_enabled` on, a cited-fact
+attestation with no pending claims settled. Nothing minted: the reward is
+escrowed under the challenge window (`witness_reward_challenge_window_blocks`).
+Issuance follows survival, not acceptance.
 - `attestation_id` -- attestation id
 - `adapter_id` -- adapter the attestation came through
 - `recipient` -- submitter address the reward will pay on survival
-- `reward_uzrn` -- escrowed amount
+- `reward_uzrn` -- escrowed amount (the adapter's witness reward, or the reward settlement computed for a cited-fact link)
 - `deadline` -- block height the challenge window closes
 - `useful_work_commitment` -- "UW"
 - `mechanism` -- "M4"
