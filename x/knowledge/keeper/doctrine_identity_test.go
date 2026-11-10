@@ -3,6 +3,7 @@ package keeper_test
 import (
 	"testing"
 
+	sdkmath "cosmossdk.io/math"
 	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
@@ -14,8 +15,8 @@ import (
 // The doctrine-identity repair (marker 0x94): with the marker on, the
 // metabolism exemption follows a fact's provenance, not its free-text label.
 // A fact made from a claim is metabolised whatever its category says; the
-// chain's own doctrine (genesis, MsgAddFact) stays exempt. With the marker off,
-// the label alone decides, as before.
+// chain's own doctrine (genesis, MsgAddFact, a matured guardian-veto injection)
+// stays exempt. With the marker off, the label alone decides, as before.
 
 // doctrineIdentityGenesis is setupKnowledgeTestWithBank's predecessor genesis
 // with the doctrine-identity marker set on or off. Only the marker varies.
@@ -203,6 +204,108 @@ func TestDoctrineIdentity_DoctrineLabelledConjectureEndToEnd(t *testing.T) {
 				return
 			}
 			require.Less(t, after.Energy, fact.Energy, "marker on: the claim-derived fact is metabolised")
+		})
+	}
+}
+
+// End to end: an accepted challenge of a genesis doctrine fact makes a new fact
+// from the challenge claim. The challenger does not choose its category: the
+// claim inherits "doctrine" from its target. That fact has a claim, so it is
+// exempt with the marker off and metabolised with the marker on.
+func TestDoctrineIdentity_AcceptedChallengeOfDoctrineEndToEnd(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "marker off", true: "marker on"}[enabled], func(t *testing.T) {
+			k, ctx, bk := setupDoctrineIdentityTest(t, doctrineIdentityGenesis(enabled))
+			target := mustGetFact(t, k, ctx, "commitment-1")
+			require.Empty(t, target.ClaimId)
+			require.Equal(t, types.DoctrineCategory, target.Category)
+
+			params, err := k.GetParams(ctx)
+			require.NoError(t, err)
+			stake := keeper.EffectiveMinChallengeStake(params, target.Confidence)
+			challenger := makeValidBech32Addr("doctrine-challenger")
+			bk.balances[challenger] = sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromBigInt(stake)))
+
+			resp, err := keeper.NewMsgServerImpl(k).ChallengeFact(ctx, &types.MsgChallengeFact{
+				Challenger: challenger,
+				FactId:     target.Id,
+				Reason:     "A challenge of genesis doctrine",
+				Stake:      stake.String(),
+			})
+			require.NoError(t, err)
+			round, found := k.GetVerificationRound(ctx, resp.RoundId)
+			require.True(t, found)
+			claim, found := k.GetClaim(ctx, round.ClaimId)
+			require.True(t, found)
+			require.Equal(t, types.DoctrineCategory, claim.Category, "the challenge claim inherits the target's category")
+
+			require.NoError(t, k.CompleteRound(ctx, round, &keeper.VerificationResult{
+				Verdict:    types.Verdict_VERDICT_ACCEPT,
+				Confidence: 900_000,
+			}))
+
+			var fact *types.Fact
+			k.IterateFacts(ctx, func(f *types.Fact) bool {
+				if f.ClaimId == claim.Id {
+					fact = f
+					return true
+				}
+				return false
+			})
+			require.NotNil(t, fact, "the accepted challenge made a fact")
+			require.Equal(t, types.DoctrineCategory, fact.Category, "the inherited label rides through to the fact")
+			require.NotZero(t, fact.Energy)
+
+			require.NoError(t, k.ProcessMetabolism(ctx, 1))
+			after := mustGetFact(t, k, ctx, fact.Id)
+			if !enabled {
+				require.Equal(t, fact, after, "marker off: the inherited label exempts a claim-derived fact")
+				return
+			}
+			require.Less(t, after.Energy, fact.Energy, "marker on: the claim-derived fact is metabolised")
+		})
+	}
+}
+
+// A doctrine fact the authority adds while a guardian-veto window is set is
+// queued, and materialised at the end of the window without a claim. It stays
+// exempt in both marker states, while an ordinary fact in the same run is
+// metabolised.
+func TestDoctrineIdentity_VetoWindowDoctrineStaysExempt(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "marker off", true: "marker on"}[enabled], func(t *testing.T) {
+			k, ctx, _ := setupDoctrineIdentityTest(t, doctrineIdentityGenesis(enabled))
+			params, err := k.GetParams(ctx)
+			require.NoError(t, err)
+			params.AddFactVetoWindowBlocks = 10
+			params.GuardianAddresses = []string{makeValidBech32Addr("doctrine-guardian")}
+			require.NoError(t, k.SetParams(ctx, params))
+			require.True(t, k.AddFactVetoEnabled(ctx))
+
+			resp, err := keeper.NewMsgServerImpl(k).AddFact(ctx, &types.MsgAddFact{
+				Authority:  k.GetAuthority(),
+				Content:    "A doctrine fact added through the guardian-veto window",
+				Domain:     "physics",
+				Category:   types.DoctrineCategory,
+				Confidence: 800_000,
+			})
+			require.NoError(t, err)
+			_, found := k.GetFact(ctx, resp.FactId)
+			require.False(t, found, "queued, not yet a fact")
+
+			ctx = ctx.WithBlockHeight(ctx.BlockHeight() + int64(params.AddFactVetoWindowBlocks))
+			k.MaterializeMaturedFactInjections(ctx, uint64(ctx.BlockHeight()))
+			added := mustGetFact(t, k, ctx, resp.FactId)
+			require.Empty(t, added.ClaimId)
+			require.Equal(t, types.DoctrineCategory, added.Category)
+
+			setDomainNormalPressure(k, ctx, "physics")
+			ordinary := makeEnergyFact("fact-ordinary", "An ordinary verified fact", "physics", 500_000, types.FactStatus_FACT_STATUS_VERIFIED)
+			require.NoError(t, k.SetFact(ctx, ordinary))
+
+			require.NoError(t, k.ProcessMetabolism(ctx, 1))
+			require.Equal(t, added, mustGetFact(t, k, ctx, added.Id), "doctrine without a claim stays exempt")
+			require.Less(t, mustGetFact(t, k, ctx, ordinary.Id).Energy, ordinary.Energy, "the ordinary fact was metabolised")
 		})
 	}
 }
