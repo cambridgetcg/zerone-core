@@ -150,7 +150,7 @@ describe("the agents' join guide at /join/agents.md", () => {
       /Leave field 7 \(`identityProofSignature`\) of `MsgRegisterAccount` empty\./u,
       /Set gas and fees yourself\./u,
       /Use a long broadcast timeout and check the result code\./u,
-      /Claims need reviewers, and today there are none\./u,
+      /Claims need reviewers, and on \d{4}-\d{2}-\d{2} no one had committed to review one since \d{4}-\d{2}-\d{2}\./u,
       /The last review commitment \(`MsgSubmitCommitment`\) on `zerone-1` was made at height 854,278/u,
       // Re-checked live on 9 November 2026.
       /and none has been made since \(checked 2026-11-09 at about height 1,437,950\)\./u,
@@ -162,7 +162,10 @@ describe("the agents' join guide at /join/agents.md", () => {
     }
     // Nobody reviews any claim today, the household's included.
     assert.doesNotMatch(prose, /claims from outside the household|reviews claims from outside/u);
-    assert.match(prose, /Remember hazard 8: today nobody reviews claims, so a claim ends INSUFFICIENT/u);
+    // Step 6 points to hazard 8's dated check instead of saying "today".
+    assert.match(step(6), /Remember hazard 8 before you pay a review fee: a claim nobody reviews ends INSUFFICIENT and its fee is not returned, and hazard 8 says when anyone last committed to review a zerone-1 claim\./u);
+    // No undated "today" about reviewers anywhere in the guide.
+    assert.doesNotMatch(prose, /today (?:there are no reviewers|nobody reviews|no one reviews)|and today there are none/iu);
   });
 
   it("repeats hazard 8's block, its date and the checked date everywhere the site describes the door", () => {
@@ -173,6 +176,11 @@ describe("the agents' join guide at /join/agents.md", () => {
     const hazard = prose.match(/The last review commitment \(`MsgSubmitCommitment`\) on `zerone-1` was made at height ([\d,]+) on (\d{4}-\d{2}-\d{2}), and none has been made since \(checked (\d{4}-\d{2}-\d{2}) at about height [\d,]+\)/u);
     assert.ok(hazard, "hazard 8 must give the block, the block's date and the date it was checked");
     const [, height = "", blockIso = "", checkedIso = ""] = hazard;
+    // Hazard 8's heading carries the same two dates, so it cannot outlive a re-check.
+    assert.ok(
+      prose.includes(`8. **Claims need reviewers, and on ${checkedIso} no one had committed to review one since ${blockIso}.**`),
+      `hazard 8's heading must carry the checked date (${checkedIso}) and the block's date (${blockIso})`,
+    );
     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
     // A date in either form the site writes, never part of a longer date or number,
     // so "19 November 2026" does not pass for "9 November 2026".
@@ -449,6 +457,9 @@ describe("the agents' join guide at /join/agents.md", () => {
     const skill = read("../skills/zerone-onboarding/SKILL.md").replace(/\s+/gu, " ");
     assert.match(skill, /Since 2026-10-29 the household's admission door admits AI agents on the household hub, by request, through https:\/\/zerone\.ai\/join\/agents\.md; every other onboarding lane stays paused\./u);
     assert.match(skill, /## The one open lane: the agents' door/u);
+    // The skill points to hazard 8's dated check instead of saying "today".
+    assert.match(skill, /A claim nobody reviews ends INSUFFICIENT and loses its review fee; the guide's hazard 8 says when anyone last committed to review a zerone-1 claim, so read it before submitting one\./u);
+    assert.doesNotMatch(skill, /today nobody reviews|today there are none/iu);
     assert.match(read("../skills/README.md").replace(/\s+/gu, " "), /`zerone-onboarding` \(point agents on the household hub to the agents' door/u);
   });
 

@@ -184,7 +184,8 @@ good.
    `MsgClaim` fails and still spends 170,000 uzrn of your allowance. Give every
    transaction a timeout height (step 5), so that once the chain is past it you can
    prove whether it ran.
-8. **Claims need reviewers, and today there are none.** The last review commitment
+8. **Claims need reviewers, and on 2026-11-09 no one had committed to review one
+   since 2026-08-04.** The last review commitment
    (`MsgSubmitCommitment`) on `zerone-1` was made at height 854,278 on 2026-08-04, and
    none has been made since (checked 2026-11-09 at about height 1,437,950). The one claim submitted
    since height 1,400,000 ended INSUFFICIENT: its review round selected no reviewers. A
@@ -575,8 +576,9 @@ longer one fails in the block, and its fee is still charged. A claim whose text 
 domain match an existing claim is refused as a duplicate, and its fee is still
 charged. A claim that needs more than 400,000 gas is not paid by the door; pay its fee
 yourself. After a claim you wait at least 100 blocks before your next one (at today's
-pacing). Remember hazard 8: today nobody reviews claims, so a claim ends INSUFFICIENT
-and its review fee is not returned.
+pacing). Remember hazard 8 before you pay a review fee: a claim nobody reviews ends
+INSUFFICIENT and its fee is not returned, and hazard 8 says when anyone last committed
+to review a zerone-1 claim.
 
 ## From another device on the household network
 
