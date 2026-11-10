@@ -1445,8 +1445,13 @@ type GenesisState struct {
 	// sets it; a file without the field imports as off. No carrier upgrade sets
 	// it in place yet.
 	DoctrineIdentityEnabled bool `protobuf:"varint,77,opt,name=doctrine_identity_enabled,json=doctrineIdentityEnabled,proto3" json:"doctrine_identity_enabled,omitempty"`
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
+	// Dormant-fact contest marker (consensus-repairs-v3): a fact that lost
+	// standing through disuse stays open to challenge and contradiction, and a
+	// pruned conjecture stays an open question. Native genesis sets it; a file
+	// without the field imports as off. No carrier upgrade sets it in place yet.
+	DormantFactContestEnabled bool `protobuf:"varint,78,opt,name=dormant_fact_contest_enabled,json=dormantFactContestEnabled,proto3" json:"dormant_fact_contest_enabled,omitempty"`
+	unknownFields             protoimpl.UnknownFields
+	sizeCache                 protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -1762,6 +1767,13 @@ func (x *GenesisState) GetAccountingState() *KnowledgeGenesisAccounting {
 func (x *GenesisState) GetDoctrineIdentityEnabled() bool {
 	if x != nil {
 		return x.DoctrineIdentityEnabled
+	}
+	return false
+}
+
+func (x *GenesisState) GetDormantFactContestEnabled() bool {
+	if x != nil {
+		return x.DormantFactContestEnabled
 	}
 	return false
 }
@@ -2351,7 +2363,7 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x1badd_fact_veto_window_blocks\x18\xa0\x01 \x01(\x04R\x17addFactVetoWindowBlocks\x1aN\n" +
 	" MethodologyNormalizationBpsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\xed\x18\n" +
+	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\xae\x19\n" +
 	"\fGenesisState\x123\n" +
 	"\x06params\x18\x01 \x01(\v2\x1b.zerone.knowledge.v1.ParamsR\x06params\x12/\n" +
 	"\x05facts\x18\x02 \x03(\v2\x19.zerone.knowledge.v1.FactR\x05facts\x12A\n" +
@@ -2394,7 +2406,8 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x1dcalibration_smoothing_enabled\x18J \x01(\bR\x1bcalibrationSmoothingEnabled\x12A\n" +
 	"\x1dzero_confidence_floor_enabled\x18K \x01(\bR\x1azeroConfidenceFloorEnabled\x12Z\n" +
 	"\x10accounting_state\x18L \x01(\v2/.zerone.knowledge.v1.KnowledgeGenesisAccountingR\x0faccountingState\x12:\n" +
-	"\x19doctrine_identity_enabled\x18M \x01(\bR\x17doctrineIdentityEnabled\"V\n" +
+	"\x19doctrine_identity_enabled\x18M \x01(\bR\x17doctrineIdentityEnabled\x12?\n" +
+	"\x1cdormant_fact_contest_enabled\x18N \x01(\bR\x19dormantFactContestEnabled\"V\n" +
 	"\x13FactRelationGenesis\x12?\n" +
 	"\trelations\x18\x01 \x03(\v2!.zerone.knowledge.v1.FactRelationR\trelations\"N\n" +
 	"\x17StatusTransitionCounter\x12\x17\n" +

@@ -70,9 +70,10 @@ func TestGenesisAccountingLegacyImportParity(t *testing.T) {
 			gs.InconclusiveRoundAccountingEnabled = false
 			gs.CalibrationSmoothingEnabled = false
 			gs.ZeroConfidenceFloorEnabled = false
-			// initGenesisLegacy predates the consensus-repairs-v3 marker, which
+			// initGenesisLegacy predates the consensus-repairs-v3 markers, which
 			// InitGenesis writes outside it.
 			gs.DoctrineIdentityEnabled = false
+			gs.DormantFactContestEnabled = false
 			require.Nil(t, gs.AccountingState)
 			switch mode {
 			case "existing-primary-keys":

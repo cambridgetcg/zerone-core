@@ -867,3 +867,8 @@ var ZeroConfidenceFloorEnabledKey = []byte{0x93}
 // doctrine-identity repair (keeper/doctrine_identity_activation.go). It
 // continues after the v2 markers at 0x91-0x93 and is unused like 0x91.
 var DoctrineIdentityEnabledKey = []byte{0x94}
+
+// DormantFactContestEnabledKey is the consensus-repairs-v3 marker for the
+// dormant-fact contest repair (keeper/dormant_fact_contest_activation.go),
+// unused like 0x91.
+var DormantFactContestEnabledKey = []byte{0x95}

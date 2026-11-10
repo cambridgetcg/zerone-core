@@ -59,11 +59,18 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 
 // initGenesisV3Markers writes the consensus-repairs-v3 selections. It sits
 // outside initGenesisLegacy, whose body stays pinned to the v2 foundation, and
-// runs on both import paths. Only an explicit true writes the marker; absence
+// runs on both import paths. Only an explicit true writes a marker; absence
 // keeps legacy semantics.
 func (k Keeper) initGenesisV3Markers(ctx context.Context, gs *types.GenesisState) error {
 	if gs.DoctrineIdentityEnabled {
-		return k.EnableDoctrineIdentity(ctx)
+		if err := k.EnableDoctrineIdentity(ctx); err != nil {
+			return err
+		}
+	}
+	if gs.DormantFactContestEnabled {
+		if err := k.EnableDormantFactContest(ctx); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -77,5 +84,10 @@ func (k Keeper) exportGenesisV3Markers(ctx context.Context, gs *types.GenesisSta
 	if err != nil {
 		panic(err)
 	}
+	dormantFactContest, err := k.DormantFactContestEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 	gs.DoctrineIdentityEnabled = doctrineIdentity
+	gs.DormantFactContestEnabled = dormantFactContest
 }

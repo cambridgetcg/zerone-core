@@ -10,20 +10,25 @@ import (
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
-// These tests hold the consensus-repairs-v3 knowledge marker to the same
+// These tests hold each consensus-repairs-v3 knowledge marker to the same
 // module-side contract as the v2 markers, through the v2 marker fixture
 // (consensus_repairs_v2_activation_test.go): the key is pinned, native genesis
 // selects the marker, the genesis field writes that marker and nothing else,
 // genesis JSON carries it exactly with a file written before the field existing
-// importing as off, and a malformed marker is never exported as off. The
-// repair's own tests can build on the fixture: genesisJSON(t, &off) turns the
-// marker off and EnableDoctrineIdentity turns it on.
+// importing as off, and a malformed marker is never exported as off. A repair's
+// own tests can build on the fixture: genesisJSON(t, &off) turns its marker off
+// and its Enable turns it on.
 
 var knowledgeV3Markers = []knowledgeV2Marker{
 	{
 		field: "doctrine_identity_enabled", pinned: 0x94, key: types.DoctrineIdentityEnabledKey,
 		enabled: keeper.Keeper.DoctrineIdentityEnabled, enable: keeper.Keeper.EnableDoctrineIdentity,
 		genesis: func(gs *types.GenesisState) *bool { return &gs.DoctrineIdentityEnabled },
+	},
+	{
+		field: "dormant_fact_contest_enabled", pinned: 0x95, key: types.DormantFactContestEnabledKey,
+		enabled: keeper.Keeper.DormantFactContestEnabled, enable: keeper.Keeper.EnableDormantFactContest,
+		genesis: func(gs *types.GenesisState) *bool { return &gs.DormantFactContestEnabled },
 	},
 }
 
