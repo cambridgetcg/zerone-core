@@ -288,6 +288,10 @@ func (x *DomainCoverage) GetActiveVoterCount() uint32 {
 //   - a review reading: how many directly included fact IDs have a retained
 //     verification round with at least one revealed vote.
 //
+// The review reading counts directly included fact IDs only. Included trace,
+// pair, drift-augmentation and normative-commitment IDs, and a composed
+// manifest's parent, are not counted, so review_state says nothing about them.
+//
 // Fields 1-10, 13 and 14 have exactly the meanings of the same-numbered
 // ProvenanceCertificate fields. Like v1, it is computed live and not stored.
 type ProvenanceCertificateV2 struct {
@@ -334,7 +338,7 @@ type ProvenanceCertificateV2 struct {
 	MissingFactCount uint64 `protobuf:"varint,18,opt,name=missing_fact_count,json=missingFactCount,proto3" json:"missing_fact_count,omitempty"`
 	// "reviewed" (at least one fact, none unreviewed), "partly_reviewed"
 	// (some of each), "unreviewed" (at least one fact, none reviewed) or
-	// "empty" (no facts).
+	// "empty" (no directly included fact IDs, whatever else is included).
 	ReviewState string `protobuf:"bytes,19,opt,name=review_state,json=reviewState,proto3" json:"review_state,omitempty"`
 	// One deterministic sentence built from the review counts.
 	ReviewExplanation string `protobuf:"bytes,20,opt,name=review_explanation,json=reviewExplanation,proto3" json:"review_explanation,omitempty"`

@@ -11708,7 +11708,7 @@
       "type": "object"
     },
     "zerone.training_provenance.v1.ProvenanceCertificateV2": {
-      "description": "- a warning reading: the v1 rubric and wording, unchanged, under names\n    that say what it counts. It is not evidence of review.\n  - a review reading: how many directly included fact IDs have a retained\n    verification round with at least one revealed vote.\n\nFields 1-10, 13 and 14 have exactly the meanings of the same-numbered\nProvenanceCertificate fields. Like v1, it is computed live and not stored.",
+      "description": "- a warning reading: the v1 rubric and wording, unchanged, under names\n    that say what it counts. It is not evidence of review.\n  - a review reading: how many directly included fact IDs have a retained\n    verification round with at least one revealed vote.\n\nThe review reading counts directly included fact IDs only. Included trace,\npair, drift-augmentation and normative-commitment IDs, and a composed\nmanifest's parent, are not counted, so review_state says nothing about them.\n\nFields 1-10, 13 and 14 have exactly the meanings of the same-numbered\nProvenanceCertificate fields. Like v1, it is computed live and not stored.",
       "properties": {
         "cartelResolutionCount": {
           "format": "int64",
@@ -11768,7 +11768,7 @@
           "type": "string"
         },
         "reviewState": {
-          "description": "\"reviewed\" (at least one fact, none unreviewed), \"partly_reviewed\"\n(some of each), \"unreviewed\" (at least one fact, none reviewed) or\n\"empty\" (no facts).",
+          "description": "\"reviewed\" (at least one fact, none unreviewed), \"partly_reviewed\"\n(some of each), \"unreviewed\" (at least one fact, none reviewed) or\n\"empty\" (no directly included fact IDs, whatever else is included).",
           "type": "string"
         },
         "reviewedFactCount": {

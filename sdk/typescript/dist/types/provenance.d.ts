@@ -102,7 +102,11 @@ export declare const ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE: "https://gith
  * evidence of review: "A" means none of the signals is present.
  */
 export type ZeroneWarningGrade = "A" | "B" | "C" | "F";
-/** Review coverage of the directly included fact IDs. */
+/**
+ * Review coverage of the directly included fact IDs only. Included trace,
+ * pair, drift-augmentation and normative-commitment IDs, and a composed
+ * manifest's parent, are not counted.
+ */
 export type ZeroneReviewState = "reviewed" | "partly_reviewed" | "unreviewed" | "empty";
 export interface ZeroneProvenanceCertificateV2 {
     readonly manifestId: string;

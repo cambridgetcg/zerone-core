@@ -722,7 +722,11 @@ export const ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE =
  */
 export type ZeroneWarningGrade = "A" | "B" | "C" | "F";
 
-/** Review coverage of the directly included fact IDs. */
+/**
+ * Review coverage of the directly included fact IDs only. Included trace,
+ * pair, drift-augmentation and normative-commitment IDs, and a composed
+ * manifest's parent, are not counted.
+ */
 export type ZeroneReviewState =
   | "reviewed"
   | "partly_reviewed"

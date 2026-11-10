@@ -625,8 +625,8 @@ tests. It is not a live response or independent review evidence.
 
 In predicate v1, `trustGrade` `A` means none of three counted warning signals
 is present. It is not evidence that the manifest's facts were reviewed: a
-manifest of doctrine or genesis facts, which no verification round reviewed,
-grades `A`. Predicate v2 reports two readings and no combined letter. Source
+manifest of doctrine facts or other facts without a claim ID, which no
+verification round reviewed, grades `A`. Predicate v2 reports two readings and no combined letter. Source
 for v2 is in this repository; a released package version that contains it is
 not asserted here.
 
@@ -651,6 +651,10 @@ const { warningGrade, reviewState } = parsed.statement.predicate.certificate;
   (IDs with no fact in the store) and `doctrineFactCount` (doctrine without a
   claim) are subsets of it.
 - `reviewState` is `reviewed`, `partly_reviewed`, `unreviewed` or `empty`.
+- The review reading counts directly included fact IDs only. Included trace,
+  pair, drift-augmentation and normative-commitment IDs, and a composed
+  manifest's parent, are not counted, so `reviewed` or `empty` says nothing
+  about them.
 
 The v2 parser is as strict as v1: exact keys, caller pins, and the warning
 grade, review state and both explanations recomputed from the counts. Each

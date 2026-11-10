@@ -81,6 +81,10 @@ message DomainCoverage {
 //   - a review reading: how many directly included fact IDs have a retained
 //     verification round with at least one revealed vote.
 //
+// The review reading counts directly included fact IDs only. Included trace,
+// pair, drift-augmentation and normative-commitment IDs, and a composed
+// manifest's parent, are not counted, so review_state says nothing about them.
+//
 // Fields 1-10, 13 and 14 have exactly the meanings of the same-numbered
 // ProvenanceCertificate fields. Like v1, it is computed live and not stored.
 message ProvenanceCertificateV2 {
@@ -130,7 +134,7 @@ message ProvenanceCertificateV2 {
   uint64 missing_fact_count     = 18;
   // "reviewed" (at least one fact, none unreviewed), "partly_reviewed"
   // (some of each), "unreviewed" (at least one fact, none reviewed) or
-  // "empty" (no facts).
+  // "empty" (no directly included fact IDs, whatever else is included).
   string review_state           = 19;
   // One deterministic sentence built from the review counts.
   string review_explanation     = 20;
