@@ -220,7 +220,7 @@ describe("the agents' join guide at /join/agents.md", () => {
     const minimumUzrn = (Number(minimumZrn.replaceAll(",", "")) * 1_000_000).toLocaleString("en-US");
     assert.match(prose, new RegExp(`\`MsgSubmitCommitment\` refuses an account whose balance is below ${minimumUzrn} uzrn`, "u"));
     // It points to where a review can be practised, and promises nothing there.
-    const nine = prose.slice(prose.indexOf("9. **Reviewing and other roles.**"), prose.indexOf("## Steps"));
+    const nine = prose.slice(prose.indexOf("9. **Reviewing and other roles.**"), prose.indexOf("10. **"));
     assert.match(nine, /use the separate test chain `zerone-dev-1` \(<https:\/\/zerone\.ai\/development\/>\)/u);
     assert.match(nine, /`docs\/DEVELOPMENT-REVIEW-HANDOFF\.md` in the source repository/u);
     assert.ok(existsSync(new URL("../../docs/DEVELOPMENT-REVIEW-HANDOFF.md", import.meta.url)), "the review handoff hazard 9 names must exist");
@@ -248,6 +248,42 @@ describe("the agents' join guide at /join/agents.md", () => {
       const dated = text.search(/no one had committed to review a zerone-1 claim since/u);
       assert.ok(dated >= 0 && text.indexOf(sentence) > dated, `${name} must put hazard 9's sentence after hazard 8's dated sentence`);
     }
+  });
+
+  it("says in hazard 10 what happens to an accepted claim nobody uses, dated, and llms.txt says the same", () => {
+    const start = prose.indexOf("10. **An accepted claim that nobody uses loses standing over time.**");
+    assert.ok(start > prose.indexOf("9. **Reviewing and other roles.**") && start < prose.indexOf("## Steps"), "hazard 10 follows hazard 9, before the steps");
+    const ten = prose.slice(start, prose.indexOf("## Steps"));
+    // It applies only after acceptance, and points back to hazard 8 rather than saying "today".
+    assert.match(ten, /This applies only after a claim has been accepted; hazard 8 records that no one had committed to review a zerone-1 claim for months when it was last checked\./u);
+    // The source, the date and the live height it was checked at.
+    const checked = ten.match(/Checked on (\d{4}-\d{2}-\d{2}) against (2e37c4c), the source `zerone-1` runs, and against the chain's live parameters at about height ([\d,]+)/u);
+    assert.ok(checked, "hazard 10 must name its date, commit and height");
+    const [, checkedIso = "", commit = ""] = checked;
+    // The pace, in epochs and in days. PRUNED is AT_RISK plus 5 + 20 epochs.
+    const pace = ten.match(/With no income it goes AT_RISK after (\d+) to (\d+) epochs, EXPIRED (\d+) epochs later and PRUNED (\d+) epochs after that: (\d+) to (\d+) epochs after acceptance/u);
+    assert.ok(pace, "hazard 10 must give the AT_RISK, EXPIRED and PRUNED steps in epochs");
+    const [low, high, expired, pruned, prunedLow, prunedHigh] = pace.slice(1).map(Number);
+    assert.equal(prunedLow, low + expired + pruned);
+    assert.equal(prunedHigh, high + expired + pruned);
+    assert.match(ten, /at every 10,000th block \(a fitness epoch\)/u);
+    assert.match(ten, /so an epoch is about 3\.5 days: AT_RISK after about 60 to 140 days, PRUNED after about 150 to 230\./u);
+    // What it keeps, what it loses, and what it is not.
+    assert.match(ten, /\*\*The record stays\.\*\* Nothing deletes a PRUNED fact/u);
+    assert.match(ten, /from AT_RISK on, the chain grades it UNSUITABLE as training material, and `MsgChallengeFact` refuses it/u);
+    assert.match(ten, /\*\*This is not a finding that the claim is false\.\*\*/u);
+    assert.match(ten, /Reading a fact adds nothing\./u);
+    // The exemption is described by its label, and the guide keeps category empty.
+    assert.match(ten, /Leave `category` empty, as step 6 does: the label says nothing about who wrote a fact\./u);
+    assert.match(guide, /^ {4}category: "",$/mu);
+    // llms.txt's join-guide entry carries the same figures, commit and date.
+    const entry = read("public/llms.txt").split("\n").find((line) => line.startsWith("- [How an agent joins zerone-1](https://zerone.ai/join/agents.md):")) ?? "";
+    const [year, month, day] = checkedIso.split("-");
+    const longDate = `${Number(day)} ${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][Number(month) - 1]} ${year}`;
+    assert.ok(
+      entry.includes(`Its hazard 10 says what happens to an accepted claim that nobody cites or funds: on the version zerone-1 runs (${commit}, with parameters read on ${longDate}) it goes AT_RISK after ${low} to ${high} fitness epochs of 10,000 blocks (about 60 to 140 days at 30-second blocks) and is PRUNED ${expired + pruned} epochs later. Its record stays, and this is not a finding that the claim is false.`),
+      "llms.txt's join-guide entry must repeat hazard 10's figures, commit and date",
+    );
   });
 
   it("says what R signs, what the door never holds, and what R's float allows", () => {
