@@ -801,6 +801,13 @@ export interface GenesisState {
      * from bounty creation totals or resetting the counters.
      */
     accountingState?: KnowledgeGenesisAccounting;
+    /**
+     * Doctrine-identity marker (consensus-repairs-v3): the metabolism exemption
+     * for doctrine follows provenance, not the category label. Native genesis
+     * sets it; a file without the field imports as off. No carrier upgrade sets
+     * it in place yet.
+     */
+    doctrineIdentityEnabled: boolean;
 }
 /**
  * Exports each ordered source/target pair once, including full provenance.
