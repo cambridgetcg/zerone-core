@@ -808,6 +808,20 @@ export interface GenesisState {
      * it in place yet.
      */
     doctrineIdentityEnabled: boolean;
+    /**
+     * Dormant-fact contest marker (consensus-repairs-v3): a fact that lost
+     * standing through disuse stays open to challenge and contradiction, and a
+     * pruned conjecture stays an open question. Native genesis sets it; a file
+     * without the field imports as off. No carrier upgrade sets it in place yet.
+     */
+    dormantFactContestEnabled: boolean;
+    /**
+     * Reviewer-balance parameter marker (consensus-repairs-v3): the balance a
+     * reviewer must hold to commit is read from a knowledge parameter instead of
+     * a fixed constant. Native genesis sets it; a file without the field imports
+     * as off. No carrier upgrade sets it in place yet.
+     */
+    reviewerBalanceParamEnabled: boolean;
 }
 /**
  * Exports each ordered source/target pair once, including full provenance.
