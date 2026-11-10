@@ -232,20 +232,27 @@ must show. Stop at the first step that does not.
    past the free 10 GB):
    `fly volumes snapshots create $VOL -a $APP`, then
    `fly volumes snapshots list $VOL -a $APP`. Expect: a new snapshot id in state `created`.
-5. **Update the image only** (a live act). Run it from an empty directory, so
+5. **Update the image only** (a live act). First start streaming the logs into
+   a file, `fly logs -a $APP > swap-logs.txt &`: `fly logs --no-tail` returns
+   only the last 100 lines (about 30 s on testnet), so the startup lines step 6
+   needs are gone within a minute. Run the update from an empty directory, so
    no stray `fly.toml` is read (`2e37c4c`'s `deploy/mainnet/fly.toml` still
-   declares the public 26656 service), and first without `--yes`:
-   `cd "$(mktemp -d)" && fly machine update $ID -a $APP --image registry.fly.io/$APP@NEW`.
-   Read flyctl's config diff: only the image may change. Then confirm. Expect
-   the machine to restart once. On 2026-11-06 a restart of zerone-1 paused
-   blocks for 71 s.
+   declares the public 26656 service), and first without `--yes` (flyctl then
+   prints the diff and refuses):
+   `cd "$(mktemp -d)" && fly machine update $ID -a $APP --image registry.fly.io/$APP:cometbft-0.38.25-d6391ea7`.
+   Pass the tag, not `@sha256:`: flyctl 0.4.x appends the resolved digest, so a
+   digest reference comes out doubled (`…@sha256:X@sha256:X`). Read flyctl's
+   config diff: only the image may change, to the tag pinned at `NEW`. Then
+   confirm with `--yes`. Expect the machine to restart once. On 2026-11-06 a
+   restart of zerone-1 paused blocks for 71 s; the testnet swap on 2026-11-10
+   paused them for 13.3 s.
 6. **Check.**
    - `fly machine status $ID -a $APP --display-config > after.json`. Expect
      `image_ref.digest` = `NEW`, state `started`, and no other difference from
      `before.json` apart from image, instance and timestamp fields: the services
      (still no 26656), mounts, guest, restart policy, environment names and
      `init` must be unchanged.
-   - `fly logs -a $APP` from the restart. Expect `[entrypoint] existing volume — resuming`,
+   - `swap-logs.txt` from the restart. Expect `[entrypoint] existing volume — resuming`,
      a `Version info` line matching `tendermint_version=0.38.25` (the real line
      reads `Version info abci=2.0.0 block=11 commit_hash= module=server p2p=8 tendermint_version=0.38.25`),
      `ABCI Handshake App Info` / `ABCI Replay Blocks` at the stopped height,
@@ -262,16 +269,19 @@ must show. Stop at the first step that does not.
      across the swap height.
 7. **Soak.** For 60 minutes, check about every minute: version, advancing height,
    and the logs. On testnet, wait at least 24 hours (and Yu's word) before zerone-1.
-8. **Record.** Write a dated record under `docs/reports/` with the before and
-   after configs, digests, snapshot id, heights, times and checks, as the dev-1
-   binary patch did on 2026-11-03.
+8. **Record.** Write a dated record under `docs/reports/` with the heights,
+   times, versions, the executable and configuration-file digests, the config
+   diff and the checks, as the dev-1 binary patch did on 2026-11-03. This
+   repository is public, so the machine and volume IDs, the image digests and
+   the snapshot id stay in the operator's own record, not in the report.
 
 ## Rollback
 
 First `crane digest registry.fly.io/$APP:rollback-94d76a0a` must still print
 `OLD`'s digest. Then, from an empty directory,
-`fly machine update $ID -a $APP --image $OLD --yes`, with `OLD` the before
-image by digest, followed by the same checks with `0.38.19` expected. The local
+`fly machine update $ID -a $APP --image registry.fly.io/$APP:rollback-94d76a0a --yes`
+(the tag, for the reason in step 5), check that `image_ref.digest` is `OLD`'s,
+and run the same checks with `0.38.19` expected. The local
 rehearsal showed the v0.38.20 binary resuming on a home written by v0.38.25.
 Do not use `fly releases rollback` or `fly deploy`: either one replaces the
 machine configuration with an older release's or a `fly.toml`'s, which can bring
