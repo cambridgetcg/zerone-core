@@ -36,6 +36,7 @@ LOCAL_RPC_PORT="${OBSERVER_LOCAL_RPC_PORT:-26657}"
 TICK="${OBSERVER_TICK:-15}"
 REPORT_EVERY="${OBSERVER_REPORT_EVERY:-60}"
 SPOT_EVERY="${OBSERVER_SPOT_EVERY:-600}"
+SPOT_WAIT="${OBSERVER_SPOT_WAIT:-300}"   # how long a spot waits for the validator's next header
 PEERLESS_RESTART="${OBSERVER_PEERLESS_RESTART:-1800}"
 STALL_RESTART="${OBSERVER_STALL_RESTART:-3600}"
 MIN_FREE_KB="${OBSERVER_MIN_FREE_KB:-3145728}"          # 3 GiB
@@ -303,6 +304,7 @@ upgrade_info() {  # prints "name height" from data/upgrade-info.json, or nothing
 }
 
 LAST_REPORT=0; LAST_SPOT=0; PREV_H=""; PREV_T=""; PEERLESS_SINCE=""; STALL_H=""; STALL_SINCE=""
+SPOT_H=""; SPOT_HEX=""; SPOT_T=0
 report() {  # report <rung index>; sets REPORT_H, REPORT_PEERS, REPORT_CATCHING
   local i="$1" st ni now h bt ah cu peers rate=""
   st="$(http_get "$LOCAL_RPC_HOST" "$LOCAL_RPC_PORT" /status || true)"
@@ -321,17 +323,27 @@ report() {  # report <rung index>; sets REPORT_H, REPORT_PEERS, REPORT_CATCHING
 }
 
 spot_check() {  # compare this node's applied app hash at H with the validator's header H+1
-  local ai h lh hex up uph
+  # Following at the tip, the validator's H+1 header usually is not out yet when H is read, so the
+  # captured H waits for it (rechecked every tick, up to SPOT_WAIT seconds). Without the wait,
+  # 435 of 437 following spots on 2026-11-07..10 read "upstream unavailable".
+  local ai h lh up uph now
   [ "$UPSTREAM" != "off" ] || return 0
-  ai="$(http_get "$LOCAL_RPC_HOST" "$LOCAL_RPC_PORT" /abci_info || true)"
-  h="$(printf '%s' "$ai" | jget last_block_height)"; lh="$(printf '%s' "$ai" | jget last_block_app_hash)"
-  [[ "$h" =~ ^[1-9][0-9]*$ ]] && [ -n "$lh" ] || return 0
-  hex="$(printf '%s' "$lh" | b64hex || true)"
-  up="$(http_get "${UPSTREAM%:*}" "${UPSTREAM##*:}" "/header?height=$((h + 1))" || true)"
+  now="$(date +%s)"
+  if [ -z "$SPOT_H" ]; then
+    ai="$(http_get "$LOCAL_RPC_HOST" "$LOCAL_RPC_PORT" /abci_info || true)"
+    h="$(printf '%s' "$ai" | jget last_block_height)"; lh="$(printf '%s' "$ai" | jget last_block_app_hash)"
+    [[ "$h" =~ ^[1-9][0-9]*$ ]] && [ -n "$lh" ] || return 0
+    SPOT_H="$h"; SPOT_HEX="$(printf '%s' "$lh" | b64hex || true)"; SPOT_T="$now"
+  fi
+  up="$(http_get "${UPSTREAM%:*}" "${UPSTREAM##*:}" "/header?height=$((SPOT_H + 1))" || true)"
   uph="$(printf '%s' "$up" | jget app_hash)"
-  if [ -z "$uph" ]; then say apphash_spot height "$h" result "upstream unavailable"; return 0; fi
-  if [ "$uph" = "$hex" ]; then say apphash_spot height "$h" result MATCH applied_app_hash "$hex" validator_header "$((h + 1))"
-  else say apphash_spot height "$h" result DIFFER applied_app_hash "$hex" validator_header_app_hash "$uph"; fi
+  if [ -z "$uph" ]; then
+    [ $((now - SPOT_T)) -ge "$SPOT_WAIT" ] || return 0
+    say apphash_spot height "$SPOT_H" result "upstream unavailable" waited_s "$((now - SPOT_T))"
+  elif [ "$uph" = "$SPOT_HEX" ]; then
+    say apphash_spot height "$SPOT_H" result MATCH applied_app_hash "$SPOT_HEX" validator_header "$((SPOT_H + 1))"
+  else say apphash_spot height "$SPOT_H" result DIFFER applied_app_hash "$SPOT_HEX" validator_header_app_hash "$uph"; fi
+  SPOT_H=""
 }
 
 validator_lagging() {  # true when the signer's newest block is older than VALIDATOR_LAG seconds
@@ -430,7 +442,8 @@ run_rung() {  # run_rung <index>; sets OUTCOME to advanced | restart | crashed
         fi
       fi
     fi
-    if [ $((now - LAST_SPOT)) -ge "$SPOT_EVERY" ]; then LAST_SPOT="$now"; spot_check; fi
+    if [ -n "$SPOT_H" ]; then spot_check
+    elif [ $((now - LAST_SPOT)) -ge "$SPOT_EVERY" ]; then LAST_SPOT="$now"; spot_check; fi
   done
   local rc=0 ran
   if [ -n "$ZPID" ]; then wait "$ZPID" || rc=$?; ZPID=""; fi

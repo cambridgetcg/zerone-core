@@ -96,6 +96,7 @@ The mismatch lines it acts on:
 | `release_heights.py` | reproduce the boundary heights from public RPC block times |
 | `watch.sh` | read-only progress, cadence and cost watch |
 | `test/test-ladder.sh` | supervisor logic with stand-in binaries (no network) |
+| `test/test-spot.sh` | the app-hash spot check, including the wait for the validator's next header at the tip (no network) |
 | `test/smoke-real.sh` | init, config, InitChain and clean stop with the real lane binary (no network) |
 | `test/test_rung_layer.py` | layer picker and extractor on synthetic gzip and zstd layers |
 
