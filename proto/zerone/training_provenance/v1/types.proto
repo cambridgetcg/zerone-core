@@ -67,3 +67,67 @@ message DomainCoverage {
   // Number of validators with ACTIVE qualifications in this domain.
   uint32 active_voter_count    = 4;
 }
+
+// ProvenanceCertificateV2 is the certificate of training-provenance predicate
+// v2 (docs/specs/attestations/training-provenance-v2.md). It carries two
+// separate readings and no combined letter:
+//
+//   - a warning reading: the v1 rubric and wording, unchanged, under names
+//     that say what it counts. It is not evidence of review.
+//   - a review reading: how many directly included fact IDs have a retained
+//     verification round with at least one revealed vote.
+//
+// Fields 1-10, 13 and 14 have exactly the meanings of the same-numbered
+// ProvenanceCertificate fields. Like v1, it is computed live and not stored.
+message ProvenanceCertificateV2 {
+  // ── Manifest identity ──────────────────────────────────────────────
+  string manifest_id            = 1;
+  string pipeline_id            = 2;
+  string merkle_root            = 3;
+  uint64 fact_count             = 4;
+  uint64 finalized_at_block     = 5;
+  string status                 = 6;
+
+  // ── Domain coverage ────────────────────────────────────────────────
+  repeated DomainCoverage domains = 7;
+
+  // ── Audit history (the three counted warning signals) ──────────────
+  uint32 privileged_action_count = 8;
+  uint32 incident_count          = 9;
+  uint32 cartel_resolution_count = 10;
+
+  // ── Warning reading ────────────────────────────────────────────────
+  // The v1 rubric (computeTrustGrade in
+  // x/training_provenance/keeper/certificate.go) applied to fields 8-10:
+  // "A", "B", "C" or "F". It says which counted warning signals are present.
+  // It must not be read as review: "A" means none of the three signals is
+  // present, not that any included fact was reviewed.
+  string warning_grade          = 11;
+  string warning_explanation    = 12;
+  uint64 computed_at_block      = 13;
+  string source_chain_id        = 14;
+
+  // ── Review reading ─────────────────────────────────────────────────
+  // Counted per entry of the manifest's directly included fact IDs.
+  // reviewed_fact_count + unreviewed_fact_count == fact_count.
+  //
+  // A fact is reviewed when it exists, has a non-empty claim_id, and the
+  // knowledge module still returns that claim's verification round, naming
+  // the same claim, with at least one reveal. Every other entry is
+  // unreviewed, including fact IDs missing from the store: the worst
+  // reading wins.
+  uint64 reviewed_fact_count    = 15;
+  uint64 unreviewed_fact_count  = 16;
+  // Unreviewed facts that exist, have an empty claim_id, and carry the
+  // "doctrine" category or the "doctrine_authorship" method. Reported so
+  // that doctrine is described, not graded.
+  uint64 doctrine_fact_count    = 17;
+  // Included fact IDs with no fact in the store. Counted as unreviewed.
+  uint64 missing_fact_count     = 18;
+  // "reviewed" (at least one fact, none unreviewed), "partly_reviewed"
+  // (some of each), "unreviewed" (at least one fact, none reviewed) or
+  // "empty" (no facts).
+  string review_state           = 19;
+  // One deterministic sentence built from the review counts.
+  string review_explanation     = 20;
+}

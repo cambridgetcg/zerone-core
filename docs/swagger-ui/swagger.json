@@ -11604,6 +11604,28 @@
       },
       "type": "object"
     },
+    "zerone.training_provenance.v1.InTotoStatementV1PredicateV2": {
+      "description": "InTotoStatementV1PredicateV2 is an in-toto Statement v1 carrying\ntraining-provenance predicate v2. The envelope and subject are the same as\nInTotoStatementV1; only the predicate type and certificate differ. Like v1,\nthe HTTP query returns this message directly and it is unsigned.",
+      "properties": {
+        "_type": {
+          "type": "string"
+        },
+        "predicate": {
+          "$ref": "#/definitions/zerone.training_provenance.v1.TrainingProvenancePredicateV2"
+        },
+        "predicateType": {
+          "type": "string"
+        },
+        "subject": {
+          "items": {
+            "$ref": "#/definitions/zerone.training_provenance.v1.InTotoSubject",
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
     "zerone.training_provenance.v1.InTotoSubject": {
       "description": "InTotoSubject identifies the manifest's immutable included-ID-set\ncommitment by its SHA-256 Merkle root. The digest does not cover every\nmanifest metadata or version-pin field.",
       "properties": {
@@ -11685,10 +11707,108 @@
       },
       "type": "object"
     },
+    "zerone.training_provenance.v1.ProvenanceCertificateV2": {
+      "description": "- a warning reading: the v1 rubric and wording, unchanged, under names\n    that say what it counts. It is not evidence of review.\n  - a review reading: how many directly included fact IDs have a retained\n    verification round with at least one revealed vote.\n\nFields 1-10, 13 and 14 have exactly the meanings of the same-numbered\nProvenanceCertificate fields. Like v1, it is computed live and not stored.",
+      "properties": {
+        "cartelResolutionCount": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "computedAtBlock": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "doctrineFactCount": {
+          "description": "Unreviewed facts that exist, have an empty claim_id, and carry the\n\"doctrine\" category or the \"doctrine_authorship\" method. Reported so\nthat doctrine is described, not graded.",
+          "format": "uint64",
+          "type": "string"
+        },
+        "domains": {
+          "items": {
+            "$ref": "#/definitions/zerone.training_provenance.v1.DomainCoverage",
+            "type": "object"
+          },
+          "title": "── Domain coverage ────────────────────────────────────────────────",
+          "type": "array"
+        },
+        "factCount": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "finalizedAtBlock": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "incidentCount": {
+          "format": "int64",
+          "type": "integer"
+        },
+        "manifestId": {
+          "title": "── Manifest identity ──────────────────────────────────────────────",
+          "type": "string"
+        },
+        "merkleRoot": {
+          "type": "string"
+        },
+        "missingFactCount": {
+          "description": "Included fact IDs with no fact in the store. Counted as unreviewed.",
+          "format": "uint64",
+          "type": "string"
+        },
+        "pipelineId": {
+          "type": "string"
+        },
+        "privilegedActionCount": {
+          "format": "int64",
+          "title": "── Audit history (the three counted warning signals) ──────────────",
+          "type": "integer"
+        },
+        "reviewExplanation": {
+          "description": "One deterministic sentence built from the review counts.",
+          "type": "string"
+        },
+        "reviewState": {
+          "description": "\"reviewed\" (at least one fact, none unreviewed), \"partly_reviewed\"\n(some of each), \"unreviewed\" (at least one fact, none reviewed) or\n\"empty\" (no facts).",
+          "type": "string"
+        },
+        "reviewedFactCount": {
+          "description": "── Review reading ─────────────────────────────────────────────────\nCounted per entry of the manifest's directly included fact IDs.\nreviewed_fact_count + unreviewed_fact_count == fact_count.\n\nA fact is reviewed when it exists, has a non-empty claim_id, and the\nknowledge module still returns that claim's verification round, naming\nthe same claim, with at least one reveal. Every other entry is\nunreviewed, including fact IDs missing from the store: the worst\nreading wins.",
+          "format": "uint64",
+          "type": "string"
+        },
+        "sourceChainId": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "unreviewedFactCount": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "warningExplanation": {
+          "type": "string"
+        },
+        "warningGrade": {
+          "description": "── Warning reading ────────────────────────────────────────────────\nThe v1 rubric (computeTrustGrade in\nx/training_provenance/keeper/certificate.go) applied to fields 8-10:\n\"A\", \"B\", \"C\" or \"F\". It says which counted warning signals are present.\nIt must not be read as review: \"A\" means none of the three signals is\npresent, not that any included fact was reviewed.",
+          "type": "string"
+        }
+      },
+      "title": "ProvenanceCertificateV2 is the certificate of training-provenance predicate\nv2 (docs/specs/attestations/training-provenance-v2.md). It carries two\nseparate readings and no combined letter:",
+      "type": "object"
+    },
     "zerone.training_provenance.v1.QueryProvenanceCertificateResponse": {
       "properties": {
         "certificate": {
           "$ref": "#/definitions/zerone.training_provenance.v1.ProvenanceCertificate"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.training_provenance.v1.QueryProvenanceCertificateV2Response": {
+      "properties": {
+        "certificate": {
+          "$ref": "#/definitions/zerone.training_provenance.v1.ProvenanceCertificateV2"
         }
       },
       "type": "object"
@@ -11705,6 +11825,21 @@
         },
         "sourceChainId": {
           "description": "The chain pinned into the immutable manifest at creation time.",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.training_provenance.v1.TrainingProvenancePredicateV2": {
+      "description": "TrainingProvenancePredicateV2 carries Zerone's complete, current v2\ncertificate. Its chain fields have the TrainingProvenancePredicate meanings.",
+      "properties": {
+        "certificate": {
+          "$ref": "#/definitions/zerone.training_provenance.v1.ProvenanceCertificateV2"
+        },
+        "observedOnChainId": {
+          "type": "string"
+        },
+        "sourceChainId": {
           "type": "string"
         }
       },
@@ -19437,6 +19572,37 @@
         ]
       }
     },
+    "/zerone/training_provenance/v1/certificate-v2/{manifestId}": {
+      "get": {
+        "operationId": "ProvenanceCertificateV2",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "manifestId",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.training_provenance.v1.QueryProvenanceCertificateV2Response"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "summary": "ProvenanceCertificateV2 returns the predicate v2 certificate: the v1\nwarning rubric as warning_grade, and review coverage counted per included\nfact ID, with no combined letter. See\ndocs/specs/attestations/training-provenance-v2.md. The v1 methods above\nare unchanged.",
+        "tags": [
+          "Query"
+        ]
+      }
+    },
     "/zerone/training_provenance/v1/certificate/{manifestId}": {
       "get": {
         "operationId": "ProvenanceCertificate",
@@ -19462,6 +19628,37 @@
             }
           }
         },
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/zerone/training_provenance/v1/in-toto-v2/{manifestId}": {
+      "get": {
+        "operationId": "InTotoStatementV2",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "manifestId",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/zerone.training_provenance.v1.InTotoStatementV1PredicateV2"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/google.rpc.Status"
+            }
+          }
+        },
+        "summary": "InTotoStatementV2 projects the v2 certificate into an unsigned in-toto\nStatement v1 with the predicate v2 type. Eligibility matches\nInTotoStatement.",
         "tags": [
           "Query"
         ]

@@ -86,6 +86,10 @@ func (*inTotoKnowledgeStub) IteratePrivilegedActions(context.Context, func(*know
 func (*inTotoKnowledgeStub) IterateIncidents(context.Context, func(*knowledgetypes.IncidentRecord) bool) {
 }
 
+func (*inTotoKnowledgeStub) GetRoundByClaimID(context.Context, string) (*knowledgetypes.VerificationRound, bool) {
+	return nil, false
+}
+
 func newInTotoQueryTestServer(manifests map[string]*knowledgetypes.TrainingManifest) (types.QueryServer, context.Context) {
 	k := NewKeeper(nil)
 	k.SetKnowledgeKeeper(&inTotoKnowledgeStub{manifests: manifests})

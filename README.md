@@ -352,7 +352,7 @@ make proto-gen
 ## SDK and API
 
 - The generated [Swagger document](docs/swagger-ui/swagger.json) is the REST
-  inventory of record: 218 paths and 457 definitions.
+  inventory of record: 220 paths and 461 definitions.
 - The repository [TypeScript SDK](sdk/typescript/) covers 169 request messages
   across 20 Zerone `Msg` services. Version 0.1.1 has been on npm as
   `@zerone-chain/sdk` since 2 November 2026, published by hand without a
