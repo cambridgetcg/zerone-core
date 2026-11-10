@@ -291,7 +291,7 @@ describe("the agents' join guide at /join/agents.md", () => {
     const [year, month, day] = checkedIso.split("-");
     const longDate = `${Number(day)} ${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][Number(month) - 1]} ${year}`;
     assert.ok(
-      entry.includes(`Its hazard 10 says what happens to an accepted claim that nobody cites or funds: on the version zerone-1 runs (${commit}, with parameters read on ${longDate}) it goes AT_RISK after ${low} to ${high} fitness epochs of 10,000 blocks (about 60 to 140 days at 30-second blocks) and is PRUNED ${expired + pruned} epochs later. Its record stays, and this is not a finding that the claim is false.`),
+      entry.includes(`Its hazard 10 says what happens to an accepted claim that nobody cites or funds: on the version zerone-1 runs (${commit}, with parameters read on ${longDate}) it goes AT_RISK after ${low} to ${high} fitness epochs of 10,000 blocks (about 60 to 140 days at 30-second blocks), sooner in a domain over its carrying capacity, and is PRUNED ${expired + pruned} epochs later. Its record stays, and this is not a finding that the claim is false.`),
       "llms.txt's join-guide entry must repeat hazard 10's figures, commit and date",
     );
   });
