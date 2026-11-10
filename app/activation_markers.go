@@ -132,6 +132,12 @@ func ConsensusRepairsV2GenesisSelections() []ActivationSelection {
 //   - substrate_bridge/cited_reward_escrow_enabled (substrate_bridge 0x91): the
 //     reward for an attestation that cites existing facts waits in the existing
 //     witness escrow window.
+//   - knowledge/dormant_fact_contest_enabled (knowledge 0x95): a fact that lost
+//     standing through disuse stays open to challenge and contradiction, and a
+//     pruned conjecture stays an open question.
+//   - knowledge/reviewer_balance_param_enabled (knowledge 0x96): the balance a
+//     reviewer must hold to commit is read from a knowledge parameter instead
+//     of a fixed constant.
 //
 // Native genesis selects each one through its module's genesis field, and a
 // genesis without the field imports with the marker off. No carrier upgrade,
@@ -147,6 +153,10 @@ func (app *ZeroneApp) ConsensusRepairsV3Markers() []ActivationMarker {
 			app.KnowledgeKeeper.DoctrineIdentityEnabled, app.KnowledgeKeeper.EnableDoctrineIdentity},
 		{substratebridgetypes.ModuleName, "cited_reward_escrow_enabled",
 			app.SubstrateBridgeKeeper.CitedRewardEscrowEnabled, app.SubstrateBridgeKeeper.EnableCitedRewardEscrow},
+		{zeroneknowledgetypes.ModuleName, "dormant_fact_contest_enabled",
+			app.KnowledgeKeeper.DormantFactContestEnabled, app.KnowledgeKeeper.EnableDormantFactContest},
+		{zeroneknowledgetypes.ModuleName, "reviewer_balance_param_enabled",
+			app.KnowledgeKeeper.ReviewerBalanceParamEnabled, app.KnowledgeKeeper.EnableReviewerBalanceParam},
 	}
 }
 
@@ -158,5 +168,7 @@ func ConsensusRepairsV3GenesisSelections() []ActivationSelection {
 	return []ActivationSelection{
 		{zeroneknowledgetypes.ModuleName, "doctrine_identity_enabled"},
 		{substratebridgetypes.ModuleName, "cited_reward_escrow_enabled"},
+		{zeroneknowledgetypes.ModuleName, "dormant_fact_contest_enabled"},
+		{zeroneknowledgetypes.ModuleName, "reviewer_balance_param_enabled"},
 	}
 }

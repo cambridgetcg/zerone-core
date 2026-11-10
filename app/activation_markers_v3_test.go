@@ -21,7 +21,10 @@ const consensusRepairsV3TestChainID = "consensus-repairs-v3-markers"
 // with its store key. It lives in this test because no v3 carrier exists yet to
 // own a production list beside consensusRepairsV2MarkerLocations.
 func consensusRepairsV3TestLocations() []consensusRepairsMarkerLocation {
-	return []consensusRepairsMarkerLocation{{"knowledge", []byte{0x94}}, {"substrate_bridge", []byte{0x91}}}
+	return []consensusRepairsMarkerLocation{
+		{"knowledge", []byte{0x94}}, {"substrate_bridge", []byte{0x91}},
+		{"knowledge", []byte{0x95}}, {"knowledge", []byte{0x96}},
+	}
 }
 
 // consensusRepairsV3Genesis is native genesis with each v3 selection kept

@@ -17,7 +17,7 @@ import (
 var repairsV3MarkerLocations = []struct {
 	store string
 	key   byte
-}{{"knowledge", 0x94}, {"substrate_bridge", 0x91}}
+}{{"knowledge", 0x94}, {"substrate_bridge", 0x91}, {"knowledge", 0x95}, {"knowledge", 0x96}}
 
 // Synthetic pre-carrier state: an existing chain that has not run a v3
 // carrier. The owner module tests separately pin true DefaultGenesis and the
@@ -76,7 +76,7 @@ func TestConsensusRepairsV3MarkersFollowGenesisThroughTheApp(t *testing.T) {
 	}
 }
 
-// The registry a v3 carrier will loop over lists exactly the two
+// The registry a v3 carrier will loop over lists exactly the four
 // consensus-repairs-v3 markers, each named by the genesis field that carries
 // it, in the order of ConsensusRepairsV3GenesisSelections. Enabling every entry
 // on a chain without them selects every repair, idempotently, and an export
@@ -91,6 +91,8 @@ func TestConsensusRepairsV3RegistryEnablesEveryMarker(t *testing.T) {
 	require.Equal(t, []string{
 		"knowledge/doctrine_identity_enabled",
 		"substrate_bridge/cited_reward_escrow_enabled",
+		"knowledge/dormant_fact_contest_enabled",
+		"knowledge/reviewer_balance_param_enabled",
 	}, listed)
 	require.Len(t, zeroneapp.ConsensusRepairsV3GenesisSelections(), len(listed))
 	require.Len(t, repairsV3MarkerLocations, len(listed))
