@@ -3,6 +3,7 @@ package app_test
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"sync"
 	"testing"
 
@@ -559,34 +560,65 @@ func (m *mockOracleClient) Evaluate(claim, domain, claimType string) (*zeroneapp
 
 func TestEvaluateWithOracle_Accept(t *testing.T) {
 	client := &mockOracleClient{verdict: "accept", confidence: 0.9}
-	verdict, confidence := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
+	verdict, confidence, ok := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
+	require.True(t, ok)
 	require.Equal(t, "accept", verdict)
 	require.Equal(t, uint64(900_000), confidence)
 }
 
 func TestEvaluateWithOracle_Reject(t *testing.T) {
 	client := &mockOracleClient{verdict: "reject", confidence: 0.85}
-	verdict, confidence := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
+	verdict, confidence, ok := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
+	require.True(t, ok)
 	require.Equal(t, "reject", verdict)
 	require.Equal(t, uint64(850_000), confidence)
 }
 
-func TestEvaluateWithOracle_Uncertain(t *testing.T) {
+func TestEvaluateWithOracle_UncertainCastsNoVote(t *testing.T) {
 	client := &mockOracleClient{verdict: "uncertain", confidence: 0.5}
-	verdict, confidence := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
-	require.Equal(t, "accept", verdict, "uncertain should default to accept")
-	require.Equal(t, uint64(500_000), confidence)
+	verdict, confidence, ok := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
+	require.False(t, ok, "uncertain must not become accept")
+	require.Equal(t, "", verdict, "uncertain must not become accept")
+	require.Equal(t, uint64(0), confidence)
 }
 
-func TestEvaluateWithOracle_Error(t *testing.T) {
+func TestEvaluateWithOracle_ErrorCastsNoVote(t *testing.T) {
 	client := &mockOracleClient{err: fmt.Errorf("connection refused")}
-	verdict, confidence := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
-	require.Equal(t, "accept", verdict, "error should default to accept")
-	require.Equal(t, uint64(600_000), confidence, "error should use default confidence")
+	verdict, confidence, ok := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
+	require.False(t, ok, "an oracle error must cast no vote")
+	require.Equal(t, "", verdict)
+	require.Equal(t, uint64(0), confidence)
 }
 
-func TestEvaluateWithOracle_NilClientDefault(t *testing.T) {
-	verdict, confidence := zeroneapp.EvaluateWithOracle(nil, "claim", "domain", "type")
-	require.Equal(t, "accept", verdict)
-	require.Equal(t, uint64(600_000), confidence)
+func TestEvaluateWithOracle_NilClientCastsNoVote(t *testing.T) {
+	verdict, confidence, ok := zeroneapp.EvaluateWithOracle(nil, "claim", "domain", "type")
+	require.False(t, ok, "no oracle client must cast no vote")
+	require.Equal(t, "", verdict)
+	require.Equal(t, uint64(0), confidence)
+}
+
+func TestEvaluateWithOracle_UnknownVerdictCastsNoVote(t *testing.T) {
+	for _, word := range []string{"malformed", "maybe"} {
+		client := &mockOracleClient{verdict: word, confidence: 0.9}
+		verdict, confidence, ok := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
+		require.False(t, ok, "verdict %q must cast no vote", word)
+		require.Equal(t, "", verdict, "verdict %q must cast no vote", word)
+		require.Equal(t, uint64(0), confidence, "verdict %q must cast no vote", word)
+	}
+}
+
+func TestEvaluateWithOracle_ConfidenceOutOfRange(t *testing.T) {
+	for _, c := range []float64{-0.1, math.NaN(), math.Inf(-1)} {
+		client := &mockOracleClient{verdict: "accept", confidence: c}
+		_, _, ok := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
+		require.False(t, ok, "confidence %v must cast no vote", c)
+	}
+
+	for _, c := range []float64{1e30, math.Inf(1)} {
+		client := &mockOracleClient{verdict: "reject", confidence: c}
+		verdict, confidence, ok := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
+		require.True(t, ok)
+		require.Equal(t, "reject", verdict)
+		require.Equal(t, uint64(1_000_000), confidence, "confidence %v must cap at 1_000_000", c)
+	}
 }

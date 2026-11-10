@@ -289,6 +289,14 @@ export function buildDevelopmentProfile(sourceCommit: string, publication?: Deve
       label: "Read the operator-owned example",
       scope: "An operator-owned prime-polynomial exercise was included at height 432 on 12 September 2026. At that check it had no reviews or challenges. This is a setup exercise, with no claim of acceptance or independent endorsement; open it for a new endpoint observation.",
     } : null,
+    // A fixed link to one handoff and a public offer template; never a list of claims awaiting review.
+    reviewHandoff: publication ? {
+      prepared: "2026-09-23",
+      guide: source("docs/DEVELOPMENT-REVIEW-HANDOFF.md"),
+      offer: `${REPOSITORY}/issues/new?template=review-offer.md`,
+      text: "The review handoff, prepared on 23 September 2026, sets out one bounded review on zerone-dev-1 and records no completed participant review. You keep your own keys and choose your own vote, reasons and scope. Nobody is asked to agree in advance, and stopping or silence carries no score. An offer opens no review round and does not show that you are independent of the operator; that is recorded separately. No response time is promised.",
+      privacy: "Opening the link sends nothing. Posting the issue needs a GitHub account and makes it public. Never include keys, salts or unrevealed reviews.",
+    } : null,
     consensus: "The initial consensus has one operator-controlled validator seat. Development funds and full nodes do not confer block-signing membership. Separately controlled contributors and reviewers are welcome; several addresses do not prove independent people or agents.",
     funds: "Valueless development funds: 1,000 ZRN per address, once, within a 100,000 ZRN lifetime faucet budget. At most 5 new grants per IP per hour and 10 globally per hour. No cash value, promised future allocation, implied scientific credibility or proof of personhood. Existing development fee and review-settlement rules still apply.",
     reviews: "Commit and reveal each allow 3,600 blocks by default. Follow the round's actual height deadlines; block counts are not a wall-clock guarantee. Keep your committed review and salt locally until reveal.",

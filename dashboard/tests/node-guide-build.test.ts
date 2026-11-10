@@ -16,6 +16,7 @@ function developmentSources(root: string): void {
   mkdirSync(join(root, "docs"), { recursive: true });
   writeFileSync(join(root, "scripts/shared-claims.py"), "# Shared client fixture; never executed\n");
   writeFileSync(join(root, "docs/SHARED-DEVELOPMENT.md"), "# Shared development fixture\n");
+  writeFileSync(join(root, "docs/DEVELOPMENT-REVIEW-HANDOFF.md"), "# Review handoff fixture\n");
   mkdirSync(join(root, "skills/run-a-private-zerone-net/scripts"), { recursive: true });
   writeFileSync(join(root, "skills/run-a-private-zerone-net/scripts/private-net.py"), privateNetworkTool);
 }
@@ -162,6 +163,9 @@ it("binds optional development publication and client docs to committed bytes", 
     for (const key of ["chain_id", "chain\\u005fid"]) { writeFileSync(path, raw.replace("{", `{"${key}":"zerone-1",`)); commit(); assert.throws(() => loadNodeGuideProfile(root), /Duplicate development publication key/u); }
     writeFileSync(path, raw); commit();
     writeFileSync(join(root, "docs/SHARED-DEVELOPMENT.md"), "Uncommitted drift"); assert.throws(() => loadNodeGuideProfile(root), /Development source .* differs from HEAD/u);
+    writeFileSync(join(root, "docs/SHARED-DEVELOPMENT.md"), "# Shared development fixture\n");
+    writeFileSync(join(root, "docs/DEVELOPMENT-REVIEW-HANDOFF.md"), "Uncommitted drift"); assert.throws(() => loadNodeGuideProfile(root), /Development source docs\/DEVELOPMENT-REVIEW-HANDOFF\.md differs from HEAD/u);
+    unlinkSync(join(root, "docs/DEVELOPMENT-REVIEW-HANDOFF.md")); commit(); assert.throws(() => loadNodeGuideProfile(root), /requires docs\/DEVELOPMENT-REVIEW-HANDOFF\.md committed at HEAD/u);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

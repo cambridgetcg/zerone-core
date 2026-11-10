@@ -10,7 +10,11 @@ Object.defineProperty(globalThis, "location", {
 });
 
 const {
+  getBlockAt,
   getLiquidityPoolRegistry,
+  getNetworkSnapshot,
+  getNodeStatus,
+  IncompleteBlockReplyError,
   LIQUIDITY_POOL_PAGE_LIMIT,
   LIQUIDITY_POOL_RECORD_CAP,
 } = await import("../src/api");
@@ -311,5 +315,162 @@ describe("dashboard liquidity registry pagination", () => {
       globalThis.fetch = async () => Response.json(queue.shift());
       await assert.rejects(getLiquidityPoolRegistry());
     }
+  });
+});
+
+describe("block keeper reads", () => {
+  const HEIGHT = 1_437_954;
+  const HASH = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+  const TIME = "2026-11-09T22:29:50.123456789Z";
+
+  function blockMeta(overrides: { chainId?: unknown; height?: unknown; hash?: unknown } = {}) {
+    return {
+      block_id: { hash: "hash" in overrides ? overrides.hash : HASH },
+      block_size: "1024",
+      header: {
+        chain_id: "chainId" in overrides ? overrides.chainId : "zerone-1",
+        height: "height" in overrides ? overrides.height : String(HEIGHT),
+        time: TIME,
+        last_block_id: { hash: "" },
+      },
+      num_txs: "0",
+    };
+  }
+
+  it("reads one height as a one-height blockchain window and returns its hash in uppercase", async () => {
+    const urls: URL[] = [];
+    globalThis.fetch = async (input) => {
+      urls.push(new URL(String(input)));
+      return Response.json({ result: { last_height: String(HEIGHT + 9), block_metas: [blockMeta()] } });
+    };
+
+    assert.deepEqual(await getBlockAt(HEIGHT), {
+      chainId: "zerone-1",
+      height: HEIGHT,
+      time: TIME,
+      transactionCount: 0,
+      hash: HASH.toUpperCase(),
+    });
+    assert.equal(urls.length, 1);
+    assert.equal(urls[0]?.origin, "https://dashboard.invalid");
+    assert.equal(urls[0]?.pathname, "/api/rpc/blockchain");
+    assert.deepEqual([...(urls[0]?.searchParams.entries() ?? [])], [
+      ["minHeight", String(HEIGHT)],
+      ["maxHeight", String(HEIGHT)],
+    ]);
+  });
+
+  it("refuses another chain, another height, two blocks, bad hex or no block as an incomplete reply", async () => {
+    const replies: Array<[string, unknown]> = [
+      ["another chain", { result: { block_metas: [blockMeta({ chainId: "zerone-local-1" })] } }],
+      ["no chain", { result: { block_metas: [blockMeta({ chainId: undefined })] } }],
+      ["another height", { result: { block_metas: [blockMeta({ height: String(HEIGHT - 1) })] } }],
+      ["two blocks", { result: { block_metas: [blockMeta(), blockMeta()] } }],
+      ["short hash", { result: { block_metas: [blockMeta({ hash: HASH.slice(2) })] } }],
+      ["non-hex hash", { result: { block_metas: [blockMeta({ hash: `${HASH.slice(1)}z` })] } }],
+      ["empty window", { result: { block_metas: [] } }],
+      ["no result", { error: { code: -32603, message: "Internal error" } }],
+      ["a null meta", { result: { block_metas: [null] } }],
+    ];
+    for (const [name, body] of replies) {
+      globalThis.fetch = async () => Response.json(body);
+      await assert.rejects(getBlockAt(HEIGHT), IncompleteBlockReplyError, name);
+    }
+  });
+
+  it("treats HTTP 500 or no answer as a failed read, not an incomplete reply", async () => {
+    // CometBFT answers a height above its newest block with an RPC error, sent as HTTP 500.
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({ jsonrpc: "2.0", id: -1, error: { code: -32603, message: "Internal error", data: "height 99999999 must be less than or equal to the current blockchain height 1437954" } }),
+        { status: 500 },
+      );
+    await assert.rejects(
+      getBlockAt(99_999_999),
+      (error: unknown) =>
+        error instanceof Error &&
+        !(error instanceof IncompleteBlockReplyError) &&
+        /HTTP 500/u.test(error.message),
+    );
+
+    globalThis.fetch = async () => {
+      throw new TypeError("Failed to fetch");
+    };
+    await assert.rejects(
+      getBlockAt(HEIGHT),
+      (error: unknown) => error instanceof Error && !(error instanceof IncompleteBlockReplyError),
+    );
+
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls += 1;
+      return Response.json({});
+    };
+    for (const height of [0, -1, 1.5, Number.NaN]) {
+      await assert.rejects(getBlockAt(height), RangeError);
+    }
+    assert.equal(calls, 0, "an impossible height is never sent");
+  });
+
+  it("reads the node's earliest kept height from status, and leaves it unknown when the status omits it", async () => {
+    for (const [earliest, expected] of [["1", 1], [undefined, null], ["0", null], ["x", null]] as const) {
+      globalThis.fetch = async (input) => {
+        if (new URL(String(input)).pathname === "/api/rpc/status") {
+          return Response.json({
+            result: {
+              node_info: { network: "zerone-1", version: "0.38.19", moniker: "node" },
+              sync_info: {
+                latest_block_height: String(HEIGHT),
+                latest_block_time: "2026-11-09T22:29:50Z",
+                ...(earliest === undefined ? {} : { earliest_block_height: earliest }),
+                catching_up: false,
+              },
+            },
+          });
+        }
+        return new Response("", { status: 503 });
+      };
+      const snapshot = await getNetworkSnapshot();
+      assert.equal(snapshot.height, HEIGHT);
+      assert.equal(snapshot.earliestHeight, expected, String(earliest));
+    }
+  });
+
+  it("reads only the node's status for Check again, with the same checks as the full snapshot", async () => {
+    const status = {
+      result: {
+        node_info: { network: "zerone-1", version: "0.38.19", moniker: "node" },
+        sync_info: {
+          latest_block_height: String(HEIGHT),
+          latest_block_time: "2026-11-09T22:29:50Z",
+          earliest_block_height: "1",
+          catching_up: false,
+        },
+      },
+    };
+    const paths: string[] = [];
+    globalThis.fetch = async (input) => {
+      paths.push(new URL(String(input)).pathname);
+      return Response.json(status);
+    };
+    assert.deepEqual(await getNodeStatus(), {
+      chainId: "zerone-1",
+      height: HEIGHT,
+      earliestHeight: 1,
+      blockTime: "2026-11-09T22:29:50Z",
+      catchingUp: false,
+    });
+    assert.deepEqual(paths, ["/api/rpc/status"], "one GET, and no net_info, supply, validators or pool reads");
+
+    for (const [name, syncInfo] of [
+      ["no catching_up", { ...status.result.sync_info, catching_up: undefined }],
+      ["no height", { ...status.result.sync_info, latest_block_height: undefined }],
+    ] as const) {
+      globalThis.fetch = async () => Response.json({ result: { ...status.result, sync_info: syncInfo } });
+      await assert.rejects(getNodeStatus(), /complete zerone-1 mainnet status/u, name);
+    }
+    globalThis.fetch = async () =>
+      Response.json({ result: { ...status.result, node_info: { ...status.result.node_info, network: "zerone-local-1" } } });
+    await assert.rejects(getNodeStatus(), /complete zerone-1 mainnet status/u);
   });
 });

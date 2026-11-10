@@ -94,17 +94,18 @@ func TestOracleClient_LowConfidenceToUncertain(t *testing.T) {
 	require.Contains(t, eval.Reasoning, "below minimum confidence threshold")
 }
 
-// TestEvaluateWithOracle_NilClient verifies that EvaluateWithOracle returns
-// safe defaults when the oracle client is nil.
+// TestEvaluateWithOracle_NilClient verifies that EvaluateWithOracle casts no
+// vote when the oracle client is nil.
 func TestEvaluateWithOracle_NilClient(t *testing.T) {
-	verdict, confidence := zeroneapp.EvaluateWithOracle(nil, "claim", "domain", "type")
-	require.Equal(t, "accept", verdict)
-	require.Equal(t, uint64(600_000), confidence)
+	verdict, confidence, ok := zeroneapp.EvaluateWithOracle(nil, "claim", "domain", "type")
+	require.False(t, ok, "no oracle client must cast no vote")
+	require.Equal(t, "", verdict)
+	require.Equal(t, uint64(0), confidence)
 }
 
-// TestEvaluateWithOracle_UncertainMapsToAccept verifies that an "uncertain"
-// verdict from the oracle maps to "accept" with the oracle's confidence value.
-func TestEvaluateWithOracle_UncertainMapsToAccept(t *testing.T) {
+// TestEvaluateWithOracle_HTTPUncertainCastsNoVote verifies that an "uncertain"
+// verdict from the oracle sidecar casts no vote instead of becoming "accept".
+func TestEvaluateWithOracle_HTTPUncertainCastsNoVote(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(zeroneapp.OracleEvaluation{
@@ -116,9 +117,10 @@ func TestEvaluateWithOracle_UncertainMapsToAccept(t *testing.T) {
 	defer srv.Close()
 
 	client := zeroneapp.NewHTTPOracleClient(srv.URL, 5*time.Second, 0.0)
-	verdict, confidence := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
-	require.Equal(t, "accept", verdict, "uncertain should map to accept")
-	require.Equal(t, uint64(450_000), confidence)
+	verdict, confidence, ok := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
+	require.False(t, ok, "uncertain must not become accept")
+	require.Equal(t, "", verdict)
+	require.Equal(t, uint64(0), confidence)
 }
 
 // TestEvaluateWithOracle_ConfidenceCap verifies that confidence is capped at 1_000_000.
@@ -134,21 +136,44 @@ func TestEvaluateWithOracle_ConfidenceCap(t *testing.T) {
 	defer srv.Close()
 
 	client := zeroneapp.NewHTTPOracleClient(srv.URL, 5*time.Second, 0.0)
-	verdict, confidence := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
+	verdict, confidence, ok := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
+	require.True(t, ok)
 	require.Equal(t, "accept", verdict)
 	require.Equal(t, uint64(1_000_000), confidence, "confidence should be capped at 1_000_000")
 }
 
-// TestEvaluateWithOracle_ErrorReturnsDefaults verifies that an oracle error
-// causes EvaluateWithOracle to return the safe defaults.
-func TestEvaluateWithOracle_ErrorReturnsDefaults(t *testing.T) {
+// TestEvaluateWithOracle_HTTPErrorCastsNoVote verifies that an oracle error
+// casts no vote instead of falling back to "accept".
+func TestEvaluateWithOracle_HTTPErrorCastsNoVote(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
 	defer srv.Close()
 
 	client := zeroneapp.NewHTTPOracleClient(srv.URL, 5*time.Second, 0.5)
-	verdict, confidence := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
-	require.Equal(t, "accept", verdict)
-	require.Equal(t, uint64(600_000), confidence)
+	verdict, confidence, ok := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
+	require.False(t, ok, "an oracle error must cast no vote")
+	require.Equal(t, "", verdict)
+	require.Equal(t, uint64(0), confidence)
+}
+
+// TestEvaluateWithOracle_LowConfidenceRejectCastsNoVote verifies that a
+// verdict the client downgrades to "uncertain" for falling below
+// minConfidence casts no vote.
+func TestEvaluateWithOracle_LowConfidenceRejectCastsNoVote(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(zeroneapp.OracleEvaluation{
+			Verdict:    "reject",
+			Confidence: 0.3,
+			Reasoning:  "low confidence rejection",
+		})
+	}))
+	defer srv.Close()
+
+	client := zeroneapp.NewHTTPOracleClient(srv.URL, 5*time.Second, 0.6)
+	verdict, confidence, ok := zeroneapp.EvaluateWithOracle(client, "claim", "domain", "type")
+	require.False(t, ok, "a below-threshold verdict must cast no vote")
+	require.Equal(t, "", verdict)
+	require.Equal(t, uint64(0), confidence)
 }
