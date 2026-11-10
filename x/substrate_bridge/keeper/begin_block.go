@@ -16,9 +16,10 @@ import (
 func (k Keeper) BeginBlocker(ctx context.Context) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 
-	// Select the cited-reward escrow repair once, before any begin-block write.
-	// The reader is gas-free; a malformed or unreadable marker wraps
-	// activation.ErrMarkerFault and is returned, never read as off.
+	// Select the cited-reward escrow repair once, before any begin-block write,
+	// for both settlement and the escrow sweep. The reader is gas-free; a
+	// malformed or unreadable marker wraps activation.ErrMarkerFault and is
+	// returned, never read as off.
 	citedRewardEscrow, err := k.CitedRewardEscrowEnabled(ctx)
 	if err != nil {
 		return err
@@ -74,7 +75,7 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 	}
 
 	// Witness-reward escrows whose challenge window closed.
-	k.SweepWitnessRewards(ctx)
+	k.sweepWitnessRewards(ctx, citedRewardEscrow)
 
 	return nil
 }
