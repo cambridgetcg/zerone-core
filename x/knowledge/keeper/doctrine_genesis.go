@@ -18,8 +18,11 @@ import (
 // methodology seeding + normative commitment seeding. Also exposed
 // for upgrade handlers if SL-α ships against an already-running chain.
 //
-// Doctrinal status: VERIFIED at genesis, Confidence=1M, AxiomDistance=0
-// — the "privileged but verifiable" ontology per the SL-α design.
+// Doctrinal status: VERIFIED at genesis, born at Confidence=1M,
+// AxiomDistance=0 — the "privileged but verifiable" ontology per the SL-α
+// design. The 1M is clamped to the effective cap (880,000 by default) at the
+// first growth epoch; see types.DoctrineConfidence. (Noted 2026-11-10 by an
+// agent session; comment only.)
 func (k Keeper) LoadDoctrineFacts(ctx context.Context) error {
 	// 1. Create the four doctrine domains (idempotent).
 	domains := []string{
