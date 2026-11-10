@@ -16,12 +16,16 @@ WORK=/absolute/new/scratch/dir          # every output below is a NEW directory 
 RPC=http://37.16.28.121:26657           # testnet CometBFT RPC (published; P2P is not)
 REST=http://37.16.28.121:1317           # testnet REST
 APP=zerone-testnet-1
-MACHINE=d8d3736f455508                  # re-check with `fly machines list -a $APP`
-VOLUME=vol_vp25peqkw9dw66k4
+# The machine, its volume and its running image are read at run time, never kept in this public
+# repository. The signer app has exactly one machine with one volume:
+MACHINE=$(fly machine list -a $APP --json | jq -r '.[0].id')
+VOLUME=$(fly machine list -a $APP --json | jq -r '.[0].config.mounts[0].volume')
 OPS=~/.zeroned/testnet-ops              # test keyring; signers are named faucet and validator
 CLI=$WORK/cli/zeroned                   # the H1 operator CLI built per TESTNET.md
 IMAGE=registry.fly.io/zerone-testnet-1@sha256:fdfa9ade6a239c39fb4867203fe8db46c379cd8a99b7b5133b72d61132a4e280   # once G2 holds
-LEGACY=registry.fly.io/zerone-testnet-1@sha256:8c5a859572cea6eda34de062cce81ca82d46d36f7afaf64fabd1cb668bac311d
+# The image running before the halt is the rollback image (G8). Since 2026-11-10 16:07Z it is the
+# CometBFT 0.38.25 swap image (2e37c4c + d6391ea7, legacy-signer kit), not the 2026-07-25 release:
+LEGACY=registry.fly.io/$APP@$(fly machine list -a $APP --json | jq -r '.[0].image_ref.digest')
 ```
 
 Never print key material: the only keyring reads below are `keys show -a`
@@ -31,19 +35,19 @@ Never print key material: the only keyring reads below are `keys show -a`
 
 | What | Value | How checked |
 | --- | --- | --- |
-| Testnet binary | 2e37c4c, CometBFT 0.38.20 (`/status` says 0.38.19), app version `dev` | RPC `/status`, `/abci_info` |
+| Testnet binary | 2e37c4c, app version `dev`. CometBFT 0.38.25 (`d6391ea7…`, `/status` says 0.38.25) since the legacy-signer swap of 2026-11-10 16:07Z; before it 0.38.20 (`/status` said 0.38.19) | RPC `/status`, `/abci_info`; re-read 2026-11-10 |
 | Height and cadence | 3,869,6xx at 12:30Z; 2.53 s over the last 100 and 1,000 blocks, 2.67 s over 100,000 | RPC `/header` |
 | Governance | voting 120 s, min deposit 10 ZRN (10000000uzrn), max deposit period 300 s, expedited 60 s / 50 ZRN | REST `/cosmos/gov/v1/params/*` |
 | Gov authority | `zrn10d07y265gmmuvt4z0w9aw880jnsr700j47tt89` (same on zerone-1) | REST module account |
 | Signers | faucet `zrn1xl5pnczujgqzzcaq8v53acmfyfmj394nws0rk5` (~998,559 ZRN, the 10-28 seal proposer); validator `zrn1q0ar3f2cswzlemcss4nu82cd40crftd9utnt0e` = `zrnvaloper1q0ar3f2…dzjp69`, sole bonded validator, power 100,000 | repo `deploy/testnet/artifacts/*-address.txt` at 2e37c4c, REST |
 | Earlier upgrade proposals | 2 and 3 used `info ""`; H1 refuses that at startup (H1-F2) | REST proposals |
 | Pending plan, frozen accounts, pots, pools | none, none, 0, 0 | `pre-h-census.py` PASS at 3,870,270 |
-| Fly machine | `d8d3736f455508`, lhr, shared-cpu-2x 4 GB, restart on-failure ×10, `init {}` (image entrypoint) | `fly machines list --json` (env values not printed) |
-| Current image | `registry.fly.io/zerone-testnet-1:deployment-01KYBXMYV8H1JGR4HC11K84XJS`, digest `sha256:8c5a8595…311d`, release v16 of 2026-07-25 | same, `fly releases` |
+| Fly machine | one machine (`$MACHINE`), lhr, shared-cpu-2x 4 GB, restart on-failure ×10, `init {}` (image entrypoint) | `fly machines list --json` (env values not printed) |
+| Current image | since 2026-11-10 the CometBFT 0.38.25 swap image (the release v16 image of 2026-07-25 plus one layer with `d6391ea7…`); `$LEGACY` | same; machine `image_ref` |
 | Its entrypoint | 2e37c4c `deploy/testnet/entrypoint.sh`: rewrites `external_address` and `minimum-gas-prices` on every boot, then `exec zeroned start --home $ZERONE_HOME --minimum-gas-prices 0.025uzrn ${EXTRA_START_FLAGS:-}` | source read; **confirm on the live machine** (step 0) |
 | Env | keys `EXTERNAL_ADDRESS`, `MONIKER`, `ZERONE_HOME`, `PRIMARY_REGION`, `FLY_PROCESS_GROUP`; `ZERONE_HOME` equals `/data/.zeroned` (the kit image's `--home`); no `EXTRA_START_FLAGS` in machine env (a Fly secret is not visible here) | compared without printing values |
 | Services | 26657 and 1317 only; 26656 was removed 2026-11-06 (the node still listens on 26656 inside the VM for 6PN peers) | ledger `zc-signer-p2p-close`, machine config |
-| Volume | `vol_vp25peqkw9dw66k4`, 20 GB, encrypted; `/data` 81% full (15.7 of 20.5 GB) | task brief; see "Disk" |
+| Volume | one volume (`$VOLUME`), 20 GB, encrypted; `/data` 81% full (15.7 of 20.5 GB) | task brief; see "Disk" |
 
 ## Disk: H1's migrations fit
 
@@ -182,11 +186,17 @@ Each gate must hold. Record the evidence beside the receipts.
   application and the engine together; the review's local evidence covers that
   swap (same block and P2P protocol, same replayed app hash), but testnet has not.
 - **G8 Rollback image.** Write down the exact legacy image digest running at H
-  (today `$LEGACY`; if the binary lane swapped it, that patched legacy digest).
-  Confirm on the live machine that its entrypoint honours `EXTRA_START_FLAGS`:
-  `fly logs -a $APP --no-tail | grep '\[entrypoint\]'` shows the script's lines
-  from the 2026-11-06 12:09Z restart. Check `fly secrets list -a $APP` names
+  (`$LEGACY`, read just before; since 2026-11-10 the patched legacy image, so a
+  rollback keeps CometBFT 0.38.25). Confirm on the live machine that its
+  entrypoint honours `EXTRA_START_FLAGS`:
+  `fly ssh console -a $APP -C "grep -n EXTRA_START_FLAGS /usr/local/bin/entrypoint.sh"`.
+  (`fly logs --no-tail` returns only the last 100 lines, about 30 s, so it no
+  longer shows a past restart.) Check `fly secrets list -a $APP` names
   only: an `EXTRA_START_FLAGS` secret would already be in force.
+  flyctl 0.4.x writes an `--image <repo>@sha256:X` reference as
+  `<repo>@sha256:X@sha256:X` (seen 2026-11-07 and 2026-11-10); the legacy-signer
+  swap passed a tag instead and checked `image_ref.digest`. Whether a machine
+  starts from the doubled reference was not tried.
 - **G9 Saved config.** `fly machines list -a $APP --json > $WORK/machines-before.json`
   (mode 0600; it holds env values, never print or commit it).
 - **G10 Shared ground.** Claim the testnet halt on the agenttool-collab board,

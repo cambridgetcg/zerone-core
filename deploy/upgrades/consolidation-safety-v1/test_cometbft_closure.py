@@ -135,9 +135,9 @@ class CometClosureTests(unittest.TestCase):
             runtime.check_version(dict(version, version="h1-testnet-65c19cd8"))
 
     def test_machine_update_swap_and_drill_freshness(self):
-        command = ship.deployment_command(None, IMAGE, "d8d3736f455508")
-        self.assertEqual(command, ["fly", "machine", "update", "d8d3736f455508", "--app", ship.CHAIN, "--image", IMAGE])
-        for machine in ("d8d3736f45550", "D8D3736F455508", "d8d3736f455508 --yes", "../x"):
+        command = ship.deployment_command(None, IMAGE, "0123456789abcd")
+        self.assertEqual(command, ["fly", "machine", "update", "0123456789abcd", "--app", ship.CHAIN, "--image", IMAGE])
+        for machine in ("0123456789abc", "0123456789ABCD", "0123456789abcd --yes", "../x"):
             with self.assertRaises(ValueError):
                 ship.deployment_command(None, IMAGE, machine)
         receipt = self.root / "drill.json"
