@@ -5,10 +5,12 @@
 // genesis created 13,555 ZRN of operator-controlled validator
 // collateral/gas and transferable operations float. Beyond that disclosed
 // scaffolding, the H1 production source-capable paths are bootstrap claims and
-// substrate-bridge rewards for external work that survives its challenge
-// rules. Optional knowledge and token emission latches remain disabled by
-// default. This package owns only the bootstrap path. The pre-H1
-// transaction-presence proposer mint is permanently retired.
+// substrate-bridge rewards for external work. A witness reward mints after its
+// challenge window; an attestation that cites an existing knowledge fact is
+// paid when the next block settles it, with no window (checked against source
+// by an agent on 2026-11-10). Optional knowledge and token emission latches
+// remain disabled by default. This package owns only the bootstrap path. The
+// pre-H1 transaction-presence proposer mint is permanently retired.
 //
 // The structural boundaries are:
 //

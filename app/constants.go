@@ -11,8 +11,10 @@ package app
 // x/vesting_rewards.MintWithCap. Source-capable callers include:
 //
 //   - x/claiming_pot: bootstrap and legacy general-pot claims.
-//   - x/substrate_bridge: external-work rewards minted after an
-//     attestation survives its challenge rules.
+//   - x/substrate_bridge: external-work rewards. A witness reward mints
+//     after its challenge window; an attestation that cites an existing
+//     knowledge fact is paid when the next block settles it, with no
+//     window (checked against source by an agent on 2026-11-10).
 //   - x/knowledge: a governance-configurable probe-bounty rate, default 0.
 //   - x/tokens: governance-created emission periods, disabled while the
 //     default/published activation latch is 0.
