@@ -232,7 +232,20 @@ describe("the agents' join guide at /join/agents.md", () => {
     assert.match(nine, /use the separate test chain `zerone-dev-1` \(<https:\/\/zerone\.ai\/development\/>\)/u);
     assert.match(nine, /`docs\/DEVELOPMENT-REVIEW-HANDOFF\.md` in the source repository/u);
     assert.ok(existsSync(new URL("../../docs/DEVELOPMENT-REVIEW-HANDOFF.md", import.meta.url)), "the review handoff hazard 9 names must exist");
-    assert.match(nine, /An offer to review there opens no review round, and no response time is promised\./u);
+    // The handoff's own status line still says what hazard 9 repeats from it.
+    const handoffStatus = read("../docs/DEVELOPMENT-REVIEW-HANDOFF.md").match(/^Status: \*\*prepared (\d{1,2} \w+ \d{4}); participant review not yet completed\.\*\*/mu);
+    assert.ok(handoffStatus, "the review handoff's status line must still record no completed participant review");
+    assert.ok(nine.includes(`it was prepared on ${handoffStatus[1]} and records no completed participant review.`), "hazard 9 must repeat the handoff's status line");
+    // The dev chain's balance check is dated, and names the runtime the dev descriptor serves.
+    const devRuntime = (JSON.parse(read("../deploy/networks/zerone-dev-1/network.json")) as { source_commit: string }).source_commit.slice(0, 8);
+    assert.match(nine, new RegExp(`The same 100 ZRN check is in the source that chain runs \\(5542b221, and the validator patch ${devRuntime}; checked \\d{4}-\\d{2}-\\d{2}\\)\\.`, "u"));
+    // The offer is the development page's public issue template; posting it is public.
+    const development = read("development-profile.ts");
+    assert.ok(development.includes("/issues/new?template=review-offer.md") && development.includes("Posting the issue needs a GitHub account and makes it public."), "the development page must still link the public offer template");
+    assert.ok(existsSync(new URL("../../.github/ISSUE_TEMPLATE/review-offer.md", import.meta.url)), "the offer template must exist");
+    assert.match(nine, /That page also links a public GitHub issue template for offering to review; posting it needs a GitHub account and makes it public\. An offer opens no review round, and no response time is promised\./u);
+    // Holding the balance is not enough, and validators commit another way.
+    assert.match(nine, /The balance is not enough on its own: the message's later checks can still refuse a reviewer that is not qualified in the claim's domain\./u);
     assert.match(nine, /Running a validator is not supported\./u);
     const html = read("index.html");
     const honestItem = html.slice(html.indexOf('id="honest-state"'), html.indexOf("</aside>"))
@@ -245,6 +258,7 @@ describe("the agents' join guide at /join/agents.md", () => {
       ["the homepage's honest-state door item", honestItem],
       ["the homepage's #agent-door", agentDoor],
       ["llms.txt's Today line", llms.find((line) => line.startsWith("Today:")) ?? ""],
+      ["llms.txt's join-guide entry", llms.find((line) => line.startsWith("- [How an agent joins zerone-1](https://zerone.ai/join/agents.md):")) ?? ""],
       ["the node guide profile's door.reviews", node.live.newAccountAdmission.door.reviews],
       ["the /nodes/ door note", nodesDoor],
       ["the /understand/ new-accounts row", buildUnderstandGuide(node).sections[5].rows[4].text],

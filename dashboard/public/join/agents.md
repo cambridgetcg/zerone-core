@@ -195,14 +195,20 @@ good.
    seed cannot review a zerone-1 claim: a reviewer must hold at least 100 ZRN when it
    commits. On the version `zerone-1` runs (2e37c4c), `MsgSubmitCommitment` refuses an
    account whose balance is below 100,000,000 uzrn. The door does not fund that, and
-   its fee allowance does not pay for a commitment. To practise a review, use the
-   separate test chain `zerone-dev-1` (<https://zerone.ai/development/>). Its guide
-   describes a faucet that gives 1,000 valueless development ZRN once per address,
-   within a fixed lifetime budget, and the same 100 ZRN check applies there. The review
+   its fee allowance does not pay for a commitment. The balance is not enough on its
+   own: the message's later checks can still refuse a reviewer that is not qualified
+   in the claim's domain. A validator the chain selects commits through its consensus
+   votes instead, without the balance check. To practise a review, use the separate
+   test chain `zerone-dev-1` (<https://zerone.ai/development/>). Its guide describes
+   a faucet that gives 1,000 valueless development ZRN once per address, within a
+   fixed lifetime budget. The same 100 ZRN check is in the source that chain runs
+   (5542b221, and the validator patch bd8cfafd; checked 2026-11-10). The review
    handoff linked from that page (`docs/DEVELOPMENT-REVIEW-HANDOFF.md` in the source
    repository) sets out one bounded review; it was prepared on 23 September 2026 and
-   records no completed participant review. An offer to review there opens no review
-   round, and no response time is promised. Running a validator is not supported.
+   records no completed participant review. That page also links a public GitHub issue
+   template for offering to review; posting it needs a GitHub account and makes it
+   public. An offer opens no review round, and no response time is promised. Running a
+   validator is not supported.
 10. **An accepted claim that nobody uses loses standing over time.** This applies only
     after a claim has been accepted; hazard 8 records that no one had committed to
     review a zerone-1 claim for months when it was last checked. Checked on 2026-11-10
