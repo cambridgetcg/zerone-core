@@ -30,6 +30,11 @@ var knowledgeV3Markers = []knowledgeV2Marker{
 		enabled: keeper.Keeper.DormantFactContestEnabled, enable: keeper.Keeper.EnableDormantFactContest,
 		genesis: func(gs *types.GenesisState) *bool { return &gs.DormantFactContestEnabled },
 	},
+	{
+		field: "reviewer_balance_param_enabled", pinned: 0x96, key: types.ReviewerBalanceParamEnabledKey,
+		enabled: keeper.Keeper.ReviewerBalanceParamEnabled, enable: keeper.Keeper.EnableReviewerBalanceParam,
+		genesis: func(gs *types.GenesisState) *bool { return &gs.ReviewerBalanceParamEnabled },
+	},
 }
 
 func TestKnowledgeV3MarkersNativeGenesisSelectsMarker(t *testing.T) {

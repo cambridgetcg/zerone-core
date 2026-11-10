@@ -72,6 +72,11 @@ func (k Keeper) initGenesisV3Markers(ctx context.Context, gs *types.GenesisState
 			return err
 		}
 	}
+	if gs.ReviewerBalanceParamEnabled {
+		if err := k.EnableReviewerBalanceParam(ctx); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -88,6 +93,11 @@ func (k Keeper) exportGenesisV3Markers(ctx context.Context, gs *types.GenesisSta
 	if err != nil {
 		panic(err)
 	}
+	reviewerBalanceParam, err := k.ReviewerBalanceParamEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 	gs.DoctrineIdentityEnabled = doctrineIdentity
 	gs.DormantFactContestEnabled = dormantFactContest
+	gs.ReviewerBalanceParamEnabled = reviewerBalanceParam
 }

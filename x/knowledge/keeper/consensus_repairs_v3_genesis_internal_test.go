@@ -23,6 +23,8 @@ var v3GenesisMarkers = []v3GenesisMarker{
 		func(gs *types.GenesisState) *bool { return &gs.DoctrineIdentityEnabled }},
 	{"dormant_fact_contest_enabled", types.DormantFactContestEnabledKey,
 		func(gs *types.GenesisState) *bool { return &gs.DormantFactContestEnabled }},
+	{"reviewer_balance_param_enabled", types.ReviewerBalanceParamEnabledKey,
+		func(gs *types.GenesisState) *bool { return &gs.ReviewerBalanceParamEnabled }},
 }
 
 // initGenesisV3Markers and exportGenesisV3Markers carry every

@@ -74,6 +74,7 @@ func TestGenesisAccountingLegacyImportParity(t *testing.T) {
 			// InitGenesis writes outside it.
 			gs.DoctrineIdentityEnabled = false
 			gs.DormantFactContestEnabled = false
+			gs.ReviewerBalanceParamEnabled = false
 			require.Nil(t, gs.AccountingState)
 			switch mode {
 			case "existing-primary-keys":

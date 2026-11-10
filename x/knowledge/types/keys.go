@@ -872,3 +872,8 @@ var DoctrineIdentityEnabledKey = []byte{0x94}
 // dormant-fact contest repair (keeper/dormant_fact_contest_activation.go),
 // unused like 0x91.
 var DormantFactContestEnabledKey = []byte{0x95}
+
+// ReviewerBalanceParamEnabledKey is the consensus-repairs-v3 marker for the
+// reviewer-balance parameter repair
+// (keeper/reviewer_balance_param_activation.go), unused like 0x91.
+var ReviewerBalanceParamEnabledKey = []byte{0x96}
