@@ -61,7 +61,11 @@ type ProvenanceCertificate struct {
 	// ── Synthesised grade ──────────────────────────────────────────────
 	// Letter grade based on the signals above. Scoring rubric is fixed in
 	// code (deterministic) but the inputs evolve with chain state, so the
-	// grade is current, not historical. See keeper.go for thresholds.
+	// grade is current, not historical. The rubric is computeTrustGrade in
+	// x/training_provenance/keeper/certificate.go. Grade A means none of the
+	// three counted warning signals is present; it is not evidence that the
+	// included facts were reviewed. ProvenanceCertificateV2 reports review
+	// coverage beside the same grade.
 	TrustGrade       string `protobuf:"bytes,11,opt,name=trust_grade,json=trustGrade,proto3" json:"trust_grade,omitempty"`
 	TrustExplanation string `protobuf:"bytes,12,opt,name=trust_explanation,json=trustExplanation,proto3" json:"trust_explanation,omitempty"`
 	ComputedAtBlock  uint64 `protobuf:"varint,13,opt,name=computed_at_block,json=computedAtBlock,proto3" json:"computed_at_block,omitempty"`

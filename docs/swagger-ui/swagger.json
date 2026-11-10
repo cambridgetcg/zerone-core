@@ -11701,7 +11701,7 @@
           "type": "string"
         },
         "trustGrade": {
-          "description": "── Synthesised grade ──────────────────────────────────────────────\nLetter grade based on the signals above. Scoring rubric is fixed in\ncode (deterministic) but the inputs evolve with chain state, so the\ngrade is current, not historical. See keeper.go for thresholds.",
+          "description": "── Synthesised grade ──────────────────────────────────────────────\nLetter grade based on the signals above. Scoring rubric is fixed in\ncode (deterministic) but the inputs evolve with chain state, so the\ngrade is current, not historical. The rubric is computeTrustGrade in\nx/training_provenance/keeper/certificate.go. Grade A means none of the\nthree counted warning signals is present; it is not evidence that the\nincluded facts were reviewed. ProvenanceCertificateV2 reports review\ncoverage beside the same grade.",
           "type": "string"
         }
       },

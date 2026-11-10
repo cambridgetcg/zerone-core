@@ -45,7 +45,11 @@ message ProvenanceCertificate {
   // ── Synthesised grade ──────────────────────────────────────────────
   // Letter grade based on the signals above. Scoring rubric is fixed in
   // code (deterministic) but the inputs evolve with chain state, so the
-  // grade is current, not historical. See keeper.go for thresholds.
+  // grade is current, not historical. The rubric is computeTrustGrade in
+  // x/training_provenance/keeper/certificate.go. Grade A means none of the
+  // three counted warning signals is present; it is not evidence that the
+  // included facts were reviewed. ProvenanceCertificateV2 reports review
+  // coverage beside the same grade.
   string trust_grade            = 11;
   string trust_explanation      = 12;
   uint64 computed_at_block      = 13;
