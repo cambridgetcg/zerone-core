@@ -35,6 +35,11 @@ func (m *msgServer) SubmitClaim(ctx context.Context, msg *types.MsgSubmitClaim) 
 		if msg.MethodId != "" || msg.ReasoningTrace != "" {
 			return nil, fmt.Errorf("claim method and reasoning require record-integrity activation")
 		}
+		// Only this path copies the category unchecked; with record
+		// integrity on, validateClaimRecordInput refuses "doctrine" already.
+		if err := m.keeper.refuseReservedDoctrineCategory(ctx, msg.Category); err != nil {
+			return nil, err
+		}
 		return m.submitClaim(ctx, msg, false)
 	}
 	cache, commit := sdk.UnwrapSDKContext(ctx).CacheContext()
@@ -782,14 +787,20 @@ func (m *msgServer) ChallengeFact(ctx context.Context, msg *types.MsgChallengeFa
 	if err != nil {
 		return nil, err
 	}
+	// Read once, before any write: the challenge claim's category
+	// (challengeClaimCategory).
+	doctrineIdentity, err := m.keeper.DoctrineIdentityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if !enabled {
 		if msg.MethodId != "" {
 			return nil, fmt.Errorf("challenge method requires record-integrity activation")
 		}
-		return m.challengeFact(ctx, msg, false)
+		return m.challengeFact(ctx, msg, false, doctrineIdentity)
 	}
 	cache, commit := sdk.UnwrapSDKContext(ctx).CacheContext()
-	response, err := m.challengeFact(cache, msg, true)
+	response, err := m.challengeFact(cache, msg, true, doctrineIdentity)
 	if err != nil {
 		return nil, err
 	}
@@ -797,7 +808,7 @@ func (m *msgServer) ChallengeFact(ctx context.Context, msg *types.MsgChallengeFa
 	return response, nil
 }
 
-func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFact, enabled bool) (*types.MsgChallengeFactResponse, error) {
+func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFact, enabled, doctrineIdentity bool) (*types.MsgChallengeFactResponse, error) {
 	reviewPolicy, err := m.keeper.reviewPolicyAtAdmission(ctx)
 	if err != nil {
 		return nil, err
@@ -886,7 +897,7 @@ func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFa
 		Id:                  challengeClaimID,
 		FactContent:         fmt.Sprintf("Challenge of fact %s: %s", msg.FactId, msg.Reason),
 		Domain:              fact.Domain,
-		Category:            fact.Category,
+		Category:            challengeClaimCategory(fact, doctrineIdentity),
 		Submitter:           msg.Challenger,
 		SubmittedAtBlock:    height,
 		Status:              types.ClaimStatus_CLAIM_STATUS_PENDING,
@@ -937,14 +948,20 @@ func (m *msgServer) ChallengeProvisionalFact(ctx context.Context, msg *types.Msg
 	if err != nil {
 		return nil, err
 	}
+	// Read once, before any write: the challenge claim's category
+	// (challengeClaimCategory).
+	doctrineIdentity, err := m.keeper.DoctrineIdentityEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if !enabled {
 		if msg.MethodId != "" {
 			return nil, fmt.Errorf("challenge method requires record-integrity activation")
 		}
-		return m.challengeProvisionalFact(ctx, msg, false)
+		return m.challengeProvisionalFact(ctx, msg, false, doctrineIdentity)
 	}
 	cache, commit := sdk.UnwrapSDKContext(ctx).CacheContext()
-	response, err := m.challengeProvisionalFact(cache, msg, true)
+	response, err := m.challengeProvisionalFact(cache, msg, true, doctrineIdentity)
 	if err != nil {
 		return nil, err
 	}
@@ -952,7 +969,7 @@ func (m *msgServer) ChallengeProvisionalFact(ctx context.Context, msg *types.Msg
 	return response, nil
 }
 
-func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.MsgChallengeProvisionalFact, enabled bool) (*types.MsgChallengeProvisionalFactResponse, error) {
+func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.MsgChallengeProvisionalFact, enabled, doctrineIdentity bool) (*types.MsgChallengeProvisionalFactResponse, error) {
 	reviewPolicy, err := m.keeper.reviewPolicyAtAdmission(ctx)
 	if err != nil {
 		return nil, err
@@ -1040,7 +1057,7 @@ func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.Msg
 		Id:                  challengeClaimID,
 		FactContent:         fmt.Sprintf("Provisional challenge of fact %s: %s", msg.FactId, msg.Reason),
 		Domain:              fact.Domain,
-		Category:            fact.Category,
+		Category:            challengeClaimCategory(fact, doctrineIdentity),
 		Submitter:           msg.Challenger,
 		SubmittedAtBlock:    height,
 		Status:              types.ClaimStatus_CLAIM_STATUS_PENDING,
@@ -1088,6 +1105,11 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 	}
 	enabled, err := m.keeper.ClaimRecordsEnabled(ctx)
 	if err != nil {
+		return nil, err
+	}
+	// The counter-claim copies msg.Category; with the doctrine-identity
+	// marker on, the doctrine label is refused on both paths.
+	if err := m.keeper.refuseReservedDoctrineCategory(ctx, msg.Category); err != nil {
 		return nil, err
 	}
 	if !enabled {

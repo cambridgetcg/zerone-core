@@ -25,6 +25,11 @@ func (m *msgServer) PostConjecture(ctx context.Context, msg *types.MsgPostConjec
 	if err != nil {
 		return nil, err
 	}
+	// The conjecture claim copies msg.Category; with the doctrine-identity
+	// marker on, the doctrine label is refused on both paths.
+	if err := m.keeper.refuseReservedDoctrineCategory(ctx, msg.Category); err != nil {
+		return nil, err
+	}
 	if !funded {
 		return m.postConjecture(ctx, msg, false)
 	}

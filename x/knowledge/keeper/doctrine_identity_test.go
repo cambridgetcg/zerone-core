@@ -151,18 +151,20 @@ func TestDoctrineIdentity_ChainDoctrineStaysExemptInBothMarkerStates(t *testing.
 	}
 }
 
-// End to end: a conjecture labelled doctrine is admitted (no admission rule
-// reads the category), accepted, and becomes a PROVISIONAL fact that keeps the
-// label and gains a claim. ProcessMetabolism exempts it with the marker off and
-// metabolises it with the marker on.
+// End to end: with the marker off, a conjecture labelled doctrine is admitted
+// (no admission rule reads the category), accepted, and becomes a PROVISIONAL
+// fact that keeps the label and gains a claim. ProcessMetabolism exempts it
+// while the marker stays off and metabolises it once a carrier turns the
+// marker on. With the marker on, admission refuses the label
+// (doctrine_reserved_test.go), so such a fact can only predate the marker.
 func TestDoctrineIdentity_DoctrineLabelledConjectureEndToEnd(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		name := "marker off"
 		if enabled {
-			name = "marker on"
+			name = "enabled by a carrier"
 		}
 		t.Run(name, func(t *testing.T) {
-			k, ctx, bk := setupDoctrineIdentityTest(t, doctrineIdentityGenesis(enabled))
+			k, ctx, bk := setupDoctrineIdentityTest(t, doctrineIdentityGenesis(false))
 			ms := keeper.NewMsgServerImpl(k)
 
 			proposer := makeValidBech32Addr("doctrine-label-conjecture")
@@ -174,7 +176,7 @@ func TestDoctrineIdentity_DoctrineLabelledConjectureEndToEnd(t *testing.T) {
 				Category:               types.DoctrineCategory,
 				Stake:                  "1000000",
 			})
-			require.NoError(t, err, "the doctrine label is not refused at admission")
+			require.NoError(t, err, "marker off: the doctrine label is not refused at admission")
 
 			round, found := k.GetVerificationRound(ctx, resp.RoundId)
 			require.True(t, found)
@@ -197,6 +199,9 @@ func TestDoctrineIdentity_DoctrineLabelledConjectureEndToEnd(t *testing.T) {
 			require.Zero(t, fact.Confidence)
 			require.NotZero(t, fact.Energy)
 
+			if enabled {
+				require.NoError(t, k.EnableDoctrineIdentity(ctx))
+			}
 			require.NoError(t, k.ProcessMetabolism(ctx, 1))
 			after := mustGetFact(t, k, ctx, fact.Id)
 			if !enabled {
@@ -209,9 +214,11 @@ func TestDoctrineIdentity_DoctrineLabelledConjectureEndToEnd(t *testing.T) {
 }
 
 // End to end: an accepted challenge of a genesis doctrine fact makes a new fact
-// from the challenge claim. The challenger does not choose its category: the
-// claim inherits "doctrine" from its target. That fact has a claim, so it is
-// exempt with the marker off and metabolised with the marker on.
+// from the challenge claim. The challenger does not choose its category. With
+// the marker off the claim inherits "doctrine" from its target, and the fact
+// it makes is exempt. With the marker on the claim's category is empty
+// (challengeClaimCategory), so the fact is not labelled doctrine, and it is
+// metabolised.
 func TestDoctrineIdentity_AcceptedChallengeOfDoctrineEndToEnd(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		t.Run(map[bool]string{false: "marker off", true: "marker on"}[enabled], func(t *testing.T) {
@@ -237,7 +244,11 @@ func TestDoctrineIdentity_AcceptedChallengeOfDoctrineEndToEnd(t *testing.T) {
 			require.True(t, found)
 			claim, found := k.GetClaim(ctx, round.ClaimId)
 			require.True(t, found)
-			require.Equal(t, types.DoctrineCategory, claim.Category, "the challenge claim inherits the target's category")
+			wantCategory := types.DoctrineCategory
+			if enabled {
+				wantCategory = ""
+			}
+			require.Equal(t, wantCategory, claim.Category, "the challenge claim inherits the label only with the marker off")
 
 			require.NoError(t, k.CompleteRound(ctx, round, &keeper.VerificationResult{
 				Verdict:    types.Verdict_VERDICT_ACCEPT,
@@ -253,7 +264,7 @@ func TestDoctrineIdentity_AcceptedChallengeOfDoctrineEndToEnd(t *testing.T) {
 				return false
 			})
 			require.NotNil(t, fact, "the accepted challenge made a fact")
-			require.Equal(t, types.DoctrineCategory, fact.Category, "the inherited label rides through to the fact")
+			require.Equal(t, wantCategory, fact.Category, "the claim's category rides through to the fact")
 			require.NotZero(t, fact.Energy)
 
 			require.NoError(t, k.ProcessMetabolism(ctx, 1))
