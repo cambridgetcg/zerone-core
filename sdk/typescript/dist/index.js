@@ -66,7 +66,7 @@ import {
   ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE,
   parseUnsignedZeroneInTotoStatement,
   parseUnsignedZeroneInTotoStatementV2
-} from "./chunk-VSPSYPB7.js";
+} from "./chunk-SCZCHOZP.js";
 import {
   createZeroneRegistry,
   registerZeroneMessages,

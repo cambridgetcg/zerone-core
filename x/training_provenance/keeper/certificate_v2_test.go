@@ -295,7 +295,7 @@ func TestInTotoStatementV2Projection(t *testing.T) {
 			"name": "zerone://zerone-origin-1/training-corpus/manifest%2Fa",
 			"digest": {"sha256": "`+root+`"}
 		}],
-		"predicateType": "https://github.com/cambridgetcg/zerone-core/blob/fbfd5ef046c4b0c5eb263ff9a8d14d62796c2219/docs/specs/attestations/training-provenance-v2.md",
+		"predicateType": "https://github.com/cambridgetcg/zerone-core/blob/43f3a04178acab749758e383e064154854ad8b96/docs/specs/attestations/training-provenance-v2.md",
 		"predicate": {
 			"sourceChainId": "zerone-origin-1",
 			"observedOnChainId": "zerone-observer-1",
@@ -327,7 +327,7 @@ func TestInTotoStatementV2Projection(t *testing.T) {
 
 func TestPredicateTypeV2PinsTheSpecificationCommit(t *testing.T) {
 	require.Equal(t,
-		"https://github.com/cambridgetcg/zerone-core/blob/fbfd5ef046c4b0c5eb263ff9a8d14d62796c2219/docs/specs/attestations/training-provenance-v2.md",
+		"https://github.com/cambridgetcg/zerone-core/blob/43f3a04178acab749758e383e064154854ad8b96/docs/specs/attestations/training-provenance-v2.md",
 		TrainingProvenancePredicateTypeV2)
 	// v1 keeps its own pin.
 	require.Equal(t,
