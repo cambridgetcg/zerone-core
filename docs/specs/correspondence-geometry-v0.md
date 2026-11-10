@@ -62,7 +62,7 @@ not authority or live network state.
 
 | ID | Path | Raw SHA-256 |
 |---|---|---|
-| `compassion` | `docs/COMPASSION.md` | `ddebabc2b875532c2a3ec76c50f8f63fcef1007a728b7e260a5da36d24c619ad` |
+| `compassion` | `docs/COMPASSION.md` | `f1d5bf357ce1c503aa70efd4f1a6e297700b7d76a9164488f4253210bb82a3f8` |
 | `knowledge-metabolism` | `x/knowledge/keeper/metabolism.go` | `7b252c5134a6c78b753820890dbcd1eac9d3b263c8bf798c44bc1b41f50aafc6` |
 | `knowledge-methodologies` | `x/knowledge/types/methodologies.go` | `fa16ac33e7f2c10a19ed76541af6c2378edb79683578f2cec6f1a0563ebec386` |
 | `knowledge-types` | `proto/zerone/knowledge/v1/types.proto` | `8f3175e0a3678298fd483d96922e325d48548245ab337309970419be7fabd34c` |
@@ -229,7 +229,7 @@ claim and every possible error in its proposed transfer.
 The reviewed raw artifact digest is:
 
 ```text
-5758bf7d746246fdc8f334bf3ed1c6ef331cd7e56de13450fa6c48f78be46497
+08e3d7d8409d66a4807ccad44651a88000fc2ced70c92ae7bfd567b461a1cc48
 ```
 
 The offline validator rejects oversized, excessively nested, duplicate-key,

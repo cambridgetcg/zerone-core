@@ -68,8 +68,11 @@ knowledge. The interim source paid blocks containing any non-injection user
 transaction, with validator participation and survived-challenge rate scaling
 the amount; H2 alone retires that transaction-presence mint after H1 preserves
 vesting_rewards V1. Claiming-pot
-claims and external work that survives bridge challenge rules remain
-source-capable lanes. A default-zero probe rate and default-disabled
+claims and substrate-bridge rewards for external work remain source-capable
+lanes. A bridge witness reward mints only if it survives its challenge window;
+an attestation that cites an existing knowledge fact is paid when the next
+block settles it, with no window (checked against source by an agent on
+2026-11-10). A default-zero probe rate and default-disabled
 authority-scheduled emission periods can be activated by governance. The live
 genesis also created 13,555 ZRN of disclosed operator-controlled validator
 collateral, gas, and operations float.

@@ -13,6 +13,13 @@ every capability is enabled in a published genesis. Where `zerone-1` disables
 or has not wired a mechanism, that gap is named here. Tests bind the claim
 actually stated—not a stronger deployment posture.
 
+Paragraphs marked **Activation status (2026-11-10)** were written by an agent
+from a source review of commit `b48281be`. They describe what the source does,
+amend no commitment, and do not say which upgrades `zerone-1` has applied.
+Several refer to the review-neutrality policy
+(`docs/specs/knowledge-review-neutrality-v1.md`), which the knowledge module's
+`DefaultGenesis` turns on. They are not a full audit.
+
 ---
 
 ## The commitments
@@ -47,6 +54,11 @@ We believe: truth is what survives falsification, not what is most asserted. A c
 
 **Code expression**: `BaseWeight = CorroborationCount + 1` where `CorroborationCount` increments on *rejected challenges*, not on initial verifications. The `HardeningMultiplier` accelerates with survived attacks (Wave 14d). `Fact.Confidence` is gated by survival, not voting margin.
 
+**Activation status (2026-11-10)**: under the review-neutrality policy, a
+rejected challenge no longer raises `CorroborationCount` or adds energy to the
+fact that survived it, so `BaseWeight` no longer grows with survived
+challenges.
+
 **What would break it**: TVW formulas that read raw acceptance count over corroboration count; reward paths that pay for being verified rather than for surviving challenge; hardening that flattens (linear-only) instead of compounding.
 
 **Echoes**: commitment 4 (substrate stress-tests its truth — Popper is the principle, stress-testing is the operationalisation); commitment 13 (training corpus not for sale — survived disproof is the only currency that buys a place).
@@ -58,6 +70,13 @@ We believe: truth is what survives falsification, not what is most asserted. A c
 We believe: the chain does not protect its trusted claims — it invites their falsification. A 90%-confidence fact must be CHEAPER to probe than a 10%-confidence fact, because the higher the confidence, the more we owe the substrate the discipline of testing it.
 
 **Code expression**: `EffectiveMinChallengeStake` scales *inversely* with target confidence (`x/knowledge/keeper/confidence.go`). `SuccessfulChallengeRewardBps` amplifies with the disproven fact's confidence — paradigm shifts pay more than routine cleanup. Failed probes earn a 15% participation refund. Source includes a configurable per-block probe-bounty mint, but the published `zerone-1` genesis sets it to `0`; the live network therefore has no autonomous probe-bounty accumulation from this mechanism.
+
+**Activation status (2026-11-10)**: a challenge admitted under the
+review-neutrality policy earns no bonus when it succeeds, whatever the target's
+confidence. For a challenge admitted while fund settlement is also on (it
+requires neutrality), the refund does not depend on whether the challenge
+succeeds or fails, and the 15% participation refund above does not apply. The
+confidence discount on the minimum stake still applies.
 
 **What would break it**: stake scaling that punishes probing of confident claims; reward schedules where disproving a 10% fact pays the same as disproving a 90% fact; failed probes that confiscate full stake.
 
@@ -76,6 +95,13 @@ mechanism can mint into a capped probe pool and pay invitation bonuses when
 `ProbeBountyMintPerBlock` is positive. The live `zerone-1` setting is `0`, so
 the naming/invitation half is active in code but self-funding is not activated
 on that network.
+
+**Activation status (2026-11-10)**: under the review-neutrality policy,
+`InviteIdleFactsForProbing` returns at once, so the chain issues no new probe
+invitations, and `MintToProbeBountyPool` mints nothing even when
+`ProbeBountyMintPerBlock` is positive. Claims admitted under that policy earn
+no invitation bonus. The naming half described above runs only while review
+neutrality is off.
 
 **What would break it**: a heartbeat that only fires when triggered
 externally; removing the cap-gated self-funding capability; or promising a
@@ -113,6 +139,11 @@ to claim pre-admission review.
 We believe: the chain does not issue diplomas. A voter who was once domain-qualified must continue to vote correctly to remain so. Qualification is a *current statement*, not a stored artefact — it is decayed when accuracy slips, restored when accuracy recovers.
 
 **Code expression**: `RunAccuracyDecay` (Wave 16) reads `DomainQualification.Metrics.AccuracyBps` written by the panel feedback loop; transitions ACTIVE → PROBATIONARY → SUSPENDED on threshold crossings; restores PROBATIONARY → ACTIVE on recovery. `GetQualificationWeight` returns 0 for non-ACTIVE qualifications, applying the consequence at every panel read.
+
+**Activation status (2026-11-10)**: under the review-neutrality policy,
+`RecordVerificationOutcome` records nothing, `RunAccuracyDecay` does not run,
+and a probation that ends is no longer resolved by accuracy. Qualification
+status therefore no longer follows accuracy.
 
 **What would break it**: a qualification status that never transitions on metrics; a `GetQualificationWeight` that returns the historical weight for SUSPENDED qualifications; a feedback loop that writes metrics nobody reads.
 
@@ -182,6 +213,11 @@ published `zerone-1` genesis and intentional `zerone-2` ceremony configuration
 set the per-block mint to `0`. Autonomous chain-funded audit is therefore a
 tested source capability, not currently activated network economics.
 
+**Activation status (2026-11-10)**: under the review-neutrality policy,
+`MintToProbeBountyPool` mints nothing even when `ProbeBountyMintPerBlock` is
+positive, and claims admitted under that policy earn no successful-challenge
+or invitation bonus from the pool.
+
 **Extended scope (sponsorship)**: `x/sponsorship` widens this commitment from "the chain pays for its own audit" to "the chain mediates external payment for the work it audits." A sponsor commits external value (escrowed uzrn) against a typed bounty — domain, per-artifact price, target count, window — and the chain pays out from escrow to fact submitters whose verified facts meet the criteria. The audit pathway is unchanged; only the funding source widens. The sponsor cannot buy verification; they fund work that the chain's panel verifies independently (commitment 8). The module account holds no Minter or Burner permission — sponsorship is supply circulation, not emission. Bound by `TestSponsorship_CreateFulfillEndToEnd` (the full lifecycle through live keepers) and `TestSponsorship_NoMintingHappens` (total uzrn supply is unchanged across a full bounty lifecycle, confirming the no-mint invariant).
 
 **What would break it once funded**: opaque or uncapped audit emission; a
@@ -201,6 +237,39 @@ sponsorship inflate supply, contradicting commitment 20).
 We believe: the chain's training data is a substrate good, not a tradeable asset. It cannot be silently amended, retroactively curated, or strategically inflated. What enters the corpus enters because it survived; what survives must continue to earn its place every block.
 
 **Code expression**: facts are append-only post-acceptance; status transitions are forward-only; training revenue clawback fires deterministically on disprove (`ClawbackOnDisproval`); revenue-related fields like `RevenueClawbackBlock` are sticky. The probe heartbeat re-invites idle facts so even un-challenged claims must continue to face audit.
+
+**Activation status (2026-11-10)**:
+
+- Clawback: nothing in the chain calls `ClawbackOnDisproval`, and no production
+  code records the training revenue it would clear. Disproof therefore runs no
+  clawback, and `RevenueClawbackBlock` stays unset. A disproven fact still earns
+  no training value, because its status is DISPROVEN.
+- Probe heartbeat: under the review-neutrality policy it issues no invitations
+  (commitment 5).
+- Standing through use: a fact outside doctrine keeps its standing only while
+  its metabolic energy stays at or above 300,000, which, once its birth
+  endowment runs down, needs income. Under the review-neutrality policy that
+  income comes only from accepted claims that cite the fact and from patronage;
+  tracked queries add none under any policy. Under the default parameters, a
+  fact that earns nothing from acceptance onward and is not under challenge goes
+  AT_RISK within at most 41 fitness epochs of 10,000 blocks (sooner in a fuller
+  domain or with longer content). Energy is capped at 1,000,000, so a fact that
+  had income earlier goes AT_RISK within at most 94 epochs after the income
+  stops. EXPIRED follows 5 epochs after AT_RISK, and PRUNED 20 epochs after
+  that. From AT_RISK a fact is classed unsuitable for training, earns no
+  training value and can no longer be challenged through `MsgChallengeFact` (a
+  conjecture stays refutable until PRUNED); from EXPIRED, with claim integrity
+  on, it can no longer be contradicted either. A PRUNED fact keeps its stored
+  record (content, submitter, method, reasoning trace), but metabolism no longer
+  processes it, and patronage paid to it does not restore it. Separately, when
+  more than 10 structured facts that are VERIFIED, ACTIVE, PROVISIONAL or
+  AT_RISK share a niche, those ranked below the ten with the highest fitness are
+  PRUNED at the next fitness epoch, whatever their energy. Patronage of any
+  positive amount, even 1 uzrn, adds 20,000 energy each epoch until an expiry
+  the patron sets, against a base upkeep of 10,000. A conjecture cannot be cited
+  or patronised, so under the review-neutrality policy its energy only falls;
+  once PRUNED it counts as resolved, leaves the open-questions list and can no
+  longer be refuted.
 
 **What would break it**: a path that retroactively modifies a finalised manifest's IncludedFactIds; a clawback that doesn't fire on disprove; a fact whose acceptance becomes negotiable post-finalisation.
 
