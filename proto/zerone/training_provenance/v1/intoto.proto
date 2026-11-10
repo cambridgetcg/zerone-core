@@ -37,3 +37,22 @@ message TrainingProvenancePredicate {
   string observed_on_chain_id = 2 [json_name = "observedOnChainId"];
   ProvenanceCertificate certificate = 3;
 }
+
+// InTotoStatementV1PredicateV2 is an in-toto Statement v1 carrying
+// training-provenance predicate v2. The envelope and subject are the same as
+// InTotoStatementV1; only the predicate type and certificate differ. Like v1,
+// the HTTP query returns this message directly and it is unsigned.
+message InTotoStatementV1PredicateV2 {
+  string statement_type = 1 [json_name = "_type"];
+  repeated InTotoSubject subject = 2;
+  string predicate_type = 3 [json_name = "predicateType"];
+  TrainingProvenancePredicateV2 predicate = 4;
+}
+
+// TrainingProvenancePredicateV2 carries Zerone's complete, current v2
+// certificate. Its chain fields have the TrainingProvenancePredicate meanings.
+message TrainingProvenancePredicateV2 {
+  string source_chain_id = 1 [json_name = "sourceChainId"];
+  string observed_on_chain_id = 2 [json_name = "observedOnChainId"];
+  ProvenanceCertificateV2 certificate = 3;
+}
