@@ -296,6 +296,49 @@ func TestCitedReward_CancelledOnTombstone(t *testing.T) {
 	}
 }
 
+// An adapter's witness reward is for witness-only links. A cited-only link
+// through an adapter that carries one, as the genesis adapter does, earns the
+// reward computeReward gives: paid at settle with the marker off, and with the
+// marker on escrowed and released at that same amount, once.
+func TestCitedReward_ComputedRewardNotAdapterWitnessReward(t *testing.T) {
+	for _, state := range citedMarkerStates {
+		t.Run(state.name, func(t *testing.T) {
+			f := newCitedEscrowFixture(t, state.on)
+			adapter, found := f.k.GetAdapter(f.ctx, citedAdapter)
+			require.True(t, found)
+			adapter.WitnessRewardUzrn = "500"
+			require.NoError(t, f.k.WriteAdapter(f.ctx, adapter))
+
+			require.NoError(t, f.k.SettleAttestation(f.ctx, "att-c1"))
+			escrowed := eventAttributes(f.ctx.EventManager().Events(), keeper.EventTypeWitnessRewardEscrowed)
+			pr, pending := f.k.GetWitnessPendingReward(f.ctx, "att-c1")
+			if state.on {
+				require.True(t, pending)
+				require.Equal(t, citedReward, pr.Amount, "the computed reward, not the adapter's witness reward")
+				require.Len(t, escrowed, 1)
+				require.Equal(t, citedReward, escrowed[0][keeper.AttrRewardUzrn])
+				require.Equal(t, "0", f.minted())
+			} else {
+				require.False(t, pending)
+				require.Empty(t, escrowed)
+				require.Equal(t, citedReward, f.minted())
+			}
+
+			f.k.SweepWitnessRewards(f.ctx.WithBlockHeight(f.ctx.BlockHeight() + int64(citedWindow)))
+			require.Equal(t, citedReward, f.minted(), "one mint of the computed reward")
+			require.Equal(t, "2332000", f.paid(f.submitter), "bond and computed reward")
+			require.Equal(t, citedReward, f.attestation(t, "att-c1").RewardUzrn)
+			released := eventAttributes(f.ctx.EventManager().Events(), keeper.EventTypeWitnessRewardReleased)
+			if state.on {
+				require.Len(t, released, 1)
+				require.Equal(t, citedReward, released[0][keeper.AttrRewardUzrn])
+			} else {
+				require.Empty(t, released)
+			}
+		})
+	}
+}
+
 // A cited-only attestation that reaches settlement without holding its source
 // ref mints nothing in either state, and with the marker on it escrows nothing
 // either. The holder keeps the ref.
@@ -384,6 +427,43 @@ func TestWitnessReward_NoRewardAdapterStillClaimsSourceRef(t *testing.T) {
 			require.False(t, pending)
 			require.Equal(t, "0", f.minted())
 			require.Equal(t, "0", f.attestation(t, "att-witness").RewardUzrn)
+		})
+	}
+}
+
+// A cited-only link whose computed reward is zero (reachable only with
+// attestation_min_bond_uzrn "0") mints nothing, escrows nothing and leaves a
+// free source ref unclaimed in both states: marker off, finalizeSettle
+// authorizes the source only for a positive reward; marker on,
+// escrowCitedReward returns before authorizeSourceMint.
+func TestCitedReward_ZeroRewardLeavesSourceRefFree(t *testing.T) {
+	for _, state := range citedMarkerStates {
+		t.Run(state.name, func(t *testing.T) {
+			f := newCitedEscrowFixture(t, state.on)
+			params := f.k.GetParams(f.ctx)
+			params.AttestationMinBondUzrn = "0"
+			require.NoError(t, f.k.SetParams(f.ctx, params))
+			submitter := testSubmitter("zero")
+			require.NoError(t, f.k.WriteAttestation(f.ctx, &types.ExternalAttestation{
+				AttestationId: "att-zero", AdapterId: citedAdapter, Submitter: submitter, BondUzrn: citedBond,
+				Status: types.AttestationStatus_ATTESTATION_STATUS_READY,
+				Link:   citedLink(citedAdapter, "inv-zero", 11),
+			}))
+			_, held := f.k.GetSourceRef(f.ctx, citedAdapter, "inv-zero")
+			require.False(t, held)
+
+			require.NoError(t, f.k.SettleAttestation(f.ctx, "att-zero"))
+
+			att := f.attestation(t, "att-zero")
+			require.Equal(t, types.AttestationStatus_ATTESTATION_STATUS_SETTLED, att.Status)
+			require.Equal(t, "0", att.RewardUzrn)
+			require.Equal(t, "0", f.minted())
+			require.Equal(t, citedBond, f.paid(submitter), "bond back whole")
+			_, pending := f.k.GetWitnessPendingReward(f.ctx, "att-zero")
+			require.False(t, pending)
+			require.Empty(t, eventAttributes(f.ctx.EventManager().Events(), keeper.EventTypeWitnessRewardEscrowed))
+			_, held = f.k.GetSourceRef(f.ctx, citedAdapter, "inv-zero")
+			require.False(t, held, "a zero reward claims no source ref")
 		})
 	}
 }
@@ -480,7 +560,7 @@ func TestCitedReward_BeginBlockerDrainsAndReleases(t *testing.T) {
 }
 
 // citedMarkerReadCounter counts reads of the cited-reward escrow marker key in
-// the bridge store.
+// the bridge store, including reads through a CacheContext taken from it.
 type citedMarkerReadCounter struct {
 	storetypes.MultiStore
 	key   storetypes.StoreKey
@@ -493,6 +573,34 @@ func (ms citedMarkerReadCounter) GetKVStore(key storetypes.StoreKey) storetypes.
 		return citedMarkerCountingStore{kv, ms.reads}
 	}
 	return kv
+}
+
+func (ms citedMarkerReadCounter) CacheMultiStore() storetypes.CacheMultiStore {
+	return citedMarkerCountingCache{ms.MultiStore.CacheMultiStore(), ms.key, ms.reads}
+}
+
+// citedMarkerCountingCache is the cache branch of citedMarkerReadCounter, so a
+// marker read inside a CacheContext (finalizeSettle, releaseWitnessReward) is
+// counted too. The alias names the embedded field, which may not share the
+// CacheMultiStore method's name.
+type citedMarkerCountingCache struct {
+	cacheBranch
+	key   storetypes.StoreKey
+	reads *int
+}
+
+type cacheBranch = storetypes.CacheMultiStore
+
+func (ms citedMarkerCountingCache) GetKVStore(key storetypes.StoreKey) storetypes.KVStore {
+	kv := ms.cacheBranch.GetKVStore(key)
+	if key == ms.key {
+		return citedMarkerCountingStore{kv, ms.reads}
+	}
+	return kv
+}
+
+func (ms citedMarkerCountingCache) CacheMultiStore() storetypes.CacheMultiStore {
+	return citedMarkerCountingCache{ms.cacheBranch.CacheMultiStore(), ms.key, ms.reads}
 }
 
 type citedMarkerCountingStore struct {
