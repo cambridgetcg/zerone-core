@@ -9,7 +9,7 @@ const (
 	journalFormat             = "zerone-agenttool-supabase-observatory-journal/0.1"
 	verificationFormat        = "zerone-agenttool-supabase-observatory-verification/0.1"
 	observationIDDomain       = "zerone.observatory-observation-id/0.1"
-	expectedManifestRawSHA256 = "sha256:37088fde953de11d71c449ac7a88798154add19e59aede9d2f5f1cfd37f9f832"
+	expectedManifestRawSHA256 = "sha256:c4fd82b3bb4816246d9aef6fc3e2aeadb7c9b5ba469be219df5054ef53982a32"
 )
 
 type manifest struct {
