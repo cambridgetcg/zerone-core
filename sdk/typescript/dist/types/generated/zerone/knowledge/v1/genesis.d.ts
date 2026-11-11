@@ -668,6 +668,16 @@ export interface Params {
      * default 0 (immediate); set > 0 to enable veto window
      */
     addFactVetoWindowBlocks: bigint;
+    /**
+     * ─── Reviewer minimum balance (consensus-repairs-v3) ─────────────────────
+     * The bank balance, in uzrn, an account must hold to commit to a review.
+     * Empty means the built-in 100,000,000 uzrn (100 ZRN); otherwise a canonical
+     * positive decimal within uint64. Read only while the reviewer-balance-param
+     * marker is set; with it off the built-in figure applies and this field must
+     * stay empty. A balance check only: no weight, bond or reputation, and not
+     * Sybil resistance.
+     */
+    minReviewerBalance: string;
 }
 /**
  * GenesisState is the genesis state of the knowledge module.
