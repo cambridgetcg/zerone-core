@@ -9,12 +9,15 @@ import (
 // roundsExecution carries entry-point marker snapshots by value. It is never
 // stored on the wired Keeper or in context. Its methods shadow the standalone
 // entry points, so loops, cached contexts and challenge paths cannot re-read a
-// marker. Unchanged orchestration bodies retain their historical call spelling;
-// with both flags false every changed leaf dispatches to its frozen legacy body.
+// marker. Unchanged orchestration bodies retain their historical call spelling.
+// With every flag false each changed leaf keeps its predecessor behaviour: the
+// calibration and zero-floor leaves dispatch to their frozen legacy bodies, and
+// metabolism keeps its label-only doctrine exemption.
 type roundsExecution struct {
 	Keeper
 	calibrationSmoothing bool
 	zeroConfidenceFloor  bool
+	doctrineIdentity     bool
 }
 
 func (k Keeper) selectRoundsExecution(ctx context.Context) (roundsExecution, error) {
@@ -26,7 +29,18 @@ func (k Keeper) selectRoundsExecution(ctx context.Context) (roundsExecution, err
 	if err != nil {
 		return roundsExecution{}, err
 	}
-	return roundsExecution{k, calibration, floor}, nil
+	// Selected here, at entry (BeginBlocker, and the standalone CompleteRound
+	// and AdvanceRoundPhases), so an unreadable or malformed marker halts the
+	// block before any write. BeginBlocker logs a ProcessMetabolism error and
+	// carries on, so a fault read only at the fitness epoch would skip
+	// metabolism quietly instead. The two standalone entries never reach
+	// metabolism, but they read the marker too and so also return its fault,
+	// as they do for the other two markers.
+	doctrine, err := k.DoctrineIdentityEnabled(ctx)
+	if err != nil {
+		return roundsExecution{}, err
+	}
+	return roundsExecution{Keeper: k, calibrationSmoothing: calibration, zeroConfidenceFloor: floor, doctrineIdentity: doctrine}, nil
 }
 
 // CompleteRound is also a standalone entry point. Block processing instead
@@ -60,6 +74,22 @@ func (k roundsExecution) AdvanceConfidence(ctx context.Context) error {
 		return k.advanceConfidenceLegacy(ctx)
 	}
 	return k.advanceConfidenceWithZeroFloor(ctx)
+}
+
+// ProcessMetabolism is also a standalone entry point. It reads the
+// doctrine-identity marker once, before any fact is read, and returns a fault
+// rather than choose. Both BeginBlocker bodies instead call
+// roundsExecution.ProcessMetabolism with the marker selected at entry.
+func (k Keeper) ProcessMetabolism(ctx context.Context, epoch uint64) error {
+	enabled, err := k.DoctrineIdentityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	return (roundsExecution{Keeper: k, doctrineIdentity: enabled}).ProcessMetabolism(ctx, epoch)
+}
+
+func (k roundsExecution) ProcessMetabolism(ctx context.Context, epoch uint64) error {
+	return k.processMetabolism(ctx, epoch, k.doctrineIdentity)
 }
 
 func (k Keeper) RecordSubmissionOutcome(ctx context.Context, submitter, methodID string, verdict types.Verdict) error {

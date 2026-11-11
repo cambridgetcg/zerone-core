@@ -10,10 +10,12 @@ import (
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
-// ProcessMetabolism runs one epoch of energy accounting for all active facts.
+// processMetabolism runs one epoch of energy accounting for all active facts.
 // Deducts maintenance cost, adds energy income, and transitions fact status
-// based on energy levels.
-func (k Keeper) ProcessMetabolism(ctx context.Context, epoch uint64) error {
+// based on energy levels. It is the marker-free worker behind
+// ProcessMetabolism (rounds_execution.go): the caller selects
+// doctrineIdentity once, before any fact is read.
+func (k Keeper) processMetabolism(ctx context.Context, epoch uint64, doctrineIdentity bool) error {
 	params, err := k.GetParams(ctx)
 	if err != nil {
 		return err
@@ -28,7 +30,17 @@ func (k Keeper) ProcessMetabolism(ctx context.Context, epoch uint64) error {
 		// as commitment C2). Exempt the doctrinal stratum from the energy
 		// lifecycle entirely. Match Category/MethodId (not Stratum) because
 		// ontology stratum names are copied onto ordinary facts (rounds.go).
-		if fact.Category == types.DoctrineCategory || fact.MethodId == types.DoctrineMethodId {
+		//
+		// With the doctrine-identity marker on, the exemption also asks where
+		// the fact came from: a fact made from a claim can carry the doctrine
+		// category without being doctrine, so it is metabolised like any other
+		// (isDoctrineFact, doctrine_identity.go). With the marker off, the
+		// label alone decides, as before.
+		if doctrineIdentity {
+			if isDoctrineFact(fact) {
+				return false
+			}
+		} else if fact.Category == types.DoctrineCategory || fact.MethodId == types.DoctrineMethodId {
 			return false
 		}
 		// Process all facts that are alive (not already pruned)

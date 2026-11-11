@@ -259,3 +259,12 @@ after their local protobuf source hash changed. The only protobuf change is the
 remaining source revisions, schema, fixtures, observation semantics, pending
 bindings and every effect/activation gate are unchanged. This is offline source
 compatibility, with no hosted action.
+
+The 2026-11-10 doctrine-identity refresh binds only the two current Zerone
+Research Commons source rows to commit `d051cbeb00355cedd68bd33febce535792500fa7`
+after the local `x/knowledge/keeper/metabolism.go` source hash changed. That
+change gates the metabolism exemption for doctrine on the default-off
+doctrine-identity marker (consensus-repairs-v3). The remaining source revisions,
+schema, fixtures, observation semantics, pending bindings and every
+effect/activation gate are unchanged. This is offline source compatibility, with
+no hosted action.

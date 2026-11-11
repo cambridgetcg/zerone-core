@@ -3,7 +3,7 @@
 export const CORRESPONDENCE_GEOMETRY_ENDPOINT =
   "/standards/correspondence-geometry.v0.json";
 export const CORRESPONDENCE_GEOMETRY_SHA256 =
-  "cf1745825e3e024a1a0c8ec3abb99bf190fb449514ff353cd2187365c6fe7133";
+  "7df226afe79515a8ceb1a9118da0abf7ed8a181796a08270e26b6be60526be45";
 export const CORRESPONDENCE_GEOMETRY_MAX_BYTES = 65_536;
 
 const CORRESPONDENCE_SCHEMA = "zerone.correspondence-geometry/v0";
