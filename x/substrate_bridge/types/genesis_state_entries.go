@@ -14,7 +14,8 @@ import (
 
 // witnessPendingRewardGenesis mirrors keeper.WitnessPendingReward without
 // importing keeper (which would create a package cycle). The keeper stores this
-// record as JSON rather than protobuf.
+// record as JSON rather than protobuf. With the cited-reward escrow marker on,
+// the same record also holds a cited-fact link's escrowed reward.
 type witnessPendingRewardGenesis struct {
 	AttestationID string `json:"attestation_id"`
 	AdapterID     string `json:"adapter_id"`
@@ -345,9 +346,15 @@ func validateGenesisStateEntries(gs *GenesisState) error {
 		if attestation.Status != AttestationStatus_ATTESTATION_STATUS_SETTLED {
 			return fmt.Errorf("state entry at index %d witness reward belongs to a non-settled attestation", record.index)
 		}
+		// Settlement escrows here only for a link with no pending claims: a
+		// witness-only link, and, with the cited-reward escrow marker on, a
+		// link that cites facts (keeper.escrowCitedReward). The marker is read
+		// from this genesis, which is the one InitGenesis will select; a
+		// cited-fact entry without it is refused as before. The checks around
+		// this one hold for both kinds.
 		if attestation.Link == nil ||
-			len(attestation.Link.CitedFacts) != 0 ||
-			len(attestation.Link.PendingClaims) != 0 {
+			len(attestation.Link.PendingClaims) != 0 ||
+			(len(attestation.Link.CitedFacts) != 0 && !gs.CitedRewardEscrowEnabled) {
 			return fmt.Errorf("state entry at index %d witness reward belongs to a non-witness attestation", record.index)
 		}
 		if attestation.Link.AdapterId != attestation.AdapterId {
