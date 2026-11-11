@@ -1,0 +1,8 @@
+{
+  "guest": { "cpu_kind": "performance", "cpus": 2, "memory_mb": 4096 },
+  "restart": { "policy": "on-failure", "max_retries": 5 },
+  "stop_config": { "timeout": "90s", "signal": "SIGTERM" },
+  "auto_destroy": false,
+  "services": [],
+  "metadata": { "role": "zerone-1-replay", "voting_power": "0" }
+}
