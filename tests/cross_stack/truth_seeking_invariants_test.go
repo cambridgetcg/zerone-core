@@ -151,10 +151,15 @@ func TestTruthSeeking_NormativeCommitmentIDsCarryNoTrainingValue(t *testing.T) {
 // Commitment 3: Popper, not popularity.
 //
 // "Truth is what survives falsification, not what is most asserted."
-// BaseWeight in TVW must scale with corroboration count (rejected
-// challenges), not with raw verification count.
+// This test drives the legacy TVW heuristic, which the creed keeps for
+// inspection: BaseWeight scales with CorroborationCount, not with raw
+// verification count. Under review neutrality a rejected challenge no
+// longer raises CorroborationCount (the creed's Retired paragraph).
 //
-// Bound here AND by: TestMoat_TVWHardensWithSurvivedAttacks.
+// Bound here AND by: TestMoat_TVWHardensWithSurvivedAttacks. The neutral
+// disproof path is bound by
+// TestReviewPolicyNeutralDisprovalRetainsHistoryWithoutCalibration
+// (x/knowledge/keeper).
 // ════════════════════════════════════════════════════════════════════
 
 func TestTruthSeeking_TVWScalesWithCorroborationNotConfidence(t *testing.T) {
@@ -214,12 +219,18 @@ func TestTruthSeeking_HighConfidenceClaimsInviteProbing(t *testing.T) {
 // ════════════════════════════════════════════════════════════════════
 // Commitment 5: The chain manufactures probe demand.
 //
-// "Waiting for probers is not enough. The substrate names under-tested
-// high-confidence facts; governance may activate a capped audit budget."
+// "Waiting for probers to arrive is not enough." The creed says this
+// commitment is not met under review neutrality: the heartbeat issues no
+// invitations and the probe pool mints nothing. This test turns review
+// neutrality off and drives the legacy cap-gated mint, which the creed
+// names as retired.
 //
 // Bound here AND by: TestMoat_HeartbeatInvitesIdleHighConfidenceFacts,
 // TestMoat_ProbeBountyPoolAccumulatesAndFundsBonuses,
-// TestMoat_InvitationBonusPaidToAnswerer.
+// TestMoat_InvitationBonusPaidToAnswerer (legacy paths). The neutral
+// behaviour is bound by TestReviewPolicyProbeMintRetiredWithoutSweeping
+// and TestReviewPolicyInvitationRetirementPreservesExistingStamps
+// (x/knowledge/keeper).
 // ════════════════════════════════════════════════════════════════════
 
 func TestTruthSeeking_ChainPaysForOwnAudit(t *testing.T) {
@@ -284,12 +295,19 @@ func TestTruthSeeking_AuthorityInjectionIsCancellable(t *testing.T) {
 // ════════════════════════════════════════════════════════════════════
 // Commitment 7: Skill is current, not historical.
 //
-// "The chain does not issue diplomas. A voter who was once domain-
-// qualified must continue to vote correctly to remain so."
+// "The chain does not issue diplomas. A record that a voter was once
+// domain-qualified must not keep weighing their vote, and agreeing with
+// a panel's verdict is not a measure of skill." This test turns review
+// neutrality off and drives the legacy accuracy decay, which the creed
+// names as retired.
 //
 // Bound here AND by: TestDomainPanel_QualificationDecaysOnLowAccuracy,
 // TestDomainPanel_QualificationRecoversFromProbation,
-// TestDomainPanel_QualificationSuspendsOnContinuedFailure.
+// TestDomainPanel_QualificationSuspendsOnContinuedFailure (legacy
+// paths). The neutral behaviour is bound by
+// TestReviewNeutralityFreezesQualificationFeedback (x/qualification/keeper)
+// and TestNeutralReviewCommitRetainsBalanceGateWithoutOldQualification
+// (x/knowledge/keeper).
 // ════════════════════════════════════════════════════════════════════
 
 func TestTruthSeeking_QualificationStatusFollowsAccuracy(t *testing.T) {
@@ -430,11 +448,17 @@ func TestTruthSeeking_TrustIsSynthesisedNotStitched(t *testing.T) {
 // ════════════════════════════════════════════════════════════════════
 // Commitment 12: The chain can fund its own audit.
 //
-// "Epistemic auditing can use a governance-activated, cap-gated native
-// budget; the published default is zero."
+// "Epistemic auditing ... should have a dedicated, accountable budget."
+// Under fund settlement that budget is each claim's recorded review
+// budget, paid by whoever asks for review. This test turns review
+// neutrality off and drives the legacy cap-gated pool mint, which the
+// creed names as retired; the published default rate is zero.
 //
 // Bound here AND by: TestMoat_ProbeBountyPoolAccumulatesAndFundsBonuses,
-// TestMoat_ProbeBountyPoolRespectsCap.
+// TestMoat_ProbeBountyPoolRespectsCap (legacy paths). The review budget
+// is bound by TestFundSettlementActualBankAllRoutesAndTerminalOutcomes
+// (app) and TestNeutralReviewCountsDeclaredAccountsAndRewardsEveryReveal
+// (x/knowledge/keeper).
 // ════════════════════════════════════════════════════════════════════
 
 func TestTruthSeeking_AuditBudgetIsAutonomous(t *testing.T) {
@@ -1091,12 +1115,18 @@ func TestTruthSeeking_EmergencyCeremoniesAreImmutablePostFinalize(t *testing.T) 
 // ════════════════════════════════════════════════════════════════════
 // Commitment 13: The training corpus is not for sale.
 //
-// "What enters the corpus enters because it survived. Facts are
-// append-only post-acceptance; status transitions are forward-only;
-// training revenue clawback fires deterministically on disprove."
+// "What stands must continue to earn its place: it stays open to
+// refutation, and a challenge that succeeds takes away its place as a
+// positive example." This test calls ClawbackOnDisproval directly. No
+// production code calls it (the creed's Clawback paragraph), so the test
+// binds the zero training value of a stamped fact, not the disproval
+// path.
 //
 // Bound here AND by: TestRouteB_Adversarial_ClawbackStickyAndIdempotent,
-// TestRouteB_Wave4b_PopperWeightedTVWAndClawback.
+// TestRouteB_Wave4b_PopperWeightedTVWAndClawback. The neutral disproval
+// path is bound by
+// TestReviewPolicyNeutralDisprovalRetainsHistoryWithoutCalibration
+// (x/knowledge/keeper).
 // ════════════════════════════════════════════════════════════════════
 
 func TestTruthSeeking_DisprovenFactClawsBackAndStaysClawedBack(t *testing.T) {
