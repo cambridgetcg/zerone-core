@@ -124,3 +124,51 @@ func ConsensusRepairsV2GenesisSelections() []ActivationSelection {
 		{zeroneknowledgetypes.ModuleName, "zero_confidence_floor_enabled"},
 	}
 }
+
+// ConsensusRepairsV3Markers lists the consensus-repairs-v3 markers:
+//
+//   - knowledge/doctrine_identity_enabled (knowledge 0x94): the metabolism
+//     exemption for doctrine follows provenance instead of the category label.
+//   - substrate_bridge/cited_reward_escrow_enabled (substrate_bridge 0x91): the
+//     reward for an attestation that cites existing facts waits in the existing
+//     witness escrow window.
+//   - knowledge/dormant_fact_contest_enabled (knowledge 0x95): a fact that lost
+//     standing through disuse stays open to challenge and contradiction, and a
+//     pruned conjecture stays an open question.
+//   - knowledge/reviewer_balance_param_enabled (knowledge 0x96): the balance a
+//     reviewer must hold to commit is read from a knowledge parameter instead
+//     of a fixed constant.
+//
+// Native genesis selects each one through its module's genesis field, and a
+// genesis without the field imports with the marker off. No carrier upgrade,
+// census or version step exists for v3 yet, so nothing turns these markers on
+// for an existing chain until a carrier is written. That carrier will loop over
+// this list, and will add InitChain's requirement that native genesis select
+// ConsensusRepairsV3GenesisSelections explicitly, as v2's carrier did for v2.
+// It shares no module/field pair or store key with ConsensusRepairsV1Markers
+// or ConsensusRepairsV2Markers.
+func (app *ZeroneApp) ConsensusRepairsV3Markers() []ActivationMarker {
+	return []ActivationMarker{
+		{zeroneknowledgetypes.ModuleName, "doctrine_identity_enabled",
+			app.KnowledgeKeeper.DoctrineIdentityEnabled, app.KnowledgeKeeper.EnableDoctrineIdentity},
+		{substratebridgetypes.ModuleName, "cited_reward_escrow_enabled",
+			app.SubstrateBridgeKeeper.CitedRewardEscrowEnabled, app.SubstrateBridgeKeeper.EnableCitedRewardEscrow},
+		{zeroneknowledgetypes.ModuleName, "dormant_fact_contest_enabled",
+			app.KnowledgeKeeper.DormantFactContestEnabled, app.KnowledgeKeeper.EnableDormantFactContest},
+		{zeroneknowledgetypes.ModuleName, "reviewer_balance_param_enabled",
+			app.KnowledgeKeeper.ReviewerBalanceParamEnabled, app.KnowledgeKeeper.EnableReviewerBalanceParam},
+	}
+}
+
+// ConsensusRepairsV3GenesisSelections is the native genesis selection of the
+// v3 markers, in ConsensusRepairsV3Markers order. DefaultGenesis sets each
+// field true. ValidateConsensusRepairsGenesisSelection does not require them
+// yet: the v3 carrier adds that.
+func ConsensusRepairsV3GenesisSelections() []ActivationSelection {
+	return []ActivationSelection{
+		{zeroneknowledgetypes.ModuleName, "doctrine_identity_enabled"},
+		{substratebridgetypes.ModuleName, "cited_reward_escrow_enabled"},
+		{zeroneknowledgetypes.ModuleName, "dormant_fact_contest_enabled"},
+		{zeroneknowledgetypes.ModuleName, "reviewer_balance_param_enabled"},
+	}
+}

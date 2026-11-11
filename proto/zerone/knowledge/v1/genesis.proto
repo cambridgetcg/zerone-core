@@ -402,6 +402,21 @@ message GenesisState {
   // them, as fact_relation_state does. Absence never authorizes reconstruction
   // from bounty creation totals or resetting the counters.
   KnowledgeGenesisAccounting accounting_state = 76;
+  // Doctrine-identity marker (consensus-repairs-v3): the metabolism exemption
+  // for doctrine follows provenance, not the category label. Native genesis
+  // sets it; a file without the field imports as off. No carrier upgrade sets
+  // it in place yet.
+  bool doctrine_identity_enabled = 77;
+  // Dormant-fact contest marker (consensus-repairs-v3): a fact that lost
+  // standing through disuse stays open to challenge and contradiction, and a
+  // pruned conjecture stays an open question. Native genesis sets it; a file
+  // without the field imports as off. No carrier upgrade sets it in place yet.
+  bool dormant_fact_contest_enabled = 78;
+  // Reviewer-balance parameter marker (consensus-repairs-v3): the balance a
+  // reviewer must hold to commit is read from a knowledge parameter instead of
+  // a fixed constant. Native genesis sets it; a file without the field imports
+  // as off. No carrier upgrade sets it in place yet.
+  bool reviewer_balance_param_enabled = 79;
 }
 
 // Exports each ordered source/target pair once, including full provenance.

@@ -15,7 +15,10 @@ import (
 // or admission history that it did not carry.
 func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	if gs.AccountingState == nil {
-		return k.initGenesisLegacy(ctx, gs)
+		if err := k.initGenesisLegacy(ctx, gs); err != nil {
+			return err
+		}
+		return k.initGenesisV3Markers(ctx, gs)
 	}
 	if err := types.ValidateGenesisAccounting(gs); err != nil {
 		return err
@@ -32,6 +35,9 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	if err := k.importGenesisAccounting(cache, gs.AccountingState); err != nil {
 		return fmt.Errorf("import knowledge accounting: %w", err)
 	}
+	if err := k.initGenesisV3Markers(cache, gs); err != nil {
+		return err
+	}
 	write()
 	return nil
 }
@@ -41,6 +47,7 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 // exporter or relaunch never lost history; the carrier must establish lineage.
 func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	gs := k.exportGenesisLegacy(ctx)
+	k.exportGenesisV3Markers(ctx, gs)
 	if err := k.exportGenesisAccounting(ctx, gs); err != nil {
 		// There is no error result in the module's export interface. Accounting
 		// inconsistencies are not activation-marker faults; existing marker
@@ -48,4 +55,49 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 		panic(fmt.Errorf("export knowledge accounting: %w", err))
 	}
 	return gs
+}
+
+// initGenesisV3Markers writes the consensus-repairs-v3 selections. It sits
+// outside initGenesisLegacy, whose body stays pinned to the v2 foundation, and
+// runs on both import paths. Only an explicit true writes a marker; absence
+// keeps legacy semantics.
+func (k Keeper) initGenesisV3Markers(ctx context.Context, gs *types.GenesisState) error {
+	if gs.DoctrineIdentityEnabled {
+		if err := k.EnableDoctrineIdentity(ctx); err != nil {
+			return err
+		}
+	}
+	if gs.DormantFactContestEnabled {
+		if err := k.EnableDormantFactContest(ctx); err != nil {
+			return err
+		}
+	}
+	if gs.ReviewerBalanceParamEnabled {
+		if err := k.EnableReviewerBalanceParam(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// exportGenesisV3Markers reads the consensus-repairs-v3 markers back into gs.
+// A marker fault panics with its activation.ErrMarkerFault chain, as the
+// markers in exportGenesisLegacy do, so a malformed marker is never exported
+// as off.
+func (k Keeper) exportGenesisV3Markers(ctx context.Context, gs *types.GenesisState) {
+	doctrineIdentity, err := k.DoctrineIdentityEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
+	dormantFactContest, err := k.DormantFactContestEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
+	reviewerBalanceParam, err := k.ReviewerBalanceParamEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
+	gs.DoctrineIdentityEnabled = doctrineIdentity
+	gs.DormantFactContestEnabled = dormantFactContest
+	gs.ReviewerBalanceParamEnabled = reviewerBalanceParam
 }
