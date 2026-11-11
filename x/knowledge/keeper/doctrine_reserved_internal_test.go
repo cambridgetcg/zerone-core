@@ -20,11 +20,11 @@ import (
 )
 
 // newDoctrineReservedFixture is newDoctrineMarkerFixture with the record
-// markers off, so the legacy SubmitClaim path is reachable. It holds a
-// verified fact to challenge or contradict and a conjecture's fact to
-// challenge. No bank or staking keeper is wired: these tests stop at the
-// marker.
-func newDoctrineReservedFixture(t *testing.T) doctrineMarkerFixture {
+// markers off, so the legacy SubmitClaim path is reachable, and the
+// doctrine-identity marker on or off as enabled says. It holds a verified fact
+// to challenge or contradict and a conjecture's fact to challenge. No bank or
+// staking keeper is wired: these tests are about the marker read.
+func newDoctrineReservedFixture(t *testing.T, enabled bool) doctrineMarkerFixture {
 	t.Helper()
 	db := dbm.NewMemDB()
 	ms := store.NewCommitMultiStore(db, log.NewNopLogger(), storemetrics.NewNoOpMetrics())
@@ -41,6 +41,7 @@ func newDoctrineReservedFixture(t *testing.T) doctrineMarkerFixture {
 	gs.ClaimRecordsEnabled = false
 	gs.FundSettlementEnabled = false
 	gs.ClaimIntegrityEnabled = false
+	gs.DoctrineIdentityEnabled = enabled
 	require.NoError(t, k.InitGenesis(ctx, gs))
 	require.NoError(t, k.SetFact(ctx, &types.Fact{
 		Id: "fact-verified", ClaimId: "claim-verified", Category: "empirical", Domain: "physics",
@@ -155,7 +156,7 @@ func TestDoctrineReservedMarkerFaultPropagates(t *testing.T) {
 			{"malformed-2", []byte{2}},
 		} {
 			t.Run(entry+"/"+tc.name, func(t *testing.T) {
-				f := newDoctrineReservedFixture(t)
+				f := newDoctrineReservedFixture(t, true)
 				if tc.value == nil {
 					f.kFault.op, f.kFault.prefix = "get", types.DoctrineIdentityEnabledKey
 				} else {
@@ -175,22 +176,25 @@ func TestDoctrineReservedMarkerFaultPropagates(t *testing.T) {
 	}
 }
 
-// Each of these entry points reads the marker exactly once. With the marker on
-// the admissions refuse the doctrine label, while the challenges (no bank is
-// wired, so no coins move), the epoch steps, the rescue and both BeginBlocker
-// heights run to the end; none reads the marker a second time.
+// Each of these entry points reads the marker exactly once, in both marker
+// states. With the marker on the admissions refuse the doctrine label. Every
+// other run goes to the end: the admissions with the marker off, the
+// challenges (no bank is wired, so no coins move), the epoch steps, the rescue
+// and both BeginBlocker heights. None reads the marker a second time.
 func TestDoctrineReservedMarkerReadOncePerEntryPoint(t *testing.T) {
-	for _, entry := range doctrineReservedEntries {
-		t.Run(entry, func(t *testing.T) {
-			f := newDoctrineReservedFixture(t)
-			err := runDoctrineReservedEntry(t, f.k, f.ctx, entry)
-			switch entry {
-			case "conjecture", "contradiction", "claim/legacy":
-				require.ErrorIs(t, err, ErrDoctrineCategoryReserved)
-			default:
-				require.NoError(t, err)
-			}
-			require.Equal(t, 1, *f.reads)
-		})
+	for _, enabled := range []bool{false, true} {
+		for _, entry := range doctrineReservedEntries {
+			t.Run(map[bool]string{false: "marker off", true: "marker on"}[enabled]+"/"+entry, func(t *testing.T) {
+				f := newDoctrineReservedFixture(t, enabled)
+				err := runDoctrineReservedEntry(t, f.k, f.ctx, entry)
+				admission := entry == "conjecture" || entry == "contradiction" || entry == "claim/legacy"
+				if enabled && admission {
+					require.ErrorIs(t, err, ErrDoctrineCategoryReserved)
+				} else {
+					require.NoError(t, err)
+				}
+				require.Equal(t, 1, *f.reads)
+			})
+		}
 	}
 }

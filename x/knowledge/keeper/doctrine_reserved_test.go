@@ -99,12 +99,13 @@ func admitWithCategory(t *testing.T, k keeper.Keeper, ctx sdk.Context, bk *track
 
 // Each admission path that copies a submitter's category refuses exactly
 // "doctrine" with the marker on, on every branch of its entry point. An empty
-// category and an ordinary one are admitted as before, and with the marker off
-// "doctrine" is admitted too.
+// category, an ordinary one and near misses of the label ("Doctrine",
+// "doctrine ") are admitted as before and keep their value, and with the
+// marker off "doctrine" is admitted too.
 func TestDoctrineReserved_AdmissionRefusesOnlyTheDoctrineCategory(t *testing.T) {
 	for _, kind := range []string{"conjecture", "conjecture/funded", "contradiction", "contradiction/records", "claim/legacy"} {
 		for _, enabled := range []bool{false, true} {
-			for _, category := range []string{types.DoctrineCategory, "", "empirical"} {
+			for _, category := range []string{types.DoctrineCategory, "", "empirical", "Doctrine", "doctrine "} {
 				t.Run(kind+"/"+markerName(enabled)+"/category="+category, func(t *testing.T) {
 					depth := map[string]int{"conjecture/funded": 4, "contradiction/records": 3}[kind]
 					k, ctx, bk := setupDoctrineReservedTest(t, withRecordMarkers(doctrineIdentityGenesis(enabled), depth))

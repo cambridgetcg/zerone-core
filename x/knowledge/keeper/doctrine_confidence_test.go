@@ -22,6 +22,7 @@ const (
 	labelledID        = "fact-labelled"
 	ordinaryID        = "fact-ordinary"
 	ordinaryHighID    = "fact-ordinary-high"
+	methodOnlyID      = "fact-method-only"
 )
 
 // seedConfidenceFacts adds, beside the 47 genesis doctrine facts, a doctrine
@@ -78,15 +79,23 @@ func isChainDoctrine(f *types.Fact) bool {
 // The same facts run through one epoch step in both marker states. With the
 // marker off doctrine grows and is clamped (genesis doctrine from 1,000,000 to
 // the 880,000 cap). With it on, every claimless doctrine fact keeps the value it
-// had, while every other fact, the claim-derived one labelled doctrine
-// included, ends exactly where it ends with the marker off: ordinary facts
-// still grow, and one near the cap is still clamped.
+// had, the one that is doctrine by method only included, while every other
+// fact, the claim-derived one labelled doctrine included, ends exactly where it
+// ends with the marker off: ordinary facts still grow, and one near the cap is
+// still clamped.
 func TestDoctrineIdentity_EpochStepsLeaveDoctrineConfidenceAlone(t *testing.T) {
 	for _, step := range []string{"growth", "fitness"} {
 		t.Run(step, func(t *testing.T) {
 			run := func(enabled bool) (keeper.Keeper, sdk.Context, string, map[string]uint64, map[string]uint64) {
 				k, ctx, _ := setupDoctrineIdentityTest(t, doctrineIdentityGenesis(enabled))
 				added := seedConfidenceFacts(t, k, ctx)
+				// A claimless fact that is doctrine by its method alone: the
+				// method half of isDoctrineFact.
+				methodOnly := makeEnergyFact(methodOnlyID, "A claimless fact with only the doctrine method", "physics", 500_000, types.FactStatus_FACT_STATUS_VERIFIED)
+				methodOnly.Category = "formal"
+				methodOnly.MethodId = types.DoctrineMethodId
+				methodOnly.Confidence = 600_000
+				require.NoError(t, k.SetFact(ctx, methodOnly))
 				before := confidences(k, ctx)
 				if step == "growth" {
 					require.NoError(t, k.AdvanceConfidence(ctx))
@@ -105,6 +114,8 @@ func TestDoctrineIdentity_EpochStepsLeaveDoctrineConfidenceAlone(t *testing.T) {
 			require.EqualValues(t, types.DoctrineConfidence, on[genesisDoctrineID], "marker on: genesis doctrine keeps the value it was born with")
 			require.EqualValues(t, 808_800, off[addedDoctrineID], "marker off: authority doctrine grows")
 			require.EqualValues(t, 800_000, on[addedDoctrineID], "marker on: authority doctrine keeps its value")
+			require.EqualValues(t, 606_600, off[methodOnlyID], "marker off: doctrine by method only grows")
+			require.EqualValues(t, 600_000, on[methodOnlyID], "marker on: doctrine by method only keeps its value")
 			require.EqualValues(t, 505_500, on[ordinaryID], "marker on: an ordinary fact still grows")
 			require.EqualValues(t, 880_000, on[ordinaryHighID], "marker on: an ordinary fact is still clamped")
 			require.EqualValues(t, 505_500, on[labelledID], "marker on: a claim-derived fact labelled doctrine grows like any other")
@@ -119,7 +130,7 @@ func TestDoctrineIdentity_EpochStepsLeaveDoctrineConfidenceAlone(t *testing.T) {
 				require.Equal(t, off[f.Id], on[f.Id], "marker on: %s ends where it ends with the marker off", f.Id)
 				return false
 			})
-			require.Equal(t, 47+1, doctrine)
+			require.Equal(t, 47+2, doctrine, "47 genesis doctrine facts, the authority's fact and the method-only fact")
 			kOff.IterateFacts(ctxOff, func(f *types.Fact) bool {
 				if isChainDoctrine(f) && before[f.Id] > 0 {
 					require.Greater(t, off[f.Id], uint64(0))
