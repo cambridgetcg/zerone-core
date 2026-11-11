@@ -669,6 +669,16 @@ export interface Params {
    * default 0 (immediate); set > 0 to enable veto window
    */
   addFactVetoWindowBlocks: bigint;
+  /**
+   * ─── Reviewer minimum balance (consensus-repairs-v3) ─────────────────────
+   * The bank balance, in uzrn, an account must hold to commit to a review.
+   * Empty means the built-in 100,000,000 uzrn (100 ZRN); otherwise a canonical
+   * positive decimal within uint64. Read only while the reviewer-balance-param
+   * marker is set; with it off the built-in figure applies and this field must
+   * stay empty. A balance check only: no weight, bond or reputation, and not
+   * Sybil resistance.
+   */
+  minReviewerBalance: string;
 }
 /**
  * GenesisState is the genesis state of the knowledge module.
@@ -1108,7 +1118,8 @@ function createBaseParams(): Params {
     probeBountyMaxPoolSize: "",
     invitationBonusAmount: "",
     guardianAddresses: [],
-    addFactVetoWindowBlocks: BigInt(0)
+    addFactVetoWindowBlocks: BigInt(0),
+    minReviewerBalance: ""
   };
 }
 /**
@@ -1571,6 +1582,9 @@ export const Params = {
     if (message.addFactVetoWindowBlocks !== BigInt(0)) {
       writer.uint32(1280).uint64(message.addFactVetoWindowBlocks);
     }
+    if (message.minReviewerBalance !== "") {
+      writer.uint32(1290).string(message.minReviewerBalance);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): Params {
@@ -2030,6 +2044,9 @@ export const Params = {
         case 160:
           message.addFactVetoWindowBlocks = reader.uint64();
           break;
+        case 161:
+          message.minReviewerBalance = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -2195,6 +2212,7 @@ export const Params = {
     message.invitationBonusAmount = object.invitationBonusAmount ?? "";
     message.guardianAddresses = object.guardianAddresses?.map(e => e) || [];
     message.addFactVetoWindowBlocks = object.addFactVetoWindowBlocks !== undefined && object.addFactVetoWindowBlocks !== null ? BigInt(object.addFactVetoWindowBlocks.toString()) : BigInt(0);
+    message.minReviewerBalance = object.minReviewerBalance ?? "";
     return message;
   }
 };
