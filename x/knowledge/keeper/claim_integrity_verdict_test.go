@@ -51,6 +51,19 @@ func vdNotChallengeable(factID string, status types.FactStatus, integrity bool) 
 		factID, status, accepted)
 }
 
+// vdNotChallengeableFor is vdNotChallengeable, or with the dormant-fact
+// contest marker on its refusal, which also names at-risk, expired and pruned.
+func vdNotChallengeableFor(factID string, status types.FactStatus, integrity, dormant bool) string {
+	if !dormant {
+		return vdNotChallengeable(factID, status, integrity)
+	}
+	accepted := "verified, active, at-risk, expired or pruned"
+	if integrity {
+		accepted = "verified, active, contested, at-risk, expired or pruned"
+	}
+	return fmt.Sprintf("fact %s is not in a challengeable state (status: %s) (only %s facts accept probes)", factID, status, accepted)
+}
+
 // vdMinimum is the stake that challenging factID costs at its confidence.
 func (f *v11Fixture) vdMinimum(t *testing.T, factID string) *big.Int {
 	t.Helper()
@@ -151,6 +164,12 @@ func TestClaimIntegrity_ChallengeFactAdmitsContestedTarget(t *testing.T) {
 				f.starve(t, c)
 			}
 
+			// The marker-on selection is DefaultGenesis, which also selects the
+			// dormant-fact contest (consensus-repairs-v3): a non-conjecture that
+			// is AT_RISK, EXPIRED or PRUNED is challengeable too.
+			dormant, err := f.k.DormantFactContestEnabled(f.ctx)
+			require.NoError(t, err)
+			require.Equal(t, sel.integrity, dormant)
 			_, factG, _ := f.contraTarget(t, "v12-vd-gate-g", "Synthetic v12 probe P3c: an accepted fact whose status is varied in a cache.")
 			stake := f.vdMinimum(t, factG).String()
 			for _, value := range statuses {
@@ -159,9 +178,11 @@ func TestClaimIntegrity_ChallengeFactAdmitsContestedTarget(t *testing.T) {
 					fact := f.fact(t, factG)
 					fact.Status = status
 					require.NoError(t, f.k.SetFact(f.ctx, fact))
-					admitted := status == csVerified || status == vdActive || (sel.integrity && status == csContested)
+					dormantTarget := dormant && (status == types.FactStatus_FACT_STATUS_AT_RISK ||
+						status == types.FactStatus_FACT_STATUS_EXPIRED || status == types.FactStatus_FACT_STATUS_PRUNED)
+					admitted := status == csVerified || status == vdActive || (sel.integrity && status == csContested) || dormantTarget
 					if !admitted {
-						f.requireChallengeRefused(t, v11Addr("v12-vd-gate-gc"), factG, stake, vdNotChallengeable(factG, status, sel.integrity))
+						f.requireChallengeRefused(t, v11Addr("v12-vd-gate-gc"), factG, stake, vdNotChallengeableFor(factG, status, sel.integrity, dormant))
 						return
 					}
 					_, err := f.vdChallengeAt(v11Addr("v12-vd-gate-gc"), factG, stake)

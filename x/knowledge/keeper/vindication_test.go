@@ -419,7 +419,11 @@ func TestVindication_ChallengeFails_NoVindication(t *testing.T) {
 	}
 	require.NoError(t, k.SetVerificationRound(ctx, originalRound))
 
-	// Step 2: Create a challenge claim with ProvisionalFactId
+	// Step 2: Create a challenge claim with ProvisionalFactId. Like every
+	// challenge MsgChallengeFact opens, it was submitted at the height that
+	// moved the fact to CHALLENGED (step 1): with the dormant-fact contest
+	// marker on, the end of the round reads that transition to learn what the
+	// challenge found, and holds a fact whose record it cannot match.
 	challengeClaimID := "claim-challenge-rejected"
 	challengeClaim := &types.Claim{
 		Id:                challengeClaimID,
@@ -427,6 +431,7 @@ func TestVindication_ChallengeFails_NoVindication(t *testing.T) {
 		Domain:            "physics",
 		Category:          "empirical",
 		Submitter:         "zrn1challenger1",
+		SubmittedAtBlock:  uint64(ctx.BlockHeight()),
 		Stake:             "1000000",
 		Status:            types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION,
 		ProvisionalFactId: factId,

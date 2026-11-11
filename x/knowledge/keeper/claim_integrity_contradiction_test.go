@@ -80,6 +80,16 @@ func contraNotStanding(factID string, status types.FactStatus) string {
 		factID, status)
 }
 
+// contraNotStandingFor is contraNotStanding, or with the dormant-fact contest
+// marker on its refusal, which also names expired and pruned.
+func contraNotStandingFor(factID string, status types.FactStatus, dormant bool) string {
+	if !dormant {
+		return contraNotStanding(factID, status)
+	}
+	return fmt.Sprintf("fact %s cannot be contradicted (status: %s); only a verified, active, contested, challenged, at-risk, expired or pruned fact can be contradicted",
+		factID, status)
+}
+
 // P3 B replica: a 1-uzrn contradiction, or one a single uzrn below the
 // minimum, is refused with a message that states the minimum. A stake at the
 // minimum is admitted. With the marker off every positive stake is admitted.
@@ -134,13 +144,19 @@ func TestClaimIntegrity_ContradictionTargetMustStand(t *testing.T) {
 	for _, sel := range dedupSelections {
 		t.Run(sel.name, func(t *testing.T) {
 			f := sel.setup(t)
+			// The marker-on selection is DefaultGenesis, which also selects the
+			// dormant-fact contest (consensus-repairs-v3): EXPIRED and PRUNED
+			// targets then stand for admission too.
+			dormant, err := f.k.DormantFactContestEnabled(f.ctx)
+			require.NoError(t, err)
+			require.Equal(t, sel.integrity, dormant)
 			_, factG, minimumG := f.contraTarget(t, "v12-ct-refuted", "Synthetic v12 probe P3: an accepted fact that a challenge panel later refutes.")
 			f.accept(t, f.challenge(t, v11Addr("v12-ct-challenger"), factG), v11Reviewers()...)
 			require.Equal(t, types.FactStatus_FACT_STATUS_DISPROVEN, f.fact(t, factG).Status)
 			const late = "Synthetic v12 probe P3: a counter-observation against a fact already refuted."
 			if sel.integrity {
 				f.requireContradictionRefused(t, v11Addr("v12-ct-late"), factG, late, minimumG,
-					contraNotStanding(factG, types.FactStatus_FACT_STATUS_DISPROVEN))
+					contraNotStandingFor(factG, types.FactStatus_FACT_STATUS_DISPROVEN, dormant))
 			} else {
 				f.inCache(func() { f.mustContradict(t, v11Addr("v12-ct-late"), factG, late, minimumG) })
 			}
@@ -153,11 +169,12 @@ func TestClaimIntegrity_ContradictionTargetMustStand(t *testing.T) {
 					fact.Status = status
 					require.NoError(t, f.k.SetFact(f.ctx, fact))
 					counter := "Synthetic v12 probe P3: a counter-observation against a fact in status " + status.String() + "."
-					if standing[status] || !sel.integrity {
+					dormantStanding := dormant && (status == types.FactStatus_FACT_STATUS_EXPIRED || status == types.FactStatus_FACT_STATUS_PRUNED)
+					if standing[status] || dormantStanding || !sel.integrity {
 						f.mustContradict(t, v11Addr("v12-ct-status-c"), factF, counter, minimum)
 						return
 					}
-					f.requireContradictionRefused(t, v11Addr("v12-ct-status-c"), factF, counter, minimum, contraNotStanding(factF, status))
+					f.requireContradictionRefused(t, v11Addr("v12-ct-status-c"), factF, counter, minimum, contraNotStandingFor(factF, status, dormant))
 				})
 			}
 			f.requireNoLiveRounds(t)
