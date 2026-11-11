@@ -14,6 +14,11 @@ import (
 // An older genesis still imports exactly as before, without inventing balances
 // or admission history that it did not carry.
 func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
+	// InitChain does not run ValidateGenesis, so check the v3 reviewer balance
+	// here, before any write. A genesis without the field passes unchanged.
+	if err := types.ValidateReviewerBalanceGenesis(gs); err != nil {
+		return err
+	}
 	if gs.AccountingState == nil {
 		if err := k.initGenesisLegacy(ctx, gs); err != nil {
 			return err
