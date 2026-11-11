@@ -23,6 +23,11 @@ const BuiltInMinReviewerBalanceUzrn uint64 = 100_000_000
 // BuiltInMinReviewerBalanceUzrn. Anything else must be a canonical positive
 // base-10 integer within uint64: no sign, no leading zero, no whitespace, and
 // not zero.
+//
+// There is no upper bound below the uint64 limit. A figure above every
+// account's balance closes MsgSubmitCommitment to everyone; the vote-extension
+// commit path (app/abci.go) never reads it. That is within governance's
+// existing power over knowledge params, and nothing here prevents it.
 func ParseMinReviewerBalance(value string) (uint64, error) {
 	if value == "" {
 		return BuiltInMinReviewerBalanceUzrn, nil

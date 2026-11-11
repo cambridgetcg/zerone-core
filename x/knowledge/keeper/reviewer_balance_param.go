@@ -51,6 +51,15 @@ func (k Keeper) reviewerMinBalance(ctx context.Context) (sdkmath.Int, error) {
 // it rather than store a control it would silently ignore. An update that
 // leaves the field as it is does not read the marker at all, so every existing
 // update runs as before.
+//
+// The refusal is not at the same stage as before. A binary without the field
+// refuses a tx that carries it at decode (unknownproto: field 161 is an unknown
+// critical field), before the ante handler runs. This binary decodes it, and a
+// governance proposal that wraps such an update is stored and fails here, at
+// execution. Fees, sequences, stored proposals and result codes then differ
+// from the old binary for the same block. So even with the marker off this
+// binary cannot run beside the old one: it has to be adopted at a coordinated
+// upgrade height, like any change to a tx-reachable message.
 func (k Keeper) checkReviewerBalanceParamChange(ctx context.Context, current, proposed *types.Params) error {
 	if proposed.MinReviewerBalance == current.MinReviewerBalance {
 		return nil
