@@ -34,7 +34,7 @@ func TestKnowledgeUpdateParamsCarriesReviewerBalance(t *testing.T) {
 	txConfig := h.App.TxConfig()
 
 	p := knowledgetypes.DefaultParams()
-	p.MinReviewerBalance = "222000"
+	p.MinReviewerBalance = "150000000"
 	p.MethodologyNormalizationBps = nil
 	builder := txConfig.NewTxBuilder()
 	require.NoError(t, builder.SetMsgs(&knowledgetypes.MsgUpdateParams{
@@ -50,7 +50,7 @@ func TestKnowledgeUpdateParamsCarriesReviewerBalance(t *testing.T) {
 	require.Len(t, msgs, 1)
 	update, ok := msgs[0].(*knowledgetypes.MsgUpdateParams)
 	require.True(t, ok)
-	require.Equal(t, "222000", update.Params.MinReviewerBalance)
+	require.Equal(t, "150000000", update.Params.MinReviewerBalance)
 }
 
 // decodeGovProposalEnvelope wraps msg in a govv1.MsgSubmitProposal, the
@@ -84,19 +84,28 @@ func decodeGovProposalEnvelope(t *testing.T, h *TestHarness, msg sdk.Msg) sdk.Ms
 // keeper. The harness starts from native default genesis, so the
 // reviewer-balance marker is on and the params carry the methodology map.
 //
-// With the marker on the proposal passes and the figure is stored; the
-// knowledge keeper tests show that SubmitCommitment then applies it. The
-// proposal has to empty the methodology map to be decoded at all (see
-// TestKnowledgeUpdateParamsCarriesReviewerBalance), and the passed update
-// stores that emptied map too. With the marker off the proposal is accepted
-// and stored, then fails at execution and changes no params.
+// With the marker on, a proposal that raises the figure to 150 ZRN passes and
+// the figure is stored; the knowledge keeper tests show that SubmitCommitment
+// then applies it. The proposal has to empty the methodology map to be decoded
+// at all (see TestKnowledgeUpdateParamsCarriesReviewerBalance), and the passed
+// update stores that emptied map too. A proposal that lowers the figure one
+// uzrn below 100 ZRN is accepted and stored, then fails at execution, marker on
+// or off: the balance is checked, not locked, and a lower figure waits for a
+// locked seat deposit (the reviewer-entry design draft, pull request #190).
+// With the marker off a raised figure fails at execution too. A failed
+// proposal changes no params.
 func TestKnowledgeGovProposalSetsReviewerBalance(t *testing.T) {
+	const floorRefusal = "min_reviewer_balance 99999999 is below the built-in minimum of 100000000 uzrn: a lower figure needs a locked seat deposit, which this source does not have"
 	for _, tc := range []struct {
 		name     string
 		markerOn bool
+		figure   string
+		failure  string // empty: the proposal passes
 	}{
-		{"marker-on", true},
-		{"marker-off", false},
+		{"marker-on/raised", true, "150000000", ""},
+		{"marker-on/one-below", true, "99999999", floorRefusal},
+		{"marker-off/raised", false, "150000000", "min_reviewer_balance requires the reviewer-balance-param activation"},
+		{"marker-off/one-below", false, "99999999", floorRefusal},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := NewTestHarness(t)
@@ -113,7 +122,7 @@ func TestKnowledgeGovProposalSetsReviewerBalance(t *testing.T) {
 			require.NotEmpty(t, before.MethodologyNormalizationBps, "default genesis carries the methodology map")
 
 			next := proto.Clone(before).(*knowledgetypes.Params)
-			next.MinReviewerBalance = "222000"
+			next.MinReviewerBalance = tc.figure
 			next.MethodologyNormalizationBps = nil
 			gov := h.App.AccountKeeper.GetModuleAddress("gov")
 			require.NotNil(t, gov)
@@ -127,14 +136,14 @@ func TestKnowledgeGovProposalSetsReviewerBalance(t *testing.T) {
 
 			after, err := h.App.KnowledgeKeeper.GetParams(h.Ctx)
 			require.NoError(t, err)
-			if tc.markerOn {
+			if tc.failure == "" {
 				require.Equal(t, govv1.StatusPassed, proposal.Status, proposal.FailedReason)
-				require.Equal(t, "222000", after.MinReviewerBalance)
+				require.Equal(t, tc.figure, after.MinReviewerBalance)
 				require.Empty(t, after.MethodologyNormalizationBps, "the update replaced the whole Params, emptied map included")
 				return
 			}
 			require.Equal(t, govv1.StatusFailed, proposal.Status)
-			require.Contains(t, proposal.FailedReason, "min_reviewer_balance requires the reviewer-balance-param activation")
+			require.Contains(t, proposal.FailedReason, tc.failure)
 			require.True(t, proto.Equal(before, after), "a failed proposal changes no params")
 		})
 	}

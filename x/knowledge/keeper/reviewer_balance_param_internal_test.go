@@ -77,8 +77,9 @@ const reviewerBalanceRound = "round-reviewer-balance"
 
 // newReviewerBalanceInternalFixture is native DefaultGenesis with the marker
 // on or off, the parameter written straight to the store (a marker-off chain
-// cannot reach a configured parameter through genesis or a message), one
-// legacy commit-phase round, and a reviewer holding 100 ZRN.
+// cannot reach a configured parameter through genesis or a message, and no
+// chain can reach a figure below 100 ZRN), one legacy commit-phase round, and
+// a reviewer holding 100 ZRN.
 func newReviewerBalanceInternalFixture(t *testing.T, markerOn bool, param string) reviewerBalanceFixture {
 	t.Helper()
 	db := dbm.NewMemDB()
@@ -157,7 +158,7 @@ func TestReviewerBalanceMarkerFaultPropagates(t *testing.T) {
 
 			require.ErrorIs(t, f.commit(f.ctx), activation.ErrMarkerFault)
 			require.Zero(t, f.bank.reads, "the fault returns before the balance read")
-			require.ErrorIs(t, f.updateReviewerBalance(t, "222000"), activation.ErrMarkerFault)
+			require.ErrorIs(t, f.updateReviewerBalance(t, "150000000"), activation.ErrMarkerFault)
 			require.Empty(t, f.ctx.EventManager().Events())
 			require.Equal(t, before, f.snapshot(t), "no commitment and no params are stored")
 
@@ -190,6 +191,47 @@ func TestReviewerBalanceMalformedStoredParamFailsClosed(t *testing.T) {
 	}
 }
 
+// A5: whatever is stored, the figure is never below the built-in 100 ZRN.
+// With the marker on it is the larger of the stored figure and 100 ZRN, so a
+// stored figure below it (no message or genesis can write one) reads as
+// 100 ZRN. With the marker off it is 100 ZRN.
+func TestReviewerBalanceFigureNeverBelowBuiltIn(t *testing.T) {
+	for _, tc := range []struct {
+		stored  string
+		on, off uint64
+	}{
+		{"", 100_000_000, 100_000_000},
+		{"1", 100_000_000, 100_000_000},
+		{"222000", 100_000_000, 100_000_000},
+		{"99999999", 100_000_000, 100_000_000},
+		{"100000000", 100_000_000, 100_000_000},
+		{"100000001", 100_000_001, 100_000_000},
+	} {
+		for markerOn, want := range map[bool]uint64{true: tc.on, false: tc.off} {
+			f := newReviewerBalanceInternalFixture(t, markerOn, tc.stored)
+			got, err := f.k.reviewerMinBalance(f.ctx)
+			require.NoError(t, err, "marker %t, stored %q", markerOn, tc.stored)
+			require.Equal(t, want, got.Uint64(), "marker %t, stored %q", markerOn, tc.stored)
+		}
+	}
+}
+
+// GetParams returns DefaultParams when the stored params fail to decode. With
+// the marker on, the commitment check then reads an empty figure: the built-in
+// 100 ZRN, never no gate and never less.
+func TestReviewerBalanceUndecodableParamsReadAsBuiltIn(t *testing.T) {
+	f := newReviewerBalanceInternalFixture(t, true, "150000000")
+	f.ctx.KVStore(f.key).Set(types.ParamsKey, []byte{0xff})
+	got, err := f.k.reviewerMinBalance(f.ctx)
+	require.NoError(t, err)
+	require.Equal(t, types.BuiltInMinReviewerBalanceUzrn, got.Uint64())
+
+	f.bank.balance = int64(types.BuiltInMinReviewerBalanceUzrn) - 1
+	require.ErrorContains(t, f.commit(f.ctx), "verifier does not meet minimum balance requirement")
+	f.bank.balance = int64(types.BuiltInMinReviewerBalanceUzrn)
+	require.NoError(t, f.commit(f.ctx))
+}
+
 // SubmitCommitment reads the marker once. With it off it reads no params;
 // with it on it reads them once.
 func TestReviewerBalanceMarkerReadOncePerCommitment(t *testing.T) {
@@ -202,7 +244,7 @@ func TestReviewerBalanceMarkerReadOncePerCommitment(t *testing.T) {
 		{"on", true, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := newReviewerBalanceInternalFixture(t, tc.markerOn, "222000")
+			f := newReviewerBalanceInternalFixture(t, tc.markerOn, "100000000")
 			require.NoError(t, f.commit(f.ctx))
 			require.Equal(t, 1, *f.marker)
 			require.Equal(t, tc.params, *f.params)
@@ -227,13 +269,13 @@ func TestReviewerBalanceMarkerOffGasUnchanged(t *testing.T) {
 		return figureGas, meter.GasConsumed()
 	}
 	offEmptyFigure, offEmpty := gasOf(false, "")
-	offSetFigure, offSet := gasOf(false, "1")
+	offSetFigure, offSet := gasOf(false, "100000000")
 	require.Zero(t, offEmptyFigure, "with the marker off the figure is free")
 	require.Zero(t, offSetFigure)
 	require.Equal(t, offEmpty, offSet, "with the marker off a configured parameter changes no gas")
 
 	onEmptyFigure, onEmpty := gasOf(true, "")
-	_, onSet := gasOf(true, "1")
+	_, onSet := gasOf(true, "100000000")
 	require.Positive(t, onEmptyFigure, "with the marker on the param read is charged")
 	require.Equal(t, offEmpty+onEmptyFigure, onEmpty, "the param read is the only gas the marker adds")
 	require.NotEqual(t, onEmpty, onSet, "the comparison above would see a param read")

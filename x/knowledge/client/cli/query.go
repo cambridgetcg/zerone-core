@@ -1353,7 +1353,7 @@ func NewQueryClaimWatchCmd() *cobra.Command {
 						if lastRound != nil && len(lastRound.Reveals) > 0 {
 							cmd.Printf("  %d reveal(s) arrived but no verdict cleared quorum/threshold (domain claims need %s reveals and a 77%% supermajority) — the claim was under-witnessed or contentious.\n", len(lastRound.Reveals), needed)
 						} else {
-							cmd.Printf("  no verifier revealed a vote — the round starved (domain claims need %s reveals; each verifier needs the reviewer minimum balance, 100 ZRN by default, at commit time).\n", needed)
+							cmd.Printf("  no verifier revealed a vote — the round starved (domain claims need %s reveals; each verifier needs the reviewer minimum balance, 100 ZRN or more if governance raised it, at commit time).\n", needed)
 						}
 						cmd.Println("  the review fee is not refunded.")
 					}

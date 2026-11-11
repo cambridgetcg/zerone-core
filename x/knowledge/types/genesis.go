@@ -670,8 +670,9 @@ func (p *Params) Validate() error {
 	if p.MinReviewFee == "" || p.MinReviewFee == "0" {
 		return fmt.Errorf("min_review_fee must be > 0")
 	}
-	// Empty, or a canonical positive uint64 (reviewer_balance.go).
-	if _, err := ParseMinReviewerBalance(p.MinReviewerBalance); err != nil {
+	// Empty, or a canonical uint64 at or above the built-in 100 ZRN
+	// (reviewer_balance.go). Genesis validation and MsgUpdateParams both run it.
+	if err := ValidateMinReviewerBalance(p.MinReviewerBalance); err != nil {
 		return err
 	}
 

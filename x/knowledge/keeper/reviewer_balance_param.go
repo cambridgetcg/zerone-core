@@ -17,14 +17,22 @@ import (
 // and reads no parameter, so the commit path spends exactly the gas it spent
 // before: the marker read itself is gas-free (internal/activation). With the
 // marker on it reads Params.MinReviewerBalance (gas-metered, like any param
-// read); an empty value stands for the same built-in 100 ZRN. A marker fault is
-// returned, never read as off.
+// read) and returns the larger of that figure and the built-in 100 ZRN
+// (types.EffectiveMinReviewerBalance); an empty value stands for 100 ZRN. A
+// stored figure below 100 ZRN, which no message or genesis can write, still
+// yields 100 ZRN. A marker fault, or a malformed stored value, is returned,
+// never read as off or as a figure.
+//
+// GetParams returns DefaultParams when the stored params fail to decode. Here
+// that reads as an empty value, so 100 ZRN: never no gate and never less, but a
+// raised figure in an undecodable blob would read as 100 ZRN too.
 //
 // What this does not do: it sets no vote weight, bond or reputation, and it is
 // not Sybil resistance. The check is a balance snapshot at commit time; nothing
-// is locked, and the same coins can seat one account and then another. A lower
-// figure lowers the cost of holding many reviewer seats. Governance changes the
-// figure only through MsgUpdateParams.
+// is locked, and the same coins can seat one account and then another. That is
+// why the figure can be raised here but not lowered: lowering it below 100 ZRN
+// waits for a locked seat deposit (the reviewer-entry design draft, pull
+// request #190). Governance changes the figure only through MsgUpdateParams.
 func (k Keeper) reviewerMinBalance(ctx context.Context) (sdkmath.Int, error) {
 	enabled, err := k.ReviewerBalanceParamEnabled(ctx)
 	if err != nil {
@@ -37,7 +45,7 @@ func (k Keeper) reviewerMinBalance(ctx context.Context) (sdkmath.Int, error) {
 	if err != nil {
 		return sdkmath.Int{}, fmt.Errorf("load params: %w", err)
 	}
-	amount, err := types.ParseMinReviewerBalance(params.MinReviewerBalance)
+	amount, err := types.EffectiveMinReviewerBalance(params.MinReviewerBalance)
 	if err != nil {
 		return sdkmath.Int{}, fmt.Errorf("stored params: %w", err)
 	}
@@ -50,7 +58,10 @@ func (k Keeper) reviewerMinBalance(ctx context.Context) (sdkmath.Int, error) {
 // existed no parameter update could carry it, so an off chain keeps refusing
 // it rather than store a control it would silently ignore. An update that
 // leaves the field as it is does not read the marker at all, so every existing
-// update runs as before.
+// update runs as before. In either marker state UpdateParams has already run
+// Params.Validate, which refuses a figure below the built-in 100 ZRN
+// (types.ValidateMinReviewerBalance), so the proposed value here is empty or at
+// or above it.
 //
 // The refusal is not at the same stage as before. A binary without the field
 // refuses a tx that carries it at decode (unknownproto: field 161 is an unknown
