@@ -173,6 +173,23 @@ func TestReviewerBalanceMarkerFaultPropagates(t *testing.T) {
 	}
 }
 
+// With the marker on, a malformed value already in the store (no message or
+// genesis can write one) fails the commitment closed: SubmitCommitment returns
+// the parse error before it reads the reviewer's balance, and stores nothing.
+func TestReviewerBalanceMalformedStoredParamFailsClosed(t *testing.T) {
+	for _, bad := range []string{"0", "abc", "007", "18446744073709551616"} {
+		t.Run(bad, func(t *testing.T) {
+			f := newReviewerBalanceInternalFixture(t, true, bad)
+			before := f.snapshot(t)
+			err := f.commit(f.ctx)
+			require.ErrorContains(t, err, "stored params: min_reviewer_balance must be empty or a canonical positive base-10 integer")
+			require.Zero(t, f.bank.reads, "the parse error returns before the balance read")
+			require.Empty(t, f.ctx.EventManager().Events())
+			require.Equal(t, before, f.snapshot(t), "no commitment is stored")
+		})
+	}
+}
+
 // SubmitCommitment reads the marker once. With it off it reads no params;
 // with it on it reads them once.
 func TestReviewerBalanceMarkerReadOncePerCommitment(t *testing.T) {
