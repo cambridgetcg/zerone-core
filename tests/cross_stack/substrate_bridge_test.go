@@ -1,14 +1,18 @@
 package cross_stack_test
 
 import (
+	"encoding/json"
 	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	sdkmath "cosmossdk.io/math"
+	abci "github.com/cometbft/cometbft/abci/types"
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	zeroneapp "github.com/zerone-chain/zerone/app"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	substratebridgekeeper "github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
 	substratebridgetypes "github.com/zerone-chain/zerone/x/substrate_bridge/types"
@@ -126,51 +130,7 @@ func TestSubstrateBridge_CitedRewardWaitsForSurvival(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, enabled, "native genesis selects the cited-reward escrow marker")
 
-	require.NoError(t, h.SubstrateBridgeKeeper.WriteAdapter(h.Ctx, &substratebridgetypes.AdapterRegistration{
-		AdapterId:              "test-wiki",
-		Status:                 substratebridgetypes.AdapterStatus_ADAPTER_STATUS_ACTIVE,
-		MinAttestationBondUzrn: "222000",
-		MinPerClaimBondUzrn:    "222",
-		AxisBounds:             &substratebridgetypes.AxisBounds{AxisSubstrateMax: 1_000_000},
-	}))
-	require.NoError(t, h.KnowledgeKeeper.SetDomain(h.Ctx, &knowledgetypes.Domain{
-		Name:   "test-domain",
-		Status: knowledgetypes.DomainStatus_DOMAIN_STATUS_ACTIVE,
-	}))
-	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
-		Id:              "seed-fact",
-		Domain:          "test-domain",
-		Status:          knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
-		VerifiedAtBlock: 1,
-	}))
-	link := &substratebridgetypes.SubstrateLink{
-		AdapterId: "test-wiki",
-		Source: &substratebridgetypes.ExternalSource{
-			AdapterId:   "test-wiki",
-			SourceId:    "article-survival",
-			ContentHash: make([]byte, 32),
-		},
-		CitedFacts: []*substratebridgetypes.FactCitation{
-			{FactId: "seed-fact", CitationType: substratebridgetypes.CitationType_CITATION_TYPE_SUPPORTS},
-		},
-		RecursionWeight: &substratebridgetypes.AxisProjection{AxisSubstrate: 100_000},
-	}
-	link.LinkHash = substratebridgekeeper.ComputeLinkHash(link)
-
-	submitter := testAddr("sb_survival_submitter")
-	require.NoError(t, h.FundAccount(submitter, sdk.NewCoins(sdk.NewInt64Coin("uzrn", 10_000_000))))
-	preSubmit := h.App.BankKeeper.GetBalance(h.Ctx, submitter, "uzrn")
-
-	srv := substratebridgekeeper.NewMsgServerImpl(h.SubstrateBridgeKeeper)
-	resp, err := srv.SubmitExternalAttestation(h.Ctx, &substratebridgetypes.MsgSubmitExternalAttestation{
-		Submitter:   submitter.String(),
-		AdapterId:   "test-wiki",
-		WorkClassId: "translation",
-		Link:        link,
-		BondUzrn:    "1000000",
-	})
-	require.NoError(t, err)
-	attID := resp.AttestationId
+	attID, submitter, preSubmit := submitCitedAttestation(t, h, "article-survival")
 
 	// First BeginBlocker: settled, bond home, nothing minted, reward escrowed.
 	sdkCtx := sdk.UnwrapSDKContext(h.Ctx)
@@ -220,6 +180,113 @@ func TestSubstrateBridge_CitedRewardWaitsForSurvival(t *testing.T) {
 	require.NoError(t, h.SubstrateBridgeKeeper.BeginBlocker(due))
 	require.Equal(t, mintedDelta.String(), new(big.Int).Sub(h.VestingRewardsKeeper.GetTotalMinted(sdkCtx), preMinted).String(),
 		"exactly once")
+}
+
+// TestSubstrateBridge_CitedEscrowSurvivesChainExport takes a pending cited
+// escrow through the whole application's export: the exported app state
+// validates as a genesis file does, a fresh application starts from it with
+// the escrow and marker intact, and the BeginBlocker at the deadline releases
+// it once there.
+func TestSubstrateBridge_CitedEscrowSurvivesChainExport(t *testing.T) {
+	h := NewTestHarness(t)
+	attID, submitter, _ := submitCitedAttestation(t, h, "article-export")
+	require.NoError(t, h.SubstrateBridgeKeeper.BeginBlocker(h.Ctx))
+	pr, found := h.SubstrateBridgeKeeper.GetWitnessPendingReward(h.Ctx, attID)
+	require.True(t, found, "the cited reward waits in the witness escrow")
+
+	h.CommitHMinusOne()
+	exported, err := h.App.ExportAppStateAndValidators(false, nil, nil)
+	require.NoError(t, err)
+	var state zeroneapp.GenesisState
+	require.NoError(t, json.Unmarshal(exported.AppState, &state))
+	var bridgeState substratebridgetypes.GenesisState
+	require.NoError(t, h.App.AppCodec().UnmarshalJSON(state[substratebridgetypes.ModuleName], &bridgeState))
+	require.True(t, bridgeState.CitedRewardEscrowEnabled, "the export carries the marker")
+	require.NoError(t, zeroneapp.ModuleBasics.ValidateGenesis(h.App.AppCodec(), h.App.TxConfig(), state),
+		"an export holding a pending cited escrow is a valid genesis")
+
+	imported := newTestApp(t, testChainID)
+	_, err = imported.InitChain(&abci.RequestInitChain{ChainId: testChainID, InitialHeight: exported.Height,
+		AppStateBytes: exported.AppState, ConsensusParams: &exported.ConsensusParams})
+	require.NoError(t, err)
+	ctx := imported.NewContextLegacy(false, cmtproto.Header{ChainID: testChainID, Height: exported.Height})
+	enabled, err := imported.SubstrateBridgeKeeper.CitedRewardEscrowEnabled(ctx)
+	require.NoError(t, err)
+	require.True(t, enabled)
+	got, found := imported.SubstrateBridgeKeeper.GetWitnessPendingReward(ctx, attID)
+	require.True(t, found, "the escrow survives the import")
+	require.Equal(t, pr, got)
+
+	preMinted := imported.VestingRewardsKeeper.GetTotalMinted(ctx)
+	preBalance := imported.BankKeeper.GetBalance(ctx, submitter, "uzrn")
+	due := ctx.WithBlockHeight(int64(pr.Deadline))
+	require.NoError(t, imported.SubstrateBridgeKeeper.BeginBlocker(due.WithBlockHeight(due.BlockHeight()-1)))
+	require.Equal(t, preMinted.String(), imported.VestingRewardsKeeper.GetTotalMinted(ctx).String(), "nothing before the deadline")
+	require.NoError(t, imported.SubstrateBridgeKeeper.BeginBlocker(due))
+	require.NoError(t, imported.SubstrateBridgeKeeper.BeginBlocker(due))
+	require.Equal(t, pr.Amount, new(big.Int).Sub(imported.VestingRewardsKeeper.GetTotalMinted(ctx), preMinted).String(),
+		"released once at the deadline")
+	reward, ok := sdkmath.NewIntFromString(pr.Amount)
+	require.True(t, ok)
+	require.True(t, imported.BankKeeper.GetBalance(ctx, submitter, "uzrn").Amount.Equal(preBalance.Amount.Add(reward)))
+	att, found := imported.SubstrateBridgeKeeper.GetAttestation(ctx, attID)
+	require.True(t, found)
+	require.Equal(t, pr.Amount, att.RewardUzrn)
+	_, found = imported.SubstrateBridgeKeeper.GetWitnessPendingReward(ctx, attID)
+	require.False(t, found)
+}
+
+// submitCitedAttestation registers an ACTIVE adapter and a verified fact, and
+// submits through the message server a funded attestation that cites the fact
+// with no pending claims. It returns the attestation ID, the submitter and
+// the submitter's balance before the bond left.
+func submitCitedAttestation(t *testing.T, h *TestHarness, sourceID string) (string, sdk.AccAddress, sdk.Coin) {
+	t.Helper()
+	require.NoError(t, h.SubstrateBridgeKeeper.WriteAdapter(h.Ctx, &substratebridgetypes.AdapterRegistration{
+		AdapterId:              "test-wiki",
+		Status:                 substratebridgetypes.AdapterStatus_ADAPTER_STATUS_ACTIVE,
+		MinAttestationBondUzrn: "222000",
+		MinPerClaimBondUzrn:    "222",
+		AxisBounds:             &substratebridgetypes.AxisBounds{AxisSubstrateMax: 1_000_000},
+	}))
+	require.NoError(t, h.KnowledgeKeeper.SetDomain(h.Ctx, &knowledgetypes.Domain{
+		Name:   "test-domain",
+		Status: knowledgetypes.DomainStatus_DOMAIN_STATUS_ACTIVE,
+	}))
+	require.NoError(t, h.KnowledgeKeeper.SetFact(h.Ctx, &knowledgetypes.Fact{
+		Id:              "seed-fact",
+		Domain:          "test-domain",
+		Status:          knowledgetypes.FactStatus_FACT_STATUS_VERIFIED,
+		VerifiedAtBlock: 1,
+	}))
+	link := &substratebridgetypes.SubstrateLink{
+		AdapterId: "test-wiki",
+		Source: &substratebridgetypes.ExternalSource{
+			AdapterId:   "test-wiki",
+			SourceId:    sourceID,
+			ContentHash: make([]byte, 32),
+		},
+		CitedFacts: []*substratebridgetypes.FactCitation{
+			{FactId: "seed-fact", CitationType: substratebridgetypes.CitationType_CITATION_TYPE_SUPPORTS},
+		},
+		RecursionWeight: &substratebridgetypes.AxisProjection{AxisSubstrate: 100_000},
+	}
+	link.LinkHash = substratebridgekeeper.ComputeLinkHash(link)
+
+	submitter := testAddr("sb_survival_submitter")
+	require.NoError(t, h.FundAccount(submitter, sdk.NewCoins(sdk.NewInt64Coin("uzrn", 10_000_000))))
+	preSubmit := h.App.BankKeeper.GetBalance(h.Ctx, submitter, "uzrn")
+
+	srv := substratebridgekeeper.NewMsgServerImpl(h.SubstrateBridgeKeeper)
+	resp, err := srv.SubmitExternalAttestation(h.Ctx, &substratebridgetypes.MsgSubmitExternalAttestation{
+		Submitter:   submitter.String(),
+		AdapterId:   "test-wiki",
+		WorkClassId: "translation",
+		Link:        link,
+		BondUzrn:    "1000000",
+	})
+	require.NoError(t, err)
+	return resp.AttestationId, submitter, preSubmit
 }
 
 // TestSubstrateBridge_PendingClaimResolutionMachinery exercises the
