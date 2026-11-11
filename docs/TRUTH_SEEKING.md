@@ -15,16 +15,23 @@ actually stated—not a stronger deployment posture.
 
 Commitments 3, 4, 5, 7, 12 and 13 were amended on 2026-11-10 by an agent
 session, on the owner's decision of that date to amend them; the wording is
-the agent's. They now match the review-neutrality policy
-(`docs/specs/knowledge-review-neutrality-v1.md`) and the fund settlement built
-on it (`docs/specs/knowledge-fund-settlement-v1.md`). The knowledge module's
+the agent's. Their beliefs, code expressions and break conditions now follow
+the review-neutrality policy (`docs/specs/knowledge-review-neutrality-v1.md`)
+and the fund settlement built on it
+(`docs/specs/knowledge-fund-settlement-v1.md`). The knowledge module's
 `DefaultGenesis` turns both on, and these six commitments describe the source
 under that genesis. The published `zerone-1` genesis turns neither on. A
 network that has not applied them runs the legacy paths these commitments name
 as retired, and this file does not say which upgrades `zerone-1` has applied.
-One dated status note remains, under commitment 13 (**Activation status
-(2026-11-10)**: standing through use). An agent wrote it from a source review
-of commit `b48281be`. It amends no commitment and is not a full audit.
+The amendment kept every **Echoes** line and every other commitment as
+written, so some kept text still names mechanisms that the amended text
+describes as retired. Among them are survival credit (the Echoes of
+commitments 3 and 13), probe invitations and the pool that paid their bonuses
+(the Echoes of commitments 4, 5 and 12, and commitment 18), accuracy decay
+(commitment 9) and new augmentation ballots (commitment 8). One dated status
+note remains, under commitment 13 (**Activation status (2026-11-10)**:
+standing through use). An agent wrote it from a source review of commit
+`b48281be`. It amends no commitment and is not a full audit.
 
 ---
 
@@ -56,44 +63,49 @@ We believe: descriptive facts and normative commitments are categorically differ
 
 ### 3. Popper, not popularity
 
-We believe: truth is what survives falsification, not what is most asserted. A claim that has withstood ten serious attempts to refute it is more credible than one that has been verified ten times. Under review neutrality the chain scores neither survival nor agreement: it keeps every standing fact open to refutation, keeps the record of each attempt, and lets a refutation that succeeds end the fact's standing.
+We believe: truth is what survives falsification, not what is most asserted. A claim that has withstood ten serious attempts to refute it is more credible than one that has been verified ten times. The chain rewards neither survival nor consensus volume: it keeps every standing fact open to refutation, keeps the record of each attempt, and lets a challenge that succeeds end the fact's standing.
 
 **Code expression**: `MsgChallengeFact` accepts VERIFIED and ACTIVE facts.
 With claim integrity on, which `DefaultGenesis` also sets, it accepts
 CONTESTED ones too, and `MsgSubmitContradiction` reaches any standing fact
 (`factStands`), AT_RISK included. A challenge the panel accepts makes its
 target DISPROVEN (`handleChallengeDisproven`, event `fact_disproven`). The
-fact then earns no training value
-(`ComputeTrainingValueWeight`) and is classed only as a negative training
-example (`ClassifyTrainingQuality`), and the VERIFIED, ACTIVE or AT_RISK facts
-that directly support, require, refine, generalize or cite it become
-CONTESTED. A contradiction the panel accepts makes its target CONTESTED, which
-the training corpus excludes. A challenge the panel rejects restores the fact,
-and with claim integrity on the fact's status history records
-`challenge_survived` with the challenge's claim ID; `ClaimHistory` for the
-fact's claim returns those transitions and the challenges linked to the fact.
-Every valid, timely review is paid an equal share whatever it votes
-(commitment 12), so siding with the majority earns nothing. Under review neutrality a fact's `Confidence`
-starts as the share of its reviews that voted to accept, is capped, and then
-grows with time in `AdvanceConfidence`. It records what reviewers said, not
-how many attacks the fact survived.
+fact then earns no training value (`ComputeTrainingValueWeight`) and is
+classed only as a negative training example (`ClassifyTrainingQuality`), and
+the VERIFIED, ACTIVE or AT_RISK facts that directly support, require, refine,
+generalize or cite it become CONTESTED. A contradiction the panel accepts
+makes a VERIFIED or ACTIVE target CONTESTED: `ClassifyTrainingQuality` classes
+it as unsuitable for training, while `ComputeTrainingValueWeight` still gives
+it its legacy figure. An AT_RISK target keeps its status, and if its energy
+recovers it returns to ACTIVE while the counter-fact stands. A challenge the
+panel rejects restores the fact, and with claim integrity on the fact's status
+history records `challenge_survived` with the challenge's claim ID;
+`ClaimHistory` for the fact's claim returns those transitions and the
+challenges linked to the fact. No review in a new-policy round is paid more
+for siding with the majority (commitment 12). A fact's `Confidence` starts as
+the share of its reviews that voted to accept, is capped, and then grows with
+time in `AdvanceConfidence`. It records how reviewers voted, not how many
+attacks the fact survived, and it sets the minimum deposit for challenging
+the fact (commitment 4). No mechanism now weighs the belief's second
+sentence: the status history lets anyone count a fact's survived challenges,
+but the chain no longer counts them.
 
 **Retired**: `knowledge-review-neutrality-v1` ("Retire automatic score and
 bonus feedback") ends survival credit. A rejected challenge no longer raises
 `CorroborationCount`, adds survival energy or credits the submitter's
 calibration (`handleChallengeSurvival`). The gate is the chain-wide neutrality
 flag, so after activation this holds for legacy-policy challenges too. The
-spec gives up that credit in the paragraph that also says address inequality
-is not used to certify an independent challenge; the source's own comments
-note that a fact's author could raise the count by losing challenges against
-their own fact from other addresses. `BaseWeight = CorroborationCount + 1` and
-the `HardeningMultiplier` remain in `ComputeTrainingValueWeight` as a legacy
-heuristic that new contribution records do not compute. Because the count no
-longer moves, a fact accepted under review neutrality stays at the BRONZE
-training tier (`ClassifyTrainingQuality` needs one survival for SILVER and
-three for GOLD).
+spec gives no reason specific to survival credit. It also says that address
+inequality is not used to certify an independent challenge, and the source's
+own comments note that a fact's author could raise the count by losing
+challenges against their own fact from other addresses.
+`BaseWeight = CorroborationCount + 1` and the `HardeningMultiplier` remain in
+`ComputeTrainingValueWeight` as a legacy heuristic that new contribution
+records do not compute. Because the count no longer moves, a fact accepted
+under review neutrality can rise no higher than the BRONZE training tier
+(`ClassifyTrainingQuality` needs one survival for SILVER and three for GOLD).
 
-**What would break it**: a review in a new-policy round paid more or less for siding with the verdict; a fact counted as a positive training example that no challenge can reach; a refutation that succeeds but leaves the fact with training value or a positive training tier; a challenge that leaves no entry in its target's status history while record integrity is on; or rejected challenges that again raise a fact's survival count, training weight or tier before the chain can show that a challenger is independent of the fact's author.
+**What would break it**: a review in a new-policy round paid more or less for siding with the verdict; a fact counted as a positive training example that no challenge can reach; a challenge that succeeds but leaves the fact with training value or a positive training tier; a challenge that leaves no entry in its target's status history while record integrity is on; or rejected challenges that again raise a fact's survival count, training weight or tier before the chain can show that a challenger is independent of the fact's author.
 
 **Echoes**: commitment 4 (substrate stress-tests its truth — Popper is the principle, stress-testing is the operationalisation); commitment 13 (training corpus not for sale — survived disproof is the only currency that buys a place).
 
@@ -111,27 +123,26 @@ one minus the target's confidence, never less than 10% of that base. Under
 `knowledge-fund-settlement-v1`, which the knowledge module's `DefaultGenesis`
 turns on together with review neutrality, a challenge, contradiction or
 conjecture refutation records its deposit terms at admission
-(`setClaimFundingTerms`). 55% of the deposit is the review budget, which every
-valid, timely review shares equally whatever it votes. The other 45% returns
-to the challenger at every completed verdict (`buildClaimRefundSettlement`),
-and if nobody reviews, the whole deposit returns. A probe that fails gets back
-what a probe that succeeds gets back: the deposit pays for review, not for an
-outcome.
+(`setClaimFundingTerms`). 55% of the deposit is the review budget
+(commitment 12). The other 45% returns to the challenger at every completed
+verdict (`buildClaimRefundSettlement`), and if nobody reviews, the whole
+deposit returns. A probe that fails gets back what a probe that succeeds gets
+back: the deposit pays for review, not for an outcome.
 
 **Retired**: the legacy settlement in `settleChallengeStake` paid a successful
 challenger a bonus that grew with the disproven fact's confidence (30% of the
 base stake, plus twice the base times that confidence), and returned only 15%
 of the stake on a failed challenge. `knowledge-review-neutrality-v1` ("Retire
 automatic score and bonus feedback") ends the successful-challenge bonus for
-new-policy claims, in the paragraph that also says address inequality is not
-used to certify reward eligibility. `knowledge-fund-settlement-v1` ("Account
-for every terminal outcome") returns the deposit's remainder regardless of the
-panel verdict and introduces no agreement reward, withholding or scientific
-disagreement penalty. A challenge admitted before fund settlement still
-settles through `settleChallengeStake`, and a legacy-policy one can still draw
-the confidence-scaled bonus.
+new-policy claims and gives no reason specific to it. It also says that
+address inequality is not used to certify reward eligibility.
+`knowledge-fund-settlement-v1` ("Account for every terminal outcome") returns
+the deposit's remainder regardless of the panel verdict and introduces no
+agreement reward, withholding or scientific disagreement penalty. A challenge
+admitted before fund settlement still settles through `settleChallengeStake`,
+and a legacy-policy one can still draw the confidence-scaled bonus.
 
-**What would break it**: stake scaling that makes probing a confident fact cost more than probing an unproven one; a deposit admitted under fund settlement that returns less than its refundable part at a completed verdict, or whose return depends on the verdict; a valid, timely review of a new-policy probe paid less because of how it voted; or a bonus for disproof, flat or scaled, paid on a new-policy challenge.
+**What would break it**: stake scaling that makes probing a confident fact cost more than probing an unproven one; a deposit admitted under fund settlement that returns less than its refundable part at a completed verdict, or whose return depends on the verdict; or a bonus for disproof, flat or scaled, paid on a new-policy challenge.
 
 **Echoes**: commitment 3 (Popper — this commitment puts a price on the falsification opportunity); commitment 5 (chain manufactures probe demand — stress-testing requires both invitation and reward); commitment 12 (chain pays for own audit — without dedicated funding, stress-testing is rhetoric).
 
@@ -139,33 +150,32 @@ the confidence-scaled bonus.
 
 ### 5. The chain manufactures probe demand
 
-We believe: waiting for probers to arrive is not enough. The substrate keeps its most trusted facts the cheapest to probe and pays for the review of every probe, whatever the panel finds; under review neutrality it no longer names its own under-tested high-confidence facts or pays anyone to probe them. Truth-seeking that depends on volunteers shows up only when convenient is rhetoric, not commitment.
+We believe: waiting for probers to arrive is not enough. The substrate keeps its most trusted facts the cheapest to probe and requires every probe to carry its own review budget, which pays for that review whatever the panel finds. Truth-seeking that depends on volunteers shows up only when convenient is rhetoric, not commitment.
 
-**Code expression**: `InviteIdleFactsForProbing` is still called each block,
-but under review neutrality it returns at once: the chain emits no
-`probe_invited` events and stamps no `Fact.ProbeInvitedAtBlock`.
-`MintToProbeBountyPool` mints nothing under neutrality, whatever
-`ProbeBountyMintPerBlock` says (it is `0` by default and in the published
-`zerone-1` genesis), and `payInvitationBonus` pays nothing on a new-policy
-claim. What remains is on the review side: each probe carries a recorded
-review budget that every valid, timely review shares (commitments 4 and 12).
-Who probes is left to volunteers, so this commitment is not met in full under
-review neutrality.
+**Code expression**: under review neutrality, which the knowledge module's
+`DefaultGenesis` turns on, the substrate no longer names its own under-tested
+high-confidence facts or pays anyone to probe them.
+`InviteIdleFactsForProbing` is still called each block but returns at once:
+the chain emits no `probe_invited` events and stamps no
+`Fact.ProbeInvitedAtBlock`. `MintToProbeBountyPool` mints nothing
+(commitment 12), and `payInvitationBonus` pays nothing on a new-policy claim.
+What remains makes a probe cheaper and pays for its review (commitments 4
+and 12), but it brings no prober. Who probes is left to volunteers, so under
+review neutrality this commitment is **not met**.
 
 **Retired**: `knowledge-review-neutrality-v1` ("Retire automatic score and
-bonus feedback") stops automatic probe issuance and new probe invitations
-without giving a separate reason. It ends the invitation bonus in the
-paragraph that also says address inequality is not used to certify an
-independent challenge or reward eligibility. Existing pool balances are not
-swept. The `IdleFacts` query still lists facts that hold an invitation issued
-before activation, and a legacy-policy challenge of such a fact can still draw
-the bonus from what the pool holds; when the pool pays nothing, the chain
-emits `invitation_bonus_unfunded`. With neutrality off, the old heartbeat
-still runs.
+bonus feedback") stops automatic probe issuance and new probe invitations,
+and ends the invitation bonus for new-policy claims. It gives no reason
+specific to these. It also says that address inequality is not used to
+certify an independent challenge or reward eligibility. Existing pool
+balances are not swept. The `IdleFacts` query still lists facts that hold an
+invitation issued before activation, and a legacy-policy challenge of such a
+fact can still draw the bonus from what the pool holds; when the pool pays
+nothing, the chain emits `invitation_bonus_unfunded`. With neutrality off,
+the old heartbeat still runs.
 
-**What would break it**: a probe whose valid, timely reviews are not paid from
-its recorded review budget; a new probe bonus or invitation payment that
-relies on address inequality to show that the prober is independent; or an
+**What would break it**: a new probe bonus or invitation payment that relies
+on address inequality to show that the prober is independent; or an
 invitation bonus owed to a legacy challenge that is neither paid from
 available funds nor reported unfunded with `invitation_bonus_unfunded`.
 
@@ -197,28 +207,37 @@ to claim pre-admission review.
 
 ### 7. Skill is current, not historical
 
-We believe: the chain does not issue diplomas. A record that a voter was once domain-qualified must not keep weighing their vote, and agreeing with a panel's verdict is not a measure of skill. Under review neutrality the chain grades no voter by agreement, and no qualification, current or historical, weighs a new-policy review.
+We believe: the chain does not issue diplomas. A record that a voter was once domain-qualified must not keep weighing their vote, and agreeing with a panel's verdict is not a measure of skill.
 
 **Code expression**: under review neutrality, which the knowledge module's
-`DefaultGenesis` turns on, `SubmitCommitment` admits a policy-1 reviewer
-against the 100 ZRN spendable-balance check and the 512-seat cap, not against
-qualification, and `AggregateVerificationResult` counts each policy-1 reviewer
-once. Ordinary qualification expiry and endorsement expiry still run.
-`GetQualificationWeight` still returns 0 for any qualification that is not
-ACTIVE and applies active penalties, for the legacy readers that remain, such
-as existing augmentation ballots and `x/trust_score`.
+`DefaultGenesis` turns on, the chain grades no reviewer by agreement, and no
+qualification, current or historical, weighs a new-policy review.
+`SubmitCommitment` admits a policy-1 reviewer against the 100 ZRN balance
+check and the 512-seat cap, not against qualification, and
+`AggregateVerificationResult` counts each policy-1 reviewer once. Ordinary
+qualification expiry and endorsement expiry still run, and the holder of an
+ACTIVE or probationary qualification can renew it within its renewal window
+(`RenewQualification`) with no new measurement. `GetQualificationWeight`
+still returns 0 for any qualification that is not ACTIVE and applies active
+penalties, for the legacy readers that remain, such as `x/trust_score` and
+augmentation ballots. Review neutrality refuses new augmentation ballots, but
+on a network upgraded into it, votes on ballots opened before activation are
+still weighted by ACTIVE qualification rows, which no longer decay; for those
+ballots a record of past qualification still weighs a vote.
 
 **Retired**: `knowledge-review-neutrality-v1` ("Retire automatic score and
 bonus feedback") stops qualification accuracy recording, score-based decay and
 probation, and track-record admission. `RecordVerificationOutcome` records
 nothing, the qualification BeginBlocker no longer runs `RunAccuracyDecay`, a
 probation that ends is no longer resolved by accuracy, and
-`QualifyByTrackRecord` refuses. The spec's reason is that finalizing reviews
-stops building personal or group standing from agreement; existing
-qualification rows remain historical records, not a fresh measurement of
-scientific credibility. The retired loop measured agreement in any case:
-`RecordVerificationOutcome` counted a vote as correct when it matched the
-panel's own verdict. With neutrality off, the old loop still runs.
+`QualifyByTrackRecord` refuses. The spec says that neither stake nor agreement
+establishes scientific expertise, independent identity or truth, and that
+after activation finalizing reviews stops building personal or group standing
+from agreement; existing qualification rows remain historical records, not a
+fresh measurement of scientific credibility. The retired loop measured
+agreement in any case: `RecordVerificationOutcome` counted a vote as correct
+when it matched the panel's own verdict. With neutrality off, the old loop
+still runs.
 
 **What would break it**: a qualification, accuracy figure or agreement record that admits or weights a reviewer in a new-policy review; a qualification gained, kept or lost through agreement with panel verdicts while review neutrality is on; or a `GetQualificationWeight` that returns weight for a qualification that is not ACTIVE.
 
@@ -283,11 +302,12 @@ unrecorded volunteer labour.
 **Code expression**: under `knowledge-fund-settlement-v1`, which the knowledge
 module's `DefaultGenesis` turns on together with review neutrality, every paid
 review request records immutable `Claim.funding_terms` at admission: the
-payer, the payment route, a review budget of 55% of the payment, and the
-refundable deposit or retained fee (`setClaimFundingTerms`). When the round
-ends, every valid, timely review shares that budget equally, whatever it voted
-and whether the verdict is accept, reject, malformed or inconclusive; the
-first recorded reviewer takes the integer remainder
+payment route, the amount paid, a review budget of 55% of that amount, and the
+refundable deposit or retained fee (`setClaimFundingTerms`). The claim's
+submitter is the payer, and cannot change. When the round ends, every valid,
+timely review shares that budget equally, whatever it voted and whether the
+verdict is accept, reject, malformed or inconclusive; the first recorded
+reviewer takes the integer remainder
 (`buildVerifierRewardSettlement`). If nobody reviewed, the budget returns to
 the payer (`buildClaimRefundSettlement`). Recipients and amounts freeze when
 the round ends. The transfers and their paid markers commit together or not at
@@ -311,10 +331,10 @@ still owed to legacy-policy challenges.
 **What would break it**: opaque or uncapped audit emission; a review budget,
 payer or payment that changes after admission; a valid, timely review in a
 new-policy round that gets less than an equal share of the budget because of
-its vote or the verdict; an unused review budget kept when nobody reviewed; a
-payment obligation recomputed after its round ends, or reported as paid before
-its transfer completes; a sponsorship pathway that lets the sponsor override
-verification (e.g., paying
+its vote or the verdict; an unused review budget kept when nobody reviewed a
+claim admitted with funding terms; a payment obligation recomputed after its
+round ends, or reported as paid before its transfer completes; a sponsorship
+pathway that lets the sponsor override verification (e.g., paying
 for an unverified fact, or for a fact outside the sponsor's domain); or a
 sponsorship module account with Minter permission (which would let external
 sponsorship inflate supply, contradicting commitment 20).
@@ -325,7 +345,7 @@ sponsorship inflate supply, contradicting commitment 20).
 
 ### 13. The training corpus is not for sale
 
-We believe: the chain's training data is a substrate good, not a tradeable asset. It cannot be silently amended, retroactively curated, or strategically inflated. What enters the corpus enters because a review panel accepted it; payment can fund that review but cannot buy its verdict. What stands stays open to refutation, and a refutation that succeeds takes away its place as a positive example.
+We believe: the chain's training data is a substrate good, not a tradeable asset. It cannot be silently amended, retroactively curated, or strategically inflated. What enters the corpus through review enters because a panel accepted it, and what the reviewers are paid does not depend on their verdict. What stands must continue to earn its place: it stays open to refutation, and a challenge that succeeds takes away its place as a positive example.
 
 **Code expression**: no production path deletes a fact (`DeleteFact` has no
 caller outside tests), and a PRUNED fact keeps its stored record. With record
@@ -333,15 +353,18 @@ integrity on, as the knowledge module's `DefaultGenesis` sets it, every status
 change is appended to the fact's transition history with its cause. A
 finalized review verdict cannot be changed, and a training manifest's
 `IncludedFactIds` are fixed when the manifest is created. Under review
-neutrality and fund settlement, a claim's review budget is fixed at admission
-and shared equally by every valid, timely review whatever it votes, and a
-challenge deposit returns the same amount whatever the verdict (commitments 4
-and 12). A challenge the panel accepts makes its target DISPROVEN, which zeroes
-its training value in `ComputeTrainingValueWeight`, classes it only as a
-negative example in `ClassifyTrainingQuality`, and cancels any pending
-survival reward. Facts stay open to challenge without an invitation; the probe
-heartbeat that once re-invited idle facts issues none under review neutrality
-(commitment 5).
+neutrality and fund settlement, neither what a claim's reviewers are paid nor
+what its deposit returns depends on the verdict (commitments 4 and 12). A
+challenge the panel accepts makes its target DISPROVEN, a negative training
+example only (commitment 3), and cancels any survival reward still pending
+from the legacy policy. Standing facts stay open to refutation without an
+invitation (commitment 5). Outside doctrine, a fact must also keep earning
+metabolic energy, from citations and patronage, to keep its standing (see the
+status note below). Two routes enter the corpus without a review panel:
+doctrine facts are written VERIFIED at genesis (`LoadDoctrineFacts`), and a
+governance `MsgAddFact` writes a VERIFIED fact, at once under the default
+parameters (commitment 6). `ClassifyTrainingQuality` rates a newly written
+fact from either route BRONZE, a positive example.
 
 **Clawback**: no clawback runs on disproof. Nothing in the chain calls
 `ClawbackOnDisproval`; the repository history shows no production caller since
