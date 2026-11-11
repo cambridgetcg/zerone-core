@@ -97,9 +97,11 @@ func (k Keeper) CalculateFitness(ctx context.Context, fact *types.Fact, epoch ui
 	return fitness
 }
 
-// UpdateAllFitnessScores recalculates fitness for all verified/active facts
-// and resets epoch query counters. Called at fitness epoch boundaries.
-func (k Keeper) UpdateAllFitnessScores(ctx context.Context) error {
+// updateAllFitnessScores recalculates fitness for all verified/active facts
+// and resets epoch query counters. Called at fitness epoch boundaries. It is
+// the marker-free worker behind UpdateAllFitnessScores (rounds_execution.go):
+// the caller selects doctrineIdentity once, before any fact is read.
+func (k Keeper) updateAllFitnessScores(ctx context.Context, doctrineIdentity bool) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
@@ -135,8 +137,12 @@ func (k Keeper) UpdateAllFitnessScores(ctx context.Context) error {
 		fact.SatisfactionUpEpoch = 0     // Reset epoch satisfaction counters
 		fact.SatisfactionDownEpoch = 0
 
-		// Confidence growth for healthy facts
-		if params.ConfidenceGrowthPerEpochBps > 0 && fact.Confidence > 0 {
+		// Confidence growth for healthy facts. With the doctrine-identity
+		// marker on, the chain's own doctrine (isDoctrineFact) is neither
+		// grown nor clamped: it keeps the confidence it holds, while its
+		// fitness and epoch counters above are updated as for any fact
+		// (doctrine_identity.go).
+		if params.ConfidenceGrowthPerEpochBps > 0 && fact.Confidence > 0 && !(doctrineIdentity && isDoctrineFact(fact)) {
 			growth := safeMulDiv(fact.Confidence, params.ConfidenceGrowthPerEpochBps, 1_000_000)
 			if growth > 0 {
 				fact.Confidence += growth

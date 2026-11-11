@@ -8,8 +8,12 @@ import (
 )
 
 // DoctrineIdentityEnabled reports whether the doctrine-identity repair is
-// selected: the metabolism exemption for doctrine follows a fact's provenance
-// instead of its free-text category label. The marker at
+// selected: doctrine is judged by a fact's provenance (isDoctrineFact) instead
+// of its free-text category label. The marker selects the metabolism
+// exemption, the doctrine rescue, the refusal of the category "doctrine" at
+// admission, the empty category of a new challenge of doctrine, and the two
+// confidence steps that leave doctrine alone. doctrine_identity.go and
+// doctrine_reserved.go name each entry point. The marker at
 // types.DoctrineIdentityEnabledKey is the only selector. Native genesis writes
 // it. No carrier upgrade writes it yet; a consensus-repairs-v3 carrier will,
 // at its height. No message or param toggles it, and nothing clears it.

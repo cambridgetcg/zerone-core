@@ -180,7 +180,14 @@ func (k Keeper) UpdateEpistemicTemperature(ctx context.Context, domain string) e
 // AdvanceConfidence grows confidence for all active/verified facts by
 // ConfidenceGrowthPerEpochBps, modulated by epistemic temperature.
 // Called from BeginBlocker at ConfidenceGrowthEpoch intervals.
-func (k Keeper) advanceConfidenceWithZeroFloor(ctx context.Context) error {
+//
+// advanceConfidenceSelected is the body for every selection except both
+// markers off, which runs the pinned predecessor advanceConfidenceLegacy
+// (roundsExecution.AdvanceConfidence). zeroFloor selects PR37(b)'s zero
+// foundation; with it false the growth rule is the predecessor's.
+// doctrineIdentity skips the chain's own doctrine (isDoctrineFact): its
+// confidence is neither grown nor clamped (doctrine_identity.go).
+func (k Keeper) advanceConfidenceSelected(ctx context.Context, zeroFloor, doctrineIdentity bool) error {
 	params, err := k.GetParams(ctx)
 	if err != nil {
 		return err
@@ -214,6 +221,11 @@ func (k Keeper) advanceConfidenceWithZeroFloor(ctx context.Context) error {
 		default:
 			return false
 		}
+		// Doctrine is what the chain's own process wrote; it earns no
+		// confidence by the passage of time and is not clamped to the cap.
+		if doctrineIdentity && isDoctrineFact(fact) {
+			return false
+		}
 
 		growthRate, ok := domainGrowthRates[fact.Domain]
 		if !ok {
@@ -237,7 +249,8 @@ func (k Keeper) advanceConfidenceWithZeroFloor(ctx context.Context) error {
 		if growth == 0 {
 			// PR37(b)'s zero foundation must not acquire confidence just
 			// because time passed. Preserve minimum growth for positive values.
-			if fact.Confidence == 0 {
+			// Without it, the predecessor's floor applies at zero too.
+			if zeroFloor && fact.Confidence == 0 {
 				return false
 			}
 			growth = 1 // minimum 1 BPS growth per epoch

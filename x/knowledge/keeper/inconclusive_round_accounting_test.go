@@ -127,6 +127,10 @@ func newQ2Fixture(t *testing.T, enabled bool) *q2Fixture {
 	gs.ClaimRecordsEnabled = false
 	gs.FundSettlementEnabled = false
 	gs.ClaimIntegrityEnabled = false
+	// The KR2 growth parity compares AdvanceConfidence with the pinned
+	// advanceConfidenceLegacy, which grows the genesis doctrine facts; with
+	// the doctrine-identity marker on, AdvanceConfidence skips them.
+	gs.DoctrineIdentityEnabled = false
 	require.NoError(t, k.InitGenesis(ctx, gs))
 	capture := capturekeeper.NewKeeper(runtime.NewKVStoreService(keys[1]), cdc, "authority")
 	capture.InitGenesis(ctx, capturetypes.DefaultGenesis())
