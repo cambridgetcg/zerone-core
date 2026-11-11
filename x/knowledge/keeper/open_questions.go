@@ -43,11 +43,31 @@ func boundedOpenQuestionsLimit(limit uint32) uint32 {
 // Every non-terminal conjecture remains included, regardless of status. A
 // challenge, metabolism transition, or expiry marker must not make an
 // unanswered proposition disappear while its refutation door is still open.
-// A conjecture under active challenge is additionally flagged.
+// A conjecture under active challenge is additionally flagged. With the
+// dormant-fact contest marker on, a PRUNED conjecture is non-terminal too
+// (conjectureResolved).
+//
+// This compatibility entry has no error return: it panics on a marker fault.
+// The query uses OpenQuestionsForDomainChecked (dormant_fact_contest.go).
 func (k Keeper) OpenQuestionsForDomain(
 	ctx context.Context,
 	domain string,
 	limit uint32,
+) ([]*types.OpenQuestion, uint32, uint32, bool) {
+	questions, total, examined, scanLimitReached, err := k.OpenQuestionsForDomainChecked(ctx, domain, limit)
+	if err != nil {
+		panic(err)
+	}
+	return questions, total, examined, scanLimitReached
+}
+
+// openQuestionsForDomain is the marker-free worker: the caller selects
+// dormant once, before the scan.
+func (k Keeper) openQuestionsForDomain(
+	ctx context.Context,
+	domain string,
+	limit uint32,
+	dormant bool,
 ) ([]*types.OpenQuestion, uint32, uint32, bool) {
 	limit = boundedOpenQuestionsLimit(limit)
 
@@ -57,7 +77,7 @@ func (k Keeper) OpenQuestionsForDomain(
 	k.IterateFacts(ctx, func(f *types.Fact) bool {
 		examined++
 		scanLimitReached = examined >= OpenQuestionsScanCap
-		if !IsConjecture(f) || IsConjectureResolved(f) {
+		if !IsConjecture(f) || conjectureResolved(f, dormant) {
 			return scanLimitReached
 		}
 		underChallenge := f.Status == types.FactStatus_FACT_STATUS_CHALLENGED
@@ -103,7 +123,10 @@ func (q *queryServer) OpenQuestions(ctx context.Context, req *types.QueryOpenQue
 	if req == nil {
 		req = &types.QueryOpenQuestionsRequest{}
 	}
-	questions, total, examined, scanLimitReached := q.keeper.OpenQuestionsForDomain(ctx, req.Domain, req.Limit)
+	questions, total, examined, scanLimitReached, err := q.keeper.OpenQuestionsForDomainChecked(ctx, req.Domain, req.Limit)
+	if err != nil {
+		return nil, err
+	}
 	return &types.QueryOpenQuestionsResponse{
 		Questions:           questions,
 		Total:               total,

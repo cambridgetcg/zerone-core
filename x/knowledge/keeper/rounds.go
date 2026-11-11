@@ -624,8 +624,18 @@ func (k Keeper) forwardWithheldToDevelopmentFund(ctx context.Context, amount uin
 }
 
 // createFactFromClaim creates a new Fact from an accepted claim.
-// Returns the generated factID and any error.
+// Returns the generated factID and any error. Dormant-fact contest: an
+// accepted review-neutral challenge of a target that another challenge
+// already refuted creates no fact and returns an empty ID; completeRound
+// then makes nothing that needs one (refutedAlready, dormant_fact_contest.go).
 func (k roundsExecution) createFactFromClaim(ctx context.Context, claim *types.Claim, round *types.VerificationRound, confidence uint64) (string, error) {
+	refuted, err := k.refutedAlready(ctx, claim)
+	if err != nil {
+		return "", err
+	}
+	if refuted {
+		return "", nil
+	}
 	if !k.calibrationSmoothing && !k.zeroConfidenceFloor {
 		return k.createFactFromClaimLegacy(ctx, claim, round, confidence)
 	}
@@ -877,8 +887,18 @@ func (k roundsExecution) createFactFromClaim(ctx context.Context, claim *types.C
 			return "", fmt.Errorf("failed to store fact relation: %w", err)
 		}
 
+		// Dormant-fact contest: a contradiction of an AT_RISK, EXPIRED or
+		// PRUNED fact is a contest of it, and a contest buys a dormant fact
+		// nothing. The edge is stored, but the target earns no citation energy
+		// and its author no "cited" edge (dormant_fact_contest.go).
+		target := citedTargets[claimRel.TargetFactId]
+		feeds := !k.dormantFactContest || claimRel.Relation != types.RelationType_RELATION_TYPE_CONTRADICTS ||
+			target == nil || !isDormantStatus(target.Status)
+
 		// Track new citation for metabolism energy income
-		k.IncrementNewCitationEpoch(ctx, claimRel.TargetFactId)
+		if feeds {
+			k.IncrementNewCitationEpoch(ctx, claimRel.TargetFactId)
+		}
 
 		// K-alpha: the chain's first giving-side acknowledgment — being cited
 		// is recognition addressed to the cited fact's AUTHOR, not the fact.
@@ -887,7 +907,7 @@ func (k roundsExecution) createFactFromClaim(ctx context.Context, claim *types.C
 		// A fact with no recorded submitter yields no edge — an empty
 		// beneficiary would be an unattributable credit (guard matched with
 		// the substrate_bridge external-cite emitter).
-		if target := citedTargets[claimRel.TargetFactId]; target != nil && target.Submitter != "" {
+		if feeds && target != nil && target.Submitter != "" {
 			emitKarmaEdge(sdkCtx, "cited", target.Submitter, claim.Submitter, target.Id, target.Domain)
 		}
 
@@ -1198,6 +1218,15 @@ func (k roundsExecution) handleChallengeSurvival(ctx context.Context, challengeC
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
+	// Dormant-fact contest: a review-neutral challenge restores and credits
+	// only a target it holds CHALLENGED. A dormant target was never moved, so
+	// it is left as it is, whatever its status now, and earns no survival
+	// energy, corroboration, calibration credit, karma edge, event, survival
+	// cutoff or survival-reward release (dormant_fact_contest.go).
+	if !k.challengeEndActs(ctx, originalFact, challengeClaim) {
+		return nil
+	}
+
 	eligible := false
 	if !neutral {
 		// Energy boost for surviving a challenge — always credit, even if the
@@ -1316,8 +1345,13 @@ func (k roundsExecution) handleChallengeSurvival(ctx context.Context, challengeC
 // panel starves leaves the target fact locked FACT_STATUS_CHALLENGED forever —
 // permanently un-rechallengeable and its survival escrow blocked — for the
 // price of one starved round. RestoredStatusFor keeps conjectures PROVISIONAL;
-// starvation must never promote a question into ACTIVE truth-standing.
-func (k Keeper) restoreChallengedFactOnInconclusive(ctx context.Context, challengeClaim *types.Claim, completingRoundID string) error {
+// starvation must never promote a question into ACTIVE truth-standing. Where
+// the dormant-fact contest governs the challenge (a review-neutral one with
+// the marker on), it restores only a target this challenge holds CHALLENGED,
+// and that record, not the active-round scan, decides it: a dormant target
+// was never moved, and a dormant challenge that holds nothing must not keep
+// another challenge's target CHALLENGED (dormant_fact_contest.go).
+func (k roundsExecution) restoreChallengedFactOnInconclusive(ctx context.Context, challengeClaim *types.Claim, completingRoundID string) error {
 	if _, err := k.ClaimReviewPolicyVersion(ctx, challengeClaim); err != nil {
 		return err
 	}
@@ -1342,12 +1376,18 @@ func (k Keeper) restoreChallengedFactOnInconclusive(ctx context.Context, challen
 	if fact.Status != types.FactStatus_FACT_STATUS_CHALLENGED {
 		return nil
 	}
-	other, err := k.hasOtherActiveChallenge(ctx, completingRoundID, fact.Id)
-	if err != nil {
-		return err
-	}
-	if other {
-		return nil
+	if k.contestGoverns(challengeClaim) {
+		if !k.challengeEndActs(ctx, fact, challengeClaim) {
+			return nil
+		}
+	} else {
+		other, err := k.hasOtherActiveChallenge(ctx, completingRoundID, fact.Id)
+		if err != nil {
+			return err
+		}
+		if other {
+			return nil
+		}
 	}
 	// With claim integrity on, a nondecisive ending clears nothing: an
 	// established fact with a contest reason left since its last survived

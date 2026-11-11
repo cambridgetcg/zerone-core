@@ -424,45 +424,75 @@ func TestOpenQuestions_ExcludesOrdinaryFacts(t *testing.T) {
 // "open". Status transitions such as metabolic AT_RISK and EXPIRED do not
 // settle a conjecture; only the terminal states in IsConjectureResolved do.
 func TestOpenQuestions_FollowsConjectureTerminality(t *testing.T) {
-	k, ctx, _ := setupKnowledgeTestWithBank(t)
+	// The dormant-fact contest (consensus-repairs-v3) decides whether a PRUNED
+	// conjecture is terminal: off, metabolism resolves it; on, lapsing is not
+	// an answer and it stays listed, where its refutation door admits it,
+	// which is on the review-neutral policy. DISPROVEN and REVOKED are
+	// terminal in every selection.
+	for _, sel := range []struct {
+		dormant, neutral bool
+	}{{false, false}, {true, false}, {false, true}, {true, true}} {
+		dormant := sel.dormant && sel.neutral
+		t.Run(fmt.Sprintf("marker=%t/neutral=%t", sel.dormant, sel.neutral), func(t *testing.T) {
+			gs := types.DefaultGenesis()
+			if !sel.neutral {
+				gs.ReviewNeutralityEnabled = false
+				gs.ClaimRecordsEnabled = false
+				gs.FundSettlementEnabled = false
+				gs.ClaimIntegrityEnabled = false
+				gs.RecordIntegrityEnabled = false
+				gs.ReformulationVindicationOrderingEnabled = false
+			}
+			gs.BootstrapFundAllocation = "22222000000"
+			gs.DormantFactContestEnabled = sel.dormant
+			k, ctx, _ := setupKnowledgeTestWithBankGenesis(t, gs)
 
-	for _, tc := range []struct {
-		id     string
-		status types.FactStatus
-		open   bool
-	}{
-		{"provisional", types.FactStatus_FACT_STATUS_PROVISIONAL, true},
-		{"challenged", types.FactStatus_FACT_STATUS_CHALLENGED, true},
-		{"at-risk", types.FactStatus_FACT_STATUS_AT_RISK, true},
-		{"expired", types.FactStatus_FACT_STATUS_EXPIRED, true},
-		{"disproven", types.FactStatus_FACT_STATUS_DISPROVEN, false},
-		{"pruned", types.FactStatus_FACT_STATUS_PRUNED, false},
-		{"revoked", types.FactStatus_FACT_STATUS_REVOKED, false},
-	} {
-		require.NoError(t, k.SetFact(ctx, &types.Fact{
-			Id:                     tc.id,
-			Content:                tc.id,
-			Domain:                 "mathematics",
-			Status:                 tc.status,
-			ClaimType:              types.ClaimType_CLAIM_TYPE_CONJECTURE,
-			FalsificationPredicate: "exhibit a counterexample",
-			VerifiedAtBlock:        10,
-		}))
-	}
+			for _, tc := range []struct {
+				id     string
+				status types.FactStatus
+			}{
+				{"provisional", types.FactStatus_FACT_STATUS_PROVISIONAL},
+				{"challenged", types.FactStatus_FACT_STATUS_CHALLENGED},
+				{"at-risk", types.FactStatus_FACT_STATUS_AT_RISK},
+				{"expired", types.FactStatus_FACT_STATUS_EXPIRED},
+				{"disproven", types.FactStatus_FACT_STATUS_DISPROVEN},
+				{"pruned", types.FactStatus_FACT_STATUS_PRUNED},
+				{"revoked", types.FactStatus_FACT_STATUS_REVOKED},
+			} {
+				require.NoError(t, k.SetFact(ctx, &types.Fact{
+					Id:                     tc.id,
+					Content:                tc.id,
+					Domain:                 "mathematics",
+					Status:                 tc.status,
+					ClaimType:              types.ClaimType_CLAIM_TYPE_CONJECTURE,
+					FalsificationPredicate: "exhibit a counterexample",
+					VerifiedAtBlock:        10,
+				}))
+			}
 
-	questions, total, _, _ := k.OpenQuestionsForDomain(ctx, "mathematics", 0)
-	require.Equal(t, uint32(4), total)
-	require.Len(t, questions, 4)
+			open := []string{"provisional", "challenged", "at-risk", "expired"}
+			terminal := []string{"disproven", "revoked"}
+			if dormant {
+				open = append(open, "pruned")
+			} else {
+				terminal = append(terminal, "pruned")
+			}
 
-	got := make(map[string]bool, len(questions))
-	for _, q := range questions {
-		got[q.FactId] = true
-	}
-	for _, id := range []string{"provisional", "challenged", "at-risk", "expired"} {
-		require.True(t, got[id], "%s remains challengeable and must stay visible", id)
-	}
-	for _, id := range []string{"disproven", "pruned", "revoked"} {
-		require.False(t, got[id], "%s is terminal and must not be listed", id)
+			questions, total, _, _ := k.OpenQuestionsForDomain(ctx, "mathematics", 0)
+			require.Equal(t, uint32(len(open)), total)
+			require.Len(t, questions, len(open))
+
+			got := make(map[string]bool, len(questions))
+			for _, q := range questions {
+				got[q.FactId] = true
+			}
+			for _, id := range open {
+				require.True(t, got[id], "%s remains challengeable and must stay visible", id)
+			}
+			for _, id := range terminal {
+				require.False(t, got[id], "%s is terminal and must not be listed", id)
+			}
+		})
 	}
 }
 

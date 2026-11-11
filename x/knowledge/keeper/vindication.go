@@ -247,6 +247,15 @@ func (k roundsExecution) handleChallengeDisproven(ctx context.Context, challenge
 		return nil
 	}
 
+	// Dormant-fact contest: a dormant target is not held CHALLENGED, so more
+	// than one review-neutral challenge of it can be open. The first that
+	// refutes it disproves it; a later one leaves the disproven fact, its
+	// descendants and its vindication as they are, and completeRound made no
+	// fact of it (dormant_fact_contest.go).
+	if k.contestGoverns(challengeClaim) && originalFact.Status == types.FactStatus_FACT_STATUS_DISPROVEN {
+		return nil
+	}
+
 	// Transition to DISPROVEN
 	originalFact.Status = types.FactStatus_FACT_STATUS_DISPROVEN
 	integrity, err := k.ClaimIntegrityEnabled(ctx)

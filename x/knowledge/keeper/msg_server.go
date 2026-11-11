@@ -778,6 +778,12 @@ func (m *msgServer) ChallengeFact(ctx context.Context, msg *types.MsgChallengeFa
 	if msg == nil {
 		return nil, fmt.Errorf("challenge is required")
 	}
+	// The dormant-fact contest marker is read once here, before any write;
+	// a fault is returned, never read as off (dormant_fact_contest.go).
+	dormant, err := m.keeper.DormantFactContestEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 	enabled, err := m.keeper.RecordIntegrityEnabled(ctx)
 	if err != nil {
 		return nil, err
@@ -786,10 +792,10 @@ func (m *msgServer) ChallengeFact(ctx context.Context, msg *types.MsgChallengeFa
 		if msg.MethodId != "" {
 			return nil, fmt.Errorf("challenge method requires record-integrity activation")
 		}
-		return m.challengeFact(ctx, msg, false)
+		return m.challengeFact(ctx, msg, false, dormant)
 	}
 	cache, commit := sdk.UnwrapSDKContext(ctx).CacheContext()
-	response, err := m.challengeFact(cache, msg, true)
+	response, err := m.challengeFact(cache, msg, true, dormant)
 	if err != nil {
 		return nil, err
 	}
@@ -797,7 +803,7 @@ func (m *msgServer) ChallengeFact(ctx context.Context, msg *types.MsgChallengeFa
 	return response, nil
 }
 
-func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFact, enabled bool) (*types.MsgChallengeFactResponse, error) {
+func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFact, enabled, dormant bool) (*types.MsgChallengeFactResponse, error) {
 	reviewPolicy, err := m.keeper.reviewPolicyAtAdmission(ctx)
 	if err != nil {
 		return nil, err
@@ -820,12 +826,22 @@ func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFa
 
 	// Fact must be in a challengeable state. With claim integrity on, a
 	// CONTESTED fact is challengeable too, so a panel decides it (plan §5.2,
-	// Task 13). The marker is read only off the VERIFIED/ACTIVE path.
+	// Task 13). The marker is read only off the VERIFIED/ACTIVE path. With
+	// the dormant-fact contest on and a review-neutral claim, a non-conjecture
+	// that lost standing through disuse (AT_RISK, EXPIRED, PRUNED) is
+	// challengeable as well: starvation is not falsification. Its challenge
+	// does not move it (dormant_fact_contest.go).
+	applies := dormantContestApplies(dormant, reviewPolicy)
+	dormantTarget := dormantChallengeTarget(fact, applies)
 	if fact.Status != types.FactStatus_FACT_STATUS_VERIFIED &&
-		fact.Status != types.FactStatus_FACT_STATUS_ACTIVE {
+		fact.Status != types.FactStatus_FACT_STATUS_ACTIVE &&
+		!dormantTarget {
 		integrity, err := m.keeper.ClaimIntegrityEnabled(ctx)
 		if err != nil {
 			return nil, err
+		}
+		if applies && (!integrity || fact.Status != types.FactStatus_FACT_STATUS_CONTESTED) {
+			return nil, errDormantContestNotChallengeable(fact, integrity)
 		}
 		if !integrity {
 			return nil, fmt.Errorf("fact %s is not in a challengeable state (status: %s) (commitment 4: only verified or active facts accept probes; degraded facts are already moving)", msg.FactId, fact.Status)
@@ -854,6 +870,15 @@ func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFa
 			msg.Stake, effectiveMinStake.String(), fact.Confidence)
 	}
 
+	// Where the dormant-fact contest applies a target is not always held, so
+	// a repeat by the same challenger in this block would reuse this claim
+	// identity. Refuse it before any coins move (dormant_fact_contest.go).
+	if applies {
+		if err := m.keeper.refuseRepeatedChallenge(ctx, GenerateClaimID(msg.Challenger, msg.FactId, height)); err != nil {
+			return nil, err
+		}
+	}
+
 	// Lock challenge stake
 	if m.keeper.bankKeeper != nil {
 		challengerAddr, err := sdk.AccAddressFromBech32(msg.Challenger)
@@ -870,14 +895,17 @@ func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFa
 	// with claim integrity on, the transition names it as its cause.
 	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
 
-	// Mark fact as challenged
-	fact.Status = types.FactStatus_FACT_STATUS_CHALLENGED
-	causeCtx, err := m.keeper.claimIntegrityTransitionCause(ctx, fact.Id, causeChallengeOpened, challengeClaimID)
-	if err != nil {
-		return nil, err
-	}
-	if err := m.keeper.SetFact(causeCtx, fact); err != nil {
-		return nil, err
+	// Mark fact as challenged. A dormant target is not moved: the contest is
+	// attention, not existence (dormant_fact_contest.go).
+	if !dormantTarget {
+		fact.Status = types.FactStatus_FACT_STATUS_CHALLENGED
+		causeCtx, err := m.keeper.claimIntegrityTransitionCause(ctx, fact.Id, causeChallengeOpened, challengeClaimID)
+		if err != nil {
+			return nil, err
+		}
+		if err := m.keeper.SetFact(causeCtx, fact); err != nil {
+			return nil, err
+		}
 	}
 
 	// Create a challenge claim and round
@@ -933,6 +961,11 @@ func (m *msgServer) ChallengeProvisionalFact(ctx context.Context, msg *types.Msg
 	if msg == nil {
 		return nil, fmt.Errorf("provisional challenge is required")
 	}
+	// Read once, before any write; a fault is returned (see ChallengeFact).
+	dormant, err := m.keeper.DormantFactContestEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 	enabled, err := m.keeper.RecordIntegrityEnabled(ctx)
 	if err != nil {
 		return nil, err
@@ -941,10 +974,10 @@ func (m *msgServer) ChallengeProvisionalFact(ctx context.Context, msg *types.Msg
 		if msg.MethodId != "" {
 			return nil, fmt.Errorf("challenge method requires record-integrity activation")
 		}
-		return m.challengeProvisionalFact(ctx, msg, false)
+		return m.challengeProvisionalFact(ctx, msg, false, dormant)
 	}
 	cache, commit := sdk.UnwrapSDKContext(ctx).CacheContext()
-	response, err := m.challengeProvisionalFact(cache, msg, true)
+	response, err := m.challengeProvisionalFact(cache, msg, true, dormant)
 	if err != nil {
 		return nil, err
 	}
@@ -952,7 +985,7 @@ func (m *msgServer) ChallengeProvisionalFact(ctx context.Context, msg *types.Msg
 	return response, nil
 }
 
-func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.MsgChallengeProvisionalFact, enabled bool) (*types.MsgChallengeProvisionalFactResponse, error) {
+func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.MsgChallengeProvisionalFact, enabled, dormant bool) (*types.MsgChallengeProvisionalFactResponse, error) {
 	reviewPolicy, err := m.keeper.reviewPolicyAtAdmission(ctx)
 	if err != nil {
 		return nil, err
@@ -987,7 +1020,10 @@ func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.Msg
 	if !IsConjecture(fact) && fact.Status != types.FactStatus_FACT_STATUS_PROVISIONAL {
 		return nil, fmt.Errorf("fact %s is not provisional (status: %s)", msg.FactId, fact.Status)
 	}
-	if IsConjectureResolved(fact) {
+	// With the dormant-fact contest on and a review-neutral claim, a PRUNED
+	// conjecture is still open: metabolism retired it, nobody answered it.
+	applies := dormantContestApplies(dormant, reviewPolicy)
+	if conjectureResolved(fact, applies) {
 		return nil, fmt.Errorf("fact %s is already resolved (status: %s) — nothing left to refute", msg.FactId, fact.Status)
 	}
 	if fact.Status == types.FactStatus_FACT_STATUS_CHALLENGED {
@@ -1002,6 +1038,14 @@ func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.Msg
 		stakeVal, ok2 := new(big.Int).SetString(msg.Stake, 10)
 		if ok && ok2 && stakeVal.Cmp(minStake) < 0 {
 			return nil, fmt.Errorf("challenge stake %suzrn below minimum %suzrn", msg.Stake, cp.MinChallengeStake)
+		}
+	}
+
+	// A repeat by the same challenger in this block would reuse this claim
+	// identity where the contest applies (see ChallengeFact).
+	if applies {
+		if err := m.keeper.refuseRepeatedChallenge(ctx, GenerateClaimID(msg.Challenger, msg.FactId, height)); err != nil {
+			return nil, err
 		}
 	}
 
@@ -1026,13 +1070,17 @@ func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.Msg
 	}
 
 	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
-	fact.Status = types.FactStatus_FACT_STATUS_CHALLENGED
-	causeCtx, err := m.keeper.claimIntegrityTransitionCause(ctx, fact.Id, causeChallengeOpened, challengeClaimID)
-	if err != nil {
-		return nil, err
-	}
-	if err := m.keeper.SetFact(causeCtx, fact); err != nil && enabled {
-		return nil, err
+	// A lapsed (AT_RISK, EXPIRED, PRUNED) conjecture is not moved where the
+	// dormant-fact contest applies (dormant_fact_contest.go).
+	if !applies || !isDormantStatus(fact.Status) {
+		fact.Status = types.FactStatus_FACT_STATUS_CHALLENGED
+		causeCtx, err := m.keeper.claimIntegrityTransitionCause(ctx, fact.Id, causeChallengeOpened, challengeClaimID)
+		if err != nil {
+			return nil, err
+		}
+		if err := m.keeper.SetFact(causeCtx, fact); err != nil && enabled {
+			return nil, err
+		}
 	}
 
 	challengeClaim := &types.Claim{
@@ -1086,12 +1134,17 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 	if msg == nil {
 		return nil, fmt.Errorf("contradiction is required")
 	}
+	// Read once, before any write; a fault is returned (see ChallengeFact).
+	dormant, err := m.keeper.DormantFactContestEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 	enabled, err := m.keeper.ClaimRecordsEnabled(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if !enabled {
-		return m.submitContradiction(ctx, msg, false)
+		return m.submitContradiction(ctx, msg, false, dormant)
 	}
 	if len(msg.ProtoReflect().GetUnknown()) != 0 {
 		return nil, fmt.Errorf("unsupported contradiction fields")
@@ -1103,7 +1156,7 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 		return nil, err
 	}
 	cache, commit := sdk.UnwrapSDKContext(ctx).CacheContext()
-	response, err := m.submitContradiction(cache, msg, true)
+	response, err := m.submitContradiction(cache, msg, true, dormant)
 	if err != nil {
 		return nil, err
 	}
@@ -1111,7 +1164,7 @@ func (m *msgServer) SubmitContradiction(ctx context.Context, msg *types.MsgSubmi
 	return response, nil
 }
 
-func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmitContradiction, retainRecord bool) (*types.MsgSubmitContradictionResponse, error) {
+func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmitContradiction, retainRecord, dormant bool) (*types.MsgSubmitContradictionResponse, error) {
 	reviewPolicy, err := m.keeper.reviewPolicyAtAdmission(ctx)
 	if err != nil {
 		return nil, err
@@ -1163,7 +1216,7 @@ func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmi
 		return nil, err
 	}
 	if integrity {
-		if err := m.claimIntegrityContradictionAdmission(ctx, msg, targetFact, domain, contentHash); err != nil {
+		if err := m.claimIntegrityContradictionAdmission(ctx, msg, targetFact, domain, contentHash, dormant); err != nil {
 			return nil, err
 		}
 	}
@@ -1258,7 +1311,9 @@ func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmi
 // claimIntegrityContradictionAdmission holds a contradiction to what
 // disputing its target costs (knowledge v12, plan Task 10; P3a, P1ext). It
 // runs only with claim integrity on, before any collateral moves:
-//  1. the target must stand; a conjecture was refused above;
+//  1. the target must stand, or with the dormant-fact contest on be EXPIRED
+//     or PRUNED (contradictionTargetAdmissible); a conjecture was refused
+//     above;
 //  2. the stake must meet the minimum for challenging the target
 //     (ChallengeFact's rule), so a 1-uzrn dispute is not admitted;
 //  3. the counter-claim text must not repeat a live or standing record's text
@@ -1268,11 +1323,15 @@ func (m *msgServer) submitContradiction(ctx context.Context, msg *types.MsgSubmi
 // Before these, neither the effective domain (msg.Domain, or the target's
 // when it is empty, which is what contentHash uses) nor the counter-claim
 // text may carry the attribution template (review G2 SEC-4).
-func (m *msgServer) claimIntegrityContradictionAdmission(ctx context.Context, msg *types.MsgSubmitContradiction, target *types.Fact, domain, contentHash string) error {
+func (m *msgServer) claimIntegrityContradictionAdmission(ctx context.Context, msg *types.MsgSubmitContradiction, target *types.Fact, domain, contentHash string, dormant bool) error {
 	if err := refuseReservedAttributionText("counter-claim text", domain, msg.CounterClaim, nil); err != nil {
 		return err
 	}
-	if !factStands(target.Status) {
+	if dormant && !contradictionTargetAdmissible(target.Status, dormant) {
+		return fmt.Errorf("fact %s cannot be contradicted (status: %s); only a verified, active, contested, challenged, at-risk, expired or pruned fact can be contradicted",
+			msg.FactId, target.Status)
+	}
+	if !contradictionTargetAdmissible(target.Status, dormant) {
 		return fmt.Errorf("fact %s is not standing (status: %s); only a verified, active, contested, challenged or at-risk fact can be contradicted",
 			msg.FactId, target.Status)
 	}

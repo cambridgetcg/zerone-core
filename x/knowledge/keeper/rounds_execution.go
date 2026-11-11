@@ -9,14 +9,22 @@ import (
 // roundsExecution carries entry-point marker snapshots by value. It is never
 // stored on the wired Keeper or in context. Its methods shadow the standalone
 // entry points, so loops, cached contexts and challenge paths cannot re-read a
-// marker. Unchanged orchestration bodies retain their historical call spelling;
-// with both flags false every changed leaf dispatches to its frozen legacy body.
+// marker. Unchanged orchestration bodies retain their historical call spelling.
+// With every flag false each changed leaf keeps its predecessor behaviour: the
+// calibration and zero-floor leaves dispatch to their frozen legacy bodies, and
+// the dormant-fact contest's leaves (the end of a challenge, a disproval, the
+// citation credit of a new fact's relations) act as before.
 type roundsExecution struct {
 	Keeper
 	calibrationSmoothing bool
 	zeroConfidenceFloor  bool
+	dormantFactContest   bool
 }
 
+// selectRoundsExecution reads every marker the round and block paths use, once,
+// before any write. It is the entry of BeginBlocker and of the standalone
+// Keeper.CompleteRound and Keeper.AdvanceRoundPhases; a fault in any marker is
+// returned before anything is written.
 func (k Keeper) selectRoundsExecution(ctx context.Context) (roundsExecution, error) {
 	calibration, err := k.CalibrationSmoothingEnabled(ctx)
 	if err != nil {
@@ -26,7 +34,15 @@ func (k Keeper) selectRoundsExecution(ctx context.Context) (roundsExecution, err
 	if err != nil {
 		return roundsExecution{}, err
 	}
-	return roundsExecution{k, calibration, floor}, nil
+	// The dormant-fact contest decides whether the end of a challenge may
+	// restore and credit its target, whether a second disproval of a fact is
+	// skipped, and whether a contradiction feeds a dormant target
+	// (dormant_fact_contest.go).
+	dormant, err := k.DormantFactContestEnabled(ctx)
+	if err != nil {
+		return roundsExecution{}, err
+	}
+	return roundsExecution{Keeper: k, calibrationSmoothing: calibration, zeroConfidenceFloor: floor, dormantFactContest: dormant}, nil
 }
 
 // CompleteRound is also a standalone entry point. Block processing instead
