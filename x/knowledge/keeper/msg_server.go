@@ -827,18 +827,20 @@ func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFa
 	// Fact must be in a challengeable state. With claim integrity on, a
 	// CONTESTED fact is challengeable too, so a panel decides it (plan §5.2,
 	// Task 13). The marker is read only off the VERIFIED/ACTIVE path. With
-	// the dormant-fact contest on, a non-conjecture that lost standing
-	// through disuse (AT_RISK, EXPIRED, PRUNED) is challengeable as well:
-	// starvation is not falsification. Its challenge buys it no standing
-	// (dormant_fact_contest.go).
+	// the dormant-fact contest on and a review-neutral claim, a non-conjecture
+	// that lost standing through disuse (AT_RISK, EXPIRED, PRUNED) is
+	// challengeable as well: starvation is not falsification. Its challenge
+	// does not move it (dormant_fact_contest.go).
+	applies := dormantContestApplies(dormant, reviewPolicy)
+	dormantTarget := dormantChallengeTarget(fact, applies)
 	if fact.Status != types.FactStatus_FACT_STATUS_VERIFIED &&
 		fact.Status != types.FactStatus_FACT_STATUS_ACTIVE &&
-		!dormantChallengeTarget(fact, dormant) {
+		!dormantTarget {
 		integrity, err := m.keeper.ClaimIntegrityEnabled(ctx)
 		if err != nil {
 			return nil, err
 		}
-		if dormant && (!integrity || fact.Status != types.FactStatus_FACT_STATUS_CONTESTED) {
+		if applies && (!integrity || fact.Status != types.FactStatus_FACT_STATUS_CONTESTED) {
 			return nil, errDormantContestNotChallengeable(fact, integrity)
 		}
 		if !integrity {
@@ -884,14 +886,17 @@ func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFa
 	// with claim integrity on, the transition names it as its cause.
 	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
 
-	// Mark fact as challenged
-	fact.Status = types.FactStatus_FACT_STATUS_CHALLENGED
-	causeCtx, err := m.keeper.claimIntegrityTransitionCause(ctx, fact.Id, causeChallengeOpened, challengeClaimID)
-	if err != nil {
-		return nil, err
-	}
-	if err := m.keeper.SetFact(causeCtx, fact); err != nil {
-		return nil, err
+	// Mark fact as challenged. A dormant target is not moved: the contest is
+	// attention, not existence (dormant_fact_contest.go).
+	if !dormantTarget {
+		fact.Status = types.FactStatus_FACT_STATUS_CHALLENGED
+		causeCtx, err := m.keeper.claimIntegrityTransitionCause(ctx, fact.Id, causeChallengeOpened, challengeClaimID)
+		if err != nil {
+			return nil, err
+		}
+		if err := m.keeper.SetFact(causeCtx, fact); err != nil {
+			return nil, err
+		}
 	}
 
 	// Create a challenge claim and round
@@ -1006,9 +1011,10 @@ func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.Msg
 	if !IsConjecture(fact) && fact.Status != types.FactStatus_FACT_STATUS_PROVISIONAL {
 		return nil, fmt.Errorf("fact %s is not provisional (status: %s)", msg.FactId, fact.Status)
 	}
-	// With the dormant-fact contest on, a PRUNED conjecture is still open:
-	// metabolism retired it, nobody answered it.
-	if conjectureResolved(fact, dormant) {
+	// With the dormant-fact contest on and a review-neutral claim, a PRUNED
+	// conjecture is still open: metabolism retired it, nobody answered it.
+	applies := dormantContestApplies(dormant, reviewPolicy)
+	if conjectureResolved(fact, applies) {
 		return nil, fmt.Errorf("fact %s is already resolved (status: %s) — nothing left to refute", msg.FactId, fact.Status)
 	}
 	if fact.Status == types.FactStatus_FACT_STATUS_CHALLENGED {
@@ -1047,13 +1053,17 @@ func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.Msg
 	}
 
 	challengeClaimID := GenerateClaimID(msg.Challenger, msg.FactId, height)
-	fact.Status = types.FactStatus_FACT_STATUS_CHALLENGED
-	causeCtx, err := m.keeper.claimIntegrityTransitionCause(ctx, fact.Id, causeChallengeOpened, challengeClaimID)
-	if err != nil {
-		return nil, err
-	}
-	if err := m.keeper.SetFact(causeCtx, fact); err != nil && enabled {
-		return nil, err
+	// A lapsed (AT_RISK, EXPIRED, PRUNED) conjecture is not moved where the
+	// dormant-fact contest applies (dormant_fact_contest.go).
+	if !applies || !isDormantStatus(fact.Status) {
+		fact.Status = types.FactStatus_FACT_STATUS_CHALLENGED
+		causeCtx, err := m.keeper.claimIntegrityTransitionCause(ctx, fact.Id, causeChallengeOpened, challengeClaimID)
+		if err != nil {
+			return nil, err
+		}
+		if err := m.keeper.SetFact(causeCtx, fact); err != nil && enabled {
+			return nil, err
+		}
 	}
 
 	challengeClaim := &types.Claim{

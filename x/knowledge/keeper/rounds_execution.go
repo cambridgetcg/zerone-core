@@ -12,7 +12,8 @@ import (
 // marker. Unchanged orchestration bodies retain their historical call spelling.
 // With every flag false each changed leaf keeps its predecessor behaviour: the
 // calibration and zero-floor leaves dispatch to their frozen legacy bodies, and
-// the end of a challenge restores its target as before.
+// the dormant-fact contest's leaves (the end of a challenge, a disproval, the
+// citation credit of a new fact's relations) act as before.
 type roundsExecution struct {
 	Keeper
 	calibrationSmoothing bool
@@ -33,8 +34,10 @@ func (k Keeper) selectRoundsExecution(ctx context.Context) (roundsExecution, err
 	if err != nil {
 		return roundsExecution{}, err
 	}
-	// The dormant-fact contest decides how a challenge that ends without
-	// refuting its target restores it (dormant_fact_contest.go).
+	// The dormant-fact contest decides whether the end of a challenge may
+	// restore and credit its target, whether a second disproval of a fact is
+	// skipped, and whether a contradiction feeds a dormant target
+	// (dormant_fact_contest.go).
 	dormant, err := k.DormantFactContestEnabled(ctx)
 	if err != nil {
 		return roundsExecution{}, err

@@ -426,18 +426,25 @@ func TestOpenQuestions_ExcludesOrdinaryFacts(t *testing.T) {
 func TestOpenQuestions_FollowsConjectureTerminality(t *testing.T) {
 	// The dormant-fact contest (consensus-repairs-v3) decides whether a PRUNED
 	// conjecture is terminal: off, metabolism resolves it; on, lapsing is not
-	// an answer and it stays listed. DISPROVEN and REVOKED are terminal in both.
-	for _, dormant := range []bool{false, true} {
-		t.Run(fmt.Sprintf("dormant=%t", dormant), func(t *testing.T) {
+	// an answer and it stays listed, where its refutation door admits it,
+	// which is on the review-neutral policy. DISPROVEN and REVOKED are
+	// terminal in every selection.
+	for _, sel := range []struct {
+		dormant, neutral bool
+	}{{false, false}, {true, false}, {false, true}, {true, true}} {
+		dormant := sel.dormant && sel.neutral
+		t.Run(fmt.Sprintf("marker=%t/neutral=%t", sel.dormant, sel.neutral), func(t *testing.T) {
 			gs := types.DefaultGenesis()
-			gs.ReviewNeutralityEnabled = false
-			gs.ClaimRecordsEnabled = false
-			gs.FundSettlementEnabled = false
-			gs.ClaimIntegrityEnabled = false
-			gs.RecordIntegrityEnabled = false
-			gs.ReformulationVindicationOrderingEnabled = false
+			if !sel.neutral {
+				gs.ReviewNeutralityEnabled = false
+				gs.ClaimRecordsEnabled = false
+				gs.FundSettlementEnabled = false
+				gs.ClaimIntegrityEnabled = false
+				gs.RecordIntegrityEnabled = false
+				gs.ReformulationVindicationOrderingEnabled = false
+			}
 			gs.BootstrapFundAllocation = "22222000000"
-			gs.DormantFactContestEnabled = dormant
+			gs.DormantFactContestEnabled = sel.dormant
 			k, ctx, _ := setupKnowledgeTestWithBankGenesis(t, gs)
 
 			for _, tc := range []struct {

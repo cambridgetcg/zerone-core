@@ -258,8 +258,11 @@ func TestDormantFactContestMarkerReadOncePerEntryPoint(t *testing.T) {
 }
 
 // The open-questions query reads the marker without gas: with the marker off
-// it costs exactly what the marker-free listing costs, and with it on, over
-// the same facts and no pruned conjecture, the same again.
+// it costs exactly what the marker-free listing costs. With it on, over the
+// same facts and no pruned conjecture, it costs the same listing plus one
+// read of the review-neutrality marker, which decides whether a pruned
+// conjecture's door is open and is read through the gas meter like every
+// read of that marker.
 func TestDormantFactContestOpenQuestionsGasUnchanged(t *testing.T) {
 	gasOf := func(f dormantMarkerFixture, run func(sdk.Context)) uint64 {
 		meter := storetypes.NewInfiniteGasMeter()
@@ -283,5 +286,12 @@ func TestDormantFactContestOpenQuestionsGasUnchanged(t *testing.T) {
 	worker := gasOf(off, func(ctx sdk.Context) { off.k.openQuestionsForDomain(ctx, "", 0, false) })
 	require.NotZero(t, worker)
 	require.Equal(t, worker, gasOf(off, query(off)), "marker off: the query costs what the listing costs")
-	require.Equal(t, worker, gasOf(on, query(on)), "marker on, same facts: the same gas")
+	neutrality := gasOf(on, func(ctx sdk.Context) {
+		neutral, err := on.k.ReviewNeutralityEnabled(ctx)
+		require.NoError(t, err)
+		require.True(t, neutral)
+	})
+	require.NotZero(t, neutrality)
+	require.Equal(t, worker, gasOf(on, func(ctx sdk.Context) { on.k.openQuestionsForDomain(ctx, "", 0, true) }), "the same facts list for the same gas")
+	require.Equal(t, worker+neutrality, gasOf(on, query(on)), "marker on: the listing and one neutrality read")
 }

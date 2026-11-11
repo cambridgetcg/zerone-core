@@ -166,7 +166,8 @@ func TestClaimIntegrity_ChallengeFactAdmitsContestedTarget(t *testing.T) {
 
 			// The marker-on selection is DefaultGenesis, which also selects the
 			// dormant-fact contest (consensus-repairs-v3): a non-conjecture that
-			// is AT_RISK, EXPIRED or PRUNED is challengeable too.
+			// is AT_RISK, EXPIRED or PRUNED is challengeable too, and its
+			// challenge does not move it.
 			dormant, err := f.k.DormantFactContestEnabled(f.ctx)
 			require.NoError(t, err)
 			require.Equal(t, sel.integrity, dormant)
@@ -187,6 +188,10 @@ func TestClaimIntegrity_ChallengeFactAdmitsContestedTarget(t *testing.T) {
 					}
 					_, err := f.vdChallengeAt(v11Addr("v12-vd-gate-gc"), factG, stake)
 					require.NoError(t, err, "status %s", status)
+					if dormantTarget {
+						require.Equal(t, status, f.fact(t, factG).Status)
+						return
+					}
 					require.Equal(t, vdChallenged, f.fact(t, factG).Status)
 				})
 			}

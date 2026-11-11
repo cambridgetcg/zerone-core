@@ -877,8 +877,18 @@ func (k roundsExecution) createFactFromClaim(ctx context.Context, claim *types.C
 			return "", fmt.Errorf("failed to store fact relation: %w", err)
 		}
 
+		// Dormant-fact contest: a contradiction of an AT_RISK, EXPIRED or
+		// PRUNED fact is a contest of it, and a contest buys a dormant fact
+		// nothing. The edge is stored, but the target earns no citation energy
+		// and its author no "cited" edge (dormant_fact_contest.go).
+		target := citedTargets[claimRel.TargetFactId]
+		feeds := !k.dormantFactContest || claimRel.Relation != types.RelationType_RELATION_TYPE_CONTRADICTS ||
+			target == nil || !isDormantStatus(target.Status)
+
 		// Track new citation for metabolism energy income
-		k.IncrementNewCitationEpoch(ctx, claimRel.TargetFactId)
+		if feeds {
+			k.IncrementNewCitationEpoch(ctx, claimRel.TargetFactId)
+		}
 
 		// K-alpha: the chain's first giving-side acknowledgment — being cited
 		// is recognition addressed to the cited fact's AUTHOR, not the fact.
@@ -887,7 +897,7 @@ func (k roundsExecution) createFactFromClaim(ctx context.Context, claim *types.C
 		// A fact with no recorded submitter yields no edge — an empty
 		// beneficiary would be an unattributable credit (guard matched with
 		// the substrate_bridge external-cite emitter).
-		if target := citedTargets[claimRel.TargetFactId]; target != nil && target.Submitter != "" {
+		if feeds && target != nil && target.Submitter != "" {
 			emitKarmaEdge(sdkCtx, "cited", target.Submitter, claim.Submitter, target.Id, target.Domain)
 		}
 
@@ -1198,20 +1208,16 @@ func (k roundsExecution) handleChallengeSurvival(ctx context.Context, challengeC
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
-	// Dormant-fact contest: a target this challenge found AT_RISK, EXPIRED or
-	// PRUNED survives as it was. It returns to that status with its energy
-	// and AtRiskSinceEpoch untouched, and earns no survival energy,
-	// corroboration, calibration credit, karma edge or survival-reward
-	// release (dormant_fact_contest.go). If what the challenge found cannot
-	// be read, the fact stays CHALLENGED and nothing is credited.
-	admission, admitted := k.classifyChallengeAdmission(ctx, originalFact, challengeClaim)
-	if admission == admittedUnknown {
+	// Dormant-fact contest: a challenge restores and credits only a target it
+	// holds CHALLENGED. A dormant target was never moved, so it is left as
+	// it is and earns no survival energy, corroboration, calibration credit,
+	// karma edge, event or survival-reward release (dormant_fact_contest.go).
+	if !k.challengeEndActs(ctx, originalFact, challengeClaim) {
 		return nil
 	}
-	dormantTarget := admission == admittedDormant
 
 	eligible := false
-	if !neutral && !dormantTarget {
+	if !neutral {
 		// Energy boost for surviving a challenge — always credit, even if the
 		// corroboration counter is rate-limited below. Energy reflects demand-
 		// side engagement; the counter reflects epistemic hardening.
@@ -1285,12 +1291,8 @@ func (k roundsExecution) handleChallengeSurvival(ctx context.Context, challengeC
 	if err != nil {
 		return err
 	}
-	if dormantTarget {
-		originalFact.Status = admitted
-	} else {
-		originalFact.Status = k.challengeEndStatus(ctx, originalFact, challengeClaim, integrity, true)
-		originalFact.AtRiskSinceEpoch = 0
-	}
+	originalFact.Status = k.challengeEndStatus(ctx, originalFact, challengeClaim, integrity, true)
+	originalFact.AtRiskSinceEpoch = 0
 	causeCtx := ctx
 	if integrity {
 		causeCtx = withTransitionCause(ctx, originalFact.Id, causeChallengeSurvived, challengeClaim.Id)
@@ -1301,12 +1303,8 @@ func (k roundsExecution) handleChallengeSurvival(ctx context.Context, challengeC
 
 	// The fact survived. A failed handoff preserves the pending reward and its
 	// deadline index so the sweep can retry without repeating this verdict.
-	// A dormant target's pending reward is left to the sweep, which pays only
-	// a VERIFIED or ACTIVE fact, exactly as if it had not been challenged.
-	if !dormantTarget {
-		if err := k.releaseSurvivalReward(ctx, originalFact.Id); err != nil {
-			k.Logger(ctx).Error("handoff survival reward after challenge", "fact_id", originalFact.Id, "error", err)
-		}
+	if err := k.releaseSurvivalReward(ctx, originalFact.Id); err != nil {
+		k.Logger(ctx).Error("handoff survival reward after challenge", "fact_id", originalFact.Id, "error", err)
 	}
 
 	if !neutral {
@@ -1337,9 +1335,10 @@ func (k roundsExecution) handleChallengeSurvival(ctx context.Context, challengeC
 // permanently un-rechallengeable and its survival escrow blocked — for the
 // price of one starved round. RestoredStatusFor keeps conjectures PROVISIONAL;
 // starvation must never promote a question into ACTIVE truth-standing. With
-// the dormant-fact contest on, a target the challenge found AT_RISK, EXPIRED
-// or PRUNED returns to exactly that status, its AtRiskSinceEpoch untouched
-// (dormant_fact_contest.go).
+// the dormant-fact contest on, it restores only a target this challenge holds
+// CHALLENGED, and that record, not the active-round scan, decides it: a
+// dormant target was never moved, and a dormant challenge that holds nothing
+// must not keep another challenge's target CHALLENGED (dormant_fact_contest.go).
 func (k roundsExecution) restoreChallengedFactOnInconclusive(ctx context.Context, challengeClaim *types.Claim, completingRoundID string) error {
 	if _, err := k.ClaimReviewPolicyVersion(ctx, challengeClaim); err != nil {
 		return err
@@ -1365,12 +1364,18 @@ func (k roundsExecution) restoreChallengedFactOnInconclusive(ctx context.Context
 	if fact.Status != types.FactStatus_FACT_STATUS_CHALLENGED {
 		return nil
 	}
-	other, err := k.hasOtherActiveChallenge(ctx, completingRoundID, fact.Id)
-	if err != nil {
-		return err
-	}
-	if other {
-		return nil
+	if k.dormantFactContest {
+		if !k.challengeEndActs(ctx, fact, challengeClaim) {
+			return nil
+		}
+	} else {
+		other, err := k.hasOtherActiveChallenge(ctx, completingRoundID, fact.Id)
+		if err != nil {
+			return err
+		}
+		if other {
+			return nil
+		}
 	}
 	// With claim integrity on, a nondecisive ending clears nothing: an
 	// established fact with a contest reason left since its last survived
@@ -1379,15 +1384,8 @@ func (k roundsExecution) restoreChallengedFactOnInconclusive(ctx context.Context
 	if err != nil {
 		return err
 	}
-	switch admission, admitted := k.classifyChallengeAdmission(ctx, fact, challengeClaim); admission {
-	case admittedUnknown:
-		return nil
-	case admittedDormant:
-		fact.Status = admitted
-	default:
-		fact.Status = k.challengeEndStatus(ctx, fact, challengeClaim, integrity, false)
-		fact.AtRiskSinceEpoch = 0
-	}
+	fact.Status = k.challengeEndStatus(ctx, fact, challengeClaim, integrity, false)
+	fact.AtRiskSinceEpoch = 0
 	causeCtx := ctx
 	if integrity {
 		causeCtx = withTransitionCause(ctx, fact.Id, causeChallengeInconclusive, challengeClaim.Id)
@@ -1411,15 +1409,11 @@ func (k roundsExecution) legacyRestoreChallengedFactOnInconclusive(ctx context.C
 	if !found || fact.Status != types.FactStatus_FACT_STATUS_CHALLENGED {
 		return
 	}
-	switch admission, admitted := k.classifyChallengeAdmission(ctx, fact, challengeClaim); admission {
-	case admittedUnknown:
+	if !k.challengeEndActs(ctx, fact, challengeClaim) {
 		return
-	case admittedDormant:
-		fact.Status = admitted
-	default:
-		fact.Status = RestoredStatusFor(fact)
-		fact.AtRiskSinceEpoch = 0
 	}
+	fact.Status = RestoredStatusFor(fact)
+	fact.AtRiskSinceEpoch = 0
 	_ = k.SetFact(ctx, fact)
 	sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent(
 		"zerone.knowledge.challenge_inconclusive_restored",
