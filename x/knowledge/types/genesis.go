@@ -258,15 +258,15 @@ func DefaultParams() Params {
 			"M-TESTIMONIAL":      1_250_000, // 1.25× — testimony with provenance
 			"M-LEGACY":           500_000,   // 0.5× — legacy-method farming loses
 		},
-		// VindicationTvwMultiplier and DisprovalClawback are the
-		// asymmetric payoffs of commitment 13 (training corpus is not for
-		// sale). Surviving disproof and being vindicated against the
-		// majority is rewarded 2.5× because that is exactly the signal a
-		// truth-seeking corpus needs to retain. Disproven facts claw back
-		// 50% of recent revenue because revenue earned on a wrong fact
-		// was, in retrospect, theft from the audit pool.
+		// VindicationTvwMultiplier is the 2.5× factor that the legacy TVW
+		// heuristic in ComputeTrainingValueWeight gives a fact vindicated
+		// from minority status. The DisprovalClawback parameters are
+		// compatibility-only and runtime-immutable: no production code calls
+		// ClawbackOnDisproval, so disproof claws nothing back. A DISPROVEN
+		// fact earns no training value through its status instead
+		// (commitment 13, training corpus is not for sale).
 		VindicationTvwMultiplierBps:              2_500_000, // 2.5× for vindicated minority
-		DisprovalClawbackBps:                     500_000,   // 50% of recent revenue clawed back on disproof
+		DisprovalClawbackBps:                     500_000,   // compatibility-only; no production clawback
 		DisprovalClawbackWindowEpochs:            30,
 		TrainingFundCalibrationFloorBps:          500_000, // 50%
 		TrainingFundVestingEpochs:                60,
@@ -280,35 +280,32 @@ func DefaultParams() Params {
 		MaxPauseDurationBlocks: 28_800, // ~40h at 5s blocks — ample hotfix window; caps DoS impact.
 
 		// ─── Wave 15: chain-driven stress-test invitation ─────────────
-		// This block IS commitment 5 (chain manufactures probe demand) made
-		// numerical. ProbeInvitationIdleThresholdBlocks of 1 day says: a
-		// fact that has gone a day without being probed is a fact whose
-		// confidence is decaying. The chain does not wait for skeptics —
-		// it nominates its own high-confidence facts for stress-testing
-		// every heartbeat. The 70% confidence floor focuses probes on
-		// facts the chain is most exposed to being wrong about.
-		ProbeInvitationIdleThresholdBlocks: 34_272,  // ~1 day — silence is decay
+		// These drive the legacy probe heartbeat of commitment 5 (chain
+		// manufactures probe demand). With review neutrality off, the
+		// heartbeat invites VERIFIED or ACTIVE facts at or above 70%
+		// confidence about a day after their last corroboration,
+		// invitation or verification. Under review neutrality
+		// InviteIdleFactsForProbing returns at once, so these values issue
+		// no invitations.
+		ProbeInvitationIdleThresholdBlocks: 34_272,  // ~1 day
 		ProbeInvitationMinConfidenceBps:    700_000, // only invite probes on facts ≥ 70% — focus on what we're betting on
 		ProbeInvitationBatchSize:           10,      // bound BeginBlocker work
 		ProbeInvitationReinviteCooldown:    100_000, // don't re-invite the same fact back-to-back
 
 		// ─── Wave 15: probe bounty pool ───────────────────────────────
-		// Commitment 12 (chain pays for its own audit). Per-block mint
-		// into the pool means the cost of being audited is spread across
-		// every block, not paid by victims after the fact. The pool caps
-		// at 1M ZRN — past that point, the chain has enough auditing
-		// budget and issuance throttles naturally. Setting MintPerBlock
-		// to zero would mean "audits happen only when someone else pays
-		// for them" — which is what we believe must NOT be true.
-		// Autonomous audit-pool issuance is disabled by default. A reviewed
-		// governance activation may set a positive cap-gated rate.
+		// The legacy audit pool of commitment 12 (chain pays for its own
+		// audit): a cap-gated per-block mint, capped at 1M ZRN. The rate is
+		// zero by default, and under review neutrality MintToProbeBountyPool
+		// mints nothing whatever the rate. Under fund settlement each review
+		// is paid from the budget its requester deposited, not from new
+		// issuance.
 		ProbeBountyMintPerBlock: "0",
 		ProbeBountyMaxPoolSize:  "1000000000000", // 1,000,000 ZRN cap
 
 		// ─── Wave 15b: invitation bonuses ──────────────────────────────
-		// Flat reward for probers answering a chain-issued invitation.
-		// Pairs with the invitation system above: the chain doesn't just
-		// ask, it pays.
+		// Flat bonus, paid from the pool whatever the verdict, to a
+		// legacy-policy prober answering a chain-issued invitation.
+		// New-policy claims earn no invitation bonus.
 		InvitationBonusAmount: "500000", // 0.5 ZRN per answered invitation
 
 		// ─── Wave 16: guardian-veto multi-sig defense ──────────────────
