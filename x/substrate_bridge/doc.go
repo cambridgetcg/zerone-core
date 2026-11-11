@@ -39,10 +39,23 @@
 //     the CitedRewardEscrowEnabled marker (0x91), a cited-fact link with no
 //     pending claims mints its reward when the next block settles it. With
 //     the marker on, it settles with its bond returned and nothing minted,
-//     and its reward waits in the witness escrow (keeper/witness_escrow.go):
-//     released if the adapter is still ACTIVE when the window closes,
-//     deferred while SUSPENDED, cancelled if TOMBSTONED. Native genesis
-//     selects the marker; no carrier upgrade sets it on an existing chain yet.
+//     and its reward waits in the witness escrow (keeper/witness_escrow.go).
+//     When the window closes the adapter decides first, as for a witness
+//     reward: deferred one window while SUSPENDED, cancelled if TOMBSTONED.
+//     Where the adapter rule would release, the cited facts decide: the
+//     reward is cancelled if any cited fact is missing, DISPROVEN or REVOKED,
+//     deferred one window if any is CHALLENGED or CONTESTED, and released
+//     otherwise. The deferral repeats at each new deadline, with no limit and
+//     no event, until every cited fact stands (release) or one falls
+//     (cancel). A fact can stay CONTESTED with no end, and the reward then
+//     stays pending with it. A fact that lost standing without itself being
+//     found false (AT_RISK, EXPIRED, PRUNED: energy decay, niche competition,
+//     or a disproven parent) does not stop the release. Nor do the statuses
+//     the rule does not name: UNSPECIFIED, PENDING, PROVISIONAL, VERIFIED,
+//     ACTIVE, SUPERSEDED, or a value this build does not know. Karma edges
+//     for the cited facts are emitted at settlement whatever the sweep later
+//     decides. Native genesis selects the marker; no carrier upgrade sets it
+//     on an existing chain yet.
 //
 //   - Cross-class lineage accountant (M6): DAG-by-timestamp citation graph
 //     with depth-decayed accounting at downstream settlement. The cumulative

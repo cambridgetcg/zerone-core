@@ -9,7 +9,8 @@ import (
 
 // CitedRewardEscrowEnabled reports whether the cited-reward escrow repair is
 // selected: the reward for an attestation that cites existing facts waits in
-// the existing witness escrow window instead of minting at settlement. The
+// the existing witness escrow window instead of minting at settlement, and the
+// sweep releases it only while each cited fact still stands. The
 // marker at types.CitedRewardEscrowEnabledKey is the only selector. Native
 // genesis writes it. No carrier upgrade writes it yet; a consensus-repairs-v3
 // carrier will, at its height. No message or parameter toggles it, and

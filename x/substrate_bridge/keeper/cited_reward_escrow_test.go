@@ -228,11 +228,11 @@ func TestCitedReward_ReleasedAfterWindow(t *testing.T) {
 	_, accrued := f.k.GetLineageAccumulator(f.ctx, "att-up")
 	require.False(t, accrued, "nothing paid at settle, so no lineage")
 
-	f.k.SweepWitnessRewards(f.ctx.WithBlockHeight(f.ctx.BlockHeight() + 5))
+	require.NoError(t, f.k.SweepWitnessRewards(f.ctx.WithBlockHeight(f.ctx.BlockHeight()+5)))
 	require.Equal(t, "0", f.minted(), "before the deadline the sweep does nothing")
 
 	due := f.ctx.WithBlockHeight(f.ctx.BlockHeight() + int64(citedWindow))
-	f.k.SweepWitnessRewards(due)
+	require.NoError(t, f.k.SweepWitnessRewards(due))
 	require.Equal(t, citedReward, f.minted())
 	require.Equal(t, "2332000", f.paid(f.submitter), "bond and reward")
 	require.Equal(t, citedReward, f.attestation(t, "att-c1").RewardUzrn)
@@ -242,7 +242,7 @@ func TestCitedReward_ReleasedAfterWindow(t *testing.T) {
 	require.True(t, accrued, "lineage propagates on the released reward")
 	require.NotEqual(t, "0", acc.CumulativeUzrn)
 
-	f.k.SweepWitnessRewards(due)
+	require.NoError(t, f.k.SweepWitnessRewards(due))
 	require.Equal(t, citedReward, f.minted(), "exactly once")
 	require.Equal(t, "2332000", f.paid(f.submitter))
 }
@@ -255,7 +255,7 @@ func TestCitedReward_DeferredWhileSuspended(t *testing.T) {
 	require.NoError(t, f.k.SuspendAdapter(f.ctx, citedAdapter, "under investigation"))
 
 	first := f.ctx.WithBlockHeight(f.ctx.BlockHeight() + int64(citedWindow))
-	f.k.SweepWitnessRewards(first)
+	require.NoError(t, f.k.SweepWitnessRewards(first))
 	pr, pending := f.k.GetWitnessPendingReward(f.ctx, "att-c1")
 	require.True(t, pending, "deferred, not decided")
 	require.Equal(t, uint64(first.BlockHeight())+citedWindow, pr.Deadline)
@@ -263,7 +263,7 @@ func TestCitedReward_DeferredWhileSuspended(t *testing.T) {
 	require.Equal(t, "0", f.minted())
 
 	f.setAdapterStatus(t, types.AdapterStatus_ADAPTER_STATUS_ACTIVE)
-	f.k.SweepWitnessRewards(first.WithBlockHeight(first.BlockHeight() + int64(citedWindow)))
+	require.NoError(t, f.k.SweepWitnessRewards(first.WithBlockHeight(first.BlockHeight()+int64(citedWindow))))
 	require.Equal(t, citedReward, f.minted())
 	require.Equal(t, "2332000", f.paid(f.submitter))
 }
@@ -279,7 +279,7 @@ func TestCitedReward_CancelledOnTombstone(t *testing.T) {
 
 			_, pending := f.k.GetWitnessPendingReward(f.ctx, "att-c1")
 			require.False(t, pending)
-			f.k.SweepWitnessRewards(f.ctx.WithBlockHeight(f.ctx.BlockHeight() + int64(citedWindow)))
+			require.NoError(t, f.k.SweepWitnessRewards(f.ctx.WithBlockHeight(f.ctx.BlockHeight()+int64(citedWindow))))
 
 			if !state.on {
 				require.Equal(t, citedReward, f.minted(), "marker off mints at settle; tombstoning cannot reach it")
@@ -324,7 +324,7 @@ func TestCitedReward_ComputedRewardNotAdapterWitnessReward(t *testing.T) {
 				require.Equal(t, citedReward, f.minted())
 			}
 
-			f.k.SweepWitnessRewards(f.ctx.WithBlockHeight(f.ctx.BlockHeight() + int64(citedWindow)))
+			require.NoError(t, f.k.SweepWitnessRewards(f.ctx.WithBlockHeight(f.ctx.BlockHeight()+int64(citedWindow))))
 			require.Equal(t, citedReward, f.minted(), "one mint of the computed reward")
 			require.Equal(t, "2332000", f.paid(f.submitter), "bond and computed reward")
 			require.Equal(t, citedReward, f.attestation(t, "att-c1").RewardUzrn)
@@ -397,7 +397,7 @@ func TestCitedReward_SeededLoserEscrowsNothing(t *testing.T) {
 	require.Nil(t, vk.minted[types.AuditBountyPoolModuleName])
 
 	window := types.DefaultParams().WitnessRewardChallengeWindowBlocks
-	k.SweepWitnessRewards(ctx.WithBlockHeight(ctx.BlockHeight() + int64(window)))
+	require.NoError(t, k.SweepWitnessRewards(ctx.WithBlockHeight(ctx.BlockHeight()+int64(window))))
 	require.Equal(t, big.NewInt(222000), vk.minted[types.AuditBountyPoolModuleName], "one mint for the source")
 	require.Equal(t, "1222000", bk.payments[a].String())
 	require.Equal(t, citedBond, bk.payments[b].String())

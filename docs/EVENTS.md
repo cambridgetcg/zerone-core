@@ -2249,6 +2249,15 @@ With the consensus-repairs-v3 marker `cited_reward_escrow_enabled` on, a
 cited-fact link with no pending claims waits the same way: it settles with its
 bond returned and nothing minted, and the reward settlement computed is
 escrowed under the same window with the same `witness_reward_*` events.
+When that window closes, the adapter decides first, as for a witness reward.
+Where the adapter would release, the cited facts decide: the reward is
+cancelled if any cited fact is missing, DISPROVEN or REVOKED, deferred one
+window per sweep (with no event) while any is CHALLENGED or CONTESTED, and
+released otherwise. The deferral has no limit: it repeats until every cited
+fact stands (release) or one falls (cancel), and a fact can stay CONTESTED
+with no end, so the reward can stay pending with it. AT_RISK, EXPIRED and
+PRUNED facts do not stop the release, and nor do UNSPECIFIED, PENDING,
+SUPERSEDED or a status value the build does not know.
 Without the marker it is minted and paid at settlement. Native genesis selects
 the marker; no carrier upgrade sets it on an existing chain yet.
 
@@ -2304,8 +2313,9 @@ Issuance follows survival, not acceptance.
 - `mechanism` -- "M4"
 
 ### witness_reward_released
-The challenge window closed with the adapter still ACTIVE: the escrowed
-witness reward minted through `MintWithCap` and paid the recipient. The
+The challenge window closed with the adapter still ACTIVE and, for a cited-fact
+escrow, no cited fact missing, DISPROVEN, REVOKED, CHALLENGED or CONTESTED:
+the escrowed reward minted through `MintWithCap` and paid the recipient. The
 attestation's `reward_uzrn` records what was actually paid (cap-clip honest).
 - `attestation_id` -- attestation id
 - `adapter_id` -- adapter the attestation came through
@@ -2315,14 +2325,17 @@ attestation's `reward_uzrn` records what was actually paid (cap-clip honest).
 - `mechanism` -- "M4"
 
 ### witness_reward_cancelled
-The escrowed witness reward was cancelled — the adapter was tombstoned inside
-the challenge window (source falsified) or the entry was malformed. Because
-nothing was minted at settle, the clawback is free: no ZRN ever entered
-circulation for work that did not survive.
+The escrowed reward was cancelled — the adapter was tombstoned inside the
+challenge window (source falsified), the entry was malformed, or, with
+`cited_reward_escrow_enabled` on, a fact the attestation cites was missing,
+DISPROVEN or REVOKED when the window closed. Because nothing was minted at
+settle, the clawback is free: no ZRN ever entered circulation for work that
+did not survive. Karma edges emitted at settlement for the cited facts are
+not withdrawn.
 - `attestation_id` -- attestation id
 - `adapter_id` -- adapter the attestation came through
 - `recipient` -- address that will not be paid
-- `reason` -- cancellation reason
+- `reason` -- cancellation reason; for a cited fact it names the fact, as `cited fact <id> is FACT_STATUS_DISPROVEN`, `cited fact <id> is FACT_STATUS_REVOKED` or `cited fact <id> missing from the knowledge store`
 
 ### adapter_registered
 The configured gov authority directly registered or updated an adapter recipe.

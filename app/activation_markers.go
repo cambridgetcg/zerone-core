@@ -131,7 +131,8 @@ func ConsensusRepairsV2GenesisSelections() []ActivationSelection {
 //     exemption for doctrine follows provenance instead of the category label.
 //   - substrate_bridge/cited_reward_escrow_enabled (substrate_bridge 0x91): the
 //     reward for an attestation that cites existing facts waits in the existing
-//     witness escrow window.
+//     witness escrow window, and the sweep releases it only while each cited
+//     fact still stands.
 //
 // Native genesis selects each one through its module's genesis field, and a
 // genesis without the field imports with the marker off. No carrier upgrade,

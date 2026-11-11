@@ -3,10 +3,12 @@ package keeper
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
+	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	"github.com/zerone-chain/zerone/x/substrate_bridge/types"
 )
 
@@ -26,7 +28,9 @@ import (
 // pending claims waits here too: citation checks only that a fact exists, so
 // it adds no newly verified knowledge. Its reward is the one computeReward
 // gives, and it uses the same store entries, deadline index, events and sweep
-// as a witness reward.
+// as a witness reward. At the deadline the sweep also asks whether the facts
+// it cites still stand (citedFactStanding): recognition at settlement, money
+// only after the window and only while each cited fact stands.
 
 // WitnessPendingReward is a witness reward held until its window closes.
 // Stored as JSON under WitnessPendingRewardPrefix.
@@ -230,15 +234,45 @@ func (k Keeper) cancelWitnessReward(ctx context.Context, pr WitnessPendingReward
 	))
 }
 
-// SweepWitnessRewards resolves escrows whose window closed. Called from
-// BeginBlocker. The pending entry is the source of truth for exactly-once
-// issuance; the deadline index is an ordered scan hint. Adapter status at
-// the deadline decides the outcome:
+// SweepWitnessRewards resolves escrows whose window closed. It is a standalone
+// entry point: it reads the cited-reward escrow marker once, before any write,
+// and returns a marker fault instead of sweeping. BeginBlocker reads the
+// marker once per block and calls sweepWitnessRewards.
+func (k Keeper) SweepWitnessRewards(ctx context.Context) error {
+	citedRewardEscrow, err := k.CitedRewardEscrowEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	k.sweepWitnessRewards(ctx, citedRewardEscrow)
+	return nil
+}
+
+// sweepWitnessRewards is SweepWitnessRewards with the cited-reward escrow
+// marker already read. The pending entry is the source of truth for
+// exactly-once issuance; the deadline index is an ordered scan hint. Adapter
+// status at the deadline decides first:
 //
 //	ACTIVE     → release (survived its window)
 //	SUSPENDED  → defer one window (challenge in progress; not falsified yet)
 //	TOMBSTONED → cancel (source falsified inside the window)
-func (k Keeper) SweepWitnessRewards(ctx context.Context) {
+//
+// With citedRewardEscrow true, an escrow the adapter rule would release is
+// then decided by the facts its attestation cites (citedFactStanding): cancel
+// if one is missing, DISPROVEN or REVOKED; otherwise defer one window if one
+// is CHALLENGED or CONTESTED; otherwise release. A witness-only escrow cites
+// nothing and is released as before. With citedRewardEscrow false no fact is
+// read: this is the sweep that ran before the marker existed.
+//
+// Both deferrals repeat at each new deadline, with no count, no limit and no
+// event, until the adapter or the cited facts let the sweep decide. A cited
+// fact can stay CONTESTED with no end. x/knowledge's metabolism does not
+// process CONTESTED facts. With claim integrity on, a fact whose contest check
+// cannot finish stays CONTESTED until a challenge refutes it
+// (x/knowledge/keeper/claim_integrity_contest.go). With claim integrity off, a
+// CONTESTED fact cannot be challenged at all, and admitting a contradiction of
+// a VERIFIED or ACTIVE fact makes it CONTESTED at once. Such an escrow stays
+// pending for as long as the fact stays CONTESTED.
+func (k Keeper) sweepWitnessRewards(ctx context.Context, citedRewardEscrow bool) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 	store := sdkCtx.KVStore(k.storeKey)
@@ -269,18 +303,105 @@ func (k Keeper) SweepWitnessRewards(ctx context.Context) {
 		case adapter.Status == types.AdapterStatus_ADAPTER_STATUS_SUSPENDED:
 			// Mid-challenge at the deadline: defer one window rather than
 			// deciding — reinstatement releases, tombstoning cancels.
-			params := k.GetParams(ctx)
-			window := params.WitnessRewardChallengeWindowBlocks
-			if window == 0 {
-				window = 34_272
-			}
-			k.deleteWitnessPending(ctx, pr)
-			pr.Deadline = height + window
-			k.SetWitnessPendingReward(ctx, pr)
-		default:
+			k.deferWitnessReward(ctx, pr, height)
+		case !citedRewardEscrow:
 			k.releaseWitnessReward(ctx, pr)
+		default:
+			// The adapter rule would release. With the marker on, the cited
+			// facts decide whether the reward is still owed.
+			switch standing, reason := k.citedFactStanding(ctx, pr); standing {
+			case citedFallen:
+				k.cancelWitnessReward(ctx, pr, reason)
+			case citedChallenged:
+				// Under challenge at the deadline: defer one window, as for
+				// a SUSPENDED adapter. The next sweep decides again.
+				k.deferWitnessReward(ctx, pr, height)
+			default:
+				k.releaseWitnessReward(ctx, pr)
+			}
 		}
 	}
+}
+
+// deferWitnessReward moves an escrow's deadline one window past height and
+// decides nothing. The pending entry and its deadline-index entry move
+// together; nothing is minted and no event is emitted.
+func (k Keeper) deferWitnessReward(ctx context.Context, pr WitnessPendingReward, height uint64) {
+	params := k.GetParams(ctx)
+	window := params.WitnessRewardChallengeWindowBlocks
+	if window == 0 {
+		window = 34_272
+	}
+	k.deleteWitnessPending(ctx, pr)
+	pr.Deadline = height + window
+	k.SetWitnessPendingReward(ctx, pr)
+}
+
+// citedStanding is what the facts an escrowed attestation cites say when its
+// window closes.
+type citedStanding uint8
+
+const (
+	// citedStand: every cited fact stands, or nothing is cited. Release.
+	citedStand citedStanding = iota
+	// citedChallenged: a cited fact is CHALLENGED or CONTESTED and none has
+	// fallen. Defer one window; the next sweep decides again, with no limit.
+	citedChallenged
+	// citedFallen: a cited fact is missing, DISPROVEN or REVOKED. Cancel.
+	citedFallen
+)
+
+// citedFactStanding reads each fact the escrow's attestation cites, in
+// citation order, through the knowledge keeper. It writes nothing. The first
+// fact that is missing from the knowledge store, DISPROVEN or REVOKED makes
+// the result citedFallen, and reason names that fact. Otherwise any CHALLENGED
+// or CONTESTED fact makes it citedChallenged. Every other status stands. In
+// particular AT_RISK, EXPIRED and PRUNED stand: x/knowledge sets them through
+// energy decay, niche competition, or the energy a child fact loses when its
+// parent is disproven, and none of these finds the fact itself false. The
+// statuses this rule does not name also stand: UNSPECIFIED, PENDING,
+// PROVISIONAL, VERIFIED, ACTIVE, SUPERSEDED, and any value this build does
+// not know.
+//
+// Admission bounds new links at MaxCitedFactsPerLink. This reads every fact a
+// stored link cites, so a failing fact past that bound still decides.
+//
+// A witness-only attestation cites nothing and stands. A missing attestation
+// stands here because releaseWitnessReward cancels it. A keeper wired without
+// a knowledge keeper reads no fact and stands, as submission and settlement
+// read no fact without one; the app always wires it.
+//
+// It reads the attestation for every escrow the adapter rule would release, a
+// witness-only one included. So with the marker on, a witness-only escrow
+// costs one more store read at release; its state, events and coins are the
+// same as with the marker off.
+func (k Keeper) citedFactStanding(ctx context.Context, pr WitnessPendingReward) (citedStanding, string) {
+	if k.knowledgeKeeper == nil {
+		return citedStand, ""
+	}
+	att, found := k.GetAttestation(ctx, pr.AttestationId)
+	if !found || att.Link == nil {
+		return citedStand, ""
+	}
+	standing := citedStand
+	for _, c := range att.Link.CitedFacts {
+		if c == nil {
+			continue
+		}
+		fact, found := k.knowledgeKeeper.GetFact(ctx, c.FactId)
+		if !found || fact == nil {
+			return citedFallen, fmt.Sprintf("cited fact %s missing from the knowledge store", c.FactId)
+		}
+		switch fact.Status {
+		case knowledgetypes.FactStatus_FACT_STATUS_DISPROVEN,
+			knowledgetypes.FactStatus_FACT_STATUS_REVOKED:
+			return citedFallen, fmt.Sprintf("cited fact %s is %s", c.FactId, fact.Status)
+		case knowledgetypes.FactStatus_FACT_STATUS_CHALLENGED,
+			knowledgetypes.FactStatus_FACT_STATUS_CONTESTED:
+			standing = citedChallenged
+		}
+	}
+	return standing, ""
 }
 
 // CancelWitnessRewardsForAdapter cancels every pending witness reward escrowed
