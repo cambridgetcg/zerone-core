@@ -2,8 +2,10 @@ package keeper_test
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 
+	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/prototext"
@@ -723,7 +725,10 @@ func (f *dormantFixture) decideTogether(t *testing.T, votes map[string]string) {
 // A dormant fact is not held CHALLENGED, so two challenges of it can be open
 // at once. The first that refutes it disproves it; a second accepted one, or
 // a rejected one, leaves the disproven fact, its history and its descendants
-// as they are, and fact_disproven is emitted once.
+// as they are, and fact_disproven is emitted once. Only the challenge that
+// disproved it becomes a fact: a second accepted one is ACCEPTED but mints no
+// copy of the refutation (both challenges here give the same reason, and a
+// challenge claim has no dedup hold), so the domain gains one fact.
 func TestDormantFactContest_ConcurrentChallenges(t *testing.T) {
 	for _, second := range []string{"accept", "reject"} {
 		t.Run("second="+second, func(t *testing.T) {
@@ -746,7 +751,206 @@ func TestDormantFactContest_ConcurrentChallenges(t *testing.T) {
 			require.Len(t, disproven, 1)
 			require.Equal(t, factF, disproven[0]["fact_id"])
 			require.Empty(t, v11Event(f.ctx, "zerone.knowledge.contest_check_incomplete"))
+
+			var minted []string
+			for _, c := range []string{c1, c2} {
+				if _, found := f.k.GetFact(f.ctx, keeper.GenerateFactID(c, f.roundOf(t, c).VerdictBlock)); found {
+					minted = append(minted, keeper.GenerateFactID(c, f.roundOf(t, c).VerdictBlock))
+				}
+			}
+			require.Len(t, minted, 1, "one refutation, one counter-fact")
+			require.Equal(t, minted[0], disproven[0]["disproven_by"])
+			require.Equal(t, types.FactStatus_FACT_STATUS_VERIFIED, f.fact(t, minted[0]).Status)
+			require.Len(t, v11Event(f.ctx, "zerone.knowledge.fact_created"), 1)
+			stats, _ := f.k.GetDomainStats(f.ctx, before.fact.Domain)
+			require.Equal(t, before.stats.ActiveCount+1, stats.ActiveCount)
+			require.Equal(t, types.ClaimStatus_CLAIM_STATUS_ACCEPTED, f.claim(t, c1).Status)
+			if second == "accept" {
+				require.Equal(t, types.ClaimStatus_CLAIM_STATUS_ACCEPTED, f.claim(t, c2).Status, "the later refutation is still accepted")
+			}
 		})
+	}
+}
+
+// A challenge that does not hold its target leaves it alone when it ends,
+// even after the target recovered to ACTIVE. F REQUIRES D. F decays AT_RISK
+// and X, which does not hold it, is opened. D is refuted and the cascade moves
+// F to CONTESTED; S, opened after D fell, holds F and survives, so F returns
+// ACTIVE (S's panel was given D's refutation). X then ends rejected: F stays
+// ACTIVE with no new transition, and its last survival is still S's, so a
+// later release judges reasons from S's opening, not X's.
+func TestDormantFactContest_UnheldEndLeavesARecoveredFactAlone(t *testing.T) {
+	f := newDormantFixture(t, true)
+	_, factF, factD := f.vdDependent(t, "late")
+	f.decayTo(t, factF, dfcAtRisk)
+	x, err := f.vdChallengeAt(v11Addr("dfc-late-x"), factF, f.vdMinimum(t, factF).String())
+	require.NoError(t, err)
+	f.vdCommit(t, x, "reject")
+	require.Equal(t, dfcAtRisk, f.fact(t, factF).Status, "X does not hold F")
+
+	// Rounds opened from here on are short, so X's round outlasts them.
+	params, err := f.k.GetParams(f.ctx)
+	require.NoError(t, err)
+	params.CommitPhaseBlocks, params.RevealPhaseBlocks = 10, 10
+	require.NoError(t, f.k.SetParams(f.ctx, params))
+
+	f.nextBlock(t)
+	f.vdDisprove(t, v11Addr("dfc-late-cd"), factD)
+	require.Equal(t, csContested, f.fact(t, factF).Status, "the cascade contests an AT_RISK descendant")
+	f.nextBlock(t)
+	s := f.challenge(t, v11Addr("dfc-late-s"), factF)
+	require.Equal(t, dfcChallenged, f.fact(t, factF).Status, "S holds F")
+	require.Equal(t, types.Verdict_VERDICT_REJECT, f.decide(t, s, "reject", v11Reviewers()...).Verdict)
+	require.Equal(t, types.FactStatus_FACT_STATUS_ACTIVE, f.fact(t, factF).Status, "S opened after D fell, so its survival clears D")
+	before, history := f.state(t, factF), f.transitions(factF)
+	require.Equal(t, v11Transition{dfcChallenged, types.FactStatus_FACT_STATUS_ACTIVE, "challenge_survived", s}, history[len(history)-1])
+
+	round := f.roundOf(t, x)
+	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_COMMIT, round.Phase, "X is still open")
+	f.advanceTo(t, round.CommitDeadline)
+	f.beginBlock(t)
+	f.vdReveal(t, x, "reject")
+	f.advanceTo(t, round.CommitDeadline+1)
+	f.freshEvents()
+	f.beginBlock(t)
+	require.Equal(t, types.Verdict_VERDICT_REJECT, f.roundOf(t, x).Verdict)
+	f.requireUntouched(t, factF, before, history)
+	require.Empty(t, v11Event(f.ctx, "zerone.knowledge.contest_check_incomplete"))
+}
+
+// A challenge's claim identity is its challenger, its fact and the height, so
+// one challenger opens at most one challenge of a fact per block. A held
+// target refuses a repeat by its CHALLENGED status, as before. A dormant
+// target is not held, so where the contest applies each challenge door
+// refuses a repeat by its identity before any coins move, with fund settlement
+// on (native) or off, and also when the first challenge was dormant and its
+// target recovered through patronage in the same block. The first challenge's
+// claim and round are kept; another challenger, or the same one a block
+// later, is admitted.
+func TestDormantFactContest_OneChallengePerChallengerPerBlock(t *testing.T) {
+	for _, fund := range []bool{true, false} {
+		t.Run(fmt.Sprintf("fund=%t", fund), func(t *testing.T) {
+			newFixture := func(t *testing.T) *dormantFixture {
+				t.Helper()
+				gs := types.DefaultGenesis()
+				gs.BootstrapFundAllocation = "22222000000"
+				if !fund {
+					gs.FundSettlementEnabled = false
+					gs.ClaimIntegrityEnabled = false
+				}
+				return &dormantFixture{v11Fixture: newClaimIntegrityGenesisFixture(t, "dormant-contest-test", gs)}
+			}
+			requireRepeatRefused := func(t *testing.T, f *dormantFixture, first string, repeat func() (string, error)) {
+				t.Helper()
+				claim, round := f.claim(t, first), f.roundOf(t, first)
+				digest, _ := f.storeDigest(t)
+				sends := len(f.bank.sendCalls)
+				_, err := repeat()
+				require.EqualError(t, err, fmt.Sprintf("challenge claim identity %s already exists: a challenger opens at most one challenge of a fact per block", first))
+				require.Len(t, f.bank.sendCalls, sends, "a refusal moves no coins")
+				after, _ := f.storeDigest(t)
+				require.Equal(t, digest, after, "a refusal writes nothing")
+				require.True(t, proto.Equal(claim, f.claim(t, first)), "the first claim is kept")
+				require.True(t, proto.Equal(round, f.roundOf(t, first)), "the first round is kept")
+			}
+
+			t.Run("ChallengeFact", func(t *testing.T) {
+				f := newFixture(t)
+				_, factF := f.assertedFact(t, "once")
+				f.decayTo(t, factF, dfcPruned)
+				stake := f.vdMinimum(t, factF)
+				first, err := f.vdChallengeAt(v11Addr("dfc-once"), factF, stake.String())
+				require.NoError(t, err)
+				requireRepeatRefused(t, f, first, func() (string, error) {
+					return f.vdChallengeAt(v11Addr("dfc-once"), factF, new(big.Int).Add(stake, big.NewInt(1)).String())
+				})
+				_, err = f.vdChallengeAt(v11Addr("dfc-once-other"), factF, stake.String())
+				require.NoError(t, err, "another challenger")
+				f.nextBlock(t)
+				_, err = f.vdChallengeAt(v11Addr("dfc-once"), factF, stake.String())
+				require.NoError(t, err, "the same challenger a block later")
+			})
+
+			t.Run("ChallengeProvisionalFact", func(t *testing.T) {
+				f := newFixture(t)
+				claimQ, factQ := f.conjectureFact(t, "once")
+				f.decayTo(t, factQ, dfcPruned)
+				first, err := f.challengeProvisional(v11Addr("dfc-once-q"), claimQ, factQ)
+				require.NoError(t, err)
+				requireRepeatRefused(t, f, first, func() (string, error) {
+					return f.challengeProvisional(v11Addr("dfc-once-q"), claimQ, factQ)
+				})
+				_, err = f.challengeProvisional(v11Addr("dfc-once-q-other"), claimQ, factQ)
+				require.NoError(t, err, "another challenger")
+			})
+
+			t.Run("dormant-then-held", func(t *testing.T) {
+				f := newFixture(t)
+				_, factF := f.assertedFact(t, "once-held")
+				f.decayTo(t, factF, dfcAtRisk)
+				first, err := f.vdChallengeAt(v11Addr("dfc-once-h"), factF, f.vdMinimum(t, factF).String())
+				require.NoError(t, err)
+				f.patronize(t, v11Addr("dfc-once-patron"), factF)
+				require.Equal(t, types.FactStatus_FACT_STATUS_ACTIVE, f.fact(t, factF).Status)
+				requireRepeatRefused(t, f, first, func() (string, error) {
+					return f.vdChallengeAt(v11Addr("dfc-once-h"), factF, f.vdMinimum(t, factF).String())
+				})
+				require.Equal(t, types.FactStatus_FACT_STATUS_ACTIVE, f.fact(t, factF).Status, "the repeat does not hold the fact")
+			})
+		})
+	}
+}
+
+// The stated limit of the citation rule (dormant_fact_contest.go): it lives in
+// the creation body that consensus-repairs-v2's creation markers select. With
+// either of them on, an accepted contradiction of an EXPIRED fact feeds it no
+// citation energy and its author no "cited" edge. With both off, the frozen
+// creation body runs, has no dormant gate and feeds it both. Native genesis
+// cannot select that configuration; this test keeps the limit visible, and
+// fails once a guard closes it.
+func TestDormantFactContest_CitationRuleNeedsAV2CreationMarker(t *testing.T) {
+	for _, tc := range []struct{ calibration, floor bool }{{true, true}, {true, false}, {false, true}, {false, false}} {
+		t.Run(fmt.Sprintf("calibration=%t/floor=%t", tc.calibration, tc.floor), func(t *testing.T) {
+			gs := types.DefaultGenesis()
+			gs.BootstrapFundAllocation = "22222000000"
+			gs.CalibrationSmoothingEnabled = tc.calibration
+			gs.ZeroConfidenceFloorEnabled = tc.floor
+			require.True(t, gs.DormantFactContestEnabled)
+			f := &dormantFixture{v11Fixture: newClaimIntegrityGenesisFixture(t, "dormant-contest-test", gs)}
+			_, factF := f.assertedFact(t, "v2")
+			f.decayTo(t, factF, dfcExpired)
+			c := f.mustContradict(t, v11Addr("dfc-v2-ct"), factF, "Synthetic dormant-fact contest: a counter-observation of an expired fact.", f.vdMinimum(t, factF).String())
+			f.accept(t, c, v11Reviewers()...)
+			require.Equal(t, dfcExpired, f.fact(t, factF).Status, "the target is never moved")
+			fed := 0
+			if !tc.calibration && !tc.floor {
+				fed = 1 // the stated limit: the frozen creation body has no dormant gate
+			}
+			require.Equal(t, uint64(fed), f.k.GetNewCitationsThisEpoch(f.ctx, factF))
+			require.Len(t, f.citedEdges(factF), fed)
+		})
+	}
+}
+
+// The contest withholds citation credit only from a CONTRADICTS edge. A new
+// fact that SUPPORTS a dormant fact feeds it citation energy and gives its
+// author a "cited" edge, with the marker on as with it off.
+func TestDormantFactContest_SupportStillFeedsADormantFact(t *testing.T) {
+	for _, status := range []types.FactStatus{dfcAtRisk, dfcExpired} {
+		for _, dormant := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/dormant=%t", status, dormant), func(t *testing.T) {
+				f := newDormantFixture(t, dormant)
+				_, factF := f.assertedFact(t, "sup")
+				f.decayTo(t, factF, status)
+				c := f.mustSubmitClaim(t, v11Addr("dfc-sup"), "Synthetic dormant-fact contest: a new finding that supports a dormant fact.", dedupDomain,
+					func(m *types.MsgSubmitClaim) {
+						m.Relations = []*types.ClaimRelation{{Relation: types.RelationType_RELATION_TYPE_SUPPORTS, TargetFactId: factF}}
+					})
+				f.accept(t, c, v11Reviewers()...)
+				require.Equal(t, uint64(1), f.k.GetNewCitationsThisEpoch(f.ctx, factF), "a supporting citation feeds a dormant fact")
+				require.Len(t, f.citedEdges(factF), 1, "and gives its author a cited edge")
+			})
+		}
 	}
 }
 
@@ -978,18 +1182,88 @@ func TestDormantFactContest_LegacyPolicyChallengesAsToday(t *testing.T) {
 
 // ─── Who holds a challenged fact ─────────────────────────────────────────────
 
-// The end of a challenge restores and credits a CHALLENGED fact only when
-// this challenge holds it: the fact's latest status transition is the move
-// to CHALLENGED at the height the challenge was submitted, naming it when a
-// cause is recorded. Here the record is fabricated on a legacy chain. A
-// record of another admission (another height, or another cause) is not
-// this challenge's hold: the fact stays CHALLENGED, nothing is credited and
+// The end of a review-neutral challenge restores and credits a CHALLENGED
+// fact only when this challenge holds it: the fact's latest status transition
+// is the move to CHALLENGED at the height the challenge was submitted, naming
+// it when a cause is recorded. Here a real challenge S holds F, and a later
+// record is fabricated. A record of another admission (another height, or
+// another cause) is not S's hold: F stays CHALLENGED, nothing is credited and
 // nothing is reported. A latest transition that is not a move to CHALLENGED
-// cannot say who holds the fact: it stays CHALLENGED and
-// contest_check_incomplete says why. A record that matches restores it as
-// today (a policy-0 survival). With the marker off every case restores as
-// today.
+// cannot say who holds F: it stays CHALLENGED and contest_check_incomplete
+// says why. With S's own record latest, S's survival restores F. With the
+// marker off every case restores as before.
 func TestDormantFactContest_ChallengeEndReadsWhoHoldsTheFact(t *testing.T) {
+	type record func(t *testing.T, f *dormantFixture, factF string)
+	moved := func(cause string, later bool) record {
+		return func(t *testing.T, f *dormantFixture, factF string) {
+			t.Helper()
+			if later {
+				f.nextBlock(t)
+			}
+			require.NoError(t, f.k.RecordStatusTransition(f.ctx, &types.StatusTransition{
+				FactId: factF, PriorStatus: csVerified, NewStatus: dfcChallenged,
+				BlockHeight: uint64(f.ctx.BlockHeight()), CauseEventType: "challenge_opened", CauseId: cause,
+			}))
+		}
+	}
+	notChallenged := func(t *testing.T, f *dormantFixture, factF string) {
+		t.Helper()
+		require.NoError(t, f.k.RecordStatusTransition(f.ctx, &types.StatusTransition{
+			FactId: factF, PriorStatus: dfcChallenged, NewStatus: csVerified,
+			BlockHeight: uint64(f.ctx.BlockHeight()), CauseEventType: "unknown",
+		}))
+	}
+	for _, tc := range []struct {
+		name     string
+		record   record
+		held     bool
+		reported bool
+	}{
+		{"another height", moved("", true), false, false},
+		{"another cause", moved("dfc-other-challenge", false), false, false},
+		{"latest transition not CHALLENGED", notChallenged, false, true},
+		{"this challenge's record", nil, true, false},
+	} {
+		for _, dormant := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/dormant=%t", tc.name, dormant), func(t *testing.T) {
+				f := newDormantFixture(t, dormant)
+				_, factF := f.assertedFact(t, "hold")
+				s := f.challenge(t, v11Addr("dfc-hold-s"), factF)
+				require.Equal(t, dfcChallenged, f.fact(t, factF).Status)
+				if tc.record != nil {
+					tc.record(t, f, factF)
+				}
+				before, history := f.state(t, factF), f.transitions(factF)
+				f.freshEvents()
+				require.Equal(t, types.Verdict_VERDICT_REJECT, f.decide(t, s, "reject", v11Reviewers()...).Verdict)
+				incomplete := v11Event(f.ctx, "zerone.knowledge.contest_check_incomplete")
+				if tc.held || !dormant {
+					require.Equal(t, types.FactStatus_FACT_STATUS_ACTIVE, f.fact(t, factF).Status, "restored")
+					require.Equal(t, append(history, v11Transition{dfcChallenged, types.FactStatus_FACT_STATUS_ACTIVE, "challenge_survived", s}), f.transitions(factF))
+					require.Empty(t, incomplete)
+					return
+				}
+				f.requireUntouched(t, factF, before, history)
+				if !tc.reported {
+					require.Empty(t, incomplete)
+					return
+				}
+				require.Len(t, incomplete, 1)
+				require.Equal(t, factF, incomplete[0]["fact_id"])
+				require.Contains(t, incomplete[0]["reason"], "admission record of challenge "+s)
+			})
+		}
+	}
+}
+
+// A legacy-policy challenge is held at admission exactly as with the marker
+// off, and it ends exactly as with the marker off: its end reads no hold
+// record. Here the record is fabricated on a legacy chain: another
+// admission's height or cause, no move to CHALLENGED at all, or this
+// challenge's own. In every case its REJECT end restores the fact and credits
+// survival energy, as today, and with the marker on it leaves the same fact
+// record and costs the same gas as with it off.
+func TestDormantFactContest_LegacyPolicyEndReadsNoHoldRecord(t *testing.T) {
 	const claimID = "dfc-hold-challenge"
 	type record func(*testing.T, *legacyDormantFixture, *types.Fact) (submitted int64)
 	moved := func(cause string, submitted int64) record {
@@ -1016,59 +1290,52 @@ func TestDormantFactContest_ChallengeEndReadsWhoHoldsTheFact(t *testing.T) {
 		return 0
 	}
 	for _, tc := range []struct {
-		name     string
-		dormant  bool
-		record   record
-		restored bool
-		reported bool
+		name   string
+		record record
 	}{
-		{"marker off, another height", false, moved("", -1), true, false},
-		{"marker off, another cause", false, moved("dfc-other-challenge", 0), true, false},
-		{"marker on, another height", true, moved("", -1), false, false},
-		{"marker on, another cause", true, moved("dfc-other-challenge", 0), false, false},
-		{"marker on, latest transition not CHALLENGED", true, unrecorded, false, true},
-		{"marker on, this cause", true, moved(claimID, 0), true, false},
-		{"marker on, this height", true, moved("", 0), true, false},
+		{"another height", moved("", -1)},
+		{"another cause", moved("dfc-other-challenge", 0)},
+		{"latest transition not CHALLENGED", unrecorded},
+		{"this cause", moved(claimID, 0)},
+		{"this height", moved("", 0)},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			f := newLegacyDormantFixture(t, tc.dormant)
-			factF := f.acceptedFact(t, "hold")
-			before := f.state(t, factF)
-
-			fact, _ := f.k.GetFact(f.ctx, factF)
-			submitted := tc.record(t, f, fact)
-			claim := &types.Claim{
-				Id: claimID, FactContent: "Synthetic challenge of " + factF, Domain: fact.Domain,
-				Category: fact.Category, Submitter: makeValidBech32Addr("dfc-hold-ch"), Stake: "11000000",
-				Status: types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION, ProvisionalFactId: factF,
-				SubmittedAtBlock: uint64(f.ctx.BlockHeight() + submitted),
+			type ended struct {
+				fact *types.Fact
+				gas  uint64
 			}
-			require.NoError(t, f.k.SetClaim(f.ctx, claim))
-			round := makeRoundInPhase("r-hold", claim.Id, types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, 80)
-			require.NoError(t, f.k.SetVerificationRound(f.ctx, round))
-			require.NoError(t, f.k.CompleteRound(f.ctx, round, &keeper.VerificationResult{Verdict: types.Verdict_VERDICT_REJECT, Confidence: 800_000}))
+			ends := map[bool]ended{}
+			for _, dormant := range []bool{false, true} {
+				f := newLegacyDormantFixture(t, dormant)
+				factF := f.acceptedFact(t, "hold")
+				before := f.state(t, factF)
 
-			after := f.state(t, factF)
-			incomplete := v11Event(f.ctx, "zerone.knowledge.contest_check_incomplete")
-			if tc.restored {
+				fact, _ := f.k.GetFact(f.ctx, factF)
+				submitted := tc.record(t, f, fact)
+				claim := &types.Claim{
+					Id: claimID, FactContent: "Synthetic challenge of " + factF, Domain: fact.Domain,
+					Category: fact.Category, Submitter: makeValidBech32Addr("dfc-hold-ch"), Stake: "11000000",
+					Status: types.ClaimStatus_CLAIM_STATUS_IN_VERIFICATION, ProvisionalFactId: factF,
+					SubmittedAtBlock: uint64(f.ctx.BlockHeight() + submitted),
+				}
+				require.NoError(t, f.k.SetClaim(f.ctx, claim))
+				round := makeRoundInPhase("r-hold", claim.Id, types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, 80)
+				require.NoError(t, f.k.SetVerificationRound(f.ctx, round))
+				meter := storetypes.NewInfiniteGasMeter()
+				require.NoError(t, f.k.CompleteRound(f.ctx.WithGasMeter(meter), round, &keeper.VerificationResult{Verdict: types.Verdict_VERDICT_REJECT, Confidence: 800_000}))
+
+				after := f.state(t, factF)
 				params, err := f.k.GetParams(f.ctx)
 				require.NoError(t, err)
-				require.Equal(t, types.FactStatus_FACT_STATUS_ACTIVE, after.fact.Status)
-				require.Equal(t, before.fact.Energy+params.MetabolismEnergyChallengeSurvival, after.fact.Energy, "survival energy, as today")
-				require.Empty(t, incomplete)
-				return
+				require.Equal(t, types.FactStatus_FACT_STATUS_ACTIVE, after.fact.Status, "dormant=%t: restored, as today", dormant)
+				require.Equal(t, before.fact.Energy+params.MetabolismEnergyChallengeSurvival, after.fact.Energy, "dormant=%t: survival energy, as today", dormant)
+				require.Empty(t, v11Event(f.ctx, "zerone.knowledge.contest_check_incomplete"))
+				ends[dormant] = ended{fact: after.fact, gas: meter.GasConsumed()}
 			}
-			require.Equal(t, dfcChallenged, after.fact.Status)
-			require.Equal(t, before.fact.Energy, after.fact.Energy, "nothing is credited")
-			require.Equal(t, before.fact.CorroborationCount, after.fact.CorroborationCount)
-			require.Empty(t, v11Event(f.ctx, "zerone.knowledge.corroboration_incremented"))
-			if !tc.reported {
-				require.Empty(t, incomplete)
-				return
-			}
-			require.Len(t, incomplete, 1)
-			require.Equal(t, factF, incomplete[0]["fact_id"])
-			require.Contains(t, incomplete[0]["reason"], "admission record of challenge "+claimID)
+			require.True(t, proto.Equal(ends[false].fact, ends[true].fact), "the marker changes nothing\noff %s\non  %s",
+				prototext.Format(ends[false].fact), prototext.Format(ends[true].fact))
+			require.NotZero(t, ends[false].gas)
+			require.Equal(t, ends[false].gas, ends[true].gas, "the same gas: a legacy-policy end reads no hold record")
 		})
 	}
 }

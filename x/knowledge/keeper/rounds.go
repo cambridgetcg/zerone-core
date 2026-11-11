@@ -624,8 +624,18 @@ func (k Keeper) forwardWithheldToDevelopmentFund(ctx context.Context, amount uin
 }
 
 // createFactFromClaim creates a new Fact from an accepted claim.
-// Returns the generated factID and any error.
+// Returns the generated factID and any error. Dormant-fact contest: an
+// accepted review-neutral challenge of a target that another challenge
+// already refuted creates no fact and returns an empty ID; completeRound
+// then makes nothing that needs one (refutedAlready, dormant_fact_contest.go).
 func (k roundsExecution) createFactFromClaim(ctx context.Context, claim *types.Claim, round *types.VerificationRound, confidence uint64) (string, error) {
+	refuted, err := k.refutedAlready(ctx, claim)
+	if err != nil {
+		return "", err
+	}
+	if refuted {
+		return "", nil
+	}
 	if !k.calibrationSmoothing && !k.zeroConfidenceFloor {
 		return k.createFactFromClaimLegacy(ctx, claim, round, confidence)
 	}
@@ -1208,10 +1218,11 @@ func (k roundsExecution) handleChallengeSurvival(ctx context.Context, challengeC
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
-	// Dormant-fact contest: a challenge restores and credits only a target it
-	// holds CHALLENGED. A dormant target was never moved, so it is left as
-	// it is and earns no survival energy, corroboration, calibration credit,
-	// karma edge, event or survival-reward release (dormant_fact_contest.go).
+	// Dormant-fact contest: a review-neutral challenge restores and credits
+	// only a target it holds CHALLENGED. A dormant target was never moved, so
+	// it is left as it is, whatever its status now, and earns no survival
+	// energy, corroboration, calibration credit, karma edge, event, survival
+	// cutoff or survival-reward release (dormant_fact_contest.go).
 	if !k.challengeEndActs(ctx, originalFact, challengeClaim) {
 		return nil
 	}
@@ -1334,11 +1345,12 @@ func (k roundsExecution) handleChallengeSurvival(ctx context.Context, challengeC
 // panel starves leaves the target fact locked FACT_STATUS_CHALLENGED forever —
 // permanently un-rechallengeable and its survival escrow blocked — for the
 // price of one starved round. RestoredStatusFor keeps conjectures PROVISIONAL;
-// starvation must never promote a question into ACTIVE truth-standing. With
-// the dormant-fact contest on, it restores only a target this challenge holds
-// CHALLENGED, and that record, not the active-round scan, decides it: a
-// dormant target was never moved, and a dormant challenge that holds nothing
-// must not keep another challenge's target CHALLENGED (dormant_fact_contest.go).
+// starvation must never promote a question into ACTIVE truth-standing. Where
+// the dormant-fact contest governs the challenge (a review-neutral one with
+// the marker on), it restores only a target this challenge holds CHALLENGED,
+// and that record, not the active-round scan, decides it: a dormant target
+// was never moved, and a dormant challenge that holds nothing must not keep
+// another challenge's target CHALLENGED (dormant_fact_contest.go).
 func (k roundsExecution) restoreChallengedFactOnInconclusive(ctx context.Context, challengeClaim *types.Claim, completingRoundID string) error {
 	if _, err := k.ClaimReviewPolicyVersion(ctx, challengeClaim); err != nil {
 		return err
@@ -1364,7 +1376,7 @@ func (k roundsExecution) restoreChallengedFactOnInconclusive(ctx context.Context
 	if fact.Status != types.FactStatus_FACT_STATUS_CHALLENGED {
 		return nil
 	}
-	if k.dormantFactContest {
+	if k.contestGoverns(challengeClaim) {
 		if !k.challengeEndActs(ctx, fact, challengeClaim) {
 			return nil
 		}
@@ -1401,15 +1413,12 @@ func (k roundsExecution) restoreChallengedFactOnInconclusive(ctx context.Context
 	return nil
 }
 
-func (k roundsExecution) legacyRestoreChallengedFactOnInconclusive(ctx context.Context, challengeClaim *types.Claim) {
+func (k Keeper) legacyRestoreChallengedFactOnInconclusive(ctx context.Context, challengeClaim *types.Claim) {
 	if challengeClaim.ProvisionalFactId == "" {
 		return
 	}
 	fact, found := k.GetFact(ctx, challengeClaim.ProvisionalFactId)
 	if !found || fact.Status != types.FactStatus_FACT_STATUS_CHALLENGED {
-		return
-	}
-	if !k.challengeEndActs(ctx, fact, challengeClaim) {
 		return
 	}
 	fact.Status = RestoredStatusFor(fact)

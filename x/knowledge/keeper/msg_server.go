@@ -870,6 +870,15 @@ func (m *msgServer) challengeFact(ctx context.Context, msg *types.MsgChallengeFa
 			msg.Stake, effectiveMinStake.String(), fact.Confidence)
 	}
 
+	// Where the dormant-fact contest applies a target is not always held, so
+	// a repeat by the same challenger in this block would reuse this claim
+	// identity. Refuse it before any coins move (dormant_fact_contest.go).
+	if applies {
+		if err := m.keeper.refuseRepeatedChallenge(ctx, GenerateClaimID(msg.Challenger, msg.FactId, height)); err != nil {
+			return nil, err
+		}
+	}
+
 	// Lock challenge stake
 	if m.keeper.bankKeeper != nil {
 		challengerAddr, err := sdk.AccAddressFromBech32(msg.Challenger)
@@ -1029,6 +1038,14 @@ func (m *msgServer) challengeProvisionalFact(ctx context.Context, msg *types.Msg
 		stakeVal, ok2 := new(big.Int).SetString(msg.Stake, 10)
 		if ok && ok2 && stakeVal.Cmp(minStake) < 0 {
 			return nil, fmt.Errorf("challenge stake %suzrn below minimum %suzrn", msg.Stake, cp.MinChallengeStake)
+		}
+	}
+
+	// A repeat by the same challenger in this block would reuse this claim
+	// identity where the contest applies (see ChallengeFact).
+	if applies {
+		if err := m.keeper.refuseRepeatedChallenge(ctx, GenerateClaimID(msg.Challenger, msg.FactId, height)); err != nil {
+			return nil, err
 		}
 	}
 

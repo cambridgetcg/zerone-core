@@ -38,14 +38,25 @@ import (
 // target earns it no citation energy and its author no "cited" edge.
 //
 // Because a dormant target is not held CHALLENGED, more than one challenge of
-// it can be open at once. The end of a challenge therefore restores and
-// credits a target only when this challenge holds it (challengeHolds): the
-// target is CHALLENGED and its latest status transition is this challenge's
-// own admission. A target a challenge does not hold is left alone. The first
-// challenge that refutes a dormant fact disproves it, and a later one leaves
-// the DISPROVEN fact as it is. The open-questions listing flags a conjecture
-// under challenge by its CHALLENGED status, so a dormant conjecture with an
-// open refutation round is listed without that flag.
+// it can be open at once. The end of a review-neutral challenge therefore
+// restores and credits its target only when this challenge holds it
+// (challengeHolds): the target is CHALLENGED and its latest status transition
+// is this challenge's own admission. A target a challenge does not hold is
+// left alone, whatever its status. That includes a dormant target that
+// recovered to ACTIVE through patronage, or through another challenge it
+// survived, while this one was open: its end writes no status, transition or
+// survival cutoff, and the survival sweep pays any pending survival reward of
+// a standing fact. The first challenge that refutes a dormant fact disproves
+// it. A later accepted one leaves the DISPROVEN fact as it is and becomes no
+// fact of its own: its claim is ACCEPTED and settles as accepted, but the
+// refutation has been made, and a challenge claim has no dedup hold to stop
+// the same refutation text being minted again. One challenger opens at most
+// one challenge of a fact per block, because the claim identity is the
+// challenger, the fact and the height; where the contest applies the
+// challenge doors refuse a repeat before any coins move. The open-questions
+// listing flags a conjecture under challenge by its CHALLENGED status, so a
+// dormant conjecture with an open refutation round is listed without that
+// flag.
 //
 // The challenge doors apply the contest only to a review-neutral claim
 // (policy 1). On the legacy policy a MALFORMED or INCONCLUSIVE aggregated
@@ -53,21 +64,50 @@ import (
 // accepted challenge earns a confidence-scaled bonus, so a target held
 // CHALLENGED could be held for good and a target not held could pay that
 // bonus to every concurrent challenger. A legacy-policy challenge is
-// therefore admitted, held and ended exactly as with the marker off, and the
+// therefore admitted, held and ended exactly as with the marker off: the
+// round paths read the hold record, skip a second disproval and withhold a
+// counter-fact only for a review-neutral challenge (contestGoverns), so a
+// legacy-policy end reads and writes what it did, for the same gas. The
 // open-questions listing treats a PRUNED conjecture as open only with review
 // neutrality on as well. Native genesis selects both. Contradictions apply
 // the contest on either policy.
 //
 // Known limits, not changed here:
+//   - The citation rule needs one of consensus-repairs-v2's creation markers,
+//     calibration smoothing or the zero-confidence floor. With both off, a new
+//     fact is made by the frozen creation body (rounds_repairs_legacy.go,
+//     pinned), which has no dormant gate, so an accepted contradiction feeds
+//     its AT_RISK, EXPIRED or PRUNED target citation energy and its author a
+//     "cited" edge. Native genesis cannot select that (InitChain requires
+//     every v2 selection), and a v3 carrier would run after v2's. A
+//     hand-made genesis can. Nothing ties this marker to v2's: the v3
+//     registry is kept independent of v1 and v2 (each v3 entry enables from
+//     a chain with every earlier marker absent), so refusing it is for the
+//     v3 carrier and its genesis requirement to decide.
 //   - An accepted challenge disproves its target as today. DISPROVEN is not
 //     metabolised, so the domain's counters (AtRiskCount, TotalEnergy) keep
 //     a target that falls while AT_RISK or EXPIRED where it was when it fell,
 //     as they do for any disproven fact.
 //   - The falsification cascade moves an AT_RISK descendant of a disproven
-//     fact to CONTESTED (vindication.go), metabolism skips a CONTESTED fact,
-//     and a later rejected challenge of it returns it ACTIVE with its at-risk
-//     stamp cleared. That holds for every disproven parent; the marker only
-//     makes a dormant parent disprovable.
+//     fact to CONTESTED (vindication.go), and metabolism skips a CONTESTED
+//     fact. A CONTESTED fact is challengeable, so a later challenge of it
+//     holds it, and if that challenge is rejected the fact returns ACTIVE
+//     with its at-risk stamp cleared while AtRiskCount still counts it. That
+//     holds for every disproven parent; the marker only makes a dormant
+//     parent disprovable.
+//   - Revival does not read contest reasons. Patronage or metabolism returns
+//     an AT_RISK or EXPIRED fact ACTIVE (RestoredStatusFor) even while an
+//     accepted contradiction's counter-fact stands (R1), because
+//     contestAcceptedTargets contests only a VERIFIED or ACTIVE target. With
+//     the marker off that holds for AT_RISK; with it on, an EXPIRED target can
+//     be contradicted as well, so it holds for EXPIRED too. A PRUNED fact
+//     does not revive. Closing it means revival consults contestReasonRemains,
+//     a change to metabolism and patronage outside this repair.
+//   - challengeHolds needs the fact's status history. A review-neutral
+//     challenge that holds a fact whose history is missing or unreadable
+//     (only a hand-made genesis can import one; an exported genesis carries
+//     the history) leaves it CHALLENGED when it ends, and reports
+//     contest_check_incomplete.
 //
 // With the marker off none of this runs: every predicate below reduces to the
 // one it extends, and the round paths restore as before.
@@ -143,7 +183,12 @@ func errDormantContestNotChallengeable(fact *types.Fact, integrity bool) error {
 //
 // Without claim integrity no cause is recorded, so two admissions in one
 // block cannot be told apart. That needs a dormant challenge, a recovery of
-// its target and a second challenge that holds it, all in one block.
+// its target and a second challenge that holds it, all in one block, and one
+// actor can arrange all three: patronage is open to anyone. The dormant
+// challenge's REJECT, MALFORMED or INCONCLUSIVE end then restores the target
+// while the second challenge is still open. On the review-neutral policy that
+// end credits no energy, corroboration or karma; what is lost is the second
+// challenge's hold, and its end may then release the survival reward.
 func (k Keeper) challengeHolds(ctx context.Context, fact *types.Fact, challenge *types.Claim) (bool, error) {
 	if fact.Status != types.FactStatus_FACT_STATUS_CHALLENGED {
 		return false, nil
@@ -190,47 +235,76 @@ func (k Keeper) challengeHolds(ctx context.Context, fact *types.Fact, challenge 
 	return true, nil
 }
 
+// contestGoverns reports whether the dormant-fact contest governs the end of
+// challenge: the marker is on and challenge is review-neutral (policy 1),
+// the only policy whose admission may leave a target unheld. A legacy-policy
+// challenge was held at admission exactly as with the marker off, and the
+// round paths end it exactly as with the marker off, reading nothing more.
+// It reads only the snapshot and the claim, so it charges no gas.
+func (k roundsExecution) contestGoverns(challenge *types.Claim) bool {
+	return k.dormantFactContest && challenge != nil && challenge.ReviewPolicyVersion == types.ReviewPolicyNeutral
+}
+
 // challengeEndActs reports whether the end of challenge may restore and
-// credit fact. With the marker off it always may, as before. With it on:
-//
-//   - a CHALLENGED fact only when challenge holds it (challengeHolds). A
-//     record that cannot be read is reported with contest_check_incomplete,
-//     and the fact is left as it is: restoring it could undo another
-//     challenge's hold.
-//   - an AT_RISK, EXPIRED, PRUNED, DISPROVEN, CONTESTED or other non-standing
-//     fact never: no challenge holds it, so it is a dormant target that was
-//     never moved, one that fell or became contested while the contest was
-//     open, or one another challenge already refuted. The contest leaves it
-//     as it is and it earns nothing.
-//   - a VERIFIED, ACTIVE or PROVISIONAL fact that no challenge holds as
-//     before. In a real flow that is a dormant target that recovered through
-//     patronage or metabolism while the contest was open; on the
-//     review-neutral policy, the only one a dormant contest runs on, its end
-//     then credits no energy, corroboration or karma, and may hand over a
-//     pending survival reward that the sweep would also pay a standing fact.
+// credit fact. Where the contest does not govern challenge (contestGoverns)
+// it always may, as before. Where it does, only a CHALLENGED fact that
+// challenge holds (challengeHolds). Any other fact is left as it is and earns
+// nothing: a dormant target that was never moved, one that fell, became
+// contested or recovered to VERIFIED or ACTIVE while the contest was open,
+// one another challenge holds, or one another challenge already refuted. A
+// hold record that cannot be read is reported with contest_check_incomplete,
+// and the fact is left as it is: restoring it could undo another challenge's
+// hold.
 //
 // It writes nothing except the contest_check_incomplete event.
 func (k roundsExecution) challengeEndActs(ctx context.Context, fact *types.Fact, challenge *types.Claim) bool {
-	if !k.dormantFactContest {
+	if !k.contestGoverns(challenge) {
 		return true
 	}
-	if fact == nil || challenge == nil {
+	if fact == nil || fact.Status != types.FactStatus_FACT_STATUS_CHALLENGED {
 		return false
 	}
-	switch fact.Status {
-	case types.FactStatus_FACT_STATUS_CHALLENGED:
-		held, err := k.challengeHolds(ctx, fact, challenge)
-		if err != nil {
-			emitContestCheckIncomplete(ctx, fact.Id, fmt.Errorf("admission record of challenge %s: %w", challenge.Id, err))
-			return false
-		}
-		return held
-	case types.FactStatus_FACT_STATUS_VERIFIED,
-		types.FactStatus_FACT_STATUS_ACTIVE,
-		types.FactStatus_FACT_STATUS_PROVISIONAL:
-		return true
+	held, err := k.challengeHolds(ctx, fact, challenge)
+	if err != nil {
+		emitContestCheckIncomplete(ctx, fact.Id, fmt.Errorf("admission record of challenge %s: %w", challenge.Id, err))
+		return false
 	}
-	return false
+	return held
+}
+
+// refutedAlready reports whether an accepted challenge finds its target
+// already DISPROVEN where the contest governs it. Such a refutation becomes no
+// fact: another challenge open at the same time refuted the target first, and
+// each further acceptance would mint a VERIFIED copy of the refutation, with
+// birth energy and a place in the domain's counters, which a challenge claim's
+// missing dedup hold would not stop. The target read is the one
+// handleChallengeDisproven makes, with the same error.
+func (k roundsExecution) refutedAlready(ctx context.Context, challenge *types.Claim) (bool, error) {
+	if !k.contestGoverns(challenge) || challenge.ProvisionalFactId == "" {
+		return false, nil
+	}
+	target, found, err := k.getFactChecked(ctx, challenge.ProvisionalFactId)
+	if err != nil {
+		return false, err
+	}
+	return found && target.Status == types.FactStatus_FACT_STATUS_DISPROVEN, nil
+}
+
+// refuseRepeatedChallenge refuses a challenge whose claim identity already
+// exists. Where the contest applies, a target is not always held CHALLENGED,
+// so one challenger could open a second challenge of the same fact in one
+// block, and GenerateClaimID(challenger, fact, height) would give it the first
+// one's claim and round: the second would overwrite them and strand the first
+// stake. The challenge doors call it before any coins move. It reads one key.
+func (k Keeper) refuseRepeatedChallenge(ctx context.Context, challengeClaimID string) error {
+	prior, err := k.storeService.OpenKVStore(ctx).Get(types.ClaimKey(challengeClaimID))
+	if err != nil {
+		return fmt.Errorf("read prior challenge claim: %w", err)
+	}
+	if prior != nil {
+		return fmt.Errorf("challenge claim identity %s already exists: a challenger opens at most one challenge of a fact per block", challengeClaimID)
+	}
+	return nil
 }
 
 // OpenQuestionsForDomainChecked reads the dormant-fact contest marker once,
