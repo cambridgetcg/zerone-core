@@ -21,6 +21,12 @@ import (
 // ACTIVE. Tombstoning the adapter inside the window (governance falsifying
 // the source) cancels every unpaid reward from it — a free clawback, because
 // nothing was minted at settle. Issuance follows survival, not acceptance.
+//
+// With the cited-reward escrow marker on, a link with cited facts and no
+// pending claims waits here too: citation checks only that a fact exists, so
+// it adds no newly verified knowledge. Its reward is the one computeReward
+// gives, and it uses the same store entries, deadline index, events and sweep
+// as a witness reward.
 
 // WitnessPendingReward is a witness reward held until its window closes.
 // Stored as JSON under WitnessPendingRewardPrefix.
@@ -83,6 +89,30 @@ func (k Keeper) EscrowWitnessReward(ctx context.Context, att *types.ExternalAtte
 	if !ok || !reward.IsPositive() {
 		return
 	}
+	k.writeSurvivalEscrow(ctx, att, reward)
+}
+
+// escrowCitedReward records the reward computed for a cited-fact link with no
+// pending claims as pending (nothing minted). Settlement calls it only with
+// the cited-reward escrow marker on, after the attestation settles with its
+// bond returned and a zero reward. finalizeSettle authorizes the source only
+// for a positive reward, so with a zero reward authorizeSourceMint runs once,
+// here: a non-holder duplicate escrows nothing, and a legacy sole submitter
+// claims its ref as it would have at a paying settle. The sweep releases,
+// defers or cancels the escrow exactly as it does a witness reward.
+func (k Keeper) escrowCitedReward(ctx context.Context, att *types.ExternalAttestation, reward sdkmath.Int) {
+	if reward.IsNil() || !reward.IsPositive() {
+		return
+	}
+	if !k.authorizeSourceMint(ctx, att) {
+		return
+	}
+	k.writeSurvivalEscrow(ctx, att, reward)
+}
+
+// writeSurvivalEscrow stores reward as pending under the challenge window and
+// emits witness_reward_escrowed. Callers authorize the source first.
+func (k Keeper) writeSurvivalEscrow(ctx context.Context, att *types.ExternalAttestation, reward sdkmath.Int) {
 	params := k.GetParams(ctx)
 	window := params.WitnessRewardChallengeWindowBlocks
 	if window == 0 {
