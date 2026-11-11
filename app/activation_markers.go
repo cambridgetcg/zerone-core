@@ -127,8 +127,20 @@ func ConsensusRepairsV2GenesisSelections() []ActivationSelection {
 
 // ConsensusRepairsV3Markers lists the consensus-repairs-v3 markers:
 //
-//   - knowledge/doctrine_identity_enabled (knowledge 0x94): the metabolism
-//     exemption for doctrine follows provenance instead of the category label.
+//   - knowledge/doctrine_identity_enabled (knowledge 0x94): doctrine is what
+//     the chain's own process wrote, judged by provenance instead of the
+//     category label (x/knowledge/keeper/doctrine_identity.go). The metabolism
+//     exemption and the doctrine rescue (ResurrectDoctrineFacts) follow
+//     provenance. MsgPostConjecture, MsgSubmitContradiction and the legacy
+//     MsgSubmitClaim path refuse the category "doctrine" in their message
+//     handlers, so from the carrier height such a transaction fails, including
+//     one already in the mempool. A new challenge of a fact labelled doctrine
+//     gets an empty category. The confidence growth epoch and the fitness epoch
+//     neither grow nor clamp doctrine's confidence; BeginBlocker selects the
+//     marker for both. Claims and challenges admitted before the marker is on
+//     keep the category "doctrine": one accepted later makes a claim-derived
+//     fact with that label, which the provenance rule does not count as
+//     doctrine but which still matches a query's category filter.
 //   - substrate_bridge/cited_reward_escrow_enabled (substrate_bridge 0x91): the
 //     reward for an attestation that cites existing facts waits in the existing
 //     witness escrow window.
