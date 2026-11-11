@@ -11162,7 +11162,8 @@ function createBaseParams12() {
     probeBountyMaxPoolSize: "",
     invitationBonusAmount: "",
     guardianAddresses: [],
-    addFactVetoWindowBlocks: BigInt(0)
+    addFactVetoWindowBlocks: BigInt(0),
+    minReviewerBalance: ""
   };
 }
 var Params12 = {
@@ -11617,6 +11618,9 @@ var Params12 = {
     }
     if (message.addFactVetoWindowBlocks !== BigInt(0)) {
       writer.uint32(1280).uint64(message.addFactVetoWindowBlocks);
+    }
+    if (message.minReviewerBalance !== "") {
+      writer.uint32(1290).string(message.minReviewerBalance);
     }
     return writer;
   },
@@ -12077,6 +12081,9 @@ var Params12 = {
         case 160:
           message.addFactVetoWindowBlocks = reader.uint64();
           break;
+        case 161:
+          message.minReviewerBalance = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -12240,6 +12247,7 @@ var Params12 = {
     message.invitationBonusAmount = object.invitationBonusAmount ?? "";
     message.guardianAddresses = object.guardianAddresses?.map((e) => e) || [];
     message.addFactVetoWindowBlocks = object.addFactVetoWindowBlocks !== void 0 && object.addFactVetoWindowBlocks !== null ? BigInt(object.addFactVetoWindowBlocks.toString()) : BigInt(0);
+    message.minReviewerBalance = object.minReviewerBalance ?? "";
     return message;
   }
 };

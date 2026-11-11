@@ -282,8 +282,19 @@ type Params struct {
 	// "no individual can unilaterally inject untruth."
 	GuardianAddresses       []string `protobuf:"bytes,159,rep,name=guardian_addresses,json=guardianAddresses,proto3" json:"guardian_addresses,omitempty"`                          // veto-eligible addresses; empty = no guardian set, immediate execution
 	AddFactVetoWindowBlocks uint64   `protobuf:"varint,160,opt,name=add_fact_veto_window_blocks,json=addFactVetoWindowBlocks,proto3" json:"add_fact_veto_window_blocks,omitempty"` // default 0 (immediate); set > 0 to enable veto window
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
+	// ─── Reviewer minimum balance (consensus-repairs-v3) ─────────────────────
+	// The bank balance, in uzrn, an account must hold to commit to a review.
+	// Empty means the built-in 100,000,000 uzrn (100 ZRN); otherwise a canonical
+	// decimal within uint64, at or above 100,000,000. The figure can be raised,
+	// not lowered: the balance is checked, not locked, and a figure below 100 ZRN
+	// waits for a locked seat deposit (the reviewer-entry design draft, pull
+	// request #190). Read only while the reviewer-balance-param marker is set;
+	// with it off the built-in figure applies and this field must stay empty. A
+	// balance check only: no weight, bond or reputation, and not Sybil
+	// resistance.
+	MinReviewerBalance string `protobuf:"bytes,161,opt,name=min_reviewer_balance,json=minReviewerBalance,proto3" json:"min_reviewer_balance,omitempty"` // default: "" (built-in 100 ZRN)
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *Params) Reset() {
@@ -1359,6 +1370,13 @@ func (x *Params) GetAddFactVetoWindowBlocks() uint64 {
 	return 0
 }
 
+func (x *Params) GetMinReviewerBalance() string {
+	if x != nil {
+		return x.MinReviewerBalance
+	}
+	return ""
+}
+
 // GenesisState is the genesis state of the knowledge module.
 type GenesisState struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2221,7 +2239,7 @@ var File_zerone_knowledge_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\x1a%zerone/knowledge/v1/tok_cascade.proto\"\xacM\n" +
+	"!zerone/knowledge/v1/genesis.proto\x12\x13zerone.knowledge.v1\x1a\x1fzerone/knowledge/v1/types.proto\x1a%zerone/knowledge/v1/tok_cascade.proto\"\xdfM\n" +
 	"\x06Params\x12#\n" +
 	"\rmin_verifiers\x18\x01 \x01(\x04R\fminVerifiers\x12#\n" +
 	"\rmax_verifiers\x18\x02 \x01(\x04R\fmaxVerifiers\x12.\n" +
@@ -2372,7 +2390,8 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x1aprobe_bounty_max_pool_size\x18\x9d\x01 \x01(\tR\x16probeBountyMaxPoolSize\x127\n" +
 	"\x17invitation_bonus_amount\x18\x9e\x01 \x01(\tR\x15invitationBonusAmount\x12.\n" +
 	"\x12guardian_addresses\x18\x9f\x01 \x03(\tR\x11guardianAddresses\x12=\n" +
-	"\x1badd_fact_veto_window_blocks\x18\xa0\x01 \x01(\x04R\x17addFactVetoWindowBlocks\x1aN\n" +
+	"\x1badd_fact_veto_window_blocks\x18\xa0\x01 \x01(\x04R\x17addFactVetoWindowBlocks\x121\n" +
+	"\x14min_reviewer_balance\x18\xa1\x01 \x01(\tR\x12minReviewerBalance\x1aN\n" +
 	" MethodologyNormalizationBpsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\xf3\x19\n" +

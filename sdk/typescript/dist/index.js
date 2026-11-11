@@ -57,7 +57,7 @@ import {
   keyRotationAcceptanceSignBytes,
   keyRotationAuthorizationSignBytes,
   makeReviewRevealV2
-} from "./chunk-H4G4LPXU.js";
+} from "./chunk-CFOJVHH3.js";
 import {
   IN_TOTO_STATEMENT_V1_TYPE,
   ProvenanceParseError,
@@ -69,14 +69,14 @@ import {
   createZeroneRegistry,
   registerZeroneMessages,
   zeroneRegistryTypes
-} from "./chunk-C454SBZE.js";
+} from "./chunk-7FA773YQ.js";
 import {
   Claim,
   Fact,
   FactRelation,
   StatusTransition,
   VerificationRound
-} from "./chunk-I6KYORQQ.js";
+} from "./chunk-ZYGOEMGD.js";
 import {
   BinaryReader,
   BinaryWriter

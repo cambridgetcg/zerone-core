@@ -6332,6 +6332,10 @@
           "title": "default: \"100000\" (0.1 ZRN) — non-refundable review fee",
           "type": "string"
         },
+        "minReviewerBalance": {
+          "description": "─── Reviewer minimum balance (consensus-repairs-v3) ─────────────────────\nThe bank balance, in uzrn, an account must hold to commit to a review.\nEmpty means the built-in 100,000,000 uzrn (100 ZRN); otherwise a canonical\ndecimal within uint64, at or above 100,000,000. The figure can be raised,\nnot lowered: the balance is checked, not locked, and a figure below 100 ZRN\nwaits for a locked seat deposit (the reviewer-entry design draft, pull\nrequest #190). Read only while the reviewer-balance-param marker is set;\nwith it off the built-in figure applies and this field must stay empty. A\nbalance check only: no weight, bond or reputation, and not Sybil\nresistance.\n\ndefault: \"\" (built-in 100 ZRN)",
+          "type": "string"
+        },
         "minVerifiers": {
           "description": "default: 3",
           "format": "uint64",

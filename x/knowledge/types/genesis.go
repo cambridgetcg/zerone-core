@@ -506,6 +506,9 @@ func (gs *GenesisState) Validate() error {
 	if err := gs.Params.Validate(); err != nil {
 		return fmt.Errorf("invalid params: %w", err)
 	}
+	if err := ValidateReviewerBalanceGenesis(gs); err != nil {
+		return err
+	}
 	if err := validateGenesisFundAllocation("bootstrap_fund_allocation", gs.BootstrapFundAllocation); err != nil {
 		return err
 	}
@@ -666,6 +669,11 @@ func (p *Params) Validate() error {
 	// Review fee must be positive.
 	if p.MinReviewFee == "" || p.MinReviewFee == "0" {
 		return fmt.Errorf("min_review_fee must be > 0")
+	}
+	// Empty, or a canonical uint64 at or above the built-in 100 ZRN
+	// (reviewer_balance.go). Genesis validation and MsgUpdateParams both run it.
+	if err := ValidateMinReviewerBalance(p.MinReviewerBalance); err != nil {
+		return err
 	}
 
 	// ─── Fitness params ──────────────────────────────────────────────────

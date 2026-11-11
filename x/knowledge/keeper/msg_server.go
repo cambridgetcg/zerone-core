@@ -440,14 +440,21 @@ func (m *msgServer) SubmitCommitment(ctx context.Context, msg *types.MsgSubmitCo
 			"round %s has %d of %d commit seats filled", msg.RoundId, len(round.Commits), types.CommitSeatHardCap)
 	}
 
-	// Verifier minimum balance gate (stopgap until full qualification module)
+	// Verifier minimum balance gate (stopgap until full qualification module).
+	// The figure is the built-in 100 ZRN, or the governable
+	// min_reviewer_balance once the reviewer-balance-param marker is on
+	// (reviewer_balance_param.go). Either way it is a balance check: no bond,
+	// weight or reputation, and not Sybil resistance.
 	if m.keeper.bankKeeper != nil {
 		verifierAddr, err := sdk.AccAddressFromBech32(msg.Verifier)
 		if err != nil {
 			return nil, fmt.Errorf("invalid verifier address: %w", err)
 		}
+		minBalance, err := m.keeper.reviewerMinBalance(ctx)
+		if err != nil {
+			return nil, err
+		}
 		bal := m.keeper.bankKeeper.GetBalance(ctx, verifierAddr, "uzrn")
-		minBalance := sdkmath.NewInt(100_000_000) // 100 ZRN
 		if bal.Amount.LT(minBalance) {
 			return nil, fmt.Errorf("verifier does not meet minimum balance requirement")
 		}
@@ -736,6 +743,9 @@ func (m *msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 		return nil, fmt.Errorf("load current params: %w", err)
 	}
 	if err := types.ValidateRuntimeParamChange(current, msg.Params); err != nil {
+		return nil, fmt.Errorf("invalid runtime param change: %w", err)
+	}
+	if err := m.keeper.checkReviewerBalanceParamChange(ctx, current, msg.Params); err != nil {
 		return nil, fmt.Errorf("invalid runtime param change: %w", err)
 	}
 	if err := m.keeper.SetParams(ctx, msg.Params); err != nil {
