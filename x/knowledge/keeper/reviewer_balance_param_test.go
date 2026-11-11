@@ -133,9 +133,12 @@ func storedReviewerBalance(t *testing.T, f *v11Fixture) string {
 	return params.MinReviewerBalance
 }
 
-// With the marker on, the module's governance parameter update carries the
-// new field and it takes effect at the next commitment; setting it back to
-// empty restores 100 ZRN.
+// With the marker on, the knowledge MsgUpdateParams handler, called directly
+// with the module authority, stores the new field and it takes effect at the
+// next commitment; setting it back to empty restores 100 ZRN. This is the
+// handler, not the governance path: tests/cross_stack/
+// reviewer_balance_param_decode_test.go drives the x/gov envelope, decode and
+// lifecycle, and says what such a proposal must carry today.
 func TestReviewerBalanceParamUpdateTakesEffect(t *testing.T) {
 	f := newReviewerBalanceFixture(t, true, "")
 	requireBalanceRefusal(t, f.reviewerCommit(t, "before", agentDoorUzrn))

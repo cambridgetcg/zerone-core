@@ -1,9 +1,14 @@
 package cross_stack_test
 
 import (
+	"bytes"
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkgov "github.com/cosmos/cosmos-sdk/x/gov"
+	govv1 "github.com/cosmos/cosmos-sdk/x/gov/types/v1"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -18,8 +23,12 @@ import (
 // DefaultParams, the same decode fails with "failed to retrieve the message of
 // type zerone.knowledge.v1.Params.MethodologyNormalizationBpsEntry": the map's
 // entry type is not in the gogo registry. That defect predates this field and is
-// not repaired here; until it is, a real governance update of knowledge params
-// on a chain whose params carry the map cannot be decoded, whatever it sets.
+// not repaired here. Until it is, a governance update of knowledge params on a
+// chain whose params carry the map cannot be decoded, whatever it sets, bare or
+// wrapped in a proposal. On a chain started from default genesis, governance can
+// set min_reviewer_balance today only with a proposal that also empties the map,
+// and MsgUpdateParams replaces the whole Params, so that erases methodology
+// normalization (TestKnowledgeGovProposalSetsReviewerBalance).
 func TestKnowledgeUpdateParamsCarriesReviewerBalance(t *testing.T) {
 	h := NewTestHarness(t)
 	txConfig := h.App.TxConfig()
@@ -42,4 +51,91 @@ func TestKnowledgeUpdateParamsCarriesReviewerBalance(t *testing.T) {
 	update, ok := msgs[0].(*knowledgetypes.MsgUpdateParams)
 	require.True(t, ok)
 	require.Equal(t, "222000", update.Params.MinReviewerBalance)
+}
+
+// decodeGovProposalEnvelope wraps msg in a govv1.MsgSubmitProposal, the
+// envelope a governance tx carries, sends it through the app's TxEncoder and
+// TxDecoder, and returns the proposal's single message as decoded.
+func decodeGovProposalEnvelope(t *testing.T, h *TestHarness, msg sdk.Msg) sdk.Msg {
+	t.Helper()
+	txConfig := h.App.TxConfig()
+	proposer := sdk.AccAddress(bytes.Repeat([]byte{0x5c}, 20)).String()
+	envelope, err := govv1.NewMsgSubmitProposal([]sdk.Msg{msg}, sdk.NewCoins(), proposer, "", "Reviewer minimum balance", "set min_reviewer_balance", false)
+	require.NoError(t, err)
+	builder := txConfig.NewTxBuilder()
+	require.NoError(t, builder.SetMsgs(envelope))
+	bz, err := txConfig.TxEncoder()(builder.GetTx())
+	require.NoError(t, err)
+
+	decoded, err := txConfig.TxDecoder()(bz)
+	require.NoError(t, err)
+	require.Len(t, decoded.GetMsgs(), 1)
+	submit, ok := decoded.GetMsgs()[0].(*govv1.MsgSubmitProposal)
+	require.True(t, ok)
+	inner, err := submit.GetMsgs()
+	require.NoError(t, err)
+	require.Len(t, inner, 1)
+	return inner[0]
+}
+
+// A real x/gov proposal sets min_reviewer_balance: the update is wrapped in a
+// MsgSubmitProposal, decoded by the app's TxDecoder, submitted, deposited,
+// voted and executed by the SDK gov EndBlocker against the app's knowledge
+// keeper. The harness starts from native default genesis, so the
+// reviewer-balance marker is on and the params carry the methodology map.
+//
+// With the marker on the proposal passes and the figure is stored; the
+// knowledge keeper tests show that SubmitCommitment then applies it. The
+// proposal has to empty the methodology map to be decoded at all (see
+// TestKnowledgeUpdateParamsCarriesReviewerBalance), and the passed update
+// stores that emptied map too. With the marker off the proposal is accepted
+// and stored, then fails at execution and changes no params.
+func TestKnowledgeGovProposalSetsReviewerBalance(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		markerOn bool
+	}{
+		{"marker-on", true},
+		{"marker-off", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := NewTestHarness(t)
+			if !tc.markerOn {
+				h.Ctx.KVStore(h.App.GetStoreKeyForTests(knowledgetypes.StoreKey)).Delete(knowledgetypes.ReviewerBalanceParamEnabledKey)
+			}
+			enabled, err := h.App.KnowledgeKeeper.ReviewerBalanceParamEnabled(h.Ctx)
+			require.NoError(t, err)
+			require.Equal(t, tc.markerOn, enabled)
+
+			before, err := h.App.KnowledgeKeeper.GetParams(h.Ctx)
+			require.NoError(t, err)
+			require.Empty(t, before.MinReviewerBalance)
+			require.NotEmpty(t, before.MethodologyNormalizationBps, "default genesis carries the methodology map")
+
+			next := proto.Clone(before).(*knowledgetypes.Params)
+			next.MinReviewerBalance = "222000"
+			next.MethodologyNormalizationBps = nil
+			gov := h.App.AccountKeeper.GetModuleAddress("gov")
+			require.NotNil(t, gov)
+			inner := decodeGovProposalEnvelope(t, h, &knowledgetypes.MsgUpdateParams{Authority: gov.String(), Params: next})
+
+			proposal := submitVotingSDKGovProposal(t, h, inner, false)
+			advanceToSDKGovVotingDeadline(t, h, proposal)
+			require.NoError(t, sdkgov.EndBlocker(h.Ctx, h.App.GovKeeper))
+			proposal, err = h.App.GovKeeper.Proposals.Get(h.Ctx, proposal.Id)
+			require.NoError(t, err)
+
+			after, err := h.App.KnowledgeKeeper.GetParams(h.Ctx)
+			require.NoError(t, err)
+			if tc.markerOn {
+				require.Equal(t, govv1.StatusPassed, proposal.Status, proposal.FailedReason)
+				require.Equal(t, "222000", after.MinReviewerBalance)
+				require.Empty(t, after.MethodologyNormalizationBps, "the update replaced the whole Params, emptied map included")
+				return
+			}
+			require.Equal(t, govv1.StatusFailed, proposal.Status)
+			require.Contains(t, proposal.FailedReason, "min_reviewer_balance requires the reviewer-balance-param activation")
+			require.True(t, proto.Equal(before, after), "a failed proposal changes no params")
+		})
+	}
 }
