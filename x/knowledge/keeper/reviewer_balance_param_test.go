@@ -22,8 +22,9 @@ import (
 // tests (reviewer_balance_param_internal_test.go) cover marker faults, read
 // counts and gas.
 
-// agentDoorUzrn is what a newcomer admitted through the agents' door holds:
-// 0.222 ZRN, below the built-in figure.
+// agentDoorUzrn is the seed a newcomer admitted through the agents' door
+// receives: 0.222 ZRN (tools/zerone-door/src/policy.ts SEED_UZRN), below the
+// built-in figure.
 const agentDoorUzrn = 222_000
 
 // newReviewerBalanceFixture is native DefaultGenesis, every selection on,
