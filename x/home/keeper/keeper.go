@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"cosmossdk.io/core/store"
 	"cosmossdk.io/log"
@@ -463,6 +465,34 @@ func (k Keeper) GetSpendingLimitsByHome(ctx context.Context, homeID string) []*t
 
 // InitGenesis initializes the module's state from genesis.
 func (k Keeper) InitGenesis(ctx context.Context, genState *types.GenesisState) {
+	// Genesis predates an exported allocator. Restore its last-issued value
+	// from every retained home, including archived homes, so the next allocation
+	// is strictly above the numeric maximum rather than the number of records.
+	// Legacy custom IDs remain literal: only the exact format emitted by
+	// GetNextHomeID participates in this counter, without normalizing aliases.
+	var counter uint64
+	for _, home := range genState.Homes {
+		suffix, ok := strings.CutPrefix(home.HomeId, "home-")
+		if !ok {
+			continue
+		}
+		id, err := strconv.ParseUint(suffix, 10, 64)
+		if err == nil && strconv.FormatUint(id, 10) == suffix && id > counter {
+			counter = id
+		}
+	}
+	// There is no representable fresh successor. Refuse before importing state
+	// rather than letting the existing uint64 allocator wrap to home-0.
+	if counter == ^uint64(0) {
+		panic("home ID space exhausted")
+	}
+	if counter > 0 {
+		buf := make([]byte, 8)
+		binary.BigEndian.PutUint64(buf, counter)
+		if err := k.storeService.OpenKVStore(ctx).Set(types.HomeCounterKey, buf); err != nil {
+			panic(fmt.Sprintf("failed to restore home ID counter: %v", err))
+		}
+	}
 	if genState.Params != nil {
 		k.SetParams(ctx, genState.Params)
 	}
