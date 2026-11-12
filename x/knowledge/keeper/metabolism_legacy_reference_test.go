@@ -1,7 +1,7 @@
 package keeper
 
 // The f787860c metabolism and carrying-capacity path, verbatim apart from
-// these four renamed functions and the calls between them. It is the
+// these five renamed functions and the calls between them. It is the
 // reference DET-4's cached ProcessMetabolism is checked against: same store
 // hash and same events from the same prestate. Generated from
 // `git show f787860c:x/knowledge/keeper/{metabolism,carrying_capacity}.go`.
@@ -128,7 +128,7 @@ func (k Keeper) LegacyProcessMetabolismForTest(ctx context.Context, epoch uint64
 
 	// Emit domain pressure events for domains that changed (R29-1)
 	for domain := range changedDomains {
-		k.EmitDomainPressureEvent(ctx, domain)
+		k.legacyEmitDomainPressureEventForTest(ctx, domain)
 	}
 
 	// Reset epoch citation counters for all facts
@@ -223,4 +223,22 @@ func (k Keeper) legacyDomainCarryingCapacityForTest(ctx context.Context, domain 
 	}
 
 	return total
+}
+
+// EmitDomainPressureEvent emits a domain_pressure_changed event.
+func (k Keeper) legacyEmitDomainPressureEventForTest(ctx context.Context, domain string) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	stats, _ := k.GetDomainStats(ctx, domain)
+	capacity := k.legacyDomainCarryingCapacityForTest(ctx, domain)
+	pressure := k.legacyDomainPressureForTest(ctx, domain)
+	category := PressureCategory(pressure)
+
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
+		"zerone.knowledge.domain_pressure_changed",
+		sdk.NewAttribute("domain", domain),
+		sdk.NewAttribute("active_count", fmt.Sprintf("%d", stats.ActiveCount)),
+		sdk.NewAttribute("capacity", fmt.Sprintf("%d", capacity)),
+		sdk.NewAttribute("pressure_bps", fmt.Sprintf("%d", pressure)),
+		sdk.NewAttribute("category", category),
+	))
 }
