@@ -1,0 +1,125 @@
+{
+  "schema": "zerone.legacy-signer-binary-swap-observation/v1",
+  "observed_at": "2026-11-12T16:31:28Z",
+  "written_by": "A Claude Code agent, the operator of both swaps, on Yu's go-ahead of 2026-11-05 to patch CometBFT on zerone-1 ahead of H3. These are the operator's own observations, not an independent audit.",
+  "purpose": "Replace only the zeroned executable inside each legacy signer's image, moving the consensus engine from CometBFT v0.38.20 (which reports itself as 0.38.19) to v0.38.25. v0.38.25 includes the fix for the oversized blocksync message that crashes a sole validator (review finding cometbft-1, fixed upstream in v0.38.24) and for GHSA-c32p-wcqj-j677 (cometbft-2, fixed in v0.38.21). Testnet first; zerone-1 only after a clean 24 h testnet soak.",
+  "kit": {
+    "path": "deploy/legacy-signer/",
+    "testnet_run_with": "61cab066c73f8e914517848ed882e0634eabc450",
+    "zerone_1_run_with": "7faa279ac70aaf5c1352a560636d06dbd400a0c4",
+    "runbook_change_between_runs": "7faa279a streams the logs before the update (the testnet startup lines were lost, see below) and updates and rolls back by tag."
+  },
+  "executable": {
+    "before": {
+      "sha256": "94d76a0a2a8dc6667e1c6ae504d37e0f5874e64b9026aabff35bb22978667ea8",
+      "build": "application 2e37c4c86c31e67515d6aa07b6fd406083e012ea, Go 1.24.13, CometBFT v0.38.20 (reports 0.38.19); reproduced byte for byte in September, see legacy-observer-release-2026-09-10.md"
+    },
+    "after": {
+      "sha256": "d6391ea7e500425c898b6b98cb422f76a4262361d45452955182d9b92b743443",
+      "build": "the same application source with deploy/legacy-observer/observer-dependencies.patch (go.mod/go.sum only), Go 1.25.14, CometBFT v0.38.25. This is the executable of the signed zerone-1 observer release 20260909.2."
+    },
+    "unchanged": "Application source, Cosmos SDK v0.50.15, IBC v8.8.0, the entrypoint, the baked seed directory, the volume and the machine configuration. abci_info.version reads dev under both executables, so only node_info.version tells them apart."
+  },
+  "observer_proof": "Gate 1, before either swap. A zero-power observer (PR #178) re-executed zerone-1 from height 527,603 (the agenttool-seam-v1 upgrade, the first block this application code ran) on this exact executable, with CometBFT checking every block's app hash and results hash against the next signed header. It then followed the signer for 72 h, heights 1,431,284 to 1,440,018, through the fitness-epoch boundary at 1,440,000, with no restart, no gap over 200 s and no stop event (passed 2026-11-10T15:42Z). Testnet's proof is its own 24 h soak below.",
+  "image": "Assembled at each app's own registry by build-swap-image.sh: the running image's manifest and layers, plus one layer that replaces /usr/local/bin/zeroned. The signer images were never pulled, because their layers hold the validator keys. Each chain's image was assembled twice, giving the same manifest digest both times, and all 18 checks passed. Image digests, machine and volume identifiers and snapshot identifiers stay in the operator's own record.",
+  "chains": [
+    {
+      "chain_id": "zerone-testnet-1",
+      "identity": {
+        "node_id": "9a9c6b9d36c55d21c32b1ee8749adf8dd7c6b0d4",
+        "validator": "15F0AF1ED9DD3CDCB2BC229DD4FF56FFDDCA80F8",
+        "voting_power": "100000"
+      },
+      "gates": "double_sign_check_height = 0, no block_time_tolerance key, statesync disabled; clock in sync, with chain time about 3 s behind wall-clock time; the old image still resolved by digest.",
+      "before": {
+        "read_at": "2026-11-10T16:06:34Z",
+        "node_info_version": "0.38.19",
+        "height": 4009389,
+        "block_time": "2026-11-10T16:06:31Z",
+        "config_toml_sha256": "59a5e0e00bc1b98751c1527fb8fcee844813770907a6ad76f3d50a1da211b7a1",
+        "app_toml_sha256": "f2d21bda2cd8b8ed10efb8463efb97e97848a944c01ea5945c987ad768c9d019",
+        "zeroned_sha256": "94d76a0a2a8dc6667e1c6ae504d37e0f5874e64b9026aabff35bb22978667ea8"
+      },
+      "update": {
+        "steps": "A rollback tag on the old image, then a volume snapshot, then an image-only machine update from an empty directory.",
+        "machine_started": "2026-11-10T16:07:00Z",
+        "config_diff": "flyctl's diff and a JSON comparison of the machine configuration before and after showed only the image changed. Services (no P2P port), mounts, guest size, restart policy, environment names and init are unchanged."
+      },
+      "restart": "The old executable committed 4,009,399 and 0.38.25 committed 4,009,400 after a 13.3 s pause; block spacing then returned to the 2.528 s median.",
+      "startup_logs": "Not captured. `fly logs --no-tail` returns only the last 100 lines, about 30 s on testnet, and the startup lines were gone when read. The block heights above and the checks below are the evidence for this restart.",
+      "after": {
+        "node_info_version": "0.38.25",
+        "identity": "The same network, node id, validator address and voting power as before.",
+        "zeroned_sha256": "d6391ea7e500425c898b6b98cb422f76a4262361d45452955182d9b92b743443",
+        "config_toml_sha256": "59a5e0e00bc1b98751c1527fb8fcee844813770907a6ad76f3d50a1da211b7a1",
+        "app_toml_sha256": "f2d21bda2cd8b8ed10efb8463efb97e97848a944c01ea5945c987ad768c9d019"
+      },
+      "soak": {
+        "from": "2026-11-10T16:13Z",
+        "to": "2026-11-11T16:09Z",
+        "heights": [4009428, 4043590],
+        "mean_block_seconds": 2.529,
+        "checks": "/status every minute (version, network, node id, validator address, power, catching_up, height advancing, block age under 180 s), and a streamed `fly logs` scanned every 5 minutes for the runbook's roll-back lines.",
+        "result": "Passed. 0.38.25 throughout, the same identity, no stall, no roll-back line and no restart. A nightly backup capture of the node's data, 35 minutes of tar on the machine, ran inside the window."
+      },
+      "later_check": "2026-11-12T16:27Z: 0.38.25 at height 4,077,924, with no machine start since 2026-11-10T16:07:00Z."
+    },
+    {
+      "chain_id": "zerone-1",
+      "identity": {
+        "node_id": "ed8c8d49dc23f3478b2f3eddb49b8f8087828b6e",
+        "validator": "93DBC1A1D9A07E67423B193395C9EB6F1E41B844",
+        "voting_power": "11111"
+      },
+      "gates": "Read at 2026-11-11T06:16Z and again at 16:10Z: double_sign_check_height = 0, no block_time_tolerance key, statesync disabled, timeout_commit 30s; clock in sync; the old image still resolved by digest. The testnet soak had passed at 16:09Z.",
+      "before": {
+        "read_at": "2026-11-11T16:20:30Z",
+        "node_info_version": "0.38.19",
+        "height": 1442973,
+        "block_time": "2026-11-11T16:19:56Z",
+        "config_toml_sha256": "56dde4c1884d64d91a60c81013c088787f07134deacbd33e28c69333b143aa87",
+        "app_toml_sha256": "f378049017998803bbc4f3881cba701a7b12fa8a0b8283780eb6a4964d130423",
+        "zeroned_sha256": "94d76a0a2a8dc6667e1c6ae504d37e0f5874e64b9026aabff35bb22978667ea8"
+      },
+      "update": {
+        "steps": "A rollback tag on the old image, a volume snapshot, a log stream started, then an image-only machine update from an empty directory.",
+        "accepted": "2026-11-11T16:20:43Z",
+        "machine_started": "2026-11-11T16:20:48Z",
+        "config_diff": "flyctl's diff and a JSON comparison of the machine configuration before and after showed only the image changed. Services (RPC, REST and gRPC; no P2P port), mounts, guest size, restart policy, environment names and init are unchanged."
+      },
+      "startup_logs": [
+        "The old process exited with status 0.",
+        "[entrypoint] existing volume — resuming",
+        "ABCI handshake: application, state and block store synced at height 1,442,973.",
+        "Version info … tendermint_version=0.38.25",
+        "Catchup by replaying consensus messages height=1442974",
+        "None of the roll-back lines (fresh volume, found signature from the same key, panic, CONSENSUS FAILURE, wrong Block.Header, does not match) appeared."
+      ],
+      "restart": "Block 1,442,974 was finalized at 16:21:31Z, 65 s after the previous block instead of the usual 30 s, and 30 s blocks resumed.",
+      "after": {
+        "node_info_version": "0.38.25",
+        "identity": "The same network, node id, validator address and voting power as before.",
+        "zeroned_sha256": "d6391ea7e500425c898b6b98cb422f76a4262361d45452955182d9b92b743443",
+        "config_toml_sha256": "56dde4c1884d64d91a60c81013c088787f07134deacbd33e28c69333b143aa87",
+        "app_toml_sha256": "f378049017998803bbc4f3881cba701a7b12fa8a0b8283780eb6a4964d130423"
+      },
+      "observer": "The zero-power observer from PR #178, following the signer over the private network, kept applying blocks across the swap height. A following node stops on any app-hash mismatch. At 2026-11-12T16:31Z it was at 1,445,872, with the signer at 1,445,874.",
+      "soak": {
+        "from": "2026-11-11T16:24Z",
+        "to": "2026-11-12T16:25Z",
+        "heights": [1442980, 1445860],
+        "mean_block_seconds": 30.009,
+        "checks": "The same checks as testnet's: /status every minute and the streamed logs scanned every 5 minutes.",
+        "result": "Passed. 0.38.25 throughout, the same identity and power, no stall, no roll-back line, no unreadable status, the log stream never interrupted, and no machine start after 16:20:48Z. The first streamed backup capture of zerone-1 ran inside the window on 2026-11-12, about 34 minutes; block spacing during it averaged 30.08 s (maximum 30.4 s), against 30.01 s around it."
+      }
+    }
+  ],
+  "rollback": "Not used. Each app's old image keeps the registry tag rollback-94d76a0a. The rollback is an image-only machine update to that tag, followed by the runbook's checks with 0.38.19 expected; the local rehearsal of 2026-11-06 showed the old executable resuming on a home written by 0.38.25. Never `fly deploy` or `fly releases rollback` a signer, and never restore a volume snapshot onto a signer that has signed past it. A rollback would be recorded in a new dated record; this record is not rewritten.",
+  "caution": [
+    "Only the consensus engine changed. The application, its SDK and IBC versions, and the state machine are the legacy ones; this is not an upgrade of the chain's rules.",
+    "govulncheck with the 2026-11-05 database still reports 61 findings on the new executable, each of them also present on the old one, which had 89.",
+    "Both signers still serve public RPC and REST, and zerone-1 also serves gRPC. Moving those reads off the signers is separate work. The public P2P port has been closed on both since 2026-11-06.",
+    "Each chain is still run by one validator holding all voting power. This swap does not change custody of that key.",
+    "The observer image in use reports most of its spot comparisons as 'upstream unavailable': it reads the tip before the signer's next header exists. PR #178's source fixes this for the next image build. The evidence above is its continuous following, not its spot checks."
+  ]
+}

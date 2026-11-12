@@ -291,6 +291,12 @@ older `priv_validator_state.json` lets it sign heights it already signed. A
 restore is a last resort, used only for a damaged home and only when the chain
 has not moved past the snapshot.
 
+## Runs
+
+zerone-testnet-1 was swapped on 2026-11-10 and zerone-1 on 2026-11-11. Both passed their 24 h
+soaks, and neither has been rolled back. The record is
+[`docs/reports/legacy-signer-cometbft-swap-2026-11-12.json`](../../docs/reports/legacy-signer-cometbft-swap-2026-11-12.json).
+
 ## Local rehearsal, 2026-11-06
 
 The real base images cannot be pulled without the registry login, so the
