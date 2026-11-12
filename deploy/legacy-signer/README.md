@@ -1,9 +1,9 @@
 # CometBFT 0.38.25 for the legacy signers (zerone-1, zerone-testnet-1)
 
 Written by an agent: a Claude Code delegate of session 8d4c201e, on
-2026-11-06. It follows Yu's words of 2026-11-05, "yes I want CometBFT patched on
-zerone-1 ahead of H3" and "yes to observer". This directory is a recipe and a
-runbook. Its live steps are run by the host session under those words, testnet
+2026-11-06. It follows Yu's go-ahead of 2026-11-05 to patch CometBFT on
+zerone-1 ahead of H3 and to run an observer. This directory is a recipe and a
+runbook. Its live steps are run by the host session under that go-ahead, testnet
 first, and each is recorded in the dated report the runbook ends with.
 
 The two signers run the legacy application `2e37c4c`, built with Go 1.24.13 and
@@ -174,8 +174,8 @@ files before the swap rather than assume them.
 3. The signer's clock is NTP-synced, and its latest block time is behind wall-clock
    time.
 4. The old image still resolves by digest in the registry, so a rollback is possible.
-5. Yu's word covers the swap ("yes I want CometBFT patched on zerone-1 ahead of
-   H3", 2026-11-05). Testnet goes first, and zerone-1 waits for a clean testnet
+5. Yu's go-ahead of 2026-11-05 covers the swap (CometBFT patched on zerone-1
+   ahead of H3). Testnet goes first, and zerone-1 waits for a clean testnet
    soak of at least 24 hours.
 6. The testnet soak does not overlap the testnet H1 halt, and the H1 image
    carries CometBFT 0.38.25 too (review item cometbft-3), so the halt cannot
