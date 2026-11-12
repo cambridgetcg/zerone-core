@@ -49,8 +49,8 @@ func TestValidateUnicodeTables_RefusesOtherTables(t *testing.T) {
 // would fork from every binary built before the change.
 func TestConsensusNormalisationMatchesPinnedTables(t *testing.T) {
 	// U+A7CB LATIN CAPITAL LETTER RAMS HORN (Unicode 16): no lowercase mapping
-	// and not printable under 15.0.0; Unicode 17 lowers it to U+0264.
-	if got := strings.ToLower("Ɤ"); got != "Ɤ" {
+	// and not printable under 15.0.0; Unicode 16 and later lower it to U+0264.
+	if got := strings.ToLower("\uA7CB"); got != "\uA7CB" {
 		t.Errorf("ToLower(U+A7CB) = %+q, want unchanged", got)
 	}
 	if strconv.IsPrint(0xA7CB) {
@@ -62,7 +62,7 @@ func TestConsensusNormalisationMatchesPinnedTables(t *testing.T) {
 	}
 	// U+105D2 U+0307 (Todhri, Unicode 16): composes to U+105C9 only with
 	// newer NFC tables.
-	if got := norm.NFC.String("\U000105D2̇"); got != "\U000105D2̇" {
+	if got := norm.NFC.String("\U000105D2\u0307"); got != "\U000105D2\u0307" {
 		t.Errorf("NFC(U+105D2 U+0307) = %+q, want unchanged", got)
 	}
 
@@ -73,17 +73,17 @@ func TestConsensusNormalisationMatchesPinnedTables(t *testing.T) {
 	}{
 		{
 			name: "v2 form from structure",
-			form: BuildCanonicalFormV2(ClaimType_CLAIM_TYPE_ASSERTION, &ClaimStructure{Subject: "\U000105D2̇", Predicate: "p"}, "d"),
+			form: BuildCanonicalFormV2(ClaimType_CLAIM_TYPE_ASSERTION, &ClaimStructure{Subject: "\U000105D2\u0307", Predicate: "p"}, "d"),
 			hash: "dcde89e2cebe5485ca5ee944534998e367b21c7e47b7b215653b9b8b73e26a3a",
 		},
 		{
 			name: "v1 form supplied by the caller",
-			form: NormalizeCanonicalForm("assert(\"d\", \"Ɤ\", \"p\")"),
+			form: NormalizeCanonicalForm("assert(\"d\", \"\uA7CB\", \"p\")"),
 			hash: "6c93cdd843c304642461ec6af59b2481ca30e883d060b888d9e11239730942c2",
 		},
 		{
 			name: "v1 form from structure",
-			form: BuildCanonicalForm(ClaimType_CLAIM_TYPE_ASSERTION, &ClaimStructure{Subject: "Ɤ", Predicate: "p"}, "d"),
+			form: BuildCanonicalForm(ClaimType_CLAIM_TYPE_ASSERTION, &ClaimStructure{Subject: "\uA7CB", Predicate: "p"}, "d"),
 			hash: "485edc9347d0b9353592344fe0a3b7547084167385c1ac33fb6ec1cb9cf1b13b",
 		},
 	} {

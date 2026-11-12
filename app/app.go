@@ -533,6 +533,11 @@ func NewActivationPreflightApp(
 	)
 }
 
+// validateUnicodeTables is the start-up refusal newZeroneApp runs before it
+// opens any store. It is a variable only so that a test can prove the call is
+// wired; nothing else assigns it.
+var validateUnicodeTables = zeroneknowledgetypes.ValidateUnicodeTables
+
 func newZeroneApp(
 	logger log.Logger,
 	db dbm.DB,
@@ -546,7 +551,7 @@ func newZeroneApp(
 	// tables are not the chain's: claim canonical hashes and index keys follow
 	// them, so such a node would fork on the first claim with a code point
 	// assigned after the pinned version.
-	if err := zeroneknowledgetypes.ValidateUnicodeTables(); err != nil {
+	if err := validateUnicodeTables(); err != nil {
 		panic(fmt.Errorf("refusing to start: %w", err))
 	}
 
