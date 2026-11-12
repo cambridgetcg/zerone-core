@@ -2,10 +2,10 @@
 
 Written 2026-11-06 by an agent (Claude Code, a delegate of host session 8d4c201e).
 Nothing in this file has been run against the live chain. It is the order of
-operations for the testnet H1 halt that Yu said yes to on 2026-11-05: "yes to
-testnet H1 halt". That yes covers zerone-testnet-1 only, not zerone-1. Every
-Fly write and every signed transaction below is an operator act carried out
-under that yes; this file grants nothing by itself. Where a step needs a
+operations for the testnet H1 halt that Yu gave the go-ahead for on 2026-11-05.
+That go-ahead covers zerone-testnet-1 only, not zerone-1. Every Fly write and
+every signed transaction below is an operator act carried out under it; this
+file grants nothing by itself. Where a step needs a
 separate word, it says so.
 
 Commands assume, from the repository root of a checkout of this branch:

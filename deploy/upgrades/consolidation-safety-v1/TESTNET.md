@@ -89,8 +89,8 @@ The consensus review of 2026-11-05 (finding **cometbft-3**, high) found that
 65c19cd8 pins CometBFT v0.38.20, which reports itself as 0.38.19. That engine
 lets any peer that reaches P2P crash a sole validator with one oversized
 blocksync message (cometbft-1, critical, reproduced; fixed in v0.38.24) and
-carries GHSA-c32p-wcqj-j677 (cometbft-2, Tachyon; fixed in v0.38.21). Yu said on
-2026-11-05, "yes I want CometBFT patched on zerone-1 ahead of H3". Building H1
+carries GHSA-c32p-wcqj-j677 (cometbft-2, Tachyon; fixed in v0.38.21). On 2026-11-05
+Yu gave the go-ahead to patch CometBFT on zerone-1 ahead of H3. Building H1
 from the unpatched closure would put a patched validator back on v0.38.20 at H1.
 
 So the build closure applies `h1-dependencies.patch`, byte-identical to trunk's
