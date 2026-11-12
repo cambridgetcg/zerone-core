@@ -260,3 +260,12 @@ digests that follow from it changed both rows' bytes. The remaining source
 revisions, schema, fixtures, observation semantics, pending bindings and every
 effect/activation gate are unchanged. This is offline source compatibility, with
 no hosted action.
+
+The 2026-11-12 DET-4 refresh, written by an agent, binds the same two Zerone
+Research Commons source rows to commit `75c3e0ab959bbb696071711e8e1704e8a9a8e84e`.
+That commit re-pins `x/knowledge/keeper/metabolism.go` after the per-epoch
+carrying-capacity cache (pull request #173), and the correspondence-geometry and
+explicit-invariant digests that follow from it changed both rows' bytes. The
+remaining source revisions, schema, fixtures, observation semantics, pending
+bindings and every effect/activation gate are unchanged. This is offline source
+compatibility, with no hosted action.
