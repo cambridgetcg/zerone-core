@@ -24,7 +24,7 @@ class H1KcTests(unittest.TestCase):
         self.host = "unix:///unit-test/docker.sock"
         self.binary = b"\x7fELFunit mock only, not a cross-build"
         self.ca = b"-----BEGIN CERTIFICATE-----\nunit mock only\n-----END CERTIFICATE-----\n"
-        self.metadata = b"/out/zeroned: go1.25.14\n build GOOS=linux\n build GOARCH=amd64\n build CGO_ENABLED=0\n"
+        self.metadata = b"/out/zeroned: go1.25.14\n\tdep\tgithub.com/cometbft/cometbft\tv0.38.25\th1:unit\n\tdep\tgithub.com/cosmos/cosmos-sdk\tv0.50.15\th1:unit\n build GOOS=linux\n build GOARCH=amd64\n build CGO_ENABLED=0\n"
 
     def inventories(self):
         source = self.root / "copy"
@@ -81,8 +81,9 @@ class H1KcTests(unittest.TestCase):
     def fake_export(self, repository, output):
         (output / "src").mkdir()
         (output / "src/go.mod").write_text("unit fixture only\n")
-        return {"source_sha256": p.SOURCE_ARCHIVE_SHA256,
-                "files": [{"path": "go.mod", "sha256": p.sha256(output / "src/go.mod")}]}
+        files = [{"path": "go.mod", "sha256": p.sha256(output / "src/go.mod")}]
+        return {"source_sha256": p.SOURCE_ARCHIVE_SHA256, "files": files, "build_files": files,
+                "dependency_patch_sha256": p.DEPENDENCY_PATCH_SHA256, "build_source_sha256": p.BUILD_SOURCE_SHA256}
 
     def docker(self, argv, **kwargs):
         self.assertEqual(argv[:3], ["docker", "--host", self.host])
@@ -135,7 +136,10 @@ class H1KcTests(unittest.TestCase):
         with self.mocked_build(matching_pin=True):
             report = p.build(self.root, output, self.root, False, self.host, allow_emulated=True)
         self.assertEqual(report["native_platform"], "emulated")
-        self.assertEqual(report["binary_sha256"], "f35c98b59aba9d9b77062dede87bbe18a688ee26adad5c0b961f156598633495")
+        self.assertEqual(report["binary_sha256"], "df70456f9296b3bd6593652466a405e1ee34a93f2136b5d668888764aaf8c592")
+        self.assertNotEqual(report["binary_sha256"], p.RETIRED_CROSS_BUILD_SHA256)
+        self.assertEqual(report["build_source_sha256"], p.BUILD_SOURCE_SHA256)
+        self.assertEqual(report["dependency_patch_sha256"], p.DEPENDENCY_PATCH_SHA256)
         self.assertEqual(report["expected_binary_sha256"], report["binary_sha256"])
         self.assertTrue(report["reproduced"])
         self.assertEqual(report["status"], "built-local")

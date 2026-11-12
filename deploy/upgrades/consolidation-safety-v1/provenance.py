@@ -5,6 +5,12 @@ Adapted from deploy/legacy-observer/provenance.py at
 46fa54369353b85438d649b0985299159601cd4b (SHA256
 2480cb874eb7510e9712ec2d42652b13f7ef21b3c65d5e12298fd8a46df7677e).
 No signing, registry access, pulling, node startup or publication. Python 3.11+.
+
+The frozen H1 application source is unchanged. Its go.mod and go.sum are
+built through one pinned, reviewed dependency patch (h1-dependencies.patch,
+byte-identical to trunk's deploy/legacy-observer/observer-dependencies.patch):
+CometBFT v0.38.20 -> v0.38.25, plus four minimum-version-selection bumps. The
+strict applier is adapted from deploy/legacy-observer/observer-build.py.
 """
 from __future__ import annotations
 
@@ -26,11 +32,34 @@ SOURCE_ARCHIVE_SHA256 = "2ab7a6b96ad6f2294ad7bbb7ddf5140c47763b8fca3ad9ae864e239
 SOURCE_FILE_COUNT = 674
 OLD_COMMIT = "2e37c4c86c31e67515d6aa07b6fd406083e012ea"
 BUILDER_IMAGE = "registry-1.docker.io/library/golang@sha256:c268a04d59aea0b180ed9946a658cfab9e7b3391dc90eed6e4969ccff98c851f"
-# Authorized emulation must reproduce the frozen H1 cross-build, not merely itself.
-CROSS_BUILD_SHA256 = "f35c98b59aba9d9b77062dede87bbe18a688ee26adad5c0b961f156598633495"
+HERE = Path(__file__).resolve().parent
+# Consensus review 2026-11-05, finding cometbft-3: the frozen H1 closure pins
+# CometBFT v0.38.20, whose P2P layer can be crashed by one oversized blocksync
+# message (cometbft-1) and which carries GHSA-c32p-wcqj-j677 (cometbft-2).
+# The dependency-only patch below is the reviewed observer recipe; application
+# source, Cosmos SDK v0.50.15 and IBC v8.8.0 are unchanged.
+DEPENDENCY_PATCH = HERE / "h1-dependencies.patch"
+DEPENDENCY_PATCH_SHA256 = "3eb79d1fa44f76fe8a5c8edbcf90445b5cd78b7b2d08d51a296143135fdd14ce"
+DEPENDENCY_PATCH_MAX_BYTES = 64 * 1024
+# Frozen H1 go.mod/go.sum (byte-identical to the legacy 2e37c4c files) and the patched result.
+DEPENDENCY_FROZEN_SHA256 = {
+    "go.mod": "4ff80378f0462ecca11ce9000a7960f9bcbb84a33c665a5c108183c932969ea9",
+    "go.sum": "1b9e15452454f8768f0cfdb553e23371f49194cab84ff04ca1829bac3aae42bf",
+}
+DEPENDENCY_TARGET_SHA256 = {
+    "go.mod": "0a0e55141285237cc5439c182b67cf0fe3560436d3a2a49a9d4e9a3681371420",
+    "go.sum": "748a52dc39ab9329f9f0cadf42d807de541ca07f8ff97f84d871b063d148d30a",
+}
+COMETBFT_VERSION = "v0.38.25"
+# Normalized tar of the compile closure actually built (frozen files plus the two patched files).
+BUILD_SOURCE_SHA256 = "7fee65036f2dddb6697ba6c4bece2c277825d8e15cead37778a5608b67730e7f"
+# Authorized emulation must reproduce the pinned patched cross-build, not merely itself.
+CROSS_BUILD_SHA256 = "df70456f9296b3bd6593652466a405e1ee34a93f2136b5d668888764aaf8c592"
+# The unpatched (CometBFT v0.38.20) cross-build pinned before 2026-11-06. Never accepted now.
+RETIRED_CROSS_BUILD_SHA256 = "f35c98b59aba9d9b77062dede87bbe18a688ee26adad5c0b961f156598633495"
 RESOURCES = {"go.mod", "go.sum", "Makefile", "LICENSE", "docs/swagger-ui/embed.go",
              "docs/swagger-ui/index.html", "docs/swagger-ui/swagger.json"}
-VERSION = "h1-testnet-65c19cd8"
+VERSION = "h1-testnet-65c19cd8-cometbft-v0.38.25"
 DOCKER_HOST = "unix:///var/run/docker.sock"
 CA_PATH = "/etc/ssl/certs/ca-certificates.crt"
 MIN_GAS_PRICES = "0.025uzrn"
@@ -89,7 +118,74 @@ def tar_bytes(entries):
     return output.getvalue()
 
 
+def read_dependency_patch(path=None):
+    path = DEPENDENCY_PATCH if path is None else Path(path)
+    require(path.is_file() and not path.is_symlink(), "dependency patch must be a regular file")
+    require(path.stat().st_size <= DEPENDENCY_PATCH_MAX_BYTES, "dependency patch exceeds its bound")
+    patch = path.read_bytes()
+    require(hashlib.sha256(patch).hexdigest() == DEPENDENCY_PATCH_SHA256, "dependency patch hash differs from pin")
+    return patch
+
+
+def apply_dependency_patch(originals, patch):
+    """Strict unified-diff applier: exact context, exact counts, pinned inputs and outputs.
+
+    Adapted from deploy/legacy-observer/observer-build.py apply_patch. Only the
+    two declared dependency files may change; no fuzz, offsets or new files.
+    """
+    require(hashlib.sha256(patch).hexdigest() == DEPENDENCY_PATCH_SHA256, "dependency patch hash differs from pin")
+    for name, digest in DEPENDENCY_FROZEN_SHA256.items():
+        require(name in originals and hashlib.sha256(originals[name]).hexdigest() == digest,
+                f"frozen {name} differs from the dependency patch's pinned input")
+    lines = patch.decode("utf-8").splitlines(keepends=True)
+    replacements = {}
+    i = 0
+    while i < len(lines):
+        require(lines[i].startswith("--- a/"), "expected exact patch file header")
+        name = lines[i][6:].rstrip("\n")
+        require(name in DEPENDENCY_TARGET_SHA256 and name not in replacements, "undeclared or duplicate patch target")
+        i += 1
+        require(i < len(lines) and lines[i] == "+++ b/" + name + "\n", "patch target differs")
+        i += 1
+        source = originals[name].decode("utf-8").splitlines(keepends=True)
+        result, cursor = [], 0
+        while i < len(lines) and not lines[i].startswith("--- a/"):
+            match = re.fullmatch(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@\n", lines[i])
+            require(match is not None, "malformed patch hunk")
+            old_start, old_count = int(match[1]), int(match[2] or 1)
+            new_start, new_count = int(match[3]), int(match[4] or 1)
+            require(cursor <= old_start - 1 <= len(source), "patch hunk offset differs")
+            result.extend(source[cursor:old_start - 1])
+            cursor = old_start - 1
+            require(len(result) == new_start - 1, "patch output offset differs")
+            i += 1
+            old_used = new_used = 0
+            while i < len(lines) and not lines[i].startswith(("@@ ", "--- a/")):
+                line = lines[i]
+                require(line[:1] in (" ", "+", "-"), "malformed patch body")
+                if line[0] in " -":
+                    require(cursor < len(source) and source[cursor] == line[1:], "patch source context differs")
+                    cursor += 1
+                    old_used += 1
+                if line[0] in " +":
+                    result.append(line[1:])
+                    new_used += 1
+                i += 1
+            require((old_used, new_used) == (old_count, new_count), "patch hunk counts differ")
+        result.extend(source[cursor:])
+        body = "".join(result).encode("utf-8")
+        require(hashlib.sha256(body).hexdigest() == DEPENDENCY_TARGET_SHA256[name], f"patched {name} hash differs from pin")
+        replacements[name] = body
+    require(set(replacements) == set(DEPENDENCY_TARGET_SHA256), "dependency patch is incomplete")
+    return replacements
+
+
 def export_source(repository, output, commit=SOURCE_COMMIT):
+    """Export the frozen closure; for H1, write the dependency-patched build closure to src/.
+
+    source.tar is always the FROZEN closure (its pin is unchanged). For H1,
+    build-source.tar and src/ carry the two patched dependency files.
+    """
     require(commit in (SOURCE_COMMIT, OLD_COMMIT), "only the two frozen source commits are allowed")
     env = dict(os.environ, GIT_NO_REPLACE_OBJECTS="1")
     def git(*args):
@@ -97,9 +193,8 @@ def export_source(repository, output, commit=SOURCE_COMMIT):
     tree = git("rev-parse", commit + "^{tree}").decode().strip()
     if commit == SOURCE_COMMIT:
         require(tree == SOURCE_TREE, "H1 tree differs from pin")
+    patch = read_dependency_patch() if commit == SOURCE_COMMIT else None
     files, entries = [], []
-    source = output / "src"
-    source.mkdir()
     for raw in git("ls-tree", "-r", "-z", commit).split(b"\0"):
         if not raw:
             continue
@@ -109,10 +204,6 @@ def export_source(repository, output, commit=SOURCE_COMMIT):
         mode, kind, oid = meta.split()
         require(kind == "blob" and mode in ("100644", "100755"), "non-regular source object")
         body = git("cat-file", "blob", oid)
-        destination = source / name
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.write_bytes(body)
-        destination.chmod(int(mode, 8) & 0o777)
         entries.append((name, int(mode, 8) & 0o777, body))
         files.append({"path": name, "git_blob": oid, "mode": mode, "bytes": len(body),
                       "sha256": hashlib.sha256(body).hexdigest()})
@@ -122,10 +213,38 @@ def export_source(repository, output, commit=SOURCE_COMMIT):
     if commit == SOURCE_COMMIT:
         require(len(files) == SOURCE_FILE_COUNT and sha256(archive) == SOURCE_ARCHIVE_SHA256,
                 "H1 normalized compile closure differs from pin")
-    receipt = {"schema": "zerone-h1-source/v1", "source_commit": commit, "source_tree": tree,
-               "source_sha256": sha256(archive), "file_count": len(files), "files": files}
+    replacements = {} if patch is None else apply_dependency_patch({n: b for n, _, b in entries}, patch)
+    build_entries = [(name, mode, replacements.get(name, body)) for name, mode, body in entries]
+    source = output / "src"
+    source.mkdir()
+    build_files = []
+    for name, mode, body in build_entries:
+        destination = source / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(body)
+        destination.chmod(mode)
+        build_files.append({"path": name, "sha256": hashlib.sha256(body).hexdigest(),
+                            "patched": name in replacements})
+    build_archive = output / "build-source.tar"
+    build_archive.write_bytes(tar_bytes(build_entries))
+    if commit == SOURCE_COMMIT:
+        require(sha256(build_archive) == BUILD_SOURCE_SHA256, "H1 patched build closure differs from pin")
+    receipt = {"schema": "zerone-h1-source/v2", "source_commit": commit, "source_tree": tree,
+               "source_sha256": sha256(archive), "file_count": len(files), "files": files,
+               "dependency_patch_sha256": None if patch is None else DEPENDENCY_PATCH_SHA256,
+               "patched_files": {name: DEPENDENCY_TARGET_SHA256[name] for name in sorted(replacements)},
+               "build_source_sha256": sha256(build_archive), "build_files": build_files}
     write_json(output / "source-closure.json", receipt)
     return receipt
+
+
+def linked_module_version(metadata, module):
+    """Version of a dependency recorded by `go version -m` (a `dep` line), or None."""
+    for line in metadata.splitlines():
+        fields = line.split("\t")
+        if len(fields) >= 4 and fields[1] == "dep" and fields[2] == module:
+            return fields[3]
+    return None
 
 
 def validate_docker_host(value):
@@ -168,7 +287,7 @@ def build_argv(output, modules, run, verify=False, docker_host=DOCKER_HOST, meta
                    "-ldflags", LDFLAGS, "-o", "/out/zeroned", "./cmd/zeroned"]
 
 
-def package_oci(binary, output, source_sha, ca_bundle):
+def package_oci(binary, output, source_sha, ca_bundle, build_source_sha, dependency_patch_sha):
     """Deterministic scratch OCI image; manifest digest is NOT a Docker config ID."""
     require(binary.is_file() and not binary.is_symlink(), "binary must be regular")
     executable = binary.read_bytes()
@@ -194,6 +313,9 @@ def package_oci(binary, output, source_sha, ca_bundle):
                          "Labels": {"org.opencontainers.image.revision": SOURCE_COMMIT,
                                     "money.zerone.profile": "h1-testnet-unsigned",
                                     "money.zerone.source-sha256": source_sha,
+                                    "money.zerone.build-source-sha256": build_source_sha,
+                                    "money.zerone.dependency-patch-sha256": dependency_patch_sha,
+                                    "money.zerone.cometbft": COMETBFT_VERSION,
                                     "money.zerone.binary-sha256": sha256(binary)}},
               "rootfs": {"type": "layers", "diff_ids": [layer_desc["digest"]]}}
     config_desc = descriptor(encoded(config), "application/vnd.oci.image.config.v1+json")
@@ -223,7 +345,10 @@ def build(repository, destination, modules, dry_run, docker_host=DOCKER_HOST, *,
     commands = [build_argv(output, modules, run, docker_host=docker_host, **mode)
                 for run in (1, 2) for mode in ({"verify": True}, {}, {"metadata": True}, {"ca": True})]
     report = {"schema": "zerone-h1-testnet-image/v1", "source_commit": SOURCE_COMMIT,
-              "source_sha256": receipt["source_sha256"], "builder_image": BUILDER_IMAGE,
+              "source_sha256": receipt["source_sha256"],
+              "dependency_patch_sha256": receipt["dependency_patch_sha256"],
+              "build_source_sha256": receipt["build_source_sha256"], "cometbft_version": COMETBFT_VERSION,
+              "builder_image": BUILDER_IMAGE,
               "build_environment": BUILD_ENV, "commands": commands, "docker_host": docker_host,
               "native_platform": None if dry_run else "emulated" if allow_emulated else "linux/amd64",
               "allow_emulated": allow_emulated,
@@ -257,14 +382,18 @@ def build(repository, destination, modules, dry_run, docker_host=DOCKER_HOST, *,
         if allow_emulated:
             require(report["binary_sha256"] == CROSS_BUILD_SHA256,
                     "emulated binary SHA-256 differs from the pinned cross-build")
-        for item in receipt["files"]:
+        for item in receipt["build_files"]:
             require(sha256(output / "src" / item["path"]) == item["sha256"], "source changed during build")
         require((output / "build-step-4.log").read_bytes() == (output / "build-step-8.log").read_bytes(),
                 "pinned-builder CA bundles differ")
         report["binary_go_metadata"] = [(output / f"build-step-{step}.log").read_text() for step in (3, 7)]
         require(all("GOOS=linux" in text and "GOARCH=amd64" in text and "CGO_ENABLED=0" in text
                     for text in report["binary_go_metadata"]), "binary Go metadata differs from build profile")
-        report.update(package_oci(first, output, receipt["source_sha256"], output / "build-step-4.log"))
+        require(all(linked_module_version(text, "github.com/cometbft/cometbft") == COMETBFT_VERSION and
+                    linked_module_version(text, "github.com/cosmos/cosmos-sdk") == "v0.50.15"
+                    for text in report["binary_go_metadata"]), "binary does not link the patched CometBFT closure")
+        report.update(package_oci(first, output, receipt["source_sha256"], output / "build-step-4.log",
+                                  receipt["build_source_sha256"], receipt["dependency_patch_sha256"]))
     except (OSError, ValueError, subprocess.SubprocessError, KeyboardInterrupt):
         report["status"] = "build-failed"
         write_json(ppath, report)
