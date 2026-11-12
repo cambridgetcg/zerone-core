@@ -32,7 +32,7 @@ the hard cap:
 | Pathway | Module | Trigger |
 |---|---|---|
 | Claiming-pot claims | `x/claiming_pot` | an eligible participant claims a bootstrap or legacy authority-created general pot |
-| External-work attestations | `x/substrate_bridge` | witnessed work survives its challenge window |
+| External-work attestations | `x/substrate_bridge` | a witness reward survives its challenge window; an attestation that cites an existing knowledge fact is paid when the next block settles it, with no window (checked against source by an agent on 2026-11-10) |
 | Probe-bounty pool (default/published rate 0) | `x/knowledge` | governance sets a positive rate |
 | Emission periods (default/published latch 0) | `x/tokens` | governance enables and schedules a period |
 

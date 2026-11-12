@@ -25,6 +25,9 @@ import {
 } from "@zerone-chain/sdk/messages";
 import {
   IN_TOTO_STATEMENT_V1_TYPE,
+  ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE,
+  parseUnsignedZeroneInTotoStatementV2,
+  type ZeroneReviewState,
 } from "@zerone-chain/sdk/provenance";
 import { createZeroneRegistry } from "@zerone-chain/sdk/registry";
 import {
@@ -103,6 +106,13 @@ const feeDisclosure = discloseLiquiditySwapFee({
   protocolFeeMillionths: 0n,
 });
 
+const reviewStates: readonly ZeroneReviewState[] = [
+  "reviewed",
+  "partly_reviewed",
+  "unreviewed",
+  "empty",
+];
+
 // The adapter accepts the existing CosmJS transport without a runtime dependency.
 function claimHistoryTransport(transport: ProtobufRpcClient): ClaimHistoryRpc {
   return transport;
@@ -121,6 +131,9 @@ void [
   revoke,
   signingFee,
   IN_TOTO_STATEMENT_V1_TYPE,
+  ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE,
+  parseUnsignedZeroneInTotoStatementV2,
+  reviewStates,
   LIQUIDITY_FEE_SCALE,
   feeDisclosure,
   minimumOutputForSlippage("100", 10_000n),

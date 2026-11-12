@@ -63,8 +63,10 @@ import {
   ProvenanceParseError,
   ZERONE_PROVENANCE_LIMITS,
   ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE,
-  parseUnsignedZeroneInTotoStatement
-} from "./chunk-FK6AK4X5.js";
+  ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE,
+  parseUnsignedZeroneInTotoStatement,
+  parseUnsignedZeroneInTotoStatementV2
+} from "./chunk-SCZCHOZP.js";
 import {
   createZeroneRegistry,
   registerZeroneMessages,
@@ -543,6 +545,7 @@ export {
   ZERONE_ONBOARDING_MESSAGE_TYPE_URLS,
   ZERONE_PROVENANCE_LIMITS,
   ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE,
+  ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE,
   ZeroneLiquidityRestClient,
   accountRegistrationProofSignBytes,
   asExistingZeroneDid,
@@ -571,6 +574,7 @@ export {
   parseCanonicalPositiveAmount,
   parseCosmosChainId,
   parseUnsignedZeroneInTotoStatement,
+  parseUnsignedZeroneInTotoStatementV2,
   queryClaimHistory,
   quoteConstantProductExactIn,
   registerZeroneMessages,

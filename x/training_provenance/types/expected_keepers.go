@@ -17,6 +17,10 @@ type KnowledgeKeeper interface {
 	GetFact(ctx context.Context, id string) (*knowledgetypes.Fact, bool)
 	IteratePrivilegedActions(ctx context.Context, cb func(*knowledgetypes.PrivilegedAction) bool)
 	IterateIncidents(ctx context.Context, cb func(*knowledgetypes.IncidentRecord) bool)
+	// GetRoundByClaimID returns the verification round the claim-to-round
+	// index selects for a claim. Only the predicate v2 review reading uses
+	// it; the v1 certificate does not read review rounds.
+	GetRoundByClaimID(ctx context.Context, claimID string) (*knowledgetypes.VerificationRound, bool)
 }
 
 // QualificationKeeper is the read surface this module needs from

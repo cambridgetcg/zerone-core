@@ -500,11 +500,394 @@ function parseUnsignedZeroneInTotoStatement(json, expectations) {
     })
   });
 }
+var ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE = "https://github.com/cambridgetcg/zerone-core/blob/43f3a04178acab749758e383e064154854ad8b96/docs/specs/attestations/training-provenance-v2.md";
+var REVIEW_STATES = /* @__PURE__ */ new Set([
+  "reviewed",
+  "partly_reviewed",
+  "unreviewed",
+  "empty"
+]);
+var CERTIFICATE_V2_KEYS = [
+  "manifestId",
+  "pipelineId",
+  "merkleRoot",
+  "factCount",
+  "finalizedAtBlock",
+  "status",
+  "domains",
+  "privilegedActionCount",
+  "incidentCount",
+  "cartelResolutionCount",
+  "warningGrade",
+  "warningExplanation",
+  "computedAtBlock",
+  "sourceChainId",
+  "reviewedFactCount",
+  "unreviewedFactCount",
+  "doctrineFactCount",
+  "missingFactCount",
+  "reviewState",
+  "reviewExplanation"
+];
+function expectedReviewState(reviewed, unreviewed) {
+  if (reviewed + unreviewed === 0n) return "empty";
+  if (unreviewed === 0n) return "reviewed";
+  if (reviewed === 0n) return "unreviewed";
+  return "partly_reviewed";
+}
+function expectedReviewExplanation(reviewed, factCount, unreviewed, doctrine, missing) {
+  if (factCount === "0") {
+    return "fact_count=0: no fact IDs are included directly in this manifest, so there is no review to count";
+  }
+  return `reviewed_fact_count=${reviewed} of fact_count=${factCount} have a retained verification round with at least one revealed vote; unreviewed_fact_count=${unreviewed}, including doctrine_fact_count=${doctrine} and missing_fact_count=${missing}`;
+}
+function parseCertificateV2(value, sourceChainId, manifestId, subjectSha256) {
+  const path = "$.predicate.certificate";
+  const object = record(value, path);
+  exactKeys(object, CERTIFICATE_V2_KEYS, path);
+  const certificateManifestId = boundedString(
+    object.manifestId,
+    `${path}.manifestId`,
+    ZERONE_PROVENANCE_LIMITS.maxManifestIdBytes
+  );
+  if (certificateManifestId !== manifestId) {
+    fail(
+      "EXPECTATION_MISMATCH",
+      `${path}.manifestId`,
+      "does not match the expected manifest ID"
+    );
+  }
+  const certificateSourceChainId = boundedString(
+    object.sourceChainId,
+    `${path}.sourceChainId`,
+    ZERONE_PROVENANCE_LIMITS.maxChainIdBytes
+  );
+  if (certificateSourceChainId !== sourceChainId) {
+    fail(
+      "INVALID_SHAPE",
+      `${path}.sourceChainId`,
+      "does not match predicate.sourceChainId"
+    );
+  }
+  const merkleRoot = boundedString(object.merkleRoot, `${path}.merkleRoot`, 64);
+  if (!SHA256_PATTERN.test(merkleRoot)) {
+    fail(
+      "INVALID_SHAPE",
+      `${path}.merkleRoot`,
+      "must be a lowercase 32-byte SHA-256 hex digest"
+    );
+  }
+  if (merkleRoot !== subjectSha256) {
+    fail(
+      "INVALID_SHAPE",
+      `${path}.merkleRoot`,
+      "does not match subject[0].digest.sha256"
+    );
+  }
+  const status = boundedString(object.status, `${path}.status`, 64);
+  if (!SEALED_STATUSES.has(status)) {
+    fail(
+      "UNSUPPORTED_PROFILE",
+      `${path}.status`,
+      "must be FINALIZED, ATTESTED, or SUPERSEDED"
+    );
+  }
+  const privilegedActionCount = uint32(
+    object.privilegedActionCount,
+    `${path}.privilegedActionCount`
+  );
+  const incidentCount = uint32(object.incidentCount, `${path}.incidentCount`);
+  const cartelResolutionCount = uint32(
+    object.cartelResolutionCount,
+    `${path}.cartelResolutionCount`
+  );
+  const warningGrade = boundedString(
+    object.warningGrade,
+    `${path}.warningGrade`,
+    1
+  );
+  if (!TRUST_GRADES.has(warningGrade)) {
+    fail("INVALID_SHAPE", `${path}.warningGrade`, "must be A, B, C, or F");
+  }
+  const computedGrade = expectedGrade(
+    privilegedActionCount,
+    incidentCount,
+    cartelResolutionCount
+  );
+  if (warningGrade !== computedGrade) {
+    fail(
+      "INVALID_SHAPE",
+      `${path}.warningGrade`,
+      `does not match the v2 warning rubric (expected ${computedGrade})`
+    );
+  }
+  const warningExplanation = boundedString(
+    object.warningExplanation,
+    `${path}.warningExplanation`,
+    ZERONE_PROVENANCE_LIMITS.maxTrustExplanationBytes
+  );
+  if (warningExplanation !== expectedTrustExplanation(
+    privilegedActionCount,
+    incidentCount,
+    cartelResolutionCount
+  )) {
+    fail(
+      "INVALID_SHAPE",
+      `${path}.warningExplanation`,
+      "does not match the v2 warning rubric"
+    );
+  }
+  const factCount = canonicalUint64(object.factCount, `${path}.factCount`);
+  const reviewedFactCount = canonicalUint64(
+    object.reviewedFactCount,
+    `${path}.reviewedFactCount`
+  );
+  const unreviewedFactCount = canonicalUint64(
+    object.unreviewedFactCount,
+    `${path}.unreviewedFactCount`
+  );
+  const doctrineFactCount = canonicalUint64(
+    object.doctrineFactCount,
+    `${path}.doctrineFactCount`
+  );
+  const missingFactCount = canonicalUint64(
+    object.missingFactCount,
+    `${path}.missingFactCount`
+  );
+  const reviewed = BigInt(reviewedFactCount);
+  const unreviewed = BigInt(unreviewedFactCount);
+  const missing = BigInt(missingFactCount);
+  if (reviewed + unreviewed !== BigInt(factCount)) {
+    fail(
+      "INVALID_SHAPE",
+      `${path}.unreviewedFactCount`,
+      "reviewedFactCount + unreviewedFactCount must equal factCount"
+    );
+  }
+  if (BigInt(doctrineFactCount) + missing > unreviewed) {
+    fail(
+      "INVALID_SHAPE",
+      `${path}.doctrineFactCount`,
+      "doctrineFactCount + missingFactCount must not exceed unreviewedFactCount"
+    );
+  }
+  const reviewState = boundedString(
+    object.reviewState,
+    `${path}.reviewState`,
+    32
+  );
+  if (!REVIEW_STATES.has(reviewState)) {
+    fail(
+      "INVALID_SHAPE",
+      `${path}.reviewState`,
+      "must be reviewed, partly_reviewed, unreviewed, or empty"
+    );
+  }
+  const computedState = expectedReviewState(reviewed, unreviewed);
+  if (reviewState !== computedState) {
+    fail(
+      "INVALID_SHAPE",
+      `${path}.reviewState`,
+      `does not match the v2 review counts (expected ${computedState})`
+    );
+  }
+  const reviewExplanation = boundedString(
+    object.reviewExplanation,
+    `${path}.reviewExplanation`,
+    ZERONE_PROVENANCE_LIMITS.maxTrustExplanationBytes
+  );
+  if (reviewExplanation !== expectedReviewExplanation(
+    reviewedFactCount,
+    factCount,
+    unreviewedFactCount,
+    doctrineFactCount,
+    missingFactCount
+  )) {
+    fail(
+      "INVALID_SHAPE",
+      `${path}.reviewExplanation`,
+      "does not match the v2 review counts"
+    );
+  }
+  const domains = parseDomains(object.domains);
+  const coveredFactCount = domains.reduce(
+    (sum, domain) => sum + BigInt(domain.factCount),
+    0n
+  );
+  if (coveredFactCount > BigInt(factCount) - missing) {
+    fail(
+      "INVALID_SHAPE",
+      `${path}.domains`,
+      "covered domain fact counts exceed factCount - missingFactCount"
+    );
+  }
+  return Object.freeze({
+    manifestId: certificateManifestId,
+    pipelineId: object.pipelineId === void 0 ? "" : boundedString(
+      object.pipelineId,
+      `${path}.pipelineId`,
+      ZERONE_PROVENANCE_LIMITS.maxPipelineIdBytes,
+      true
+    ),
+    merkleRoot,
+    factCount,
+    finalizedAtBlock: canonicalUint64(
+      object.finalizedAtBlock,
+      `${path}.finalizedAtBlock`
+    ),
+    status,
+    domains,
+    privilegedActionCount,
+    incidentCount,
+    cartelResolutionCount,
+    warningGrade,
+    warningExplanation,
+    computedAtBlock: canonicalUint64(
+      object.computedAtBlock,
+      `${path}.computedAtBlock`
+    ),
+    sourceChainId: certificateSourceChainId,
+    reviewedFactCount,
+    unreviewedFactCount,
+    doctrineFactCount,
+    missingFactCount,
+    reviewState,
+    reviewExplanation
+  });
+}
+function parseUnsignedZeroneInTotoStatementV2(json, expectations) {
+  if (typeof json !== "string") {
+    return fail("INVALID_JSON", "$", "input must be a JSON string");
+  }
+  if (utf8Length(json) > ZERONE_PROVENANCE_LIMITS.maxJsonBytes) {
+    return fail(
+      "INPUT_TOO_LARGE",
+      "$",
+      `JSON must be at most ${ZERONE_PROVENANCE_LIMITS.maxJsonBytes} UTF-8 bytes`
+    );
+  }
+  const expected = validateExpectations(expectations);
+  let parsed;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return fail("INVALID_JSON", "$", "input is not valid JSON");
+  }
+  const topLevel = record(parsed, "$");
+  exactKeys(topLevel, TOP_LEVEL_KEYS, "$");
+  if (topLevel._type !== IN_TOTO_STATEMENT_V1_TYPE) {
+    return fail(
+      "UNSUPPORTED_PROFILE",
+      "$._type",
+      `must equal ${IN_TOTO_STATEMENT_V1_TYPE}`
+    );
+  }
+  if (topLevel.predicateType !== ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE) {
+    return fail(
+      "UNSUPPORTED_PROFILE",
+      "$.predicateType",
+      `must equal ${ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE}`
+    );
+  }
+  if (!Array.isArray(topLevel.subject) || topLevel.subject.length !== 1) {
+    return fail(
+      "INVALID_SHAPE",
+      "$.subject",
+      "must contain exactly one subject"
+    );
+  }
+  const subjectObject = record(topLevel.subject[0], "$.subject[0]");
+  exactKeys(subjectObject, SUBJECT_KEYS, "$.subject[0]");
+  const subjectName = boundedString(
+    subjectObject.name,
+    "$.subject[0].name",
+    3 * (ZERONE_PROVENANCE_LIMITS.maxManifestIdBytes + ZERONE_PROVENANCE_LIMITS.maxChainIdBytes) + 64
+  );
+  const digestObject = record(subjectObject.digest, "$.subject[0].digest");
+  exactKeys(digestObject, DIGEST_KEYS, "$.subject[0].digest");
+  const subjectSha256 = boundedString(
+    digestObject.sha256,
+    "$.subject[0].digest.sha256",
+    64
+  );
+  if (!SHA256_PATTERN.test(subjectSha256)) {
+    return fail(
+      "INVALID_SHAPE",
+      "$.subject[0].digest.sha256",
+      "must be a lowercase 32-byte SHA-256 hex digest"
+    );
+  }
+  const predicateObject = record(topLevel.predicate, "$.predicate");
+  exactKeys(predicateObject, PREDICATE_KEYS, "$.predicate");
+  const sourceChainId = boundedString(
+    predicateObject.sourceChainId,
+    "$.predicate.sourceChainId",
+    ZERONE_PROVENANCE_LIMITS.maxChainIdBytes
+  );
+  const observedOnChainId = boundedString(
+    predicateObject.observedOnChainId,
+    "$.predicate.observedOnChainId",
+    ZERONE_PROVENANCE_LIMITS.maxChainIdBytes
+  );
+  if (observedOnChainId !== expected.observedOnChainId) {
+    return fail(
+      "EXPECTATION_MISMATCH",
+      "$.predicate.observedOnChainId",
+      "does not match the expected serving chain"
+    );
+  }
+  if (expected.sourceChainId !== void 0 && sourceChainId !== expected.sourceChainId) {
+    return fail(
+      "EXPECTATION_MISMATCH",
+      "$.predicate.sourceChainId",
+      "does not match the expected source chain"
+    );
+  }
+  const canonicalSubjectName = `zerone://${pathEscape(sourceChainId)}/training-corpus/` + pathEscape(expected.manifestId);
+  if (subjectName !== canonicalSubjectName) {
+    return fail(
+      "INVALID_SHAPE",
+      "$.subject[0].name",
+      "does not match the canonical source-chain and manifest subject URI"
+    );
+  }
+  const certificate = parseCertificateV2(
+    predicateObject.certificate,
+    sourceChainId,
+    expected.manifestId,
+    subjectSha256
+  );
+  const subject = Object.freeze({
+    name: subjectName,
+    digest: Object.freeze({ sha256: subjectSha256 })
+  });
+  const statement = Object.freeze({
+    _type: IN_TOTO_STATEMENT_V1_TYPE,
+    subject: Object.freeze([subject]),
+    predicateType: ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE,
+    predicate: Object.freeze({
+      sourceChainId,
+      observedOnChainId,
+      certificate
+    })
+  });
+  return Object.freeze({
+    statement,
+    assurance: Object.freeze({
+      authenticated: false,
+      signatureVerified: false,
+      currentStateProjection: true,
+      subjectDigestScope: "included-id-set"
+    })
+  });
+}
 
 export {
   IN_TOTO_STATEMENT_V1_TYPE,
   ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE,
   ZERONE_PROVENANCE_LIMITS,
   ProvenanceParseError,
-  parseUnsignedZeroneInTotoStatement
+  parseUnsignedZeroneInTotoStatement,
+  ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE,
+  parseUnsignedZeroneInTotoStatementV2
 };

@@ -59,10 +59,11 @@ describe("node guide source and network boundaries", () => {
     // notYet is read after "Not yet included:" on /nodes/ and /understand/, so it starts in lowercase.
     assert.match(guide.live.newAccountAdmission.door.notYet, /^desks on the household's other devices/u);
     // The seed pays for a claim, so the door also says, with its date, that nobody
-    // had reviewed a zerone-1 claim for months and where reviews can be tried.
+    // had reviewed a zerone-1 claim for months, that the seed alone cannot pay for
+    // reviewing, and where reviews can be tried.
     assert.match(
       guide.live.newAccountAdmission.door.reviews,
-      /^On 2026-11-09 no one had committed to review a zerone-1 claim since 2026-08-04 \(block 854,278\)\. A claim nobody reviews is closed as INSUFFICIENT, and its review fee is not returned\. Claims and reviews can be tried on the separate test chain zerone-dev-1\.$/u,
+      /^On 2026-11-09 no one had committed to review a zerone-1 claim since 2026-08-04 \(block 854,278\)\. A claim nobody reviews is closed as INSUFFICIENT, and its review fee is not returned\. An account funded only by the 0\.222 ZRN starter seed cannot review a zerone-1 claim: a reviewer must hold at least 100 ZRN when it commits\. Claims and reviews can be tried on the separate test chain zerone-dev-1\.$/u,
     );
     assert.equal(guide.live.starterFunds.availability, "door-admittees-only");
     assert.equal(guide.live.sponsorshipOnboarding.availability, "door-admittees-only");

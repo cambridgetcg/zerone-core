@@ -259,9 +259,12 @@ func (k Keeper) FilterIsOughtIds(ctx context.Context, ids []string) (facts []str
 
 // ─── Revenue clawback (disproval hook) ───────────────────────────────────
 
-// ClawbackOnDisproval zeroes future revenue for a fact and returns the
-// amount removed from the submitter's calibration (BPS, clamped).
-// Called from the disproval path — invariant: only runs once per fact.
+// ClawbackOnDisproval stamps RevenueClawbackBlock on a fact, once, and emits
+// training_revenue_clawed; a stamped fact earns no training value in
+// ComputeTrainingValueWeight. It moves no coins and returns only an error.
+// No production code calls it: the disproval path (handleChallengeDisproven)
+// does not, and nothing records the training revenue it would clear. A
+// DISPROVEN fact already earns no training value through its status.
 func (k Keeper) ClawbackOnDisproval(ctx context.Context, factID string) error {
 	fact, ok := k.GetFact(ctx, factID)
 	if !ok || fact == nil {

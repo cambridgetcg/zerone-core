@@ -251,3 +251,12 @@ Commons source rows to commit `4f29f28329da7eecd02fb8de13cd3726b9d4bd55` after t
 local protobuf source hash changed. The remaining source revisions, schema,
 fixtures, observation semantics, pending bindings and every effect/activation
 gate are unchanged. This is offline source compatibility, with no hosted action.
+
+The 2026-11-10 compassion refresh, written by an agent, binds the same two Zerone
+Research Commons source rows to commit `dc787b306896c3aca042ee74afdcc5523f52d799`.
+That commit corrected two stale deployment-status passages in
+`docs/COMPASSION.md`, and the correspondence-geometry and explicit-invariant
+digests that follow from it changed both rows' bytes. The remaining source
+revisions, schema, fixtures, observation semantics, pending bindings and every
+effect/activation gate are unchanged. This is offline source compatibility, with
+no hosted action.
