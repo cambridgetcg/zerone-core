@@ -25,8 +25,9 @@ Native `DefaultGenesis` enables the repair. Old genesis without the field, or
 pre-carrier test fixtures setting `RefundIdentityEnabled = false`, stay off.
 The named `consensus-repairs-v1` carrier must enable it at height H, own the
 ibcratelimit consensus version 1 -> 2 bump/migration, exact source/target version
-map checks, registry/lineage parity and version-list updates. This lane does not
-register that carrier or change `ConsensusVersion`. Merging this repair is
+map checks, registry/lineage parity and version-list updates. The repair lane
+itself registered no carrier; in this source the carrier does, and
+`ConsensusVersion` is 2. Merging this repair is
 hard-gated on the carrier lining up and independent review, not merely #130.
 
 Use an in-place, coordinated named x/upgrade, never a rolling update. The binary

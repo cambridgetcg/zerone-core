@@ -298,7 +298,7 @@ func (app *ZeroneApp) CensusConsensusRepairsV1(ctx sdk.Context) (report Consensu
 		}
 		return nil
 	})
-	add("knowledge", "", "held", fmt.Sprintf("NUL IDs found (each is a blocker above): bounties=%d augmentations_or_bounty_references=%d", nulBounties, nulAugmentations))
+	add("knowledge", "", "held", fmt.Sprintf("NUL ID counts (each NUL ID is also a blocker): bounties=%d augmentations_or_bounty_references=%d", nulBounties, nulAugmentations))
 	censusName = "verification_histories"
 	histories := 0
 	scan("capture_defense", 0x05, func(key string, value []byte) error {

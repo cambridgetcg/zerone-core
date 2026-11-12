@@ -244,7 +244,7 @@ func TestReformulationActivationVindicationLegacy(t *testing.T) {
 		require.NoError(t, k.SetVindicationPending(ctx, id, []types.VindicationEntry{{FactId: id, Height: 1, SlashAmount: amount}}))
 	}
 	ctx = ctx.WithEventManager(sdk.NewEventManager())
-	k.PruneExpiredVindications(ctx, 100, 10)
+	require.NoError(t, k.PruneExpiredVindications(ctx, 100, 10))
 	var ids []string
 	for _, event := range ctx.EventManager().Events() {
 		if event.Type == "zerone.knowledge.vindication_expired" {

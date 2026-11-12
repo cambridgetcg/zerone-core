@@ -19,6 +19,15 @@ publication are separate events and are stated explicitly when they occur.
   `vesting_rewards` stays at ConsensusVersion 3, native genesis must leave
   `alignment_bank_supply_enabled` absent or false, and v1 now passes on
   dev-1's census inputs.
+- NUL bounty and augmentation IDs are census blockers, no longer holds
+  (c4e23e9f). Held, they let activation succeed, after which a NUL-free bounty
+  failed closed at payout under the indexed reader. A source holding any NUL ID
+  now refuses activation until a governed decision; nothing is rewritten.
+- With #118's marker on, a passing reformulation verdict that finalizes after
+  its bounty expired is archived without payout, as a saturated one is. Expiry
+  has already returned the escrow, so the payout would have come from the
+  pooled training fund. This covers a verdict deferred by a held sibling and a
+  late vote alike; with the marker off nothing changes.
 - Fresh genesis must explicitly select all nine repairs. An offline copied-DB
   census supports re-checks before a height; dev-1 tooling recognizes knowledge
   12/13 without scheduling an upgrade.

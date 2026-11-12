@@ -23,10 +23,12 @@ import (
 	"github.com/zerone-chain/zerone/x/vesting_rewards/types"
 )
 
-// These tests hold the consensus-repairs-v1 marker for zerone-core #122 to the
-// module's side of the activation contract (internal/activation tests the reads
-// and writes): the key is pinned, native genesis selects the marker, the
-// genesis field writes the marker and nothing else, genesis JSON carries it
+// These tests hold the #122 bank-supply marker, deferred from
+// consensus-repairs-v1 to consensus-repairs-v2 in 56bacd2d, to the module's
+// side of the activation contract (internal/activation tests the reads and
+// writes): the key is pinned, native genesis leaves the marker off (the app's
+// genesis validation refuses an explicit true), the genesis field writes the
+// marker and nothing else, genesis JSON carries it
 // exactly with a file written before the field existing importing as off, and
 // a malformed marker is never exported as off. Every import and export goes
 // through the module's own genesis JSON path. The repair's own tests can build

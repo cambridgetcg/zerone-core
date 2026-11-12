@@ -31,6 +31,10 @@ func survivalHandoffTargetVersionMap() module.VersionMap {
 // binaries may retain their original targets; this candidate cannot append its
 // handoff semantics to a historical plan.
 func requireSurvivalHandoffTransitionOwner(name string, fromVM, targetVM module.VersionMap) error {
+	// vesting_rewards 4 moved to consensus-repairs-v2 in 56bacd2d, and
+	// consensusRepairsVersions no longer counts it, so a map whose only v1-era
+	// version is vesting_rewards 4 passes the v1 owner unselected. No map in
+	// this binary reaches it: vesting_rewards stays at ConsensusVersion 3 here.
 	if fromVM["knowledge"] == 13 || targetVM["knowledge"] == 13 || fromVM["vesting_rewards"] == 4 || targetVM["vesting_rewards"] == 4 {
 		return requireConsensusRepairsTransitionOwner(name, fromVM, targetVM)
 	}

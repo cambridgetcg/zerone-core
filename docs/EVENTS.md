@@ -1675,7 +1675,12 @@ one tied variant can freeze its whole pooled bounty until new voting weight
 breaks the tie. This prospective policy remains a carrier review decision.
 Tie-breaking ballots are retained even while a sibling holds the bounty;
 passing finalization waits for another vote after that peer hold resolves.
-This prevents mutually blocking ties without releasing held escrow. The query's
+This prevents mutually blocking ties without releasing held escrow. If the
+bounty expires before that vote, expiry returns its remaining escrow to the
+sponsor, and a verdict that then finalizes as passing is archived without
+payout (`acceptance_note` "bounty expired before finalize"), as a late vote
+after expiry is. Without the marker such a payout came from the pooled training
+fund, which backs other bounties. The query's
 `held` describes the named record, not every sibling sharing its bounty.
 
 - `augmentation_id`
@@ -1688,8 +1693,9 @@ It reads the existing marker, augmentation, params and pooled escrow at one
 snapshot height (or `--height`), emits JSON, and refuses unreadable/malformed
 state. `held` is false before activation; `prospective_reason` supports a
 pre-activation census. The displayed bounty escrow is not a per-record balance.
-`CensusReformulationHolds` provides the carrier's checked, read-only full scan;
-the carrier must census before enabling the marker and must budget the scan.
+`CensusReformulationHolds` is the keeper's checked, read-only full scan. The
+consensus-repairs-v1 carrier runs a bounded app-level equivalent of it
+(`CensusConsensusRepairsV1`) before enabling the marker, within its budget.
 It also checks that bounty-linked augmentations have their existing `0x65`
 index entry. Routine payout/veto/finalization checks use only that bounty's
 index; expiry checks only bounties due for expiration.

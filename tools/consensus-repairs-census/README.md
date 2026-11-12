@@ -38,9 +38,11 @@ prefixes/singletons. The complete image is hashed as a stream, with record and
 byte counts per store and first-byte prefix; `census_reads` also gives each
 census's counts per selected prefix/exact key. Only selected rows are retained.
 Unrelated alignment observations, SDK staking history and bank accounts do not
-consume these budgets. Q1 blocks only zero active stake AND zero mint ledger
-AND positive bank supply. Other valid readings are held, not rejected merely
-because the registry is empty. Reports include both staking ratios, the domain
+consume these budgets. Q1 does not block in v1: since 56bacd2d, v1 keeps the
+mint-ledger denominator, and consensus-repairs-v2 switches to bank supply
+together with Q1. Valid readings are held, not rejected merely because the
+registry is empty. A NUL bounty or augmentation ID, an ambiguous NUL-delimited
+bounty index, or a deferred v2 marker already present is a blocker. Reports include both staking ratios, the domain
 status histogram, NUL counts and each pending rollback's current-state forecast.
 The permanent receipt stores one fixed-shape record/byte count and digest
 summary for every census, plus held-finding and pending-rollback counts. Detailed

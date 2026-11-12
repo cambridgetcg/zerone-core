@@ -319,8 +319,10 @@ lane must account for sequential deployment custody rather than overwrite them.
 
 ## Decisions and delivery boundary
 
-- Obtain independent review. Re-run the C-dev1 copied census with a tool built
-  from this source (`--repairs v1`, expect `passed: true`) under its own authorization.
+- Obtain independent review. Re-run the C-dev1 copied census with
+  `tools/consensus-repairs-census` built from this source (the command in its
+  README; this tool takes no `--repairs` flag) and expect `"passed": true`,
+  under its own authorization.
 - Rehearse the dev-1 copy; re-run the census at H−k and cancel before H if it blocks.
 - Ask Yu for both claim-integrity and carrier heights together only after that.
 - If #120 finds positive ambiguous EXPIRED amounts, attach the census and obtain

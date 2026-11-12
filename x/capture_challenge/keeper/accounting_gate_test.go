@@ -113,7 +113,9 @@ func TestAccountingPendingAnnouncementsAreThrottledNotRefunds(t *testing.T) {
 	h.bank.failRefund = "before"
 	var output bytes.Buffer
 	h.ctx = h.ctx.WithLogger(log.NewLogger(&output, log.OutputJSONOption()))
-	for _, offset := range []uint64{0, 1, 99, 100, 101, 200} {
+	// 10 and 50 pin the period: a throttle of every 10 blocks would announce there.
+	offsets := []uint64{0, 1, 10, 50, 99, 100, 101, 200}
+	for _, offset := range offsets {
 		h.ctx = h.ctx.WithEventManager(sdk.NewEventManager())
 		h.advance(t, ch.ReviewDeadline+offset)
 		if offset%100 == 0 {
@@ -122,7 +124,7 @@ func TestAccountingPendingAnnouncementsAreThrottledNotRefunds(t *testing.T) {
 			require.Empty(t, h.ctx.EventManager().Events())
 		}
 	}
-	require.Equal(t, 6, h.bank.refundCalls, "log throttling must not introduce payment backoff")
+	require.Equal(t, len(offsets), h.bank.refundCalls, "log throttling must not introduce payment backoff")
 	require.Equal(t, 3, strings.Count(output.String(), `"message":"expiry refund pending"`))
 	require.Equal(t, 3, strings.Count(output.String(), `"level":"error"`))
 	require.Equal(t, types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW, h.challenge(t, id).Status)

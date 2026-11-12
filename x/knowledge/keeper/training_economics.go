@@ -770,6 +770,13 @@ func (k Keeper) applyFinalizedAugmentationVerdict(ctx context.Context, augID str
 		if bounty.AcceptedVariants >= bounty.MaxVariants {
 			// Saturated after the fact — archive without payout.
 			aug.AcceptanceNote = "saturated before finalize"
+		} else if enabled && !bounty.Active {
+			// #118, marker on. Short of saturation, a bounty is inactive only
+			// after expiry, which returned its remaining escrow to the sponsor.
+			// A verdict that finalizes later (deferred while a sibling held
+			// the bounty, or a late vote) would be paid from the pooled
+			// training fund, which backs other bounties. Archive it instead.
+			aug.AcceptanceNote = "bounty expired before finalize"
 		} else if !aug.SponsorVetoed {
 			amount := sdkmath.NewIntFromUint64(bounty.RewardPerVariant)
 			if verdict == types.AugmentationVerdict_AUGMENTATION_VERDICT_SUPERIOR {

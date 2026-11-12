@@ -51,6 +51,22 @@ class ConsensusRepairsVersions(unittest.TestCase):
                     self.assertEqual(result["module_versions"], vm)
                     self.assertEqual(query.call_args.args[-1], "consensus-repairs-v1")
 
+    def test_versions_are_pinned_literally(self):
+        # Literal values, not the runtime's own constants, so a change to either
+        # map has to change this test too. app's TestDev1RuntimeVersionsMatchCarrierTarget
+        # holds CONSENSUS_REPAIRS_VERSIONS to the compiled carrier target.
+        self.assertEqual(r.UPGRADE_VERSIONS, {
+            "knowledge-fund-settlement-v1": (10, 11),
+            "knowledge-claim-integrity-v1": (11, 12),
+            "consensus-repairs-v1": (12, 13),
+        })
+        self.assertEqual(r.CONSENSUS_REPAIRS_VERSIONS, {
+            "zerone_gov": 4, "knowledge": 13, "capture_defense": 2,
+            "qualification": 2, "capture_challenge": 2, "vesting_rewards": 3,
+            "alignment": 2, "zerone_ontology": 2, "emergency": 3,
+            "substrate_bridge": 2, "ibcratelimit": 2, "home": 1, "zerone_staking": 2,
+        })
+
 
 if __name__ == "__main__":
     unittest.main()

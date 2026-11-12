@@ -116,7 +116,7 @@ func TestReviewNeutralityClosesNewAugmentationsPreservesOldBallotsAndEscrow(t *t
 	require.Empty(t, qualification.outcomes, "legacy financial finalization must not restart global score feedback")
 	require.Equal(t, submitter, bank.sendCalls[bankCalls].to)
 	require.Equal(t, "1000uzrn", bank.sendCalls[bankCalls].coins.String())
-	k.ProcessRouteBLifecycle(ctx.WithBlockHeight(201))
+	require.NoError(t, k.ProcessRouteBLifecycle(ctx.WithBlockHeight(201)))
 	require.True(t, k.GetEscrowLocked(ctx, "expire-bounty").IsZero())
 	last := bank.sendCalls[len(bank.sendCalls)-1]
 	require.Equal(t, sponsor, last.to)

@@ -112,10 +112,11 @@ type ReformulationHold struct {
 
 // CensusReformulationHolds scans in store-key order and fails closed on unreadable
 // records or NUL-containing bounty/augmentation IDs (including finalized,
-// inactive and volunteer records). The carrier must run this BEFORE activation,
-// hold activation on any error, and surface the offending ID for a separately
-// governed decision. A successful census still requires recording and resolving
-// or accepting ballot holds. No marker is required for this prospective read;
+// inactive and volunteer records). The consensus-repairs-v1 carrier runs a
+// bounded app-level equivalent (CensusConsensusRepairsV1 in app/), with index
+// completeness, BEFORE activation; it holds activation on any error, and
+// surfaces the offending ID for a separately governed decision. A successful
+// census still requires recording and resolving or accepting ballot holds. No marker is required for this prospective read;
 // no state, index or events are changed by it. This is not an index migration.
 func (k Keeper) CensusReformulationHolds(ctx context.Context) ([]ReformulationHold, error) {
 	if err := k.censusReformulationBountyIDs(ctx); err != nil {

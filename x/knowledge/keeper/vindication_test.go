@@ -574,7 +574,7 @@ func TestPruneExpiredVindications(t *testing.T) {
 	// Entry at height 100: 100101 - 100 = 100001 > 100000 → expired
 	// Entry at height 90000: 100101 - 90000 = 10101 ≤ 100000 → NOT expired
 	pruneCtx := ctx.WithBlockHeight(100_101)
-	k.PruneExpiredVindications(pruneCtx, 100_101, 100_000)
+	require.NoError(t, k.PruneExpiredVindications(pruneCtx, 100_101, 100_000))
 
 	// Step 3: Verify entry at height 100 is pruned
 	prunedEntries := k.GetVindicationPending(ctx, factIdOld)

@@ -112,7 +112,7 @@ func TestVindicationOrderTransfers(t *testing.T) {
 				}
 				require.NoError(t, k.SetVindicationPending(ctx, "fact-empty", []types.VindicationEntry{}))
 				ctx = ctx.WithBlockHeight(200).WithEventManager(sdk.NewEventManager())
-				k.PruneExpiredVindications(ctx, 200, 10)
+				require.NoError(t, k.PruneExpiredVindications(ctx, 200, 10))
 
 				wantPaid := funding
 				if funding == 5 {
@@ -144,7 +144,7 @@ func TestVindicationOrderTransfers(t *testing.T) {
 				}
 				require.Equal(t, wantEvents, ctx.EventManager().Events(), "complete bank and nine expiry events, in key order")
 				ctx = ctx.WithEventManager(sdk.NewEventManager())
-				k.PruneExpiredVindications(ctx, 200, 10)
+				require.NoError(t, k.PruneExpiredVindications(ctx, 200, 10))
 				require.Empty(t, ctx.EventManager().Events(), "deleted obligations must not transfer twice")
 				require.Equal(t, wantPaid, bank.GetBalance(ctx, authtypes.NewModuleAddress("development_fund"), "uzrn").Amount.Int64())
 				t.Logf("funded=%d treasury=%d escrow=%d expired=%v", funding, wantPaid, funding-wantPaid, ids)

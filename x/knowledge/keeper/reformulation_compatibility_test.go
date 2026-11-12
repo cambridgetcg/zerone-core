@@ -107,9 +107,9 @@ func TestReformulationPreActivationCompatibility(t *testing.T) {
 			var response *types.MsgVoteOnAugmentationResponse
 			switch name {
 			case "vindication":
-				k.PruneExpiredVindications(ctx, 100, 10)
+				err = k.PruneExpiredVindications(ctx, 100, 10)
 			case "expiry":
-				k.ProcessRouteBLifecycle(ctx)
+				err = k.ProcessRouteBLifecycle(ctx)
 			case "forfeit":
 				err = k.ForfeitAugmentationDeposit(ctx, "bounty", sdkmath.NewInt(100))
 			case "release":
