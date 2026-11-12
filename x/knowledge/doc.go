@@ -16,16 +16,24 @@
 //   - Commitment 2 (is-ought wall): NormativeCommitment is a separate
 //     type with no Confidence field; FilterIsOughtIds blocks
 //     commitment IDs from training-revenue paths.
-//   - Commitment 3 (Popper, not popularity): BaseWeight scales with
-//     CorroborationCount; HardeningMultiplier compounds with survived
-//     attacks.
+//   - Commitment 3 (Popper, not popularity): a challenge the panel
+//     accepts makes its target DISPROVEN. Under review neutrality a
+//     rejected challenge no longer raises CorroborationCount, so the
+//     BaseWeight and HardeningMultiplier it feeds in
+//     ComputeTrainingValueWeight are a legacy heuristic that survived
+//     challenges no longer move.
 //   - Commitment 4 (substrate stress-tests its truth):
-//     EffectiveMinChallengeStake scales inversely with confidence;
-//     successful-challenge bonus amplifies with target confidence.
-//   - Commitment 5 (chain manufactures probe demand):
-//     InviteIdleFactsForProbing performs the configured bounded heartbeat;
-//     payInvitationBonus attempts a configured pool payout and emits an
-//     explicit unfunded event when the pool cannot pay.
+//     EffectiveMinChallengeStake scales inversely with confidence. A
+//     new-policy challenge earns no successful-challenge bonus, and with
+//     fund settlement its deposit returns the same amount whatever the
+//     verdict; settleChallengeStake's confidence-scaled bonus is paid only
+//     on legacy-policy challenges that carry no funding terms.
+//   - Commitment 5 (chain manufactures probe demand): under review
+//     neutrality InviteIdleFactsForProbing returns at once and issues no
+//     invitations; with neutrality off it performs the configured bounded
+//     heartbeat. payInvitationBonus pays nothing on a new-policy claim; on
+//     a legacy-policy claim it attempts a configured pool payout and emits
+//     an explicit unfunded event when the pool cannot pay.
 //   - Commitment 6 (no unilateral injection): MsgAddFact queues a
 //     PendingFactInjection when a guardian set is configured;
 //     MsgVetoFactInjection cancels.
@@ -37,9 +45,10 @@
 //     review-neutrality activation retires new automatic probe issuance.
 //     PayProbeBountyFromPool remains available for earlier recorded terms;
 //     it spends only available pool funds.
-//   - Commitment 13 (training corpus is not for sale):
-//     ClawbackOnDisproval fires deterministically; RevenueClawbackBlock
-//     is sticky across status flips.
+//   - Commitment 13 (training corpus is not for sale): a DISPROVEN fact
+//     earns no training value in ComputeTrainingValueWeight. Only tests
+//     call ClawbackOnDisproval, so disproof runs no clawback and
+//     RevenueClawbackBlock stays unset on a running chain.
 //   - Commitment 14 (reasoning traces are first-class):
 //     Claim.ReasoningTrace propagates to Fact.ReasoningTrace;
 //     MethodologyApplicationTrace bundles trace + methodology +

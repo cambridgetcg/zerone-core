@@ -96,4 +96,67 @@ export declare class ProvenanceParseError extends Error {
  * bounded profile; it does not prove signature validity or predicate truth.
  */
 export declare function parseUnsignedZeroneInTotoStatement(json: string, expectations: ZeroneProvenanceExpectations): ParsedUnsignedZeroneProvenance;
+export declare const ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE: "https://github.com/cambridgetcg/zerone-core/blob/43f3a04178acab749758e383e064154854ad8b96/docs/specs/attestations/training-provenance-v2.md";
+/**
+ * Says which of the three counted warning signals are present. It is not
+ * evidence of review: "A" means none of the signals is present.
+ */
+export type ZeroneWarningGrade = "A" | "B" | "C" | "F";
+/**
+ * Review coverage of the directly included fact IDs only. Included trace,
+ * pair, drift-augmentation and normative-commitment IDs, and a composed
+ * manifest's parent, are not counted.
+ */
+export type ZeroneReviewState = "reviewed" | "partly_reviewed" | "unreviewed" | "empty";
+export interface ZeroneProvenanceCertificateV2 {
+    readonly manifestId: string;
+    readonly pipelineId: string;
+    readonly merkleRoot: string;
+    readonly factCount: Uint64Decimal;
+    readonly finalizedAtBlock: Uint64Decimal;
+    readonly status: ZeroneSealedManifestStatus;
+    readonly domains: readonly ZeroneProvenanceDomainCoverage[];
+    readonly privilegedActionCount: number;
+    readonly incidentCount: number;
+    readonly cartelResolutionCount: number;
+    /** The v1 rubric, renamed. Must not be read as review. */
+    readonly warningGrade: ZeroneWarningGrade;
+    readonly warningExplanation: string;
+    readonly computedAtBlock: Uint64Decimal;
+    readonly sourceChainId: string;
+    /** Included fact IDs with a retained round naming their claim and at least one reveal. */
+    readonly reviewedFactCount: Uint64Decimal;
+    /** Every other included fact ID, missing ones included. */
+    readonly unreviewedFactCount: Uint64Decimal;
+    /** Unreviewed facts without a claim that carry the doctrine category or method. */
+    readonly doctrineFactCount: Uint64Decimal;
+    /** Included fact IDs with no fact in the store, counted as unreviewed. */
+    readonly missingFactCount: Uint64Decimal;
+    readonly reviewState: ZeroneReviewState;
+    readonly reviewExplanation: string;
+}
+export interface UnsignedZeroneInTotoStatementV2 {
+    readonly _type: typeof IN_TOTO_STATEMENT_V1_TYPE;
+    readonly subject: readonly [ZeroneInTotoSubject];
+    readonly predicateType: typeof ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE;
+    readonly predicate: Readonly<{
+        sourceChainId: string;
+        observedOnChainId: string;
+        certificate: ZeroneProvenanceCertificateV2;
+    }>;
+}
+export interface ParsedUnsignedZeroneProvenanceV2 {
+    readonly statement: UnsignedZeroneInTotoStatementV2;
+    readonly assurance: ParsedUnsignedZeroneProvenance["assurance"];
+}
+/**
+ * Parses Zerone's unsigned in-toto Statement v1 carrying training-provenance
+ * predicate v2, without network I/O, URL dereferencing, or authentication.
+ *
+ * It is as strict as the v1 parser: exact keys, caller-pinned manifest and
+ * serving chain, and the warning grade, review state and both explanations
+ * recomputed from the counts. A v1 statement is refused here, and a v2
+ * statement is refused by the v1 parser.
+ */
+export declare function parseUnsignedZeroneInTotoStatementV2(json: string, expectations: ZeroneProvenanceExpectations): ParsedUnsignedZeroneProvenanceV2;
 export {};

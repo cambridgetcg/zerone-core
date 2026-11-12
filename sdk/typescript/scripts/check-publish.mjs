@@ -33,6 +33,9 @@ const claimHistoryFixture = JSON.parse(readFileSync(
 const domainWarningFixture = readFileSync(
   join(packageRoot, "tests/fixtures/provenance-domain-warning.json"), "utf8",
 );
+const reviewCoverageFixture = readFileSync(
+  join(packageRoot, "tests/fixtures/provenance-v2-review-coverage.json"), "utf8",
+);
 
 const consumerSource = `
 import * as root from "@zerone-chain/sdk";
@@ -163,6 +166,31 @@ for (const parser of [
   );
 }
 
+for (const parser of [
+  root.parseUnsignedZeroneInTotoStatementV2,
+  provenance.parseUnsignedZeroneInTotoStatementV2,
+]) {
+  const reviewCoverage = parser(${JSON.stringify(reviewCoverageFixture)}, {
+    manifestId: "review-coverage",
+    observedOnChainId: "provenance-observer",
+    sourceChainId: "provenance-origin",
+  });
+  const certificateV2 = reviewCoverage.statement.predicate.certificate;
+  assert(
+    reviewCoverage.statement.predicateType ===
+      provenance.ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE &&
+      certificateV2.warningGrade === "A" &&
+      certificateV2.reviewState === "partly_reviewed" &&
+      certificateV2.reviewedFactCount === "1" &&
+      certificateV2.unreviewedFactCount === "5" &&
+      certificateV2.reviewExplanation ===
+        ${JSON.stringify(JSON.parse(reviewCoverageFixture).predicate.certificate.reviewExplanation)} &&
+      reviewCoverage.assurance.authenticated === false &&
+      reviewCoverage.assurance.signatureVerified === false,
+    "packed provenance v2 review coverage lost its meaning or unsigned boundary",
+  );
+}
+
 assert(root.cosmosChainId("zerone-1") === "cosmos:zerone-1", "root export failed");
 const history = await root.queryClaimHistory({
   request: async (service: string, method: string, request: Uint8Array) => {
@@ -243,6 +271,11 @@ assert(
   root.ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE ===
     provenance.ZERONE_TRAINING_PROVENANCE_V1_PREDICATE_TYPE,
   "root provenance re-export failed",
+);
+assert(
+  root.ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE ===
+    provenance.ZERONE_TRAINING_PROVENANCE_V2_PREDICATE_TYPE,
+  "root provenance v2 re-export failed",
 );
 `;
 

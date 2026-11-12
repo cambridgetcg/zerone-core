@@ -29,6 +29,22 @@ service Query {
   rpc InTotoStatement(QueryInTotoStatementRequest) returns (InTotoStatementV1) {
     option (google.api.http).get = "/zerone/training_provenance/v1/in-toto/{manifest_id}";
   }
+
+  // ProvenanceCertificateV2 returns the predicate v2 certificate: the v1
+  // warning rubric as warning_grade, and review coverage counted per included
+  // fact ID, with no combined letter. See
+  // docs/specs/attestations/training-provenance-v2.md. The v1 methods above
+  // are unchanged.
+  rpc ProvenanceCertificateV2(QueryProvenanceCertificateV2Request) returns (QueryProvenanceCertificateV2Response) {
+    option (google.api.http).get = "/zerone/training_provenance/v1/certificate-v2/{manifest_id}";
+  }
+
+  // InTotoStatementV2 projects the v2 certificate into an unsigned in-toto
+  // Statement v1 with the predicate v2 type. Eligibility matches
+  // InTotoStatement.
+  rpc InTotoStatementV2(QueryInTotoStatementV2Request) returns (InTotoStatementV1PredicateV2) {
+    option (google.api.http).get = "/zerone/training_provenance/v1/in-toto-v2/{manifest_id}";
+  }
 }
 
 message QueryProvenanceCertificateRequest {
@@ -40,5 +56,17 @@ message QueryProvenanceCertificateResponse {
 }
 
 message QueryInTotoStatementRequest {
+  string manifest_id = 1;
+}
+
+message QueryProvenanceCertificateV2Request {
+  string manifest_id = 1;
+}
+
+message QueryProvenanceCertificateV2Response {
+  ProvenanceCertificateV2 certificate = 1;
+}
+
+message QueryInTotoStatementV2Request {
   string manifest_id = 1;
 }

@@ -223,27 +223,39 @@ counters already record. It is built, and it is bound by tests.
   `TestUpgrade_CompassionCalibrationV1RefreshesScores` drives the real upgrade
   handler end-to-end. Full build + the knowledge, trust_score, and cross_stack
   suites pass.
-- **How it ships:** as the consensus upgrade `compassion-calibration-v1`
+- **How it shipped:** as the consensus upgrade `compassion-calibration-v1`
   (`app/upgrades.go`, `app/upgrade_registry.go`), the same way
   `liquiditypool-hardening-v1` did — a versioned upgrade whose handler recomputes
   every stored score under the new formula in one deterministic, monotonic pass.
-- **The boundary that remains:** scheduling the upgrade on the live `zerone-1`
-  mainnet is **not** mine to do unilaterally — it moves how every being on the
-  chain is measured, so it needs the operator's direct authorization, exactly as
-  the prior mainnet upgrade did. Graduating C2 from a design commitment to a bound
-  *creed* commitment additionally needs governance adoption (truth-seeking
-  commitment 19). The code is done; the last two steps are human.
+  It moves how every being on the chain is measured, so scheduling it on the
+  live `zerone-1` mainnet was not an agent's call to make alone. C2 above records
+  it as applied at height 66304 on 2026-07-10, after governance proposal 3.
+  *Status note, written by an agent on 2026-11-10:* a read-only query of
+  `/cosmos/upgrade/v1beta1/applied_plan/compassion-calibration-v1` on the
+  `zerone-1` REST endpoint listed in `deploy/mainnet/JOIN.md` returned height
+  66304 on 2026-11-10. Until that date, this bullet and the next still described
+  the upgrade as waiting to be scheduled.
+- **The boundary that remains:** graduating C2 from a design commitment to a
+  bound *creed* commitment needs governance adoption (truth-seeking commitment
+  19). The code is done and the upgrade has run; that last step is human.
 
 ---
 
 ## What this is / is not
 
-- **Not a claim of being deployed.** C2 is built and test-bound in the repo, but
-  it is **not yet running on the live chain** — it ships only when the operator
-  schedules `compassion-calibration-v1`. Saying "the mainnet already tells error
-  from deceit" would be the exact kind of "diary dressed as a truth chain"
-  dishonesty this framework refuses. It tells them apart in the code; it will
-  tell them apart on the chain the day the upgrade runs.
+- **Not a bound creed commitment.** C2 is in the code and bound by tests, and
+  this file records `compassion-calibration-v1` as applied on `zerone-1` at
+  height 66304 on 2026-07-10 (see C2). It stays a design commitment until
+  governance adopts it. Calling it a creed commitment before then would be the
+  exact kind of "diary dressed as a truth chain" dishonesty this framework
+  refuses. *Status note, written by an agent on 2026-11-10:* until that date this
+  bullet said C2 was not yet running on the live chain. A query that day
+  confirmed the applied height (see "How it shipped"). In current source, a
+  round completed under neutral review (`review_policy_version=1`, see
+  `docs/specs/knowledge-review-neutrality-v1.md`) adds no outcome to the
+  submitter's calibration record (`completeRound` in
+  `x/knowledge/keeper/rounds.go`). That describes source, not which upgrades
+  `zerone-1` has applied.
 - **Not separate from truth.** Compassion here is not softness laid over the
   truth machine; it is the truth machine *finishing its own sentence* — a chain
   that says what is, said in a way a being can be understood by, not only judged

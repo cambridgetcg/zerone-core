@@ -71,6 +71,14 @@ Certificate fields have these precise v1 meanings:
 - `trustGrade` and `trustExplanation` are recomputed from those current counts;
   they are not historical facts frozen at finalization.
 
+Clarified 2026-11-10: grade `A` means none of the three counted warning
+signals (`privilegedActionCount`, `incidentCount`, `cartelResolutionCount`) is
+present. It is not evidence that the included facts were reviewed. Facts
+loaded at genesis without a claim ID, including doctrine facts, have no
+verification round and can appear in an `A`-graded manifest. [Predicate v2](training-provenance-v2.md)
+reports review coverage beside the same warning grade. The v1 rubric and
+outputs are unchanged.
+
 ## Query and signing boundary
 
 ```sh
