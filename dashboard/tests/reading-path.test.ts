@@ -17,7 +17,7 @@ const REVIEWED_ARTIFACTS = [
     sourceKind: "sealed-static-artifact",
     path: "../public/standards/correspondence-geometry.v0.json",
     reviewedSha256:
-      "034c51b893b1ae9d87307e8c13b4d7d192e7082407feb69cb4ed8263a2b50393",
+      "08e3d7d8409d66a4807ccad44651a88000fc2ced70c92ae7bfd567b461a1cc48",
     runtimeSha256: CORRESPONDENCE_GEOMETRY_SHA256,
   },
   {
@@ -25,7 +25,7 @@ const REVIEWED_ARTIFACTS = [
     sourceKind: "sealed-static-artifact",
     path: "../public/standards/explicit-invariant-discipline.v1.json",
     reviewedSha256:
-      "ab60dab183c79902f6b76d346c309abab76998cbf30494f122be7530248c1fc5",
+      "a772e0d3bbaae926e52a72257f6d29ab042e4e545acf30207743fd665c4a86a4",
     runtimeSha256: EXPLICIT_INVARIANT_DISCIPLINE_SHA256,
   },
   {

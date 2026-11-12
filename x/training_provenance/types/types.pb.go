@@ -61,7 +61,11 @@ type ProvenanceCertificate struct {
 	// ── Synthesised grade ──────────────────────────────────────────────
 	// Letter grade based on the signals above. Scoring rubric is fixed in
 	// code (deterministic) but the inputs evolve with chain state, so the
-	// grade is current, not historical. See keeper.go for thresholds.
+	// grade is current, not historical. The rubric is computeTrustGrade in
+	// x/training_provenance/keeper/certificate.go. Grade A means none of the
+	// three counted warning signals is present; it is not evidence that the
+	// included facts were reviewed. ProvenanceCertificateV2 reports review
+	// coverage beside the same grade.
 	TrustGrade       string `protobuf:"bytes,11,opt,name=trust_grade,json=trustGrade,proto3" json:"trust_grade,omitempty"`
 	TrustExplanation string `protobuf:"bytes,12,opt,name=trust_explanation,json=trustExplanation,proto3" json:"trust_explanation,omitempty"`
 	ComputedAtBlock  uint64 `protobuf:"varint,13,opt,name=computed_at_block,json=computedAtBlock,proto3" json:"computed_at_block,omitempty"`
@@ -275,6 +279,243 @@ func (x *DomainCoverage) GetActiveVoterCount() uint32 {
 	return 0
 }
 
+// ProvenanceCertificateV2 is the certificate of training-provenance predicate
+// v2 (docs/specs/attestations/training-provenance-v2.md). It carries two
+// separate readings and no combined letter:
+//
+//   - a warning reading: the v1 rubric and wording, unchanged, under names
+//     that say what it counts. It is not evidence of review.
+//   - a review reading: how many directly included fact IDs have a retained
+//     verification round with at least one revealed vote.
+//
+// The review reading counts directly included fact IDs only. Included trace,
+// pair, drift-augmentation and normative-commitment IDs, and a composed
+// manifest's parent, are not counted, so review_state says nothing about them.
+//
+// Fields 1-10, 13 and 14 have exactly the meanings of the same-numbered
+// ProvenanceCertificate fields. Like v1, it is computed live and not stored.
+type ProvenanceCertificateV2 struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// ── Manifest identity ──────────────────────────────────────────────
+	ManifestId       string `protobuf:"bytes,1,opt,name=manifest_id,json=manifestId,proto3" json:"manifest_id,omitempty"`
+	PipelineId       string `protobuf:"bytes,2,opt,name=pipeline_id,json=pipelineId,proto3" json:"pipeline_id,omitempty"`
+	MerkleRoot       string `protobuf:"bytes,3,opt,name=merkle_root,json=merkleRoot,proto3" json:"merkle_root,omitempty"`
+	FactCount        uint64 `protobuf:"varint,4,opt,name=fact_count,json=factCount,proto3" json:"fact_count,omitempty"`
+	FinalizedAtBlock uint64 `protobuf:"varint,5,opt,name=finalized_at_block,json=finalizedAtBlock,proto3" json:"finalized_at_block,omitempty"`
+	Status           string `protobuf:"bytes,6,opt,name=status,proto3" json:"status,omitempty"`
+	// ── Domain coverage ────────────────────────────────────────────────
+	Domains []*DomainCoverage `protobuf:"bytes,7,rep,name=domains,proto3" json:"domains,omitempty"`
+	// ── Audit history (the three counted warning signals) ──────────────
+	PrivilegedActionCount uint32 `protobuf:"varint,8,opt,name=privileged_action_count,json=privilegedActionCount,proto3" json:"privileged_action_count,omitempty"`
+	IncidentCount         uint32 `protobuf:"varint,9,opt,name=incident_count,json=incidentCount,proto3" json:"incident_count,omitempty"`
+	CartelResolutionCount uint32 `protobuf:"varint,10,opt,name=cartel_resolution_count,json=cartelResolutionCount,proto3" json:"cartel_resolution_count,omitempty"`
+	// ── Warning reading ────────────────────────────────────────────────
+	// The v1 rubric (computeTrustGrade in
+	// x/training_provenance/keeper/certificate.go) applied to fields 8-10:
+	// "A", "B", "C" or "F". It says which counted warning signals are present.
+	// It must not be read as review: "A" means none of the three signals is
+	// present, not that any included fact was reviewed.
+	WarningGrade       string `protobuf:"bytes,11,opt,name=warning_grade,json=warningGrade,proto3" json:"warning_grade,omitempty"`
+	WarningExplanation string `protobuf:"bytes,12,opt,name=warning_explanation,json=warningExplanation,proto3" json:"warning_explanation,omitempty"`
+	ComputedAtBlock    uint64 `protobuf:"varint,13,opt,name=computed_at_block,json=computedAtBlock,proto3" json:"computed_at_block,omitempty"`
+	SourceChainId      string `protobuf:"bytes,14,opt,name=source_chain_id,json=sourceChainId,proto3" json:"source_chain_id,omitempty"`
+	// ── Review reading ─────────────────────────────────────────────────
+	// Counted per entry of the manifest's directly included fact IDs.
+	// reviewed_fact_count + unreviewed_fact_count == fact_count.
+	//
+	// A fact is reviewed when it exists, has a non-empty claim_id, and the
+	// knowledge module still returns that claim's verification round, naming
+	// the same claim, with at least one reveal. Every other entry is
+	// unreviewed, including fact IDs missing from the store: the worst
+	// reading wins.
+	ReviewedFactCount   uint64 `protobuf:"varint,15,opt,name=reviewed_fact_count,json=reviewedFactCount,proto3" json:"reviewed_fact_count,omitempty"`
+	UnreviewedFactCount uint64 `protobuf:"varint,16,opt,name=unreviewed_fact_count,json=unreviewedFactCount,proto3" json:"unreviewed_fact_count,omitempty"`
+	// Unreviewed facts that exist, have an empty claim_id, and carry the
+	// "doctrine" category or the "doctrine_authorship" method. Reported so
+	// that doctrine is described, not graded.
+	DoctrineFactCount uint64 `protobuf:"varint,17,opt,name=doctrine_fact_count,json=doctrineFactCount,proto3" json:"doctrine_fact_count,omitempty"`
+	// Included fact IDs with no fact in the store. Counted as unreviewed.
+	MissingFactCount uint64 `protobuf:"varint,18,opt,name=missing_fact_count,json=missingFactCount,proto3" json:"missing_fact_count,omitempty"`
+	// "reviewed" (at least one fact, none unreviewed), "partly_reviewed"
+	// (some of each), "unreviewed" (at least one fact, none reviewed) or
+	// "empty" (no directly included fact IDs, whatever else is included).
+	ReviewState string `protobuf:"bytes,19,opt,name=review_state,json=reviewState,proto3" json:"review_state,omitempty"`
+	// One deterministic sentence built from the review counts.
+	ReviewExplanation string `protobuf:"bytes,20,opt,name=review_explanation,json=reviewExplanation,proto3" json:"review_explanation,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ProvenanceCertificateV2) Reset() {
+	*x = ProvenanceCertificateV2{}
+	mi := &file_zerone_training_provenance_v1_types_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProvenanceCertificateV2) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProvenanceCertificateV2) ProtoMessage() {}
+
+func (x *ProvenanceCertificateV2) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_training_provenance_v1_types_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProvenanceCertificateV2.ProtoReflect.Descriptor instead.
+func (*ProvenanceCertificateV2) Descriptor() ([]byte, []int) {
+	return file_zerone_training_provenance_v1_types_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ProvenanceCertificateV2) GetManifestId() string {
+	if x != nil {
+		return x.ManifestId
+	}
+	return ""
+}
+
+func (x *ProvenanceCertificateV2) GetPipelineId() string {
+	if x != nil {
+		return x.PipelineId
+	}
+	return ""
+}
+
+func (x *ProvenanceCertificateV2) GetMerkleRoot() string {
+	if x != nil {
+		return x.MerkleRoot
+	}
+	return ""
+}
+
+func (x *ProvenanceCertificateV2) GetFactCount() uint64 {
+	if x != nil {
+		return x.FactCount
+	}
+	return 0
+}
+
+func (x *ProvenanceCertificateV2) GetFinalizedAtBlock() uint64 {
+	if x != nil {
+		return x.FinalizedAtBlock
+	}
+	return 0
+}
+
+func (x *ProvenanceCertificateV2) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *ProvenanceCertificateV2) GetDomains() []*DomainCoverage {
+	if x != nil {
+		return x.Domains
+	}
+	return nil
+}
+
+func (x *ProvenanceCertificateV2) GetPrivilegedActionCount() uint32 {
+	if x != nil {
+		return x.PrivilegedActionCount
+	}
+	return 0
+}
+
+func (x *ProvenanceCertificateV2) GetIncidentCount() uint32 {
+	if x != nil {
+		return x.IncidentCount
+	}
+	return 0
+}
+
+func (x *ProvenanceCertificateV2) GetCartelResolutionCount() uint32 {
+	if x != nil {
+		return x.CartelResolutionCount
+	}
+	return 0
+}
+
+func (x *ProvenanceCertificateV2) GetWarningGrade() string {
+	if x != nil {
+		return x.WarningGrade
+	}
+	return ""
+}
+
+func (x *ProvenanceCertificateV2) GetWarningExplanation() string {
+	if x != nil {
+		return x.WarningExplanation
+	}
+	return ""
+}
+
+func (x *ProvenanceCertificateV2) GetComputedAtBlock() uint64 {
+	if x != nil {
+		return x.ComputedAtBlock
+	}
+	return 0
+}
+
+func (x *ProvenanceCertificateV2) GetSourceChainId() string {
+	if x != nil {
+		return x.SourceChainId
+	}
+	return ""
+}
+
+func (x *ProvenanceCertificateV2) GetReviewedFactCount() uint64 {
+	if x != nil {
+		return x.ReviewedFactCount
+	}
+	return 0
+}
+
+func (x *ProvenanceCertificateV2) GetUnreviewedFactCount() uint64 {
+	if x != nil {
+		return x.UnreviewedFactCount
+	}
+	return 0
+}
+
+func (x *ProvenanceCertificateV2) GetDoctrineFactCount() uint64 {
+	if x != nil {
+		return x.DoctrineFactCount
+	}
+	return 0
+}
+
+func (x *ProvenanceCertificateV2) GetMissingFactCount() uint64 {
+	if x != nil {
+		return x.MissingFactCount
+	}
+	return 0
+}
+
+func (x *ProvenanceCertificateV2) GetReviewState() string {
+	if x != nil {
+		return x.ReviewState
+	}
+	return ""
+}
+
+func (x *ProvenanceCertificateV2) GetReviewExplanation() string {
+	if x != nil {
+		return x.ReviewExplanation
+	}
+	return ""
+}
+
 var File_zerone_training_provenance_v1_types_proto protoreflect.FileDescriptor
 
 const file_zerone_training_provenance_v1_types_proto_rawDesc = "" +
@@ -306,7 +547,33 @@ const file_zerone_training_provenance_v1_types_proto_rawDesc = "" +
 	"\n" +
 	"fact_count\x18\x02 \x01(\x04R\tfactCount\x120\n" +
 	"\x14avg_qualified_weight\x18\x03 \x01(\x04R\x12avgQualifiedWeight\x12,\n" +
-	"\x12active_voter_count\x18\x04 \x01(\rR\x10activeVoterCountB<Z:github.com/zerone-chain/zerone/x/training_provenance/typesb\x06proto3"
+	"\x12active_voter_count\x18\x04 \x01(\rR\x10activeVoterCount\"\xff\x06\n" +
+	"\x17ProvenanceCertificateV2\x12\x1f\n" +
+	"\vmanifest_id\x18\x01 \x01(\tR\n" +
+	"manifestId\x12\x1f\n" +
+	"\vpipeline_id\x18\x02 \x01(\tR\n" +
+	"pipelineId\x12\x1f\n" +
+	"\vmerkle_root\x18\x03 \x01(\tR\n" +
+	"merkleRoot\x12\x1d\n" +
+	"\n" +
+	"fact_count\x18\x04 \x01(\x04R\tfactCount\x12,\n" +
+	"\x12finalized_at_block\x18\x05 \x01(\x04R\x10finalizedAtBlock\x12\x16\n" +
+	"\x06status\x18\x06 \x01(\tR\x06status\x12G\n" +
+	"\adomains\x18\a \x03(\v2-.zerone.training_provenance.v1.DomainCoverageR\adomains\x126\n" +
+	"\x17privileged_action_count\x18\b \x01(\rR\x15privilegedActionCount\x12%\n" +
+	"\x0eincident_count\x18\t \x01(\rR\rincidentCount\x126\n" +
+	"\x17cartel_resolution_count\x18\n" +
+	" \x01(\rR\x15cartelResolutionCount\x12#\n" +
+	"\rwarning_grade\x18\v \x01(\tR\fwarningGrade\x12/\n" +
+	"\x13warning_explanation\x18\f \x01(\tR\x12warningExplanation\x12*\n" +
+	"\x11computed_at_block\x18\r \x01(\x04R\x0fcomputedAtBlock\x12&\n" +
+	"\x0fsource_chain_id\x18\x0e \x01(\tR\rsourceChainId\x12.\n" +
+	"\x13reviewed_fact_count\x18\x0f \x01(\x04R\x11reviewedFactCount\x122\n" +
+	"\x15unreviewed_fact_count\x18\x10 \x01(\x04R\x13unreviewedFactCount\x12.\n" +
+	"\x13doctrine_fact_count\x18\x11 \x01(\x04R\x11doctrineFactCount\x12,\n" +
+	"\x12missing_fact_count\x18\x12 \x01(\x04R\x10missingFactCount\x12!\n" +
+	"\freview_state\x18\x13 \x01(\tR\vreviewState\x12-\n" +
+	"\x12review_explanation\x18\x14 \x01(\tR\x11reviewExplanationB<Z:github.com/zerone-chain/zerone/x/training_provenance/typesb\x06proto3"
 
 var (
 	file_zerone_training_provenance_v1_types_proto_rawDescOnce sync.Once
@@ -320,18 +587,20 @@ func file_zerone_training_provenance_v1_types_proto_rawDescGZIP() []byte {
 	return file_zerone_training_provenance_v1_types_proto_rawDescData
 }
 
-var file_zerone_training_provenance_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_zerone_training_provenance_v1_types_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_zerone_training_provenance_v1_types_proto_goTypes = []any{
-	(*ProvenanceCertificate)(nil), // 0: zerone.training_provenance.v1.ProvenanceCertificate
-	(*DomainCoverage)(nil),        // 1: zerone.training_provenance.v1.DomainCoverage
+	(*ProvenanceCertificate)(nil),   // 0: zerone.training_provenance.v1.ProvenanceCertificate
+	(*DomainCoverage)(nil),          // 1: zerone.training_provenance.v1.DomainCoverage
+	(*ProvenanceCertificateV2)(nil), // 2: zerone.training_provenance.v1.ProvenanceCertificateV2
 }
 var file_zerone_training_provenance_v1_types_proto_depIdxs = []int32{
 	1, // 0: zerone.training_provenance.v1.ProvenanceCertificate.domains:type_name -> zerone.training_provenance.v1.DomainCoverage
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 1: zerone.training_provenance.v1.ProvenanceCertificateV2.domains:type_name -> zerone.training_provenance.v1.DomainCoverage
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_zerone_training_provenance_v1_types_proto_init() }
@@ -345,7 +614,7 @@ func file_zerone_training_provenance_v1_types_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_training_provenance_v1_types_proto_rawDesc), len(file_zerone_training_provenance_v1_types_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   3,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

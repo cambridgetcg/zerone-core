@@ -138,7 +138,10 @@ The current source/default configuration exposes two bounded issuance families:
    (about 12 days at zerone-1's recent ~30-second blocks; see
    [JOIN.md](deploy/mainnet/JOIN.md#the-agents-door)).
 2. **Substrate-bridge attestations** — source can mint for eligible external
-   work that survives challenge. The published genesis declared
+   work. A witness reward waits out a challenge window in escrow; an
+   attestation that cites an existing knowledge fact is paid when the next
+   block settles it, with no window (checked against source by an agent on
+   2026-11-10). The published genesis declared
    `agenttool-invocation-v1` ACTIVE with a witness reward. Governance
    proposal 8 suspended it on 2026-10-29, and a live query on 2026-10-30
    showed it `ADAPTER_STATUS_SUSPENDED`, the only adapter registered on
@@ -352,7 +355,7 @@ make proto-gen
 ## SDK and API
 
 - The generated [Swagger document](docs/swagger-ui/swagger.json) is the REST
-  inventory of record: 218 paths and 457 definitions.
+  inventory of record: 220 paths and 461 definitions.
 - The repository [TypeScript SDK](sdk/typescript/) covers 169 request messages
   across 20 Zerone `Msg` services. Version 0.1.1 has been on npm as
   `@zerone-chain/sdk` since 2 November 2026, published by hand without a

@@ -203,7 +203,7 @@ activity.
 ### Generated REST and transaction coverage
 
 All generated custom query gateways are registered. The canonical generated
-Swagger document currently contains 218 paths and 457 definitions:
+Swagger document currently contains 220 paths and 461 definitions:
 [`docs/swagger-ui/swagger.json`](../swagger-ui/swagger.json).
 
 The repository TypeScript package contains protobuf/direct-signing codecs for
@@ -252,6 +252,18 @@ The parser bounds the JSON and every variable collection, preserves protobuf
 invariants, and returns an explicit unsigned/unverified assurance marker. It
 does not fetch the query, dereference the predicate URI, discover trust roots,
 verify signatures, or authenticate the predicate.
+
+Predicate v1's grade `A` means none of three counted warning signals is
+present; it is not evidence that the included facts were reviewed. The
+[predicate v2 specification](../specs/attestations/training-provenance-v2.md),
+written by an agent session on 2026-11-10 and not yet reviewed by the owner,
+adds `/zerone/training_provenance/v1/certificate-v2/<manifest-id>` and
+`/zerone/training_provenance/v1/in-toto-v2/<manifest-id>` beside the unchanged
+v1 queries. Each v2 certificate carries the v1 rubric as `warningGrade` and,
+separately, review coverage: how many included fact IDs have a retained
+verification round with a revealed vote, how many do not, and how many of
+those are doctrine or missing. There is no combined letter.
+`parseUnsignedZeroneInTotoStatementV2` is the strict offline consumer for v2.
 
 ## Implemented: Sigstore evidence into substrate bridge
 

@@ -19,8 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Query_ProvenanceCertificate_FullMethodName = "/zerone.training_provenance.v1.Query/ProvenanceCertificate"
-	Query_InTotoStatement_FullMethodName       = "/zerone.training_provenance.v1.Query/InTotoStatement"
+	Query_ProvenanceCertificate_FullMethodName   = "/zerone.training_provenance.v1.Query/ProvenanceCertificate"
+	Query_InTotoStatement_FullMethodName         = "/zerone.training_provenance.v1.Query/InTotoStatement"
+	Query_ProvenanceCertificateV2_FullMethodName = "/zerone.training_provenance.v1.Query/ProvenanceCertificateV2"
+	Query_InTotoStatementV2_FullMethodName       = "/zerone.training_provenance.v1.Query/InTotoStatementV2"
 )
 
 // QueryClient is the client API for Query service.
@@ -44,6 +46,16 @@ type QueryClient interface {
 	// DSSE/Sigstore tooling. Predicate v1 accepts only non-composed manifests in
 	// FINALIZED, ATTESTED, or SUPERSEDED status.
 	InTotoStatement(ctx context.Context, in *QueryInTotoStatementRequest, opts ...grpc.CallOption) (*InTotoStatementV1, error)
+	// ProvenanceCertificateV2 returns the predicate v2 certificate: the v1
+	// warning rubric as warning_grade, and review coverage counted per included
+	// fact ID, with no combined letter. See
+	// docs/specs/attestations/training-provenance-v2.md. The v1 methods above
+	// are unchanged.
+	ProvenanceCertificateV2(ctx context.Context, in *QueryProvenanceCertificateV2Request, opts ...grpc.CallOption) (*QueryProvenanceCertificateV2Response, error)
+	// InTotoStatementV2 projects the v2 certificate into an unsigned in-toto
+	// Statement v1 with the predicate v2 type. Eligibility matches
+	// InTotoStatement.
+	InTotoStatementV2(ctx context.Context, in *QueryInTotoStatementV2Request, opts ...grpc.CallOption) (*InTotoStatementV1PredicateV2, error)
 }
 
 type queryClient struct {
@@ -74,6 +86,26 @@ func (c *queryClient) InTotoStatement(ctx context.Context, in *QueryInTotoStatem
 	return out, nil
 }
 
+func (c *queryClient) ProvenanceCertificateV2(ctx context.Context, in *QueryProvenanceCertificateV2Request, opts ...grpc.CallOption) (*QueryProvenanceCertificateV2Response, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryProvenanceCertificateV2Response)
+	err := c.cc.Invoke(ctx, Query_ProvenanceCertificateV2_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *queryClient) InTotoStatementV2(ctx context.Context, in *QueryInTotoStatementV2Request, opts ...grpc.CallOption) (*InTotoStatementV1PredicateV2, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(InTotoStatementV1PredicateV2)
+	err := c.cc.Invoke(ctx, Query_InTotoStatementV2_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // QueryServer is the server API for Query service.
 // All implementations must embed UnimplementedQueryServer
 // for forward compatibility.
@@ -95,6 +127,16 @@ type QueryServer interface {
 	// DSSE/Sigstore tooling. Predicate v1 accepts only non-composed manifests in
 	// FINALIZED, ATTESTED, or SUPERSEDED status.
 	InTotoStatement(context.Context, *QueryInTotoStatementRequest) (*InTotoStatementV1, error)
+	// ProvenanceCertificateV2 returns the predicate v2 certificate: the v1
+	// warning rubric as warning_grade, and review coverage counted per included
+	// fact ID, with no combined letter. See
+	// docs/specs/attestations/training-provenance-v2.md. The v1 methods above
+	// are unchanged.
+	ProvenanceCertificateV2(context.Context, *QueryProvenanceCertificateV2Request) (*QueryProvenanceCertificateV2Response, error)
+	// InTotoStatementV2 projects the v2 certificate into an unsigned in-toto
+	// Statement v1 with the predicate v2 type. Eligibility matches
+	// InTotoStatement.
+	InTotoStatementV2(context.Context, *QueryInTotoStatementV2Request) (*InTotoStatementV1PredicateV2, error)
 	mustEmbedUnimplementedQueryServer()
 }
 
@@ -110,6 +152,12 @@ func (UnimplementedQueryServer) ProvenanceCertificate(context.Context, *QueryPro
 }
 func (UnimplementedQueryServer) InTotoStatement(context.Context, *QueryInTotoStatementRequest) (*InTotoStatementV1, error) {
 	return nil, status.Error(codes.Unimplemented, "method InTotoStatement not implemented")
+}
+func (UnimplementedQueryServer) ProvenanceCertificateV2(context.Context, *QueryProvenanceCertificateV2Request) (*QueryProvenanceCertificateV2Response, error) {
+	return nil, status.Error(codes.Unimplemented, "method ProvenanceCertificateV2 not implemented")
+}
+func (UnimplementedQueryServer) InTotoStatementV2(context.Context, *QueryInTotoStatementV2Request) (*InTotoStatementV1PredicateV2, error) {
+	return nil, status.Error(codes.Unimplemented, "method InTotoStatementV2 not implemented")
 }
 func (UnimplementedQueryServer) mustEmbedUnimplementedQueryServer() {}
 func (UnimplementedQueryServer) testEmbeddedByValue()               {}
@@ -168,6 +216,42 @@ func _Query_InTotoStatement_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Query_ProvenanceCertificateV2_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryProvenanceCertificateV2Request)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).ProvenanceCertificateV2(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_ProvenanceCertificateV2_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).ProvenanceCertificateV2(ctx, req.(*QueryProvenanceCertificateV2Request))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Query_InTotoStatementV2_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryInTotoStatementV2Request)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(QueryServer).InTotoStatementV2(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Query_InTotoStatementV2_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(QueryServer).InTotoStatementV2(ctx, req.(*QueryInTotoStatementV2Request))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Query_ServiceDesc is the grpc.ServiceDesc for Query service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -182,6 +266,14 @@ var Query_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "InTotoStatement",
 			Handler:    _Query_InTotoStatement_Handler,
+		},
+		{
+			MethodName: "ProvenanceCertificateV2",
+			Handler:    _Query_ProvenanceCertificateV2_Handler,
+		},
+		{
+			MethodName: "InTotoStatementV2",
+			Handler:    _Query_InTotoStatementV2_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

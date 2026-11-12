@@ -10,13 +10,13 @@
     {
       "id": "compassion",
       "path": "docs/COMPASSION.md",
-      "sha256": "ddebabc2b875532c2a3ec76c50f8f63fcef1007a728b7e260a5da36d24c619ad",
+      "sha256": "f1d5bf357ce1c503aa70efd4f1a6e297700b7d76a9164488f4253210bb82a3f8",
       "role": "NORMATIVE_REGISTER_BOUNDARY"
     },
     {
       "id": "knowledge-metabolism",
       "path": "x/knowledge/keeper/metabolism.go",
-      "sha256": "510bb59fc2c9ebf3168e46604cf6489e494cf1a840b648d0c250d22c002b6fb0",
+      "sha256": "7b252c5134a6c78b753820890dbcd1eac9d3b263c8bf798c44bc1b41f50aafc6",
       "role": "PROTOCOL_RESOURCE_SEMANTICS"
     },
     {

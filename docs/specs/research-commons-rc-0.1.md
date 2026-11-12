@@ -234,7 +234,7 @@ is not fraud.
 The first proposed pilot is a small, public-safe fixture-coherence garden capped
 at E2. It binds the exact EID-1 record
 `bootstrap-conditional-solution-space` inside the reviewed EID-1 bytes
-`sha256:ab60dab183c79902f6b76d346c309abab76998cbf30494f122be7530248c1fc5`
+`sha256:a772e0d3bbaae926e52a72257f6d29ab042e4e545acf30207743fd665c4a86a4`
 and the version-pinned primary source
 `https://arxiv.org/abs/2406.02665v2`. EID-1 is a pinned method input; the
 paper's scientific result is not imported or rerun.

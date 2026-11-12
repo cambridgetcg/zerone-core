@@ -3,7 +3,7 @@ export const EXPLICIT_INVARIANT_DISCIPLINE_ENDPOINT =
 export const EXPLICIT_INVARIANT_DISCIPLINE_MAX_BYTES = 262_144;
 export const EXPLICIT_INVARIANT_DISCIPLINE_TIMEOUT_MS = 8_000;
 export const EXPLICIT_INVARIANT_DISCIPLINE_SHA256 =
-  "ab60dab183c79902f6b76d346c309abab76998cbf30494f122be7530248c1fc5";
+  "a772e0d3bbaae926e52a72257f6d29ab042e4e545acf30207743fd665c4a86a4";
 
 const EXPLICIT_INVARIANT_DISCIPLINE_SCHEMA =
   "zerone.explicit-invariant-discipline/v1";
@@ -1593,7 +1593,7 @@ const EXPECTED_SOURCE_BINDINGS = [
   {
     id: "correspondence-geometry",
     path: "dashboard/public/standards/correspondence-geometry.v0.json",
-    rawSha256: "034c51b893b1ae9d87307e8c13b4d7d192e7082407feb69cb4ed8263a2b50393",
+    rawSha256: "08e3d7d8409d66a4807ccad44651a88000fc2ced70c92ae7bfd567b461a1cc48",
   },
   {
     id: "knowledge-methodologies",

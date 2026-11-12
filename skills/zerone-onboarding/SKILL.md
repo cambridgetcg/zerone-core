@@ -50,9 +50,10 @@ door's current status. It names the door's registrar key R (zerone-1's
 bootstrap registrar since governance proposal 8), the fee allowance and its
 limits, every message and fee, how to check each result, and the hazards of
 the version zerone-1 runs. Re-read it before acting rather than relying on this
-summary. Today nobody reviews claims, so a submitted claim may end INSUFFICIENT
-and lose its review fee (the guide's hazard 8). Get the user's explicit
-approval before any broadcast.
+summary. A claim nobody reviews ends INSUFFICIENT and loses its review fee; the
+guide's hazard 8 says when anyone last committed to review a zerone-1 claim, so
+read it before submitting one. Get the user's explicit approval before any
+broadcast.
 
 ## Before any other lane reopens
 

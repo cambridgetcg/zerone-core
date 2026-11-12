@@ -226,7 +226,7 @@
       "connections": [
         {
           "module": "knowledge",
-          "why": "Read facts and review history."
+          "why": "Read manifests, facts, privileged actions and incidents; certificate v2 also reads each included fact's verification round."
         },
         {
           "module": "qualification",

@@ -154,6 +154,138 @@ func (x *QueryInTotoStatementRequest) GetManifestId() string {
 	return ""
 }
 
+type QueryProvenanceCertificateV2Request struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ManifestId    string                 `protobuf:"bytes,1,opt,name=manifest_id,json=manifestId,proto3" json:"manifest_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryProvenanceCertificateV2Request) Reset() {
+	*x = QueryProvenanceCertificateV2Request{}
+	mi := &file_zerone_training_provenance_v1_query_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryProvenanceCertificateV2Request) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryProvenanceCertificateV2Request) ProtoMessage() {}
+
+func (x *QueryProvenanceCertificateV2Request) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_training_provenance_v1_query_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryProvenanceCertificateV2Request.ProtoReflect.Descriptor instead.
+func (*QueryProvenanceCertificateV2Request) Descriptor() ([]byte, []int) {
+	return file_zerone_training_provenance_v1_query_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *QueryProvenanceCertificateV2Request) GetManifestId() string {
+	if x != nil {
+		return x.ManifestId
+	}
+	return ""
+}
+
+type QueryProvenanceCertificateV2Response struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	Certificate   *ProvenanceCertificateV2 `protobuf:"bytes,1,opt,name=certificate,proto3" json:"certificate,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryProvenanceCertificateV2Response) Reset() {
+	*x = QueryProvenanceCertificateV2Response{}
+	mi := &file_zerone_training_provenance_v1_query_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryProvenanceCertificateV2Response) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryProvenanceCertificateV2Response) ProtoMessage() {}
+
+func (x *QueryProvenanceCertificateV2Response) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_training_provenance_v1_query_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryProvenanceCertificateV2Response.ProtoReflect.Descriptor instead.
+func (*QueryProvenanceCertificateV2Response) Descriptor() ([]byte, []int) {
+	return file_zerone_training_provenance_v1_query_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *QueryProvenanceCertificateV2Response) GetCertificate() *ProvenanceCertificateV2 {
+	if x != nil {
+		return x.Certificate
+	}
+	return nil
+}
+
+type QueryInTotoStatementV2Request struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ManifestId    string                 `protobuf:"bytes,1,opt,name=manifest_id,json=manifestId,proto3" json:"manifest_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryInTotoStatementV2Request) Reset() {
+	*x = QueryInTotoStatementV2Request{}
+	mi := &file_zerone_training_provenance_v1_query_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryInTotoStatementV2Request) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryInTotoStatementV2Request) ProtoMessage() {}
+
+func (x *QueryInTotoStatementV2Request) ProtoReflect() protoreflect.Message {
+	mi := &file_zerone_training_provenance_v1_query_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryInTotoStatementV2Request.ProtoReflect.Descriptor instead.
+func (*QueryInTotoStatementV2Request) Descriptor() ([]byte, []int) {
+	return file_zerone_training_provenance_v1_query_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *QueryInTotoStatementV2Request) GetManifestId() string {
+	if x != nil {
+		return x.ManifestId
+	}
+	return ""
+}
+
 var File_zerone_training_provenance_v1_query_proto protoreflect.FileDescriptor
 
 const file_zerone_training_provenance_v1_query_proto_rawDesc = "" +
@@ -166,10 +298,20 @@ const file_zerone_training_provenance_v1_query_proto_rawDesc = "" +
 	"\vcertificate\x18\x01 \x01(\v24.zerone.training_provenance.v1.ProvenanceCertificateR\vcertificate\">\n" +
 	"\x1bQueryInTotoStatementRequest\x12\x1f\n" +
 	"\vmanifest_id\x18\x01 \x01(\tR\n" +
-	"manifestId2\xa8\x03\n" +
+	"manifestId\"F\n" +
+	"#QueryProvenanceCertificateV2Request\x12\x1f\n" +
+	"\vmanifest_id\x18\x01 \x01(\tR\n" +
+	"manifestId\"\x80\x01\n" +
+	"$QueryProvenanceCertificateV2Response\x12X\n" +
+	"\vcertificate\x18\x01 \x01(\v26.zerone.training_provenance.v1.ProvenanceCertificateV2R\vcertificate\"@\n" +
+	"\x1dQueryInTotoStatementV2Request\x12\x1f\n" +
+	"\vmanifest_id\x18\x01 \x01(\tR\n" +
+	"manifestId2\xe4\x06\n" +
 	"\x05Query\x12\xde\x01\n" +
 	"\x15ProvenanceCertificate\x12@.zerone.training_provenance.v1.QueryProvenanceCertificateRequest\x1aA.zerone.training_provenance.v1.QueryProvenanceCertificateResponse\"@\x82\xd3\xe4\x93\x02:\x128/zerone/training_provenance/v1/certificate/{manifest_id}\x12\xbd\x01\n" +
-	"\x0fInTotoStatement\x12:.zerone.training_provenance.v1.QueryInTotoStatementRequest\x1a0.zerone.training_provenance.v1.InTotoStatementV1\"<\x82\xd3\xe4\x93\x026\x124/zerone/training_provenance/v1/in-toto/{manifest_id}B<Z:github.com/zerone-chain/zerone/x/training_provenance/typesb\x06proto3"
+	"\x0fInTotoStatement\x12:.zerone.training_provenance.v1.QueryInTotoStatementRequest\x1a0.zerone.training_provenance.v1.InTotoStatementV1\"<\x82\xd3\xe4\x93\x026\x124/zerone/training_provenance/v1/in-toto/{manifest_id}\x12\xe7\x01\n" +
+	"\x17ProvenanceCertificateV2\x12B.zerone.training_provenance.v1.QueryProvenanceCertificateV2Request\x1aC.zerone.training_provenance.v1.QueryProvenanceCertificateV2Response\"C\x82\xd3\xe4\x93\x02=\x12;/zerone/training_provenance/v1/certificate-v2/{manifest_id}\x12\xcf\x01\n" +
+	"\x11InTotoStatementV2\x12<.zerone.training_provenance.v1.QueryInTotoStatementV2Request\x1a;.zerone.training_provenance.v1.InTotoStatementV1PredicateV2\"?\x82\xd3\xe4\x93\x029\x127/zerone/training_provenance/v1/in-toto-v2/{manifest_id}B<Z:github.com/zerone-chain/zerone/x/training_provenance/typesb\x06proto3"
 
 var (
 	file_zerone_training_provenance_v1_query_proto_rawDescOnce sync.Once
@@ -183,25 +325,35 @@ func file_zerone_training_provenance_v1_query_proto_rawDescGZIP() []byte {
 	return file_zerone_training_provenance_v1_query_proto_rawDescData
 }
 
-var file_zerone_training_provenance_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_zerone_training_provenance_v1_query_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_zerone_training_provenance_v1_query_proto_goTypes = []any{
-	(*QueryProvenanceCertificateRequest)(nil),  // 0: zerone.training_provenance.v1.QueryProvenanceCertificateRequest
-	(*QueryProvenanceCertificateResponse)(nil), // 1: zerone.training_provenance.v1.QueryProvenanceCertificateResponse
-	(*QueryInTotoStatementRequest)(nil),        // 2: zerone.training_provenance.v1.QueryInTotoStatementRequest
-	(*ProvenanceCertificate)(nil),              // 3: zerone.training_provenance.v1.ProvenanceCertificate
-	(*InTotoStatementV1)(nil),                  // 4: zerone.training_provenance.v1.InTotoStatementV1
+	(*QueryProvenanceCertificateRequest)(nil),    // 0: zerone.training_provenance.v1.QueryProvenanceCertificateRequest
+	(*QueryProvenanceCertificateResponse)(nil),   // 1: zerone.training_provenance.v1.QueryProvenanceCertificateResponse
+	(*QueryInTotoStatementRequest)(nil),          // 2: zerone.training_provenance.v1.QueryInTotoStatementRequest
+	(*QueryProvenanceCertificateV2Request)(nil),  // 3: zerone.training_provenance.v1.QueryProvenanceCertificateV2Request
+	(*QueryProvenanceCertificateV2Response)(nil), // 4: zerone.training_provenance.v1.QueryProvenanceCertificateV2Response
+	(*QueryInTotoStatementV2Request)(nil),        // 5: zerone.training_provenance.v1.QueryInTotoStatementV2Request
+	(*ProvenanceCertificate)(nil),                // 6: zerone.training_provenance.v1.ProvenanceCertificate
+	(*ProvenanceCertificateV2)(nil),              // 7: zerone.training_provenance.v1.ProvenanceCertificateV2
+	(*InTotoStatementV1)(nil),                    // 8: zerone.training_provenance.v1.InTotoStatementV1
+	(*InTotoStatementV1PredicateV2)(nil),         // 9: zerone.training_provenance.v1.InTotoStatementV1PredicateV2
 }
 var file_zerone_training_provenance_v1_query_proto_depIdxs = []int32{
-	3, // 0: zerone.training_provenance.v1.QueryProvenanceCertificateResponse.certificate:type_name -> zerone.training_provenance.v1.ProvenanceCertificate
-	0, // 1: zerone.training_provenance.v1.Query.ProvenanceCertificate:input_type -> zerone.training_provenance.v1.QueryProvenanceCertificateRequest
-	2, // 2: zerone.training_provenance.v1.Query.InTotoStatement:input_type -> zerone.training_provenance.v1.QueryInTotoStatementRequest
-	1, // 3: zerone.training_provenance.v1.Query.ProvenanceCertificate:output_type -> zerone.training_provenance.v1.QueryProvenanceCertificateResponse
-	4, // 4: zerone.training_provenance.v1.Query.InTotoStatement:output_type -> zerone.training_provenance.v1.InTotoStatementV1
-	3, // [3:5] is the sub-list for method output_type
-	1, // [1:3] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	6, // 0: zerone.training_provenance.v1.QueryProvenanceCertificateResponse.certificate:type_name -> zerone.training_provenance.v1.ProvenanceCertificate
+	7, // 1: zerone.training_provenance.v1.QueryProvenanceCertificateV2Response.certificate:type_name -> zerone.training_provenance.v1.ProvenanceCertificateV2
+	0, // 2: zerone.training_provenance.v1.Query.ProvenanceCertificate:input_type -> zerone.training_provenance.v1.QueryProvenanceCertificateRequest
+	2, // 3: zerone.training_provenance.v1.Query.InTotoStatement:input_type -> zerone.training_provenance.v1.QueryInTotoStatementRequest
+	3, // 4: zerone.training_provenance.v1.Query.ProvenanceCertificateV2:input_type -> zerone.training_provenance.v1.QueryProvenanceCertificateV2Request
+	5, // 5: zerone.training_provenance.v1.Query.InTotoStatementV2:input_type -> zerone.training_provenance.v1.QueryInTotoStatementV2Request
+	1, // 6: zerone.training_provenance.v1.Query.ProvenanceCertificate:output_type -> zerone.training_provenance.v1.QueryProvenanceCertificateResponse
+	8, // 7: zerone.training_provenance.v1.Query.InTotoStatement:output_type -> zerone.training_provenance.v1.InTotoStatementV1
+	4, // 8: zerone.training_provenance.v1.Query.ProvenanceCertificateV2:output_type -> zerone.training_provenance.v1.QueryProvenanceCertificateV2Response
+	9, // 9: zerone.training_provenance.v1.Query.InTotoStatementV2:output_type -> zerone.training_provenance.v1.InTotoStatementV1PredicateV2
+	6, // [6:10] is the sub-list for method output_type
+	2, // [2:6] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_zerone_training_provenance_v1_query_proto_init() }
@@ -217,7 +369,7 @@ func file_zerone_training_provenance_v1_query_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_zerone_training_provenance_v1_query_proto_rawDesc), len(file_zerone_training_provenance_v1_query_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

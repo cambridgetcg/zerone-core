@@ -10,8 +10,8 @@ The checked-in Swagger 2.0 document is
 [`docs/swagger-ui/swagger.json`](swagger-ui/swagger.json). At this source
 revision it contains:
 
-- 218 REST paths; and
-- 457 schema definitions.
+- 220 REST paths; and
+- 461 schema definitions.
 
 Those counts cover standard Cosmos APIs and the 23 custom Zerone modules.
 Transaction generation separately covers 169 request message types across 20

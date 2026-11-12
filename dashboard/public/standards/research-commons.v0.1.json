@@ -447,7 +447,7 @@
       "status": "PINNED_METHOD_INPUT_NOT_SCIENTIFIC_RESULT_IMPORT",
       "eid_schema": "zerone.explicit-invariant-discipline/v1",
       "eid_path": "dashboard/public/standards/explicit-invariant-discipline.v1.json",
-      "eid_sha256": "ab60dab183c79902f6b76d346c309abab76998cbf30494f122be7530248c1fc5",
+      "eid_sha256": "a772e0d3bbaae926e52a72257f6d29ab042e4e545acf30207743fd665c4a86a4",
       "record_id": "bootstrap-conditional-solution-space",
       "local_test_id": "eid1-conditional-solution-space",
       "assessment": "PROPOSED",
@@ -590,14 +590,14 @@
       "id": "correspondence-geometry-v0",
       "schema": "zerone.correspondence-geometry/v0",
       "path": "dashboard/public/standards/correspondence-geometry.v0.json",
-      "sha256": "034c51b893b1ae9d87307e8c13b4d7d192e7082407feb69cb4ed8263a2b50393",
+      "sha256": "08e3d7d8409d66a4807ccad44651a88000fc2ced70c92ae7bfd567b461a1cc48",
       "relationship": "RELATED_READING_DISCIPLINE_NOT_IMPORTED"
     },
     {
       "id": "explicit-invariant-discipline-v1",
       "schema": "zerone.explicit-invariant-discipline/v1",
       "path": "dashboard/public/standards/explicit-invariant-discipline.v1.json",
-      "sha256": "ab60dab183c79902f6b76d346c309abab76998cbf30494f122be7530248c1fc5",
+      "sha256": "a772e0d3bbaae926e52a72257f6d29ab042e4e545acf30207743fd665c4a86a4",
       "relationship": "PINNED_METHOD_INPUT_WITHOUT_SCIENTIFIC_RESULT_IMPORT"
     }
   ],
