@@ -361,6 +361,18 @@ func TestQ2MarkerFaultBeforeAnyWrite(t *testing.T) {
 
 // Digests pin exact function bodies, including comments, to foundation
 // 6a56b621082064483af1ced7718462766d9ae756 rather than to the candidate.
+//
+// A pinned body can still gain behaviour through the methods it calls on its
+// roundsExecution receiver, which shadow the Keeper methods of the same name.
+// Those reached from the bodies pinned here are:
+//   - RecordSubmissionOutcome (from completeRound and AdvanceRoundPhases) and
+//     RecordChallengeOutcome (from completeRound): calibration smoothing,
+//     agent_calibration.go;
+//   - buildClaimRefundSettlement (from completeRound): the reviewer seat
+//     deposit freezes the round's deposit returns there, seat_deposit.go;
+//   - CompleteRound (from performAggregation): roundsExecution's own entry.
+//
+// Reading a pin as "this behaviour is unchanged" needs that list too.
 func TestQ2LegacyBodiesPinnedToFoundation(t *testing.T) {
 	for _, tc := range []struct{ file, name, digest string }{
 		{"inconclusive_round_accounting_legacy.go", "beginBlockInconclusiveAccountingLegacy", "281c78cecbe99c4fa20fabf93ea3e9d4609b2d399bde542163f7522a47d6071c"},
