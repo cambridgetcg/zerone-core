@@ -77,7 +77,9 @@ func SeatDepositAmount(value string) (uint64, error) {
 // with terms is a policy-1, scheme-2 round that never expires; every seat
 // carries exactly the terms' deposit; and a plan, when present, holds one
 // return per seat in commit order, to the seat's own address, for the seat's
-// own deposit. A completed round with seats always holds its plan.
+// own deposit. Completion validates the round in memory before it freezes
+// the plan, so the rule that a completed round holds its plan is
+// ValidateStoredSeatDeposits', which applies to what is stored or imported.
 func ValidateRoundSeatDeposits(round *VerificationRound) error {
 	if round == nil {
 		return fmt.Errorf("nil verification round")
@@ -115,9 +117,6 @@ func ValidateRoundSeatDeposits(round *VerificationRound) error {
 	}
 	plan := round.SeatDepositReturns
 	if plan == nil {
-		if round.Phase == VerificationPhase_VERIFICATION_PHASE_COMPLETE && len(round.Commits) > 0 {
-			return fmt.Errorf("a completed round with seats must hold its seat deposit returns")
-		}
 		return nil
 	}
 	if len(plan.ProtoReflect().GetUnknown()) != 0 {
@@ -152,6 +151,19 @@ func ValidateRoundSeatDeposits(round *VerificationRound) error {
 	return nil
 }
 
+// ValidateStoredSeatDeposits is ValidateRoundSeatDeposits for a record that is
+// stored or imported: in addition, a completed round with seats holds its
+// returns plan, so no completed round keeps a deposit outside every return.
+func ValidateStoredSeatDeposits(round *VerificationRound) error {
+	if err := ValidateRoundSeatDeposits(round); err != nil {
+		return err
+	}
+	if round.SeatTerms != nil && round.SeatDepositReturns == nil && round.Phase == VerificationPhase_VERIFICATION_PHASE_COMPLETE && len(round.Commits) > 0 {
+		return fmt.Errorf("a completed round with seats must hold its seat deposit returns")
+	}
+	return nil
+}
+
 // ValidateSeatDepositUpdate allows only what a round's life does to its seat
 // deposits: terms are fixed when the round is first stored and never appear,
 // change or disappear afterwards; a returns plan, once frozen, keeps its
@@ -159,7 +171,7 @@ func ValidateRoundSeatDeposits(round *VerificationRound) error {
 // paid, never back and never to another height. Seats themselves are
 // append-only under the scheme-2 rule in SetVerificationRound.
 func ValidateSeatDepositUpdate(before, after *VerificationRound) error {
-	if err := ValidateRoundSeatDeposits(after); err != nil {
+	if err := ValidateStoredSeatDeposits(after); err != nil {
 		return err
 	}
 	if before == nil {
@@ -307,7 +319,7 @@ func ValidateSeatDepositPresence(gs *GenesisState) error {
 			if !gs.SeatDepositEnabled && RoundCarriesSeatDepositFields(round) {
 				return fmt.Errorf("round %s carries seat-deposit fields without seat_deposit_enabled", round.Id)
 			}
-			if err := ValidateRoundSeatDeposits(round); err != nil {
+			if err := ValidateStoredSeatDeposits(round); err != nil {
 				return fmt.Errorf("round %s: %w", round.Id, err)
 			}
 		}

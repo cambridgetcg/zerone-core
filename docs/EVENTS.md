@@ -1384,6 +1384,22 @@ an obligation; it does not establish that a transfer succeeded.
 - `amount_uzrn` -- frozen refundable amount
 - `payment_status` -- `pending`
 
+### zerone.knowledge.seat_deposit_returns_accrued
+A round with seat terms (reviewer-entry step B) froze its plan of deposit
+returns: one return per seat, in commit order, to the address that locked it,
+for the amount it locked, whatever the verdict, the seat's vote or whether it
+revealed. Nothing is forfeited. The plan is frozen once, at completion or,
+for a round that has not completed by then, from its aggregation deadline; a
+later completion keeps that plan and emits this event no second time. The
+returns are obligations here; the pending payment queue pays them, from the
+seat-deposit account only, independently of reviewer pay and refunds.
+
+- `round_id` -- verification round
+- `seats` -- number of returns in the plan
+- `total_uzrn` -- sum of the returns
+- `trigger` -- `completion` or `aggregation_deadline`
+- `payment_status` -- `pending`
+
 ### zerone.knowledge.claim_refunded
 The recorded refund and any reviewer payments have committed together through
 SDK bank transfers. Failure on any leg leaves the entire batch pending and emits

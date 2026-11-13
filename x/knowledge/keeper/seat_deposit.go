@@ -162,3 +162,104 @@ func (k Keeper) requireSeatDepositAccount(ctx context.Context) error {
 	}
 	return nil
 }
+
+// buildClaimRefundSettlement shadows the Keeper method for completeRound,
+// whose body is pinned to its foundation (TestQ2LegacyBodiesPinnedToFoundation)
+// and calls it on roundsExecution once per completion, inside the
+// completion's cache, after the verdict, phase and verdict block are set and
+// beside the reviewer payment plan. It builds the refund exactly as before,
+// then freezes the round's seat-deposit returns (D4, D5). A round without
+// seat terms reads nothing more. The accrued event joins the completion's
+// cache, so it is emitted only if the completion is written.
+func (k roundsExecution) buildClaimRefundSettlement(ctx context.Context, claim *types.Claim, round *types.VerificationRound, result *VerificationResult) error {
+	if err := k.Keeper.buildClaimRefundSettlement(ctx, claim, round, result); err != nil {
+		return err
+	}
+	frozen, err := k.freezeSeatDepositReturns(round, round.VerdictBlock)
+	if err != nil {
+		return err
+	}
+	if frozen {
+		emitSeatDepositReturnsAccrued(sdk.UnwrapSDKContext(ctx), round, "completion")
+	}
+	return nil
+}
+
+// freezeSeatDepositReturns freezes a round's deposit returns (D4, D5): one
+// return per seat, in commit order, to the address that locked it, for the
+// amount it locked, whatever the verdict, the seat's vote or whether it
+// revealed. Nothing is forfeited. It reports whether it froze a plan. A round
+// without seat terms reads nothing; a plan already frozen (at the aggregation
+// deadline) is kept; a round with no seat freezes none.
+func (k roundsExecution) freezeSeatDepositReturns(round *types.VerificationRound, height uint64) (bool, error) {
+	if round.SeatTerms == nil {
+		return false, nil
+	}
+	if !k.seatDeposit {
+		return false, fmt.Errorf("round %s has seat terms but the seat-deposit activation is off", round.Id)
+	}
+	if round.SeatDepositReturns != nil || len(round.Commits) == 0 {
+		return false, nil
+	}
+	round.SeatDepositReturns = types.BuildSeatDepositReturns(round, height)
+	return true, nil
+}
+
+// freezeOverdueSeatDepositReturns is the aggregation-deadline fallback (D4):
+// a policy-1 round whose completion keeps failing stays open and is retried,
+// so from its aggregation deadline its seats' returns are frozen anyway and
+// the pending queue pays them. Completion later keeps that plan. Each round
+// is frozen in its own cache; a failure is logged and leaves that round to
+// the next block, and never fails the block.
+//
+// The limit: a round whose own record, or whose claim record, cannot be read
+// or written holds its deposits until that is repaired, since the freeze
+// writes the round through SetVerificationRound like completion does.
+func (k roundsExecution) freezeOverdueSeatDepositReturns(ctx context.Context) error {
+	if !k.seatDeposit {
+		return nil
+	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	height := uint64(sdkCtx.BlockHeight())
+	var overdue []*types.VerificationRound
+	k.IterateActiveRounds(ctx, func(round *types.VerificationRound) bool {
+		if round.SeatTerms != nil && round.SeatDepositReturns == nil && len(round.Commits) > 0 && height >= round.AggregationDeadline {
+			overdue = append(overdue, round)
+		}
+		return false
+	})
+	for _, round := range overdue {
+		cache, write := sdkCtx.CacheContext()
+		frozen, err := k.freezeSeatDepositReturns(round, height)
+		if err == nil && frozen {
+			err = k.SetVerificationRound(cache, round)
+		}
+		if err != nil {
+			k.Logger(ctx).Error("seat deposit returns remain unfrozen", "round_id", round.Id, "error", err)
+			continue
+		}
+		if frozen {
+			emitSeatDepositReturnsAccrued(cache, round, "aggregation_deadline")
+			write()
+		}
+	}
+	return nil
+}
+
+// emitSeatDepositReturnsAccrued records a frozen returns plan. The returns are
+// an obligation here; seat_deposit_returned records each transfer.
+func emitSeatDepositReturnsAccrued(ctx sdk.Context, round *types.VerificationRound, trigger string) {
+	// The plan was validated before it was stored, so the total parses; a
+	// total that does not is reported as such, never as a number.
+	totalText := "unreadable"
+	if total, err := types.SeatDepositReturnTotal(round.SeatDepositReturns); err == nil {
+		totalText = total.String()
+	}
+	ctx.EventManager().EmitEvent(sdk.NewEvent("zerone.knowledge.seat_deposit_returns_accrued",
+		sdk.NewAttribute("round_id", round.Id),
+		sdk.NewAttribute("seats", strconv.Itoa(len(round.SeatDepositReturns.GetReturns()))),
+		sdk.NewAttribute("total_uzrn", totalText),
+		sdk.NewAttribute("trigger", trigger),
+		sdk.NewAttribute("payment_status", "pending"),
+	))
+}

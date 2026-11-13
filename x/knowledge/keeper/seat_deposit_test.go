@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -218,4 +219,76 @@ func TestSeatDepositPolicyZeroRoundKeepsBalanceCheck(t *testing.T) {
 	for _, call := range f.bank.sendCalls {
 		require.NotEqual(t, types.SeatDepositModuleName, call.to, fmt.Sprintf("no seat deposit in a policy-0 round: %v", call))
 	}
+}
+
+// seatPanel seats reviewers in round, each committing to its vote; a vote of
+// "" commits to accept and never reveals. It moves to the reveal window,
+// reveals, and leaves the fixture at the reveal deadline before BeginBlock.
+func (f *seatFixture) seatPanel(t *testing.T, round *types.VerificationRound, tag string, votes ...string) []string {
+	t.Helper()
+	reviewers := make([]string, len(votes))
+	for i, vote := range votes {
+		if vote == "" {
+			vote = "accept"
+		}
+		reviewers[i] = f.reviewer(fmt.Sprintf("seat-%s-%d", tag, i), 100_000_000)
+		require.NoError(t, f.commit(t, round, reviewers[i], vote))
+	}
+	f.height(int64(round.CommitDeadline))
+	f.beginBlock(t)
+	for i, vote := range votes {
+		if vote != "" {
+			f.reveal(t, round, reviewers[i], vote)
+		}
+	}
+	f.height(int64(round.RevealDeadline))
+	return reviewers
+}
+
+func eventsOf(ctx sdk.Context, kind string) []sdk.Event {
+	var out []sdk.Event
+	for _, event := range ctx.EventManager().Events() {
+		if event.Type == kind {
+			out = append(out, event)
+		}
+	}
+	return out
+}
+
+func eventAttribute(event sdk.Event, key string) string {
+	for _, attr := range event.Attributes {
+		if attr.Key == key {
+			return attr.Value
+		}
+	}
+	return ""
+}
+
+// D4, D5: completion freezes one return per seat, in commit order, to the
+// address that locked it, for the amount it locked, whatever the verdict and
+// vote and whether the seat revealed.
+func TestSeatDepositReturnsFrozenAtCompletion(t *testing.T) {
+	f := newSeatFixture(t, nil)
+	round := f.claim(t, "frozen")
+	reviewers := f.seatPanel(t, round, "frozen", "accept", "reject", "accept", "")
+	f.ctx = f.ctx.WithEventManager(sdk.NewEventManager())
+	f.beginBlock(t)
+	done := f.round(t, round.Id)
+	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_COMPLETE, done.Phase)
+	plan := done.SeatDepositReturns
+	require.NotNil(t, plan)
+	require.Equal(t, done.VerdictBlock, plan.CreatedAtBlock)
+	require.Len(t, plan.Returns, len(reviewers))
+	for i, ret := range plan.Returns {
+		require.Equal(t, reviewers[i], ret.Recipient)
+		require.Equal(t, "100000000", ret.Amount)
+	}
+	accrued := eventsOf(f.ctx, "zerone.knowledge.seat_deposit_returns_accrued")
+	require.Len(t, accrued, 1)
+	require.Equal(t, "completion", eventAttribute(accrued[0], "trigger"))
+	require.Equal(t, "4", eventAttribute(accrued[0], "seats"))
+	require.Equal(t, "400000000", eventAttribute(accrued[0], "total_uzrn"))
+	held, err := types.SeatDepositsHeld(done)
+	require.NoError(t, err)
+	require.Equal(t, f.bank.custody(), held.Int64())
 }

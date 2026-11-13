@@ -82,10 +82,6 @@ func TestSeatDepositDecodedRoundRules(t *testing.T) {
 			r.SeatDepositReturns = types.BuildSeatDepositReturns(r, 40)
 			r.SeatDepositReturns.Returns[0].PaidAtBlock = 39
 		},
-		"completed without a plan": func(r *types.VerificationRound) {
-			r.Phase = types.VerificationPhase_VERIFICATION_PHASE_COMPLETE
-			r.VerdictBlock = 30
-		},
 		"completed plan from another height": func(r *types.VerificationRound) {
 			r.Phase = types.VerificationPhase_VERIFICATION_PHASE_COMPLETE
 			r.VerdictBlock = 30
@@ -99,6 +95,17 @@ func TestSeatDepositDecodedRoundRules(t *testing.T) {
 			require.Error(t, types.ValidateVerificationRoundRecord(r, true))
 		})
 	}
+
+	t.Run("completed without a plan", func(t *testing.T) {
+		r := seatRound(t, 2, "100")
+		r.Phase = types.VerificationPhase_VERIFICATION_PHASE_COMPLETE
+		r.VerdictBlock = 30
+		// Completion validates the round in memory before it freezes the
+		// plan; what is stored or imported must hold it.
+		require.NoError(t, types.ValidateVerificationRoundRecord(r, true))
+		require.ErrorContains(t, types.ValidateStoredSeatDeposits(r), "must hold its seat deposit returns")
+		require.Error(t, types.ValidateSeatDepositUpdate(nil, r))
+	})
 
 	t.Run("valid shapes", func(t *testing.T) {
 		require.NoError(t, types.ValidateVerificationRoundRecord(seatRound(t, 0, "1"), true), "terms with no seat")
