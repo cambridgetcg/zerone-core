@@ -476,3 +476,36 @@ func TestSeatDepositExportRefusesFieldsWithMarkerOff(t *testing.T) {
 	f.ctx.KVStore(f.key).Delete(types.SeatDepositEnabledKey)
 	require.PanicsWithError(t, "export seat deposits: round "+round.Id+" carries seat-deposit fields without seat_deposit_enabled", func() { f.k.ExportGenesis(f.ctx) })
 }
+
+// D2: one balance cannot hold two seats at once. A reviewer holding exactly
+// one deposit seats itself in one open round and is refused in a second,
+// and nothing moves for the refusal; once the first round returns the
+// deposit, the same balance can seat again in a round still open.
+func TestSeatDepositOneBalanceCannotHoldTwoSeats(t *testing.T) {
+	f := newSeatFixture(t, nil)
+	first := f.claim(t, "two-a")
+	reviewer := f.reviewer("seat-two-seats", 100_000_000)
+	require.NoError(t, f.commit(t, first, reviewer, "accept"))
+	f.height(101)
+	second := f.claim(t, "two-b")
+	require.ErrorIs(t, f.commit(t, second, reviewer, "accept"), types.ErrSeatDepositRequired)
+	require.Empty(t, f.round(t, second.Id).Commits)
+	require.Equal(t, int64(100_000_000), f.bank.custody())
+	require.Zero(t, f.bank.balance(reviewer))
+
+	others := []string{f.reviewer("seat-two-other-1", 100_000_000), f.reviewer("seat-two-other-2", 100_000_000)}
+	for _, other := range others {
+		require.NoError(t, f.commit(t, first, other, "accept"))
+	}
+	f.height(int64(first.CommitDeadline))
+	f.beginBlock(t)
+	for _, r := range append([]string{reviewer}, others...) {
+		f.reveal(t, first, r, "accept")
+	}
+	f.nextBlock(t) // all revealed: the first round completes and freezes its returns
+	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_COMPLETE, f.round(t, first.Id).Phase)
+	f.nextBlock(t) // the queue returns the deposits
+	require.Equal(t, int64(100_000_000), f.bank.balance(reviewer))
+	third := f.claim(t, "two-c")
+	require.NoError(t, f.commit(t, third, reviewer, "accept"), "the returned deposit seats again")
+}
