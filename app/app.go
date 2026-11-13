@@ -320,6 +320,7 @@ var (
 		zeroneknowledgetypes.TrainingFundModuleName:      {authtypes.Minter},                   // knowledge_training_fund: Wave 4 augmentation escrow + post-hoc disbursements + vesting
 		zeroneknowledgetypes.ProbeBountyPoolModuleName:   {authtypes.Minter},                   // knowledge_probe_bounty_pool: Wave 15 per-block-minted probe rewards
 		zeroneknowledgetypes.VindicationEscrowModuleName: nil,                                  // vindication_escrow: holds minority slashes until vindication or expiry
+		zeroneknowledgetypes.SeatDepositModuleName:       nil,                                  // knowledge_seat_deposits: holds reviewer seat deposits and nothing else, all returned
 		zeronetokenstypes.ModuleName:                     {authtypes.Minter, authtypes.Burner}, // tokens: mint/burn for wrap/unwrap + emissions
 		zeronelptypes.ModuleName:                         {authtypes.Minter, authtypes.Burner}, // liquiditypool: mint/burn LP tokens
 		zeronegovtypes.ModuleName:                        nil,                                  // gov: receive stake deposits
@@ -1133,6 +1134,9 @@ func newZeroneApp(
 	// Wire zerone auth into knowledge for role bonuses (R28-5).
 	knowledgeAuthAdapter := zeroneauthkeeper.NewKnowledgeAuthAdapter(app.ZeroneAuthKeeper)
 	app.KnowledgeKeeper.SetZeroneAuthKeeper(knowledgeAuthAdapter)
+	// Seat deposits read the SDK account at their module address before the
+	// first transfer (x/knowledge/keeper/seat_deposit.go).
+	app.KnowledgeKeeper.SetAccountKeeper(app.AccountKeeper)
 
 	// R31-3: Wire alignment health signal into governance for expedited voting.
 	app.ZeroneGovKeeper.SetAlignmentKeeper(&app.AlignmentKeeper)
