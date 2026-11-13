@@ -2,10 +2,18 @@ package app
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
 	"cosmossdk.io/core/header"
+	"cosmossdk.io/log"
+	abci "github.com/cometbft/cometbft/abci/types"
+	cmtproto "github.com/cometbft/cometbft/proto/tendermint/types"
+	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/cosmos-sdk/baseapp"
+	simtestutil "github.com/cosmos/cosmos-sdk/testutil/sims"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
@@ -29,6 +37,7 @@ const seatTrialChainID = "seat-deposit-bank-test"
 // genesis with the seat-deposit marker on or off.
 type seatTrial struct {
 	app   *ZeroneApp
+	db    dbm.DB
 	ctx   sdk.Context
 	claim *knowledgetypes.Claim
 	round *knowledgetypes.VerificationRound
@@ -36,6 +45,8 @@ type seatTrial struct {
 	// seats lists each reviewer that committed, in commit order, with the
 	// vote it committed to.
 	seats []seatTrialSeat
+	// admitted lists the accounts admit wrote to zerone_auth.
+	admitted []sdk.AccAddress
 }
 
 type seatTrialSeat struct {
@@ -52,7 +63,7 @@ var seatTrialAttestation = &knowledgetypes.ReviewAttestation{Reason: "Synthetic 
 // the params store, as governance would). The windows are two blocks each.
 func newSeatTrial(t *testing.T, route string, seat bool, figure string) *seatTrial {
 	t.Helper()
-	app, ctx, _ := newAccountingAuthorityFixture(t)
+	app, ctx, db := newAccountingAuthorityFixture(t)
 	ctx = ctx.WithBlockHeight(100).WithChainID(seatTrialChainID).WithHeaderInfo(header.Info{Height: 100, ChainID: seatTrialChainID})
 	if seat {
 		require.NoError(t, app.KnowledgeKeeper.EnableSeatDeposit(ctx))
@@ -66,7 +77,7 @@ func newSeatTrial(t *testing.T, route string, seat bool, figure string) *seatTri
 	params.VerificationReward = "0"
 	params.MinReviewerBalance = figure
 	require.NoError(t, app.KnowledgeKeeper.SetParams(ctx, params))
-	tr := &seatTrial{app: app, ctx: ctx, payer: settlementAddress(150)}
+	tr := &seatTrial{app: app, db: db, ctx: ctx, payer: settlementAddress(150)}
 	tr.fund(t, tr.payer, 10_000)
 	target := &knowledgetypes.Fact{Id: "seat-test-target", Domain: "physics", Category: "empirical", Content: "A scoped synthetic target observation.", Submitter: settlementAddress(151).String(), Status: knowledgetypes.FactStatus_FACT_STATUS_ACTIVE}
 	if route == "provisional" {
@@ -193,6 +204,7 @@ func TestSeatDepositTermsRequireTheParameterMarker(t *testing.T) {
 func (tr *seatTrial) admit(t *testing.T, address sdk.AccAddress, flags *zeroneauthtypes.AccountFlags) {
 	t.Helper()
 	tr.app.ZeroneAuthKeeper.SetAccount(tr.ctx, &zeroneauthtypes.Account{Address: address.String(), AccountType: "agent", Flags: flags})
+	tr.admitted = append(tr.admitted, address)
 }
 
 // reviewer is a registered, funded account that may review.
@@ -499,4 +511,188 @@ func TestSeatDepositEveryOutcomeReturnsEveryDepositOnce(t *testing.T) {
 			})
 		}
 	}
+}
+
+// seatCustodyTrial is a round with three 1,000 uzrn seats committed, one each
+// from reviewers holding 100,000 uzrn, on a chain with seat deposits on.
+func seatCustodyTrial(t *testing.T) *seatTrial {
+	t.Helper()
+	tr := newSeatTrial(t, "ordinary", true, "1000")
+	for i := byte(0); i < 3; i++ {
+		require.NoError(t, tr.commit(t, tr.reviewer(t, 200+i, 100_000), "accept"))
+	}
+	require.Equal(t, int64(3000), tr.custody())
+	return tr
+}
+
+// moveCustody moves amount uzrn out of (negative) or into (positive) the
+// seat-deposit account through the bootstrap fund. It is a test-only
+// movement that stands in for a shortfall or a stray coin, neither of which
+// any message can produce.
+func (tr *seatTrial) moveCustody(t *testing.T, amount int64) {
+	t.Helper()
+	bank := tr.app.BankKeeper
+	if amount < 0 {
+		coins := sdk.NewCoins(sdk.NewInt64Coin("uzrn", -amount))
+		require.NoError(t, bank.SendCoinsFromModuleToModule(tr.ctx, knowledgetypes.SeatDepositModuleName, knowledgetypes.BootstrapFundModuleName, coins))
+		return
+	}
+	coins := sdk.NewCoins(sdk.NewInt64Coin("uzrn", amount))
+	require.NoError(t, bank.MintCoins(tr.ctx, knowledgetypes.BootstrapFundModuleName, coins))
+	require.NoError(t, bank.SendCoinsFromModuleToModule(tr.ctx, knowledgetypes.BootstrapFundModuleName, knowledgetypes.SeatDepositModuleName, coins))
+}
+
+// exportImport exports every module's genesis from the trial's state and
+// imports it with InitChain into a fresh application. On success it returns
+// a trial on the imported chain, at the same height, with the same seats.
+func (tr *seatTrial) exportImport(t *testing.T, logger log.Logger) (*seatTrial, error) {
+	t.Helper()
+	// admit writes a bare zerone_auth record (no DID or identity key), which
+	// the auth export rightly refuses; registration is not what D6 carries,
+	// so the export is taken from a cache without those records. Reveals and
+	// returns on the imported chain need no registration.
+	exportCtx, _ := tr.ctx.CacheContext()
+	for _, address := range tr.admitted {
+		exportCtx.KVStore(tr.app.keys[zeroneauthtypes.StoreKey]).Delete(zeroneauthtypes.AccountKey(address.String()))
+	}
+	exported, err := tr.app.ModuleManager.ExportGenesisForModules(exportCtx, tr.app.AppCodec(), nil)
+	require.NoError(t, err)
+	var knowledge knowledgetypes.GenesisState
+	require.NoError(t, tr.app.AppCodec().UnmarshalJSON(exported[knowledgetypes.ModuleName], &knowledge))
+	require.True(t, knowledge.SeatDepositEnabled, "the export carries the marker")
+	raw, err := json.Marshal(exported)
+	require.NoError(t, err)
+	fresh := NewZeroneApp(logger, dbm.NewMemDB(), nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(seatTrialChainID))
+	ctx := fresh.NewUncachedContext(false, cmtproto.Header{ChainID: seatTrialChainID})
+	// The module manager panics when a module's InitGenesis refuses; a
+	// refused import is returned here as that error.
+	err = func() (err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("%v", r)
+			}
+		}()
+		_, err = fresh.InitChainer(ctx, &abci.RequestInitChain{ChainId: seatTrialChainID, AppStateBytes: raw})
+		return err
+	}()
+	if err != nil {
+		return nil, err
+	}
+	h := tr.ctx.BlockHeight()
+	imported := &seatTrial{app: fresh, ctx: ctx.WithBlockHeight(h).WithHeaderInfo(header.Info{Height: h, ChainID: seatTrialChainID}).WithEventManager(sdk.NewEventManager()), claim: tr.claim, round: tr.round, payer: tr.payer, seats: tr.seats}
+	return imported, nil
+}
+
+// D6: the account balance covers locked deposits across export and import,
+// at every stage of a round: seats locked, returns frozen and unpaid, and
+// returns partly paid. Import rebuilds the payment queue from the round
+// records, and afterwards every deposit comes back exactly once.
+func TestSeatDepositCustodyAcrossExportImport(t *testing.T) {
+	for _, stage := range []string{"seats-locked", "returns-frozen", "returns-partly-paid"} {
+		t.Run(stage, func(t *testing.T) {
+			tr := seatCustodyTrial(t)
+			paidBefore := 0
+			if stage != "seats-locked" {
+				tr.beginBlock(t, 102)
+				tr.revealAll(t)
+				tr.beginBlock(t, 103)
+				require.NotNil(t, tr.stored(t).SeatDepositReturns)
+			}
+			if stage == "returns-partly-paid" {
+				// One deposit short: the first two returns are paid, the
+				// third stays pending, and the block does not fail.
+				tr.moveCustody(t, -1000)
+				tr.beginBlock(t, 104)
+				plan := tr.stored(t).SeatDepositReturns
+				require.NotZero(t, plan.Returns[0].PaidAtBlock)
+				require.NotZero(t, plan.Returns[1].PaidAtBlock)
+				require.Zero(t, plan.Returns[2].PaidAtBlock)
+				require.Error(t, tr.app.KnowledgeKeeper.ValidateSeatDepositCustody(tr.ctx), "a shortfall is visible")
+				tr.moveCustody(t, 1000)
+				paidBefore = 2
+			}
+			require.NoError(t, tr.app.KnowledgeKeeper.ValidateSeatDepositCustody(tr.ctx))
+			before := tr.stored(t)
+			custody := tr.custody()
+
+			imported, err := tr.exportImport(t, log.NewNopLogger())
+			require.NoError(t, err)
+			require.Equal(t, custody, imported.custody())
+			require.Equal(t, before.String(), imported.stored(t).String(), "the round, its seats and its returns travel exactly")
+			require.NoError(t, imported.app.KnowledgeKeeper.ValidateSeatDepositCustody(imported.ctx))
+
+			h := imported.ctx.BlockHeight()
+			if stage == "seats-locked" {
+				imported.beginBlock(t, 102)
+				imported.revealAll(t)
+				imported.beginBlock(t, 103)
+				h = 103
+			}
+			imported.beginBlock(t, h+1)
+			imported.beginBlock(t, h+2)
+			require.Zero(t, imported.custody())
+			require.Equal(t, 3-paidBefore, countEvents(imported.ctx, "zerone.knowledge.seat_deposit_returned"), "each return is paid once, across the import")
+			for _, seat := range imported.seats {
+				require.Equal(t, int64(100_000+55/3)+map[bool]int64{true: 55 % 3}[seat.address.Equals(imported.seats[0].address)], imported.balance(seat.address))
+			}
+		})
+	}
+}
+
+// D6: import refuses a state whose seat-deposit account holds less than the
+// locked, unreturned deposits, before any knowledge write. At run time the
+// same shortfall is not a halt: blocks go on and the returns it cannot cover
+// stay pending.
+func TestSeatDepositImportRefusesShortfall(t *testing.T) {
+	tr := seatCustodyTrial(t)
+	tr.moveCustody(t, -1)
+	_, err := tr.exportImport(t, log.NewNopLogger())
+	require.ErrorContains(t, err, "less than the 3000 uzrn of locked, unreturned deposits")
+
+	tr.beginBlock(t, 102)
+	tr.revealAll(t)
+	tr.beginBlock(t, 103)
+	tr.beginBlock(t, 104)
+	tr.beginBlock(t, 105)
+	plan := tr.stored(t).SeatDepositReturns
+	require.NotZero(t, plan.Returns[0].PaidAtBlock)
+	require.NotZero(t, plan.Returns[1].PaidAtBlock)
+	require.Zero(t, plan.Returns[2].PaidAtBlock, "the return the account cannot cover stays pending")
+	require.Equal(t, int64(999), tr.custody())
+}
+
+// D6: a surplus in the seat-deposit account does not block an import. It is
+// reported in the node log and not swept.
+func TestSeatDepositImportReportsSurplusWithoutSweeping(t *testing.T) {
+	tr := seatCustodyTrial(t)
+	tr.moveCustody(t, 7)
+	var logs bytes.Buffer
+	imported, err := tr.exportImport(t, log.NewLogger(&logs, log.ColorOption(false)))
+	require.NoError(t, err)
+	require.Equal(t, int64(3007), imported.custody())
+	require.Contains(t, logs.String(), "seat-deposit account surplus at import, reported and not swept")
+	require.Contains(t, logs.String(), "surplus_uzrn=7")
+}
+
+// D6: the account balance covers locked deposits across a restart on the
+// same database, and the round goes on to return every deposit.
+func TestSeatDepositCustodyAcrossRestart(t *testing.T) {
+	tr := seatCustodyTrial(t)
+	before := tr.stored(t)
+	tr.app.CommitMultiStore().Commit()
+	reopened := NewZeroneApp(log.NewNopLogger(), tr.db, nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(seatTrialChainID))
+	ctx := reopened.NewUncachedContext(false, cmtproto.Header{ChainID: seatTrialChainID})
+	restarted := &seatTrial{app: reopened, ctx: ctx.WithBlockHeight(100).WithHeaderInfo(header.Info{Height: 100, ChainID: seatTrialChainID}).WithEventManager(sdk.NewEventManager()), round: tr.round, seats: tr.seats}
+	require.Equal(t, int64(3000), restarted.custody())
+	require.Equal(t, before.String(), restarted.stored(t).String())
+	enabled, err := reopened.KnowledgeKeeper.SeatDepositEnabled(restarted.ctx)
+	require.NoError(t, err)
+	require.True(t, enabled)
+	require.NoError(t, reopened.KnowledgeKeeper.ValidateSeatDepositCustody(restarted.ctx))
+	restarted.beginBlock(t, 102)
+	restarted.revealAll(t)
+	restarted.beginBlock(t, 103)
+	restarted.beginBlock(t, 104)
+	require.Zero(t, restarted.custody())
+	require.Equal(t, 3, countEvents(restarted.ctx, "zerone.knowledge.seat_deposit_returned"))
 }

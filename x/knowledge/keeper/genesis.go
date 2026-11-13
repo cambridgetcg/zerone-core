@@ -26,6 +26,11 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	if err := types.ValidateSeatDepositGenesis(gs); err != nil {
 		return err
 	}
+	// And the seat-deposit custody against the imported bank balance (D6),
+	// also before either path writes. Bank genesis precedes knowledge.
+	if err := k.validateSeatDepositGenesisCustody(ctx, gs); err != nil {
+		return err
+	}
 	if gs.AccountingState == nil {
 		if err := k.initGenesisLegacy(ctx, gs); err != nil {
 			return err
@@ -60,6 +65,15 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	gs := k.exportGenesisLegacy(ctx)
 	k.exportGenesisV3Markers(ctx, gs)
+	// Rounds carry their seat terms, deposits and returns inside their
+	// records, so an export carries them exactly. It never writes a file that
+	// its own import would refuse for a seat-deposit field: no such field
+	// without the marker, and every stored round consistent. The predecessor
+	// rule is left to import, so an export reflects whatever markers a chain
+	// or test selected.
+	if err := types.ValidateSeatDepositPresence(gs); err != nil {
+		panic(fmt.Errorf("export seat deposits: %w", err))
+	}
 	if err := k.exportGenesisAccounting(ctx, gs); err != nil {
 		// There is no error result in the module's export interface. Accounting
 		// inconsistencies are not activation-marker faults; existing marker

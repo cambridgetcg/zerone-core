@@ -451,3 +451,81 @@ func (k Keeper) settleSeatDepositReturns(ctx context.Context, roundID string) er
 	write()
 	return errors.Join(failures...)
 }
+
+// SeatDepositCustody returns what the seat-deposit account owes, the sum of
+// locked and unreturned deposits over every stored round, and what it holds,
+// its uzrn bank balance (D6).
+func (k Keeper) SeatDepositCustody(ctx context.Context) (owed, held sdkmath.Int, err error) {
+	if k.bankKeeper == nil {
+		return sdkmath.Int{}, sdkmath.Int{}, fmt.Errorf("seat-deposit custody requires the bank keeper")
+	}
+	rounds, err := k.GetAllVerificationRoundsChecked(ctx)
+	if err != nil {
+		return sdkmath.Int{}, sdkmath.Int{}, err
+	}
+	owed = sdkmath.ZeroInt()
+	for _, round := range rounds {
+		amount, err := types.SeatDepositsHeld(round)
+		if err != nil {
+			return sdkmath.Int{}, sdkmath.Int{}, err
+		}
+		owed = owed.Add(amount)
+	}
+	held = k.bankKeeper.GetBalance(ctx, authtypes.NewModuleAddress(types.SeatDepositModuleName), "uzrn").Amount
+	return owed, held, nil
+}
+
+// ValidateSeatDepositCustody refuses state where the seat-deposit account
+// holds less than the locked, unreturned deposits it owes (D6). A surplus is
+// allowed: it is reported, never swept. Tests use it; a future carrier that
+// activates seat deposits in place must run it. It is not a condition that
+// halts a chain: at run time a shortfall only makes a return fail, which is
+// logged and retried.
+func (k Keeper) ValidateSeatDepositCustody(ctx context.Context) error {
+	owed, held, err := k.SeatDepositCustody(ctx)
+	if err != nil {
+		return err
+	}
+	if held.LT(owed) {
+		return fmt.Errorf("seat-deposit account holds %s uzrn, less than the %s uzrn of locked, unreturned deposits", held, owed)
+	}
+	return nil
+}
+
+// validateSeatDepositGenesisCustody is D6 at import. With the marker off
+// nothing is read (ValidateSeatDepositGenesis has already refused any seat
+// field). With it on, before either import path writes: an account at the
+// seat-deposit address must be its module account, and the imported bank
+// balance must cover every locked, unreturned deposit the file carries. A
+// shortfall refuses the import. A surplus, such as a coin sent before this
+// binary blocked the address, is logged and not swept; InitChain discards
+// events, so the node log is the import's record.
+func (k Keeper) validateSeatDepositGenesisCustody(ctx context.Context, gs *types.GenesisState) error {
+	if gs == nil || !gs.SeatDepositEnabled {
+		return nil
+	}
+	if k.accountKeeper != nil {
+		if err := k.requireSeatDepositAccount(ctx); err != nil {
+			return err
+		}
+	}
+	owed, err := types.SeatDepositsHeldInGenesis(gs)
+	if err != nil {
+		return err
+	}
+	if k.bankKeeper == nil {
+		if owed.IsPositive() {
+			return fmt.Errorf("seat deposits in genesis require the bank keeper")
+		}
+		return nil
+	}
+	held := k.bankKeeper.GetBalance(ctx, authtypes.NewModuleAddress(types.SeatDepositModuleName), "uzrn").Amount
+	if held.LT(owed) {
+		return fmt.Errorf("genesis seat-deposit account holds %s uzrn, less than the %s uzrn of locked, unreturned deposits", held, owed)
+	}
+	if held.GT(owed) {
+		k.Logger(ctx).Info("seat-deposit account surplus at import, reported and not swept",
+			"held_uzrn", held.String(), "owed_uzrn", owed.String(), "surplus_uzrn", held.Sub(owed).String())
+	}
+	return nil
+}

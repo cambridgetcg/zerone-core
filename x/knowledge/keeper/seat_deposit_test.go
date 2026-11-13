@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -430,4 +431,48 @@ func TestSeatDepositRoundCannotBeDeleted(t *testing.T) {
 	require.Nil(t, claim.FundingTerms)
 	require.ErrorContains(t, f.k.DeleteVerificationRound(f.ctx, round.Id), "a round with seat terms and its deposit history must be retained")
 	f.round(t, round.Id)
+}
+
+// D6 at import: with the marker on, a non-module account at the
+// seat-deposit address is refused before any write, as is a bank balance
+// below the deposits a file carries.
+func TestSeatDepositImportRefusesSquattedAddressAndShortfall(t *testing.T) {
+	gs := types.DefaultGenesis()
+	gs.SeatDepositEnabled = true
+	squatted := newKnowledgeStoreFixture(t, "seat-import-squat")
+	squatted.k.SetAccountKeeper(&seatAccounts{accounts: map[string]sdk.AccountI{
+		seatModuleAddress().String(): authtypes.NewBaseAccountWithAddress(seatModuleAddress()),
+	}})
+	require.ErrorContains(t, squatted.k.InitGenesis(squatted.ctx, gs), "not its module account")
+	gs.SeatDepositEnabled = false
+	require.NoError(t, squatted.k.InitGenesis(squatted.ctx, gs), "with the marker off the address is not read")
+
+	f := newSeatFixture(t, nil)
+	round := f.claim(t, "import-shortfall")
+	reviewer := f.reviewer("seat-import-short", 100_000_000)
+	require.NoError(t, f.commit(t, round, reviewer, "accept"))
+	exported := f.k.ExportGenesis(f.ctx)
+	require.True(t, exported.SeatDepositEnabled)
+	target := newKnowledgeStoreFixture(t, "seat-import-short")
+	target.k.SetAccountKeeper(&seatAccounts{accounts: map[string]sdk.AccountI{}})
+	require.ErrorContains(t, target.k.InitGenesis(target.ctx, exported), "less than the 100000000 uzrn of locked, unreturned deposits")
+	it := target.ctx.KVStore(target.key).Iterator(nil, nil)
+	defer it.Close()
+	require.False(t, it.Valid(), "a refused import writes nothing")
+	owed, held, err := f.k.SeatDepositCustody(f.ctx)
+	require.NoError(t, err)
+	require.Equal(t, int64(100_000_000), owed.Int64())
+	require.Equal(t, int64(100_000_000), held.Int64())
+	require.NoError(t, f.k.ValidateSeatDepositCustody(f.ctx))
+}
+
+// Export never writes a file its own import refuses for a seat-deposit
+// field: a round carrying one in a store whose marker is off (state no
+// message or genesis can produce) panics the export.
+func TestSeatDepositExportRefusesFieldsWithMarkerOff(t *testing.T) {
+	f := newSeatFixture(t, nil)
+	round := f.claim(t, "export-off")
+	require.NotNil(t, round.SeatTerms)
+	f.ctx.KVStore(f.key).Delete(types.SeatDepositEnabledKey)
+	require.PanicsWithError(t, "export seat deposits: round "+round.Id+" carries seat-deposit fields without seat_deposit_enabled", func() { f.k.ExportGenesis(f.ctx) })
 }
