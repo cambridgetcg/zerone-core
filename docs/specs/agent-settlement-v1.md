@@ -263,9 +263,14 @@ Part A therefore offers none of these. They are the reason for Part B.
 
 ### 4.6 Cautions for `zerone-1`
 
-- That `zerone-1` executes the `2e37c4c` logic rests on an operator's rebuild that is not
-  an object in this repository. Checking it is the first step of any Part A work there
-  (§14).
+- That `zerone-1` executes the `2e37c4c` logic is the operator's own record, not an
+  independent audit. The original executable was reproduced byte for byte from that
+  source (`docs/reports/legacy-observer-release-2026-09-10.md:32`), and the operator
+  reports replacing it on 11 November 2026 with the same source built against a newer
+  consensus engine
+  ([pull request 177](https://github.com/cambridgetcg/zerone-core/pull/177), a draft).
+  Reading what the node reports against that record is the first step of any Part A work
+  there (§14).
 - On `2e37c4c`, a block that carries a transaction mints a block reward, most of it to the
   producer (`x/vesting_rewards/keeper/rewards.go`, `DistributeBlockReward`). Any
   transaction there, an anchor included, issues ZRN to the household. Reading is free of
@@ -904,7 +909,8 @@ it is the owner's to make (decision 9).
 ## 14. Order of work
 
 1. This document, read by a session other than its author's.
-2. A check of what `zerone-1` actually runs (§4.6), before any Part A work reads it.
+2. A read of what `zerone-1` reports it runs, against the operator's record (§4.6), before
+   any Part A work relies on it.
 3. The Part A verifier and statement reader, as repository work with no chain act. It is
    the same tool whichever way decision 1 goes.
 4. The owner's answer to decision 1.
