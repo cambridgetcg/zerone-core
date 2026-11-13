@@ -848,8 +848,8 @@ export interface GenesisState {
    * round's deposit in the knowledge_seat_deposits module account until every
    * seat's deposit is returned in full. It requires the reviewer-balance
    * parameter, review-neutrality and record-integrity markers. Native genesis
-   * does not set it yet; a file without the field imports as off. No carrier
-   * upgrade sets it in place yet.
+   * sets it; a file without the field imports as off. No carrier upgrade sets
+   * it in place yet.
    */
   seatDepositEnabled: boolean;
 }
