@@ -16,7 +16,7 @@ const (
 	manifestPath            = "dashboard/public/standards/authority-geometry.v1.json"
 	manifestSchema          = "zerone.authority-geometry/v1"
 	checkerSchema           = "zerone.authority-graph-check/v1"
-	canonicalManifestSHA256 = "a046c5df6b8f59c0886f8981f6a12e5afa0205bf53e9dd66283d525381fe3f9b"
+	canonicalManifestSHA256 = "aa4e40afc48255882b8c87f0f9c02c31e531619b1d6c29a5eb9a686096111330"
 	canonicalDesignSHA256   = "1ec84986d2e14b8f938e76d5187266c3e23a6881818d59bbba420ba663f5176a"
 )
 
