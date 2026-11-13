@@ -519,6 +519,9 @@ func (gs *GenesisState) Validate() error {
 	if err := ValidateReviewerBalanceGenesis(gs); err != nil {
 		return err
 	}
+	if err := ValidateSeatDepositGenesis(gs); err != nil {
+		return err
+	}
 	if err := validateGenesisFundAllocation("bootstrap_fund_allocation", gs.BootstrapFundAllocation); err != nil {
 		return err
 	}

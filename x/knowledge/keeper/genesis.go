@@ -19,6 +19,13 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 	if err := types.ValidateReviewerBalanceGenesis(gs); err != nil {
 		return err
 	}
+	// Nor the seat-deposit state (reviewer-entry step B): with the marker
+	// off no round may carry seat terms, a returns plan or a seat deposit,
+	// and with it on its predecessor markers must be selected. Both import
+	// paths below write only after this.
+	if err := types.ValidateSeatDepositGenesis(gs); err != nil {
+		return err
+	}
 	if gs.AccountingState == nil {
 		if err := k.initGenesisLegacy(ctx, gs); err != nil {
 			return err

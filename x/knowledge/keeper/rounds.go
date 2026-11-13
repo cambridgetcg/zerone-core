@@ -98,6 +98,11 @@ func (k Keeper) CreateVerificationRound(ctx context.Context, claim *types.Claim)
 		return nil, err
 	}
 	round.ReviewPolicyVersion = policy
+	// Reviewer-entry step B (D1): record seat terms while the seat-deposit
+	// marker is on (seat_deposit.go). With it off this is one gas-free read.
+	if err := k.setRoundSeatTerms(ctx, round, params); err != nil {
+		return nil, err
+	}
 
 	if err := k.SetVerificationRound(ctx, round); err != nil {
 		return nil, err
