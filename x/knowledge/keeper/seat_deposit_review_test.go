@@ -8,6 +8,7 @@ import (
 	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	"github.com/stretchr/testify/require"
 
+	"github.com/zerone-chain/zerone/x/knowledge/keeper"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
@@ -132,4 +133,56 @@ func TestSeatDepositImportAcceptsAConvertibleAccount(t *testing.T) {
 	it := signed.ctx.KVStore(signed.key).Iterator(nil, nil)
 	defer it.Close()
 	require.False(t, it.Valid(), "a refused import writes nothing")
+}
+
+// Section 7 and D6 at activation: EnableSeatDeposit, the function a carrier
+// looping over the v3 registry would call, refuses to turn the deposit on
+// without each predecessor marker (the reviewer-balance parameter, review
+// neutrality, record integrity), with an account at the seat-deposit address
+// that the first deposit cannot convert, or with less in custody than the
+// stored rounds hold locked. Each refusal writes no marker. Once the marker is
+// on, Enable checks nothing and stays idempotent.
+func TestSeatDepositEnableRequiresItsPredecessorsAndCustody(t *testing.T) {
+	off := func(gs *types.GenesisState) { gs.SeatDepositEnabled = false }
+	requireRefused := func(t *testing.T, f *seatFixture, want string) {
+		t.Helper()
+		require.ErrorContains(t, f.k.EnableSeatDeposit(f.ctx), want)
+		require.Nil(t, f.ctx.KVStore(f.key).Get(types.SeatDepositEnabledKey), "a refused enable writes no marker")
+	}
+	for name, key := range map[string][]byte{
+		"reviewer_balance_param_enabled": types.ReviewerBalanceParamEnabledKey,
+		"review_neutrality_enabled":      []byte(keeper.ReviewNeutralityEnabledStoreKey),
+		"record_integrity_enabled":       []byte(keeper.RecordIntegrityEnabledStoreKey),
+	} {
+		t.Run("without "+name, func(t *testing.T) {
+			f := newSeatFixture(t, off)
+			f.ctx.KVStore(f.key).Delete(key)
+			requireRefused(t, f, "seat_deposit_enabled requires "+name)
+		})
+	}
+	t.Run("an account it cannot convert", func(t *testing.T) {
+		f := newSeatFixture(t, off)
+		address := seatModuleAddress()
+		f.accounts.accounts[address.String()] = authtypes.NewBaseAccount(address, nil, 5, 1)
+		requireRefused(t, f, "cannot become its module account")
+	})
+	t.Run("a custody shortfall", func(t *testing.T) {
+		f := newSeatFixture(t, nil)
+		round := f.claim(t, "enable-custody")
+		require.NoError(t, f.commit(t, round, f.reviewer("seat-enable-custody", 100_000_000), "accept"))
+		f.ctx.KVStore(f.key).Delete(types.SeatDepositEnabledKey)
+		f.bank.moduleBalances[types.SeatDepositModuleName] = sdk.NewCoins()
+		requireRefused(t, f, "less than the 100000000 uzrn of locked, unreturned deposits")
+	})
+	t.Run("everything in place", func(t *testing.T) {
+		f := newSeatFixture(t, off)
+		address := seatModuleAddress()
+		f.accounts.accounts[address.String()] = authtypes.NewBaseAccount(address, nil, 6, 0)
+		require.NoError(t, f.k.EnableSeatDeposit(f.ctx))
+		require.Equal(t, []byte{1}, f.ctx.KVStore(f.key).Get(types.SeatDepositEnabledKey))
+		_, plain := f.accounts.accounts[address.String()].(*authtypes.BaseAccount)
+		require.True(t, plain, "enable converts nothing; the first deposit does")
+		f.ctx.KVStore(f.key).Delete(types.ReviewerBalanceParamEnabledKey)
+		require.NoError(t, f.k.EnableSeatDeposit(f.ctx), "with the marker on, enable checks nothing")
+	})
 }
