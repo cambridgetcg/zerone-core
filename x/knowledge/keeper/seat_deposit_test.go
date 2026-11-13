@@ -70,3 +70,46 @@ func TestSeatDepositGenesisRefusedBeforeAnyWrite(t *testing.T) {
 		}
 	}
 }
+
+// D2, D3 at keeper level: without zerone_auth or the account keeper wired,
+// a round with seat terms fails closed; with them, a deposit moves into the
+// seat-deposit account and is recorded with the seat. A refused commitment
+// moves and stores nothing.
+func TestSeatDepositHandlerFailsClosedWithoutItsKeepers(t *testing.T) {
+	f := newSeatFixture(t, nil)
+	round := f.claim(t, "fail-closed")
+	require.NotNil(t, round.SeatTerms)
+	reviewer := f.reviewer("seat-fail-closed-rv", 200_000_000)
+
+	withoutAuth := f.k
+	withoutAuth.SetZeroneAuthKeeper(nil)
+	err := f.commitThrough(t, keeper.NewMsgServerImpl(withoutAuth), round, reviewer)
+	require.ErrorIs(t, err, types.ErrReviewerNotAdmitted)
+	require.ErrorContains(t, err, "zerone_auth is unavailable")
+
+	withoutAccounts := f.k
+	withoutAccounts.SetAccountKeeper(nil)
+	require.ErrorContains(t, f.commitThrough(t, keeper.NewMsgServerImpl(withoutAccounts), round, reviewer), "require the account keeper")
+
+	delete(f.auth.admitted, reviewer)
+	require.ErrorIs(t, f.commit(t, round, reviewer, "accept"), types.ErrReviewerNotAdmitted)
+	require.Empty(t, f.round(t, round.Id).Commits)
+	require.Equal(t, int64(200_000_000), f.bank.balance(reviewer))
+	require.Zero(t, f.bank.custody())
+
+	f.auth.admitted[reviewer] = true
+	require.NoError(t, f.commit(t, round, reviewer, "accept"))
+	require.Equal(t, int64(100_000_000), f.bank.balance(reviewer))
+	require.Equal(t, int64(100_000_000), f.bank.custody())
+	stored := f.round(t, round.Id)
+	require.Len(t, stored.Commits, 1)
+	require.Equal(t, "100000000", stored.Commits[0].SeatDeposit)
+}
+
+func (f *seatFixture) commitThrough(t *testing.T, server types.MsgServer, round *types.VerificationRound, reviewer string) error {
+	t.Helper()
+	hash, err := types.ComputeReviewCommitmentV2(round.CommitmentChainId, round.Id, reviewer, "accept", 800_000, seatSalt(reviewer), seatAttestation)
+	require.NoError(t, err)
+	_, err = server.SubmitCommitment(f.ctx, &types.MsgSubmitCommitment{Verifier: reviewer, RoundId: round.Id, CommitHash: hash})
+	return err
+}

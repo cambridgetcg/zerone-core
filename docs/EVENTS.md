@@ -1041,6 +1041,19 @@ Verifier commitment submitted (commit-reveal).
 - `verifier` -- verifier address
 - `committed_at_block` -- commitment block
 
+### zerone.knowledge.seat_deposit_locked
+A commitment in a round with seat terms (reviewer-entry step B, behind the
+seat-deposit marker) moved the round's deposit from its signer into the
+`knowledge_seat_deposits` module account. Emitted after
+`submit_commitment` in the same message. The deposit is returned in full to
+the same address whatever the verdict, the vote or whether the seat revealed;
+see `seat_deposit_returns_accrued` and `seat_deposit_returned`.
+
+- `round_id` -- verification round ID
+- `depositor` -- the signer, whose seat this is
+- `amount_uzrn` -- the round's counted-seat deposit, now locked
+- `committed_at_block` -- commitment block
+
 ### zerone.knowledge.submit_reveal
 Verifier reveal submitted.
 - `round_id` -- verification round ID

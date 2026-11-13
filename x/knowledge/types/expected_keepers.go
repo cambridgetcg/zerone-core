@@ -97,6 +97,12 @@ type ZeroneAuthKeeper interface {
 	// GetAccountType returns the account type ("human", "agent", "contract", "system")
 	// for a given bech32 address. Returns "" and false if not found.
 	GetAccountType(ctx context.Context, address string) (string, bool)
+	// CheckReviewer returns nil when address is registered with zerone_auth,
+	// may submit claims and reviews (CanSubmitClaims) and is not frozen: what
+	// the ante checks of a MsgSubmitCommitment signer. A round with seat
+	// terms checks it in the handler too (reviewer-entry step B, D3), since
+	// some routes skip the ante.
+	CheckReviewer(ctx context.Context, address string) error
 }
 
 // CaptureDefenseKeeper feeds verification history and reputation updates to capture defense.

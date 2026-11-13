@@ -398,6 +398,12 @@ func (m *msgServer) SubmitCommitment(ctx context.Context, msg *types.MsgSubmitCo
 	if msg == nil {
 		return nil, fmt.Errorf("commitment is required")
 	}
+	// Reviewer-entry step B: the seat-deposit marker is read once, without
+	// gas, before anything else. Only a round with seat terms uses it.
+	seatDeposit, err := m.keeper.SeatDepositEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
@@ -438,6 +444,17 @@ func (m *msgServer) SubmitCommitment(ctx context.Context, msg *types.MsgSubmitCo
 	if len(round.Commits) >= types.CommitSeatHardCap {
 		return nil, types.ErrRoundSeatsFull.Wrapf(
 			"round %s has %d of %d commit seats filled", msg.RoundId, len(round.Commits), types.CommitSeatHardCap)
+	}
+
+	// Reviewer-entry step B (D2, D3): in a round with seat terms the seat's
+	// deposit is locked instead of the balance being checked, and the handler
+	// itself checks that the signer may review (seat_deposit.go). A round
+	// without terms continues below exactly as before (A5, D7).
+	if round.SeatTerms != nil {
+		if !seatDeposit {
+			return nil, fmt.Errorf("round %s has seat terms but the seat-deposit activation is off", msg.RoundId)
+		}
+		return m.submitDepositedCommitment(ctx, msg, height)
 	}
 
 	// Verifier minimum balance gate (stopgap until full qualification module).

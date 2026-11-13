@@ -1,13 +1,17 @@
 package app
 
 import (
+	"bytes"
 	"testing"
+	"time"
 
 	"cosmossdk.io/core/header"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	"github.com/stretchr/testify/require"
 
+	zeroneauthtypes "github.com/zerone-chain/zerone/x/auth/types"
 	knowledgekeeper "github.com/zerone-chain/zerone/x/knowledge/keeper"
 	knowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -29,7 +33,18 @@ type seatTrial struct {
 	claim *knowledgetypes.Claim
 	round *knowledgetypes.VerificationRound
 	payer sdk.AccAddress
+	// seats lists each reviewer that committed, in commit order, with the
+	// vote it committed to.
+	seats []seatTrialSeat
 }
+
+type seatTrialSeat struct {
+	address sdk.AccAddress
+	vote    string
+	salt    []byte
+}
+
+var seatTrialAttestation = &knowledgetypes.ReviewAttestation{Reason: "Synthetic operator-owned review of a stated test fixture.", Scope: "No independent scientific assurance is claimed."}
 
 // newSeatTrial admits a claim through route ("ordinary", "conjecture",
 // "contradiction", "explicit" or "provisional") on a chain whose seat-deposit
@@ -172,4 +187,214 @@ func TestSeatDepositTermsRequireTheParameterMarker(t *testing.T) {
 	require.NoError(t, err)
 	_, err = knowledgekeeper.NewMsgServerImpl(app.KnowledgeKeeper).SubmitClaim(ctx, &knowledgetypes.MsgSubmitClaim{Submitter: payer.String(), FactContent: "This synthetic local computation has a retained review fee.", Domain: "physics", Category: "empirical", Stake: params.MinReviewFee, ClaimType: knowledgetypes.ClaimType_CLAIM_TYPE_ASSERTION})
 	require.ErrorContains(t, err, "seat deposits require the reviewer-balance-param activation")
+}
+
+// admit registers address with zerone_auth as an agent with flags.
+func (tr *seatTrial) admit(t *testing.T, address sdk.AccAddress, flags *zeroneauthtypes.AccountFlags) {
+	t.Helper()
+	tr.app.ZeroneAuthKeeper.SetAccount(tr.ctx, &zeroneauthtypes.Account{Address: address.String(), AccountType: "agent", Flags: flags})
+}
+
+// reviewer is a registered, funded account that may review.
+func (tr *seatTrial) reviewer(t *testing.T, n byte, balance int64) sdk.AccAddress {
+	t.Helper()
+	address := settlementAddress(n)
+	if balance > 0 {
+		tr.fund(t, address, balance)
+	}
+	tr.admit(t, address, &zeroneauthtypes.AccountFlags{CanSubmitClaims: true})
+	return address
+}
+
+func (tr *seatTrial) server() knowledgetypes.MsgServer {
+	return knowledgekeeper.NewMsgServerImpl(tr.app.KnowledgeKeeper)
+}
+
+// commit submits address's commitment to vote in the trial's round, as a
+// signed MsgSubmitCommitment would after the ante. A seat that is stored is
+// remembered for reveal.
+func (tr *seatTrial) commit(t *testing.T, address sdk.AccAddress, vote string) error {
+	t.Helper()
+	salt := bytes.Repeat([]byte{byte(len(tr.seats) + 1)}, 16)
+	hash, err := knowledgetypes.ComputeReviewCommitmentV2(tr.round.CommitmentChainId, tr.round.Id, address.String(), vote, 800000, salt, seatTrialAttestation)
+	require.NoError(t, err)
+	_, err = tr.server().SubmitCommitment(tr.ctx, &knowledgetypes.MsgSubmitCommitment{Verifier: address.String(), RoundId: tr.round.Id, CommitHash: hash})
+	if err == nil {
+		tr.seats = append(tr.seats, seatTrialSeat{address: address, vote: vote, salt: salt})
+	}
+	return err
+}
+
+func (tr *seatTrial) stored(t *testing.T) *knowledgetypes.VerificationRound {
+	t.Helper()
+	round, found := tr.app.KnowledgeKeeper.GetVerificationRound(tr.ctx, tr.round.Id)
+	require.True(t, found)
+	return round
+}
+
+func (tr *seatTrial) height(h int64) {
+	tr.ctx = tr.ctx.WithBlockHeight(h).WithHeaderInfo(header.Info{Height: h, ChainID: tr.ctx.ChainID()})
+}
+
+// requireRefusedCommit checks that a commitment is refused with want and that
+// it moved nothing and stored nothing.
+func (tr *seatTrial) requireRefusedCommit(t *testing.T, address sdk.AccAddress, want string) {
+	t.Helper()
+	before, custody := tr.balance(address), tr.custody()
+	seats := len(tr.stored(t).Commits)
+	require.ErrorContains(t, tr.commit(t, address, "accept"), want)
+	require.Equal(t, before, tr.balance(address))
+	require.Equal(t, custody, tr.custody())
+	require.Len(t, tr.stored(t).Commits, seats)
+}
+
+func countEvents(ctx sdk.Context, kind string) int {
+	n := 0
+	for _, event := range ctx.EventManager().Events() {
+		if event.Type == kind {
+			n++
+		}
+	}
+	return n
+}
+
+// D2: a commitment in a round with seat terms moves the round's deposit from
+// the signer into the seat-deposit account, which the first deposit creates
+// as a module account, and records it with the seat.
+func TestSeatDepositLocksIntoModuleAccount(t *testing.T) {
+	tr := newSeatTrial(t, "ordinary", true, "")
+	const deposit = 100_000_000
+	tr.ctx = tr.ctx.WithEventManager(sdk.NewEventManager())
+	for i := byte(0); i < 3; i++ {
+		reviewer := tr.reviewer(t, 160+i, deposit+7)
+		require.NoError(t, tr.commit(t, reviewer, "accept"))
+		require.Equal(t, int64(7), tr.balance(reviewer), "the deposit left the signer")
+	}
+	require.Equal(t, int64(3*deposit), tr.custody())
+	round := tr.stored(t)
+	require.Len(t, round.Commits, 3)
+	for _, commit := range round.Commits {
+		require.Equal(t, "100000000", commit.SeatDeposit)
+	}
+	account := tr.app.AccountKeeper.GetAccount(tr.ctx, authtypes.NewModuleAddress(knowledgetypes.SeatDepositModuleName))
+	module, ok := account.(sdk.ModuleAccountI)
+	require.True(t, ok)
+	require.Equal(t, knowledgetypes.SeatDepositModuleName, module.GetName())
+	require.Empty(t, module.GetPermissions())
+	require.Equal(t, 3, countEvents(tr.ctx, "zerone.knowledge.seat_deposit_locked"))
+	require.Equal(t, 3, countEvents(tr.ctx, "zerone.knowledge.submit_commitment"))
+}
+
+// D2: a signer that cannot lock the deposit is refused, and nothing moves or
+// is stored. The transfer needs spendable coins: a delayed-vesting account
+// whose whole balance covers the deposit, which the balance check it replaces
+// counted, is refused while its coins are still vesting.
+func TestSeatDepositSignerThatCannotLockIsRefused(t *testing.T) {
+	tr := newSeatTrial(t, "ordinary", true, "")
+	poor := tr.reviewer(t, 170, 99_999_999)
+	tr.requireRefusedCommit(t, poor, "seat deposit required")
+
+	tr.ctx = tr.ctx.WithBlockTime(time.Unix(1_800_000_000, 0))
+	vesting := settlementAddress(171)
+	tr.fund(t, vesting, 100_000_000)
+	base := tr.app.AccountKeeper.GetAccount(tr.ctx, vesting)
+	baseAccount, ok := base.(*authtypes.BaseAccount)
+	require.True(t, ok)
+	delayed, err := vestingtypes.NewDelayedVestingAccount(baseAccount, sdk.NewCoins(sdk.NewInt64Coin("uzrn", 60_000_000)), tr.ctx.BlockTime().Unix()+86_400)
+	require.NoError(t, err)
+	tr.app.AccountKeeper.SetAccount(tr.ctx, delayed)
+	tr.admit(t, vesting, &zeroneauthtypes.AccountFlags{CanSubmitClaims: true})
+	require.Equal(t, int64(100_000_000), tr.balance(vesting), "the whole balance covers the deposit")
+	tr.requireRefusedCommit(t, vesting, "seat deposit required")
+	require.Zero(t, tr.custody())
+}
+
+// D3: the handler refuses a signer that zerone_auth does not admit to review,
+// whatever its balance: unregistered, without CanSubmitClaims, or frozen.
+func TestSeatDepositHandlerRefusesUnadmittedSigner(t *testing.T) {
+	tr := newSeatTrial(t, "ordinary", true, "")
+	unregistered := settlementAddress(172)
+	tr.fund(t, unregistered, 200_000_000)
+	tr.requireRefusedCommit(t, unregistered, "not registered with zerone_auth")
+	for i, flags := range []*zeroneauthtypes.AccountFlags{nil, {CanSubmitClaims: false, CanChallenge: true}, {CanSubmitClaims: true, Frozen: true}} {
+		address := settlementAddress(173 + byte(i))
+		tr.fund(t, address, 200_000_000)
+		tr.admit(t, address, flags)
+		want := "cannot review"
+		if flags != nil && flags.Frozen {
+			want = "is frozen"
+		}
+		tr.requireRefusedCommit(t, address, want)
+	}
+	require.Zero(t, tr.custody())
+}
+
+// D3: no route but a signed, deposited commitment stores a seat in a round
+// with seat terms. The keeper's StoreCommitmentInRound refuses, and so does
+// the vote-extension writer, which names an account that did not sign; it
+// logs the refusal and the block goes on.
+func TestSeatDepositNoRouteStoresSeatWithoutDeposit(t *testing.T) {
+	tr := newSeatTrial(t, "ordinary", true, "")
+	reviewer := tr.reviewer(t, 176, 200_000_000)
+	hash := bytes.Repeat([]byte{9}, 32)
+	entry := &knowledgetypes.CommitEntry{Verifier: reviewer.String(), CommitHash: hash, CommittedAtBlock: 100}
+	require.ErrorIs(t, tr.app.KnowledgeKeeper.StoreCommitmentInRound(tr.ctx, tr.round.Id, entry), knowledgetypes.ErrSeatDepositRequired)
+	entry.SeatDeposit = "100000000"
+	require.ErrorIs(t, tr.app.KnowledgeKeeper.StoreCommitmentInRound(tr.ctx, tr.round.Id, entry), knowledgetypes.ErrSeatDepositRequired, "a claimed deposit is not a locked one")
+	var entries []recordedLog
+	require.False(t, tr.app.storeInjectedCommitment(tr.ctx, recordingLogger{&entries}, tr.round.Id, &knowledgetypes.CommitEntry{Verifier: reviewer.String(), CommitHash: hash, CommittedAtBlock: 100}))
+	require.Len(t, entries, 1)
+	require.Equal(t, "skipped commitment from vote extension", entries[0].msg)
+	require.Empty(t, tr.stored(t).Commits)
+	require.Equal(t, int64(200_000_000), tr.balance(reviewer))
+	require.Zero(t, tr.custody())
+}
+
+// A plain account at the seat-deposit address, which a send could create
+// before this binary blocked the address, refuses every deposit with an error
+// instead of the bank's panic, and nothing moves.
+func TestSeatDepositRefusesAnAccountSquattingTheModuleAddress(t *testing.T) {
+	tr := newSeatTrial(t, "ordinary", true, "")
+	address := authtypes.NewModuleAddress(knowledgetypes.SeatDepositModuleName)
+	tr.app.AccountKeeper.SetAccount(tr.ctx, tr.app.AccountKeeper.NewAccountWithAddress(tr.ctx, address))
+	reviewer := tr.reviewer(t, 177, 200_000_000)
+	tr.requireRefusedCommit(t, reviewer, "not its module account")
+}
+
+// The design's section 1, item 2, as a named run: one 100 ZRN balance passed
+// from address to address inside one commit window. With the seat-deposit
+// marker off it seats every address (five here), since the balance is only
+// checked. With it on the first seat locks the balance, so the next address
+// has nothing to be passed and is refused: N seats held at once need N
+// deposits.
+func TestSeatDepositRunOneBalancePassedAlong(t *testing.T) {
+	for _, seat := range []bool{false, true} {
+		t.Run(map[bool]string{false: "marker-off", true: "marker-on"}[seat], func(t *testing.T) {
+			tr := newSeatTrial(t, "ordinary", seat, "")
+			bank := tr.app.BankKeeper
+			holder := tr.reviewer(t, 180, 100_000_000)
+			seated := 0
+			for i := byte(0); i < 5; i++ {
+				if err := tr.commit(t, holder, "accept"); err != nil {
+					require.True(t, seat, "with the marker off every pass-along seats")
+					require.ErrorContains(t, err, "seat deposit required")
+					break
+				}
+				seated++
+				next := tr.reviewer(t, 181+i, 0)
+				if spendable := bank.SpendableCoins(tr.ctx, holder); !spendable.IsZero() {
+					require.NoError(t, bank.SendCoins(tr.ctx, holder, next, spendable))
+				}
+				holder = next
+			}
+			if seat {
+				require.Equal(t, 1, seated)
+				require.Equal(t, int64(100_000_000), tr.custody())
+			} else {
+				require.Equal(t, 5, seated)
+				require.Zero(t, tr.custody())
+			}
+			require.Len(t, tr.stored(t).Commits, seated)
+		})
+	}
 }

@@ -25,6 +25,14 @@ func (m *mockZeroneAuthKeeper) GetAccountType(_ context.Context, address string)
 	return t, ok
 }
 
+// CheckReviewer admits any account the mock knows (seat-deposit rounds only).
+func (m *mockZeroneAuthKeeper) CheckReviewer(_ context.Context, address string) error {
+	if _, ok := m.accounts[address]; !ok {
+		return types.ErrReviewerNotAdmitted.Wrapf("%s is not registered", address)
+	}
+	return nil
+}
+
 // ─── Claim Confidence Bonus Tests ──────────────────────────────────────────
 
 func TestHumanEmpiricalClaimBonus(t *testing.T) {

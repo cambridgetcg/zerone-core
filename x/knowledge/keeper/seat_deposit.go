@@ -3,6 +3,11 @@ package keeper
 import (
 	"context"
 	"fmt"
+	"strconv"
+
+	sdkmath "cosmossdk.io/math"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -55,5 +60,105 @@ func (k Keeper) setRoundSeatTerms(ctx context.Context, round *types.Verification
 		return fmt.Errorf("stored params: %w", err)
 	}
 	round.SeatTerms = &types.ReviewSeatTerms{CountedSeatDeposit: types.FormatSeatDeposit(amount)}
+	return nil
+}
+
+// submitDepositedCommitment seats a reviewer in a round with seat terms (D2,
+// D3). SubmitCommitment has already checked the round's phase, deadline and
+// seat cap, and read the marker. In such a round:
+//
+//   - the handler checks that the signer is registered with zerone_auth, may
+//     review and is not frozen, as the ante does, since simulation and the
+//     interchain-accounts host skip the ante (D3). The signer is msg.Verifier,
+//     so the seat is the signer's own;
+//   - the deposit moves from the signer to SeatDepositModuleName after every
+//     other check passes, and is recorded with the seat. The transfer needs
+//     spendable coins, where the balance check it replaces read the whole
+//     balance. If it fails, the commitment is refused and nothing is stored
+//     (D2);
+//   - no balance check and no param read: the locked deposit replaces them.
+func (m *msgServer) submitDepositedCommitment(ctx context.Context, msg *types.MsgSubmitCommitment, height uint64) (*types.MsgSubmitCommitmentResponse, error) {
+	k := m.keeper
+	if k.bankKeeper == nil {
+		return nil, types.ErrSeatDepositRequired.Wrap("the bank keeper is unavailable to lock a seat deposit")
+	}
+	if k.zeroneAuthKeeper == nil {
+		return nil, types.ErrReviewerNotAdmitted.Wrap("zerone_auth is unavailable to admit the reviewer")
+	}
+	if err := k.zeroneAuthKeeper.CheckReviewer(ctx, msg.Verifier); err != nil {
+		return nil, err
+	}
+	var locked string
+	lock := func(cache context.Context, round *types.VerificationRound) (string, error) {
+		amount := round.SeatTerms.CountedSeatDeposit
+		if err := k.lockSeatDeposit(cache, msg.Verifier, amount); err != nil {
+			return "", err
+		}
+		locked = amount
+		return amount, nil
+	}
+	if err := k.storeCommitmentInRound(ctx, msg.RoundId, &types.CommitEntry{
+		Verifier:         msg.Verifier,
+		CommitHash:       msg.CommitHash,
+		CommittedAtBlock: height,
+	}, lock); err != nil {
+		return nil, err
+	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	sdkCtx.EventManager().EmitEvent(
+		sdk.NewEvent("zerone.knowledge.submit_commitment",
+			sdk.NewAttribute("round_id", msg.RoundId),
+			sdk.NewAttribute("verifier", msg.Verifier),
+			sdk.NewAttribute("committed_at_block", fmt.Sprintf("%d", height)),
+		),
+	)
+	sdkCtx.EventManager().EmitEvent(sdk.NewEvent("zerone.knowledge.seat_deposit_locked",
+		sdk.NewAttribute("round_id", msg.RoundId),
+		sdk.NewAttribute("depositor", msg.Verifier),
+		sdk.NewAttribute("amount_uzrn", locked),
+		sdk.NewAttribute("committed_at_block", strconv.FormatUint(height, 10)),
+	))
+	return &types.MsgSubmitCommitmentResponse{}, nil
+}
+
+// lockSeatDeposit moves amount uzrn from depositor into the seat-deposit
+// account. The account is created by the bank on the first deposit.
+func (k Keeper) lockSeatDeposit(ctx context.Context, depositor, amount string) error {
+	value, err := types.SeatDepositAmount(amount)
+	if err != nil {
+		return err
+	}
+	if err := k.requireSeatDepositAccount(ctx); err != nil {
+		return err
+	}
+	addr, err := sdk.AccAddressFromBech32(depositor)
+	if err != nil {
+		return fmt.Errorf("invalid depositor address: %w", err)
+	}
+	coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromUint64(value)))
+	if err := k.bankKeeper.SendCoinsFromAccountToModule(ctx, addr, types.SeatDepositModuleName, coins); err != nil {
+		return types.ErrSeatDepositRequired.Wrapf("the seat deposit of %s uzrn could not be locked: %v", amount, err)
+	}
+	return nil
+}
+
+// requireSeatDepositAccount refuses, with an error, an address that holds an
+// account other than the seat-deposit module account. Before this binary the
+// address was an ordinary one, so a send could have created a plain account
+// there; the bank would then panic on every deposit. Returns are paid by
+// address and are unaffected. A future carrier must check or convert this
+// address on an existing chain; this draft only refuses.
+func (k Keeper) requireSeatDepositAccount(ctx context.Context) error {
+	if k.accountKeeper == nil {
+		return fmt.Errorf("seat deposits require the account keeper")
+	}
+	account := k.accountKeeper.GetAccount(ctx, authtypes.NewModuleAddress(types.SeatDepositModuleName))
+	if account == nil {
+		return nil
+	}
+	module, ok := account.(sdk.ModuleAccountI)
+	if !ok || module.GetName() != types.SeatDepositModuleName {
+		return fmt.Errorf("the %s address holds an account that is not its module account", types.SeatDepositModuleName)
+	}
 	return nil
 }

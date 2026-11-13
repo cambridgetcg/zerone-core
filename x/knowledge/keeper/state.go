@@ -658,7 +658,20 @@ func findRevealByVerifier(reveals []*types.RevealEntry, verifier string) *types.
 // StoreCommitmentInRound stores a commitment entry in a verification round.
 // Idempotent for duplicate commitments (same hash); returns ErrEquivocation
 // for conflicting commitments from the same verifier.
+//
+// It never locks a deposit, so it refuses a round with seat terms
+// (reviewer-entry step B, D3): no route but a signed MsgSubmitCommitment
+// stores a seat there. The vote-extension writer (app/abci.go) is one of its
+// callers.
 func (k Keeper) StoreCommitmentInRound(ctx context.Context, roundID string, commit *types.CommitEntry) error {
+	return k.storeCommitmentInRound(ctx, roundID, commit, nil)
+}
+
+// seatLock locks a seat's deposit for round and returns the amount locked. It
+// runs inside storeCommitmentInRound's cache, after every other check.
+type seatLock func(ctx context.Context, round *types.VerificationRound) (string, error)
+
+func (k Keeper) storeCommitmentInRound(ctx context.Context, roundID string, commit *types.CommitEntry, lock seatLock) error {
 	round, found := k.GetVerificationRound(ctx, roundID)
 	if !found {
 		return types.ErrRoundNotFound
@@ -668,6 +681,12 @@ func (k Keeper) StoreCommitmentInRound(ctx context.Context, roundID string, comm
 	}
 	if commit == nil {
 		return fmt.Errorf("commitment is required")
+	}
+	if round.SeatTerms != nil && lock == nil {
+		return types.ErrSeatDepositRequired.Wrapf("round %s seats a reviewer only through a signed commitment that locks its deposit", roundID)
+	}
+	if lock != nil && (round.SeatTerms == nil || round.SeatDepositReturns != nil) {
+		return fmt.Errorf("round %s takes no deposited seat", roundID)
 	}
 	switch round.CommitmentScheme {
 	case types.CommitmentSchemeLegacy:
@@ -728,7 +747,24 @@ func (k Keeper) StoreCommitmentInRound(ctx context.Context, roundID string, comm
 		round.SelectedVerifiers = append(round.SelectedVerifiers, commit.Verifier)
 	}
 
-	return k.SetVerificationRound(ctx, round)
+	if lock == nil {
+		return k.SetVerificationRound(ctx, round)
+	}
+	// A deposited seat: the transfer and the record commit together or not
+	// at all, even for a caller without a message-level cache.
+	cache, write := sdk.UnwrapSDKContext(ctx).CacheContext()
+	amount, err := lock(cache, round)
+	if err != nil {
+		return err
+	}
+	seated := proto.Clone(commit).(*types.CommitEntry)
+	seated.SeatDeposit = amount
+	round.Commits[len(round.Commits)-1] = seated
+	if err := k.SetVerificationRound(cache, round); err != nil {
+		return err
+	}
+	write()
+	return nil
 }
 
 // StoreRevealInRound stores a reveal entry in a verification round.
