@@ -337,7 +337,7 @@ func (k Keeper) SetVerificationRound(ctx context.Context, round *types.Verificat
 		return err
 	}
 	if !enabled {
-		if round == nil || round.CommitmentScheme != types.CommitmentSchemeLegacy || round.CommitmentChainId != "" || round.VerifierRewardSettlement != nil {
+		if round == nil || round.CommitmentScheme != types.CommitmentSchemeLegacy || round.CommitmentChainId != "" || round.VerifierRewardSettlement != nil || types.RoundCarriesSeatDepositFields(round) {
 			return fmt.Errorf("new round fields require record-integrity activation")
 		}
 		for _, reveal := range round.Reveals {
@@ -346,6 +346,17 @@ func (k Keeper) SetVerificationRound(ctx context.Context, round *types.Verificat
 			}
 		}
 		return k.setVerificationRoundLegacy(ctx, round)
+	}
+	// Only a round that carries a seat-deposit field reads the seat-deposit
+	// marker (gas-free), so every other write is exactly as before.
+	if types.RoundCarriesSeatDepositFields(round) {
+		seatDeposit, err := k.SeatDepositEnabled(ctx)
+		if err != nil {
+			return err
+		}
+		if !seatDeposit {
+			return fmt.Errorf("seat-deposit fields require the seat-deposit activation")
+		}
 	}
 	if err := types.ValidateVerificationRoundRecord(round, true); err != nil {
 		return err
@@ -405,6 +416,9 @@ func (k Keeper) SetVerificationRound(ctx context.Context, round *types.Verificat
 		return err
 	}
 	if err := types.ValidateClaimRefundSettlementUpdate(previous, round); err != nil {
+		return err
+	}
+	if err := types.ValidateSeatDepositUpdate(previous, round); err != nil {
 		return err
 	}
 	indexed, err := store.Get(types.ClaimRoundIndexKey(round.ClaimId))

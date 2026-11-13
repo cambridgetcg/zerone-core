@@ -271,5 +271,8 @@ func ValidateVerificationRoundRecord(round *VerificationRound, recordIntegrityEn
 	if err := ValidateClaimRefundSettlement(round); err != nil {
 		return err
 	}
+	if err := ValidateRoundSeatDeposits(round); err != nil {
+		return err
+	}
 	return ValidateVerifierRewardSettlement(round)
 }

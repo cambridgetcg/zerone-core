@@ -186,7 +186,12 @@ func validateRawRoundRecord(data []byte) error {
 	if err := types.ValidateRawPolicyField(data, types.RoundReviewPolicyField); err != nil {
 		return err
 	}
-	return types.ValidateRawRoundRefund(data)
+	if err := types.ValidateRawRoundRefund(data); err != nil {
+		return err
+	}
+	// Seat terms, returns and each seat's deposit (reviewer-entry step B).
+	// A record without them passes unchanged; the walk costs no gas.
+	return types.ValidateRawRoundSeatDeposit(data)
 }
 
 func (k Keeper) validateRoundFunding(ctx context.Context, round *types.VerificationRound) error {
