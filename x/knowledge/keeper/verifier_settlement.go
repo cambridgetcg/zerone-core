@@ -60,9 +60,14 @@ func (k Keeper) SyncPendingVerifierRewardIndex(ctx context.Context, round *types
 	if err := types.ValidateClaimRefundSettlement(round); err != nil {
 		return err
 	}
+	if err := types.ValidateRoundSeatDeposits(round); err != nil {
+		return err
+	}
 	store := k.storeService.OpenKVStore(ctx)
 	key := pendingVerifierRewardKey(round.Id)
-	if roundHasPendingFunds(round) {
+	// Unpaid seat-deposit returns keep a round in the queue too
+	// (reviewer-entry step B); without them this is roundHasPendingFunds.
+	if roundHasPendingObligations(round) {
 		return store.Set(key, []byte{1})
 	}
 	return store.Delete(key)
@@ -242,10 +247,35 @@ func (k Keeper) TrySettleVerifierRewards(ctx context.Context, roundID string) er
 	return nil
 }
 
-// ProcessPendingVerifierRewards examines at most one fixed batch each block.
-// Bank errors leave a pending plan and advance the cursor; corrupt index/state
-// is returned explicitly instead of being treated as a paid or absent record.
+// ProcessPendingVerifierRewards is a standalone entry point: it reads the
+// seat-deposit marker once (gas-free) and dispatches as the roundsExecution
+// method does. Block processing calls that method with its snapshot.
 func (k Keeper) ProcessPendingVerifierRewards(ctx context.Context) error {
+	seatDeposit, err := k.SeatDepositEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	return (roundsExecution{Keeper: k, seatDeposit: seatDeposit}).ProcessPendingVerifierRewards(ctx)
+}
+
+// ProcessPendingVerifierRewards shadows the Keeper entry point for the pinned
+// begin-block bodies. With the seat-deposit marker off it runs the 3a844c48
+// body, processPendingVerifierRewardsLegacy, unchanged; with it on,
+// processPendingRoundObligations, which also pays seat-deposit returns
+// (seat_deposit.go).
+func (k roundsExecution) ProcessPendingVerifierRewards(ctx context.Context) error {
+	if !k.seatDeposit {
+		return k.processPendingVerifierRewardsLegacy(ctx)
+	}
+	return k.processPendingRoundObligations(ctx)
+}
+
+// processPendingVerifierRewardsLegacy is the 3a844c48 body of
+// ProcessPendingVerifierRewards, verbatim. It examines at most one fixed
+// batch each block. Bank errors leave a pending plan and advance the cursor;
+// corrupt index/state is returned explicitly instead of being treated as a
+// paid or absent record.
+func (k Keeper) processPendingVerifierRewardsLegacy(ctx context.Context) error {
 	enabled, err := k.RecordIntegrityEnabled(ctx)
 	if err != nil || !enabled {
 		return err

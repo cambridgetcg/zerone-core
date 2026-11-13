@@ -517,6 +517,9 @@ func (k Keeper) DeleteVerificationRound(ctx context.Context, id string) error {
 		if round.ClaimRefundSettlement != nil || (claim != nil && claim.FundingTerms != nil) {
 			return fmt.Errorf("funded verification round and its payment history must be retained")
 		}
+		if round.SeatTerms != nil {
+			return fmt.Errorf("a round with seat terms and its deposit history must be retained")
+		}
 	}
 	_ = store.Delete(activeRoundKey(id))
 	return store.Delete(types.RoundKey(id))

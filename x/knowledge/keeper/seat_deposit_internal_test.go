@@ -17,6 +17,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -29,6 +30,9 @@ type seatInternalBank struct {
 	custody     int64
 	failReturns bool
 	returns     map[string]int
+	// transfers counts every module-to-account transfer attempted that
+	// succeeded, of any module: reviewer pay and seat-deposit returns.
+	transfers int
 }
 
 func newSeatInternalBank() *seatInternalBank {
@@ -41,6 +45,7 @@ func (b *seatInternalBank) SendCoins(context.Context, sdk.AccAddress, sdk.AccAdd
 
 func (b *seatInternalBank) SendCoinsFromModuleToAccount(_ context.Context, module string, to sdk.AccAddress, amt sdk.Coins) error {
 	if module != types.SeatDepositModuleName {
+		b.transfers++
 		return nil
 	}
 	amount := amt.AmountOf("uzrn").Int64()
@@ -53,6 +58,7 @@ func (b *seatInternalBank) SendCoinsFromModuleToAccount(_ context.Context, modul
 	b.custody -= amount
 	b.balances[to.String()] += amount
 	b.returns[to.String()]++
+	b.transfers++
 	return nil
 }
 
@@ -216,6 +222,19 @@ func TestSeatDepositReturnedFromAggregationDeadline(t *testing.T) {
 	f.ctx = f.ctx.WithBlockHeight(int64(round.AggregationDeadline) + 1).WithEventManager(sdk.NewEventManager())
 	require.NoError(t, f.k.BeginBlocker(f.ctx))
 	require.Zero(t, countSeatEvents(f.ctx, "zerone.knowledge.seat_deposit_returns_accrued", ""), "a frozen plan is never frozen again")
+	// The pending queue paid every return on the block after the deadline,
+	// while the round itself still cannot complete.
+	paid := f.stored(t, round.Id)
+	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, paid.Phase)
+	for _, ret := range paid.SeatDepositReturns.Returns {
+		require.Equal(t, round.AggregationDeadline+1, ret.PaidAtBlock)
+	}
+	for _, reviewer := range reviewers {
+		require.Equal(t, int64(100_000_000), f.bank.balances[reviewer])
+		require.Equal(t, 1, f.bank.returns[reviewer])
+	}
+	require.Zero(t, f.bank.custody)
+	require.Equal(t, len(reviewers), countSeatEvents(f.ctx, "zerone.knowledge.seat_deposit_returned", ""))
 
 	*f.fault = handoffFault{}
 	f.ctx = f.ctx.WithBlockHeight(int64(round.AggregationDeadline) + 2).WithEventManager(sdk.NewEventManager())
@@ -226,4 +245,104 @@ func TestSeatDepositReturnedFromAggregationDeadline(t *testing.T) {
 	require.Greater(t, done.VerdictBlock, done.SeatDepositReturns.CreatedAtBlock)
 	require.Equal(t, round.AggregationDeadline, done.SeatDepositReturns.CreatedAtBlock, "late completion keeps the deadline plan")
 	require.Zero(t, countSeatEvents(f.ctx, "zerone.knowledge.seat_deposit_returns_accrued", ""))
+	require.True(t, proto.Equal(paid.SeatDepositReturns, done.SeatDepositReturns), "late completion repays nothing")
+	for _, reviewer := range reviewers {
+		require.Equal(t, 1, f.bank.returns[reviewer])
+	}
+}
+
+// seedSettledSeatRound stores a completed policy-1 round with seats seats,
+// each revealed and paid 1 uzrn of reviewer pay that is still unpaid, and
+// each seat's 1 uzrn deposit return still unpaid; with seats 0 it stores a
+// round with one unpaid reviewer payment and no seat terms. The claim is
+// unfunded, so the round owes no refund.
+func (f *seatInternalFixture) seedSettledSeatRound(t *testing.T, id string, seats int) {
+	t.Helper()
+	claim := &types.Claim{Id: "claim-" + id, Submitter: seatInternalAddr("seed-submitter"), Stake: "11000000", FactContent: "A seeded synthetic claim " + id + ".", ReviewPolicyVersion: types.ReviewPolicyNeutral, VerificationRoundId: id, Status: types.ClaimStatus_CLAIM_STATUS_INSUFFICIENT}
+	require.NoError(t, f.k.SetClaim(f.ctx, claim))
+	round := &types.VerificationRound{Id: id, ClaimId: claim.Id, Phase: types.VerificationPhase_VERIFICATION_PHASE_COMPLETE,
+		StartedAtBlock: 10, CommitDeadline: 12, RevealDeadline: 14, AggregationDeadline: 16, Verdict: types.Verdict_VERDICT_INCONCLUSIVE, VerdictBlock: 14,
+		CommitmentScheme: types.CommitmentSchemeReviewV2, CommitmentChainId: "seat-internal", ReviewPolicyVersion: types.ReviewPolicyNeutral,
+		VerifierRewardSettlement: &types.VerifierRewardSettlement{CreatedAtBlock: 14, WithheldTotal: "0"}}
+	n := seats
+	if seats > 0 {
+		round.SeatTerms = &types.ReviewSeatTerms{CountedSeatDeposit: "1"}
+	} else {
+		n = 1
+	}
+	attestation := &types.ReviewAttestation{Reason: "Seeded synthetic review."}
+	for i := 0; i < n; i++ {
+		reviewer := sdk.AccAddress([]byte(fmt.Sprintf("%-14s%06d", id[:min(len(id), 14)], i))).String()
+		salt := []byte(fmt.Sprintf("seeded-salt-%06d", i))
+		hash, err := types.ComputeReviewCommitmentV2(round.CommitmentChainId, round.Id, reviewer, "accept", 800_000, salt, attestation)
+		require.NoError(t, err)
+		commit := &types.CommitEntry{Verifier: reviewer, CommitHash: hash, CommittedAtBlock: 11}
+		if seats > 0 {
+			commit.SeatDeposit = "1"
+		}
+		round.Commits = append(round.Commits, commit)
+		round.SelectedVerifiers = append(round.SelectedVerifiers, reviewer)
+		round.Reveals = append(round.Reveals, &types.RevealEntry{Verifier: reviewer, Vote: "accept", Salt: salt, Confidence: 800_000, Attestation: attestation, RevealedAtBlock: 13})
+		round.VerifierRewardSettlement.Payments = append(round.VerifierRewardSettlement.Payments, &types.VerifierRewardPayment{Verifier: reviewer, Amount: "1", Withheld: "0"})
+	}
+	if seats > 0 {
+		round.SeatDepositReturns = types.BuildSeatDepositReturns(round, 14)
+		f.bank.custody += int64(seats)
+	}
+	require.NoError(t, f.k.SetVerificationRound(f.ctx, round))
+}
+
+func (f *seatInternalFixture) unpaidLegs(t *testing.T, id string) int {
+	t.Helper()
+	return pendingObligationTransferCount(f.stored(t, id))
+}
+
+// D5: a full round's plan (512 reviewer payments and 512 returns, 1,024
+// transfers, above the 513-transfer budget) does not stall the queue. It is
+// paid alone in a block of its own when it comes first, and the rounds
+// queued before and after it are paid too.
+func TestSeatDepositFullRoundPlanDoesNotStallQueue(t *testing.T) {
+	f := newSeatInternalFixture(t)
+	f.seedSettledSeatRound(t, "queue-a-before", 0)
+	f.seedSettledSeatRound(t, "queue-m-full", types.CommitSeatHardCap)
+	f.seedSettledSeatRound(t, "queue-z-after", 0)
+	require.Equal(t, 2*types.CommitSeatHardCap, f.unpaidLegs(t, "queue-m-full"))
+	execution, err := f.k.selectRoundsExecution(f.ctx)
+	require.NoError(t, err)
+	require.True(t, execution.seatDeposit)
+
+	var perBlock []int
+	for block := 0; block < 4; block++ {
+		f.ctx = f.ctx.WithBlockHeight(f.ctx.BlockHeight() + 1)
+		before := f.bank.transfers
+		require.NoError(t, execution.ProcessPendingVerifierRewards(f.ctx))
+		perBlock = append(perBlock, f.bank.transfers-before)
+	}
+	// Block 1 pays the round before and stops at the full round; block 2
+	// pays the full round alone; block 3 pays the round after; block 4 has
+	// nothing left.
+	require.Equal(t, []int{1, 2 * types.CommitSeatHardCap, 1, 0}, perBlock)
+	for _, id := range []string{"queue-a-before", "queue-m-full", "queue-z-after"} {
+		require.Zero(t, f.unpaidLegs(t, id), id)
+	}
+	require.Zero(t, f.bank.custody)
+}
+
+// The companion: the 3a844c48 queue body cannot carry returns. It counts and
+// pays only reviewer pay and refunds, so it pays the full round's 512
+// reviewer payments and none of its returns; the round stays indexed for
+// them, and on the next block the legacy consistency check refuses a queued
+// round with no reviewer pay or refund pending. Both begin-block bodies
+// return that error, so a chain running the legacy body with returns queued
+// would fail its block. This is why the queue dispatches to a new body while
+// seat deposits are on.
+func TestSeatDepositLegacyQueueCannotCarryReturns(t *testing.T) {
+	f := newSeatInternalFixture(t)
+	f.seedSettledSeatRound(t, "queue-m-full", types.CommitSeatHardCap)
+	f.ctx = f.ctx.WithBlockHeight(f.ctx.BlockHeight() + 1)
+	require.NoError(t, f.k.processPendingVerifierRewardsLegacy(f.ctx))
+	require.Equal(t, types.CommitSeatHardCap, f.bank.transfers, "reviewer pay only")
+	require.Equal(t, types.CommitSeatHardCap, f.unpaidLegs(t, "queue-m-full"), "every return still pending")
+	f.ctx = f.ctx.WithBlockHeight(f.ctx.BlockHeight() + 1)
+	require.ErrorContains(t, f.k.processPendingVerifierRewardsLegacy(f.ctx), "pending verifier reward index does not match primary round")
 }

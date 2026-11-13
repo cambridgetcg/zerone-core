@@ -167,7 +167,12 @@ func (k Keeper) validatePendingVerifierRewardIndex(ctx context.Context, rounds [
 		if err := types.ValidateClaimRefundSettlement(round); err != nil {
 			return err
 		}
-		if roundHasPendingFunds(round) {
+		if err := types.ValidateRoundSeatDeposits(round); err != nil {
+			return err
+		}
+		// Seat-deposit returns are pending obligations too (reviewer-entry
+		// step B); a round without them is judged exactly as before.
+		if roundHasPendingObligations(round) {
 			expected[string(pendingVerifierRewardKey(round.Id))] = true
 		}
 	}

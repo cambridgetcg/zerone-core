@@ -30,10 +30,13 @@ type seatBank struct {
 	*trackingBankKeeper
 	failReturnTo map[string]bool
 	failAll      bool
+	// failFrom fails every module-to-account transfer from these modules,
+	// such as reviewer pay from the knowledge module.
+	failFrom map[string]bool
 }
 
 func newSeatBank() *seatBank {
-	return &seatBank{trackingBankKeeper: newTrackingBankKeeper(), failReturnTo: map[string]bool{}}
+	return &seatBank{trackingBankKeeper: newTrackingBankKeeper(), failReturnTo: map[string]bool{}, failFrom: map[string]bool{}}
 }
 
 func (b *seatBank) SendCoinsFromAccountToModule(ctx context.Context, from sdk.AccAddress, module string, amt sdk.Coins) error {
@@ -51,6 +54,9 @@ func (b *seatBank) SendCoinsFromAccountToModule(ctx context.Context, from sdk.Ac
 }
 
 func (b *seatBank) SendCoinsFromModuleToAccount(ctx context.Context, module string, to sdk.AccAddress, amt sdk.Coins) error {
+	if b.failFrom[module] {
+		return fmt.Errorf("injected %s transfer failure", module)
+	}
 	if module != types.SeatDepositModuleName {
 		return b.trackingBankKeeper.SendCoinsFromModuleToAccount(ctx, module, to, amt)
 	}

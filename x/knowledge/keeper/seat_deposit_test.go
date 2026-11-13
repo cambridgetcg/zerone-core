@@ -292,3 +292,142 @@ func TestSeatDepositReturnsFrozenAtCompletion(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, f.bank.custody(), held.Int64())
 }
+
+// completeWithPanel seats a panel, completes the round at its reveal deadline
+// and returns the completed round and the reviewers.
+func (f *seatFixture) completeWithPanel(t *testing.T, tag string, votes ...string) (*types.VerificationRound, []string) {
+	t.Helper()
+	round := f.claim(t, tag)
+	reviewers := f.seatPanel(t, round, tag, votes...)
+	f.beginBlock(t)
+	done := f.round(t, round.Id)
+	require.Equal(t, types.VerificationPhase_VERIFICATION_PHASE_COMPLETE, done.Phase)
+	require.NotNil(t, done.SeatDepositReturns)
+	return done, reviewers
+}
+
+func (f *seatFixture) nextBlock(t *testing.T) {
+	t.Helper()
+	f.height(f.ctx.BlockHeight() + 1)
+	f.ctx = f.ctx.WithEventManager(sdk.NewEventManager())
+	f.beginBlock(t)
+}
+
+func pendingIndexed(f *seatFixture, roundID string) bool {
+	return f.ctx.KVStore(f.key).Has(append([]byte{0x82}, roundID...))
+}
+
+// D4, D5: the pending queue pays every return once, in the block after
+// completion, from the seat-deposit account; the round leaves the queue; a
+// later block pays nothing again. A round whose only pending obligation is
+// its returns is indexed and processed without error.
+func TestSeatDepositReturnsPaidOnceThroughTheQueue(t *testing.T) {
+	f := newSeatFixture(t, nil)
+	done, reviewers := f.completeWithPanel(t, "queue", "accept", "reject", "accept", "")
+	require.NotNil(t, done.VerifierRewardSettlement)
+	require.NotZero(t, done.VerifierRewardSettlement.PaidAtBlock, "reviewer pay settles at completion, as before")
+	require.True(t, pendingIndexed(f, done.Id), "returns alone keep the round in the queue")
+	require.Equal(t, int64(400_000_000), f.bank.custody())
+
+	f.nextBlock(t)
+	paid := f.round(t, done.Id)
+	for i, ret := range paid.SeatDepositReturns.Returns {
+		require.Equal(t, uint64(f.ctx.BlockHeight()), ret.PaidAtBlock)
+		require.Equal(t, int64(100_000_000), f.bank.balance(reviewers[i]), "every seat gets its deposit back, whatever it voted or whether it revealed")
+		require.Equal(t, 1, f.bank.returnsTo(reviewers[i]))
+	}
+	require.Zero(t, f.bank.custody())
+	require.False(t, pendingIndexed(f, done.Id))
+	require.Len(t, eventsOf(f.ctx, "zerone.knowledge.seat_deposit_returned"), len(reviewers))
+
+	f.nextBlock(t)
+	require.True(t, proto.Equal(paid, f.round(t, done.Id)))
+	for _, reviewer := range reviewers {
+		require.Equal(t, 1, f.bank.returnsTo(reviewer), "nothing is paid twice")
+	}
+	require.Empty(t, eventsOf(f.ctx, "zerone.knowledge.seat_deposit_returned"))
+}
+
+// D5: a failed return stays pending and the retry repeats nothing already
+// paid.
+func TestSeatDepositFailedReturnRepeatsNothing(t *testing.T) {
+	f := newSeatFixture(t, nil)
+	done, reviewers := f.completeWithPanel(t, "retry", "accept", "accept", "accept")
+	f.bank.failReturnTo[reviewers[1]] = true
+	f.nextBlock(t)
+	partly := f.round(t, done.Id)
+	require.NotZero(t, partly.SeatDepositReturns.Returns[0].PaidAtBlock)
+	require.Zero(t, partly.SeatDepositReturns.Returns[1].PaidAtBlock)
+	require.NotZero(t, partly.SeatDepositReturns.Returns[2].PaidAtBlock)
+	require.Equal(t, int64(100_000_000), f.bank.custody())
+	require.True(t, pendingIndexed(f, done.Id))
+	firstPaid := partly.SeatDepositReturns.Returns[0].PaidAtBlock
+
+	delete(f.bank.failReturnTo, reviewers[1])
+	f.nextBlock(t)
+	settled := f.round(t, done.Id)
+	require.Equal(t, firstPaid, settled.SeatDepositReturns.Returns[0].PaidAtBlock, "a paid record never moves")
+	require.Equal(t, uint64(f.ctx.BlockHeight()), settled.SeatDepositReturns.Returns[1].PaidAtBlock)
+	for _, reviewer := range reviewers {
+		require.Equal(t, 1, f.bank.returnsTo(reviewer))
+		require.Equal(t, int64(100_000_000), f.bank.balance(reviewer))
+	}
+	require.Zero(t, f.bank.custody())
+	require.False(t, pendingIndexed(f, done.Id))
+}
+
+// D4: returns are independent of reviewer pay and refunds, in each
+// direction. Reviewer pay that cannot be paid does not hold the returns, and
+// returns that cannot be paid do not hold reviewer pay.
+func TestSeatDepositReturnsIndependentOfReviewerPay(t *testing.T) {
+	t.Run("reviewer pay fails", func(t *testing.T) {
+		f := newSeatFixture(t, nil)
+		f.bank.failFrom[types.ModuleName] = true
+		done, reviewers := f.completeWithPanel(t, "pay-fails", "accept", "accept", "accept")
+		require.Zero(t, done.VerifierRewardSettlement.PaidAtBlock)
+		f.nextBlock(t)
+		round := f.round(t, done.Id)
+		require.Zero(t, round.VerifierRewardSettlement.PaidAtBlock, "reviewer pay stays pending")
+		for i, ret := range round.SeatDepositReturns.Returns {
+			require.NotZero(t, ret.PaidAtBlock)
+			require.Equal(t, int64(100_000_000), f.bank.balance(reviewers[i]))
+		}
+		require.True(t, pendingIndexed(f, done.Id), "the round stays queued for its reviewer pay")
+		delete(f.bank.failFrom, types.ModuleName)
+		f.nextBlock(t)
+		round = f.round(t, done.Id)
+		require.NotZero(t, round.VerifierRewardSettlement.PaidAtBlock)
+		require.False(t, pendingIndexed(f, done.Id))
+		for _, reviewer := range reviewers {
+			require.Equal(t, 1, f.bank.returnsTo(reviewer))
+		}
+	})
+	t.Run("returns fail", func(t *testing.T) {
+		f := newSeatFixture(t, nil)
+		f.bank.failAll = true
+		done, _ := f.completeWithPanel(t, "returns-fail", "accept", "accept", "accept")
+		require.NotZero(t, done.VerifierRewardSettlement.PaidAtBlock, "reviewer pay settles at completion")
+		f.nextBlock(t)
+		round := f.round(t, done.Id)
+		for _, ret := range round.SeatDepositReturns.Returns {
+			require.Zero(t, ret.PaidAtBlock)
+		}
+		require.Equal(t, int64(300_000_000), f.bank.custody())
+		require.True(t, pendingIndexed(f, done.Id))
+	})
+}
+
+// A round with seat terms and its deposit history is retained, even for an
+// unfunded claim (the seat deposit does not require fund settlement).
+func TestSeatDepositRoundCannotBeDeleted(t *testing.T) {
+	f := newSeatFixture(t, func(gs *types.GenesisState) {
+		gs.ClaimIntegrityEnabled = false
+		gs.FundSettlementEnabled = false
+	})
+	round := f.claim(t, "delete")
+	claim, found := f.k.GetClaim(f.ctx, round.ClaimId)
+	require.True(t, found)
+	require.Nil(t, claim.FundingTerms)
+	require.ErrorContains(t, f.k.DeleteVerificationRound(f.ctx, round.Id), "a round with seat terms and its deposit history must be retained")
+	f.round(t, round.Id)
+}

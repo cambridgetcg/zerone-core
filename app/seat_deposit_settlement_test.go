@@ -398,3 +398,105 @@ func TestSeatDepositRunOneBalancePassedAlong(t *testing.T) {
 		})
 	}
 }
+
+// reveal reveals every committed seat whose vote is not "", in commit order.
+func (tr *seatTrial) revealAll(t *testing.T) {
+	t.Helper()
+	for _, seat := range tr.seats {
+		if seat.vote == "" {
+			continue
+		}
+		_, err := tr.server().SubmitReveal(tr.ctx, &knowledgetypes.MsgSubmitReveal{Verifier: seat.address.String(), RoundId: tr.round.Id, Vote: seat.vote, Confidence: 800000, Salt: seat.salt, Attestation: seatTrialAttestation})
+		require.NoError(t, err)
+	}
+}
+
+func (tr *seatTrial) beginBlock(t *testing.T, h int64) {
+	t.Helper()
+	tr.height(h)
+	require.NoError(t, tr.app.KnowledgeKeeper.BeginBlocker(tr.ctx))
+}
+
+// D4, D5 with real bank transfers: on every admission route and every
+// outcome, every seat's deposit comes back once, to the address that locked
+// it, whatever it voted and whether it revealed; the seat-deposit account
+// ends empty; and later blocks repeat nothing. Each
+// reviewer ends with its starting balance plus its reviewer pay, which is
+// unchanged by the deposit.
+func TestSeatDepositEveryOutcomeReturnsEveryDepositOnce(t *testing.T) {
+	const deposit, funded = 1000, 100_000
+	for _, route := range seatTrialRoutes {
+		// A round whose every seat reveals completes early, on the block
+		// after the reveals (103); one with a silent seat waits for its
+		// reveal deadline (104).
+		for _, tc := range []struct {
+			name     string
+			votes    []string // "" commits to accept and never reveals
+			complete int64    // height at which the round completes
+			verdict  knowledgetypes.Verdict
+		}{
+			{"early-accept", []string{"accept", "accept", "accept"}, 103, knowledgetypes.Verdict_VERDICT_ACCEPT},
+			{"early-reject-with-dissent", []string{"reject", "reject", "accept"}, 103, knowledgetypes.Verdict_VERDICT_REJECT},
+			{"early-malformed", []string{"malformed", "malformed", "accept"}, 103, knowledgetypes.Verdict_VERDICT_MALFORMED},
+			{"early-inconclusive-split", []string{"accept", "reject", "malformed"}, 103, knowledgetypes.Verdict_VERDICT_INCONCLUSIVE},
+			{"deadline-accept-with-silent-seat", []string{"accept", "accept", "accept", ""}, 104, knowledgetypes.Verdict_VERDICT_ACCEPT},
+			{"deadline-under-quorum-silent-seat", []string{"accept", "reject", ""}, 104, knowledgetypes.Verdict_VERDICT_INCONCLUSIVE},
+			{"deadline-no-reveal", []string{"", "", ""}, 104, knowledgetypes.Verdict_VERDICT_INCONCLUSIVE},
+		} {
+			t.Run(route+"/"+tc.name, func(t *testing.T) {
+				tr := newSeatTrial(t, route, true, "1000")
+				require.Equal(t, "1000", tr.round.SeatTerms.CountedSeatDeposit)
+				tr.ctx = tr.ctx.WithEventManager(sdk.NewEventManager())
+				for i, vote := range tc.votes {
+					reviewer := tr.reviewer(t, 190+byte(i), funded)
+					if vote == "" {
+						require.NoError(t, tr.commit(t, reviewer, "accept"))
+						tr.seats[len(tr.seats)-1].vote = ""
+					} else {
+						require.NoError(t, tr.commit(t, reviewer, vote))
+					}
+					require.Equal(t, int64(funded-deposit), tr.balance(reviewer))
+				}
+				require.Equal(t, int64(len(tc.votes)*deposit), tr.custody())
+				tr.beginBlock(t, 102)
+				tr.revealAll(t)
+				for h := int64(103); h <= tc.complete; h++ {
+					tr.beginBlock(t, h)
+				}
+				round := tr.stored(t)
+				require.Equal(t, knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE, round.Phase)
+				require.Equal(t, uint64(tc.complete), round.VerdictBlock)
+				require.Equal(t, tc.verdict, round.Verdict)
+				require.NotNil(t, round.SeatDepositReturns)
+				require.Equal(t, round.VerdictBlock, round.SeatDepositReturns.CreatedAtBlock)
+
+				tr.beginBlock(t, tc.complete+1)
+				valid := 0
+				for _, vote := range tc.votes {
+					if vote != "" {
+						valid++
+					}
+				}
+				for i, seat := range tr.seats {
+					pay := int64(0)
+					if seat.vote != "" {
+						pay = int64(55 / valid)
+						if i == 0 {
+							pay += int64(55 % valid)
+						}
+					}
+					require.Equal(t, int64(funded)+pay, tr.balance(seat.address), "seat %d gets its whole deposit back", i)
+				}
+				require.Zero(t, tr.custody(), "the seat-deposit account ends empty")
+				require.Equal(t, len(tc.votes), countEvents(tr.ctx, "zerone.knowledge.seat_deposit_returned"), "one transfer per seat")
+
+				settled := tr.stored(t)
+				for h := tc.complete + 2; h <= tc.complete+4; h++ {
+					tr.beginBlock(t, h)
+				}
+				require.Equal(t, len(tc.votes), countEvents(tr.ctx, "zerone.knowledge.seat_deposit_returned"), "nothing is returned twice")
+				require.Equal(t, settled.SeatDepositReturns.String(), tr.stored(t).SeatDepositReturns.String())
+			})
+		}
+	}
+}

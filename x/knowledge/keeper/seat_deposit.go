@@ -1,11 +1,14 @@
 package keeper
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 
 	sdkmath "cosmossdk.io/math"
+	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 
@@ -262,4 +265,189 @@ func emitSeatDepositReturnsAccrued(ctx sdk.Context, round *types.VerificationRou
 		sdk.NewAttribute("trigger", trigger),
 		sdk.NewAttribute("payment_status", "pending"),
 	))
+}
+
+// processPendingRoundObligations is the pending queue with the seat-deposit
+// marker on (D5). It is processPendingVerifierRewardsLegacy with three
+// changes, and nothing else:
+//
+//   - a round's pending obligations include its unpaid seat-deposit returns,
+//     both in the index consistency check and in the transfer count, and
+//     the returns are validated with the round's other plans;
+//   - a round is settled by settleRoundObligations: the reviewer payment and
+//     refund leg exactly as before, then each return on its own;
+//   - a round whose pending transfers exceed the whole per-block budget is
+//     paid alone, in a block of its own, when it comes first. The budget
+//     (PendingVerifierRewardTransferBudget, 513) covers the largest reviewer
+//     plan with its refund or withholding, but a round with seat terms can
+//     also owe up to 512 returns; the legacy body would leave the cursor on
+//     such a round for ever and stall every round after it.
+//
+// Per block it does at most one batch of 16 rounds within 513 transfers, or
+// one round alone, at most 1,025 transfers. No round is skipped for ever.
+func (k roundsExecution) processPendingRoundObligations(ctx context.Context) error {
+	enabled, err := k.RecordIntegrityEnabled(ctx)
+	if err != nil || !enabled {
+		return err
+	}
+	store := k.storeService.OpenKVStore(ctx)
+	cursor, err := store.Get(pendingVerifierRewardCursor)
+	if err != nil {
+		return err
+	}
+	start := bytes.Clone(pendingVerifierRewardPrefix)
+	if len(cursor) > 0 {
+		if !bytes.HasPrefix(cursor, pendingVerifierRewardPrefix) || len(cursor) == len(pendingVerifierRewardPrefix) {
+			return fmt.Errorf("invalid pending verifier reward cursor")
+		}
+		start = append(bytes.Clone(cursor), 0)
+	}
+	it, err := store.Iterator(start, storetypes.PrefixEndBytes(pendingVerifierRewardPrefix))
+	if err != nil {
+		return err
+	}
+	var keys [][]byte
+	for ; it.Valid() && len(keys) < PendingVerifierRewardBatchSize; it.Next() {
+		if !bytes.Equal(it.Value(), []byte{1}) || len(it.Key()) <= len(pendingVerifierRewardPrefix) {
+			_ = it.Close()
+			return fmt.Errorf("invalid pending verifier reward index")
+		}
+		keys = append(keys, bytes.Clone(it.Key()))
+	}
+	exhausted := !it.Valid()
+	if err := closeSurvivalIterator(it); err != nil {
+		return err
+	}
+	transferBudget := PendingVerifierRewardTransferBudget
+	var lastProcessed []byte
+	for _, key := range keys {
+		id := string(key[len(pendingVerifierRewardPrefix):])
+		round, err := k.getVerificationRoundChecked(ctx, id)
+		if err != nil {
+			return err
+		}
+		if err := types.ValidateVerifierRewardSettlement(round); err != nil {
+			return err
+		}
+		if err := types.ValidateClaimRefundSettlement(round); err != nil {
+			return err
+		}
+		if err := types.ValidateRoundSeatDeposits(round); err != nil {
+			return err
+		}
+		if !roundHasPendingObligations(round) {
+			return fmt.Errorf("pending verifier reward index does not match primary round")
+		}
+		legs := pendingObligationTransferCount(round)
+		if legs > transferBudget {
+			exhausted = false
+			if lastProcessed != nil {
+				// Leave the cursor before this round so it gets the full
+				// budget next block, including when earlier rounds remain
+				// unfunded.
+				break
+			}
+			// First in this block and larger than the whole budget: pay it
+			// alone, so it never holds the queue (D5).
+			lastProcessed = key
+			if err := k.settleRoundObligations(ctx, id); err != nil {
+				k.Logger(ctx).Error("round obligations remain pending", "round_id", id, "error", err)
+			}
+			break
+		}
+		transferBudget -= legs
+		lastProcessed = key
+		if err := k.settleRoundObligations(ctx, id); err != nil {
+			k.Logger(ctx).Error("round obligations remain pending", "round_id", id, "error", err)
+		}
+	}
+	if exhausted {
+		return store.Delete(pendingVerifierRewardCursor)
+	}
+	if lastProcessed != nil {
+		return store.Set(pendingVerifierRewardCursor, lastProcessed)
+	}
+	return nil
+}
+
+// settleRoundObligations settles a round's two independent legs (D4): the
+// reviewer payment and claim refund, through the unchanged
+// TrySettleVerifierRewards (all or nothing, as before; it does nothing when
+// only returns are pending), and then the seat-deposit returns, each on its
+// own. A failure in one leg never blocks the other; both errors are returned.
+func (k roundsExecution) settleRoundObligations(ctx context.Context, roundID string) error {
+	fundsErr := k.TrySettleVerifierRewards(ctx, roundID)
+	returnsErr := k.settleSeatDepositReturns(ctx, roundID)
+	return errors.Join(fundsErr, returnsErr)
+}
+
+// settleSeatDepositReturns pays a round's unpaid seat-deposit returns from the
+// seat-deposit account only (D4, D5). Each return is its own transfer in its
+// own cache: a transfer that succeeds is recorded paid at this height and
+// emits seat_deposit_returned; one that fails is discarded, logged and left
+// pending, and repeats nothing already paid. The round record is written once
+// with every return paid in this call, and no transfer survives without its
+// paid record.
+func (k Keeper) settleSeatDepositReturns(ctx context.Context, roundID string) error {
+	round, err := k.getVerificationRoundChecked(ctx, roundID)
+	if err != nil {
+		return err
+	}
+	if err := types.ValidateRoundSeatDeposits(round); err != nil {
+		return err
+	}
+	plan := round.SeatDepositReturns
+	if types.PendingSeatDepositReturns(round) == 0 {
+		return nil
+	}
+	if k.bankKeeper == nil {
+		return fmt.Errorf("bank keeper unavailable; seat deposits remain unreturned")
+	}
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	if sdkCtx.BlockHeight() <= 0 || uint64(sdkCtx.BlockHeight()) < plan.CreatedAtBlock {
+		return fmt.Errorf("invalid seat deposit return height")
+	}
+	height := uint64(sdkCtx.BlockHeight())
+	cache, write := sdkCtx.CacheContext()
+	var failures []error
+	var paid []*types.SeatDepositReturn
+	for _, ret := range plan.Returns {
+		if ret.PaidAtBlock != 0 {
+			continue
+		}
+		amount, err := types.SeatDepositAmount(ret.Amount)
+		if err != nil {
+			return err
+		}
+		recipient, err := sdk.AccAddressFromBech32(ret.Recipient)
+		if err != nil {
+			return err
+		}
+		transfer, keep := cache.CacheContext()
+		coins := sdk.NewCoins(sdk.NewCoin("uzrn", sdkmath.NewIntFromUint64(amount)))
+		if err := k.bankKeeper.SendCoinsFromModuleToAccount(transfer, types.SeatDepositModuleName, recipient, coins); err != nil {
+			failures = append(failures, fmt.Errorf("seat deposit return to %s remains unpaid: %w", ret.Recipient, err))
+			continue
+		}
+		keep()
+		ret.PaidAtBlock = height
+		paid = append(paid, ret)
+	}
+	if len(paid) == 0 {
+		return errors.Join(failures...)
+	}
+	if err := k.SetVerificationRound(cache, round); err != nil {
+		return err
+	}
+	for _, ret := range paid {
+		cache.EventManager().EmitEvent(sdk.NewEvent("zerone.knowledge.seat_deposit_returned",
+			sdk.NewAttribute("round_id", roundID),
+			sdk.NewAttribute("recipient", ret.Recipient),
+			sdk.NewAttribute("amount_uzrn", ret.Amount),
+			sdk.NewAttribute("payment_status", "paid"),
+			sdk.NewAttribute("paid_at_block", strconv.FormatUint(ret.PaidAtBlock, 10)),
+		))
+	}
+	write()
+	return errors.Join(failures...)
 }
