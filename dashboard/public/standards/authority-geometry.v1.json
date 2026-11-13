@@ -739,7 +739,7 @@
     {
       "id": "app-wiring",
       "path": "app/app.go",
-      "sha256": "91b10eed2e0a95740edbf381e370fea485f1e6b987731bc890970b20168172e5",
+      "sha256": "ec3ad207f7c42abd0573c717db6e904c305953dc3eb3e71e1cc9d4abf9b4091d",
       "requiredSnippets": [
         "app.StakingKeeper = stakingkeeper.NewKeeper(",
         "app.GovKeeper = govkeeper.NewKeeper(",
@@ -783,7 +783,7 @@
     {
       "id": "knowledge-writers",
       "path": "x/knowledge/keeper/msg_server.go",
-      "sha256": "267c2385e1b93cefc0eb919001297bc1ee5cb50b305314daa957e8cc41e63b1c",
+      "sha256": "759797cbef397fb08c8e372b1783c016e423a63cee979ddfce616301a8a32c89",
       "requiredSnippets": [
         "func (m *msgServer) AddFact(ctx context.Context, msg *types.MsgAddFact)",
         "func (m *msgServer) ProposeDomain(ctx context.Context, msg *types.MsgProposeDomain)",
@@ -848,7 +848,7 @@
     {
       "id": "knowledge-slash-callsites",
       "path": "x/knowledge/keeper/rounds.go",
-      "sha256": "30be15c650cb93160deefd8757636da57019929b18d2a8c2b34320c5801bd69e",
+      "sha256": "3f73eaba7ef36a6eaa2623ab14632f66bfef2481a8b252fe49991be5edfaee01",
       "requiredSnippets": [
         "for _, slash := range result.Slashes {",
         "slashedAmt, err := k.stakingKeeper.SlashValidatorToModule(ctx, slash.Verifier, slash.SlashBps, types.VindicationEscrowModuleName)",
