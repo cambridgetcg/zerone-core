@@ -46,12 +46,39 @@ func (k Keeper) ProcessMetabolism(ctx context.Context, epoch uint64) error {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	changedDomains := make(map[string]bool) // track domains with status changes (R29-1)
 
+	// A domain's carrying capacity is computed once per domain per epoch.
+	// Recomputing it per fact walked every fact and citation in the domain
+	// for each fact, which is quadratic in domain size (DET-4, consensus
+	// review 2026-11-05). Its inputs (params, the domain index, inbound
+	// cross-domain citations, mentorship graduations, capture penalty, stratum
+	// depth) are not changed by this loop. The loop writes fact energy and
+	// status, status history and each domain's stats record. Two of those
+	// writes touch inputs, and both are no-ops for them. SetFact rewrites the
+	// fact with its Domain unchanged and re-sets FactByDomainKey(Domain, Id),
+	// which is the key it was found under because every stored fact's payload
+	// Id equals its key. The stats record is written back with its mentorship
+	// graduations unchanged; only its population counts move. So reuse gives
+	// the same capacity. Each use re-emits the stratum event an uncached
+	// computation would emit at the same point, so the block's events are
+	// unchanged as well. The population does change in the loop and stays a
+	// live read in domainPressure.
+	capacities := make(map[string]domainCapacity)
+	capacityOf := func(ctx context.Context, domain string) uint64 {
+		c, ok := capacities[domain]
+		if !ok {
+			c = k.computeDomainCarryingCapacity(ctx, domain)
+			capacities[domain] = c
+		}
+		c.emit(ctx, domain)
+		return c.capacity
+	}
+
 	for _, fact := range factsToProcess {
 		// ─── Calculate maintenance cost ───────────────────
 		cost := k.calculateMaintenanceCost(fact, params, domainCounts)
 
 		// Apply domain carrying capacity death pressure (R29-1)
-		deathMultiplier := k.GetDeathPressureMultiplier(ctx, fact.Domain)
+		deathMultiplier := k.deathPressureMultiplier(ctx, fact.Domain, capacityOf)
 		cost = safeMulDiv(cost, deathMultiplier, BPSCapacity)
 
 		// ─── Calculate energy income ──────────────────────

@@ -63,7 +63,7 @@ not authority or live network state.
 | ID | Path | Raw SHA-256 |
 |---|---|---|
 | `compassion` | `docs/COMPASSION.md` | `f1d5bf357ce1c503aa70efd4f1a6e297700b7d76a9164488f4253210bb82a3f8` |
-| `knowledge-metabolism` | `x/knowledge/keeper/metabolism.go` | `7b252c5134a6c78b753820890dbcd1eac9d3b263c8bf798c44bc1b41f50aafc6` |
+| `knowledge-metabolism` | `x/knowledge/keeper/metabolism.go` | `263832a5b21a593b5bd3394c0e5ab08e8e432bc29ae86d6bf3650864d31359d5` |
 | `knowledge-methodologies` | `x/knowledge/types/methodologies.go` | `fa16ac33e7f2c10a19ed76541af6c2378edb79683578f2cec6f1a0563ebec386` |
 | `knowledge-types` | `proto/zerone/knowledge/v1/types.proto` | `8f3175e0a3678298fd483d96922e325d48548245ab337309970419be7fabd34c` |
 | `relational-topology` | `dashboard/public/standards/relational-topology.v0.json` | `28c7d9717a4d63678096eff7f09d27cbe6ece13b44a7ecaf0b6920001f7fadf6` |
@@ -229,7 +229,7 @@ claim and every possible error in its proposed transfer.
 The reviewed raw artifact digest is:
 
 ```text
-08e3d7d8409d66a4807ccad44651a88000fc2ced70c92ae7bfd567b461a1cc48
+f6289959cb7acfcacbfaa65d860271735df9905fabc9804f0055fb5920e7aee4
 ```
 
 The offline validator rejects oversized, excessively nested, duplicate-key,

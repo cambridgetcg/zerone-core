@@ -132,7 +132,43 @@ func (k Keeper) TransitionDomainFactStatus(ctx context.Context, domain string, t
 
 const BPSCapacity = 1_000_000
 
+// GetDomainCarryingCapacity returns a domain's carrying capacity, emitting
+// zerone.knowledge.stratum_capacity_applied when its stratum depth reduces it.
 func (k Keeper) GetDomainCarryingCapacity(ctx context.Context, domain string) uint64 {
+	c := k.computeDomainCarryingCapacity(ctx, domain)
+	c.emit(ctx, domain)
+	return c.capacity
+}
+
+// domainCapacity is one computation of a domain's carrying capacity, with
+// what the stratum event of that computation reports.
+type domainCapacity struct {
+	capacity       uint64
+	stratumApplied bool
+	depth          uint32
+	multiplier     uint64
+}
+
+// emit emits the event GetDomainCarryingCapacity emits for this computation,
+// building a new event each time.
+func (c domainCapacity) emit(ctx context.Context, domain string) {
+	if !c.stratumApplied {
+		return
+	}
+	sdk.UnwrapSDKContext(ctx).EventManager().EmitEvent(sdk.NewEvent(
+		"zerone.knowledge.stratum_capacity_applied",
+		sdk.NewAttribute("domain", domain),
+		sdk.NewAttribute("stratum_depth", fmt.Sprintf("%d", c.depth)),
+		sdk.NewAttribute("capacity_multiplier_bps", fmt.Sprintf("%d", c.multiplier)),
+		sdk.NewAttribute("effective_capacity", fmt.Sprintf("%d", c.capacity)),
+	))
+}
+
+// computeDomainCarryingCapacity computes a domain's carrying capacity without
+// emitting anything. Its inputs are params, the domain's inbound cross-domain
+// citations, its mentorship graduations, its capture penalty and its stratum
+// depth.
+func (k Keeper) computeDomainCarryingCapacity(ctx context.Context, domain string) domainCapacity {
 	params, _ := k.GetParams(ctx)
 	base := params.DomainBaseCapacity
 	if base == 0 {
@@ -153,7 +189,7 @@ func (k Keeper) GetDomainCarryingCapacity(ctx context.Context, domain string) ui
 		if flagged {
 			reduction := safeMulDiv(total, penaltyBps, BPSCapacity)
 			if reduction >= total {
-				return 1 // minimum capacity — can't go to zero
+				return domainCapacity{capacity: 1} // minimum capacity — can't go to zero
 			}
 			total = total - reduction
 		}
@@ -164,25 +200,21 @@ func (k Keeper) GetDomainCarryingCapacity(ctx context.Context, domain string) ui
 	if stratumMultiplier < BPSCapacity {
 		effectiveCapacity := total * stratumMultiplier / BPSCapacity
 
-		sdkCtx := sdk.UnwrapSDKContext(ctx)
 		depth := uint32(1)
 		if k.ontologyKeeper != nil {
 			if d, err := k.ontologyKeeper.GetDepthForDomain(ctx, domain); err == nil {
 				depth = d
 			}
 		}
-		sdkCtx.EventManager().EmitEvent(sdk.NewEvent(
-			"zerone.knowledge.stratum_capacity_applied",
-			sdk.NewAttribute("domain", domain),
-			sdk.NewAttribute("stratum_depth", fmt.Sprintf("%d", depth)),
-			sdk.NewAttribute("capacity_multiplier_bps", fmt.Sprintf("%d", stratumMultiplier)),
-			sdk.NewAttribute("effective_capacity", fmt.Sprintf("%d", effectiveCapacity)),
-		))
-
-		return effectiveCapacity
+		return domainCapacity{
+			capacity:       effectiveCapacity,
+			stratumApplied: true,
+			depth:          depth,
+			multiplier:     stratumMultiplier,
+		}
 	}
 
-	return total
+	return domainCapacity{capacity: total}
 }
 
 // getStratumCapacityMultiplier returns a BPS multiplier based on domain depth.
@@ -211,8 +243,15 @@ func (k Keeper) getStratumCapacityMultiplier(ctx context.Context, domain string)
 }
 
 func (k Keeper) GetDomainPressure(ctx context.Context, domain string) uint64 {
+	return k.domainPressure(ctx, domain, k.GetDomainCarryingCapacity)
+}
+
+// domainPressure is GetDomainPressure with the capacity lookup supplied, so
+// ProcessMetabolism can reuse one capacity computation per domain. The
+// population is always read live.
+func (k Keeper) domainPressure(ctx context.Context, domain string, capacityOf func(context.Context, string) uint64) uint64 {
 	stats, _ := k.GetDomainStats(ctx, domain)
-	capacity := k.GetDomainCarryingCapacity(ctx, domain)
+	capacity := capacityOf(ctx, domain)
 	if capacity == 0 {
 		return BPSCapacity
 	}
@@ -244,11 +283,17 @@ func (k Keeper) GetInboundCrossDomainCitationCount(ctx context.Context, domain s
 // GetDeathPressureMultiplier returns the decay multiplier for a domain.
 // >1M BPS = faster decay (overcrowded), <1M BPS = slower decay (sparse), 1M = normal.
 func (k Keeper) GetDeathPressureMultiplier(ctx context.Context, domain string) uint64 {
+	return k.deathPressureMultiplier(ctx, domain, k.GetDomainCarryingCapacity)
+}
+
+// deathPressureMultiplier is GetDeathPressureMultiplier with the capacity
+// lookup supplied.
+func (k Keeper) deathPressureMultiplier(ctx context.Context, domain string, capacityOf func(context.Context, string) uint64) uint64 {
 	params, err := k.GetParams(ctx)
 	if err != nil || params.DomainBaseCapacity == 0 {
 		return BPSCapacity
 	}
-	pressure := k.GetDomainPressure(ctx, domain)
+	pressure := k.domainPressure(ctx, domain, capacityOf)
 
 	if pressure > BPSCapacity {
 		// Overcrowded: accelerate decay
