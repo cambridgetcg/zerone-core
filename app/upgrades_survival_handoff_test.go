@@ -32,6 +32,7 @@ type archivedSurvivalKnowledgeModule struct{ knowledgemodule.AppModule }
 func (archivedSurvivalKnowledgeModule) ConsensusVersion() uint64 { return 7 }
 
 func freezeSurvivalCompiledTarget(app *ZeroneApp) {
+	freezeConsensusRepairsSiblingTargets(app)
 	app.ModuleManager.Modules["knowledge"] = archivedSurvivalKnowledgeModule{app.ModuleManager.Modules["knowledge"].(knowledgemodule.AppModule)}
 }
 

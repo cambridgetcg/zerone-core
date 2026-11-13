@@ -48,6 +48,17 @@ func (k Keeper) SetChallenge(ctx context.Context, ch *types.CaptureChallenge) {
 	_ = kvStore.Set(challengeKey(ch.Id), bz)
 }
 
+// setChallenge exposes write errors to the atomic expiry path. Other callers
+// retain SetChallenge's existing unchecked-write contract.
+func (k Keeper) setChallenge(ctx context.Context, ch *types.CaptureChallenge) error {
+	kvStore := k.storeService.OpenKVStore(ctx)
+	bz, err := proto.Marshal(ch)
+	if err != nil {
+		panic(fmt.Sprintf("failed to marshal challenge: %v", err))
+	}
+	return kvStore.Set(challengeKey(ch.Id), bz)
+}
+
 // GetChallenge retrieves a challenge by ID.
 func (k Keeper) GetChallenge(ctx context.Context, id string) (*types.CaptureChallenge, bool) {
 	kvStore := k.storeService.OpenKVStore(ctx)

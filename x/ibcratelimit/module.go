@@ -15,6 +15,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
+	"github.com/zerone-chain/zerone/internal/consensusrepairsmigration"
 	"github.com/zerone-chain/zerone/x/ibcratelimit/client/cli"
 	"github.com/zerone-chain/zerone/x/ibcratelimit/keeper"
 	"github.com/zerone-chain/zerone/x/ibcratelimit/types"
@@ -86,6 +87,9 @@ func (am AppModule) IsOnePerModuleType() {}
 func (am AppModule) IsAppModule()        {}
 
 func (am AppModule) RegisterServices(cfg module.Configurator) {
+	if err := cfg.RegisterMigration(types.ModuleName, 1, consensusrepairsmigration.Require); err != nil {
+		panic(err)
+	}
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServerImpl(am.keeper))
 
@@ -108,10 +112,14 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 	return bz
 }
 
-func (AppModule) ConsensusVersion() uint64 { return 1 }
+func (AppModule) ConsensusVersion() uint64 { return 2 }
 
 func (am AppModule) BeginBlock(ctx context.Context) error {
-	am.keeper.ResetExpiredWindows(ctx)
+	refundIdentity, err := am.keeper.RefundIdentityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	am.keeper.ResetExpiredWindowsForActivation(ctx, refundIdentity)
 	return nil
 }
 

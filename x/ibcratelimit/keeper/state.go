@@ -21,14 +21,32 @@ func rateLimitKey(channelID, denom string) []byte {
 	return key
 }
 
-func (k Keeper) SetRateLimit(ctx context.Context, rl *types.RateLimit) {
+// SetRateLimitForActivation takes the marker decision read once by the entry point. When on,
+// installation or a byte-for-byte change to MaxSend, MaxRecv or WindowBlocks
+// advances the retained generation; counters/window starts never do. Numeric
+// spelling changes ("100" -> "0100") intentionally invalidate old receipts.
+// A future MsgUpdateRateLimit must preserve this policy and review its gas.
+func (k Keeper) SetRateLimitForActivation(ctx context.Context, refundIdentity bool, rl *types.RateLimit) {
+	if !refundIdentity {
+		k.SetRateLimitLegacy(ctx, rl)
+		return
+	}
 	kvStore := k.storeService.OpenKVStore(ctx)
 	key := rateLimitKey(rl.ChannelId, rl.Denom)
 	bz, err := json.Marshal(rl)
 	if err != nil {
 		panic(fmt.Sprintf("failed to marshal rate limit: %v", err))
 	}
-	_ = kvStore.Set(key, bz)
+	previous, found := k.GetRateLimit(ctx, rl.ChannelId, rl.Denom)
+	if !found || previous.MaxSend != rl.MaxSend || previous.MaxRecv != rl.MaxRecv || previous.WindowBlocks != rl.WindowBlocks {
+		// Counter/window updates keep the identity; installation or policy
+		// replacement does not. The generation survives DeleteRateLimit.
+		k.advanceRuleGeneration(ctx, rl.ChannelId, rl.Denom)
+	}
+	// A charge receipt must never be issued after a failed debit write.
+	if err := kvStore.Set(key, bz); err != nil {
+		panic(fmt.Sprintf("failed to write rate limit: %v", err))
+	}
 }
 
 func (k Keeper) GetRateLimit(ctx context.Context, channelID, denom string) (*types.RateLimit, bool) {
@@ -47,6 +65,8 @@ func (k Keeper) GetRateLimit(ctx context.Context, channelID, denom string) (*typ
 
 func (k Keeper) DeleteRateLimit(ctx context.Context, channelID, denom string) {
 	kvStore := k.storeService.OpenKVStore(ctx)
+	// Do not delete the generation: re-adding identical policy at the same
+	// height must not let outstanding packets debit the replacement rule.
 	_ = kvStore.Delete(rateLimitKey(channelID, denom))
 }
 
@@ -84,6 +104,8 @@ func packetFlowKey(channelID string, sequence uint64) []byte {
 	return key
 }
 
+// SetPacketFlow writes the pre-activation shape, without charge identity.
+// Deprecated: legacy dispatch/tests only; activated sends use RecordPacketCharge.
 func (k Keeper) SetPacketFlow(ctx context.Context, flow *types.PacketFlow) {
 	kvStore := k.storeService.OpenKVStore(ctx)
 	key := packetFlowKey(flow.ChannelId, flow.Sequence)
@@ -108,7 +130,15 @@ func (k Keeper) GetPacketFlow(ctx context.Context, channelID string, sequence ui
 	return &flow, true
 }
 
-func (k Keeper) DeletePacketFlow(ctx context.Context, channelID string, sequence uint64) {
+func (k Keeper) DeletePacketFlowForActivation(ctx context.Context, refundIdentity bool, channelID string, sequence uint64) {
+	if !refundIdentity {
+		k.DeletePacketFlowLegacy(ctx, channelID, sequence)
+		return
+	}
 	kvStore := k.storeService.OpenKVStore(ctx)
-	_ = kvStore.Delete(packetFlowKey(channelID, sequence))
+	// A failed cleanup must abort the caller's cache, not leave a reusable
+	// receipt after a successful reversal.
+	if err := kvStore.Delete(packetFlowKey(channelID, sequence)); err != nil {
+		panic(fmt.Sprintf("failed to delete packet flow: %v", err))
+	}
 }

@@ -12,6 +12,13 @@ import (
 // BeginBlocker runs knowledge module begin-block logic.
 // Advances verification round phases by deadline and triggers fitness epoch updates.
 func (k Keeper) BeginBlocker(ctx context.Context) error {
+	// This marker is read once, before ANY begin-block write. Its reader
+	// wraps activation.ErrMarkerFault; ordinary historical errors below keep
+	// their existing handling rather than becoming new consensus halts.
+	reformulationOrdering, err := k.ReformulationVindicationOrderingEnabled(ctx)
+	if err != nil {
+		return err
+	}
 	// Retry a fixed number of frozen verifier obligations independently of
 	// scientific round processing. Failed bank sends retain the whole plan.
 	if err := k.ProcessPendingVerifierRewards(ctx); err != nil {
@@ -21,7 +28,7 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 	// infrastructure — bounty expiry / vesting release / manifest
 	// supersession. Runs first so a round-advance error cannot silently
 	// starve Route B lifecycle progression. Non-fatal: errors logged inside.
-	k.ProcessRouteBLifecycle(ctx)
+	k.processRouteBLifecycle(ctx, reformulationOrdering)
 
 	if err := k.AdvanceRoundPhases(ctx); err != nil {
 		return err
@@ -40,7 +47,7 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 	}
 	// Prune expired vindication entries every 1000 blocks
 	if height > 0 && height%1000 == 0 && params.VindicationRefundEnabled {
-		k.PruneExpiredVindications(ctx, height, params.VindicationWindowBlocks)
+		k.pruneExpiredVindications(ctx, height, params.VindicationWindowBlocks, reformulationOrdering)
 	}
 
 	if params.FitnessEpochBlocks > 0 && height > 0 && height%params.FitnessEpochBlocks == 0 {

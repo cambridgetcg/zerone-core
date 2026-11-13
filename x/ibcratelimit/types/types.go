@@ -17,6 +17,8 @@ func DefaultGenesis() *GenesisState {
 	return &GenesisState{
 		Params:     DefaultParams(),
 		RateLimits: nil,
+		// A new chain starts with the consensus-repairs-v1 selection on.
+		RefundIdentityEnabled: true,
 	}
 }
 

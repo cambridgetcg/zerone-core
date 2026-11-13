@@ -370,7 +370,7 @@ func TestAnalyzeCaptureRisk_WithPartnershipDensity(t *testing.T) {
 
 	// First: analyze without partnership density → should be flagged
 	mockPK.densities["borderline_domain"] = 0
-	metrics := k.AnalyzeCaptureRisk(ctx, "borderline_domain", params)
+	metrics := k.AnalyzeCaptureRisk(ctx, "borderline_domain", params, false)
 	require.NotNil(t, metrics)
 
 	rawHHI := metrics.HerfindahlIndex
@@ -379,7 +379,7 @@ func TestAnalyzeCaptureRisk_WithPartnershipDensity(t *testing.T) {
 	// Now add significant partnership density
 	mockPK.densities["borderline_domain"] = 20 // 20 participants → 20% reduction (max cap)
 
-	metrics2 := k.AnalyzeCaptureRisk(ctx, "borderline_domain", params)
+	metrics2 := k.AnalyzeCaptureRisk(ctx, "borderline_domain", params, false)
 	require.NotNil(t, metrics2)
 
 	// The raw HHI stored in metrics should be the same
@@ -413,7 +413,7 @@ func TestRunAutoAnalysis_TriggersFormationBonus(t *testing.T) {
 	}
 
 	params := k.GetParams(ctx)
-	k.RunAutoAnalysis(ctx, params)
+	require.NoError(t, k.RunAutoAnalysis(ctx, params, false))
 
 	// Verify formation bonus was set for the flagged domain
 	bonus, found := mockPK.formationBonuses["monopoly_domain"]
@@ -438,7 +438,7 @@ func TestRunAutoAnalysis_NoFormationBonusForHealthy(t *testing.T) {
 	}
 
 	params := k.GetParams(ctx)
-	k.RunAutoAnalysis(ctx, params)
+	require.NoError(t, k.RunAutoAnalysis(ctx, params, false))
 
 	// Verify NO formation bonus set for healthy domain
 	_, found := mockPK.formationBonuses["healthy_domain"]
@@ -466,7 +466,7 @@ func TestStructuralImmunity_FullLifecycle(t *testing.T) {
 	}
 
 	params := k.GetParams(ctx)
-	k.RunAutoAnalysis(ctx, params)
+	require.NoError(t, k.RunAutoAnalysis(ctx, params, false))
 
 	m, found := k.GetCaptureMetrics(ctx, "evolving_domain")
 	require.True(t, found)
@@ -482,7 +482,7 @@ func TestStructuralImmunity_FullLifecycle(t *testing.T) {
 
 	// Re-analyze — with 20% HHI reduction, adjusted HHI = raw * 0.8
 	// For monopoly (HHI=1,000,000): adjusted = 800,000, still above threshold 250,000
-	k.RunAutoAnalysis(ctx, params)
+	require.NoError(t, k.RunAutoAnalysis(ctx, params, false))
 	m2, _ := k.GetCaptureMetrics(ctx, "evolving_domain")
 	t.Logf("Phase 2: raw HHI=%d, flagged=%v (with 20 participants)", m2.HerfindahlIndex, m2.Flagged)
 

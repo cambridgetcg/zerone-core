@@ -21,17 +21,19 @@ func (k Keeper) maybeResetWindow(ctx context.Context, rl *types.RateLimit) {
 	}
 }
 
-// CheckAndUpdateSendQuota checks and updates the send quota for a given channel/denom.
-// Returns an error if the send rate limit would be exceeded.
-func (k Keeper) CheckAndUpdateSendQuota(ctx context.Context, channelID, denom string, amount *big.Int) error {
+// ChargeSendQuota returns the identity of the actual charge, or nil when the
+// limiter is disabled/unconfigured. Packet senders must retain this identity,
+// rather than reconstructing it from the rule at refund time.
+// Only the marker-on dispatch may call this repair helper.
+func (k Keeper) ChargeSendQuota(ctx context.Context, channelID, denom string, amount *big.Int) (*SendCharge, error) {
 	params := k.GetParams(ctx)
 	if !params.Enabled {
-		return nil
+		return nil, nil
 	}
 
 	rl, found := k.GetRateLimit(ctx, channelID, denom)
 	if !found {
-		return nil // no rate limit configured — allow
+		return nil, nil // no rate limit configured — allow
 	}
 
 	k.maybeResetWindow(ctx, rl)
@@ -46,20 +48,27 @@ func (k Keeper) CheckAndUpdateSendQuota(ctx context.Context, channelID, denom st
 
 	newSend := new(big.Int).Add(currentSend, amount)
 	if newSend.Cmp(maxSend) > 0 {
-		return types.ErrSendRateExceeded.Wrapf(
+		return nil, types.ErrSendRateExceeded.Wrapf(
 			"channel %s denom %s: sending %s would bring total to %s, max is %s",
 			channelID, denom, amount.String(), newSend.String(), maxSend.String(),
 		)
 	}
 
 	rl.CurrentSend = newSend.String()
-	k.SetRateLimit(ctx, rl)
-	return nil
+	k.SetRateLimitForActivation(ctx, true, rl)
+	return &SendCharge{
+		channelID: channelID, denom: denom, amount: amount.String(),
+		windowStart:    rl.WindowStart,
+		ruleGeneration: k.ruleGeneration(ctx, channelID, denom),
+	}, nil
 }
 
 // CheckAndUpdateRecvQuota checks and updates the receive quota for a given channel/denom.
 // Returns an error if the receive rate limit would be exceeded.
-func (k Keeper) CheckAndUpdateRecvQuota(ctx context.Context, channelID, denom string, amount *big.Int) error {
+func (k Keeper) CheckAndUpdateRecvQuotaForActivation(ctx context.Context, refundIdentity bool, channelID, denom string, amount *big.Int) error {
+	if !refundIdentity {
+		return k.CheckAndUpdateRecvQuotaLegacy(ctx, channelID, denom, amount)
+	}
 	params := k.GetParams(ctx)
 	if !params.Enabled {
 		return nil
@@ -89,12 +98,12 @@ func (k Keeper) CheckAndUpdateRecvQuota(ctx context.Context, channelID, denom st
 	}
 
 	rl.CurrentRecv = newRecv.String()
-	k.SetRateLimit(ctx, rl)
+	k.SetRateLimitForActivation(ctx, true, rl)
 	return nil
 }
 
-// ReverseSendQuota decrements the send counter when a packet is refunded (timeout or error ack).
-func (k Keeper) ReverseSendQuota(ctx context.Context, channelID, denom string, amount *big.Int) {
+// reverseSendQuota is called only after the activated receipt checks succeed.
+func (k Keeper) reverseSendQuota(ctx context.Context, channelID, denom string, amount *big.Int) {
 	rl, found := k.GetRateLimit(ctx, channelID, denom)
 	if !found {
 		return
@@ -111,12 +120,16 @@ func (k Keeper) ReverseSendQuota(ctx context.Context, channelID, denom string, a
 	}
 
 	rl.CurrentSend = newSend.String()
-	k.SetRateLimit(ctx, rl)
+	k.SetRateLimitForActivation(ctx, true, rl)
 }
 
 // ResetExpiredWindows iterates all rate limits and resets those whose window has expired.
 // Called in BeginBlock.
-func (k Keeper) ResetExpiredWindows(ctx context.Context) {
+func (k Keeper) ResetExpiredWindowsForActivation(ctx context.Context, refundIdentity bool) {
+	if !refundIdentity {
+		k.ResetExpiredWindowsLegacy(ctx)
+		return
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	currentHeight := uint64(sdkCtx.BlockHeight())
 
@@ -126,7 +139,7 @@ func (k Keeper) ResetExpiredWindows(ctx context.Context) {
 			rl.CurrentSend = "0"
 			rl.CurrentRecv = "0"
 			rl.WindowStart = currentHeight
-			k.SetRateLimit(ctx, rl)
+			k.SetRateLimitForActivation(ctx, true, rl)
 		}
 	}
 }

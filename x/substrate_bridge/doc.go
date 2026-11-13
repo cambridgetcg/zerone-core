@@ -11,6 +11,21 @@
 //     are not evaluated by consensus. Adapters may also be seeded in genesis. The
 //     CategoryAdapterRegistration LIP vocabulary exists, but payload
 //     attachment and dispatch are not wired.
+//     Qualification floors take their meaning only after the
+//     QualificationSemanticsEnabled marker (0x90) is selected by native
+//     genesis or the consensus-repairs-v1 carrier. Before that height, do not
+//     register required-domain adapters: the legacy numeric gate is inverted.
+//     With the marker on, UNSPECIFIED leaves the floor unset and PROBATIONARY
+//     admits native ACTIVE or PROBATIONARY (including accuracy-decay demotions);
+//     ACTIVE admits native ACTIVE only. This is admission translation between
+//     distinct enums, not the native IsQualified predicate. Registration rejects
+//     DISTINGUISHED and unknown minima after activation. Genesis imports retain
+//     historical adapters even with unsupported floors; those gated adapters
+//     refuse new work, without rewriting or forfeiting prior obligations.
+//     Census adapters and legacy obligations before activation, hold and surface
+//     anomalies for separate review, and never automatically claw back or
+//     redistribute prior bonds or rewards. Enable the marker before registering
+//     any required-domain adapter. The carrier owns the ConsensusVersion bump.
 //
 //   - Substrate-link validator (M2): cited_facts must exist in x/knowledge
 //     at submit time. Consensus validates the caller-supplied link and hash;

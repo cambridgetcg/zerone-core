@@ -12,7 +12,6 @@ import (
 	ibcexported "github.com/cosmos/ibc-go/v10/modules/core/exported"
 
 	"github.com/zerone-chain/zerone/x/ibcratelimit/keeper"
-	"github.com/zerone-chain/zerone/x/ibcratelimit/types"
 )
 
 var (
@@ -38,6 +37,13 @@ func NewIBCMiddleware(app porttypes.IBCModule, channel porttypes.ICS4Wrapper, k 
 // ---- ICS4Wrapper (outbound interception) ----
 
 func (im IBCMiddleware) SendPacket(ctx sdk.Context, sourcePort string, sourceChannel string, timeoutHeight clienttypes.Height, timeoutTimestamp uint64, data []byte) (uint64, error) {
+	refundIdentity, err := im.keeper.RefundIdentityEnabled(ctx)
+	if err != nil {
+		return 0, err
+	}
+	if !refundIdentity {
+		return im.sendPacketLegacy(ctx, sourcePort, sourceChannel, timeoutHeight, timeoutTimestamp, data)
+	}
 	// Decode FungibleTokenPacketData to extract denom and amount
 	var packetData ibctransfertypes.FungibleTokenPacketData
 	if err := json.Unmarshal(data, &packetData); err != nil {
@@ -52,24 +58,21 @@ func (im IBCMiddleware) SendPacket(ctx sdk.Context, sourcePort string, sourceCha
 
 	denom := packetData.Denom
 
-	if err := im.keeper.CheckAndUpdateSendQuota(ctx, sourceChannel, denom, amount); err != nil {
+	charge, err := im.keeper.ChargeSendQuota(ctx, sourceChannel, denom, amount)
+	if err != nil {
 		return 0, err
 	}
 
 	seq, err := im.channel.SendPacket(ctx, sourcePort, sourceChannel, timeoutHeight, timeoutTimestamp, data)
 	if err != nil {
-		// Reverse the quota update on send failure
-		im.keeper.ReverseSendQuota(ctx, sourceChannel, denom, amount)
+		// Keeper-contract rollback only: a failed production message discards
+		// its SDK cache. Disabled/unconfigured sends have nothing to reverse.
+		im.keeper.ReverseSendCharge(ctx, charge)
 		return 0, err
 	}
 
-	// Record packet flow for reversal on timeout/error ack
-	im.keeper.SetPacketFlow(ctx, &types.PacketFlow{
-		ChannelId: sourceChannel,
-		Sequence:  seq,
-		Denom:     denom,
-		Amount:    amount.String(),
-	})
+	// Only an actual charge creates a reversal record.
+	im.keeper.RecordPacketCharge(ctx, seq, charge)
 
 	return seq, nil
 }
@@ -85,6 +88,15 @@ func (im IBCMiddleware) GetAppVersion(ctx sdk.Context, portID, channelID string)
 // ---- IBCModule (inbound interception) ----
 
 func (im IBCMiddleware) OnRecvPacket(ctx sdk.Context, channelVersion string, packet channeltypes.Packet, relayer sdk.AccAddress) ibcexported.Acknowledgement {
+	refundIdentity, err := im.keeper.RefundIdentityEnabled(ctx)
+	if err != nil {
+		// IBCModule has no Go error return here. A marker fault must abort,
+		// not become a remotely actionable error acknowledgement.
+		panic(err)
+	}
+	if !refundIdentity {
+		return im.onRecvPacketLegacy(ctx, channelVersion, packet, relayer)
+	}
 	var packetData ibctransfertypes.FungibleTokenPacketData
 	if err := json.Unmarshal(packet.GetData(), &packetData); err != nil {
 		// Not a transfer packet — pass through
@@ -98,7 +110,7 @@ func (im IBCMiddleware) OnRecvPacket(ctx sdk.Context, channelVersion string, pac
 
 	denom := packetData.Denom
 
-	if err := im.keeper.CheckAndUpdateRecvQuota(ctx, packet.GetDestChannel(), denom, amount); err != nil {
+	if err := im.keeper.CheckAndUpdateRecvQuotaForActivation(ctx, refundIdentity, packet.GetDestChannel(), denom, amount); err != nil {
 		// Return error acknowledgement
 		return channeltypes.NewErrorAcknowledgement(err)
 	}
@@ -107,39 +119,42 @@ func (im IBCMiddleware) OnRecvPacket(ctx sdk.Context, channelVersion string, pac
 }
 
 func (im IBCMiddleware) OnAcknowledgementPacket(ctx sdk.Context, channelVersion string, packet channeltypes.Packet, acknowledgement []byte, relayer sdk.AccAddress) error {
+	refundIdentity, err := im.keeper.RefundIdentityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if !refundIdentity {
+		return im.onAcknowledgementPacketLegacy(ctx, channelVersion, packet, acknowledgement, relayer)
+	}
 	// Parse ack to check if it's an error.
 	// Ack bytes use protobuf JSON encoding (SubModuleCdc), not standard encoding/json.
 	var ack channeltypes.Acknowledgement
 	if err := channeltypes.SubModuleCdc.UnmarshalJSON(acknowledgement, &ack); err == nil {
 		if _, ok := ack.Response.(*channeltypes.Acknowledgement_Error); ok {
 			// Error ack — reverse the send quota
-			im.reversePacketFlow(ctx, packet.GetSourceChannel(), packet.GetSequence())
+			im.keeper.ReversePacketFlow(ctx, packet.GetSourceChannel(), packet.GetSequence())
 		}
 	}
 
 	// Always clean up the flow record
-	im.keeper.DeletePacketFlow(ctx, packet.GetSourceChannel(), packet.GetSequence())
+	im.keeper.DeletePacketFlowForActivation(ctx, refundIdentity, packet.GetSourceChannel(), packet.GetSequence())
 
 	return im.app.OnAcknowledgementPacket(ctx, channelVersion, packet, acknowledgement, relayer)
 }
 
 func (im IBCMiddleware) OnTimeoutPacket(ctx sdk.Context, channelVersion string, packet channeltypes.Packet, relayer sdk.AccAddress) error {
+	refundIdentity, err := im.keeper.RefundIdentityEnabled(ctx)
+	if err != nil {
+		return err
+	}
+	if !refundIdentity {
+		return im.onTimeoutPacketLegacy(ctx, channelVersion, packet, relayer)
+	}
 	// Timeout — reverse the send quota
-	im.reversePacketFlow(ctx, packet.GetSourceChannel(), packet.GetSequence())
-	im.keeper.DeletePacketFlow(ctx, packet.GetSourceChannel(), packet.GetSequence())
+	im.keeper.ReversePacketFlow(ctx, packet.GetSourceChannel(), packet.GetSequence())
+	im.keeper.DeletePacketFlowForActivation(ctx, refundIdentity, packet.GetSourceChannel(), packet.GetSequence())
 
 	return im.app.OnTimeoutPacket(ctx, channelVersion, packet, relayer)
-}
-
-// reversePacketFlow looks up the stored packet flow and reverses the send quota.
-func (im IBCMiddleware) reversePacketFlow(ctx sdk.Context, channelID string, sequence uint64) {
-	flow, found := im.keeper.GetPacketFlow(ctx, channelID, sequence)
-	if !found {
-		return
-	}
-	amount := new(big.Int)
-	amount.SetString(flow.Amount, 10)
-	im.keeper.ReverseSendQuota(ctx, flow.ChannelId, flow.Denom, amount)
 }
 
 // ---- Channel Handshake Callbacks (pure pass-through) ----

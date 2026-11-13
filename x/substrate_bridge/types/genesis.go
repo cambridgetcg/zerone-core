@@ -11,6 +11,8 @@ func DefaultGenesis() *GenesisState {
 		Params:       DefaultParams(),
 		Adapters:     nil,
 		StateEntries: nil,
+		// A new chain starts with the consensus-repairs-v1 selection on.
+		QualificationSemanticsEnabled: true,
 	}
 }
 
@@ -62,7 +64,7 @@ func IsTypedGenesisStateKey(key []byte) bool {
 	if len(key) == 0 {
 		return false
 	}
-	if bytes.Equal(key, ParamsKey) {
+	if bytes.Equal(key, ParamsKey) || bytes.Equal(key, QualificationSemanticsEnabledKey) {
 		return true
 	}
 	prefix := key[:1]

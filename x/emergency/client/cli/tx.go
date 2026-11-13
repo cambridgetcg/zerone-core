@@ -114,6 +114,7 @@ func NewProposeHaltCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "propose-halt [reason]",
 		Short: "Propose an emergency transaction quarantine (Guardian-only)",
+		Long:  "Propose an emergency transaction quarantine (Guardian-only). After halt-reason scoping activation, use the exact reserved token " + types.HaltReasonResearchFund + " for research-fund misuse. Other free-text reasons remain valid, but are unknown evidence: an in-phase finalized halt blocks forward governance progress and cannot justify rollback. See x/emergency/GUARDIAN-RUNBOOK.md.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clientCtx, err := client.GetClientTxContext(cmd)

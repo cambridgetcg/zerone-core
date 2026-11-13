@@ -78,6 +78,9 @@ func (q queryServer) ChallengesByDomain(goCtx context.Context, req *types.QueryC
 }
 
 // ActiveChallenges returns all challenges with an active (non-terminal) status.
+// With ChallengeAccountingEnabled, UNDER_REVIEW at height >= review_deadline
+// is an expiry refund pending, not a live adjudication. gRPC/REST/CLI consumers
+// must compare the query height with review_deadline; there is no separate enum.
 func (q queryServer) ActiveChallenges(goCtx context.Context, _ *types.QueryActiveChallengesRequest) (*types.QueryActiveChallengesResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	var active []*types.CaptureChallenge

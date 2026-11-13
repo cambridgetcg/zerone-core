@@ -31,6 +31,13 @@ func survivalHandoffTargetVersionMap() module.VersionMap {
 // binaries may retain their original targets; this candidate cannot append its
 // handoff semantics to a historical plan.
 func requireSurvivalHandoffTransitionOwner(name string, fromVM, targetVM module.VersionMap) error {
+	// vesting_rewards 4 moved to consensus-repairs-v2 in 56bacd2d, and
+	// consensusRepairsVersions no longer counts it, so a map whose only v1-era
+	// version is vesting_rewards 4 passes the v1 owner unselected. No map in
+	// this binary reaches it: vesting_rewards stays at ConsensusVersion 3 here.
+	if fromVM["knowledge"] == 13 || targetVM["knowledge"] == 13 || fromVM["vesting_rewards"] == 4 || targetVM["vesting_rewards"] == 4 {
+		return requireConsensusRepairsTransitionOwner(name, fromVM, targetVM)
+	}
 	read := func(vm module.VersionMap) ([2]uint64, error) {
 		knowledge, kOK := vm["knowledge"]
 		vesting, vOK := vm["vesting_rewards"]
@@ -136,6 +143,9 @@ func (app *ZeroneApp) registerSurvivalHandoffUpgrade() {
 // surrounding accounting startup check still validates all lineage markers.
 func (app *ZeroneApp) validateSurvivalHandoffStartupVersions(ctx sdk.Context, vm module.VersionMap, latest int64) error {
 	compiled := app.ModuleManager.GetVersionMap()
+	if reflect.DeepEqual(compiled, consensusRepairsTargetVersionMap()) {
+		return app.validateConsensusRepairsStartupVersions(ctx, vm, latest)
+	}
 	if reflect.DeepEqual(compiled, claimIntegrityTargetVersionMap()) {
 		return app.validateClaimIntegrityStartupVersions(ctx, vm, latest)
 	}

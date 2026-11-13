@@ -13,6 +13,12 @@ export interface GenesisState {
     domains: Domain[];
     proposals: DomainProposal[];
     crossLinks: CrossStratumLink[];
+    /**
+     * Active-domain-count marker (zerone-core #124). Native genesis sets it; a
+     * file without the field imports as off. In place, only the named carrier
+     * upgrade consensus-repairs-v1 sets it.
+     */
+    activeDomainCountEnabled: boolean;
 }
 /**
  * Params defines the ontology module parameters.

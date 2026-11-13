@@ -28,6 +28,7 @@ type archivedRecordKnowledgeModule struct{ knowledgemodule.AppModule }
 
 func (archivedRecordKnowledgeModule) ConsensusVersion() uint64 { return 8 }
 func freezeRecordCompiledTarget(app *ZeroneApp) {
+	freezeConsensusRepairsSiblingTargets(app)
 	app.ModuleManager.Modules["knowledge"] = archivedRecordKnowledgeModule{app.ModuleManager.Modules["knowledge"].(knowledgemodule.AppModule)}
 }
 func newFrozenRecordFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {

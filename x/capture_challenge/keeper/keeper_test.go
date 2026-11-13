@@ -17,6 +17,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/stretchr/testify/require"
 
 	"github.com/zerone-chain/zerone/x/capture_challenge/keeper"
 	"github.com/zerone-chain/zerone/x/capture_challenge/types"
@@ -459,6 +460,9 @@ func TestResolveUpheld(t *testing.T) {
 
 func TestResolveRejected(t *testing.T) {
 	k, ctx, bk := setupKeeper(t)
+	if err := k.EnableChallengeAccounting(ctx); err != nil {
+		t.Fatal(err)
+	}
 
 	challenger := testAddr(1)
 	bk.setBalance(challenger, "uzrn", 100_000_000)
@@ -500,13 +504,9 @@ func TestResolveRejected(t *testing.T) {
 		t.Errorf("expected 10000000 sent to development fund, got %d", devFundAfter-devFundBefore)
 	}
 
-	// Verify bounty pool received the slashed amount
-	pool, found := k.GetBountyPool(ctx, "biology")
-	if !found {
-		t.Fatal("bounty pool not found after reject")
-	}
-	if pool.Balance != "10000000" {
-		t.Errorf("expected bounty pool balance 10000000, got %s", pool.Balance)
+	// Coins sent to development_fund cannot also back a domain bounty pool.
+	if _, found := k.GetBountyPool(ctx, "biology"); found {
+		t.Fatal("rejected stake must not create an unbacked bounty pool")
 	}
 
 	// Verify challenge resolved
@@ -593,28 +593,28 @@ func TestPhaseAdvancement(t *testing.T) {
 	k.SetChallenge(ctx, ch)
 
 	// Advance at block 140 - should NOT change
-	k.AdvanceChallengePhases(ctx, 140)
+	require.NoError(t, k.AdvanceChallengePhases(ctx, 140))
 	ch, _ = k.GetChallenge(ctx, "test-challenge-1")
 	if ch.Status != types.ChallengeStatus_CHALLENGE_STATUS_EVIDENCE {
 		t.Errorf("expected EVIDENCE at block 140, got %s", ch.Status.String())
 	}
 
 	// Advance at block 150 - should transition to UNDER_REVIEW
-	k.AdvanceChallengePhases(ctx, 150)
+	require.NoError(t, k.AdvanceChallengePhases(ctx, 150))
 	ch, _ = k.GetChallenge(ctx, "test-challenge-1")
 	if ch.Status != types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW {
 		t.Errorf("expected UNDER_REVIEW at block 150, got %s", ch.Status.String())
 	}
 
 	// Advance at block 299 - should stay UNDER_REVIEW
-	k.AdvanceChallengePhases(ctx, 299)
+	require.NoError(t, k.AdvanceChallengePhases(ctx, 299))
 	ch, _ = k.GetChallenge(ctx, "test-challenge-1")
 	if ch.Status != types.ChallengeStatus_CHALLENGE_STATUS_UNDER_REVIEW {
 		t.Errorf("expected UNDER_REVIEW at block 299, got %s", ch.Status.String())
 	}
 
 	// Advance at block 300 - should auto-expire
-	k.AdvanceChallengePhases(ctx, 300)
+	require.NoError(t, k.AdvanceChallengePhases(ctx, 300))
 	ch, _ = k.GetChallenge(ctx, "test-challenge-1")
 	if ch.Status != types.ChallengeStatus_CHALLENGE_STATUS_EXPIRED {
 		t.Errorf("expected EXPIRED at block 300, got %s", ch.Status.String())

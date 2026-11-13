@@ -30,6 +30,9 @@ var (
 	CreedAmendmentPinPrefix      = []byte{0x15} // lip_id -> attached creed-amendment payload
 	AccountingSafetyKey          = []byte{0x17}
 	EmergencyTransitionHoldKey   = []byte{0x16}
+	// SeatRunoffOrderingEnabledKey is the consensus-repairs-v1 marker for
+	// zerone-core #117 (keeper/seat_runoff_ordering_activation.go).
+	SeatRunoffOrderingEnabledKey = []byte{0x18}
 )
 
 // LIPKey returns the store key for a LIP by id.

@@ -27,6 +27,33 @@
 // expiry and stake withdrawal continue. New policy-1 knowledge panels ignore
 // these qualification weights. Legacy pending financial terms remain separate.
 //
+// SingleRefundEnabled selects the prospective custody repair. Native default
+// genesis enables it; old genesis without single_refund_enabled imports as off,
+// and export/import preserves the selector. Existing chains require the named
+// consensus-repairs-v1 carrier, its census and coordinated activation height;
+// merging this source does not activate an existing chain. The carrier owns the
+// module version bump and must enable the marker before qualification BeginBlock.
+// Marker reads use a fresh infinite gas meter, preserving pre-activation gas.
+//
+// With the marker on, successful stake expiry atomically refunds and leaves an
+// EXPIRED record with an empty StakedAmount. A locked or failed refund instead
+// leaves SUSPENDED with the amount and expiry/lock deadline intact, and clears
+// ProbationUntil. SUSPENDED also retains its older probation/accuracy meaning:
+// status alone is not refund provenance. The retained ExpiresAt and the paired
+// stake_refund_pending then qualification_expired events surface unpaid expiry
+// (see docs/EVENTS.md). BeginBlock does not retry; the owner can withdraw after
+// the lock ends and the bank can pay. A missing bank is not a successful refund.
+//
+// Legacy EXPIRED stake records with a nonempty amount are ambiguous: expiry may
+// already have paid, failed, or skipped a locked stake. After activation they
+// remain held, refusing withdrawal and same-domain requalification, with no
+// timeout, automatic refund, deletion, redistribution or clawback. A fixed-height
+// census against module backing and a separately authorized reconciliation owner
+// and path are required before activation. These holds do not replenish escrow;
+// a historical deficit surfaces as transfer_failed for later expiries. ACTIVE,
+// PROBATIONARY and SUSPENDED legacy records retain ordinary withdrawal. While
+// the marker is off, legacy effects, including the double-refund defect, remain.
+//
 // Legacy contracts retained for historical execution and inspection:
 //
 //   - GetQualificationWeight returns 0 for non-ACTIVE qualifications

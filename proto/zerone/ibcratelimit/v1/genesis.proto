@@ -14,4 +14,8 @@ message Params {
 message GenesisState {
   Params params                 = 1;
   repeated RateLimit rate_limits = 2;
+  // Refund-identity marker (zerone-core #127). Native genesis sets it; a
+  // file without the field imports as off. In place, only the named carrier
+  // upgrade consensus-repairs-v1 sets it.
+  bool refund_identity_enabled = 3;
 }

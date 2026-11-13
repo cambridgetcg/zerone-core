@@ -56,6 +56,31 @@ class BuildContextTests(unittest.TestCase):
             context.export(self.repo, self.head, output)
         self.assertEqual(list(output.iterdir()), [])
 
+    def test_incoherent_proposal_source_refused_without_output(self):
+        # ProcessProposal replays the ante, PrepareProposal does not: the shape of
+        # the original carrier heads a72ca85e and 7253100b, which predate #167.
+        abci = self.repo / "app/abci.go"
+        abci.write_text("package app\n\n// handler uses ProcessProposalVerifyTx\n")
+        self.commit()
+        with self.assertRaisesRegex(ValueError, "PrepareProposal does not replay"):
+            context.export(self.repo, self.head, self.root / "context")
+        self.assertFalse((self.root / "context").exists())
+        # The replay alone, without the coherence tests, is still refused.
+        abci.write_text("package app\n\n// ProcessProposalVerifyTx and PrepareProposalVerifyTx\n")
+        self.commit()
+        with self.assertRaisesRegex(ValueError, "coherence tests"):
+            context.export(self.repo, self.head, self.root / "context")
+        gate = context.importlib.util.module_from_spec(context.importlib.util.spec_from_file_location("gate", context.GATE))
+        gate.__spec__.loader.exec_module(gate)
+        for directory, names in gate.REQUIRED_TESTS.items():
+            path = self.repo / directory / "zz_coherence_names_test.go"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("package x\n\n" + "".join(f"func {name}(t *testing.T) {{}}\n" for name in names))
+        (self.repo / gate.COHERENCE_TEST_FILE).write_text("package cross_stack\n")
+        self.commit()
+        result = context.export(self.repo, self.head, self.root / "context")
+        self.assertEqual(result["source_commit"], self.head)
+
     def test_selected_symlink_refused_without_output(self):
         (self.repo / "app/link.go").symlink_to("fixture.key")
         self.commit()

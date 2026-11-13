@@ -19,6 +19,13 @@ func NewMsgServerImpl(keeper Keeper) types.MsgServer {
 }
 
 func (ms *msgServer) AddRateLimit(goCtx context.Context, msg *types.MsgAddRateLimit) (*types.MsgAddRateLimitResponse, error) {
+	refundIdentity, err := ms.RefundIdentityEnabled(goCtx)
+	if err != nil {
+		return nil, err
+	}
+	if !refundIdentity {
+		return ms.addRateLimitLegacy(goCtx, msg)
+	}
 	if msg.Authority != ms.GetAuthority() {
 		return nil, fmt.Errorf("unauthorized: expected %s, got %s", ms.GetAuthority(), msg.Authority)
 	}
@@ -42,7 +49,7 @@ func (ms *msgServer) AddRateLimit(goCtx context.Context, msg *types.MsgAddRateLi
 		WindowStart:  0, // will be set on first packet or BeginBlock
 	}
 
-	ms.SetRateLimit(goCtx, rl)
+	ms.SetRateLimitForActivation(goCtx, refundIdentity, rl)
 
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	ctx.EventManager().EmitEvent(
@@ -59,6 +66,13 @@ func (ms *msgServer) AddRateLimit(goCtx context.Context, msg *types.MsgAddRateLi
 }
 
 func (ms *msgServer) RemoveRateLimit(goCtx context.Context, msg *types.MsgRemoveRateLimit) (*types.MsgRemoveRateLimitResponse, error) {
+	refundIdentity, err := ms.RefundIdentityEnabled(goCtx)
+	if err != nil {
+		return nil, err
+	}
+	if !refundIdentity {
+		return ms.removeRateLimitLegacy(goCtx, msg)
+	}
 	if msg.Authority != ms.GetAuthority() {
 		return nil, fmt.Errorf("unauthorized: expected %s, got %s", ms.GetAuthority(), msg.Authority)
 	}
@@ -84,6 +98,13 @@ func (ms *msgServer) RemoveRateLimit(goCtx context.Context, msg *types.MsgRemove
 }
 
 func (ms *msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
+	refundIdentity, err := ms.RefundIdentityEnabled(goCtx)
+	if err != nil {
+		return nil, err
+	}
+	if !refundIdentity {
+		return ms.updateParamsLegacy(goCtx, msg)
+	}
 	if msg.Authority != ms.GetAuthority() {
 		return nil, fmt.Errorf("unauthorized: expected %s, got %s", ms.GetAuthority(), msg.Authority)
 	}

@@ -34,12 +34,22 @@ func (k Keeper) InitGenesis(ctx context.Context, gs *types.GenesisState) error {
 		// cannot bypass their typed validation paths.
 		store.Set(bytes.Clone(entry.Key), bytes.Clone(entry.Value))
 	}
+	// Only an explicit true writes the marker; absence keeps legacy semantics.
+	if gs.QualificationSemanticsEnabled {
+		if err := k.EnableQualificationSemantics(ctx); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	params := k.GetParams(ctx)
-	gs := &types.GenesisState{Params: params}
+	qualificationSemantics, err := k.QualificationSemanticsEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
+	gs := &types.GenesisState{Params: params, QualificationSemanticsEnabled: qualificationSemantics}
 	k.IterateAdapters(ctx, func(a *types.AdapterRegistration) bool {
 		gs.Adapters = append(gs.Adapters, a)
 		return false

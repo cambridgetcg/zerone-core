@@ -14,4 +14,7 @@ var (
 	VerificationHistoryKeyPrefix    = []byte{0x05}
 	CrossStratumKeyPrefix           = []byte{0x06}
 	StructuralImmunityParamsKey     = []byte{0x07} // R29-5: structural immunity params
+	// IntegerVarianceEnabledKey is the consensus-repairs-v1 marker for
+	// zerone-core #119 (keeper/integer_variance_activation.go).
+	IntegerVarianceEnabledKey = []byte{0x08}
 )

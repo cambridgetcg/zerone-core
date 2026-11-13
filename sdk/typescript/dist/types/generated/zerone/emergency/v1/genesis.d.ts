@@ -44,6 +44,12 @@ export interface GenesisState {
      * proposal in the currently active quarantine incident.
      */
     recoveryAuthorization?: EmergencyRecoveryAuthorization;
+    /**
+     * Halt-reason scoping marker (zerone-core #125). Native genesis sets it; a
+     * file without the field imports as off. In place, only the named carrier
+     * upgrade consensus-repairs-v1 sets it.
+     */
+    haltReasonScopingEnabled: boolean;
 }
 /**
  * GuardianProposalCount is one canonical, sorted anti-abuse counter.

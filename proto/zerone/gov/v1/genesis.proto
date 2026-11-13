@@ -73,4 +73,8 @@ message GenesisState {
   // Explicit native/continuation profile flag. App genesis activates only after
   // all module initialization completes; false retains historical semantics.
   bool accounting_safety_enabled = 12;
+  // Seat-runoff ordering marker (zerone-core #117). Native genesis sets it; a
+  // file without the field imports as off. In place, only the named carrier
+  // upgrade consensus-repairs-v1 sets it.
+  bool seat_runoff_ordering_enabled = 13;
 }

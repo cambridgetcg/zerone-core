@@ -3,6 +3,39 @@
 Notable source changes are recorded here. Network activation and package
 publication are separate events and are stated explicitly when they occur.
 
+## Draft source — consensus-repairs-v1 (not scheduled)
+
+- Adds the all-or-nothing successor to claim-integrity: ten guarded version
+  steps, nine explicit markers, bounded read-only censuses, exact store-diff
+  verification and a marker-readback receipt. No legacy balance is redistributed.
+- Carries deterministic seat-runoff ordering, reformulation holds, integer
+  capture variance, single-refund qualification, challenge backing, alignment
+  active-domain selection, scoped halt evidence, qualification floors and IBC
+  refund identity. `home` remains version 1; endorsement gating is not included.
+- #122's bank-supply denominator is no longer carried by v1 (review finding F1,
+  2026-11-06): on dev-1's measured state it turns neutral readings into zero
+  without Q1, so the earlier carrier blocked itself there and v2 could never
+  run. It moves to consensus-repairs-v2, which switches it together with Q1.
+  `vesting_rewards` stays at ConsensusVersion 3, native genesis must leave
+  `alignment_bank_supply_enabled` absent or false, and v1 now passes on
+  dev-1's census inputs.
+- NUL bounty and augmentation IDs are census blockers, no longer holds
+  (c4e23e9f). Held, they let activation succeed, after which a NUL-free bounty
+  failed closed at payout under the indexed reader. A source holding any NUL ID
+  now refuses activation until a governed decision; nothing is rewritten.
+- With #118's marker on, a passing reformulation verdict that finalizes after
+  its bounty expired is archived without payout, as a saturated one is. Expiry
+  has already returned the escrow, so the payout would have come from the
+  pooled training fund. This covers a verdict deferred by a held sibling and a
+  late vote alike; with the marker off nothing changes.
+- Fresh genesis must explicitly select all nine repairs. An offline copied-DB
+  census supports re-checks before a height; dev-1 tooling recognizes knowledge
+  12/13 without scheduling an upgrade.
+- This source carries main after #167 (review finding F2): a carrier binary must
+  come from a source the proposal-coherence gate reports `COHERENT`, never from
+  the original head `a72ca85e`. Not scheduled. See
+  [limits and rehearsal](docs/consensus-repairs-v1.md).
+
 ## Source — 2026-11-05 Proposal-coherence release gate
 
 - `scripts/proposal-coherence-gate.py` decides, for one release source

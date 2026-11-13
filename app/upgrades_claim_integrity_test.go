@@ -73,6 +73,8 @@ func newClaimIntegrityFixture(t *testing.T, skip []int) (*ZeroneApp, sdk.Context
 	ctx := app.NewUncachedContext(false, cmtproto.Header{ChainID: "accounting-fixture"})
 	_, err = app.InitChainer(ctx, &abci.RequestInitChain{ChainId: "accounting-fixture", AppStateBytes: genesis})
 	require.NoError(t, err)
+	freezeClaimIntegrityCompiledTarget(app)
+	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, claimIntegrityTargetVersionMap()))
 	return app, ctx, db
 }
 
@@ -87,7 +89,7 @@ func claimIntegritySourceFixture(t *testing.T, skip ...int) (*ZeroneApp, sdk.Con
 }
 
 func TestClaimIntegrityOwnsExactVersionBoundary(t *testing.T) {
-	app, _, _ := newAccountingAuthorityFixture(t)
+	app, _, _ := newClaimIntegrityFixture(t, nil)
 	source, target := claimIntegritySourceVersionMap(), claimIntegrityTargetVersionMap()
 	require.Equal(t, target, app.CurrentModuleVersionMap())
 	require.Equal(t, fundSettlementTargetVersionMap(), source)
@@ -192,7 +194,9 @@ func TestClaimIntegrityMigrationPreservesEveryByteAndRestart(t *testing.T) {
 	require.Equal(t, plan.Height, app.CommitMultiStore().Commit().Version)
 	require.NoError(t, app.ValidateAccountingAuthorityStartup(), "restart at the applied target is accepted")
 	require.Error(t, app.UpgradeKeeper.ApplyUpgrade(ctx, plan))
-	restarted := NewZeroneApp(log.NewNopLogger(), db, nil, true, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(ctx.ChainID()))
+	restarted := NewZeroneApp(log.NewNopLogger(), db, nil, false, simtestutil.NewAppOptionsWithFlagHome(t.TempDir()), baseapp.SetChainID(ctx.ChainID()))
+	freezeClaimIntegrityCompiledTarget(restarted)
+	require.NoError(t, restarted.LoadLatestVersion())
 	require.NoError(t, restarted.ValidateAccountingAuthorityStartup())
 	rctx := restarted.NewUncachedContext(false, cmtproto.Header{Height: plan.Height, ChainID: ctx.ChainID()})
 	enabled, err = restarted.KnowledgeKeeper.ClaimIntegrityEnabled(rctx)

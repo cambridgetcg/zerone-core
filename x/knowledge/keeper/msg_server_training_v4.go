@@ -23,6 +23,10 @@ import (
 // On consensus, the verdict is finalised and — for EQUIVALENT/SUPERIOR —
 // escrow is released to the submitter.
 func (m *msgServer) VoteOnAugmentation(ctx context.Context, msg *types.MsgVoteOnAugmentation) (*types.MsgVoteOnAugmentationResponse, error) {
+	enabled, err := m.keeper.ReformulationVindicationOrderingEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if msg == nil || msg.AugmentationId == "" {
 		return nil, fmt.Errorf("augmentation_id required")
 	}
@@ -30,7 +34,7 @@ func (m *msgServer) VoteOnAugmentation(ctx context.Context, msg *types.MsgVoteOn
 		return nil, fmt.Errorf("verifier required")
 	}
 
-	finalized, verdict, err := m.keeper.RecordAugmentationVote(ctx, msg.AugmentationId, msg.Verifier, msg.Vote)
+	finalized, verdict, err := m.keeper.recordAugmentationVote(ctx, msg.AugmentationId, msg.Verifier, msg.Vote, enabled)
 	if err != nil {
 		return nil, err
 	}
@@ -44,7 +48,7 @@ func (m *msgServer) VoteOnAugmentation(ctx context.Context, msg *types.MsgVoteOn
 	))
 
 	if finalized {
-		if err := m.keeper.ApplyFinalizedAugmentationVerdict(ctx, msg.AugmentationId, verdict); err != nil {
+		if err := m.keeper.applyFinalizedAugmentationVerdict(ctx, msg.AugmentationId, verdict, enabled); err != nil {
 			return nil, err
 		}
 	}
@@ -58,6 +62,10 @@ func (m *msgServer) VoteOnAugmentation(ctx context.Context, msg *types.MsgVoteOn
 // the deposit to the research fund. The only way for a sponsor to block a
 // verdict; prevents silent rejection of legitimate variants.
 func (m *msgServer) SponsorVetoAugmentation(ctx context.Context, msg *types.MsgSponsorVetoAugmentation) (*types.MsgSponsorVetoAugmentationResponse, error) {
+	enabled, err := m.keeper.ReformulationVindicationOrderingEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if msg == nil || msg.AugmentationId == "" {
 		return nil, fmt.Errorf("augmentation_id required")
 	}
@@ -93,7 +101,7 @@ func (m *msgServer) SponsorVetoAugmentation(ctx context.Context, msg *types.MsgS
 	if !ok || forfeitAmt.IsZero() {
 		forfeitAmt = sdkmath.NewIntFromUint64(bounty.RewardPerVariant)
 	}
-	if err := m.keeper.ForfeitAugmentationDeposit(ctx, aug.BountyId, forfeitAmt); err != nil {
+	if err := m.keeper.forfeitAugmentationDeposit(ctx, aug.BountyId, forfeitAmt, enabled); err != nil {
 		return nil, err
 	}
 

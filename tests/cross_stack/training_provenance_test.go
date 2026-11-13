@@ -265,7 +265,7 @@ func driveCartelUpheld(t *testing.T, h *TestHarness, whistleblower, domain strin
 
 	h.AdvanceBlocks(5001)
 	sdkCtx := sdk.UnwrapSDKContext(h.Ctx)
-	h.CaptureChallengeKeeper.AdvanceChallengePhases(sdkCtx, uint64(sdkCtx.BlockHeight()))
+	require.NoError(t, h.CaptureChallengeKeeper.AdvanceChallengePhases(sdkCtx, uint64(sdkCtx.BlockHeight())))
 
 	authority := h.CaptureChallengeKeeper.GetAuthority()
 	_, err = ccMS.ResolveChallenge(h.Ctx, &capturechallengetypes.MsgResolveChallenge{

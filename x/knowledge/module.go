@@ -14,6 +14,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
 
+	"github.com/zerone-chain/zerone/internal/consensusrepairsmigration"
 	"github.com/zerone-chain/zerone/x/knowledge/client/cli"
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
@@ -98,6 +99,9 @@ func (AppModule) Name() string { return types.ModuleName }
 
 // RegisterServices registers the module's msg and query servers.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
+	if err := cfg.RegisterMigration(types.ModuleName, 12, consensusrepairsmigration.Require); err != nil {
+		panic(err)
+	}
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServerImpl(am.keeper))
 
@@ -175,4 +179,4 @@ func (am AppModule) BeginBlock(ctx context.Context) error {
 // (neutral review admission and settlement) → v10 (contradiction input retention)
 // → v11 (explicit future claim funding terms and terminal fund settlement) → v12
 // (claim-integrity selection: marker 0x87 only; no record rewritten).
-func (AppModule) ConsensusVersion() uint64 { return 12 }
+func (AppModule) ConsensusVersion() uint64 { return 13 }

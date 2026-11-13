@@ -27,8 +27,12 @@ type GenesisState struct {
 	Qualifications    []*DomainQualification      `protobuf:"bytes,2,rep,name=qualifications,proto3" json:"qualifications,omitempty"`
 	Endorsements      []*QualificationEndorsement `protobuf:"bytes,3,rep,name=endorsements,proto3" json:"endorsements,omitempty"`
 	NextEndorsementId uint64                      `protobuf:"varint,4,opt,name=next_endorsement_id,json=nextEndorsementId,proto3" json:"next_endorsement_id,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// Single-refund marker (zerone-core #120). Native genesis sets it; a
+	// file without the field imports as off. In place, only the named carrier
+	// upgrade consensus-repairs-v1 sets it.
+	SingleRefundEnabled bool `protobuf:"varint,5,opt,name=single_refund_enabled,json=singleRefundEnabled,proto3" json:"single_refund_enabled,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -87,6 +91,13 @@ func (x *GenesisState) GetNextEndorsementId() uint64 {
 		return x.NextEndorsementId
 	}
 	return 0
+}
+
+func (x *GenesisState) GetSingleRefundEnabled() bool {
+	if x != nil {
+		return x.SingleRefundEnabled
+	}
+	return false
 }
 
 type Params struct {
@@ -292,12 +303,13 @@ var File_zerone_qualification_v1_genesis_proto protoreflect.FileDescriptor
 
 const file_zerone_qualification_v1_genesis_proto_rawDesc = "" +
 	"\n" +
-	"%zerone/qualification/v1/genesis.proto\x12\x17zerone.qualification.v1\x1a#zerone/qualification/v1/types.proto\"\xa4\x02\n" +
+	"%zerone/qualification/v1/genesis.proto\x12\x17zerone.qualification.v1\x1a#zerone/qualification/v1/types.proto\"\xd8\x02\n" +
 	"\fGenesisState\x127\n" +
 	"\x06params\x18\x01 \x01(\v2\x1f.zerone.qualification.v1.ParamsR\x06params\x12T\n" +
 	"\x0equalifications\x18\x02 \x03(\v2,.zerone.qualification.v1.DomainQualificationR\x0equalifications\x12U\n" +
 	"\fendorsements\x18\x03 \x03(\v21.zerone.qualification.v1.QualificationEndorsementR\fendorsements\x12.\n" +
-	"\x13next_endorsement_id\x18\x04 \x01(\x04R\x11nextEndorsementId\"\x8b\a\n" +
+	"\x13next_endorsement_id\x18\x04 \x01(\x04R\x11nextEndorsementId\x122\n" +
+	"\x15single_refund_enabled\x18\x05 \x01(\bR\x13singleRefundEnabled\"\x8b\a\n" +
 	"\x06Params\x12(\n" +
 	"\x10min_stake_amount\x18\x01 \x01(\tR\x0eminStakeAmount\x12*\n" +
 	"\x11stake_lock_period\x18\x02 \x01(\x04R\x0fstakeLockPeriod\x12+\n" +

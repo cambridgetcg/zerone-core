@@ -14,6 +14,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
+	"github.com/zerone-chain/zerone/internal/consensusrepairsmigration"
 	"github.com/zerone-chain/zerone/x/substrate_bridge/client/cli"
 	"github.com/zerone-chain/zerone/x/substrate_bridge/keeper"
 	"github.com/zerone-chain/zerone/x/substrate_bridge/types"
@@ -61,9 +62,9 @@ func NewAppModule(cdc codec.BinaryCodec, k keeper.Keeper) AppModule {
 	return AppModule{AppModuleBasic: AppModuleBasic{cdc: cdc}, keeper: k}
 }
 
-func (am AppModule) IsAppModule()                             {}
-func (am AppModule) IsOnePerModuleType()                      {}
-func (am AppModule) ConsensusVersion() uint64                 { return 1 }
+func (am AppModule) IsAppModule()                               {}
+func (am AppModule) IsOnePerModuleType()                        {}
+func (am AppModule) ConsensusVersion() uint64                   { return 2 }
 func (am AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
 
 func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) {
@@ -77,6 +78,9 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 	return cdc.MustMarshalJSON(am.keeper.ExportGenesis(ctx))
 }
 func (am AppModule) RegisterServices(cfg module.Configurator) {
+	if err := cfg.RegisterMigration(types.ModuleName, 1, consensusrepairsmigration.Require); err != nil {
+		panic(err)
+	}
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServerImpl(am.keeper))
 }

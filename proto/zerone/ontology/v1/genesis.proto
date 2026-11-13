@@ -12,6 +12,10 @@ message GenesisState {
   repeated Domain domains                  = 3;
   repeated DomainProposal proposals        = 4;
   repeated CrossStratumLink cross_links    = 5;
+  // Active-domain-count marker (zerone-core #124). Native genesis sets it; a
+  // file without the field imports as off. In place, only the named carrier
+  // upgrade consensus-repairs-v1 sets it.
+  bool active_domain_count_enabled = 6;
 }
 
 // Params defines the ontology module parameters.

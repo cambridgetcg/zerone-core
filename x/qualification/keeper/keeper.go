@@ -119,6 +119,12 @@ func (k Keeper) InitGenesis(ctx context.Context, genState *types.GenesisState) {
 	if genState.NextEndorsementId > 0 {
 		k.setEndorsementCounter(ctx, genState.NextEndorsementId)
 	}
+	// Only an explicit true writes the marker; absence keeps legacy semantics.
+	if genState.SingleRefundEnabled {
+		if err := k.EnableSingleRefund(ctx); err != nil {
+			panic("invalid qualification genesis: " + err.Error())
+		}
+	}
 }
 
 // ExportGenesis exports the module's state.
@@ -127,11 +133,16 @@ func (k Keeper) ExportGenesis(ctx context.Context) *types.GenesisState {
 	qualifications := k.GetAllQualifications(ctx)
 	endorsements := k.GetAllEndorsements(ctx)
 	nextID := k.getEndorsementCounter(ctx)
+	singleRefund, err := k.SingleRefundEnabled(ctx)
+	if err != nil {
+		panic(err)
+	}
 	return &types.GenesisState{
-		Params:            params,
-		Qualifications:    qualifications,
-		Endorsements:      endorsements,
-		NextEndorsementId: nextID,
+		Params:              params,
+		Qualifications:      qualifications,
+		Endorsements:        endorsements,
+		NextEndorsementId:   nextID,
+		SingleRefundEnabled: singleRefund,
 	}
 }
 

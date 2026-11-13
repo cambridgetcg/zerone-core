@@ -22,6 +22,12 @@ export interface Params {
 export interface GenesisState {
     params?: Params;
     rateLimits: RateLimit[];
+    /**
+     * Refund-identity marker (zerone-core #127). Native genesis sets it; a
+     * file without the field imports as off. In place, only the named carrier
+     * upgrade consensus-repairs-v1 sets it.
+     */
+    refundIdentityEnabled: boolean;
 }
 /**
  * Params defines the ibcratelimit module parameters.

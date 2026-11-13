@@ -9,6 +9,10 @@ message GenesisState {
   repeated DomainQualification qualifications = 2;
   repeated QualificationEndorsement endorsements = 3;
   uint64 next_endorsement_id = 4;
+  // Single-refund marker (zerone-core #120). Native genesis sets it; a
+  // file without the field imports as off. In place, only the named carrier
+  // upgrade consensus-repairs-v1 sets it.
+  bool single_refund_enabled = 5;
 }
 
 message Params {

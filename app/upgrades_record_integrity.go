@@ -28,8 +28,12 @@ func recordIntegrityTargetVersionMap() module.VersionMap {
 // Earlier named releases retain their original target. No broad migration may
 // append knowledge 7->8, skip its predecessor, or downgrade current records.
 func requireRecordIntegrityTransitionOwner(name string, fromVM, targetVM module.VersionMap) error {
+	if fromVM["knowledge"] == 13 || targetVM["knowledge"] == 13 {
+		return requireConsensusRepairsTransitionOwner(name, fromVM, targetVM)
+	}
 	from, fromOK := fromVM["knowledge"]
 	target, targetOK := targetVM["knowledge"]
+	// Knowledge 13 is handed to the exact carrier owner above.
 	if !fromOK || !targetOK || from < 6 || from > 12 || target < 6 || target > 12 {
 		return fmt.Errorf("record integrity requires complete known knowledge versions")
 	}

@@ -20,4 +20,8 @@ message GenesisState {
   Params                      params       = 1;
   repeated CaptureChallenge   challenges   = 2;
   repeated DomainBountyPool   bounty_pools = 3;
+  // Challenge-accounting marker (zerone-core #121). Native genesis sets it; a
+  // file without the field imports as off. In place, only the named carrier
+  // upgrade consensus-repairs-v1 sets it.
+  bool challenge_accounting_enabled = 4;
 }

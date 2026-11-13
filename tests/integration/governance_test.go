@@ -72,7 +72,9 @@ func (m *govMockStakingKeeper) GetSlashCount(_ context.Context, addr string) (ui
 
 // govMockEmergencyKeeper implements govtypes.EmergencyKeeper.
 type govMockEmergencyKeeper struct {
-	halts map[string]uint64
+	halts               map[string]uint64
+	haltReasonScoping   bool
+	unknownHaltEvidence bool
 }
 
 func (m *govMockEmergencyKeeper) CountHaltsForReason(_ context.Context, reason string) uint64 {
@@ -81,6 +83,14 @@ func (m *govMockEmergencyKeeper) CountHaltsForReason(_ context.Context, reason s
 
 func (m *govMockEmergencyKeeper) IsHalted(_ context.Context) bool {
 	return false
+}
+
+func (m *govMockEmergencyKeeper) HaltReasonScopingEnabled(context.Context) (bool, error) {
+	return m.haltReasonScoping, nil
+}
+
+func (m *govMockEmergencyKeeper) CountResearchFundHalts(context.Context, uint64) (uint64, bool) {
+	return m.halts["research_fund"], m.unknownHaltEvidence
 }
 
 // govMockVestingKeeper implements govtypes.VestingRewardsKeeper.

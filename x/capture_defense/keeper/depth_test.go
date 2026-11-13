@@ -63,8 +63,8 @@ func TestHHIThresholdAdjustedByDepth(t *testing.T) {
 	params := k.GetParams(ctx)
 
 	// Both should be monopolies (HHI = 1,000,000)
-	metricsBroad := k.AnalyzeCaptureRisk(ctx, "broad_domain", params)
-	metricsSpecific := k.AnalyzeCaptureRisk(ctx, "specific_domain", params)
+	metricsBroad := k.AnalyzeCaptureRisk(ctx, "broad_domain", params, false)
+	metricsSpecific := k.AnalyzeCaptureRisk(ctx, "specific_domain", params, false)
 
 	if metricsBroad == nil || metricsSpecific == nil {
 		t.Fatal("expected non-nil metrics")
@@ -117,8 +117,8 @@ func TestDepthAdjustedThresholdAllowsModerateConcentration(t *testing.T) {
 	}
 
 	params := k.GetParams(ctx)
-	metricsBroad := k.AnalyzeCaptureRisk(ctx, "broad", params)
-	metricsNarrow := k.AnalyzeCaptureRisk(ctx, "narrow", params)
+	metricsBroad := k.AnalyzeCaptureRisk(ctx, "broad", params, false)
+	metricsNarrow := k.AnalyzeCaptureRisk(ctx, "narrow", params, false)
 
 	if metricsBroad == nil || metricsNarrow == nil {
 		t.Fatal("expected non-nil metrics")
@@ -161,7 +161,7 @@ func TestNoOntologyKeeperDefaultsToBaseThreshold(t *testing.T) {
 	}
 
 	params := k.GetParams(ctx)
-	metrics := k.AnalyzeCaptureRisk(ctx, "test_domain", params)
+	metrics := k.AnalyzeCaptureRisk(ctx, "test_domain", params, false)
 
 	if metrics == nil {
 		t.Fatal("expected non-nil metrics")

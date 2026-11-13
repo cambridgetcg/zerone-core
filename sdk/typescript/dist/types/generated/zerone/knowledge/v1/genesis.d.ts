@@ -769,6 +769,12 @@ export interface GenesisState {
      * fund settlement. Import does not invent upgrade receipts or rewrite records.
      */
     claimIntegrityEnabled: boolean;
+    /**
+     * Reformulation-tie and vindication-ordering marker (zerone-core #118). Native genesis sets it; a
+     * file without the field imports as off. In place, only the named carrier
+     * upgrade consensus-repairs-v1 sets it.
+     */
+    reformulationVindicationOrderingEnabled: boolean;
 }
 /**
  * Exports each ordered source/target pair once, including full provenance.

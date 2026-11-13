@@ -289,7 +289,10 @@ func (s *IBCTestSuite) SetupRateLimit(channelID, denom, maxSend, maxRecv string,
 	// Ensure rate limiting is enabled.
 	app.IBCRateLimitKeeper.SetParams(ctx, &ibcratelimittypes.Params{Enabled: true})
 
-	app.IBCRateLimitKeeper.SetRateLimit(ctx, &ibcratelimittypes.RateLimit{
+	refundIdentity, err := app.IBCRateLimitKeeper.RefundIdentityEnabled(ctx)
+	s.Require().NoError(err)
+	s.Require().True(refundIdentity, "native test genesis enables refund identity")
+	app.IBCRateLimitKeeper.SetRateLimitForActivation(ctx, refundIdentity, &ibcratelimittypes.RateLimit{
 		ChannelId:    channelID,
 		Denom:        denom,
 		MaxSend:      maxSend,

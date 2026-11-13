@@ -16,6 +16,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 
+	"github.com/zerone-chain/zerone/internal/consensusrepairsmigration"
 	"github.com/zerone-chain/zerone/x/emergency/client/cli"
 	"github.com/zerone-chain/zerone/x/emergency/keeper"
 	"github.com/zerone-chain/zerone/x/emergency/types"
@@ -88,6 +89,9 @@ func (am AppModule) IsAppModule()        {}
 
 // RegisterServices registers module services.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
+	if err := cfg.RegisterMigration(types.ModuleName, 2, consensusrepairsmigration.Require); err != nil {
+		panic(err)
+	}
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServerImpl(am.keeper))
 
@@ -112,11 +116,17 @@ func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.
 		panic("failed to unmarshal genesis: " + err.Error())
 	}
 	am.keeper.InitGenesis(ctx, &genState)
+	if err := am.keeper.InitHaltReasonScopingGenesis(ctx, &genState); err != nil {
+		panic("invalid emergency genesis: " + err.Error())
+	}
 }
 
 // ExportGenesis exports the module's genesis state.
 func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.RawMessage {
 	genState := am.keeper.ExportGenesis(ctx)
+	if err := am.keeper.ExportHaltReasonScopingGenesis(ctx, genState); err != nil {
+		panic(err)
+	}
 	bz, err := json.Marshal(genState)
 	if err != nil {
 		panic("failed to marshal genesis: " + err.Error())
@@ -125,7 +135,7 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.Raw
 }
 
 // ConsensusVersion returns the module's consensus version.
-func (AppModule) ConsensusVersion() uint64 { return 2 }
+func (AppModule) ConsensusVersion() uint64 { return 3 }
 
 // BeginBlock checks ceremony progress and emits escalation diagnostics. It
 // never resumes transaction admission from a timer.
