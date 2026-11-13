@@ -362,15 +362,47 @@ func TestSeatDepositNoRouteStoresSeatWithoutDeposit(t *testing.T) {
 	require.Zero(t, tr.custody())
 }
 
-// A plain account at the seat-deposit address, which a send could create
-// before this binary blocked the address, refuses every deposit with an error
-// instead of the bank's panic, and nothing moves.
-func TestSeatDepositRefusesAnAccountSquattingTheModuleAddress(t *testing.T) {
-	tr := newSeatTrial(t, "ordinary", true, "")
+// A plain account at the seat-deposit address, which one uzrn sent before this
+// binary blocked the address creates, does not deny every seat: the first
+// deposit converts it into the module account, keeping its account number,
+// and the stray coin stays as a reported surplus (D6). Every deposit then
+// comes back in full and the surplus is all the account keeps.
+func TestSeatDepositConvertsAnAccountSquattingTheModuleAddress(t *testing.T) {
+	tr := newSeatTrial(t, "ordinary", true, "1000")
 	address := authtypes.NewModuleAddress(knowledgetypes.SeatDepositModuleName)
-	tr.app.AccountKeeper.SetAccount(tr.ctx, tr.app.AccountKeeper.NewAccountWithAddress(tr.ctx, address))
-	reviewer := tr.reviewer(t, 177, 200_000_000)
-	tr.requireRefusedCommit(t, reviewer, "not its module account")
+	sender := settlementAddress(177)
+	tr.fund(t, sender, 1)
+	require.NoError(t, tr.app.BankKeeper.SendCoins(tr.ctx, sender, address, sdk.NewCoins(sdk.NewInt64Coin("uzrn", 1))), "a pre-seat-deposit send: the bank keeper itself checks no blocked list")
+	squatter := tr.app.AccountKeeper.GetAccount(tr.ctx, address)
+	_, isModule := squatter.(sdk.ModuleAccountI)
+	require.False(t, isModule)
+	number := squatter.GetAccountNumber()
+
+	tr.ctx = tr.ctx.WithEventManager(sdk.NewEventManager())
+	for i := byte(0); i < 3; i++ {
+		require.NoError(t, tr.commit(t, tr.reviewer(t, 178+i, 100_000), "accept"))
+	}
+	module, ok := tr.app.AccountKeeper.GetAccount(tr.ctx, address).(sdk.ModuleAccountI)
+	require.True(t, ok, "the first deposit converted the account")
+	require.Equal(t, knowledgetypes.SeatDepositModuleName, module.GetName())
+	require.Equal(t, number, module.GetAccountNumber())
+	require.Empty(t, module.GetPermissions())
+	require.Equal(t, int64(3001), tr.custody())
+	require.Equal(t, 3, countEvents(tr.ctx, "zerone.knowledge.seat_deposit_locked"))
+
+	tr.beginBlock(t, 102)
+	tr.revealAll(t)
+	tr.beginBlock(t, 103)
+	tr.beginBlock(t, 104)
+	for i, seat := range tr.seats {
+		pay := int64(18) // an equal third of the 55 uzrn review budget, the remainder to the first seat
+		if i == 0 {
+			pay++
+		}
+		require.Equal(t, int64(100_000)+pay, tr.balance(seat.address), "seat %d got its whole deposit back", i)
+	}
+	require.Equal(t, int64(1), tr.custody(), "the stray coin is surplus, not swept")
+	require.NoError(t, tr.app.KnowledgeKeeper.ValidateSeatDepositCustody(tr.ctx))
 }
 
 // The design's section 1, item 2, as a named run: one 100 ZRN balance passed

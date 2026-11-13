@@ -433,17 +433,17 @@ func TestSeatDepositRoundCannotBeDeleted(t *testing.T) {
 	f.round(t, round.Id)
 }
 
-// D6 at import: with the marker on, a non-module account at the
-// seat-deposit address is refused before any write, as is a bank balance
-// below the deposits a file carries.
+// D6 at import: with the marker on, an account at the seat-deposit address
+// that the first deposit could not convert is refused before any write, as
+// is a bank balance below the deposits a file carries.
 func TestSeatDepositImportRefusesSquattedAddressAndShortfall(t *testing.T) {
 	gs := types.DefaultGenesis()
 	gs.SeatDepositEnabled = true
 	squatted := newKnowledgeStoreFixture(t, "seat-import-squat")
 	squatted.k.SetAccountKeeper(&seatAccounts{accounts: map[string]sdk.AccountI{
-		seatModuleAddress().String(): authtypes.NewBaseAccountWithAddress(seatModuleAddress()),
+		seatModuleAddress().String(): authtypes.NewBaseAccount(seatModuleAddress(), nil, 1, 1),
 	}})
-	require.ErrorContains(t, squatted.k.InitGenesis(squatted.ctx, gs), "not its module account")
+	require.ErrorContains(t, squatted.k.InitGenesis(squatted.ctx, gs), "cannot become its module account")
 	gs.SeatDepositEnabled = false
 	require.NoError(t, squatted.k.InitGenesis(squatted.ctx, gs), "with the marker off the address is not read")
 

@@ -99,6 +99,7 @@ func (seatInternalAuth) CheckReviewer(context.Context, string) error           {
 type seatInternalAccounts struct{}
 
 func (seatInternalAccounts) GetAccount(context.Context, sdk.AccAddress) sdk.AccountI { return nil }
+func (seatInternalAccounts) SetModuleAccount(context.Context, sdk.ModuleAccountI)    {}
 
 type seatInternalFixture struct {
 	k      Keeper

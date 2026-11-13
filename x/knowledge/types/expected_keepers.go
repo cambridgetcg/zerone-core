@@ -12,6 +12,10 @@ import (
 // AccountKeeper defines the expected account keeper interface.
 type AccountKeeper interface {
 	GetAccount(ctx context.Context, addr sdk.AccAddress) sdk.AccountI
+	// SetModuleAccount is used once per chain at most, by the first seat
+	// deposit, to turn a plain account squatting the knowledge_seat_deposits
+	// address into that module account (x/knowledge/keeper/seat_deposit.go).
+	SetModuleAccount(ctx context.Context, macc sdk.ModuleAccountI)
 }
 
 // BankKeeper defines the expected bank keeper interface.

@@ -31,7 +31,7 @@ type Keeper struct {
 	pacingKeeper              types.PacingKeeper              // nil until R29-6
 	counterexampleKeeper      types.CounterexampleKeeper      // nil until counterexamples wired
 	substrateBridgeKeeper     types.SubstrateBridgeKeeper     // nil until substrate_bridge wired (SB-22)
-	accountKeeper             types.AccountKeeper             // read-only; nil until wired (seat deposits)
+	accountKeeper             types.AccountKeeper             // seat deposits only; nil until wired
 }
 
 // NewKeeper creates a new knowledge Keeper.
@@ -103,10 +103,12 @@ func (k *Keeper) SetSubstrateBridgeKeeper(sbk types.SubstrateBridgeKeeper) {
 	k.substrateBridgeKeeper = sbk
 }
 
-// SetAccountKeeper wires a read-only view of SDK accounts (post-init). Seat
-// deposits use it only to check, before the first transfer, that the
-// knowledge_seat_deposits address holds no account other than its own module
-// account; the bank would otherwise panic on such an address.
+// SetAccountKeeper wires SDK accounts (post-init). Seat deposits use it only
+// for the knowledge_seat_deposits address: before a deposit moves, that
+// address must hold nothing, its own module account, or a plain account that
+// a send created before the address was blocked, which the deposit converts
+// into the module account once. The bank would otherwise panic on such an
+// address. Nothing else reads or writes an account through it.
 func (k *Keeper) SetAccountKeeper(ak types.AccountKeeper) {
 	k.accountKeeper = ak
 }

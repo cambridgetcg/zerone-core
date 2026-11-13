@@ -145,25 +145,55 @@ func (k Keeper) lockSeatDeposit(ctx context.Context, depositor, amount string) e
 	return nil
 }
 
-// requireSeatDepositAccount refuses, with an error, an address that holds an
-// account other than the seat-deposit module account. Before this binary the
-// address was an ordinary one, so a send could have created a plain account
-// there; the bank would then panic on every deposit. Returns are paid by
-// address and are unaffected. A future carrier must check or convert this
-// address on an existing chain; this draft only refuses.
+// requireSeatDepositAccount makes the seat-deposit address one the bank can
+// pay into before a deposit moves (D2). Before this binary the address was an
+// ordinary one, which anyone could create with a send of one uzrn; the bank
+// panics on a deposit to a module address that holds a plain account, so
+// leaving it would deny every deposited seat on the chain. A plain account
+// that no key has signed for (no public key, sequence 0; no key exists for a
+// module address) is converted here into the seat-deposit module account,
+// keeping its account number, once per chain at most. Whatever it held stays
+// in the account as a surplus, reported and never swept (D6). Any other
+// account there is refused with an error, and nothing moves. Returns are paid
+// by address and need no account check.
 func (k Keeper) requireSeatDepositAccount(ctx context.Context) error {
-	if k.accountKeeper == nil {
-		return fmt.Errorf("seat deposits require the account keeper")
+	squatter, err := k.seatDepositSquatter(ctx)
+	if err != nil || squatter == nil {
+		return err
 	}
-	account := k.accountKeeper.GetAccount(ctx, authtypes.NewModuleAddress(types.SeatDepositModuleName))
-	if account == nil {
-		return nil
-	}
-	module, ok := account.(sdk.ModuleAccountI)
-	if !ok || module.GetName() != types.SeatDepositModuleName {
-		return fmt.Errorf("the %s address holds an account that is not its module account", types.SeatDepositModuleName)
+	address := squatter.GetAddress()
+	module := authtypes.NewModuleAccount(authtypes.NewBaseAccount(address, nil, squatter.GetAccountNumber(), 0), types.SeatDepositModuleName)
+	k.accountKeeper.SetModuleAccount(ctx, module)
+	if k.bankKeeper != nil {
+		k.Logger(ctx).Info("seat-deposit address converted into its module account; any balance it held is surplus, reported and not swept",
+			"account_number", squatter.GetAccountNumber(), "held_uzrn", k.bankKeeper.GetBalance(ctx, address, "uzrn").Amount.String())
 	}
 	return nil
+}
+
+// seatDepositSquatter reads the account at the seat-deposit address. It
+// returns nil when the address holds nothing or its own module account, the
+// plain account when one that requireSeatDepositAccount can convert is there,
+// and an error for any other account. It writes nothing.
+func (k Keeper) seatDepositSquatter(ctx context.Context) (*authtypes.BaseAccount, error) {
+	if k.accountKeeper == nil {
+		return nil, fmt.Errorf("seat deposits require the account keeper")
+	}
+	address := authtypes.NewModuleAddress(types.SeatDepositModuleName)
+	account := k.accountKeeper.GetAccount(ctx, address)
+	if account == nil {
+		return nil, nil
+	}
+	if module, ok := account.(sdk.ModuleAccountI); ok && module.GetName() == types.SeatDepositModuleName {
+		return nil, nil
+	}
+	// Only the exact plain type: a vesting or other account embeds a base
+	// account but carries terms a conversion would drop.
+	plain, ok := account.(*authtypes.BaseAccount)
+	if !ok || !address.Equals(plain.GetAddress()) || plain.GetPubKey() != nil || plain.GetSequence() != 0 {
+		return nil, fmt.Errorf("the %s address holds an account that cannot become its module account", types.SeatDepositModuleName)
+	}
+	return plain, nil
 }
 
 // buildClaimRefundSettlement shadows the Keeper method for completeRound,
@@ -495,17 +525,19 @@ func (k Keeper) ValidateSeatDepositCustody(ctx context.Context) error {
 // validateSeatDepositGenesisCustody is D6 at import. With the marker off
 // nothing is read (ValidateSeatDepositGenesis has already refused any seat
 // field). With it on, before either import path writes: an account at the
-// seat-deposit address must be its module account, and the imported bank
-// balance must cover every locked, unreturned deposit the file carries. A
-// shortfall refuses the import. A surplus, such as a coin sent before this
-// binary blocked the address, is logged and not swept; InitChain discards
-// events, so the node log is the import's record.
+// seat-deposit address must be its module account or a plain account the
+// first deposit can convert (requireSeatDepositAccount; import itself writes
+// no account), and the imported bank balance must cover every locked,
+// unreturned deposit the file carries. A shortfall refuses the import. A
+// surplus, such as a coin sent before this binary blocked the address, is
+// logged and not swept; InitChain discards events, so the node log is the
+// import's record.
 func (k Keeper) validateSeatDepositGenesisCustody(ctx context.Context, gs *types.GenesisState) error {
 	if gs == nil || !gs.SeatDepositEnabled {
 		return nil
 	}
 	if k.accountKeeper != nil {
-		if err := k.requireSeatDepositAccount(ctx); err != nil {
+		if _, err := k.seatDepositSquatter(ctx); err != nil {
 			return err
 		}
 	}

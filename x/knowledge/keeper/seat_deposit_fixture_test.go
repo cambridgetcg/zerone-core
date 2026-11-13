@@ -114,6 +114,10 @@ func (a *seatAccounts) GetAccount(_ context.Context, address sdk.AccAddress) sdk
 	return a.accounts[address.String()]
 }
 
+func (a *seatAccounts) SetModuleAccount(_ context.Context, account sdk.ModuleAccountI) {
+	a.accounts[account.GetAddress().String()] = account
+}
+
 type seatFixture struct {
 	k        keeper.Keeper
 	ctx      sdk.Context
