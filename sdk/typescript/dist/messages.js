@@ -8,7 +8,7 @@ import {
   keyRotationAcceptanceSignBytes,
   keyRotationAuthorizationSignBytes,
   makeReviewRevealV2
-} from "./chunk-CFOJVHH3.js";
+} from "./chunk-4N66VF7H.js";
 import {
   MessageComposer,
   MessageComposer10,
@@ -49,7 +49,7 @@ import {
   tx_exports7 as tx_exports8,
   tx_exports8 as tx_exports9,
   tx_exports9 as tx_exports10
-} from "./chunk-ZYGOEMGD.js";
+} from "./chunk-EFT75TDO.js";
 import {
   tx_exports
 } from "./chunk-5LEDNMWD.js";

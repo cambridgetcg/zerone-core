@@ -1,6 +1,6 @@
 import {
   MsgSubmitReveal
-} from "./chunk-ZYGOEMGD.js";
+} from "./chunk-EFT75TDO.js";
 
 // src/auth-signing-common.ts
 import { fromBech32 } from "@cosmjs/encoding";

@@ -1636,6 +1636,58 @@ export interface VerificationRound {
      */
     reviewPolicyVersion: number;
     claimRefundSettlement?: ClaimRefundSettlement;
+    /**
+     * Seat terms (reviewer-entry step B), set once at creation while the
+     * seat-deposit marker is on, only for review policy 1 with commitment
+     * scheme 2. Never added, changed or removed afterwards: a later parameter
+     * change does not alter an open round, and a round created without terms
+     * keeps the balance check for its whole life.
+     */
+    seatTerms?: ReviewSeatTerms;
+    /**
+     * Every seat's deposit return, frozen once at completion or from the
+     * aggregation deadline, whichever comes first. One return per seat in
+     * commit order; each is paid at most once, from the seat-deposit account.
+     */
+    seatDepositReturns?: SeatDepositReturnSettlement;
+}
+/**
+ * ReviewSeatTerms are a round's admission terms for a seat. The amount is a
+ * canonical positive uzrn decimal copied from min_reviewer_balance when the
+ * round was created. Each commitment in the round locks it in the
+ * knowledge_seat_deposits module account, and it is returned in full whatever
+ * the verdict, the seat's vote or whether it revealed.
+ * @name ReviewSeatTerms
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ReviewSeatTerms
+ */
+export interface ReviewSeatTerms {
+    countedSeatDeposit: string;
+}
+/**
+ * SeatDepositReturnSettlement is a round's frozen plan of deposit returns,
+ * beside its reviewer payment and claim refund. created_at_block is the
+ * completion height, or a height at or after the aggregation deadline.
+ * @name SeatDepositReturnSettlement
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.SeatDepositReturnSettlement
+ */
+export interface SeatDepositReturnSettlement {
+    createdAtBlock: bigint;
+    returns: SeatDepositReturn[];
+}
+/**
+ * SeatDepositReturn is one seat's deposit owed back to the address that locked
+ * it. amount is a canonical positive uzrn decimal; paid_at_block 0 is a
+ * pending return, not a completed transfer.
+ * @name SeatDepositReturn
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.SeatDepositReturn
+ */
+export interface SeatDepositReturn {
+    recipient: string;
+    amount: string;
+    paidAtBlock: bigint;
 }
 /**
  * A positive finalized refund, paid atomically with any verifier payments.
@@ -1699,6 +1751,11 @@ export interface CommitEntry {
      */
     commitHash: Uint8Array;
     committedAtBlock: bigint;
+    /**
+     * The deposit this seat locked, a canonical uzrn decimal. Set only in a
+     * round with seat terms, where it equals the terms' counted_seat_deposit.
+     */
+    seatDeposit: string;
 }
 /**
  * RevealEntry records a validator's revealed vote and salt.
@@ -3033,6 +3090,50 @@ export declare const VerificationRound: {
     encode(message: VerificationRound, writer?: BinaryWriter): BinaryWriter;
     decode(input: BinaryReader | Uint8Array, length?: number): VerificationRound;
     fromPartial(object: DeepPartial<VerificationRound>): VerificationRound;
+};
+/**
+ * ReviewSeatTerms are a round's admission terms for a seat. The amount is a
+ * canonical positive uzrn decimal copied from min_reviewer_balance when the
+ * round was created. Each commitment in the round locks it in the
+ * knowledge_seat_deposits module account, and it is returned in full whatever
+ * the verdict, the seat's vote or whether it revealed.
+ * @name ReviewSeatTerms
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ReviewSeatTerms
+ */
+export declare const ReviewSeatTerms: {
+    typeUrl: string;
+    encode(message: ReviewSeatTerms, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): ReviewSeatTerms;
+    fromPartial(object: DeepPartial<ReviewSeatTerms>): ReviewSeatTerms;
+};
+/**
+ * SeatDepositReturnSettlement is a round's frozen plan of deposit returns,
+ * beside its reviewer payment and claim refund. created_at_block is the
+ * completion height, or a height at or after the aggregation deadline.
+ * @name SeatDepositReturnSettlement
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.SeatDepositReturnSettlement
+ */
+export declare const SeatDepositReturnSettlement: {
+    typeUrl: string;
+    encode(message: SeatDepositReturnSettlement, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): SeatDepositReturnSettlement;
+    fromPartial(object: DeepPartial<SeatDepositReturnSettlement>): SeatDepositReturnSettlement;
+};
+/**
+ * SeatDepositReturn is one seat's deposit owed back to the address that locked
+ * it. amount is a canonical positive uzrn decimal; paid_at_block 0 is a
+ * pending return, not a completed transfer.
+ * @name SeatDepositReturn
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.SeatDepositReturn
+ */
+export declare const SeatDepositReturn: {
+    typeUrl: string;
+    encode(message: SeatDepositReturn, writer?: BinaryWriter): BinaryWriter;
+    decode(input: BinaryReader | Uint8Array, length?: number): SeatDepositReturn;
+    fromPartial(object: DeepPartial<SeatDepositReturn>): SeatDepositReturn;
 };
 /**
  * A positive finalized refund, paid atomically with any verifier payments.
