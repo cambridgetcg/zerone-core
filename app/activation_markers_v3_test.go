@@ -24,7 +24,16 @@ func consensusRepairsV3TestLocations() []consensusRepairsMarkerLocation {
 	return []consensusRepairsMarkerLocation{
 		{"knowledge", []byte{0x94}}, {"substrate_bridge", []byte{0x91}},
 		{"knowledge", []byte{0x95}}, {"knowledge", []byte{0x96}},
+		{"knowledge", []byte{0x97}},
 	}
+}
+
+// consensusRepairsV3TestPrerequisites names, for each v3 entry whose Enable
+// requires an earlier entry, the entries it requires: the seat deposit
+// requires the reviewer-balance parameter (EnableSeatDeposit). A carrier that
+// loops over the registry in order meets them.
+var consensusRepairsV3TestPrerequisites = map[string][]string{
+	"seat_deposit_enabled": {"reviewer_balance_param_enabled"},
 }
 
 // consensusRepairsV3Genesis is native genesis with each v3 selection kept
@@ -80,6 +89,16 @@ func TestConsensusRepairsV3RegistryWritesOnlyItsOwnKeys(t *testing.T) {
 	for i, marker := range markers {
 		require.Equal(t, ActivationSelection{marker.Module, marker.Name}, ConsensusRepairsV3GenesisSelections()[i])
 		cache, _ := ctx.CacheContext()
+		for _, name := range consensusRepairsV3TestPrerequisites[marker.Name] {
+			missing, _ := cache.CacheContext()
+			require.ErrorContains(t, marker.Enable(missing), "requires "+name, "%s.%s without %s", marker.Module, marker.Name, name)
+			for j, earlier := range markers[:i] {
+				if earlier.Name == name {
+					require.NoError(t, earlier.Enable(cache))
+					require.Equal(t, []byte{1}, cache.KVStore(a.keys[locations[j].store]).Get(locations[j].key))
+				}
+			}
+		}
 		before := claimIntegrityAllStores(t, a, cache)
 		require.NoError(t, marker.Enable(cache))
 		after := claimIntegrityAllStores(t, a, cache)

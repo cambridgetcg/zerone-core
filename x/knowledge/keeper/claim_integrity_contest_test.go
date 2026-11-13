@@ -603,6 +603,7 @@ func TestClaimIntegrity_LegacyPolicyStarvedContradictionSettles(t *testing.T) {
 			gs := types.DefaultGenesis()
 			gs.RecordIntegrityEnabled = true
 			gs.ReviewNeutralityEnabled = false
+			gs.SeatDepositEnabled = false // The seat deposit requires the markers cleared above.
 			gs.ClaimRecordsEnabled = false
 			gs.FundSettlementEnabled = false
 			gs.ClaimIntegrityEnabled = false

@@ -132,6 +132,7 @@ func TestNeutralReviewPaysExactAccruedLegacyPlanAfterActivation(t *testing.T) {
 	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.ClaimIntegrityEnabledStoreKey)) // No pre-v12 store has 0x87.
 	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.FundSettlementEnabledStoreKey))
 	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey))
+	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete(knowledgetypes.SeatDepositEnabledKey) // The seat deposit requires the marker removed above.
 	recipient := settlementAddress(181)
 	round := &knowledgetypes.VerificationRound{Id: "accrued-before-neutrality", ClaimId: "legacy-unavailable-claim", Phase: knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE, Verdict: knowledgetypes.Verdict_VERDICT_REJECT, VerdictBlock: 100, VerifierRewardSettlement: &knowledgetypes.VerifierRewardSettlement{CreatedAtBlock: 100, WithheldTotal: "1", Payments: []*knowledgetypes.VerifierRewardPayment{{Verifier: recipient.String(), Amount: "13", Withheld: "1"}}}}
 	require.NoError(t, app.KnowledgeKeeper.SetVerificationRound(ctx, round))

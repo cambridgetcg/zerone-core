@@ -25,6 +25,7 @@ func initReformulationAdmissionGenesis(t *testing.T, k keeper.Keeper, ctx sdk.Co
 	gs.ReformulationVindicationOrderingEnabled = false
 	gs.ReviewNeutralityEnabled = false // Admission remains available independently of the repair.
 	gs.RecordIntegrityEnabled = false
+	gs.SeatDepositEnabled = false // The seat deposit requires the markers cleared above.
 	gs.ClaimRecordsEnabled = false
 	gs.FundSettlementEnabled = false
 	gs.ClaimIntegrityEnabled = false
@@ -37,6 +38,7 @@ func initReformulationAdmissionGenesis(t *testing.T, k keeper.Keeper, ctx sdk.Co
 	gs.DoctrineIdentityEnabled = false
 	gs.DormantFactContestEnabled = false
 	gs.ReviewerBalanceParamEnabled = false
+	gs.SeatDepositEnabled = false // The seat deposit requires the markers cleared above.
 	gs.BootstrapFundAllocation = "0"
 	require.NoError(t, k.InitGenesis(ctx, gs))
 }

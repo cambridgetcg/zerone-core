@@ -17,7 +17,14 @@ import (
 var repairsV3MarkerLocations = []struct {
 	store string
 	key   byte
-}{{"knowledge", 0x94}, {"substrate_bridge", 0x91}, {"knowledge", 0x95}, {"knowledge", 0x96}}
+}{{"knowledge", 0x94}, {"substrate_bridge", 0x91}, {"knowledge", 0x95}, {"knowledge", 0x96}, {"knowledge", 0x97}}
+
+// repairsV3Prerequisites names, for each v3 entry whose Enable requires an
+// earlier entry, the entries it requires: the seat deposit requires the
+// reviewer-balance parameter. The registry lists each after what it requires.
+var repairsV3Prerequisites = map[string][]string{
+	"seat_deposit_enabled": {"reviewer_balance_param_enabled"},
+}
 
 // Synthetic pre-carrier state: an existing chain that has not run a v3
 // carrier. The owner module tests separately pin true DefaultGenesis and the
@@ -76,7 +83,7 @@ func TestConsensusRepairsV3MarkersFollowGenesisThroughTheApp(t *testing.T) {
 	}
 }
 
-// The registry a v3 carrier will loop over lists exactly the four
+// The registry a v3 carrier will loop over lists exactly the five
 // consensus-repairs-v3 markers, each named by the genesis field that carries
 // it, in the order of ConsensusRepairsV3GenesisSelections. Enabling every entry
 // on a chain without them selects every repair, idempotently, and an export
@@ -93,6 +100,7 @@ func TestConsensusRepairsV3RegistryEnablesEveryMarker(t *testing.T) {
 		"substrate_bridge/cited_reward_escrow_enabled",
 		"knowledge/dormant_fact_contest_enabled",
 		"knowledge/reviewer_balance_param_enabled",
+		"knowledge/seat_deposit_enabled",
 	}, listed)
 	require.Len(t, zeroneapp.ConsensusRepairsV3GenesisSelections(), len(listed))
 	require.Len(t, repairsV3MarkerLocations, len(listed))
@@ -117,7 +125,9 @@ func TestConsensusRepairsV3RegistryEnablesEveryMarker(t *testing.T) {
 // Each registry entry is bound to its own marker, store key and genesis field:
 // from a chain with every v3 repair off, enabling one entry writes exactly its
 // own key and turns on that entry's reader and genesis field and nothing else,
-// so a swapped Enable, reader or Name cannot pass. No v1 or v2 marker moves.
+// so a swapped Enable, reader or Name cannot pass. An entry that requires an
+// earlier one (repairsV3Prerequisites) refuses alone, writing nothing, and is
+// checked with what it requires already on. No v1 or v2 marker moves.
 // Every reader is gas-free whether its marker is absent or on, so a read added
 // to an existing path cannot change gas before activation.
 func TestConsensusRepairsV3RegistryEntriesAreIndependentAndGasFree(t *testing.T) {
@@ -141,6 +151,18 @@ func TestConsensusRepairsV3RegistryEntriesAreIndependentAndGasFree(t *testing.T)
 		cached, _ := ctx.CacheContext()
 		requireGasFree(cached, target, false)
 		store := app.GetStoreKeyForTests(repairsV3MarkerLocations[i].store)
+		on := map[int]bool{i: true}
+		for _, name := range repairsV3Prerequisites[target.Name] {
+			alone := storeSnapshot(t, cached, store)
+			require.ErrorContains(t, target.Enable(cached), "requires "+name, "%s/%s alone", target.Module, target.Name)
+			require.Equal(t, alone, storeSnapshot(t, cached, store), "a refused enable writes nothing")
+			for j, m := range markers {
+				if m.Name == name {
+					require.NoError(t, m.Enable(cached))
+					on[j] = true
+				}
+			}
+		}
 		before := storeSnapshot(t, cached, store)
 		require.NoError(t, target.Enable(cached), "%s/%s", target.Module, target.Name)
 		before[string([]byte{repairsV3MarkerLocations[i].key})] = "\x01"
@@ -149,8 +171,8 @@ func TestConsensusRepairsV3RegistryEntriesAreIndependentAndGasFree(t *testing.T)
 		exported, err := app.ModuleManager.ExportGenesisForModules(cached, app.AppCodec(), nil)
 		require.NoError(t, err)
 		for j, m := range markers {
-			requireGasFree(cached, m, i == j)
-			require.Equal(t, i == j, repairsMarkerField(t, exported, m),
+			requireGasFree(cached, m, on[j])
+			require.Equal(t, on[j], repairsMarkerField(t, exported, m),
 				"enabling %s/%s: %s/%s genesis field", target.Module, target.Name, m.Module, m.Name)
 		}
 		requireMarkers(t, cached, app.ConsensusRepairsV1Markers(), true)

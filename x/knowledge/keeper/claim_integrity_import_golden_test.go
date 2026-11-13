@@ -29,6 +29,7 @@ func v11ImportGenesis() *types.GenesisState {
 	gs.DoctrineIdentityEnabled = false
 	gs.DormantFactContestEnabled = false
 	gs.ReviewerBalanceParamEnabled = false
+	gs.SeatDepositEnabled = false // The seat deposit requires the markers cleared above.
 	structure := func(subject string, tags ...string) *types.ClaimStructure {
 		return &types.ClaimStructure{Subject: subject, Predicate: "has dry mass in grams", Object: "3.5", Scope: "dry sample at 20 C", Tags: tags}
 	}

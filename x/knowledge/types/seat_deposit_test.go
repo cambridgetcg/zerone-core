@@ -186,6 +186,9 @@ func TestSeatDepositsHeld(t *testing.T) {
 
 func TestSeatDepositGenesisPresenceAndPredecessors(t *testing.T) {
 	gs := types.DefaultGenesis()
+	require.True(t, gs.SeatDepositEnabled, "native genesis selects the seat deposit")
+	require.NoError(t, types.ValidateSeatDepositGenesis(gs))
+	gs.SeatDepositEnabled = false
 	require.NoError(t, types.ValidateSeatDepositGenesis(gs))
 	gs.ActiveRounds = []*types.VerificationRound{seatRound(t, 1, "100")}
 	require.ErrorContains(t, types.ValidateSeatDepositGenesis(gs), "without seat_deposit_enabled")
@@ -209,6 +212,7 @@ func TestSeatDepositGenesisPresenceAndPredecessors(t *testing.T) {
 	} {
 		t.Run("marker off refuses "+name, func(t *testing.T) {
 			g := types.DefaultGenesis()
+			g.SeatDepositEnabled = false
 			g.CompletedRounds = []*types.VerificationRound{round}
 			require.ErrorContains(t, types.ValidateSeatDepositGenesis(g), "without seat_deposit_enabled")
 		})

@@ -37,6 +37,10 @@ type knowledgeV2Marker struct {
 	enabled func(keeper.Keeper, context.Context) (bool, error)
 	enable  func(keeper.Keeper, context.Context) error
 	genesis func(*types.GenesisState) *bool
+	// dependents are the genesis fields of markers that require this one
+	// (the seat deposit requires the reviewer-balance parameter). genesisJSON
+	// sets them off, so this marker can be turned on, off or removed alone.
+	dependents []string
 }
 
 var knowledgeV2Markers = []knowledgeV2Marker{
@@ -102,6 +106,9 @@ func (f *knowledgeV2MarkerFixture) genesisJSON(t *testing.T, field *bool) json.R
 		delete(fields, f.marker.field)
 	} else {
 		fields[f.marker.field] = json.RawMessage(strconv.FormatBool(*field))
+	}
+	for _, dependent := range f.marker.dependents {
+		fields[dependent] = json.RawMessage("false")
 	}
 	raw, err := json.Marshal(fields)
 	require.NoError(t, err)

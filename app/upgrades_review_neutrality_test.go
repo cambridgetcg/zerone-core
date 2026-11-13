@@ -47,6 +47,7 @@ func reviewNeutralitySourceFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.D
 	t.Helper()
 	app, ctx, db := newFrozenReviewFixture(t)
 	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey))
+	ctx.KVStore(app.keys["knowledge"]).Delete(knowledgetypes.SeatDepositEnabledKey) // The seat deposit requires the marker removed above.
 	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, reviewNeutralitySourceVersionMap()))
 	return app, ctx, db
 }

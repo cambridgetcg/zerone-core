@@ -40,6 +40,7 @@ func relationContractFixture(t *testing.T, genesis *types.GenesisState) (keeper.
 	ctx := sdk.NewContext(ms, cmtproto.Header{ChainID: "relation-contract-test", Height: 100}, false, log.NewNopLogger())
 	bank := newTrackingBankKeeper()
 	k := keeper.NewKeeper(runtime.NewKVStoreService(key), codec.NewProtoCodec(codectypes.NewInterfaceRegistry()), "authority", bank, newTrackingStakingKeeper())
+	wireSeatDeposits(&k)
 	require.NoError(t, k.InitGenesis(ctx, genesis))
 	require.NoError(t, k.SetDomain(ctx, &types.Domain{Name: "physics", Status: types.DomainStatus_DOMAIN_STATUS_ACTIVE}))
 	for _, id := range []string{"target-a", "target-b"} {
@@ -144,6 +145,7 @@ func relationContractRetainedAugmentationEndpointMismatch(t *testing.T, enabled 
 			genesis := types.DefaultGenesis()
 			genesis.RecordIntegrityEnabled = false
 			genesis.ReviewNeutralityEnabled = false
+			genesis.SeatDepositEnabled = false // The seat deposit requires the markers cleared above.
 			genesis.ClaimRecordsEnabled = false
 			genesis.FundSettlementEnabled = false
 			genesis.ClaimIntegrityEnabled = false // Predecessor claim semantics.

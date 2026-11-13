@@ -61,12 +61,17 @@ var seatTrialAttestation = &knowledgetypes.ReviewAttestation{Reason: "Synthetic 
 // "contradiction", "explicit" or "provisional") on a chain whose seat-deposit
 // marker is seat and whose min_reviewer_balance is figure (written straight to
 // the params store, as governance would). The windows are two blocks each.
+// Native genesis selects the seat deposit; with seat false the marker is
+// removed, as on an existing chain that no carrier has turned it on for.
 func newSeatTrial(t *testing.T, route string, seat bool, figure string) *seatTrial {
 	t.Helper()
 	app, ctx, db := newAccountingAuthorityFixture(t)
 	ctx = ctx.WithBlockHeight(100).WithChainID(seatTrialChainID).WithHeaderInfo(header.Info{Height: 100, ChainID: seatTrialChainID})
-	if seat {
-		require.NoError(t, app.KnowledgeKeeper.EnableSeatDeposit(ctx))
+	enabled, err := app.KnowledgeKeeper.SeatDepositEnabled(ctx)
+	require.NoError(t, err)
+	require.True(t, enabled, "native genesis selects the seat deposit")
+	if !seat {
+		ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete(knowledgetypes.SeatDepositEnabledKey)
 	}
 	params, err := app.KnowledgeKeeper.GetParams(ctx)
 	require.NoError(t, err)

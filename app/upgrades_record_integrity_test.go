@@ -39,6 +39,7 @@ func newFrozenRecordFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {
 	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.FundSettlementEnabledStoreKey))
 	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.ClaimRecordsEnabledStoreKey))
 	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey))
+	ctx.KVStore(app.keys["knowledge"]).Delete(knowledgetypes.SeatDepositEnabledKey) // The seat deposit requires the marker removed above.
 	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, recordIntegrityTargetVersionMap()))
 	return app, ctx, db
 }
@@ -47,6 +48,7 @@ func recordIntegritySourceFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB
 	t.Helper()
 	app, ctx, db := newFrozenRecordFixture(t)
 	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.RecordIntegrityEnabledStoreKey))
+	ctx.KVStore(app.keys["knowledge"]).Delete(knowledgetypes.SeatDepositEnabledKey) // The seat deposit requires the marker removed above.
 	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, recordIntegritySourceVersionMap()))
 	return app, ctx, db
 }

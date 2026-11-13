@@ -14,10 +14,10 @@ import (
 // The seat-deposit marker (consensus-repairs-v3, 0x97) follows the v3 marker
 // contract: a pinned key, a gas-free read, a genesis field written on both
 // import paths and exported exactly, and a fault that is never read as off.
-// Unlike the other v3 markers, native genesis does not select it in this
-// draft, and selecting it needs its predecessor markers, so it has its own
-// table instead of a row in v3GenesisMarkers (whose rows select one marker
-// alone).
+// Native genesis selects it, like every other v3 marker. Selecting it needs its
+// predecessor markers, so it has its own table here instead of a row in
+// v3GenesisMarkers (whose rows select one marker alone); the module-side table
+// knowledgeV3Markers has its row.
 
 func TestSeatDepositMarkerKeyAndNativeGenesis(t *testing.T) {
 	require.Equal(t, []byte{0x97}, types.SeatDepositEnabledKey)
@@ -25,7 +25,7 @@ func TestSeatDepositMarkerKeyAndNativeGenesis(t *testing.T) {
 		require.NotEqual(t, other, types.SeatDepositEnabledKey)
 	}
 	gs := types.DefaultGenesis()
-	require.False(t, gs.SeatDepositEnabled, "this draft leaves the seat deposit unselected in native genesis")
+	require.True(t, gs.SeatDepositEnabled, "a new chain starts with the seat deposit selected (the design's section 7)")
 	require.NoError(t, gs.Validate())
 }
 
@@ -76,7 +76,9 @@ func TestSeatDepositMarkerFaultIsNeverOff(t *testing.T) {
 }
 
 func TestSeatDepositMarkerReadIsGasFree(t *testing.T) {
-	f := setupRelationGenesis(t, types.DefaultGenesis())
+	gs := types.DefaultGenesis()
+	gs.SeatDepositEnabled = false
+	f := setupRelationGenesis(t, gs)
 	meter := storetypes.NewGasMeter(1_000_000)
 	ctx := f.ctx.WithGasMeter(meter)
 	enabled, err := f.k.SeatDepositEnabled(ctx)

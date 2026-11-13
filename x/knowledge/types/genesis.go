@@ -461,16 +461,12 @@ func DefaultGenesis() *GenesisState {
 		DoctrineIdentityEnabled:     true,
 		DormantFactContestEnabled:   true,
 		ReviewerBalanceParamEnabled: true,
-		// Except the seat deposit (0x97), which this draft does not select in
-		// native genesis, unlike every other v3 marker. The reviewer-entry
-		// design asks for it on in a new chain, but selecting it here changes
-		// existing tests' assertions (the reviewer-balance-param marker tests
-		// build an off parameter marker with every other selection kept, which
-		// the seat marker's predecessor rule refuses) and needs every
-		// keeper fixture that commits to a policy-1 round to register its
-		// reviewers and fund their deposits. That is left as a separate,
-		// reviewed step, together with its v3 registry entry.
-		SeatDepositEnabled: false,
+		// The reviewer seat deposit (0x97) is on in a new chain, as the
+		// reviewer-entry design's section 7 asks. It requires the three
+		// selections above it: the reviewer-balance parameter, review
+		// neutrality and record integrity. A genesis that clears any of them
+		// must clear this one too.
+		SeatDepositEnabled: true,
 	}
 }
 

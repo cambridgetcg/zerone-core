@@ -109,6 +109,9 @@ func TestKnowledgeGovProposalSetsReviewerBalance(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := NewTestHarness(t)
+			// Step A alone: native genesis also selects the seat deposit, whose
+			// locked deposit is what allows a figure below 100 ZRN.
+			h.Ctx.KVStore(h.App.GetStoreKeyForTests(knowledgetypes.StoreKey)).Delete(knowledgetypes.SeatDepositEnabledKey)
 			if !tc.markerOn {
 				h.Ctx.KVStore(h.App.GetStoreKeyForTests(knowledgetypes.StoreKey)).Delete(knowledgetypes.ReviewerBalanceParamEnabledKey)
 			}

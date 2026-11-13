@@ -20,7 +20,9 @@ import (
 
 // D1, D7: only a review-policy-1, scheme-2 round records seat terms. A
 // policy-0 round created while the seat-deposit marker is on gets none and
-// keeps the balance check.
+// keeps the balance check. EnableSeatDeposit refuses a chain without review
+// neutrality, where policy-0 rounds are still created, so the marker is
+// written here without its checks: the policy rule holds even then.
 func TestSeatDepositTermsOnlyForPolicy1Scheme2(t *testing.T) {
 	for _, recordIntegrity := range []bool{false, true} {
 		t.Run(map[bool]string{false: "scheme-0", true: "scheme-2"}[recordIntegrity], func(t *testing.T) {
@@ -28,7 +30,8 @@ func TestSeatDepositTermsOnlyForPolicy1Scheme2(t *testing.T) {
 			if recordIntegrity {
 				require.NoError(t, k.EnableRecordIntegrity(ctx))
 			}
-			require.NoError(t, k.EnableSeatDeposit(ctx))
+			require.ErrorContains(t, k.EnableSeatDeposit(ctx), "seat_deposit_enabled requires")
+			require.NoError(t, keeper.WriteSeatDepositMarkerForTest(ctx, k))
 			ctx = ctx.WithChainID("seat-policy-0-test")
 			_, err := keeper.NewMsgServerImpl(k).SubmitClaim(ctx, &types.MsgSubmitClaim{Submitter: makeValidBech32Addr("seat-policy-0-author"), FactContent: "A reproducible observation with a retained test procedure.", Domain: "physics", Category: "empirical", Stake: "11000000"})
 			require.NoError(t, err)
@@ -50,7 +53,10 @@ func TestSeatDepositGenesisRefusedBeforeAnyWrite(t *testing.T) {
 		CommitmentScheme: types.CommitmentSchemeReviewV2, CommitmentChainId: "seat-genesis", ReviewPolicyVersion: types.ReviewPolicyNeutral,
 		SeatTerms: &types.ReviewSeatTerms{CountedSeatDeposit: "100000000"}}
 	for name, mutate := range map[string]func(*types.GenesisState){
-		"terms with the marker off": func(gs *types.GenesisState) { gs.ActiveRounds = []*types.VerificationRound{seatRound} },
+		"terms with the marker off": func(gs *types.GenesisState) {
+			gs.SeatDepositEnabled = false
+			gs.ActiveRounds = []*types.VerificationRound{seatRound}
+		},
 		"marker without the parameter marker": func(gs *types.GenesisState) {
 			gs.SeatDepositEnabled = true
 			gs.ReviewerBalanceParamEnabled = false
@@ -147,6 +153,7 @@ func TestSeatDepositFloorHoldsWhileDepositsOff(t *testing.T) {
 			require.Empty(t, f.storedFigure(t))
 
 			gs := types.DefaultGenesis()
+			gs.SeatDepositEnabled = false
 			gs.Params.MinReviewerBalance = value
 			require.ErrorContains(t, gs.Validate(), reviewerFloorRefusal)
 			fresh := newKnowledgeStoreFixture(t, "seat-floor")

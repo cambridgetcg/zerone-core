@@ -14,8 +14,8 @@ import (
 // until every seat's deposit is returned in full (the reviewer-entry design
 // draft, pull request #190, step B). The marker at types.SeatDepositEnabledKey
 // is the only selector. Genesis writes it when the file selects it; native
-// genesis does not select it yet. No carrier upgrade writes it yet. No message
-// or param toggles it, and nothing clears it.
+// genesis selects it (ConsensusRepairsV3GenesisSelections). No carrier upgrade
+// writes it yet. No message or param toggles it, and nothing clears it.
 //
 // activation.Read holds the contract: the read charges no gas, and an
 // unreadable or malformed marker is an error wrapping activation.ErrMarkerFault,

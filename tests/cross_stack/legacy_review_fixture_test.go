@@ -28,6 +28,7 @@ func useLegacyReviewPolicy(t *testing.T, h *TestHarness) {
 	store.Delete([]byte(knowledgekeeper.ClaimRecordsEnabledStoreKey))
 	require.Equal(t, []byte{1}, store.Get([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey)))
 	store.Delete([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey))
+	store.Delete(knowledgetypes.SeatDepositEnabledKey) // The seat deposit requires the marker removed above.
 	enabled, err := h.KnowledgeKeeper.ReviewNeutralityEnabled(h.Ctx)
 	require.NoError(t, err)
 	require.False(t, enabled)

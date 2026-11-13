@@ -33,8 +33,25 @@ var knowledgeV3Markers = []knowledgeV2Marker{
 	{
 		field: "reviewer_balance_param_enabled", pinned: 0x96, key: types.ReviewerBalanceParamEnabledKey,
 		enabled: keeper.Keeper.ReviewerBalanceParamEnabled, enable: keeper.Keeper.EnableReviewerBalanceParam,
-		genesis: func(gs *types.GenesisState) *bool { return &gs.ReviewerBalanceParamEnabled },
+		genesis:    func(gs *types.GenesisState) *bool { return &gs.ReviewerBalanceParamEnabled },
+		dependents: []string{"seat_deposit_enabled"},
 	},
+	{
+		field: "seat_deposit_enabled", pinned: 0x97, key: types.SeatDepositEnabledKey,
+		enabled: keeper.Keeper.SeatDepositEnabled, enable: keeper.Keeper.EnableSeatDeposit,
+		genesis: func(gs *types.GenesisState) *bool { return &gs.SeatDepositEnabled },
+	},
+}
+
+// clearKnowledgeV3Dependents turns off, in gs, every marker that requires m.
+func clearKnowledgeV3Dependents(gs *types.GenesisState, m knowledgeV2Marker) {
+	for _, dependent := range m.dependents {
+		for _, row := range knowledgeV3Markers {
+			if row.field == dependent {
+				*row.genesis(gs) = false
+			}
+		}
+	}
 }
 
 func TestKnowledgeV3MarkersNativeGenesisSelectsMarker(t *testing.T) {
@@ -45,6 +62,7 @@ func TestKnowledgeV3MarkersNativeGenesisSelectsMarker(t *testing.T) {
 			require.True(t, *m.genesis(gs), "a new chain starts with the repair selected")
 			require.NoError(t, gs.Validate())
 			*m.genesis(gs) = false
+			clearKnowledgeV3Dependents(gs, m)
 			require.NoError(t, gs.Validate(), "off stays valid")
 
 			f := newKnowledgeV2MarkerFixture(t, m)

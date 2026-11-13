@@ -50,6 +50,9 @@ func TestConsensusRepairsV3MarkersFollowBothImportPaths(t *testing.T) {
 				for i, m := range v3GenesisMarkers {
 					*m.field(gs) = i == selected
 				}
+				// The seat deposit needs the reviewer-balance parameter, so
+				// it has its own table (seat_deposit_activation_internal_test.go).
+				gs.SeatDepositEnabled = false
 				require.NoError(t, f.k.InitGenesis(f.ctx, gs))
 				exported := f.k.ExportGenesis(f.ctx)
 				for i, m := range v3GenesisMarkers {

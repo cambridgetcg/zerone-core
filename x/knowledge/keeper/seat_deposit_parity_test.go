@@ -38,6 +38,7 @@ func seatParityDigest(t *testing.T, reviewerBalanceParam bool) string {
 	t.Helper()
 	gs := types.DefaultGenesis()
 	gs.ReviewerBalanceParamEnabled = reviewerBalanceParam
+	gs.SeatDepositEnabled = false // Marker-off parity: 3a844c48 has no seat deposit.
 	gs.Params.CommitPhaseBlocks, gs.Params.RevealPhaseBlocks, gs.Params.AggregationPhaseBlocks = 2, 2, 2
 	gs.Params.MinVerifiers, gs.Params.MinHeadcountAgreement = 3, 2
 	f := newClaimIntegrityGenesisFixture(t, "seat-parity", gs)

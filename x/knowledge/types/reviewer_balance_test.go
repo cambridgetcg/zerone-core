@@ -132,6 +132,7 @@ func TestMinReviewerBalanceGenesisValidation(t *testing.T) {
 	} {
 		gs := types.DefaultGenesis()
 		gs.ReviewerBalanceParamEnabled = tc.marker
+		gs.SeatDepositEnabled = false // Step A alone: no locked deposit allows a lower figure.
 		gs.Params.MinReviewerBalance = tc.param
 		if tc.want == "" {
 			require.NoError(t, gs.Validate(), "marker %t, %q", tc.marker, tc.param)

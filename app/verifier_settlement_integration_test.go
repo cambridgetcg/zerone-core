@@ -19,10 +19,16 @@ import (
 
 // These tests use the application's actual SDK bank/account keepers and
 // multistore caches. Funding is explicit test issuance, not earned science.
+//
+// They hold review rounds as they run without the reviewer seat deposit:
+// native genesis selects it (reviewer-entry step B), so its marker is removed
+// here, as on an existing chain that no carrier has turned it on for. Rounds
+// with seat terms are the subject of seat_deposit_settlement_test.go.
 func settlementFixture(t *testing.T) (*ZeroneApp, sdk.Context) {
 	t.Helper()
 	app, ctx, _ := newAccountingAuthorityFixture(t)
 	ctx = ctx.WithBlockHeight(100).WithHeaderInfo(header.Info{Height: 100, ChainID: ctx.ChainID()})
+	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete(knowledgetypes.SeatDepositEnabledKey)
 	require.NoError(t, app.KnowledgeKeeper.EnableRecordIntegrity(ctx))
 	params, err := app.KnowledgeKeeper.GetParams(ctx)
 	require.NoError(t, err)

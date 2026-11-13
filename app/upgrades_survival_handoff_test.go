@@ -45,6 +45,7 @@ func newFrozenSurvivalFixture(t *testing.T) (*ZeroneApp, sdk.Context, dbm.DB) {
 	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.ClaimRecordsEnabledStoreKey))
 	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey))
 	ctx.KVStore(app.keys["knowledge"]).Delete([]byte(knowledgekeeper.RecordIntegrityEnabledStoreKey))
+	ctx.KVStore(app.keys["knowledge"]).Delete(knowledgetypes.SeatDepositEnabledKey) // The seat deposit requires the marker removed above.
 	require.NoError(t, app.UpgradeKeeper.SetModuleVersionMap(ctx, survivalHandoffTargetVersionMap()))
 	return app, ctx, db
 }

@@ -25,6 +25,27 @@ import (
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
+// ─── Reviewer Seat Deposit Stubs ─────────────────────────────────────────────
+
+// admitReviewers is the zerone_auth stand-in for fixtures that commit to
+// review rounds on native genesis, where the seat-deposit marker is on and the
+// handler itself admits each reviewer (reviewer-entry step B, D3). It admits
+// every address and knows no account type, which is what a nil zerone_auth
+// keeper reads as everywhere else (getAccountType), so it changes nothing but
+// that admission. The seat-deposit tests use their own seatAuth.
+type admitReviewers struct{}
+
+func (admitReviewers) GetAccountType(context.Context, string) (string, bool) { return "", false }
+func (admitReviewers) CheckReviewer(context.Context, string) error           { return nil }
+
+// wireSeatDeposits gives k what a deposited seat needs besides the bank:
+// admitReviewers and an empty account keeper (seatAccounts). Call it before
+// building a message server, which copies the keeper.
+func wireSeatDeposits(k *keeper.Keeper) {
+	k.SetZeroneAuthKeeper(admitReviewers{})
+	k.SetAccountKeeper(&seatAccounts{accounts: map[string]sdk.AccountI{}})
+}
+
 // ─── Mock Bank Keeper ────────────────────────────────────────────────────────
 
 type trackingBankKeeper struct {
@@ -204,6 +225,7 @@ func setupKnowledgeTest(t *testing.T) (keeper.Keeper, sdk.Context) {
 	gs.FundSettlementEnabled = false                   // This fixture retains predecessor financial terms.
 	gs.ClaimIntegrityEnabled = false                   // This fixture retains predecessor claim semantics.
 	gs.RecordIntegrityEnabled = false                  // This shared fixture exercises historical record semantics.
+	gs.SeatDepositEnabled = false                      // The seat deposit requires the markers cleared above.
 	gs.ReformulationVindicationOrderingEnabled = false // Pre-carrier behavior.
 	require.NoError(t, k.InitGenesis(ctx, gs))
 
@@ -219,6 +241,7 @@ func setupKnowledgeTestWithBank(t *testing.T) (keeper.Keeper, sdk.Context, *trac
 	gs.FundSettlementEnabled = false                   // This fixture retains predecessor financial terms.
 	gs.ClaimIntegrityEnabled = false                   // This fixture retains predecessor claim semantics.
 	gs.RecordIntegrityEnabled = false                  // Native record-integrity tests opt in explicitly.
+	gs.SeatDepositEnabled = false                      // The seat deposit requires the markers cleared above.
 	gs.ReformulationVindicationOrderingEnabled = false // Pre-carrier behavior.
 	// Most legacy keeper tests exercise sponsored-claim accounting and need a
 	// funded pool. Keep that funding explicit in the test fixture; it is not
@@ -290,6 +313,7 @@ func setupKnowledgeTestFull(t *testing.T) (keeper.Keeper, sdk.Context, *tracking
 	gs.FundSettlementEnabled = false // This fixture retains predecessor financial terms.
 	gs.ClaimIntegrityEnabled = false // This fixture retains predecessor claim semantics.
 	gs.RecordIntegrityEnabled = false
+	gs.SeatDepositEnabled = false                      // The seat deposit requires the markers cleared above.
 	gs.ReformulationVindicationOrderingEnabled = false // Pre-carrier behavior.
 	require.NoError(t, k.InitGenesis(ctx, gs))
 
