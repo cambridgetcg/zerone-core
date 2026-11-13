@@ -283,15 +283,21 @@ type Params struct {
 	GuardianAddresses       []string `protobuf:"bytes,159,rep,name=guardian_addresses,json=guardianAddresses,proto3" json:"guardian_addresses,omitempty"`                          // veto-eligible addresses; empty = no guardian set, immediate execution
 	AddFactVetoWindowBlocks uint64   `protobuf:"varint,160,opt,name=add_fact_veto_window_blocks,json=addFactVetoWindowBlocks,proto3" json:"add_fact_veto_window_blocks,omitempty"` // default 0 (immediate); set > 0 to enable veto window
 	// ─── Reviewer minimum balance (consensus-repairs-v3) ─────────────────────
-	// The bank balance, in uzrn, an account must hold to commit to a review.
 	// Empty means the built-in 100,000,000 uzrn (100 ZRN); otherwise a canonical
-	// decimal within uint64, at or above 100,000,000. The figure can be raised,
-	// not lowered: the balance is checked, not locked, and a figure below 100 ZRN
-	// waits for a locked seat deposit (the reviewer-entry design draft, pull
-	// request #190). Read only while the reviewer-balance-param marker is set;
-	// with it off the built-in figure applies and this field must stay empty. A
-	// balance check only: no weight, bond or reputation, and not Sybil
-	// resistance.
+	// positive decimal within uint64. Read only while the reviewer-balance-param
+	// marker is set; with it off the built-in figure applies and this field
+	// must stay empty. Its meaning depends on the round (the reviewer-entry
+	// design draft, pull request #190):
+	//   - In a round with seat terms (created while the seat-deposit marker is
+	//     set, under review policy 1), the figure as it stood at the round's
+	//     creation is the deposit each seat locks, returned in full when the
+	//     round completes or from its aggregation deadline. A figure below
+	//     100,000,000 is accepted only while the seat-deposit marker is set.
+	//   - In every other round it stays the bank balance an account must hold to
+	//     commit, checked and not locked, compared with the larger of this figure
+	//     and 100,000,000.
+	//
+	// No weight, bond or reputation, and not Sybil resistance.
 	MinReviewerBalance string `protobuf:"bytes,161,opt,name=min_reviewer_balance,json=minReviewerBalance,proto3" json:"min_reviewer_balance,omitempty"` // default: "" (built-in 100 ZRN)
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache

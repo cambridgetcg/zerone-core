@@ -187,7 +187,7 @@ failed or interrupted registration is safe to retry.`,
 			fmt.Fprintln(guide, "  submit a claim     zeroned tx knowledge submit-claim \"<fact>\" <domain> <category> <fee-uzrn> --from "+from)
 			fmt.Fprintln(guide, "                     (check the real fee first: zeroned q knowledge effective-fees — network pacing can raise it)")
 			fmt.Fprintln(guide, "  witness a round    zeroned tx knowledge submit-commitment <round-id> --vote accept|reject --from "+from)
-			fmt.Fprintln(guide, "                     (witnessing requires the reviewer minimum balance at commit time: 100 ZRN, or more if governance raised it)")
+			fmt.Fprintln(guide, "                     (witnessing requires the reviewer minimum balance at commit time: 100 ZRN, or more if governance raised it; where seat deposits are on, the round's deposit is locked instead and returned when the round completes)")
 			fmt.Fprintln(guide, "  watch a claim      zeroned q knowledge claim-watch <claim-id>")
 			fmt.Fprintln(guide, "  keep safe          "+identityOut)
 			fmt.Fprintln(guide, "  after key rotation securely retain and back up the newly current operational private key; this identity file alone cannot authorize the next rotation")

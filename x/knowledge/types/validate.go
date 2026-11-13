@@ -13,7 +13,9 @@ const MaxRelationsPerClaim = 16
 // deliberately far above any quorum (mainnet effective minimum ≤ 6, mainnet
 // MaxVerifiers = 22) — NOT the design §2.6 tight seat cap. A tight cap at
 // MaxVerifiers cannot ship before C-2's seat bonds: without a bond, seats are
-// free to hold (the 100-ZRN gate is a recyclable balance snapshot), so 22
+// free to hold (the 100-ZRN gate is a recyclable balance snapshot; a round
+// with seat terms locks a deposit per seat instead, but returns every one in
+// full, so it is not that bond), so 22
 // addresses could fill every seat the block a round opens, never reveal, and
 // expire every claim on the chain INCONCLUSIVE for one tx fee each. At this
 // backstop the same exclusion needs CommitSeatHardCap funded addresses

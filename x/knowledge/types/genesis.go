@@ -513,7 +513,7 @@ func (gs *GenesisState) Validate() error {
 	if gs.Params == nil {
 		return fmt.Errorf("params must not be nil")
 	}
-	if err := gs.Params.Validate(); err != nil {
+	if err := gs.Params.ValidateWithSeatDeposit(gs.SeatDepositEnabled); err != nil {
 		return fmt.Errorf("invalid params: %w", err)
 	}
 	if err := ValidateReviewerBalanceGenesis(gs); err != nil {
@@ -620,8 +620,21 @@ func validateGenesisFundAllocation(field, value string) error {
 // assumed-true facts. Genesis stays empty of axioms; facts are declared by
 // beings, cited, witnessed, and kept — no axiom bedrock tier.
 
-// Validate validates the Params struct.
+// Validate validates the Params struct with the seat-deposit marker off: a
+// min_reviewer_balance below 100 ZRN is refused. It is stateless, so callers
+// that cannot know the marker get the stricter rule.
 func (p *Params) Validate() error {
+	return p.validate(false)
+}
+
+// ValidateWithSeatDeposit is Validate with the seat-deposit marker as given:
+// with it on, any canonical positive min_reviewer_balance is accepted
+// (ValidateMinReviewerBalanceFor). Every other rule is the same.
+func (p *Params) ValidateWithSeatDeposit(seatDeposit bool) error {
+	return p.validate(seatDeposit)
+}
+
+func (p *Params) validate(seatDeposit bool) error {
 	// Slash params MUST be non-zero (B22-3 audit fix).
 	if p.WrongVerificationSlashBps == 0 {
 		return fmt.Errorf("wrong_verification_slash_bps must be > 0")
@@ -683,9 +696,10 @@ func (p *Params) Validate() error {
 	if p.MinReviewFee == "" || p.MinReviewFee == "0" {
 		return fmt.Errorf("min_review_fee must be > 0")
 	}
-	// Empty, or a canonical uint64 at or above the built-in 100 ZRN
-	// (reviewer_balance.go). Genesis validation and MsgUpdateParams both run it.
-	if err := ValidateMinReviewerBalance(p.MinReviewerBalance); err != nil {
+	// Empty, or a canonical positive uint64, at or above the built-in 100 ZRN
+	// unless the seat-deposit marker is on (reviewer_balance.go). Genesis
+	// validation and MsgUpdateParams both run it.
+	if err := ValidateMinReviewerBalanceFor(p.MinReviewerBalance, seatDeposit); err != nil {
 		return err
 	}
 

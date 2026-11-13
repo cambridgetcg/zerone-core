@@ -30,9 +30,11 @@ import (
 // What this does not do: it sets no vote weight, bond or reputation, and it is
 // not Sybil resistance. The check is a balance snapshot at commit time; nothing
 // is locked, and the same coins can seat one account and then another. That is
-// why the figure can be raised here but not lowered: lowering it below 100 ZRN
-// waits for a locked seat deposit (the reviewer-entry design draft, pull
-// request #190). Governance changes the figure only through MsgUpdateParams.
+// why the check never falls below 100 ZRN here, even after governance lowers
+// the figure with the seat-deposit marker on: only a round with seat terms,
+// which locks the figure as each seat's deposit and never calls this, applies
+// a lower figure (the reviewer-entry design draft, pull request #190, A5 and
+// D7). Governance changes the figure only through MsgUpdateParams.
 func (k Keeper) reviewerMinBalance(ctx context.Context) (sdkmath.Int, error) {
 	enabled, err := k.ReviewerBalanceParamEnabled(ctx)
 	if err != nil {
@@ -59,9 +61,9 @@ func (k Keeper) reviewerMinBalance(ctx context.Context) (sdkmath.Int, error) {
 // it rather than store a control it would silently ignore. An update that
 // leaves the field as it is does not read the marker at all, so every existing
 // update runs as before. In either marker state UpdateParams has already run
-// Params.Validate, which refuses a figure below the built-in 100 ZRN
-// (types.ValidateMinReviewerBalance), so the proposed value here is empty or at
-// or above it.
+// Params.ValidateWithSeatDeposit, which refuses a figure below the built-in
+// 100 ZRN unless the seat-deposit marker is on
+// (types.ValidateMinReviewerBalanceFor).
 //
 // The refusal is not at the same stage as before. A binary without the field
 // refuses a tx that carries it at decode (unknownproto: field 161 is an unknown
@@ -83,4 +85,18 @@ func (k Keeper) checkReviewerBalanceParamChange(ctx context.Context, current, pr
 		return fmt.Errorf("min_reviewer_balance requires the reviewer-balance-param activation")
 	}
 	return nil
+}
+
+// seatDepositForProposedFigure reports whether a proposed parameter set may
+// carry a min_reviewer_balance below 100 ZRN: true only when the figure parses
+// below 100 ZRN and the seat-deposit marker is on. Any other proposal reads no
+// marker, so every update that 3a844c48 accepted or refused is decided exactly
+// as before; a marker fault is returned, never read as off. A malformed figure
+// is left to Params.Validate, which refuses it in either state.
+func (k Keeper) seatDepositForProposedFigure(ctx context.Context, proposed *types.Params) (bool, error) {
+	amount, err := types.ParseMinReviewerBalance(proposed.MinReviewerBalance)
+	if err != nil || amount >= types.BuiltInMinReviewerBalanceUzrn {
+		return false, nil
+	}
+	return k.SeatDepositEnabled(ctx)
 }
