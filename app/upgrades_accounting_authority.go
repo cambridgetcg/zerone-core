@@ -24,6 +24,7 @@ import (
 
 	"github.com/zerone-chain/zerone/internal/accountingmigration"
 	zeronegovtypes "github.com/zerone-chain/zerone/x/gov/types"
+	zeroneknowledgetypes "github.com/zerone-chain/zerone/x/knowledge/types"
 	zeronestakingtypes "github.com/zerone-chain/zerone/x/staking/types"
 )
 
@@ -174,11 +175,7 @@ func (app *ZeroneApp) BuildAccountingAuthorityPlanInfo(ctx sdk.Context) (result 
 	}
 	// Source identities are evidence too: pending cache edits must not repair a
 	// wrong committed version map, remove a done marker, or alter permissions.
-	moduleAccountKeys := make(map[string]bool, len(maccPerms))
-	for name := range maccPerms {
-		key := append(bytes.Clone(authtypes.AddressStoreKeyPrefix.Bytes()), authtypes.NewModuleAddress(name)...)
-		moduleAccountKeys[string(key)] = true
-	}
+	moduleAccountKeys := accountingAuthorityModuleAccountKeys()
 	for _, source := range []struct {
 		name      string
 		selectKey func([]byte) (bool, error)
@@ -423,9 +420,41 @@ func (app *ZeroneApp) requireAccountingSourceUnsealed(ctx sdk.Context) error {
 	return nil
 }
 
+// accountingAuthorityModuleAccountPerms is maccPerms as the accounting
+// authority upgrade reads it: every module account except
+// knowledge_seat_deposits, which reviewer-entry step B added after the
+// upgrade's source was fixed. Before the binary that added it, that address
+// is an ordinary one that anyone can create with a send, so counting it would
+// let one uzrn refuse this upgrade, and its auth record would enter the
+// upgrade's evidence, whatever the seat-deposit marker. Without it both
+// readers below behave as at 3a844c48.
+func accountingAuthorityModuleAccountPerms() map[string][]string {
+	perms := make(map[string][]string, len(maccPerms))
+	for name, list := range maccPerms {
+		if name != zeroneknowledgetypes.SeatDepositModuleName {
+			perms[name] = list
+		}
+	}
+	return perms
+}
+
+// accountingAuthorityModuleAccountKeys is the auth store key of every module
+// account in accountingAuthorityModuleAccountPerms: the accounts whose
+// committed records are the upgrade's auth evidence.
+func accountingAuthorityModuleAccountKeys() map[string]bool {
+	perms := accountingAuthorityModuleAccountPerms()
+	moduleAccountKeys := make(map[string]bool, len(perms))
+	for name := range perms {
+		key := append(bytes.Clone(authtypes.AddressStoreKeyPrefix.Bytes()), authtypes.NewModuleAddress(name)...)
+		moduleAccountKeys[string(key)] = true
+	}
+	return moduleAccountKeys
+}
+
 func (app *ZeroneApp) requireAccountingModuleAccountPermissions(ctx sdk.Context) error {
-	names := make([]string, 0, len(maccPerms))
-	for name := range maccPerms {
+	perms := accountingAuthorityModuleAccountPerms()
+	names := make([]string, 0, len(perms))
+	for name := range perms {
 		names = append(names, name)
 	}
 	sort.Strings(names)
@@ -435,7 +464,7 @@ func (app *ZeroneApp) requireAccountingModuleAccountPermissions(ctx sdk.Context)
 			continue
 		}
 		account, ok := existing.(sdk.ModuleAccountI)
-		if !ok || account.GetName() != name || !equalStringSets(account.GetPermissions(), maccPerms[name]) {
+		if !ok || account.GetName() != name || !equalStringSets(account.GetPermissions(), perms[name]) {
 			return fmt.Errorf("accounting migration refuses unrelated module-account permission drift for %q", name)
 		}
 	}
