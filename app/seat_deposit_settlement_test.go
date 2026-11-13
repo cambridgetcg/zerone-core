@@ -557,6 +557,174 @@ func (tr *seatTrial) beginBlock(t *testing.T, h int64) {
 	require.NoError(t, tr.app.KnowledgeKeeper.BeginBlocker(tr.ctx))
 }
 
+// D4 with real bank transfers, the design's section 9: a round that cannot
+// complete still returns every deposit from its aggregation deadline. Here
+// the challenged fact's record is unreadable (store damage), so an explicit
+// challenge's completion fails and is retried every block. At the
+// aggregation deadline its returns are frozen anyway; the queue pays each
+// seat its whole deposit on the next block, while the round stays open.
+// Once the record is repaired the round completes, keeps that plan, accrues
+// nothing again and returns nothing twice. Custody covers the locked
+// deposits after every block.
+func TestSeatDepositReturnedFromAggregationDeadlineWithRealBank(t *testing.T) {
+	tr := newSeatTrial(t, "explicit", true, "1000")
+	for i := byte(0); i < 3; i++ {
+		require.NoError(t, tr.commit(t, tr.reviewer(t, 205+i, 1000), "accept"))
+	}
+	tr.beginBlock(t, 102)
+	tr.revealAll(t)
+	knowledge := tr.ctx.KVStore(tr.app.keys[knowledgetypes.StoreKey])
+	targetKey := knowledgetypes.FactKey("seat-test-target")
+	target := knowledge.Get(targetKey)
+	require.NotNil(t, target)
+	knowledge.Set(targetKey, []byte{0xff})
+
+	deadline := int64(tr.round.AggregationDeadline)
+	for h := int64(103); h < deadline; h++ {
+		tr.ctx = tr.ctx.WithEventManager(sdk.NewEventManager())
+		tr.beginBlock(t, h)
+		round := tr.stored(t)
+		require.Equal(t, knowledgetypes.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, round.Phase, "completion fails at %d", h)
+		require.Nil(t, round.SeatDepositReturns, "nothing is frozen before the deadline")
+		require.Equal(t, int64(3000), tr.custody())
+		require.NoError(t, tr.app.KnowledgeKeeper.ValidateSeatDepositCustody(tr.ctx))
+	}
+
+	tr.ctx = tr.ctx.WithEventManager(sdk.NewEventManager())
+	tr.beginBlock(t, deadline)
+	frozen := tr.stored(t)
+	require.Equal(t, knowledgetypes.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, frozen.Phase)
+	require.NotNil(t, frozen.SeatDepositReturns)
+	require.Equal(t, uint64(deadline), frozen.SeatDepositReturns.CreatedAtBlock)
+	require.Equal(t, [][]string{{"round_id=" + tr.round.Id, "seats=3", "total_uzrn=3000", "trigger=aggregation_deadline", "payment_status=pending"}},
+		seatEventAttributes(tr.ctx, "zerone.knowledge.seat_deposit_returns_accrued"))
+	require.Equal(t, int64(3000), tr.custody())
+
+	tr.ctx = tr.ctx.WithEventManager(sdk.NewEventManager())
+	tr.beginBlock(t, deadline+1)
+	paid := tr.stored(t)
+	require.Equal(t, knowledgetypes.VerificationPhase_VERIFICATION_PHASE_AGGREGATION, paid.Phase, "the round still cannot complete")
+	for i, seat := range tr.seats {
+		require.Equal(t, int64(1000), tr.balance(seat.address), "seat %d has its whole deposit back", i)
+		require.Equal(t, uint64(deadline+1), paid.SeatDepositReturns.Returns[i].PaidAtBlock)
+	}
+	require.Equal(t, 3, countEvents(tr.ctx, "zerone.knowledge.seat_deposit_returned"))
+	require.Zero(t, tr.custody())
+	require.NoError(t, tr.app.KnowledgeKeeper.ValidateSeatDepositCustody(tr.ctx))
+
+	knowledge.Set(targetKey, target)
+	for h := deadline + 2; h <= deadline+4; h++ {
+		tr.ctx = tr.ctx.WithEventManager(sdk.NewEventManager())
+		tr.beginBlock(t, h)
+		require.Zero(t, countEvents(tr.ctx, "zerone.knowledge.seat_deposit_returns_accrued"), "a frozen plan is never frozen again")
+		require.Zero(t, countEvents(tr.ctx, "zerone.knowledge.seat_deposit_returned"), "no return is paid twice")
+		require.Zero(t, tr.custody())
+	}
+	done := tr.stored(t)
+	require.Equal(t, knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE, done.Phase, "the repaired round completes")
+	require.Equal(t, uint64(deadline), done.SeatDepositReturns.CreatedAtBlock, "late completion keeps the deadline plan")
+	require.Greater(t, done.VerdictBlock, done.SeatDepositReturns.CreatedAtBlock)
+	for _, seat := range tr.seats {
+		require.GreaterOrEqual(t, tr.balance(seat.address), int64(1000), "reviewer pay, if any, comes on top of the deposit")
+	}
+}
+
+// D5 with real bank transfers, the design's section 9: a full round's plan
+// does not stall the payment queue. A claim with a 1 ZRN review fee seats all
+// 512 counted seats through the handler, each locking 1,000 uzrn, and every
+// seat reveals. The knowledge account is emptied before completion, so the
+// reviewer pay that completion would settle at once stays pending too, and
+// the queue holds the full round's 512 payments and 512 returns, 1,024
+// transfers, above its 513-transfer budget. The trial's first round, without
+// seats, ends beside it owing its payer a refund it cannot pay yet.
+//
+// The queue pays the full round's returns, all 512 in one block, even while
+// its pay leg is unfunded (D4: the legs are independent); no block moves more
+// than one round alone can, 1,025 transfers. Once the knowledge account is
+// funded again, the reviewer pay and the other round's refund are paid, and
+// nothing is paid twice. Custody covers what is locked after every block.
+// The queue's choice to pay a too-large round alone is pinned with exact
+// per-block transfer counts by TestSeatDepositFullRoundPlanDoesNotStallQueue.
+func TestSeatDepositFullRoundQueuedWithRealBank(t *testing.T) {
+	tr := newSeatTrial(t, "ordinary", true, "1000")
+	small := tr.round
+	payer := settlementAddress(148)
+	tr.fund(t, payer, 1_000_000)
+	response, err := tr.server().SubmitClaim(tr.ctx, &knowledgetypes.MsgSubmitClaim{Submitter: payer.String(), FactContent: "A second synthetic local computation with a larger retained review fee.", Domain: "physics", Category: "empirical", Stake: "1000000", ClaimType: knowledgetypes.ClaimType_CLAIM_TYPE_ASSERTION})
+	require.NoError(t, err)
+	claim, found := tr.app.KnowledgeKeeper.GetClaim(tr.ctx, response.ClaimId)
+	require.True(t, found)
+	full, found := tr.app.KnowledgeKeeper.GetVerificationRound(tr.ctx, claim.VerificationRoundId)
+	require.True(t, found)
+	require.Equal(t, "1000", full.SeatTerms.CountedSeatDeposit)
+	tr.round = full
+	for i := 0; i < knowledgetypes.CommitSeatHardCap; i++ {
+		address := sdk.AccAddress([]byte(fmt.Sprintf("seat-full-%010d", i)))
+		tr.admit(t, address, &zeroneauthtypes.AccountFlags{CanSubmitClaims: true})
+		tr.fund(t, address, 1000)
+		salt := []byte(fmt.Sprintf("seat-full-salt-%06d", i))
+		hash, err := knowledgetypes.ComputeReviewCommitmentV2(full.CommitmentChainId, full.Id, address.String(), "accept", 800000, salt, seatTrialAttestation)
+		require.NoError(t, err)
+		_, err = tr.server().SubmitCommitment(tr.ctx, &knowledgetypes.MsgSubmitCommitment{Verifier: address.String(), RoundId: full.Id, CommitHash: hash})
+		require.NoError(t, err, "seat %d", i)
+		tr.seats = append(tr.seats, seatTrialSeat{address: address, vote: "accept", salt: salt})
+	}
+	require.Equal(t, int64(knowledgetypes.CommitSeatHardCap*1000), tr.custody())
+	tr.beginBlock(t, 102)
+	tr.revealAll(t)
+
+	knowledgeAccount := authtypes.NewModuleAddress(knowledgetypes.ModuleName)
+	held := tr.app.BankKeeper.GetBalance(tr.ctx, knowledgeAccount, "uzrn")
+	require.True(t, held.IsPositive())
+	require.NoError(t, tr.app.BankKeeper.SendCoinsFromModuleToModule(tr.ctx, knowledgetypes.ModuleName, knowledgetypes.BootstrapFundModuleName, sdk.NewCoins(held)))
+
+	returnedAt, rewardedAt, refundedAt := int64(0), int64(0), int64(0)
+	for h := int64(103); h <= 112; h++ {
+		if h == 107 {
+			require.NotZero(t, returnedAt, "the returns did not wait for the reviewer pay")
+			require.Zero(t, rewardedAt)
+			require.NoError(t, tr.app.BankKeeper.SendCoinsFromModuleToModule(tr.ctx, knowledgetypes.BootstrapFundModuleName, knowledgetypes.ModuleName, sdk.NewCoins(held)))
+		}
+		tr.ctx = tr.ctx.WithEventManager(sdk.NewEventManager())
+		tr.beginBlock(t, h)
+		require.NoError(t, tr.app.KnowledgeKeeper.ValidateSeatDepositCustody(tr.ctx), "custody after block %d", h)
+		returned := countEvents(tr.ctx, "zerone.knowledge.seat_deposit_returned")
+		rewarded := countEvents(tr.ctx, "zerone.knowledge.verifier_rewarded")
+		refunded := countEvents(tr.ctx, "zerone.knowledge.claim_refunded")
+		require.LessOrEqual(t, returned+rewarded+refunded, 2*knowledgetypes.CommitSeatHardCap+1, "block %d moves no more than one full round", h)
+		if returned > 0 {
+			require.Zero(t, returnedAt, "returns are paid once")
+			require.Equal(t, knowledgetypes.CommitSeatHardCap, returned, "every return in one block")
+			returnedAt = h
+		}
+		if rewarded > 0 {
+			require.Zero(t, rewardedAt, "reviewer pay is paid once")
+			require.Equal(t, knowledgetypes.CommitSeatHardCap, rewarded)
+			rewardedAt = h
+		}
+		for _, attrs := range seatEventAttributes(tr.ctx, "zerone.knowledge.claim_refunded") {
+			for _, attr := range attrs {
+				if attr == "round_id="+small.Id {
+					require.Zero(t, refundedAt, "the refund is paid once")
+					refundedAt = h
+				}
+			}
+		}
+	}
+	require.NotZero(t, rewardedAt, "the reviewer pay was paid once funded")
+	require.NotZero(t, refundedAt, "the round beside it was paid too")
+	paid := tr.stored(t)
+	require.Equal(t, knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE, paid.Phase)
+	require.Len(t, paid.SeatDepositReturns.Returns, knowledgetypes.CommitSeatHardCap)
+	for _, ret := range paid.SeatDepositReturns.Returns {
+		require.Equal(t, uint64(returnedAt), ret.PaidAtBlock)
+	}
+	for i, seat := range tr.seats {
+		require.Greater(t, tr.balance(seat.address), int64(1000), "seat %d has its deposit back and its pay", i)
+	}
+	require.Zero(t, tr.custody())
+}
+
 // D4, D5 with real bank transfers: on every admission route and every
 // outcome, every seat's deposit comes back once, to the address that locked
 // it, whatever it voted and whether it revealed; the seat-deposit account
