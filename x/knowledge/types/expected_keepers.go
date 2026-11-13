@@ -12,6 +12,10 @@ import (
 // AccountKeeper defines the expected account keeper interface.
 type AccountKeeper interface {
 	GetAccount(ctx context.Context, addr sdk.AccAddress) sdk.AccountI
+	// SetModuleAccount is used once per chain at most, by the first seat
+	// deposit, to turn a plain account squatting the knowledge_seat_deposits
+	// address into that module account (x/knowledge/keeper/seat_deposit.go).
+	SetModuleAccount(ctx context.Context, macc sdk.ModuleAccountI)
 }
 
 // BankKeeper defines the expected bank keeper interface.
@@ -97,6 +101,12 @@ type ZeroneAuthKeeper interface {
 	// GetAccountType returns the account type ("human", "agent", "contract", "system")
 	// for a given bech32 address. Returns "" and false if not found.
 	GetAccountType(ctx context.Context, address string) (string, bool)
+	// CheckReviewer returns nil when address is registered with zerone_auth,
+	// may submit claims and reviews (CanSubmitClaims) and is not frozen: what
+	// the ante checks of a MsgSubmitCommitment signer. A round with seat
+	// terms checks it in the handler too (reviewer-entry step B, D3), since
+	// some routes skip the ante.
+	CheckReviewer(ctx context.Context, address string) error
 }
 
 // CaptureDefenseKeeper feeds verification history and reputation updates to capture defense.

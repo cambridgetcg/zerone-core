@@ -398,6 +398,12 @@ func (m *msgServer) SubmitCommitment(ctx context.Context, msg *types.MsgSubmitCo
 	if msg == nil {
 		return nil, fmt.Errorf("commitment is required")
 	}
+	// Reviewer-entry step B: the seat-deposit marker is read once, without
+	// gas, before anything else. Only a round with seat terms uses it.
+	seatDeposit, err := m.keeper.SeatDepositEnabled(ctx)
+	if err != nil {
+		return nil, err
+	}
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	height := uint64(sdkCtx.BlockHeight())
 
@@ -428,7 +434,8 @@ func (m *msgServer) SubmitCommitment(ctx context.Context, msg *types.MsgSubmitCo
 	// per-round loop bounded. The ceiling is a constant far above any quorum
 	// — deliberately NOT the design §2.6 tight MaxVerifiers cap, which
 	// cannot ship before C-2's seat bonds: seats are free to hold (the
-	// 100-ZRN gate below is a recyclable balance snapshot), so a tight cap
+	// 100-ZRN gate below is a recyclable balance snapshot; a seat-terms
+	// round locks a deposit instead, but returns it in full), so a tight cap
 	// would let MaxVerifiers addresses fill every seat the block a round
 	// opens, never reveal, and expire every claim INCONCLUSIVE — total
 	// exclusion that does not exist today. See CommitSeatHardCap in
@@ -440,11 +447,23 @@ func (m *msgServer) SubmitCommitment(ctx context.Context, msg *types.MsgSubmitCo
 			"round %s has %d of %d commit seats filled", msg.RoundId, len(round.Commits), types.CommitSeatHardCap)
 	}
 
+	// Reviewer-entry step B (D2, D3): in a round with seat terms the seat's
+	// deposit is locked instead of the balance being checked, and the handler
+	// itself checks that the signer may review (seat_deposit.go). A round
+	// without terms continues below exactly as before (A5, D7).
+	if round.SeatTerms != nil {
+		if !seatDeposit {
+			return nil, fmt.Errorf("round %s has seat terms but the seat-deposit activation is off", msg.RoundId)
+		}
+		return m.submitDepositedCommitment(ctx, msg, height)
+	}
+
 	// Verifier minimum balance gate (stopgap until full qualification module).
 	// The figure is the built-in 100 ZRN, or the governable
 	// min_reviewer_balance once the reviewer-balance-param marker is on
-	// (reviewer_balance_param.go). Either way it is a balance check: no bond,
-	// weight or reputation, and not Sybil resistance.
+	// (reviewer_balance_param.go), never below 100 ZRN in a round without seat
+	// terms. Either way it is a balance check: no bond, weight or reputation,
+	// and not Sybil resistance.
 	if m.keeper.bankKeeper != nil {
 		verifierAddr, err := sdk.AccAddressFromBech32(msg.Verifier)
 		if err != nil {
@@ -735,7 +754,14 @@ func (m *msgServer) UpdateParams(ctx context.Context, msg *types.MsgUpdateParams
 	if msg.Params == nil {
 		return nil, fmt.Errorf("params must not be nil")
 	}
-	if err := msg.Params.Validate(); err != nil {
+	// A min_reviewer_balance below 100 ZRN is accepted only while the
+	// seat-deposit marker is on (A3); only such a figure reads the marker
+	// (reviewer_balance_param.go).
+	seatDeposit, err := m.keeper.seatDepositForProposedFigure(ctx, msg.Params)
+	if err != nil {
+		return nil, err
+	}
+	if err := msg.Params.ValidateWithSeatDeposit(seatDeposit); err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
 	current, err := m.keeper.GetParams(ctx)

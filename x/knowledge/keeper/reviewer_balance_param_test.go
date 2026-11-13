@@ -51,6 +51,7 @@ func newReviewerBalanceFixture(t *testing.T, markerOn bool, param string) *v11Fi
 	t.Helper()
 	gs := types.DefaultGenesis()
 	gs.ReviewerBalanceParamEnabled = markerOn
+	gs.SeatDepositEnabled = false // Step A alone: no locked deposit allows a lower figure.
 	if markerOn {
 		gs.Params.MinReviewerBalance = param
 	}
@@ -306,6 +307,7 @@ func genesisWithReviewerBalance(t *testing.T, am knowledgemodule.AppModule, cdc 
 	require.NoError(t, err)
 	fields["params"] = bz
 	fields["reviewer_balance_param_enabled"] = json.RawMessage(fmt.Sprint(marker))
+	fields["seat_deposit_enabled"] = json.RawMessage("false") // Step A alone.
 	raw, err := json.Marshal(fields)
 	require.NoError(t, err)
 	return raw
@@ -401,6 +403,7 @@ func TestReviewerBalanceParamGenesisFloor(t *testing.T) {
 			raw := genesisWithReviewerBalance(t, am, cdc, tc.marker, &param)
 			gs := types.DefaultGenesis()
 			gs.ReviewerBalanceParamEnabled = tc.marker
+			gs.SeatDepositEnabled = false // Step A alone.
 			gs.Params.MinReviewerBalance = tc.param
 			if tc.want == "" {
 				require.NoError(t, am.ValidateGenesis(cdc, nil, raw))

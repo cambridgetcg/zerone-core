@@ -4076,6 +4076,10 @@
           "format": "uint64",
           "type": "string"
         },
+        "seatDeposit": {
+          "description": "The deposit this seat locked, a canonical uzrn decimal. Set only in a\nround with seat terms, where it equals the terms' counted_seat_deposit.",
+          "type": "string"
+        },
         "verifier": {
           "type": "string"
         }
@@ -6333,7 +6337,7 @@
           "type": "string"
         },
         "minReviewerBalance": {
-          "description": "─── Reviewer minimum balance (consensus-repairs-v3) ─────────────────────\nThe bank balance, in uzrn, an account must hold to commit to a review.\nEmpty means the built-in 100,000,000 uzrn (100 ZRN); otherwise a canonical\ndecimal within uint64, at or above 100,000,000. The figure can be raised,\nnot lowered: the balance is checked, not locked, and a figure below 100 ZRN\nwaits for a locked seat deposit (the reviewer-entry design draft, pull\nrequest #190). Read only while the reviewer-balance-param marker is set;\nwith it off the built-in figure applies and this field must stay empty. A\nbalance check only: no weight, bond or reputation, and not Sybil\nresistance.\n\ndefault: \"\" (built-in 100 ZRN)",
+          "description": "─── Reviewer minimum balance (consensus-repairs-v3) ─────────────────────\nEmpty means the built-in 100,000,000 uzrn (100 ZRN); otherwise a canonical\npositive decimal within uint64. Read only while the reviewer-balance-param\nmarker is set; with it off the built-in figure applies and this field\nmust stay empty. Its meaning depends on the round (the reviewer-entry\ndesign draft, pull request #190):\n- In a round with seat terms (created while the seat-deposit marker is\n  set, under review policy 1), the figure as it stood at the round's\n  creation is the deposit each seat locks, returned in full when the\n  round completes or from its aggregation deadline. A figure below\n  100,000,000 is accepted only while the seat-deposit marker is set.\n- In every other round it stays the bank balance an account must hold to\n  commit, checked and not locked, compared with the larger of this figure\n  and 100,000,000.\nNo weight, bond or reputation, and not Sybil resistance.\n\ndefault: \"\" (built-in 100 ZRN)",
           "type": "string"
         },
         "minVerifiers": {
@@ -8392,6 +8396,15 @@
       },
       "type": "object"
     },
+    "zerone.knowledge.v1.ReviewSeatTerms": {
+      "description": "ReviewSeatTerms are a round's admission terms for a seat. The amount is a\ncanonical positive uzrn decimal copied from min_reviewer_balance when the\nround was created. Each commitment in the round locks it in the\nknowledge_seat_deposits module account, and it is returned in full whatever\nthe verdict, the seat's vote or whether it revealed.",
+      "properties": {
+        "countedSeatDeposit": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
     "zerone.knowledge.v1.RevisionReason": {
       "default": "REVISION_REASON_UNSPECIFIED",
       "enum": [
@@ -8496,6 +8509,39 @@
         },
         "trainingFundVestingUzrn": {
           "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.knowledge.v1.SeatDepositReturn": {
+      "description": "SeatDepositReturn is one seat's deposit owed back to the address that locked\nit. amount is a canonical positive uzrn decimal; paid_at_block 0 is a\npending return, not a completed transfer.",
+      "properties": {
+        "amount": {
+          "type": "string"
+        },
+        "paidAtBlock": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "recipient": {
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "zerone.knowledge.v1.SeatDepositReturnSettlement": {
+      "description": "SeatDepositReturnSettlement is a round's frozen plan of deposit returns,\nbeside its reviewer payment and claim refund. created_at_block is the\ncompletion height, or a height at or after the aggregation deadline.",
+      "properties": {
+        "createdAtBlock": {
+          "format": "uint64",
+          "type": "string"
+        },
+        "returns": {
+          "items": {
+            "$ref": "#/definitions/zerone.knowledge.v1.SeatDepositReturn",
+            "type": "object"
+          },
+          "type": "array"
         }
       },
       "type": "object"
@@ -9503,6 +9549,14 @@
           "description": "Copied from the claim; independent of commitment framing and block height.",
           "format": "int64",
           "type": "integer"
+        },
+        "seatDepositReturns": {
+          "$ref": "#/definitions/zerone.knowledge.v1.SeatDepositReturnSettlement",
+          "description": "Every seat's deposit return, frozen once at completion or from the\naggregation deadline, whichever comes first. One return per seat in\ncommit order; each is paid at most once, from the seat-deposit account."
+        },
+        "seatTerms": {
+          "$ref": "#/definitions/zerone.knowledge.v1.ReviewSeatTerms",
+          "description": "Seat terms (reviewer-entry step B), set once at creation while the\nseat-deposit marker is on, only for review policy 1 with commitment\nscheme 2. Never added, changed or removed afterwards: a later parameter\nchange does not alter an open round, and a round created without terms\nkeeps the balance check for its whole life."
         },
         "selectedVerifiers": {
           "items": {

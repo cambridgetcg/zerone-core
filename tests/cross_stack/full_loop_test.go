@@ -60,6 +60,8 @@ func TestFullLoop_HappyPath(t *testing.T) {
 	require.NoError(t, h.FundAccount(submitterAcc, fund))
 	require.NoError(t, h.FundAccount(verifierAcc, fund))
 	require.NoError(t, h.FundAccount(verifierAcc2, fund))
+	h.AdmitReviewer(verifierAcc)
+	h.AdmitReviewer(verifierAcc2)
 
 	// ─── Phase 1: Submit claim ──────────────────────────────────────────
 	ms := knowledgekeeper.NewMsgServerImpl(h.KnowledgeKeeper)

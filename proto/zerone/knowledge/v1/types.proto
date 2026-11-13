@@ -784,6 +784,42 @@ message VerificationRound {
   // Copied from the claim; independent of commitment framing and block height.
   uint32 review_policy_version = 16;
   ClaimRefundSettlement claim_refund_settlement = 17;
+  // Seat terms (reviewer-entry step B), set once at creation while the
+  // seat-deposit marker is on, only for review policy 1 with commitment
+  // scheme 2. Never added, changed or removed afterwards: a later parameter
+  // change does not alter an open round, and a round created without terms
+  // keeps the balance check for its whole life.
+  ReviewSeatTerms seat_terms = 18;
+  // Every seat's deposit return, frozen once at completion or from the
+  // aggregation deadline, whichever comes first. One return per seat in
+  // commit order; each is paid at most once, from the seat-deposit account.
+  SeatDepositReturnSettlement seat_deposit_returns = 19;
+}
+
+// ReviewSeatTerms are a round's admission terms for a seat. The amount is a
+// canonical positive uzrn decimal copied from min_reviewer_balance when the
+// round was created. Each commitment in the round locks it in the
+// knowledge_seat_deposits module account, and it is returned in full whatever
+// the verdict, the seat's vote or whether it revealed.
+message ReviewSeatTerms {
+  string counted_seat_deposit = 1;
+}
+
+// SeatDepositReturnSettlement is a round's frozen plan of deposit returns,
+// beside its reviewer payment and claim refund. created_at_block is the
+// completion height, or a height at or after the aggregation deadline.
+message SeatDepositReturnSettlement {
+  uint64 created_at_block = 1;
+  repeated SeatDepositReturn returns = 2;
+}
+
+// SeatDepositReturn is one seat's deposit owed back to the address that locked
+// it. amount is a canonical positive uzrn decimal; paid_at_block 0 is a
+// pending return, not a completed transfer.
+message SeatDepositReturn {
+  string recipient = 1;
+  string amount = 2;
+  uint64 paid_at_block = 3;
 }
 
 // A positive finalized refund, paid atomically with any verifier payments.
@@ -824,6 +860,9 @@ message CommitEntry {
   string verifier          = 1;
   bytes  commit_hash       = 2; // SHA-256(vote || salt)
   uint64 committed_at_block = 3;
+  // The deposit this seat locked, a canonical uzrn decimal. Set only in a
+  // round with seat terms, where it equals the terms' counted_seat_deposit.
+  string seat_deposit = 4;
 }
 
 // RevealEntry records a validator's revealed vote and salt.

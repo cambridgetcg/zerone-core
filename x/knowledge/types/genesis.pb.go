@@ -283,15 +283,21 @@ type Params struct {
 	GuardianAddresses       []string `protobuf:"bytes,159,rep,name=guardian_addresses,json=guardianAddresses,proto3" json:"guardian_addresses,omitempty"`                          // veto-eligible addresses; empty = no guardian set, immediate execution
 	AddFactVetoWindowBlocks uint64   `protobuf:"varint,160,opt,name=add_fact_veto_window_blocks,json=addFactVetoWindowBlocks,proto3" json:"add_fact_veto_window_blocks,omitempty"` // default 0 (immediate); set > 0 to enable veto window
 	// ─── Reviewer minimum balance (consensus-repairs-v3) ─────────────────────
-	// The bank balance, in uzrn, an account must hold to commit to a review.
 	// Empty means the built-in 100,000,000 uzrn (100 ZRN); otherwise a canonical
-	// decimal within uint64, at or above 100,000,000. The figure can be raised,
-	// not lowered: the balance is checked, not locked, and a figure below 100 ZRN
-	// waits for a locked seat deposit (the reviewer-entry design draft, pull
-	// request #190). Read only while the reviewer-balance-param marker is set;
-	// with it off the built-in figure applies and this field must stay empty. A
-	// balance check only: no weight, bond or reputation, and not Sybil
-	// resistance.
+	// positive decimal within uint64. Read only while the reviewer-balance-param
+	// marker is set; with it off the built-in figure applies and this field
+	// must stay empty. Its meaning depends on the round (the reviewer-entry
+	// design draft, pull request #190):
+	//   - In a round with seat terms (created while the seat-deposit marker is
+	//     set, under review policy 1), the figure as it stood at the round's
+	//     creation is the deposit each seat locks, returned in full when the
+	//     round completes or from its aggregation deadline. A figure below
+	//     100,000,000 is accepted only while the seat-deposit marker is set.
+	//   - In every other round it stays the bank balance an account must hold to
+	//     commit, checked and not locked, compared with the larger of this figure
+	//     and 100,000,000.
+	//
+	// No weight, bond or reputation, and not Sybil resistance.
 	MinReviewerBalance string `protobuf:"bytes,161,opt,name=min_reviewer_balance,json=minReviewerBalance,proto3" json:"min_reviewer_balance,omitempty"` // default: "" (built-in 100 ZRN)
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
@@ -1473,8 +1479,17 @@ type GenesisState struct {
 	// a fixed constant. Native genesis sets it; a file without the field imports
 	// as off. No carrier upgrade sets it in place yet.
 	ReviewerBalanceParamEnabled bool `protobuf:"varint,79,opt,name=reviewer_balance_param_enabled,json=reviewerBalanceParamEnabled,proto3" json:"reviewer_balance_param_enabled,omitempty"`
-	unknownFields               protoimpl.UnknownFields
-	sizeCache                   protoimpl.SizeCache
+	// Seat-deposit marker (consensus-repairs-v3, reviewer-entry step B): a
+	// review round created while it is set, under review policy 1 and commitment
+	// scheme 2, records seat terms, and each commitment in such a round locks the
+	// round's deposit in the knowledge_seat_deposits module account until every
+	// seat's deposit is returned in full. It requires the reviewer-balance
+	// parameter, review-neutrality and record-integrity markers. Native genesis
+	// sets it; a file without the field imports as off. No carrier upgrade sets
+	// it in place yet.
+	SeatDepositEnabled bool `protobuf:"varint,80,opt,name=seat_deposit_enabled,json=seatDepositEnabled,proto3" json:"seat_deposit_enabled,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -1804,6 +1819,13 @@ func (x *GenesisState) GetDormantFactContestEnabled() bool {
 func (x *GenesisState) GetReviewerBalanceParamEnabled() bool {
 	if x != nil {
 		return x.ReviewerBalanceParamEnabled
+	}
+	return false
+}
+
+func (x *GenesisState) GetSeatDepositEnabled() bool {
+	if x != nil {
+		return x.SeatDepositEnabled
 	}
 	return false
 }
@@ -2394,7 +2416,7 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x14min_reviewer_balance\x18\xa1\x01 \x01(\tR\x12minReviewerBalance\x1aN\n" +
 	" MethodologyNormalizationBpsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\xf3\x19\n" +
+	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\xa5\x1a\n" +
 	"\fGenesisState\x123\n" +
 	"\x06params\x18\x01 \x01(\v2\x1b.zerone.knowledge.v1.ParamsR\x06params\x12/\n" +
 	"\x05facts\x18\x02 \x03(\v2\x19.zerone.knowledge.v1.FactR\x05facts\x12A\n" +
@@ -2439,7 +2461,8 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x10accounting_state\x18L \x01(\v2/.zerone.knowledge.v1.KnowledgeGenesisAccountingR\x0faccountingState\x12:\n" +
 	"\x19doctrine_identity_enabled\x18M \x01(\bR\x17doctrineIdentityEnabled\x12?\n" +
 	"\x1cdormant_fact_contest_enabled\x18N \x01(\bR\x19dormantFactContestEnabled\x12C\n" +
-	"\x1ereviewer_balance_param_enabled\x18O \x01(\bR\x1breviewerBalanceParamEnabled\"V\n" +
+	"\x1ereviewer_balance_param_enabled\x18O \x01(\bR\x1breviewerBalanceParamEnabled\x120\n" +
+	"\x14seat_deposit_enabled\x18P \x01(\bR\x12seatDepositEnabled\"V\n" +
 	"\x13FactRelationGenesis\x12?\n" +
 	"\trelations\x18\x01 \x03(\v2!.zerone.knowledge.v1.FactRelationR\trelations\"N\n" +
 	"\x17StatusTransitionCounter\x12\x17\n" +

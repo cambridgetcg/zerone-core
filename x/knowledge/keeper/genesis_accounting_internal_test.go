@@ -75,6 +75,7 @@ func TestGenesisAccountingLegacyImportParity(t *testing.T) {
 			gs.DoctrineIdentityEnabled = false
 			gs.DormantFactContestEnabled = false
 			gs.ReviewerBalanceParamEnabled = false
+			gs.SeatDepositEnabled = false // The seat deposit requires the markers cleared above.
 			require.Nil(t, gs.AccountingState)
 			switch mode {
 			case "existing-primary-keys":

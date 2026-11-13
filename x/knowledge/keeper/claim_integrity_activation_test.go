@@ -53,12 +53,19 @@ func newKnowledgeStoreFixture(t *testing.T, chainID string) *v11Fixture {
 	ctx := sdk.NewContext(ms, cmtproto.Header{ChainID: chainID, Height: 100}, false, log.NewNopLogger())
 	bank := newTrackingBankKeeper()
 	k := keeper.NewKeeper(runtime.NewKVStoreService(key), codec.NewProtoCodec(codectypes.NewInterfaceRegistry()), "authority", bank, newTrackingStakingKeeper())
+	wireSeatDeposits(&k)
 	return &v11Fixture{k: k, ctx: ctx.WithEventManager(sdk.NewEventManager()), bank: bank, key: key, server: keeper.NewMsgServerImpl(k)}
 }
 
 func newClaimIntegrityGenesisFixture(t *testing.T, chainID string, gs *types.GenesisState) *v11Fixture {
 	t.Helper()
 	f := newKnowledgeStoreFixture(t, chainID)
+	// The bank genesis that precedes knowledge carries the seat-deposit
+	// custody of the rounds a file holds (D6), as an application export does.
+	// A file whose seat deposits do not parse is left for import to refuse.
+	if owed, err := types.SeatDepositsHeldInGenesis(gs); err == nil && owed.IsPositive() {
+		f.bank.moduleBalances[types.SeatDepositModuleName] = sdk.NewCoins(sdk.NewCoin("uzrn", owed))
+	}
 	require.NoError(t, f.k.InitGenesis(f.ctx, gs))
 	return f
 }

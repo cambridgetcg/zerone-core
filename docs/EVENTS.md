@@ -1041,6 +1041,19 @@ Verifier commitment submitted (commit-reveal).
 - `verifier` -- verifier address
 - `committed_at_block` -- commitment block
 
+### zerone.knowledge.seat_deposit_locked
+A commitment in a round with seat terms (reviewer-entry step B, behind the
+seat-deposit marker) moved the round's deposit from its signer into the
+`knowledge_seat_deposits` module account. Emitted after
+`submit_commitment` in the same message. The deposit is returned in full to
+the same address whatever the verdict, the vote or whether the seat revealed;
+see `seat_deposit_returns_accrued` and `seat_deposit_returned`.
+
+- `round_id` -- verification round ID
+- `depositor` -- the signer, whose seat this is
+- `amount_uzrn` -- the round's counted-seat deposit, now locked
+- `committed_at_block` -- commitment block
+
 ### zerone.knowledge.submit_reveal
 Verifier reveal submitted.
 - `round_id` -- verification round ID
@@ -1371,10 +1384,41 @@ an obligation; it does not establish that a transfer succeeded.
 - `amount_uzrn` -- frozen refundable amount
 - `payment_status` -- `pending`
 
+### zerone.knowledge.seat_deposit_returns_accrued
+A round with seat terms (reviewer-entry step B) froze its plan of deposit
+returns: one return per seat, in commit order, to the address that locked it,
+for the amount it locked, whatever the verdict, the seat's vote or whether it
+revealed. Nothing is forfeited. The plan is frozen once, at completion or,
+for a round that has not completed by then, from its aggregation deadline; a
+later completion keeps that plan and emits this event no second time. The
+returns are obligations here; the pending payment queue pays them, from the
+seat-deposit account only, independently of reviewer pay and refunds.
+
+- `round_id` -- verification round
+- `seats` -- number of returns in the plan
+- `total_uzrn` -- sum of the returns
+- `trigger` -- `completion` or `aggregation_deadline`
+- `payment_status` -- `pending`
+
+### zerone.knowledge.seat_deposit_returned
+One seat's deposit (reviewer-entry step B) went back to the address that
+locked it, in full, from the `knowledge_seat_deposits` account, through the
+pending payment queue. Each return is its own transfer: a failed return stays
+pending and emits nothing, and a retry repeats no return already paid. Returns
+are independent of reviewer payments and refunds in both directions.
+
+- `round_id` -- verification round
+- `recipient` -- the address that locked the deposit
+- `amount_uzrn` -- the deposit returned
+- `payment_status` -- `paid`
+- `paid_at_block` -- height of the transfer
+
 ### zerone.knowledge.claim_refunded
 The recorded refund and any reviewer payments have committed together through
 SDK bank transfers. Failure on any leg leaves the entire batch pending and emits
 no paid events. A retry cannot recompute the amounts or pay a completed plan twice.
+Seat-deposit returns are not part of this batch; they are paid on their own
+(`seat_deposit_returned`).
 
 - `claim_id` -- funded claim identifier
 - `round_id` -- verification round
@@ -1388,7 +1432,8 @@ After record-integrity activation, each event belongs to a successfully settled
 atomic verifier batch from the 55% review-fee pool. Every verifier transfer and
 the development-fund withholding transfer succeed together. New funded claims
 include their refund in that same atomic batch. A failed batch emits
-no paid event and remains pending for retry. `amount_uzrn + withheld_uzrn` equals
+no paid event and remains pending for retry. Seat-deposit returns are a
+separate leg and never part of this batch. `amount_uzrn + withheld_uzrn` equals
 the verifier's unmodulated pool share.
 
 Legacy events have no `payment_status` or `paid_at_block`. Their amount represents

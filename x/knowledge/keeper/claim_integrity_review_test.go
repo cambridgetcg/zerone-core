@@ -62,8 +62,22 @@ func (f *v11Fixture) rvStore(roundID, reviewer string, hash []byte) error {
 	})
 }
 
+// requireDirectStoreRefusesSeat requires the direct store path to refuse
+// every commitment in a round with seat terms, which native genesis now
+// records (reviewer-entry step B, D3): only a signed MsgSubmitCommitment that
+// locks its deposit seats a reviewer there, so the party rule is held on the
+// transaction path, and the direct path refuses before it. A round without
+// seat terms, such as one created before the seat deposit, keeps the direct
+// path's party check unchanged.
+func (f *v11Fixture) requireDirectStoreRefusesSeat(t *testing.T, err error) {
+	t.Helper()
+	require.ErrorIs(t, err, types.ErrSeatDepositRequired, "direct store path in a round with seat terms")
+}
+
 // requireCommitRefused requires the transaction path and the direct store
-// path to refuse reviewer on claimID's round with want, writing nothing.
+// path to refuse reviewer on claimID's round with want, writing nothing. In a
+// round with seat terms the direct path refuses every seat
+// (requireDirectStoreRefusesSeat).
 func (f *v11Fixture) requireCommitRefused(t *testing.T, claimID, reviewer, want string) {
 	t.Helper()
 	msg := f.rvCommitment(t, claimID, reviewer, "accept")
@@ -72,14 +86,19 @@ func (f *v11Fixture) requireCommitRefused(t *testing.T, claimID, reviewer, want 
 	require.EqualError(t, err, want, "transaction path")
 	require.ErrorIs(t, err, types.ErrUnqualifiedVerifier)
 	err = f.rvStore(msg.RoundId, reviewer, msg.CommitHash)
-	require.EqualError(t, err, want, "direct store path")
-	require.ErrorIs(t, err, types.ErrUnqualifiedVerifier)
+	if f.roundOf(t, claimID).SeatTerms != nil {
+		f.requireDirectStoreRefusesSeat(t, err)
+	} else {
+		require.EqualError(t, err, want, "direct store path")
+		require.ErrorIs(t, err, types.ErrUnqualifiedVerifier)
+	}
 	after, _ := f.storeDigest(t)
 	require.Equal(t, before, after, "a refused commitment writes nothing")
 }
 
 // requireCommitAdmitted requires both paths to admit reviewer on claimID's
-// round, each in a discarded cache.
+// round, each in a discarded cache. In a round with seat terms the direct
+// path refuses every seat instead (requireDirectStoreRefusesSeat).
 func (f *v11Fixture) requireCommitAdmitted(t *testing.T, claimID, reviewer string) {
 	t.Helper()
 	msg := f.rvCommitment(t, claimID, reviewer, "accept")
@@ -89,7 +108,13 @@ func (f *v11Fixture) requireCommitAdmitted(t *testing.T, claimID, reviewer strin
 		require.NotNil(t, findCommit(f.roundOf(t, claimID), reviewer))
 	})
 	f.inCache(func() {
-		require.NoError(t, f.rvStore(msg.RoundId, reviewer, msg.CommitHash), "direct store path")
+		err := f.rvStore(msg.RoundId, reviewer, msg.CommitHash)
+		if f.roundOf(t, claimID).SeatTerms != nil {
+			f.requireDirectStoreRefusesSeat(t, err)
+			require.Nil(t, findCommit(f.roundOf(t, claimID), reviewer))
+			return
+		}
+		require.NoError(t, err, "direct store path")
 		require.NotNil(t, findCommit(f.roundOf(t, claimID), reviewer))
 	})
 }
@@ -282,6 +307,7 @@ func rvLegacyRound(t *testing.T, integrity bool) (*v11Fixture, string, sdk.AccAd
 	gs := types.DefaultGenesis()
 	gs.RecordIntegrityEnabled = false
 	gs.ReviewNeutralityEnabled = false
+	gs.SeatDepositEnabled = false // The seat deposit requires the markers cleared above.
 	gs.ClaimRecordsEnabled = false
 	gs.FundSettlementEnabled = false
 	gs.ClaimIntegrityEnabled = false
@@ -444,13 +470,28 @@ func TestClaimIntegrity_ReviewerPartyCheckFailsClosed(t *testing.T) {
 			reviewer := v11Addr("v12-rv-bystander")
 			msg := f.rvCommitment(t, c, reviewer, "accept")
 			f.requireCommitAdmitted(t, c, reviewer)
+			seatTerms := f.roundOf(t, c).SeatTerms != nil
 			tc.fault(f, factT, c)
 			before, _ := f.storeDigest(t)
+			sends := len(f.bank.sendCalls)
 			err := f.rvStore(msg.RoundId, reviewer, msg.CommitHash)
-			require.ErrorContains(t, err, tc.want(f, factT, c, msg.RoundId), "direct store path")
-			require.NotErrorIs(t, err, types.ErrUnqualifiedVerifier, "a fault is not a party finding")
+			if seatTerms {
+				// The direct path refuses every seat in a round with seat
+				// terms; the deposited transaction path must fail closed.
+				f.requireDirectStoreRefusesSeat(t, err)
+			} else {
+				require.ErrorContains(t, err, tc.want(f, factT, c, msg.RoundId), "direct store path")
+				require.NotErrorIs(t, err, types.ErrUnqualifiedVerifier, "a fault is not a party finding")
+			}
 			_, err = f.server.SubmitCommitment(f.ctx, msg)
 			require.Error(t, err, "transaction path")
+			if seatTerms {
+				// The fault may surface at an earlier read than the party
+				// check (an unreadable claim fails its policy read first).
+				require.NotErrorIs(t, err, types.ErrUnqualifiedVerifier, "a fault is not a party finding")
+				require.NotErrorIs(t, err, types.ErrSeatDepositRequired, "a fault is not a deposit refusal")
+				require.Len(t, f.bank.sendCalls, sends, "no deposit moves")
+			}
 			after, _ := f.storeDigest(t)
 			require.Equal(t, before, after, "a refused commitment writes nothing")
 		})

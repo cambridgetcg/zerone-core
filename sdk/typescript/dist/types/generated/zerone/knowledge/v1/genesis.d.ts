@@ -670,15 +670,20 @@ export interface Params {
     addFactVetoWindowBlocks: bigint;
     /**
      * ─── Reviewer minimum balance (consensus-repairs-v3) ─────────────────────
-     * The bank balance, in uzrn, an account must hold to commit to a review.
      * Empty means the built-in 100,000,000 uzrn (100 ZRN); otherwise a canonical
-     * decimal within uint64, at or above 100,000,000. The figure can be raised,
-     * not lowered: the balance is checked, not locked, and a figure below 100 ZRN
-     * waits for a locked seat deposit (the reviewer-entry design draft, pull
-     * request #190). Read only while the reviewer-balance-param marker is set;
-     * with it off the built-in figure applies and this field must stay empty. A
-     * balance check only: no weight, bond or reputation, and not Sybil
-     * resistance.
+     * positive decimal within uint64. Read only while the reviewer-balance-param
+     * marker is set; with it off the built-in figure applies and this field
+     * must stay empty. Its meaning depends on the round (the reviewer-entry
+     * design draft, pull request #190):
+     * - In a round with seat terms (created while the seat-deposit marker is
+     *   set, under review policy 1), the figure as it stood at the round's
+     *   creation is the deposit each seat locks, returned in full when the
+     *   round completes or from its aggregation deadline. A figure below
+     *   100,000,000 is accepted only while the seat-deposit marker is set.
+     * - In every other round it stays the bank balance an account must hold to
+     *   commit, checked and not locked, compared with the larger of this figure
+     *   and 100,000,000.
+     * No weight, bond or reputation, and not Sybil resistance.
      */
     minReviewerBalance: string;
 }
@@ -835,6 +840,17 @@ export interface GenesisState {
      * as off. No carrier upgrade sets it in place yet.
      */
     reviewerBalanceParamEnabled: boolean;
+    /**
+     * Seat-deposit marker (consensus-repairs-v3, reviewer-entry step B): a
+     * review round created while it is set, under review policy 1 and commitment
+     * scheme 2, records seat terms, and each commitment in such a round locks the
+     * round's deposit in the knowledge_seat_deposits module account until every
+     * seat's deposit is returned in full. It requires the reviewer-balance
+     * parameter, review-neutrality and record-integrity markers. Native genesis
+     * sets it; a file without the field imports as off. No carrier upgrade sets
+     * it in place yet.
+     */
+    seatDepositEnabled: boolean;
 }
 /**
  * Exports each ordered source/target pair once, including full provenance.

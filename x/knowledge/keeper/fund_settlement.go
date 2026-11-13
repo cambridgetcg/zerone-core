@@ -173,6 +173,20 @@ func pendingFundTransferCount(round *types.VerificationRound) int {
 	return legs
 }
 
+// roundHasPendingObligations is roundHasPendingFunds plus any unpaid
+// seat-deposit return (reviewer-entry step B). A round without seat terms has
+// none, so for it the two agree: the pending index is unchanged for every
+// round 3a844c48 can hold.
+func roundHasPendingObligations(round *types.VerificationRound) bool {
+	return roundHasPendingFunds(round) || types.PendingSeatDepositReturns(round) > 0
+}
+
+// pendingObligationTransferCount is pendingFundTransferCount plus one transfer
+// per unpaid seat-deposit return.
+func pendingObligationTransferCount(round *types.VerificationRound) int {
+	return pendingFundTransferCount(round) + types.PendingSeatDepositReturns(round)
+}
+
 // Inspect newly introduced singular messages before protobuf decoding can merge
 // duplicates or discard invalid wire encodings.
 func validateRawClaimRecord(data []byte) error {
@@ -186,7 +200,12 @@ func validateRawRoundRecord(data []byte) error {
 	if err := types.ValidateRawPolicyField(data, types.RoundReviewPolicyField); err != nil {
 		return err
 	}
-	return types.ValidateRawRoundRefund(data)
+	if err := types.ValidateRawRoundRefund(data); err != nil {
+		return err
+	}
+	// Seat terms, returns and each seat's deposit (reviewer-entry step B).
+	// A record without them passes unchanged; the walk costs no gas.
+	return types.ValidateRawRoundSeatDeposit(data)
 }
 
 func (k Keeper) validateRoundFunding(ctx context.Context, round *types.VerificationRound) error {

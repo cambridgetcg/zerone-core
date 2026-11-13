@@ -48,6 +48,7 @@ func TestRecordGenesisRejectsMalformedRoundCollectionsBeforeWrites(t *testing.T)
 			gs := types.DefaultGenesis()
 			gs.RecordIntegrityEnabled = false
 			gs.ReviewNeutralityEnabled = false
+			gs.SeatDepositEnabled = false // The seat deposit requires the markers cleared above.
 			gs.ClaimRecordsEnabled = false
 			gs.FundSettlementEnabled = false // This fixture retains predecessor financial terms.
 			gs.ClaimIntegrityEnabled = false // This fixture retains predecessor claim semantics.

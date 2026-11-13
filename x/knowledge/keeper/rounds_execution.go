@@ -15,6 +15,10 @@ type roundsExecution struct {
 	Keeper
 	calibrationSmoothing bool
 	zeroConfidenceFloor  bool
+	// seatDeposit selects reviewer-entry step B (seat_deposit.go): freezing
+	// seat-deposit returns and paying them through the pending queue. With it
+	// false no round has seat terms, and every path below is the legacy one.
+	seatDeposit bool
 }
 
 func (k Keeper) selectRoundsExecution(ctx context.Context) (roundsExecution, error) {
@@ -26,7 +30,11 @@ func (k Keeper) selectRoundsExecution(ctx context.Context) (roundsExecution, err
 	if err != nil {
 		return roundsExecution{}, err
 	}
-	return roundsExecution{k, calibration, floor}, nil
+	seatDeposit, err := k.SeatDepositEnabled(ctx)
+	if err != nil {
+		return roundsExecution{}, err
+	}
+	return roundsExecution{Keeper: k, calibrationSmoothing: calibration, zeroConfidenceFloor: floor, seatDeposit: seatDeposit}, nil
 }
 
 // CompleteRound is also a standalone entry point. Block processing instead

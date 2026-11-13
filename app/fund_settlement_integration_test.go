@@ -23,6 +23,10 @@ import (
 
 // Synthetic participants and test issuance exercise the actual SDK bank and
 // message handlers. These tests do not assert independent reviewers or ante/gas.
+// They hold fund settlement as it runs without the reviewer seat deposit, so
+// newFundingBankTrial removes the marker native genesis now writes, as on a
+// chain that no carrier has turned it on for. Rounds with seat terms, on every
+// route and terminal outcome, are seat_deposit_settlement_test.go's subject.
 type fundingBankTrial struct {
 	app       *ZeroneApp
 	db        dbm.DB
@@ -49,6 +53,7 @@ func newFundingBankTrial(t *testing.T, route string) *fundingBankTrial {
 	t.Helper()
 	app, ctx, db := newAccountingAuthorityFixture(t)
 	ctx = ctx.WithBlockHeight(100).WithChainID("fund-settlement-bank-test").WithHeaderInfo(header.Info{Height: 100, ChainID: "fund-settlement-bank-test"})
+	ctx.KVStore(app.keys[knowledgetypes.StoreKey]).Delete(knowledgetypes.SeatDepositEnabledKey)
 	require.NoError(t, app.KnowledgeKeeper.EnableClaimRecords(ctx))
 	require.NoError(t, app.KnowledgeKeeper.EnableFundSettlement(ctx))
 	params, err := app.KnowledgeKeeper.GetParams(ctx)

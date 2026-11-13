@@ -62,6 +62,7 @@ func TestCorrectionAdmission_HistoryAndTopology(t *testing.T) {
 					addr := sdk.AccAddress(bytes.Repeat([]byte{seed}, 20))
 					require.NoError(t, h.FundAccount(addr, sdk.NewCoins(sdk.NewInt64Coin("uzrn", 500_000_000))))
 					if seed >= 73 && seed <= 75 {
+						h.AdmitReviewer(addr)
 						reviewers = append(reviewers, addr.String())
 					}
 				}

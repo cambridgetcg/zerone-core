@@ -23,9 +23,17 @@ func (k Keeper) BeginBlocker(ctx context.Context) error {
 		return err
 	}
 	if !inconclusiveAccounting {
-		return execution.beginBlockInconclusiveAccountingLegacy(ctx)
+		if err := execution.beginBlockInconclusiveAccountingLegacy(ctx); err != nil {
+			return err
+		}
+	} else if err := execution.beginBlockInconclusiveAccounting(ctx, inconclusiveAccounting); err != nil {
+		return err
 	}
-	return execution.beginBlockInconclusiveAccounting(ctx, inconclusiveAccounting)
+	// Reviewer-entry step B (D4): a round with seat terms that has not
+	// completed by its aggregation deadline has its deposit returns frozen
+	// there, so it cannot hold deposits. With the seat-deposit marker off
+	// this returns at once and reads nothing (seat_deposit.go).
+	return execution.freezeOverdueSeatDepositReturns(ctx)
 }
 
 func (k roundsExecution) beginBlockInconclusiveAccounting(ctx context.Context, inconclusiveAccounting bool) error {

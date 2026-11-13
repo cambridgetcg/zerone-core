@@ -154,8 +154,10 @@ func TestClaimRecordsRejectsWrongSourceAndPrematureActivation(t *testing.T) {
 				store.Set([]byte(knowledgekeeper.ClaimRecordsEnabledStoreKey), []byte{0})
 			case "missing neutrality":
 				store.Delete([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey))
+				store.Delete(knowledgetypes.SeatDepositEnabledKey) // The seat deposit requires the marker removed above.
 			case "missing integrity":
 				store.Delete([]byte(knowledgekeeper.RecordIntegrityEnabledStoreKey))
+				store.Delete(knowledgetypes.SeatDepositEnabledKey) // The seat deposit requires the marker removed above.
 			case "mixed version":
 				vm["vesting_rewards"] = 2
 			case "missing version":

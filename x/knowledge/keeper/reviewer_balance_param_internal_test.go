@@ -94,6 +94,7 @@ func newReviewerBalanceInternalFixture(t *testing.T, markerOn bool, param string
 	k := NewKeeper(service, codec.NewProtoCodec(codectypes.NewInterfaceRegistry()), "authority", bank, nil)
 	gs := types.DefaultGenesis()
 	gs.ReviewerBalanceParamEnabled = markerOn
+	gs.SeatDepositEnabled = false // Step A alone: no locked deposit allows a lower figure.
 	require.NoError(t, k.InitGenesis(ctx, gs))
 	p, err := k.GetParams(ctx)
 	require.NoError(t, err)

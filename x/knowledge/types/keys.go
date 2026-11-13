@@ -877,3 +877,7 @@ var DormantFactContestEnabledKey = []byte{0x95}
 // reviewer-balance parameter repair
 // (keeper/reviewer_balance_param_activation.go), unused like 0x91.
 var ReviewerBalanceParamEnabledKey = []byte{0x96}
+
+// SeatDepositEnabledKey is the consensus-repairs-v3 marker for the reviewer
+// seat deposit (keeper/seat_deposit_activation.go), unused like 0x91.
+var SeatDepositEnabledKey = []byte{0x97}

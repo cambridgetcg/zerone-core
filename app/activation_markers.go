@@ -138,6 +138,12 @@ func ConsensusRepairsV2GenesisSelections() []ActivationSelection {
 //   - knowledge/reviewer_balance_param_enabled (knowledge 0x96): the balance a
 //     reviewer must hold to commit is read from a knowledge parameter instead
 //     of a fixed constant.
+//   - knowledge/seat_deposit_enabled (knowledge 0x97): a review round records
+//     seat terms, and each commitment in it locks the round's deposit, which
+//     is returned in full. Its Enable requires the reviewer-balance parameter
+//     (listed just before it), review neutrality and record integrity, and
+//     the seat-deposit custody (EnableSeatDeposit), so a carrier looping over
+//     this list in order turns it on last.
 //
 // Native genesis selects each one through its module's genesis field, and a
 // genesis without the field imports with the marker off. No carrier upgrade,
@@ -157,6 +163,8 @@ func (app *ZeroneApp) ConsensusRepairsV3Markers() []ActivationMarker {
 			app.KnowledgeKeeper.DormantFactContestEnabled, app.KnowledgeKeeper.EnableDormantFactContest},
 		{zeroneknowledgetypes.ModuleName, "reviewer_balance_param_enabled",
 			app.KnowledgeKeeper.ReviewerBalanceParamEnabled, app.KnowledgeKeeper.EnableReviewerBalanceParam},
+		{zeroneknowledgetypes.ModuleName, "seat_deposit_enabled",
+			app.KnowledgeKeeper.SeatDepositEnabled, app.KnowledgeKeeper.EnableSeatDeposit},
 	}
 }
 
@@ -170,5 +178,6 @@ func ConsensusRepairsV3GenesisSelections() []ActivationSelection {
 		{substratebridgetypes.ModuleName, "cited_reward_escrow_enabled"},
 		{zeroneknowledgetypes.ModuleName, "dormant_fact_contest_enabled"},
 		{zeroneknowledgetypes.ModuleName, "reviewer_balance_param_enabled"},
+		{zeroneknowledgetypes.ModuleName, "seat_deposit_enabled"},
 	}
 }

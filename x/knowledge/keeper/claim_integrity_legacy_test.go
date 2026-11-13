@@ -68,6 +68,7 @@ func setupV11SemanticsTest(t *testing.T) *v11Fixture {
 	gs.DoctrineIdentityEnabled = false
 	gs.DormantFactContestEnabled = false
 	gs.ReviewerBalanceParamEnabled = false
+	gs.SeatDepositEnabled = false // The seat deposit requires the markers cleared above.
 
 	db := dbm.NewMemDB()
 	t.Cleanup(func() { require.NoError(t, db.Close()) })

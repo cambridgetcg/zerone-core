@@ -259,3 +259,13 @@ after their local protobuf source hash changed. The only protobuf change is the
 remaining source revisions, schema, fixtures, observation semantics, pending
 bindings and every effect/activation gate are unchanged. This is offline source
 compatibility, with no hosted action.
+
+The 2026-11-13 seat-deposit refresh binds only the two current Zerone Research
+Commons source rows to commit `3b95ceb42d026e7d3c1c8eabbc813923c882d76e` after
+their local protobuf source hash changed. The protobuf change is the
+reviewer-entry step B draft: seat terms and a returns plan on
+`VerificationRound` (fields 18 and 19) and a seat deposit on `CommitEntry`
+(field 4), behind the default-off seat-deposit marker. The remaining source
+revisions, schema, fixtures, observation semantics, pending bindings and every
+effect/activation gate are unchanged. This is offline source compatibility, with
+no hosted action.

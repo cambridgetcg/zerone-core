@@ -10167,7 +10167,9 @@ function createBaseVerificationRound() {
     commitmentChainId: "",
     verifierRewardSettlement: void 0,
     reviewPolicyVersion: 0,
-    claimRefundSettlement: void 0
+    claimRefundSettlement: void 0,
+    seatTerms: void 0,
+    seatDepositReturns: void 0
   };
 }
 var VerificationRound = {
@@ -10223,6 +10225,12 @@ var VerificationRound = {
     }
     if (message.claimRefundSettlement !== void 0) {
       ClaimRefundSettlement.encode(message.claimRefundSettlement, writer.uint32(138).fork()).ldelim();
+    }
+    if (message.seatTerms !== void 0) {
+      ReviewSeatTerms.encode(message.seatTerms, writer.uint32(146).fork()).ldelim();
+    }
+    if (message.seatDepositReturns !== void 0) {
+      SeatDepositReturnSettlement.encode(message.seatDepositReturns, writer.uint32(154).fork()).ldelim();
     }
     return writer;
   },
@@ -10284,6 +10292,12 @@ var VerificationRound = {
         case 17:
           message.claimRefundSettlement = ClaimRefundSettlement.decode(reader, reader.uint32());
           break;
+        case 18:
+          message.seatTerms = ReviewSeatTerms.decode(reader, reader.uint32());
+          break;
+        case 19:
+          message.seatDepositReturns = SeatDepositReturnSettlement.decode(reader, reader.uint32());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -10310,6 +10324,140 @@ var VerificationRound = {
     message.verifierRewardSettlement = object.verifierRewardSettlement !== void 0 && object.verifierRewardSettlement !== null ? VerifierRewardSettlement.fromPartial(object.verifierRewardSettlement) : void 0;
     message.reviewPolicyVersion = object.reviewPolicyVersion ?? 0;
     message.claimRefundSettlement = object.claimRefundSettlement !== void 0 && object.claimRefundSettlement !== null ? ClaimRefundSettlement.fromPartial(object.claimRefundSettlement) : void 0;
+    message.seatTerms = object.seatTerms !== void 0 && object.seatTerms !== null ? ReviewSeatTerms.fromPartial(object.seatTerms) : void 0;
+    message.seatDepositReturns = object.seatDepositReturns !== void 0 && object.seatDepositReturns !== null ? SeatDepositReturnSettlement.fromPartial(object.seatDepositReturns) : void 0;
+    return message;
+  }
+};
+function createBaseReviewSeatTerms() {
+  return {
+    countedSeatDeposit: ""
+  };
+}
+var ReviewSeatTerms = {
+  typeUrl: "/zerone.knowledge.v1.ReviewSeatTerms",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.countedSeatDeposit !== "") {
+      writer.uint32(10).string(message.countedSeatDeposit);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseReviewSeatTerms();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.countedSeatDeposit = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseReviewSeatTerms();
+    message.countedSeatDeposit = object.countedSeatDeposit ?? "";
+    return message;
+  }
+};
+function createBaseSeatDepositReturnSettlement() {
+  return {
+    createdAtBlock: BigInt(0),
+    returns: []
+  };
+}
+var SeatDepositReturnSettlement = {
+  typeUrl: "/zerone.knowledge.v1.SeatDepositReturnSettlement",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.createdAtBlock !== BigInt(0)) {
+      writer.uint32(8).uint64(message.createdAtBlock);
+    }
+    for (const v of message.returns) {
+      SeatDepositReturn.encode(v, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseSeatDepositReturnSettlement();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.createdAtBlock = reader.uint64();
+          break;
+        case 2:
+          message.returns.push(SeatDepositReturn.decode(reader, reader.uint32()));
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseSeatDepositReturnSettlement();
+    message.createdAtBlock = object.createdAtBlock !== void 0 && object.createdAtBlock !== null ? BigInt(object.createdAtBlock.toString()) : BigInt(0);
+    message.returns = object.returns?.map((e) => SeatDepositReturn.fromPartial(e)) || [];
+    return message;
+  }
+};
+function createBaseSeatDepositReturn() {
+  return {
+    recipient: "",
+    amount: "",
+    paidAtBlock: BigInt(0)
+  };
+}
+var SeatDepositReturn = {
+  typeUrl: "/zerone.knowledge.v1.SeatDepositReturn",
+  encode(message, writer = BinaryWriter.create()) {
+    if (message.recipient !== "") {
+      writer.uint32(10).string(message.recipient);
+    }
+    if (message.amount !== "") {
+      writer.uint32(18).string(message.amount);
+    }
+    if (message.paidAtBlock !== BigInt(0)) {
+      writer.uint32(24).uint64(message.paidAtBlock);
+    }
+    return writer;
+  },
+  decode(input, length) {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === void 0 ? reader.len : reader.pos + length;
+    const message = createBaseSeatDepositReturn();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.recipient = reader.string();
+          break;
+        case 2:
+          message.amount = reader.string();
+          break;
+        case 3:
+          message.paidAtBlock = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object) {
+    const message = createBaseSeatDepositReturn();
+    message.recipient = object.recipient ?? "";
+    message.amount = object.amount ?? "";
+    message.paidAtBlock = object.paidAtBlock !== void 0 && object.paidAtBlock !== null ? BigInt(object.paidAtBlock.toString()) : BigInt(0);
     return message;
   }
 };
@@ -10549,7 +10697,8 @@ function createBaseCommitEntry() {
   return {
     verifier: "",
     commitHash: new Uint8Array(),
-    committedAtBlock: BigInt(0)
+    committedAtBlock: BigInt(0),
+    seatDeposit: ""
   };
 }
 var CommitEntry = {
@@ -10563,6 +10712,9 @@ var CommitEntry = {
     }
     if (message.committedAtBlock !== BigInt(0)) {
       writer.uint32(24).uint64(message.committedAtBlock);
+    }
+    if (message.seatDeposit !== "") {
+      writer.uint32(34).string(message.seatDeposit);
     }
     return writer;
   },
@@ -10582,6 +10734,9 @@ var CommitEntry = {
         case 3:
           message.committedAtBlock = reader.uint64();
           break;
+        case 4:
+          message.seatDeposit = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -10594,6 +10749,7 @@ var CommitEntry = {
     message.verifier = object.verifier ?? "";
     message.commitHash = object.commitHash ?? new Uint8Array();
     message.committedAtBlock = object.committedAtBlock !== void 0 && object.committedAtBlock !== null ? BigInt(object.committedAtBlock.toString()) : BigInt(0);
+    message.seatDeposit = object.seatDeposit ?? "";
     return message;
   }
 };

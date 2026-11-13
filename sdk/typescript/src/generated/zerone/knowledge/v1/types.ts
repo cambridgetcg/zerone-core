@@ -2781,6 +2781,58 @@ export interface VerificationRound {
    */
   reviewPolicyVersion: number;
   claimRefundSettlement?: ClaimRefundSettlement;
+  /**
+   * Seat terms (reviewer-entry step B), set once at creation while the
+   * seat-deposit marker is on, only for review policy 1 with commitment
+   * scheme 2. Never added, changed or removed afterwards: a later parameter
+   * change does not alter an open round, and a round created without terms
+   * keeps the balance check for its whole life.
+   */
+  seatTerms?: ReviewSeatTerms;
+  /**
+   * Every seat's deposit return, frozen once at completion or from the
+   * aggregation deadline, whichever comes first. One return per seat in
+   * commit order; each is paid at most once, from the seat-deposit account.
+   */
+  seatDepositReturns?: SeatDepositReturnSettlement;
+}
+/**
+ * ReviewSeatTerms are a round's admission terms for a seat. The amount is a
+ * canonical positive uzrn decimal copied from min_reviewer_balance when the
+ * round was created. Each commitment in the round locks it in the
+ * knowledge_seat_deposits module account, and it is returned in full whatever
+ * the verdict, the seat's vote or whether it revealed.
+ * @name ReviewSeatTerms
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ReviewSeatTerms
+ */
+export interface ReviewSeatTerms {
+  countedSeatDeposit: string;
+}
+/**
+ * SeatDepositReturnSettlement is a round's frozen plan of deposit returns,
+ * beside its reviewer payment and claim refund. created_at_block is the
+ * completion height, or a height at or after the aggregation deadline.
+ * @name SeatDepositReturnSettlement
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.SeatDepositReturnSettlement
+ */
+export interface SeatDepositReturnSettlement {
+  createdAtBlock: bigint;
+  returns: SeatDepositReturn[];
+}
+/**
+ * SeatDepositReturn is one seat's deposit owed back to the address that locked
+ * it. amount is a canonical positive uzrn decimal; paid_at_block 0 is a
+ * pending return, not a completed transfer.
+ * @name SeatDepositReturn
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.SeatDepositReturn
+ */
+export interface SeatDepositReturn {
+  recipient: string;
+  amount: string;
+  paidAtBlock: bigint;
 }
 /**
  * A positive finalized refund, paid atomically with any verifier payments.
@@ -2844,6 +2896,11 @@ export interface CommitEntry {
    */
   commitHash: Uint8Array;
   committedAtBlock: bigint;
+  /**
+   * The deposit this seat locked, a canonical uzrn decimal. Set only in a
+   * round with seat terms, where it equals the terms' counted_seat_deposit.
+   */
+  seatDeposit: string;
 }
 /**
  * RevealEntry records a validator's revealed vote and salt.
@@ -7051,7 +7108,9 @@ function createBaseVerificationRound(): VerificationRound {
     commitmentChainId: "",
     verifierRewardSettlement: undefined,
     reviewPolicyVersion: 0,
-    claimRefundSettlement: undefined
+    claimRefundSettlement: undefined,
+    seatTerms: undefined,
+    seatDepositReturns: undefined
   };
 }
 /**
@@ -7114,6 +7173,12 @@ export const VerificationRound = {
     if (message.claimRefundSettlement !== undefined) {
       ClaimRefundSettlement.encode(message.claimRefundSettlement, writer.uint32(138).fork()).ldelim();
     }
+    if (message.seatTerms !== undefined) {
+      ReviewSeatTerms.encode(message.seatTerms, writer.uint32(146).fork()).ldelim();
+    }
+    if (message.seatDepositReturns !== undefined) {
+      SeatDepositReturnSettlement.encode(message.seatDepositReturns, writer.uint32(154).fork()).ldelim();
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): VerificationRound {
@@ -7174,6 +7239,12 @@ export const VerificationRound = {
         case 17:
           message.claimRefundSettlement = ClaimRefundSettlement.decode(reader, reader.uint32());
           break;
+        case 18:
+          message.seatTerms = ReviewSeatTerms.decode(reader, reader.uint32());
+          break;
+        case 19:
+          message.seatDepositReturns = SeatDepositReturnSettlement.decode(reader, reader.uint32());
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -7200,6 +7271,166 @@ export const VerificationRound = {
     message.verifierRewardSettlement = object.verifierRewardSettlement !== undefined && object.verifierRewardSettlement !== null ? VerifierRewardSettlement.fromPartial(object.verifierRewardSettlement) : undefined;
     message.reviewPolicyVersion = object.reviewPolicyVersion ?? 0;
     message.claimRefundSettlement = object.claimRefundSettlement !== undefined && object.claimRefundSettlement !== null ? ClaimRefundSettlement.fromPartial(object.claimRefundSettlement) : undefined;
+    message.seatTerms = object.seatTerms !== undefined && object.seatTerms !== null ? ReviewSeatTerms.fromPartial(object.seatTerms) : undefined;
+    message.seatDepositReturns = object.seatDepositReturns !== undefined && object.seatDepositReturns !== null ? SeatDepositReturnSettlement.fromPartial(object.seatDepositReturns) : undefined;
+    return message;
+  }
+};
+function createBaseReviewSeatTerms(): ReviewSeatTerms {
+  return {
+    countedSeatDeposit: ""
+  };
+}
+/**
+ * ReviewSeatTerms are a round's admission terms for a seat. The amount is a
+ * canonical positive uzrn decimal copied from min_reviewer_balance when the
+ * round was created. Each commitment in the round locks it in the
+ * knowledge_seat_deposits module account, and it is returned in full whatever
+ * the verdict, the seat's vote or whether it revealed.
+ * @name ReviewSeatTerms
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.ReviewSeatTerms
+ */
+export const ReviewSeatTerms = {
+  typeUrl: "/zerone.knowledge.v1.ReviewSeatTerms",
+  encode(message: ReviewSeatTerms, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.countedSeatDeposit !== "") {
+      writer.uint32(10).string(message.countedSeatDeposit);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): ReviewSeatTerms {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseReviewSeatTerms();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.countedSeatDeposit = reader.string();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<ReviewSeatTerms>): ReviewSeatTerms {
+    const message = createBaseReviewSeatTerms();
+    message.countedSeatDeposit = object.countedSeatDeposit ?? "";
+    return message;
+  }
+};
+function createBaseSeatDepositReturnSettlement(): SeatDepositReturnSettlement {
+  return {
+    createdAtBlock: BigInt(0),
+    returns: []
+  };
+}
+/**
+ * SeatDepositReturnSettlement is a round's frozen plan of deposit returns,
+ * beside its reviewer payment and claim refund. created_at_block is the
+ * completion height, or a height at or after the aggregation deadline.
+ * @name SeatDepositReturnSettlement
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.SeatDepositReturnSettlement
+ */
+export const SeatDepositReturnSettlement = {
+  typeUrl: "/zerone.knowledge.v1.SeatDepositReturnSettlement",
+  encode(message: SeatDepositReturnSettlement, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.createdAtBlock !== BigInt(0)) {
+      writer.uint32(8).uint64(message.createdAtBlock);
+    }
+    for (const v of message.returns) {
+      SeatDepositReturn.encode(v!, writer.uint32(18).fork()).ldelim();
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): SeatDepositReturnSettlement {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseSeatDepositReturnSettlement();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.createdAtBlock = reader.uint64();
+          break;
+        case 2:
+          message.returns.push(SeatDepositReturn.decode(reader, reader.uint32()));
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<SeatDepositReturnSettlement>): SeatDepositReturnSettlement {
+    const message = createBaseSeatDepositReturnSettlement();
+    message.createdAtBlock = object.createdAtBlock !== undefined && object.createdAtBlock !== null ? BigInt(object.createdAtBlock.toString()) : BigInt(0);
+    message.returns = object.returns?.map(e => SeatDepositReturn.fromPartial(e)) || [];
+    return message;
+  }
+};
+function createBaseSeatDepositReturn(): SeatDepositReturn {
+  return {
+    recipient: "",
+    amount: "",
+    paidAtBlock: BigInt(0)
+  };
+}
+/**
+ * SeatDepositReturn is one seat's deposit owed back to the address that locked
+ * it. amount is a canonical positive uzrn decimal; paid_at_block 0 is a
+ * pending return, not a completed transfer.
+ * @name SeatDepositReturn
+ * @package zerone.knowledge.v1
+ * @see proto type: zerone.knowledge.v1.SeatDepositReturn
+ */
+export const SeatDepositReturn = {
+  typeUrl: "/zerone.knowledge.v1.SeatDepositReturn",
+  encode(message: SeatDepositReturn, writer: BinaryWriter = BinaryWriter.create()): BinaryWriter {
+    if (message.recipient !== "") {
+      writer.uint32(10).string(message.recipient);
+    }
+    if (message.amount !== "") {
+      writer.uint32(18).string(message.amount);
+    }
+    if (message.paidAtBlock !== BigInt(0)) {
+      writer.uint32(24).uint64(message.paidAtBlock);
+    }
+    return writer;
+  },
+  decode(input: BinaryReader | Uint8Array, length?: number): SeatDepositReturn {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    let end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseSeatDepositReturn();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1:
+          message.recipient = reader.string();
+          break;
+        case 2:
+          message.amount = reader.string();
+          break;
+        case 3:
+          message.paidAtBlock = reader.uint64();
+          break;
+        default:
+          reader.skipType(tag & 7);
+          break;
+      }
+    }
+    return message;
+  },
+  fromPartial(object: DeepPartial<SeatDepositReturn>): SeatDepositReturn {
+    const message = createBaseSeatDepositReturn();
+    message.recipient = object.recipient ?? "";
+    message.amount = object.amount ?? "";
+    message.paidAtBlock = object.paidAtBlock !== undefined && object.paidAtBlock !== null ? BigInt(object.paidAtBlock.toString()) : BigInt(0);
     return message;
   }
 };
@@ -7465,7 +7696,8 @@ function createBaseCommitEntry(): CommitEntry {
   return {
     verifier: "",
     commitHash: new Uint8Array(),
-    committedAtBlock: BigInt(0)
+    committedAtBlock: BigInt(0),
+    seatDeposit: ""
   };
 }
 /**
@@ -7486,6 +7718,9 @@ export const CommitEntry = {
     if (message.committedAtBlock !== BigInt(0)) {
       writer.uint32(24).uint64(message.committedAtBlock);
     }
+    if (message.seatDeposit !== "") {
+      writer.uint32(34).string(message.seatDeposit);
+    }
     return writer;
   },
   decode(input: BinaryReader | Uint8Array, length?: number): CommitEntry {
@@ -7504,6 +7739,9 @@ export const CommitEntry = {
         case 3:
           message.committedAtBlock = reader.uint64();
           break;
+        case 4:
+          message.seatDeposit = reader.string();
+          break;
         default:
           reader.skipType(tag & 7);
           break;
@@ -7516,6 +7754,7 @@ export const CommitEntry = {
     message.verifier = object.verifier ?? "";
     message.commitHash = object.commitHash ?? new Uint8Array();
     message.committedAtBlock = object.committedAtBlock !== undefined && object.committedAtBlock !== null ? BigInt(object.committedAtBlock.toString()) : BigInt(0);
+    message.seatDeposit = object.seatDeposit ?? "";
     return message;
   }
 };

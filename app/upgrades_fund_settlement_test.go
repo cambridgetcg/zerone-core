@@ -170,8 +170,10 @@ func TestFundSettlementRejectsWrongSourceAndPrematureActivation(t *testing.T) {
 				store.Set(knowledgetypes.RoundKey(round.Id), append(raw, 0x8a, 0x01, 0x00))
 			case "missing neutrality":
 				store.Delete([]byte(knowledgekeeper.ReviewNeutralityEnabledStoreKey))
+				store.Delete(knowledgetypes.SeatDepositEnabledKey) // The seat deposit requires the marker removed above.
 			case "missing integrity":
 				store.Delete([]byte(knowledgekeeper.RecordIntegrityEnabledStoreKey))
+				store.Delete(knowledgetypes.SeatDepositEnabledKey) // The seat deposit requires the marker removed above.
 			case "mixed version":
 				vm["vesting_rewards"] = 2
 			case "missing version":

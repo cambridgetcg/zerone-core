@@ -1,6 +1,12 @@
 package keeper
 
-import "testing"
+import (
+	"context"
+	"testing"
+
+	"github.com/zerone-chain/zerone/internal/activation"
+	"github.com/zerone-chain/zerone/x/knowledge/types"
+)
 
 // SetContestScanMaxRecordsForTest lowers the record ceiling of one contest
 // check for the rest of t, so a test reaches the bound with a few records.
@@ -39,4 +45,11 @@ func SetAugmentationRestoreMaxBytesForTest(t testing.TB, n int) {
 	previous := augmentationRestoreMaxBytes
 	augmentationRestoreMaxBytes = n
 	t.Cleanup(func() { augmentationRestoreMaxBytes = previous })
+}
+
+// WriteSeatDepositMarkerForTest writes the seat-deposit marker without
+// EnableSeatDeposit's checks, for tests of a state that Enable refuses, such
+// as the marker on without review neutrality.
+func WriteSeatDepositMarkerForTest(ctx context.Context, k Keeper) error {
+	return activation.Enable(ctx, k.storeService, types.SeatDepositEnabledKey, "seat-deposit")
 }
