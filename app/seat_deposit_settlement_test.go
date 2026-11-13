@@ -405,6 +405,38 @@ func TestSeatDepositConvertsAnAccountSquattingTheModuleAddress(t *testing.T) {
 	require.NoError(t, tr.app.KnowledgeKeeper.ValidateSeatDepositCustody(tr.ctx))
 }
 
+// The same through the SDK's vesting account, which an earlier binary's
+// MsgCreateVestingAccount could place at the address for one uzrn (this
+// binary's vesting handler refuses it, since the address is blocked, so the
+// test writes the account the handler would have written). The first deposit
+// converts it too, and the vested coin is surplus.
+func TestSeatDepositConvertsAVestingAccountSquattingTheModuleAddress(t *testing.T) {
+	tr := newSeatTrial(t, "ordinary", true, "1000")
+	address := authtypes.NewModuleAddress(knowledgetypes.SeatDepositModuleName)
+	vesting, err := vestingtypes.NewContinuousVestingAccount(authtypes.NewBaseAccountWithAddress(address), sdk.NewCoins(sdk.NewInt64Coin("uzrn", 1)), 1, 86_401)
+	require.NoError(t, err)
+	tr.app.AccountKeeper.SetAccount(tr.ctx, tr.app.AccountKeeper.NewAccount(tr.ctx, vesting))
+	sender := settlementAddress(176)
+	tr.fund(t, sender, 1)
+	require.NoError(t, tr.app.BankKeeper.SendCoins(tr.ctx, sender, address, sdk.NewCoins(sdk.NewInt64Coin("uzrn", 1))))
+	number := tr.app.AccountKeeper.GetAccount(tr.ctx, address).GetAccountNumber()
+
+	for i := byte(0); i < 3; i++ {
+		require.NoError(t, tr.commit(t, tr.reviewer(t, 181+i, 100_000), "accept"))
+	}
+	module, ok := tr.app.AccountKeeper.GetAccount(tr.ctx, address).(sdk.ModuleAccountI)
+	require.True(t, ok, "the first deposit converted the vesting account")
+	require.Equal(t, knowledgetypes.SeatDepositModuleName, module.GetName())
+	require.Equal(t, number, module.GetAccountNumber())
+	require.Equal(t, int64(3001), tr.custody())
+	tr.beginBlock(t, 102)
+	tr.revealAll(t)
+	tr.beginBlock(t, 103)
+	tr.beginBlock(t, 104)
+	require.Equal(t, int64(1), tr.custody(), "every deposit came back; the vested coin is surplus")
+	require.NoError(t, tr.app.KnowledgeKeeper.ValidateSeatDepositCustody(tr.ctx))
+}
+
 // The design's section 1, item 2, as a named run: one 100 ZRN balance passed
 // from address to address inside one commit window. With the seat-deposit
 // marker off it seats every address (five here), since the balance is only

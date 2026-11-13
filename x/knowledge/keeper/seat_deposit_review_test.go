@@ -43,19 +43,59 @@ func TestSeatDepositConvertsAPlainAccountAtItsAddress(t *testing.T) {
 	require.Equal(t, int64(200_000_000), f.bank.custody())
 }
 
+// D2, D6: an earlier binary also let anyone create a vesting account at the
+// seat-deposit address, with MsgCreateVestingAccount (continuous or delayed),
+// MsgCreatePeriodicVestingAccount or MsgCreatePermanentLockedAccount, each for
+// one uzrn. No key signs for the address, so the schedule binds nobody. The
+// first deposit converts each of the four kinds as it converts a plain
+// account, keeping the account number; what it held stays as surplus.
+func TestSeatDepositConvertsAVestingAccountAtItsAddress(t *testing.T) {
+	address := seatModuleAddress()
+	one := sdk.NewCoins(sdk.NewInt64Coin("uzrn", 1))
+	continuous, err := vestingtypes.NewContinuousVestingAccount(authtypes.NewBaseAccount(address, nil, 11, 0), one, 1, 2)
+	require.NoError(t, err)
+	delayed, err := vestingtypes.NewDelayedVestingAccount(authtypes.NewBaseAccount(address, nil, 12, 0), one, 2)
+	require.NoError(t, err)
+	periodic, err := vestingtypes.NewPeriodicVestingAccount(authtypes.NewBaseAccount(address, nil, 13, 0), one, 1, vestingtypes.Periods{{Length: 1, Amount: one}})
+	require.NoError(t, err)
+	locked, err := vestingtypes.NewPermanentLockedAccount(authtypes.NewBaseAccount(address, nil, 14, 0), one)
+	require.NoError(t, err)
+	for name, squatter := range map[string]sdk.AccountI{
+		"continuous": continuous,
+		"delayed":    delayed,
+		"periodic":   periodic,
+		"locked":     locked,
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newSeatFixture(t, nil)
+			f.accounts.accounts[address.String()] = squatter
+			round := f.claim(t, "squat-vesting")
+			require.NoError(t, f.commit(t, round, f.reviewer("seat-squat-vesting", 100_000_000), "accept"))
+			module, ok := f.accounts.accounts[address.String()].(sdk.ModuleAccountI)
+			require.True(t, ok, "the vesting account is now the module account")
+			require.Equal(t, types.SeatDepositModuleName, module.GetName())
+			require.Equal(t, squatter.GetAccountNumber(), module.GetAccountNumber(), "the account number is kept")
+			require.Empty(t, module.GetPermissions())
+			require.Equal(t, int64(100_000_000), f.bank.custody())
+			require.Len(t, f.round(t, round.Id).Commits, 1)
+		})
+	}
+}
+
 // D2: an account at the seat-deposit address that is neither its module
-// account nor a plain, never-signed account is refused, not converted, and
-// nothing moves or is stored. No key signs for a module address, so such an
-// account is not expected; the refusal keeps the bank from panicking on it.
+// account nor a plain or vesting account that no key has signed for is
+// refused, not converted, and nothing moves or is stored. No key signs for a
+// module address, so such an account is not expected; the refusal keeps the
+// bank from panicking on it.
 func TestSeatDepositRefusesAnAccountItCannotConvert(t *testing.T) {
 	address := seatModuleAddress()
 	signed := authtypes.NewBaseAccount(address, nil, 7, 1)
-	vesting, err := vestingtypes.NewContinuousVestingAccount(authtypes.NewBaseAccount(address, nil, 8, 0), sdk.NewCoins(sdk.NewInt64Coin("uzrn", 1)), 1, 2)
+	vesting, err := vestingtypes.NewContinuousVestingAccount(authtypes.NewBaseAccount(address, nil, 8, 1), sdk.NewCoins(sdk.NewInt64Coin("uzrn", 1)), 1, 2)
 	require.NoError(t, err)
 	for name, squatter := range map[string]sdk.AccountI{
-		"signed":       signed,
-		"vesting":      vesting,
-		"other module": authtypes.NewModuleAccount(authtypes.NewBaseAccount(address, nil, 9, 0), "not_seat_deposits"),
+		"signed":         signed,
+		"signed vesting": vesting,
+		"other module":   authtypes.NewModuleAccount(authtypes.NewBaseAccount(address, nil, 9, 0), "not_seat_deposits"),
 	} {
 		t.Run(name, func(t *testing.T) {
 			f := newSeatFixture(t, nil)

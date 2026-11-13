@@ -11,6 +11,7 @@ import (
 	storetypes "cosmossdk.io/store/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
@@ -147,15 +148,19 @@ func (k Keeper) lockSeatDeposit(ctx context.Context, depositor, amount string) e
 
 // requireSeatDepositAccount makes the seat-deposit address one the bank can
 // pay into before a deposit moves (D2). Before this binary the address was an
-// ordinary one, which anyone could create with a send of one uzrn; the bank
-// panics on a deposit to a module address that holds a plain account, so
-// leaving it would deny every deposited seat on the chain. A plain account
-// that no key has signed for (no public key, sequence 0; no key exists for a
-// module address) is converted here into the seat-deposit module account,
-// keeping its account number, once per chain at most. Whatever it held stays
-// in the account as a surplus, reported and never swept (D6). Any other
-// account there is refused with an error, and nothing moves. Returns are paid
-// by address and need no account check.
+// ordinary one: anyone could create a plain account there with a send of one
+// uzrn, or a vesting account with MsgCreateVestingAccount,
+// MsgCreatePeriodicVestingAccount or MsgCreatePermanentLockedAccount. The bank
+// panics on a deposit to a module address that holds such an account, so
+// leaving it would deny every deposited seat on the chain. An account of
+// those kinds that no key has signed for (no public key, sequence 0; no key
+// exists for a module address) is converted here into the seat-deposit module
+// account, keeping its account number, once per chain at most. Whatever it
+// held stays in the account as a surplus, reported and never swept (D6); a
+// vesting schedule is dropped, which takes nothing from anyone, since no key
+// can spend from the address. Any other account there is refused with an
+// error, and nothing moves. Returns are paid by address and need no account
+// check.
 func (k Keeper) requireSeatDepositAccount(ctx context.Context) error {
 	squatter, err := k.seatDepositSquatter(ctx)
 	if err != nil || squatter == nil {
@@ -173,8 +178,8 @@ func (k Keeper) requireSeatDepositAccount(ctx context.Context) error {
 
 // seatDepositSquatter reads the account at the seat-deposit address. It
 // returns nil when the address holds nothing or its own module account, the
-// plain account when one that requireSeatDepositAccount can convert is there,
-// and an error for any other account. It writes nothing.
+// base of an account that requireSeatDepositAccount can convert when one is
+// there, and an error for any other account. It writes nothing.
 func (k Keeper) seatDepositSquatter(ctx context.Context) (*authtypes.BaseAccount, error) {
 	if k.accountKeeper == nil {
 		return nil, fmt.Errorf("seat deposits require the account keeper")
@@ -187,13 +192,36 @@ func (k Keeper) seatDepositSquatter(ctx context.Context) (*authtypes.BaseAccount
 	if module, ok := account.(sdk.ModuleAccountI); ok && module.GetName() == types.SeatDepositModuleName {
 		return nil, nil
 	}
-	// Only the exact plain type: a vesting or other account embeds a base
-	// account but carries terms a conversion would drop.
-	plain, ok := account.(*authtypes.BaseAccount)
-	if !ok || !address.Equals(plain.GetAddress()) || plain.GetPubKey() != nil || plain.GetSequence() != 0 {
+	base := convertibleSeatDepositBase(account)
+	if base == nil || !address.Equals(base.GetAddress()) || base.GetPubKey() != nil || base.GetSequence() != 0 {
 		return nil, fmt.Errorf("the %s address holds an account that cannot become its module account", types.SeatDepositModuleName)
 	}
-	return plain, nil
+	return base, nil
+}
+
+// convertibleSeatDepositBase returns the base account of the account kinds a
+// message of an earlier binary could create at the seat-deposit address
+// without its key: the exact plain type (a bank send) and the SDK's four
+// vesting types (x/auth/vesting's three create messages). It returns nil for
+// any other kind, including another module's account.
+func convertibleSeatDepositBase(account sdk.AccountI) *authtypes.BaseAccount {
+	var vesting *vestingtypes.BaseVestingAccount
+	switch acc := account.(type) {
+	case *authtypes.BaseAccount:
+		return acc
+	case *vestingtypes.ContinuousVestingAccount:
+		vesting = acc.BaseVestingAccount
+	case *vestingtypes.DelayedVestingAccount:
+		vesting = acc.BaseVestingAccount
+	case *vestingtypes.PeriodicVestingAccount:
+		vesting = acc.BaseVestingAccount
+	case *vestingtypes.PermanentLockedAccount:
+		vesting = acc.BaseVestingAccount
+	}
+	if vesting == nil {
+		return nil
+	}
+	return vesting.BaseAccount
 }
 
 // buildClaimRefundSettlement shadows the Keeper method for completeRound,
