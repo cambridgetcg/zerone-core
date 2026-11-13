@@ -2,7 +2,7 @@
   "schema": "zerone.development-gateway-redeploy/v1",
   "observed_at": "2026-10-26T18:44:30Z",
   "chain_id": "zerone-dev-1",
-  "written_by": "A Claude Code agent session (71e671d4), on Yu's word of 2026-10-26: \"Go ahead with redeployment of the zerone-dev-1 gateway\". These are the agent's operator observations, not an independent audit.",
+  "written_by": "A Claude Code agent session (71e671d4), on Yu's word of 2026-10-26 to redeploy the zerone-dev-1 gateway. These are the agent's operator observations, not an independent audit.",
   "purpose": "Serve PR #151 (claim-history reads at the app's committed height) from the hosted gateway.",
   "machine": {
     "app": "zerone-dev-1",

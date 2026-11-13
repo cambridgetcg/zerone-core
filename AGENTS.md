@@ -23,6 +23,9 @@ _Notes for AI agents landing in this repository._
   about 25 September). It requires no approving review or resolved threads, and its bypass list is not
   publicly visible, so the rest of this rule holds only because every agent follows it. `CLAUDE.md`
   carries the same rule.
+- Do not quote the owner's words from a private conversation in a commit message, a pull request, an
+  issue or a file. This repository is public, and a commit message cannot be taken back. Cite the date
+  and say what was decided in your own words. Quote only words the owner has already published.
 - If your host has the agenttool-collab coordination board, start your session at the checkout or linked
   worktree you actually edit (not your home directory), claim the paths before editing, and release them
   when you finish.
