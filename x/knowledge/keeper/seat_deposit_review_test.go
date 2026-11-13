@@ -7,6 +7,7 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	vestingtypes "github.com/cosmos/cosmos-sdk/x/auth/vesting/types"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/zerone-chain/zerone/x/knowledge/keeper"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
@@ -185,4 +186,32 @@ func TestSeatDepositEnableRequiresItsPredecessorsAndCustody(t *testing.T) {
 		f.ctx.KVStore(f.key).Delete(types.ReviewerBalanceParamEnabledKey)
 		require.NoError(t, f.k.EnableSeatDeposit(f.ctx), "with the marker on, enable checks nothing")
 	})
+}
+
+// D3: the exported SetVerificationRound never stores a seat in a round with
+// seat terms, whether it adds one to a stored round or the round is stored
+// for the first time with seats: only the deposit path of a signed
+// MsgSubmitCommitment, which moves the deposit first, does. A round's other
+// updates, such as the returns plan the queue marks paid, still go through.
+func TestSeatDepositSetterNeverStoresASeatWithoutItsDeposit(t *testing.T) {
+	f := newSeatFixture(t, nil)
+	round := f.claim(t, "setter")
+	require.NoError(t, f.commit(t, round, f.reviewer("seat-setter-1", 100_000_000), "accept"))
+	stored := f.round(t, round.Id)
+	require.Len(t, stored.Commits, 1)
+	custody := f.bank.custody()
+
+	hash, err := types.ComputeReviewCommitmentV2(stored.CommitmentChainId, stored.Id, makeValidBech32Addr("seat-setter-2"), "accept", 800_000, []byte("seat-setter-salt-2"), seatAttestation)
+	require.NoError(t, err)
+	grown := proto.Clone(stored).(*types.VerificationRound)
+	grown.Commits = append(grown.Commits, &types.CommitEntry{Verifier: makeValidBech32Addr("seat-setter-2"), CommitHash: hash, CommittedAtBlock: 100, SeatDeposit: stored.SeatTerms.CountedSeatDeposit})
+	grown.SelectedVerifiers = append(grown.SelectedVerifiers, makeValidBech32Addr("seat-setter-2"))
+	require.ErrorIs(t, f.k.SetVerificationRound(f.ctx, grown), types.ErrSeatDepositRequired, "a seat added to a stored round")
+	require.Len(t, f.round(t, round.Id).Commits, 1)
+
+	f.ctx.KVStore(f.key).Delete(types.RoundKey(round.Id))
+	require.ErrorIs(t, f.k.SetVerificationRound(f.ctx, stored), types.ErrSeatDepositRequired, "a round stored for the first time with a seat")
+	_, found := f.k.GetVerificationRound(f.ctx, round.Id)
+	require.False(t, found)
+	require.Equal(t, custody, f.bank.custody(), "nothing moved")
 }

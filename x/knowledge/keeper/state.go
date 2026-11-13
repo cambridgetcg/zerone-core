@@ -298,7 +298,19 @@ func (k Keeper) GetClaimByContentHash(ctx context.Context, hash string) (string,
 
 // ─── VerificationRound CRUD ─────────────────────────────────────────────────
 
+// SetVerificationRound stores a round. In a round with seat terms it never
+// adds a seat, on a first store or later: a seat there is stored only by
+// storeCommitmentInRound's deposit path, after the deposit has moved, through
+// setVerificationRound (reviewer-entry step B, D3). A round without seat terms
+// is stored exactly as before.
 func (k Keeper) SetVerificationRound(ctx context.Context, round *types.VerificationRound) error {
+	return k.setVerificationRound(ctx, round, false)
+}
+
+// setVerificationRound is SetVerificationRound. seating is true only on the
+// deposit path of storeCommitmentInRound, which has just locked the new seat's
+// deposit in the same cache; it lets a round with seat terms gain that seat.
+func (k Keeper) setVerificationRound(ctx context.Context, round *types.VerificationRound, seating bool) error {
 	if round == nil {
 		return fmt.Errorf("missing verification round")
 	}
@@ -409,6 +421,15 @@ func (k Keeper) SetVerificationRound(ctx context.Context, round *types.Verificat
 	}
 	if err := types.ValidateSeatDepositUpdate(previous, round); err != nil {
 		return err
+	}
+	if round.SeatTerms != nil && !seating {
+		seats := 0
+		if previous != nil {
+			seats = len(previous.Commits)
+		}
+		if len(round.Commits) > seats {
+			return types.ErrSeatDepositRequired.Wrapf("round %s seats a reviewer only through a signed commitment that locks its deposit", round.Id)
+		}
 	}
 	indexed, err := store.Get(types.ClaimRoundIndexKey(round.ClaimId))
 	if err != nil {
@@ -752,7 +773,7 @@ func (k Keeper) storeCommitmentInRound(ctx context.Context, roundID string, comm
 	seated := proto.Clone(commit).(*types.CommitEntry)
 	seated.SeatDeposit = amount
 	round.Commits[len(round.Commits)-1] = seated
-	if err := k.SetVerificationRound(cache, round); err != nil {
+	if err := k.setVerificationRound(cache, round, true); err != nil {
 		return err
 	}
 	write()

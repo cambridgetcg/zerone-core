@@ -293,7 +293,9 @@ func (f *seatInternalFixture) seedSettledSeatRound(t *testing.T, id string, seat
 		round.SeatDepositReturns = types.BuildSeatDepositReturns(round, 14)
 		f.bank.custody += int64(seats)
 	}
-	require.NoError(t, f.k.SetVerificationRound(f.ctx, round))
+	// The exported setter refuses seats it did not lock; this seed stands in
+	// for seats whose deposits the bank above already holds.
+	require.NoError(t, f.k.setVerificationRound(f.ctx, round, seats > 0))
 }
 
 func (f *seatInternalFixture) unpaidLegs(t *testing.T, id string) int {
