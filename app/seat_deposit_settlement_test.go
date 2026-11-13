@@ -302,6 +302,65 @@ func TestSeatDepositLocksIntoModuleAccount(t *testing.T) {
 	require.Equal(t, 3, countEvents(tr.ctx, "zerone.knowledge.submit_commitment"))
 }
 
+// seatEventAttributes returns, for each event of kind, its attributes in the
+// order emitted, as key=value strings.
+func seatEventAttributes(ctx sdk.Context, kind string) [][]string {
+	var found [][]string
+	for _, event := range ctx.EventManager().Events() {
+		if event.Type != kind {
+			continue
+		}
+		var attrs []string
+		for _, attr := range event.Attributes {
+			attrs = append(attrs, attr.Key+"="+attr.Value)
+		}
+		found = append(found, attrs)
+	}
+	return found
+}
+
+// docs/EVENTS.md, with real bank transfers: each seat-deposit event carries
+// exactly its documented attributes, in that order and with these values: a
+// lock names the round, the signer, the round's deposit and its block; the
+// frozen plan names the round, its seats, their total, its trigger and that
+// payment is pending; each return names the round, the address that locked
+// the deposit, the deposit, that it is paid and its block.
+func TestSeatDepositEventsCarryEveryDocumentedAttribute(t *testing.T) {
+	tr := newSeatTrial(t, "ordinary", true, "1000")
+	id := tr.round.Id
+	tr.ctx = tr.ctx.WithEventManager(sdk.NewEventManager())
+	var want [][]string
+	for i := byte(0); i < 3; i++ {
+		reviewer := tr.reviewer(t, 190+i, 1000)
+		require.NoError(t, tr.commit(t, reviewer, "accept"))
+		want = append(want, []string{"round_id=" + id, "depositor=" + reviewer.String(), "amount_uzrn=1000", "committed_at_block=100"})
+	}
+	require.Equal(t, want, seatEventAttributes(tr.ctx, "zerone.knowledge.seat_deposit_locked"))
+
+	tr.beginBlock(t, 102)
+	tr.revealAll(t)
+	accrued := -1
+	for h := int64(103); h <= 106 && accrued < 0; h++ {
+		tr.ctx = tr.ctx.WithEventManager(sdk.NewEventManager())
+		tr.beginBlock(t, h)
+		if events := seatEventAttributes(tr.ctx, "zerone.knowledge.seat_deposit_returns_accrued"); len(events) > 0 {
+			require.Equal(t, [][]string{{"round_id=" + id, "seats=3", "total_uzrn=3000", "trigger=completion", "payment_status=pending"}}, events)
+			require.Empty(t, seatEventAttributes(tr.ctx, "zerone.knowledge.seat_deposit_returned"), "returns are paid from the next block")
+			accrued = int(h)
+		}
+	}
+	require.Positive(t, accrued, "the round completed and froze its returns")
+
+	tr.ctx = tr.ctx.WithEventManager(sdk.NewEventManager())
+	tr.beginBlock(t, int64(accrued+1))
+	var returned [][]string
+	for _, seat := range tr.seats {
+		returned = append(returned, []string{"round_id=" + id, "recipient=" + seat.address.String(), "amount_uzrn=1000", "payment_status=paid", fmt.Sprintf("paid_at_block=%d", accrued+1)})
+	}
+	require.Equal(t, returned, seatEventAttributes(tr.ctx, "zerone.knowledge.seat_deposit_returned"))
+	require.Zero(t, tr.custody())
+}
+
 // D2: a signer that cannot lock the deposit is refused, and nothing moves or
 // is stored. The transfer needs spendable coins: a delayed-vesting account
 // whose whole balance covers the deposit, which the balance check it replaces
