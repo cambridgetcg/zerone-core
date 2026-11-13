@@ -429,6 +429,15 @@ message GenesisState {
   // a fixed constant. Native genesis sets it; a file without the field imports
   // as off. No carrier upgrade sets it in place yet.
   bool reviewer_balance_param_enabled = 79;
+  // Seat-deposit marker (consensus-repairs-v3, reviewer-entry step B): a
+  // review round created while it is set, under review policy 1 and commitment
+  // scheme 2, records seat terms, and each commitment in such a round locks the
+  // round's deposit in the knowledge_seat_deposits module account until every
+  // seat's deposit is returned in full. It requires the reviewer-balance
+  // parameter, review-neutrality and record-integrity markers. Native genesis
+  // does not set it yet; a file without the field imports as off. No carrier
+  // upgrade sets it in place yet.
+  bool seat_deposit_enabled = 80;
 }
 
 // Exports each ordered source/target pair once, including full provenance.

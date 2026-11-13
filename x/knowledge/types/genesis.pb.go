@@ -1473,8 +1473,17 @@ type GenesisState struct {
 	// a fixed constant. Native genesis sets it; a file without the field imports
 	// as off. No carrier upgrade sets it in place yet.
 	ReviewerBalanceParamEnabled bool `protobuf:"varint,79,opt,name=reviewer_balance_param_enabled,json=reviewerBalanceParamEnabled,proto3" json:"reviewer_balance_param_enabled,omitempty"`
-	unknownFields               protoimpl.UnknownFields
-	sizeCache                   protoimpl.SizeCache
+	// Seat-deposit marker (consensus-repairs-v3, reviewer-entry step B): a
+	// review round created while it is set, under review policy 1 and commitment
+	// scheme 2, records seat terms, and each commitment in such a round locks the
+	// round's deposit in the knowledge_seat_deposits module account until every
+	// seat's deposit is returned in full. It requires the reviewer-balance
+	// parameter, review-neutrality and record-integrity markers. Native genesis
+	// does not set it yet; a file without the field imports as off. No carrier
+	// upgrade sets it in place yet.
+	SeatDepositEnabled bool `protobuf:"varint,80,opt,name=seat_deposit_enabled,json=seatDepositEnabled,proto3" json:"seat_deposit_enabled,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *GenesisState) Reset() {
@@ -1804,6 +1813,13 @@ func (x *GenesisState) GetDormantFactContestEnabled() bool {
 func (x *GenesisState) GetReviewerBalanceParamEnabled() bool {
 	if x != nil {
 		return x.ReviewerBalanceParamEnabled
+	}
+	return false
+}
+
+func (x *GenesisState) GetSeatDepositEnabled() bool {
+	if x != nil {
+		return x.SeatDepositEnabled
 	}
 	return false
 }
@@ -2394,7 +2410,7 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x14min_reviewer_balance\x18\xa1\x01 \x01(\tR\x12minReviewerBalance\x1aN\n" +
 	" MethodologyNormalizationBpsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\xf3\x19\n" +
+	"\x05value\x18\x02 \x01(\x04R\x05value:\x028\x01J\x04\b!\x10\"J\x04\b#\x10$J\x04\b$\x10%J\x04\b%\x10&J\x04\b+\x10,J\x04\b,\x10-J\x04\b-\x10.J\x04\b.\x10/J\x04\b/\x100J\x04\b0\x101J\x04\b2\x103R\x11novelty_bonus_bpsR\x17max_citations_per_claimR\x18citation_decay_per_levelR\x1aself_citation_discount_bpsR\x18conformity_threshold_bpsR\x1dcalibration_trivial_thresholdR\x1fmisbehavior_rejection_thresholdR#min_domain_contributors_for_noveltyR\x1amin_participation_rate_bpsR\x1dchallenge_stake_ratio_min_bpsR\x19malformed_claim_slash_bps\"\xa5\x1a\n" +
 	"\fGenesisState\x123\n" +
 	"\x06params\x18\x01 \x01(\v2\x1b.zerone.knowledge.v1.ParamsR\x06params\x12/\n" +
 	"\x05facts\x18\x02 \x03(\v2\x19.zerone.knowledge.v1.FactR\x05facts\x12A\n" +
@@ -2439,7 +2455,8 @@ const file_zerone_knowledge_v1_genesis_proto_rawDesc = "" +
 	"\x10accounting_state\x18L \x01(\v2/.zerone.knowledge.v1.KnowledgeGenesisAccountingR\x0faccountingState\x12:\n" +
 	"\x19doctrine_identity_enabled\x18M \x01(\bR\x17doctrineIdentityEnabled\x12?\n" +
 	"\x1cdormant_fact_contest_enabled\x18N \x01(\bR\x19dormantFactContestEnabled\x12C\n" +
-	"\x1ereviewer_balance_param_enabled\x18O \x01(\bR\x1breviewerBalanceParamEnabled\"V\n" +
+	"\x1ereviewer_balance_param_enabled\x18O \x01(\bR\x1breviewerBalanceParamEnabled\x120\n" +
+	"\x14seat_deposit_enabled\x18P \x01(\bR\x12seatDepositEnabled\"V\n" +
 	"\x13FactRelationGenesis\x12?\n" +
 	"\trelations\x18\x01 \x03(\v2!.zerone.knowledge.v1.FactRelationR\trelations\"N\n" +
 	"\x17StatusTransitionCounter\x12\x17\n" +
