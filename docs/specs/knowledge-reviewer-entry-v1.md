@@ -1,7 +1,8 @@
 # Knowledge reviewer entry v1
 
-Status: **design draft, 11 November 2026. No source implements it, no network runs it,
-and none of its figures is chosen.**
+Status: **design draft, 11 November 2026, revised 13 November. Steps A and B are drafted
+as unmerged source (pull requests #193 and #199); no network runs any step, and none of
+its figures is chosen.**
 
 `knowledge-reviewer-entry-v1` names a design for three default-off steps. It assigns no
 knowledge consensus version. It is written against the neutral review policy on `main`
@@ -157,7 +158,15 @@ description must say so.
 to a module account that holds seat deposits and nothing else, and records the amount
 with the seat. The account is on the app's blocked list, so nothing else can pay into
 it. If the transfer fails, the commitment is refused. The transfer needs spendable
-coins, where the check it replaces counted the whole balance.
+coins, where the check it replaces counted the whole balance. Like the module's other
+deposits, it is a keeper transfer, so a governance halt on sending uzrn does not stop it.
+
+The account's address can be computed by anyone, and before the binary that blocks it,
+anyone can create an account there by sending it a coin or by creating a vesting
+account at it. No key exists for a module address, so such an account has never
+signed. The first deposit converts an account that has never signed into the module
+account, and activation is refused while any other kind of account holds the address.
+Coins found there become a surplus under D6.
 
 **D3.** In such a round a seat is stored only by a transaction signed by the seat's
 account. The handler itself checks that the signer is registered and allowed to
@@ -205,6 +214,13 @@ not bonded to its validator. At 1 ZRN the same seats need 14 ZRN.
 Honest reviewers lock too. A reviewer holding B sits on at most B divided by the figure
 rounds at once, where at `bd76ea1d` it can sit on all of them. On 10 November 2026 four
 of the six accounts of §1 item 7 held enough for only one seat at a time at 100 ZRN.
+A reviewer holding exactly the figure must pay its reveal fee from what is left after
+the lock. Measured by a review of the step-B draft (#199, handler gas, not through the
+ante, not repeated): a
+deposited commitment costs about 17,000 more gas than one without, and the chain's
+first deposit about 30,700 more; each seat adds about 11 bytes to the round record, so
+in a full round of 512 seats the last commitment costs about 232,000 more gas and the
+last reveal about 220,000 more, on a base of about 6.33 million.
 
 What it does not change: the deposit comes back, so it prices a verdict only in
 capital held for between about a minute and a few hours, and in fees. A holder with
@@ -369,6 +385,11 @@ statement is refused. So is an imported round or seat that carries seat terms, a
 or a statement. Raw encodings are checked before decoding, as the predecessor releases
 check theirs.
 
+One difference cannot wait for the marker. The seat-deposit account is on the app's
+blocked list from the binary that adds it, whatever the marker says, so a send to its
+address that the predecessor accepts is refused. A binary carrying step B is therefore
+adopted only at an upgrade height, never swapped in on a running chain.
+
 The steps change `MsgSubmitCommitment`, the round and seat records, the knowledge
 parameters and genesis state. They need regenerated protobuf and TypeScript codecs,
 and a re-pin of the [authority geometry](authority-geometry-v1.md) wherever a pinned
@@ -403,7 +424,8 @@ file changes.
 ## 9. What an implementation must show
 
 - With every marker off, each message, record, event and stored byte is what the
-  predecessor produces, and each new field is refused (§7).
+  predecessor produces, and each new field is refused (§7). The one stated exception
+  is the blocked seat-deposit address (§7).
 - Each run of §1, added to the repository as a named test.
 - A1 to A5: the default, the refusals, the floor while deposits are off, an upgrade
   that leaves every stored parameter as it was, and a round without seat terms that
