@@ -696,3 +696,75 @@ func TestSeatDepositCustodyAcrossRestart(t *testing.T) {
 	require.Zero(t, restarted.custody())
 	require.Equal(t, 3, countEvents(restarted.ctx, "zerone.knowledge.seat_deposit_returned"))
 }
+
+// runThreeSeats commits three reviewers, each holding balance uzrn, to vote,
+// reveals, completes the round on the next block and runs the queue once.
+func (tr *seatTrial) runThreeSeats(t *testing.T, vote string, balance int64) *knowledgetypes.VerificationRound {
+	t.Helper()
+	for i := byte(0); i < 3; i++ {
+		require.NoError(t, tr.commit(t, tr.reviewer(t, 210+i, balance), vote))
+	}
+	tr.beginBlock(t, 102)
+	tr.revealAll(t)
+	tr.beginBlock(t, 103)
+	tr.beginBlock(t, 104)
+	round := tr.stored(t)
+	require.Equal(t, knowledgetypes.VerificationPhase_VERIFICATION_PHASE_COMPLETE, round.Phase)
+	return round
+}
+
+// The design's section 1, item 5, as named runs. Three seats with no other
+// reviewer decide a claim: it becomes a fact at the capped confidence. Seat
+// deposits do not stop that; with the marker on the three seats need three
+// deposits locked at once, and get them back. The figure is what prices the
+// verdict, and this draft does not set it. Each seat holds 100 ZRN here so
+// that the marker-off run passes its balance check.
+func TestSeatDepositRunThreeSeatsMakeAFact(t *testing.T) {
+	for _, seat := range []bool{false, true} {
+		t.Run(map[bool]string{false: "marker-off", true: "marker-on"}[seat], func(t *testing.T) {
+			figure := ""
+			if seat {
+				figure = "1000"
+			}
+			tr := newSeatTrial(t, "ordinary", seat, figure)
+			round := tr.runThreeSeats(t, "accept", 100_000_000)
+			require.Equal(t, knowledgetypes.Verdict_VERDICT_ACCEPT, round.Verdict)
+			fact, found := tr.app.KnowledgeKeeper.GetFact(tr.ctx, knowledgekeeper.GenerateFactID(tr.claim.Id, round.VerdictBlock))
+			require.True(t, found)
+			require.Equal(t, uint64(880_000), fact.Confidence)
+			require.Zero(t, tr.custody())
+			if seat {
+				require.Equal(t, 3, countEvents(tr.ctx, "zerone.knowledge.seat_deposit_returned"))
+			}
+		})
+	}
+}
+
+// The second run of item 5: a challenger that controls three seats turns a
+// fact DISPROVEN, and the settlement gives its accounts the whole challenge
+// deposit back, 45% as refund to the challenger and 55% as review pay to its
+// seats. With the marker on the seats also lock and recover their deposits.
+func TestSeatDepositRunThreeSeatChallengerDisprovesAFact(t *testing.T) {
+	for _, seat := range []bool{false, true} {
+		t.Run(map[bool]string{false: "marker-off", true: "marker-on"}[seat], func(t *testing.T) {
+			figure := ""
+			if seat {
+				figure = "1000"
+			}
+			tr := newSeatTrial(t, "explicit", seat, figure)
+			payerBefore := tr.balance(tr.payer)
+			round := tr.runThreeSeats(t, "accept", 100_000_000)
+			require.Equal(t, knowledgetypes.Verdict_VERDICT_ACCEPT, round.Verdict)
+			target, found := tr.app.KnowledgeKeeper.GetFact(tr.ctx, "seat-test-target")
+			require.True(t, found)
+			require.Equal(t, knowledgetypes.FactStatus_FACT_STATUS_DISPROVEN, target.Status)
+			var seatsGain int64
+			for _, s := range tr.seats {
+				seatsGain += tr.balance(s.address) - 100_000_000
+			}
+			require.Equal(t, int64(46), tr.balance(tr.payer)-payerBefore, "the refundable 45%")
+			require.Equal(t, int64(55), seatsGain, "the review budget, 55%")
+			require.Zero(t, tr.custody())
+		})
+	}
+}

@@ -347,17 +347,6 @@ func (k Keeper) SetVerificationRound(ctx context.Context, round *types.Verificat
 		}
 		return k.setVerificationRoundLegacy(ctx, round)
 	}
-	// Only a round that carries a seat-deposit field reads the seat-deposit
-	// marker (gas-free), so every other write is exactly as before.
-	if types.RoundCarriesSeatDepositFields(round) {
-		seatDeposit, err := k.SeatDepositEnabled(ctx)
-		if err != nil {
-			return err
-		}
-		if !seatDeposit {
-			return fmt.Errorf("seat-deposit fields require the seat-deposit activation")
-		}
-	}
 	if err := types.ValidateVerificationRoundRecord(round, true); err != nil {
 		return err
 	}

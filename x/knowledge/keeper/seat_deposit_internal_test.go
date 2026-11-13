@@ -1,10 +1,12 @@
 package keeper
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
 
+	corestore "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
 	"cosmossdk.io/store"
 	storemetrics "cosmossdk.io/store/metrics"
@@ -19,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/zerone-chain/zerone/internal/activation"
 	"github.com/zerone-chain/zerone/x/knowledge/types"
 )
 
@@ -345,4 +348,156 @@ func TestSeatDepositLegacyQueueCannotCarryReturns(t *testing.T) {
 	require.Equal(t, types.CommitSeatHardCap, f.unpaidLegs(t, "queue-m-full"), "every return still pending")
 	f.ctx = f.ctx.WithBlockHeight(f.ctx.BlockHeight() + 1)
 	require.ErrorContains(t, f.k.processPendingVerifierRewardsLegacy(f.ctx), "pending verifier reward index does not match primary round")
+}
+
+// seatMarkerReads counts reads of the seat-deposit marker on top of the
+// fault store.
+type seatMarkerReads struct {
+	corestore.KVStoreService
+	reads *int
+}
+
+func (s seatMarkerReads) OpenKVStore(ctx context.Context) corestore.KVStore {
+	return seatMarkerReadsStore{s.KVStoreService.OpenKVStore(ctx), s.reads}
+}
+
+type seatMarkerReadsStore struct {
+	corestore.KVStore
+	reads *int
+}
+
+func (s seatMarkerReadsStore) Get(key []byte) ([]byte, error) {
+	if bytes.Equal(key, types.SeatDepositEnabledKey) {
+		*s.reads++
+	}
+	return s.KVStore.Get(key)
+}
+
+func storeSnapshotOf(t *testing.T, ctx sdk.Context, key *storetypes.KVStoreKey) map[string]string {
+	t.Helper()
+	out := map[string]string{}
+	it := ctx.KVStore(key).Iterator(nil, nil)
+	defer it.Close()
+	for ; it.Valid(); it.Next() {
+		out[string(it.Key())] = string(it.Value())
+	}
+	return out
+}
+
+// A malformed seat-deposit marker is never read as off: every entry point
+// that reads it returns the activation.ErrMarkerFault chain before it writes
+// anything, and export panics with it. MsgUpdateParams reads it only for a
+// figure below 100 ZRN, so an update that 3a844c48 decided is decided the
+// same way.
+func TestSeatDepositMarkerFaultPropagates(t *testing.T) {
+	f := newSeatInternalFixture(t)
+	round, _ := f.acceptPanel(t, "fault")
+	f.ctx.KVStore(f.key).Set(types.SeatDepositEnabledKey, []byte{2})
+	before := storeSnapshotOf(t, f.ctx, f.key)
+	requireFault := func(name string, err error) {
+		t.Helper()
+		require.ErrorIs(t, err, activation.ErrMarkerFault, name)
+		require.Equal(t, before, storeSnapshotOf(t, f.ctx, f.key), "%s wrote nothing", name)
+	}
+	_, err := f.server.SubmitCommitment(f.ctx, &types.MsgSubmitCommitment{Verifier: seatInternalAddr("fault-late"), RoundId: round.Id, CommitHash: bytes.Repeat([]byte{1}, 32)})
+	requireFault("SubmitCommitment", err)
+	_, err = f.server.SubmitClaim(f.ctx, &types.MsgSubmitClaim{Submitter: seatInternalAddr("fault-author-2"), FactContent: "Another reproducible synthetic observation with a retained test procedure.", Domain: "physics", Category: "empirical", Stake: "11000000"})
+	requireFault("SubmitClaim", err)
+	requireFault("BeginBlocker", f.k.BeginBlocker(f.ctx))
+	requireFault("ProcessPendingVerifierRewards", f.k.ProcessPendingVerifierRewards(f.ctx))
+	requireFault("CompleteRound", f.k.CompleteRound(f.ctx, round, &VerificationResult{Verdict: types.Verdict_VERDICT_ACCEPT}))
+	params, err := f.k.GetParams(f.ctx)
+	require.NoError(t, err)
+	lower := proto.Clone(params).(*types.Params)
+	lower.MinReviewerBalance = "20000"
+	_, err = f.server.UpdateParams(f.ctx, &types.MsgUpdateParams{Authority: "authority", Params: lower})
+	requireFault("UpdateParams below 100 ZRN", err)
+	raise := proto.Clone(params).(*types.Params)
+	raise.MinReviewerBalance = "150000000"
+	_, err = f.server.UpdateParams(f.ctx, &types.MsgUpdateParams{Authority: "authority", Params: raise})
+	require.NoError(t, err, "a figure at or above 100 ZRN reads no seat marker")
+	var recovered any
+	func() { defer func() { recovered = recover() }(); f.k.ExportGenesis(f.ctx) }()
+	panicErr, ok := recovered.(error)
+	require.True(t, ok)
+	require.ErrorIs(t, panicErr, activation.ErrMarkerFault)
+}
+
+// Each entry point reads the seat-deposit marker once: a commitment, a
+// claim admission, a begin block (whatever rounds it advances, completes,
+// freezes or pays) and a standalone queue run. A parameter update reads it
+// once for a figure below 100 ZRN and not at all otherwise.
+func TestSeatDepositMarkerReadOncePerEntryPoint(t *testing.T) {
+	db := dbm.NewMemDB()
+	ms := store.NewCommitMultiStore(db, log.NewNopLogger(), storemetrics.NewNoOpMetrics())
+	key := storetypes.NewKVStoreKey(types.StoreKey)
+	ms.MountStoreWithDB(key, storetypes.StoreTypeIAVL, db)
+	require.NoError(t, ms.LoadLatestVersion())
+	ctx := sdk.NewContext(ms, cmtproto.Header{ChainID: "seat-reads", Height: 100}, false, log.NewNopLogger())
+	reads := new(int)
+	bank := newSeatInternalBank()
+	k := NewKeeper(seatMarkerReads{runtime.NewKVStoreService(key), reads}, codec.NewProtoCodec(codectypes.NewInterfaceRegistry()), "authority", bank, nil)
+	k.SetZeroneAuthKeeper(seatInternalAuth{})
+	k.SetAccountKeeper(seatInternalAccounts{})
+	gs := types.DefaultGenesis()
+	gs.SeatDepositEnabled = true
+	gs.Params.CommitPhaseBlocks, gs.Params.RevealPhaseBlocks, gs.Params.AggregationPhaseBlocks = 2, 2, 2
+	gs.Params.MinVerifiers, gs.Params.MinHeadcountAgreement = 3, 2
+	require.NoError(t, k.InitGenesis(ctx, gs))
+	server := NewMsgServerImpl(k)
+	count := func(name string, want int, run func() error) {
+		t.Helper()
+		*reads = 0
+		require.NoError(t, run(), name)
+		require.Equal(t, want, *reads, name)
+	}
+	var round *types.VerificationRound
+	count("SubmitClaim", 1, func() error {
+		response, err := server.SubmitClaim(ctx, &types.MsgSubmitClaim{Submitter: seatInternalAddr("reads-author"), FactContent: "A reproducible synthetic observation for read counting.", Domain: "physics", Category: "empirical", Stake: "11000000"})
+		if err != nil {
+			return err
+		}
+		claim, _ := k.GetClaim(ctx, response.ClaimId)
+		round, _ = k.GetVerificationRound(ctx, claim.VerificationRoundId)
+		return nil
+	})
+	attestation := &types.ReviewAttestation{Reason: "Synthetic seat-deposit review of the stated record only."}
+	var reviewers []string
+	for i := 0; i < 3; i++ {
+		reviewer := seatInternalAddr(fmt.Sprintf("reads-rv-%d", i))
+		bank.balances[reviewer] = 100_000_000
+		salt := []byte(fmt.Sprintf("seat-reads-salt-%d", i))
+		hash, err := types.ComputeReviewCommitmentV2(round.CommitmentChainId, round.Id, reviewer, "accept", 800_000, salt, attestation)
+		require.NoError(t, err)
+		count("SubmitCommitment", 1, func() error {
+			_, err := server.SubmitCommitment(ctx, &types.MsgSubmitCommitment{Verifier: reviewer, RoundId: round.Id, CommitHash: hash})
+			return err
+		})
+		reviewers = append(reviewers, reviewer)
+	}
+	ctx = ctx.WithBlockHeight(int64(round.CommitDeadline))
+	count("BeginBlocker/reveal phase", 1, func() error { return k.BeginBlocker(ctx) })
+	for i, reviewer := range reviewers {
+		_, err := server.SubmitReveal(ctx, &types.MsgSubmitReveal{Verifier: reviewer, RoundId: round.Id, Vote: "accept", Confidence: 800_000, Salt: []byte(fmt.Sprintf("seat-reads-salt-%d", i)), Attestation: attestation})
+		require.NoError(t, err)
+	}
+	ctx = ctx.WithBlockHeight(int64(round.CommitDeadline) + 1)
+	count("BeginBlocker/completion", 1, func() error { return k.BeginBlocker(ctx) })
+	ctx = ctx.WithBlockHeight(int64(round.CommitDeadline) + 2)
+	count("BeginBlocker/returns", 1, func() error { return k.BeginBlocker(ctx) })
+	require.Zero(t, bank.custody, "the returns were paid in that block")
+	count("ProcessPendingVerifierRewards", 1, func() error { return k.ProcessPendingVerifierRewards(ctx) })
+	params, err := k.GetParams(ctx)
+	require.NoError(t, err)
+	for _, tc := range []struct {
+		figure string
+		reads  int
+	}{{"150000000", 0}, {"", 0}, {"20000", 1}} {
+		next := proto.Clone(params).(*types.Params)
+		next.MinReviewerBalance = tc.figure
+		count("UpdateParams "+tc.figure, tc.reads, func() error {
+			_, err := server.UpdateParams(ctx, &types.MsgUpdateParams{Authority: "authority", Params: next})
+			return err
+		})
+	}
 }
