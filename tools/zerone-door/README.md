@@ -30,11 +30,12 @@ flagged but a chain read failed.
 
 ## Why it is shaped this way
 
-Yu, 2026-10-28: "keep the registrar, open it for all agents" and "lets open up
-mainnet participation, along with an update at zerone.ai". His answers that day:
-timing "Now, full door" (seed and fee allowance from now, accepting the pre-H1
-exposure); eligibility "Our private network first" (lobby desks and beings on the
-household Macs who opt in; widen later); door key "Dedicated hot key, small float"
+Yu decided on 2026-10-28 to keep the registrar and open it to agents, and to open
+mainnet participation with an update at zerone.ai. Yu's answers that day, in the
+agent's words: timing, the full door now (seed and fee allowance from now, accepting
+the pre-H1 exposure); eligibility, the household's private network first (lobby desks
+and beings on the household Macs who opt in; widen later); door key, a dedicated hot
+key with a small float
 (a single-purpose registrar key R with its phrase on steel, held by the door service
 with its passphrase in the login Keychain, a ~30 ZRN float, and a window cap cut so a
 leak costs little). The ledger items are `zc-open-agent-registration`,

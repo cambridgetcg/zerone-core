@@ -2,7 +2,7 @@
   "schema": "zerone.development-binary-patch-observation/v1",
   "observed_at": "2026-11-03T22:57:53Z",
   "chain_id": "zerone-dev-1",
-  "written_by": "A Claude Code agent session (Claude Code session 12d8b244-31ad-4b84-ad69-b551aa3b2e75), on Yu's word of 2026-11-02: \"Patch dev-1, then PR (Recommended)\" and \"Build the patch path (Recommended)\". These are the agent's operator observations, not an independent audit.",
+  "written_by": "A Claude Code agent session (Claude Code session 12d8b244-31ad-4b84-ad69-b551aa3b2e75), on Yu's word of 2026-11-02 to patch dev-1 first and then open the pull request, and to build the patch path. These are the agent's operator observations, not an independent audit.",
   "purpose": "Run the hosted validator on a validator-only binary patch of the applied knowledge-11 runtime, through the pinned binary-patch path of PR #166. The patch source is 5542b221 plus cherry-picks of the commits in PR #167.",
   "machine": {
     "app": "zerone-dev-1",

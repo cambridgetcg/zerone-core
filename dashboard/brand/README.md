@@ -9,8 +9,8 @@ this page doesn't repeat it.
 
 The site's existing look, made into a kit on 2026-10-27: the favicon's ring, cross and dot in violet `#b99bff` and
 acid `#dcff78` on the `#0b0b10` tile, the dark ground `#09090c`, and the wordmark ZERONE in Inter SemiBold. An agent
-(Claude Code session dd025d89) proposed these choices under Yu's word of 2026-10-27, "yes, go ahead and wire the kits
-into the sites", whose scope was a kit from each site's current look with no new identity. PR #156 records them as
+(Claude Code session dd025d89) proposed these choices under Yu's word of 2026-10-27 to wire the kits into the sites,
+whose scope was a kit from each site's current look with no new identity. PR #156 records them as
 an agent's proposals, not Yu's decisions. Don't change the identity without Yu's word.
 
 ## What is here
